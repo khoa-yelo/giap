@@ -5,8 +5,6 @@ recorded fixture (no ``pending_sample`` left in ``tests/contract/`` for annotati
 
 Still pending, with the reason (checked so the list cannot silently grow):
 
-* ``bactermfinder``: opt-in tool with no environment and no recording yet
-  (``record_tools.sbatch`` skips it; ``$GIAP_ROOT/recordings/`` has no ``bactermfinder``).
 * ``blastp``, ``tblastn``, ``miniprot`` (M3), ``diann`` (M7), ``m4_input`` (M4-21): not
   annotation tools.
 """
@@ -23,7 +21,7 @@ CONTRACT = REPO / "tests" / "contract"
 RECORDED = REPO / "tests" / "data" / "recorded"
 ANNOTATION_TOOLS = ("bakta", "genomad", "antismash", "terminatornet", "transtermhp", "ostir",
                     "promoter_calculator", "promotech", "uniop")  # fmt: skip
-STILL_PENDING = {"bactermfinder", "blastp", "tblastn", "miniprot", "diann", "m4_input"}
+STILL_PENDING = {"blastp", "tblastn", "miniprot", "diann", "m4_input"}
 PENDING = re.compile(r"pytest\.mark\.pending_sample\b")
 
 
@@ -45,9 +43,10 @@ def test_only_the_listed_contracts_remain_pending() -> None:
     assert _pending_files() <= STILL_PENDING, sorted(_pending_files() - STILL_PENDING)
 
 
-def test_bactermfinder_still_says_why() -> None:
+def test_bactermfinder_is_no_longer_pending() -> None:
+    """A BacTermFinder sample is recorded (fix-bactermfinder-parser): the marker is gone."""
     text = (CONTRACT / "test_bactermfinder_contract.py").read_text()
-    assert PENDING.search(text) and "no recorded BacTermFinder run" in text
+    assert not PENDING.search(text)
 
 
 @pytest.mark.parametrize(
