@@ -225,7 +225,7 @@ The data can therefore count against H4 but never confirm it. A bin is reportabl
 its precision and it holds at least 20 queries; the verdict uses the Bonferroni-adjusted relation
 over the {{h4.B}} reportable bins (`relation_adj`), the 95 % relation is descriptive.
 
-| bin | n | A2-confirmed | genome precision | CI low | CI high | c_value | U (adjusted) | L (adjusted) | relation 95 % | relation adjusted | nested share | A2 confirmation among searchable peptides (descriptive) |
+| bin | n | A2-confirmed | genome precision | CI low | CI high | c_value | U (rescaled, descriptive) | L (adjusted) | relation 95 % | relation adjusted | nested share | A2 confirmation among searchable peptides (descriptive) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 <!-- h4 rows -->
 
