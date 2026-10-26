@@ -18,6 +18,7 @@ process OSTIR {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         ostir: \$(python -c "import importlib.metadata as m; print(m.version('ostir'))")
+        viennarna: \$(python -c "import RNA; print(RNA.__version__)")
     END_VERSIONS
     """
 
@@ -28,6 +29,7 @@ process OSTIR {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         ostir: 1.1.3
+        viennarna: 2.6.4
     END_VERSIONS
     """
 }

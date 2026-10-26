@@ -1,8 +1,11 @@
 # OSTIR 1.1.3 on three sim100k novel candidates (M7-08 rule 9)
 
-- Tool: OSTIR 1.1.3 with ViennaRNA 2.6.4 (`run.log`), from the project's official micromamba env
-  `giap-ostir` built from `workflow/envs/ostir.yml` and its lock (`versions.txt`: sha256 of
-  `ostir.explicit.txt` and `ostir.pip.txt`, the same env as the `../sim100k` recording).
+- Tool: OSTIR 1.1.3 from the project's official micromamba env `giap-ostir` built from
+  `workflow/envs/ostir.yml` and its lock (`versions.txt`: sha256 of `ostir.explicit.txt` and
+  `ostir.pip.txt`, the same env as the `../sim100k` recording). `run.log` reports ViennaRNA 2.6.4,
+  but the folding was computed with ViennaRNA 2.7.1 imported from the user site (`~/.local`; an
+  isolation bug since fixed by `PYTHONNOUSERSITE=1`). Rerun 2026-10-26 under the locked env's
+  ViennaRNA 2.6.4 with `PYTHONNOUSERSITE=1`: `ostir.csv` is byte-identical.
 - Run: 2026-10-21, Slurm job 1865755 (`giap-record-ostir-novel`, 4 CPUs, node wheat-04, 2 s wall),
   `sbatch scripts/slurm/record_ostir_novel.sbatch <worktree>` at giap commit 4760059
   (branch m7/novel-steps). Command as the OSTIR module runs it: `command.txt`.

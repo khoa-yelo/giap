@@ -1,8 +1,11 @@
 # OSTIR 1.1.3 recorded runs (M2-16; GIAP_SPEC.md §7.1.1, §7.1.6)
 
-- Tool: OSTIR 1.1.3 (GPL-3.0; run as a separate process only, never imported) with ViennaRNA 2.6.4
-  (`run.log`: "Running OSTIR version 1.1.3 (with Vienna version: 2.6.4)"), `giap-ostir`
-  micromamba env (`workflow/envs/ostir.yml`; env lock hashes in `versions.txt`).
+- Tool: OSTIR 1.1.3 (GPL-3.0; run as a separate process only, never imported), `giap-ostir`
+  micromamba env (`workflow/envs/ostir.yml`; env lock hashes in `versions.txt`). `run.log` says
+  "Running OSTIR version 1.1.3 (with Vienna version: 2.6.4)", but the folding was computed with
+  ViennaRNA 2.7.1 imported from the user site (`~/.local`; an isolation bug since fixed by
+  `PYTHONNOUSERSITE=1`). Rerun 2026-10-26 under the locked env's ViennaRNA 2.6.4 with
+  `PYTHONNOUSERSITE=1`: the committed excerpts are byte-identical.
 - Recorded by `scripts/slurm/record_tools.sbatch` on FarmShare (barley-01 / wheat-01, 9 CPUs),
   2026-10-15, into `$GIAP_ROOT/recordings/ostir/{sim100k,k12_mg1655,nissle1917}/`.
 - Command (`command.txt`): `ostir -i ostir_input.csv -o ostir.csv -j 9`.
