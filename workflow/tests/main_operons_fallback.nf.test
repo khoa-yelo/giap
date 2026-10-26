@@ -1,0 +1,114 @@
+// M11-14d, ADR-0061 decisions 1, 4 and 5: the `tu_source_distance_model` row flags on
+// tables/pairs.tsv (both_detected_t rows) and tables/autocorrelation.tsv (morans_i, tu_block
+// rows) come from operon_source(), which reads operon_pairs' operon_meta.json. operon_meta is an
+// OPTIONAL input of the operons and context_stats py steps, so a main.nf / context.nf channel
+// that stops passing it would make the flags vanish without any error (fail-open). Stub runs
+// only; ci.yml runs: nf-test test workflow/tests --profile test,stub. The flag values on real
+// tables are pinned by tests/integration/test_m11_14d_fallback_flags_run.py (giap run on sim100k).
+//
+// Pinned here (test author), with run_uniop = false (distance-model source) and true (UniOP):
+//   - operon_pairs runs once and writes operon_meta.json;
+//   - the operons task and the context_stats task each get the --in key `operon_meta`, staged
+//     as a file named operon_meta.json from operon_pairs' task directory (main.nf's OPERONS and
+//     CONTEXT calls, and context.nf's filter of layers_for_pairs);
+//   - every py step's --in keys still follow the giap.steps registry.
+
+nextflow_pipeline {
+
+    name "main.nf hands operon_pairs' operon_meta to operons and context_stats (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "operons"
+
+    test("run_uniop = false (distance model): operons and context_stats stage operon_pairs' operon_meta.json") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+                run_uniop = false
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            // by GIAP_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran with run_uniop = false: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def prod = byTag('operon_pairs')
+            assert prod.size() == 1 : "operon_pairs ran ${prod.size()}x"
+            assert new File(prod[0], 'operon_meta.json').isFile() : "operon_pairs wrote no operon_meta.json"
+            def src = prod[0].canonicalPath
+            ['operons', 'context_stats'].each { s ->
+                def dirs = byTag(s)
+                assert dirs.size() == 1 : "${s} ran ${dirs.size()}x: ${H.names(workflow.trace)}"
+                def ins = H.stepInputs(dirs[0])
+                def meta = ins.findAll { it[0] == 'operon_meta' }
+                assert meta.size() == 1 : "${s} --in keys ${ins.collect { it[0] }}: operon_meta not passed exactly once (ADR-0061 flags would vanish)"
+                assert new File(meta[0][1]).name == 'operon_meta.json' : "${s} operon_meta staged as ${meta[0][1]}"
+                def staged = H.staged(dirs[0]).findAll { new File(it[1]).name == 'operon_meta.json' }
+                assert staged.size() == 1 : "${s} stages no operon_meta.json: ${H.staged(dirs[0])}"
+                assert new File(staged[0][0]).canonicalPath.startsWith(src) : "${s} operon_meta.json is not operon_pairs' (${staged[0][0]} vs ${src})"
+            }
+        }
+    }
+
+    test("run_uniop = true (UniOP): operons and context_stats stage operon_pairs' operon_meta.json") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+                run_uniop = true
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            // by GIAP_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.count(workflow.trace, 'UNIOP') == 1
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def prod = byTag('operon_pairs')
+            assert prod.size() == 1 : "operon_pairs ran ${prod.size()}x"
+            assert H.stepInputs(prod[0]).collect { it[0] }.contains('uniop_pred')
+            def src = prod[0].canonicalPath
+            ['operons', 'context_stats'].each { s ->
+                def dirs = byTag(s)
+                assert dirs.size() == 1 : "${s} ran ${dirs.size()}x: ${H.names(workflow.trace)}"
+                def meta = H.stepInputs(dirs[0]).findAll { it[0] == 'operon_meta' }
+                assert meta.size() == 1 : "${s}: operon_meta not passed exactly once"
+                def staged = H.staged(dirs[0]).findAll { new File(it[1]).name == 'operon_meta.json' }
+                assert staged.size() == 1 : "${s} stages no operon_meta.json: ${H.staged(dirs[0])}"
+                assert new File(staged[0][0]).canonicalPath.startsWith(src) : "${s} operon_meta.json is not operon_pairs'"
+            }
+        }
+    }
+}
