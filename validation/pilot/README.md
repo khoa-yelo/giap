@@ -381,6 +381,154 @@ Warnings are recorded, not failed:
   antiSMASH layer did not run in these runs (a backlog finding, not a rule failure).
 - A2 also lacks `rbs_novel`, and its novel-ORF promoter and RBS layers were skipped (`not_run`).
 
+## A3 run (M10-10)
+
+§15.2 steps 6-8 for arm A3 (Cascadia 0.0.7 de novo), then the three-way `giap compare` (the A3
+part of the first §15.6 criterion; spec `docs/specs/M10-10-a3-run.md`). As in the pass-1 section,
+this section holds provenance and A3-only aggregates: job IDs, commits, states, runtimes, memory,
+sha256s, byte sizes, `.ssl` row counts and the per-run L6 numbers. Metric 6 (the A2/A3 overlap)
+and hypothesis 4 involve A2 data and live in `metrics.json`/`REPORT.md` (M10-05's Q-K1, spec Q10).
+The `.ssl` files, `a3.tsv.gz`, `a3.convert.*`, the per-run `feasibility.json`, `out_a3/`,
+`cmp_a1_a2_a3/`, the evidence JSON and the `pass2/` attempts table stay under `$GIAP_ROOT` and are not
+committed.
+
+### Deviation: CPU-route `.ssl`, no GPU jobs
+
+The spec plans three fresh GPU Cascadia jobs (steps 1-2, `gpu` partition, written to
+`$GIAP_ROOT/pilot/A3/`). They were **not run**. A3 instead uses the `.ssl` files that M10-08's
+CPU route (B2, Slurm work queue, no GPU) had already produced for all three runs, under
+`$GIAP_ROOT/pilot/A3_cascadia_cpu/` (`A3_OUT_DIR` of the convert job). The command, weights
+(sha256 `0f5e9141…`, `a3_assets.tsv`), Unimod table, batch size and the default cut-off 0.8 are
+M10-08's, and no other checkpoint or threshold was tried (R3). The deviation is recorded in the
+`convert` row of the `pass2/` attempts table and again in the A3 row. The consequences:
+
+- The GPU sizing rule (step 2) and the GPU model were not exercised: no `giap-denovo-WT_*` job and
+  no `nvidia-smi` line.
+- WT_1 was not re-run, so there is no smoke-vs-rerun comparison. The WT_1 input is the M10-08
+  smoke `.ssl` itself: its L6 aggregates below equal `metrics/a3_feasibility.json`, including
+  the row count.
+- Provenance is not uniform across runs (spec Q1). WT_1 came from the M10-08 work-queue arrays
+  (1889426_0, 1890599, 1890876, 1890952, 1891287, 1891944; merge 1890902). WT_2 and WT_3 came from
+  later work-queue jobs, merged by 1891845 and 1892227.
+
+```bash
+A3=$GIAP_ROOT/pilot/A3_cascadia_cpu; P=$GIAP_ROOT/pilot/inputs; R2=$GIAP_ROOT/runs/pilot/pass2
+A3_OUT_DIR=$A3 sbatch -J giap-cascadia-convert scripts/slurm/cascadia_convert.sbatch
+sbatch -J giap-run-pilot-a3 scripts/slurm/giap_run.sbatch \
+  --genome $GIAP_REPO/tests/data/genomes/nissle1917.fna.gz --annotation $P/nissle1917.bakta.json \
+  --peptides $P/a3.tsv.gz --reference-peptides $P/a2.tsv.gz \
+  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R2/out_a3
+python validation/pilot/run_evidence.py arm $R2/out_a3 --arm A3 --job 1894682 \
+  --expect-commit 242ce506396b2f03f54d70efd90309efe8cd8bc7 --expect-input genome=SHA \
+  --expect-input annotation=SHA --expect-input peptides=SHA --expect-input reference_peptides=SHA \
+  --a2 $GIAP_ROOT/runs/pilot/pass1/out_a2 --out $R2/evidence/a3.json
+sbatch -J giap-pilot-compare3 --cpus-per-task=2 --mem=8000M --time=01:00:00 \
+  scripts/slurm/pilot_compare.sbatch $GIAP_ROOT/runs/pilot/pass1/out_a1 \
+  $GIAP_ROOT/runs/pilot/pass1/out_a2 $R2/out_a3 $R2/cmp_a1_a2_a3
+```
+
+The A3 run used the same settings as A1 and A2: profile `farmshare,apptainer`, default modules
+(`modules_off` empty), seed 20261014, `--genome-relation related`, no `--abundance`, no
+`--strict`, the same decompressed Bakta JSON, and no `--resume`. It ran at commit
+`242ce506396b2f03f54d70efd90309efe8cd8bc7` from the clean pinned worktree `pilot-242ce506`
+(`git_dirty` false; `PYTHONPATH` pinned by `giap_run.sbatch`). Its detection tier is
+`two_peptide`, because de novo rows carry no decoys. A1 and A2 used `decoy_picked`.
+
+### mzML and `.ssl` (per run)
+
+| run | mzML job | mzML bytes | mzML sha256 | mzml-check | `.ssl` bytes | `.ssl` data rows | `.ssl` sha256 |
+|---|---|---|---|---|---|---|---|
+| WT_1 | 1884087 | 1,472,931,770 | `691556c139e9ebfc31f64413541ea39eaa965f78c2b1b0bde1510fb145bcc75f` | M1-M8 pass | 221,559 | 1,445 | `601344b23f89c3caf8142b4a2569187f1a40a8af2e3017377375267734a3712c` |
+| WT_2 | 1889330 | 1,442,505,322 | `da70d21e28747d5af458cbeab518c68726304dba95254f9e472a42f248ec82f5` | M1-M8 pass | 212,204 | 1,383 | `59706a604ece87b6f4b6938eb5dca4093b56349aedcd6c9f97f2eb3876b8a433` |
+| WT_3 | 1889332 | 1,472,217,635 | `8398a104311bfb54577ada2b4139d285b46e1997be41436d52861486b6b60c9b` | M1-M8 pass | 215,722 | 1,406 | `8f62a86bea3c2285cab26181eeddc3c34d9d5fbcd5aa8bf6f268b6a7d216e45a` |
+
+### Per-run L6 (`a3_feasibility.py evaluate`, rule: ≥ 500 distinct 7-30-mers above 0.8 and ≥ 0.20 of the top 1,000 matching the six-frame translation)
+
+| run | rows | 7-30-mers | n_pass (= n_top) | n_match | share (95 % CI) | decoy share | contaminant share | verdict |
+|---|---|---|---|---|---|---|---|---|
+| WT_1 | 1,445 | 1,424 | 863 | 549 | 0.636 (0.604-0.668) | 0.006 | 0.006 | pass |
+| WT_2 | 1,383 | 1,365 | 848 | 546 | 0.644 (0.611-0.675) | 0.008 | 0.005 | pass |
+| WT_3 | 1,406 | 1,383 | 853 | 531 | 0.623 (0.589-0.654) | 0.006 | 0.006 | pass |
+
+All three runs pass L6, so no run is excluded and all three were converted.
+
+### Conversion (`cascadia_convert.sbatch`, job 1894680)
+
+The job completed (exit 0:0) in 00:00:25 on wheat-07 (2 CPUs, MaxRSS 237376K) at commit `242ce506`
+(clean). `a3.convert.json` has `failures: []`, and the second conversion was byte-identical.
+
+| item | value |
+|---|---|
+| `a3.tsv.gz` | 63,221 bytes, sha256 `743396d090db4f7b0e1075d63d68c4a81b903b8b6fd3a8b61d80fedcac1bf0b8` |
+| rows (= sum of `.ssl` data rows) | 4,234 (WT_1 1,445, WT_2 1,383, WT_3 1,406) |
+| distinct peptides (7-30-mers) | 1,386 (1,364) |
+| charge 2 / 3 | 4,153 / 81 |
+| score min / median / max | 0.800034 / 0.930794 / 0.999955; 0 rows at or below 0.8 |
+| log issues | `short_peptide` warn (62 rows), `stripped` info (1 row) |
+
+### Attempts (every submission, the `pass2/` attempts table)
+
+| arm | attempt | job | class | commit | state | exit | elapsed | MaxRSS (head) | node | rule set | outcome |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| convert | 1 | 1894680 | fresh | `242ce506` | completed | 0:0 | 00:00:25 | 237376K | wheat-07 | L6 | **accepted**; CPU-route `.ssl` (deviation above) |
+| A3 | 1 | 1894682 | fresh | `242ce506` | completed | 0:0 | 03:01:03 | 1303576K | wheat-05 | A: pass | **accepted**, `out_a3` |
+| compare3 | 1 | 1895328 | fresh | `242ce506` | completed | 0:0 | 00:00:19 | 317544K | wheat-06 | C: pass | **accepted**, `cmp_a1_a2_a3` |
+
+A3 used one of its three R9 attempts. Before each submission, the R14 check summed the CPUs of
+running and pending `giap-*` jobs: at the compare submission they held 18 CPUs, and 18 + 2 ≤ 128.
+The compare job was submitted from the main checkout at `242ce506`.
+
+### Inputs (sha256 from `run_manifest.json`)
+
+| role | file | sha256 |
+|---|---|---|
+| genome | `tests/data/genomes/nissle1917.fna.gz` | `fe74801661e688a525eef7a7a6be6210659ebc9a2e61691efb1f10b65ea623ee` |
+| annotation | `nissle1917.bakta.json` (13,668,551 bytes) | `cf7de472a179ae122c085d33995e1b8399048a24d250b15e4c3d82e5e41f1ee3` |
+| peptides A3 | `a3.tsv.gz` | `743396d090db4f7b0e1075d63d68c4a81b903b8b6fd3a8b61d80fedcac1bf0b8` |
+| reference peptides | `a2.tsv.gz` (A2's `peptides` input, rule A11) | `1eb5e1e9a8855fc8ac62bed4d60f2715f9270f2b96f40206dd35a3a754adf14f` |
+
+### Resources (§15.5)
+
+| arm | head job | tasks | task max AllocCPUS | task peak MaxRSS | top steps by wall time (`measure_runtimes.py`) |
+|---|---|---|---|---|---|
+| A3 | 1894682 | 77 (0 failed, 0 retried) | 14 CPUs | 11,809,894,400 bytes | terminatornet 2:54:44, promotech (11 tasks) 0:29:46, promoter_calculator (27 tasks) 0:16:10, genomad 0:02:34, promotech_novel 0:01:10 |
+
+The head run took 3 h 01 min, inside MVP-04's 3-8 h range. TerminatorNet dominates again. Its wall
+time was about 2.5 times A1's (1:08:26) on the same genome and settings, so it depends on the node.
+This is a runtime finding, not a rule.
+
+### Reports
+
+| subject | file | sha256 | bytes |
+|---|---|---|---|
+| A3 | `out_a3/report/report.html` | `289a13e262f510944e2f5bb38863ff01d73df9661222f1caecb12e43e8649737` | 11,121,121 bytes |
+| compare | `cmp_a1_a2_a3/report/compare.html` | `9c793c495504cd4b19ef9f833a0c88902a2dd841a27b253f9b5ad728a7b56477` | 5,206,317 bytes |
+| compare | `cmp_a1_a2_a3/plots/V16_compare.svg` | `6e7dc23b6e19ee1ae6083e385dc3308532670c97b60f61aebd88a60ac505cc4b` | 257,607 bytes |
+| compare | `cmp_a1_a2_a3/tables/compare_detection.tsv` | `d99450795e5018bdb29413008d2a4377abcae3c2908475a9fa5a2fa95533bba3` | 650,081 bytes |
+| compare | `cmp_a1_a2_a3/tables/compare_abundance.tsv` | `64732f1a1baa67b923dd2a50a390b77506c8629e5e6b01a7ead069c6854a7e70` | 354 bytes |
+| compare | `cmp_a1_a2_a3/tables/compare_stability.tsv` | `8cbadf2f151fb1a07eeb823cbfc21ab8bc9474050c022774e64ea7858419c8da` | 599 bytes |
+
+The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+
+### Evidence verdicts
+
+`pass2/evidence/a3.json` and `pass2/evidence/compare3.json` both have `failures: []`.
+
+- **A3 (rule set A, A1-A11):**
+  - A10 passes: `mapping_fdr.tsv` has 10 `denovo_precision` rows and none is flagged `c_assumed`.
+  - A11 passes: the reference sha256 equals `out_a2`'s `peptides` input.
+  - `expected_warnings` holds `no_spectrum_pairing`, as expected (DIA-NN writes no
+    `spectrum_id`), so ALT class error rates are `unestimated` (§7.5.4).
+  - The manifest warns `novel_orfs.class_q_floor_above_alpha`, `peptides.content`,
+    `peptides.spectrum_pairing` and `region_layer.layer_missing`.
+  - `layers_missing` lists `abundance` (A3 has no intensities) and `antismash` (no GBFF next to the
+    precomputed `bakta_json`, as in A1 and A2).
+- **Compare (rule set C, three labels):**
+  - The two `compare_abundance` rows with A3 carry `missing_in:A3`, as expected.
+  - C7 raised no warning: the (A1, A2) rows of `compare_abundance` and `compare_stability` equal
+    those of `pass1/cmp_a1_a2`.
+  - A1/A2 ran at `6f969ee7` and A3 at `242ce506`. This is recorded, not failed (spec Q4).
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
