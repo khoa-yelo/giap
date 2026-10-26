@@ -20,11 +20,14 @@ Interface pinned here (implementer, ``src/giap/preflight/environment.py``):
   - ``env_root: Path | None``: the directory holding the prebuilt envs
     (``$GIAP_ROOT/micromamba/envs``; ``None`` without ``$GIAP_ROOT``); an env is built iff
     ``<env_root>/giap-<tool>/.giap-built`` equals the sha256 of ``workflow/envs/<tool>.yml``.
-  - ``local_tools: Path | None``: ``<db_dir>/local_tools.config`` written by ``setup --tools
-    uniop`` (14e), or ``None``. A ``withName: 'UNIOP' { container = '<tag>' }`` line makes uniop
-    present under docker iff ``docker image inspect <tag>`` exits 0; a ``container =
-    '<absolute .sif>'`` line makes it present under apptainer iff the file exists; a ``conda =
-    '<prefix>'`` line is ignored under a profile without conda.
+  - ``local_tools: Path | None``: ``<db_dir>/local_tools.config`` written by ``setup --uniop``
+    (item 1b), or ``None``. The file is one ``profiles { docker {...} apptainer {...} conda {...}
+    }``; a block applies only under its own runtime ``container_runtime(profile)``. The docker
+    block's ``withName: 'UNIOP' { container = '<tag>' }`` makes uniop present under docker iff
+    ``docker image inspect <tag>`` exits 0; the apptainer block's ``container = '<absolute
+    .sif>'`` makes it present under apptainer iff the file exists (a relative path is malformed:
+    missing, never mapped to a cache file name). No block for the runtime: uniop is missing. Under
+    a ``farmshare*`` list the file is ignored (``giap run`` never adds it there, example 19a).
   - Pins are the ``withName`` lines of ``workflow_main().parent / "conf/containers.config"``; the
     function looks ``workflow_main`` up as the module attribute
     ``giap.preflight.environment.workflow_main`` (the tests patch it with a fake workflow tree).
@@ -373,12 +376,27 @@ def test_row_stale_marker_is_still_missing_under_conda(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- uniop with a local build
 
 
-def _local_tools(db: Path, line: str, *, conda: bool = False) -> Path:
+def _local_tools(db: Path, *, multiline: bool = False, **blocks: str) -> Path:
+    """``<db>/local_tools.config`` in the item 1b format: one ``profiles { … }`` with one block
+    per runtime (keyword order kept), each holding ``withName: 'UNIOP' { <body> }``."""
     db.mkdir(parents=True, exist_ok=True)
-    head = "conda.enabled = true\n" if conda else ""
+    lines = [f"// written by {PKG} setup --uniop", "profiles {"]
+    for runtime, body in blocks.items():
+        if multiline:
+            stmts = [s.strip() for s in body.split(";") if s.strip()]
+            lines += [f"    {runtime} {{", "        process {", "            withName: 'UNIOP' {"]
+            lines += [f"                {s}" for s in stmts]
+            lines += ["            }", "        }", "    }"]
+        else:
+            lines.append(f"    {runtime:<9} {{ process {{ withName: 'UNIOP' {{ {body} }} }} }}")
+    lines.append("}")
     path = db / "local_tools.config"
-    path.write_text(f"// written by {PKG} setup --tools uniop\n{head}process {{\n  {line}\n}}\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _container_block(tag: str) -> str:
+    return f"container = '{tag}'; conda = ''"
 
 
 LOCAL_TAG = f"localhost/{PKG}-uniop:{TOOLS['uniop'].version}-0123456789ab"
@@ -386,7 +404,7 @@ LOCAL_TAG = f"localhost/{PKG}-uniop:{TOOLS['uniop'].version}-0123456789ab"
 
 def test_row_uniop_local_docker_tag_present(tmp_path: Path) -> None:
     (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
-    local = _local_tools(tmp_path / "db", f"withName: 'UNIOP' {{ container = '{LOCAL_TAG}' }}")
+    local = _local_tools(tmp_path / "db", docker=_container_block(LOCAL_TAG))
     got = call("missing_tools", [TOOLS["uniop"]], "docker", empty(tmp_path, "c"), None, local)
     assert got == []
     calls = runtime_calls(tmp_path)
@@ -396,7 +414,7 @@ def test_row_uniop_local_docker_tag_present(tmp_path: Path) -> None:
 
 def test_row_uniop_local_docker_tag_absent(tmp_path: Path) -> None:
     (tmp_path / "docker_tags.txt").write_text("localhost/other:1\n")
-    local = _local_tools(tmp_path / "db", f"withName: 'UNIOP' {{ container = '{LOCAL_TAG}' }}")
+    local = _local_tools(tmp_path / "db", docker=_container_block(LOCAL_TAG))
     cache = empty(tmp_path, "c")
     got = call("missing_tools", [TOOLS["uniop"]], "docker", cache, None, local)
     assert got == ["uniop"]
@@ -409,7 +427,7 @@ def test_row_uniop_local_docker_tag_absent(tmp_path: Path) -> None:
 def test_row_uniop_local_sif_present_iff_file_exists(tmp_path: Path) -> None:
     sif = tmp_path / "cache" / f"localhost-{PKG}-uniop-{TOOLS['uniop'].version}-0123456789ab.sif"
     sif.parent.mkdir(parents=True)
-    local = _local_tools(tmp_path / "db", f"withName: 'UNIOP' {{ container = '{sif}' }}")
+    local = _local_tools(tmp_path / "db", apptainer=_container_block(str(sif)))
     cache = sif.parent
     got = call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local)
     assert got == ["uniop"]
@@ -425,7 +443,7 @@ def test_row_uniop_local_micromamba_build_under_container_profile(
     """A micromamba-built local UniOP works only with a conda-enabled profile (item 1b)."""
     prefix = tmp_path / "cache" / "envs" / "giap-uniop"
     (prefix / "bin").mkdir(parents=True)
-    local = _local_tools(tmp_path / "db", f"withName: 'UNIOP' {{ conda = '{prefix}' }}", conda=True)
+    local = _local_tools(tmp_path / "db", conda=f"conda = '{prefix}'")
     cache = empty(tmp_path, "c")
     assert call("missing_tools", [TOOLS["uniop"]], profile, cache, None, local) == ["uniop"]
     reasons = call("missing_tool_reasons", [TOOLS["uniop"]], profile, cache, None, local)
@@ -441,11 +459,150 @@ def test_row_uniop_without_local_tools_under_docker_is_conda_only(tmp_path: Path
 
 def test_row_local_tools_config_does_not_affect_other_tools(tmp_path: Path) -> None:
     (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
-    local = _local_tools(tmp_path / "db", f"withName: 'UNIOP' {{ container = '{LOCAL_TAG}' }}")
+    local = _local_tools(tmp_path / "db", docker=_container_block(LOCAL_TAG))
     names = [n for n in conda_only(pins()) if n != "uniop"]
     tools = [TOOLS[n] for n in names]
     got = call("missing_tools", tools, "docker", empty(tmp_path, "c"), None, local)
     assert got == names
+
+
+def _two_blocks(tmp_path: Path, order: str, *, multiline: bool = False) -> tuple[Path, Path]:
+    """A docker block (``LOCAL_TAG``) and an apptainer block (an absolute ``.sif``)."""
+    sif = tmp_path / "builds" / "uniop.sif"
+    sif.parent.mkdir(parents=True, exist_ok=True)
+    blocks = {"docker": _container_block(LOCAL_TAG), "apptainer": _container_block(str(sif))}
+    if order == "apptainer-first":
+        blocks = dict(reversed(blocks.items()))
+    return _local_tools(tmp_path / "db", multiline=multiline, **blocks), sif
+
+
+ORDERS = ["docker-first", "apptainer-first"]
+
+
+@pytest.mark.parametrize("multiline", [False, True], ids=["one-line", "multi-line"])
+@pytest.mark.parametrize("order", ORDERS)
+def test_b1_two_blocks_docker_uses_its_own_block(
+    tmp_path: Path, order: str, multiline: bool
+) -> None:
+    """Item 1b: under docker only the docker block counts; its tag goes to docker image inspect."""
+    (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
+    local, sif = _two_blocks(tmp_path, order, multiline=multiline)
+    cache = empty(tmp_path, "c")
+    assert call("missing_tool_reasons", [TOOLS["uniop"]], "docker", cache, None, local) == {}
+    assert call("missing_tools", [TOOLS["uniop"]], "docker", cache, None, local) == []
+    calls = runtime_calls(tmp_path)
+    assert f"docker image inspect {LOCAL_TAG}" in calls, calls
+    assert not any(str(sif) in c for c in calls), calls
+
+
+@pytest.mark.parametrize("multiline", [False, True], ids=["one-line", "multi-line"])
+@pytest.mark.parametrize("order", ORDERS)
+def test_b1_two_blocks_apptainer_uses_its_own_block(
+    tmp_path: Path, order: str, multiline: bool
+) -> None:
+    """Item 1b: under apptainer only the apptainer block's absolute ``.sif`` counts."""
+    local, sif = _two_blocks(tmp_path, order, multiline=multiline)
+    cache = empty(tmp_path, "c")
+    assert call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local) == ["uniop"]
+    sif.write_bytes(b"fake sif\n")
+    assert call("missing_tool_reasons", [TOOLS["uniop"]], "apptainer", cache, None, local) == {}
+    assert call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local) == []
+    assert runtime_calls(tmp_path) == []
+
+
+@pytest.mark.parametrize("order", ORDERS)
+def test_b1_two_blocks_the_other_runtime_never_satisfies(tmp_path: Path, order: str) -> None:
+    """The other block's artifact does not count: an accepted docker tag does not help apptainer,
+    an existing ``.sif`` does not help docker."""
+    local, sif = _two_blocks(tmp_path, order)
+    sif.write_bytes(b"fake sif\n")
+    (tmp_path / "docker_tags.txt").write_text("localhost/other:1\n")
+    cache = empty(tmp_path, "c")
+    assert call("missing_tools", [TOOLS["uniop"]], "docker", cache, None, local) == ["uniop"]
+    sif.unlink()
+    (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
+    got = call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local)
+    assert got == ["uniop"]
+
+
+def test_b1_docker_only_file_under_apptainer_is_missing(tmp_path: Path) -> None:
+    """Item 1b: "a docker build followed by -profile apptainer finds no apptainer block", even if
+    the cache holds a file named for the docker tag; apptainer never pulls ``docker://localhost``."""
+    (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
+    local = _local_tools(tmp_path / "db", docker=_container_block(LOCAL_TAG))
+    cache = empty(tmp_path, "c")
+    (cache / simple_name(LOCAL_TAG)).write_bytes(b"fake sif\n")
+    assert call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local) == ["uniop"]
+    reasons = call("missing_tool_reasons", [TOOLS["uniop"]], "apptainer", cache, None, local)
+    assert set(reasons) == {"uniop"}
+    assert not any(c.startswith("apptainer ") and " pull" in c for c in runtime_calls(tmp_path))
+
+
+def test_b1_apptainer_only_file_under_docker_is_missing(tmp_path: Path) -> None:
+    sif = tmp_path / "builds" / "uniop.sif"
+    sif.parent.mkdir(parents=True)
+    sif.write_bytes(b"fake sif\n")
+    (tmp_path / "docker_tags.txt").write_text(f"{sif}\n{LOCAL_TAG}\n")
+    local = _local_tools(tmp_path / "db", apptainer=_container_block(str(sif)))
+    cache = empty(tmp_path, "c")
+    assert call("missing_tools", [TOOLS["uniop"]], "docker", cache, None, local) == ["uniop"]
+    reasons = call("missing_tool_reasons", [TOOLS["uniop"]], "docker", cache, None, local)
+    assert set(reasons) == {"uniop"}
+    assert not any(str(sif) in c for c in runtime_calls(tmp_path))
+
+
+@pytest.mark.parametrize("profile", CONTAINER_NO_CONDA)
+def test_b1_conda_block_only_is_missing_under_a_container_profile(
+    tmp_path: Path, profile: str
+) -> None:
+    """Only a conda block, no block for ``R(P)``: uniop stays missing under docker/apptainer."""
+    prefix = tmp_path / "envs" / "giap-uniop"
+    (prefix / "bin").mkdir(parents=True)
+    local = _local_tools(tmp_path / "db", conda=f"conda = '{prefix}'")
+    got = call("missing_tools", [TOOLS["uniop"]], profile, empty(tmp_path, "c"), None, local)
+    assert got == ["uniop"]
+
+
+@pytest.mark.parametrize("rel", ["uniop.sif", "builds/uniop.sif", LOCAL_TAG])
+def test_b1_relative_apptainer_container_is_malformed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rel: str
+) -> None:
+    """Item 1b: the apptainer block holds an absolute ``.sif`` path. A relative one is malformed:
+    uniop is missing and the reason names the path. It is not resolved against the cwd or mapped
+    to ``<cache>/<simpleName>.img`` (no basis in the spec)."""
+    work = empty(tmp_path, "work")
+    (work / rel).parent.mkdir(parents=True, exist_ok=True)
+    (work / rel).write_bytes(b"fake sif\n")
+    monkeypatch.chdir(work)
+    cache = empty(tmp_path, "c")
+    (cache / simple_name(rel)).write_bytes(b"fake sif\n")
+    local = _local_tools(tmp_path / "db", apptainer=_container_block(rel))
+    assert call("missing_tools", [TOOLS["uniop"]], "apptainer", cache, None, local) == ["uniop"]
+    reasons = call("missing_tool_reasons", [TOOLS["uniop"]], "apptainer", cache, None, local)
+    assert set(reasons) == {"uniop"}
+    assert rel in reasons["uniop"], reasons
+    assert simple_name(rel) not in reasons["uniop"], reasons
+
+
+FARMSHARE_APPTAINER = ["farmshare,apptainer", "farmshare_local,apptainer"]
+
+
+@pytest.mark.parametrize("profile", FARMSHARE_APPTAINER)
+def test_b2_farmshare_ignores_local_tools_config(tmp_path: Path, profile: str) -> None:
+    """AC 5, example 19a: under a ``farmshare*`` list ``giap run`` never adds local_tools.config,
+    so a usable apptainer/docker block does not satisfy uniop without the prebuilt env."""
+    local, sif = _two_blocks(tmp_path, "docker-first")
+    sif.write_bytes(b"fake sif\n")
+    (tmp_path / "docker_tags.txt").write_text(LOCAL_TAG + "\n")
+    envs = build_envs(tmp_path / "envs", ["promotech"])
+    cache = empty(tmp_path, "c")
+    assert call("missing_tools", [TOOLS["uniop"]], profile, cache, envs, local) == ["uniop"]
+    assert call("missing_tools", [TOOLS["uniop"]], profile, cache, None, local) == ["uniop"]
+    reasons = call("missing_tool_reasons", [TOOLS["uniop"]], profile, cache, envs, local)
+    assert set(reasons) == {"uniop"}
+    assert str(sif) not in reasons["uniop"], reasons
+    build_envs(envs, ["uniop"])
+    assert call("missing_tools", [TOOLS["uniop"]], profile, cache, envs, local) == []
 
 
 # ---------------------------------------------------------------- in-process, test/stub
