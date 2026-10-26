@@ -1,5 +1,5 @@
 # ADR-0061: Scope of the TU-blocked claims under the distance-model operon fallback
-- Status: accepted
+- Status: accepted-by-khoa (2026-10-26, in session: "I approve", Q-K28)
 - Date: 2026-10-26
 - Spec sections: §7.1.3, §7.3.5, §7.4.2, §8.1, §8.5; R3, R4; `docs/specs/M11-14-container-install.md`
   14s1 (outcome rule), 14d, 14d2; ADR-0022 and its 14s2 addendum

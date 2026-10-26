@@ -247,7 +247,8 @@ AUROC diagnostic.
 
 ## Addendum (M11-14 14s2, 2026-10-25): the distance-model fallback at `pair_threshold` 0.5
 
-- Status of the addendum: proposed (statistician); it records measurements and changes no value,
+- Status of the addendum: accepted-by-khoa (2026-10-26, in session: "I approve", Q-K28; proposed by
+  the statistician); it records measurements and changes no value,
   threshold, bound or default. Needs Khoa: yes (it adds keys to the protected
   `calibration.yaml`).
 - Spec: `docs/specs/M11-14-container-install.md` 14s2. Context: Khoa's decision (2026-10-25) that
