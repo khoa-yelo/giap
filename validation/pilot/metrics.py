@@ -31,6 +31,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from importlib import resources
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -871,6 +872,8 @@ H4_CAVEATS = (
     "set and count as unconfirmed.",
     "A2's identifications are at 1 % FDR, so the lower bound can be off by up to that share "
     "(not corrected).",
+    "A failure confined to a single score bin reads consistent_with_lower_bound: not_supported "
+    "needs two consecutive reportable bins below the bound (the pre-registered fallback).",
 )
 
 
@@ -927,8 +930,10 @@ def _nested(peps: Sequence[str]) -> set[str]:
 
 def h4_bin(n_b: int, k_b: int, genome: Mapping[str, Any], n_reportable: int) -> dict[str, Any]:
     """Definition 7 for one reportable bin: ``L_b`` (Wilson 95 %), ``L_b_adj`` (Wilson at
-    1 - 0.05/B), ``U_b`` (GIAP's upper half-width rescaled to 1 - 0.025/B, capped at 1) and the
-    relations ``relation_95`` (descriptive) and ``relation_adj`` (the verdict's)."""
+    1 - 0.05/B), ``U_b`` (GIAP's upper half-width rescaled to 1 - 0.025/B, capped at 1;
+    descriptive) and the relations ``relation_95`` (descriptive) and ``relation_adj`` (the
+    verdict's: the unrescaled genome upper limit below ``L_b_adj``'s lower limit, the adopted
+    fallback)."""
     from scipy.stats import norm
 
     B = n_reportable
@@ -942,8 +947,16 @@ def h4_bin(n_b: int, k_b: int, genome: Mapping[str, Any], n_reportable: int) -> 
         "L_b_adj": lb | {"ci_low": lo_adj, "ci_high": hi_adj, "level": 1.0 - 0.05 / B},
         "U_b": u,
         "relation_95": "below_lower_bound" if hi < lb["ci_low"] else "consistent",
-        "relation_adj": "below_lower_bound" if u < lo_adj else "consistent",
+        "relation_adj": "below_lower_bound" if hi < lo_adj else "consistent",
     }
+
+
+def _two_consecutive_below(rep: Sequence[Mapping[str, Any]]) -> bool:
+    """Definition 8: two consecutive reportable bins (``rep`` in ``score_bin`` order, the
+    non-reportable bins removed, so skipped labels do not break adjacency) both have
+    ``relation_adj = below_lower_bound``. False when B < 2."""
+    below = [x["relation_adj"] == "below_lower_bound" for x in rep]
+    return any(a and b for a, b in pairwise(below))
 
 
 def hypothesis4(
@@ -1012,7 +1025,7 @@ def hypothesis4(
     c_assumed = any("c_assumed" in items(r.get("flags")) for r in rows.values())
     if not rep or c_assumed:
         verdict = "not_evaluable"
-    elif any(x["relation_adj"] == "below_lower_bound" for x in rep):
+    elif _two_consecutive_below(rep):
         verdict = "not_supported"
     else:
         verdict = "consistent_with_lower_bound"
