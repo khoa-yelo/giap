@@ -14,7 +14,8 @@ import os
 import platform
 import shutil
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar, get_args
 
@@ -72,14 +73,16 @@ def _resolve(
     log_level: str,
     flags: dict[str, Any] | None = None,
     publication: bool = False,
+    base: Mapping[str, Any] | None = None,
 ) -> GiapConfig:
-    """Resolve the config: defaults ← file ← CLI flags ← ``--set``. Exit 1 on an invalid key."""
+    """Resolve the config: defaults ← ``base`` ← file ← CLI flags ← ``--set``. Exit 1 on an
+    invalid key."""
     logging.basicConfig(level=log_level.upper(), format="%(levelname)s %(name)s: %(message)s")
     flag_sets = [
         f"{key}={json.dumps(value)}" for key, value in (flags or {}).items() if value is not None
     ]
     try:
-        return resolve_config(config_file, [*flag_sets, *sets], publication=publication)
+        return resolve_config(config_file, [*flag_sets, *sets], publication=publication, base=base)
     except ValueError as exc:
         click.echo(f"giap: invalid configuration: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
@@ -376,7 +379,9 @@ def run(
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
         keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
-        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+        # no profile, so no container runtime: the function step must not see the shell's (14c)
+        with _env_unset("GIAP_CONTAINER_RUNTIME"):
+            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
     roots, cfg = _run_preflight(
@@ -564,12 +569,15 @@ def _run_nextflow(
     from giap.preflight.environment import LOCAL_TOOLS, local_tools_applies
 
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
+    from giap.preflight.environment import container_runtime
+
     # a local UniOP build (M11-14); absolute, since Nextflow runs in outdir (#396 review B1)
     local = (db_dir / LOCAL_TOOLS).absolute() if db_dir is not None else None
     if local is None or not local.is_file() or not local_tools_applies(profile):
         local = None
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)
-    code = nf.run_nextflow(cmd, outdir)
+    env = nf.launch_env(os.environ, container_runtime(profile), db_dir)
+    code = nf.run_nextflow(cmd, outdir, env)
     if code == ExitCode.SUCCESS:
         from giap.runner.local import write_datapackage
 
@@ -644,6 +652,18 @@ def _local_roots(
                 "preflight": outdir / "preflight" / "preflight.json"}  # fmt: skip
     roots |= {k: p for k, p in produced.items() if p.is_file()}
     return roots
+
+
+@contextmanager
+def _env_unset(name: str) -> Iterator[None]:
+    """``os.environ`` without ``name`` for the block; the caller's value is restored after it
+    (also on ``SystemExit``)."""
+    saved = os.environ.pop(name, None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            os.environ[name] = saved
 
 
 def _run_local(
@@ -966,6 +986,24 @@ def _compare_report(
 # ---------------------------------------------------------------- report
 
 
+def _manifest_config(out: Path) -> Mapping[str, Any] | None:
+    """The ``config`` that ``OUT/run_manifest.json`` records, when it is a valid configuration;
+    ``None`` otherwise (no or unreadable manifest, a config this version cannot validate)."""
+    try:
+        recorded = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    config = recorded.get("config") if isinstance(recorded, dict) else None
+    if not isinstance(config, dict):
+        return None
+    try:
+        resolve_config(base=config)
+    except ValueError:
+        logging.getLogger(__name__).warning("report.manifest_config_invalid %s", out)
+        return None
+    return config
+
+
 @cli.command()
 @click.argument("out", type=_existing_dir)
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
@@ -987,10 +1025,13 @@ def report(
     from giap.steps import plots as P
     from giap.viz.base import normalise_ids
 
-    if config_file is None:  # the run's own thresholds, formats and dpi (review B3)
+    base = None
+    if config_file is None:  # the run's own thresholds, formats, dpi, modules (review B3)
         runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
         config_file = next((p for p in runs if p.is_file()), None)
-    cfg = _resolve(config_file, sets, log_level)
+        if config_file is None:  # a local run writes none; its manifest records the config
+            base = _manifest_config(out)
+    cfg = _resolve(config_file, sets, log_level, base=base)
     if no_interactive:
         cfg = cfg.model_copy(
             update={"report": cfg.report.model_copy(update={"interactive": False})}

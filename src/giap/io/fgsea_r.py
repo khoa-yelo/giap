@@ -1,16 +1,20 @@
 """The R fgsea engine: ``workflow/bin/giap_fgsea.R`` as a subprocess (M8-17a; ADR-0038).
 
-R (GPL-2) and fgsea (MIT) run only as a separate process in the ``giap-fgsea`` micromamba env
-(R5); nothing here imports R bindings. One call writes ``stats.tsv``, ``jobs.tsv`` and ``sets.tsv``
-to a fresh temporary directory, starts the script there, checks ``versions.txt`` (fgsea 1.36.2)
-and parses ``results.tsv`` against what was sent. Every failure raises ``FgseaEngineError``
-(``FgseaEngineUnavailable`` when the env cannot be started); the engine never retries and the
-temporary directory is always removed. Conda-only under every profile (lead decision 9).
+R (GPL-2) and fgsea (MIT) run only as a separate process (R5): in the ``giap-fgsea`` micromamba
+env, or in the ``giap-fgsea`` image through ``docker run`` / ``apptainer exec`` (M11-14 14c);
+nothing here imports R bindings or a container SDK. One call writes ``stats.tsv``, ``jobs.tsv``
+and ``sets.tsv`` to a fresh temporary directory, starts the script there, checks
+``versions.txt`` (fgsea 1.36.2) and parses ``results.tsv`` against what was sent. Every failure
+raises ``FgseaEngineError`` (``FgseaEngineUnavailable`` when R cannot be started); the engine
+never retries and the temporary directory is always removed. The launcher is
+``GIAP_FGSEA_PREFIX`` (never falls through), else the prebuilt env, else the image under
+``GIAP_CONTAINER_RUNTIME`` (set by ``giap run``).
 """
 
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import os
 import re
@@ -25,11 +29,13 @@ from typing import Literal
 
 from giap.annotate.tools import TOOLS
 from giap.function.gsea import EngineCall, EngineProvenance, EngineResult, EngineRow, GseaJob
-from giap.preflight.environment import _env_built
+from giap.io.image_key import image_cache
+from giap.preflight.environment import _env_built, _image_file_name, _step_images
 from giap.runner.nextflow import workflow_main
 from giap.steps.registry import StepError
 
 __all__ = [
+    "BAKED_SCRIPT",
     "DATA_TABLE_VERSION",
     "ENV_NAME",
     "FGSEA_TOOL",
@@ -43,7 +49,9 @@ __all__ = [
     "Launcher",
     "RFgseaEngine",
     "child_env",
+    "cid_file",
     "command",
+    "kill_container",
     "r_fgsea_engine",
     "read_results",
     "read_versions",
@@ -60,10 +68,15 @@ ENV_NAME = "giap-fgsea"
 RESULTS_HEADER = ("job_id", "pathway", "size", "ES", "NES", "pval", "log2err", "leadingEdge")
 STDERR_TAIL = 20
 DATA_TABLE_VERSION = "1.18.6.1"
+_PKG = __name__.split(".", 1)[0]
+BAKED_SCRIPT = f"/opt/{_PKG}/{SCRIPT}"  # in the image (workflow/containers/fgsea/Dockerfile)
+RUNTIME_ENV = "GIAP_CONTAINER_RUNTIME"
 FGSEA_TOOL = TOOLS["fgsea"]  # the env's registry entry, used for the ``.giap-built`` test
 _NOT_BUILT = (
     f"the R fgsea environment {ENV_NAME} is not built: sbatch scripts/slurm/build_envs.sbatch fgsea"
 )
+_LOG = logging.getLogger(__name__)
+_DOCKER_CLEANUP_TIMEOUT_S = 60.0
 _R_NUMBER = re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$")
 _SIZE = re.compile(r"^\d+$")
 
@@ -84,10 +97,13 @@ class FgseaEngineUnavailable(FgseaEngineError):
 
 @dataclass(frozen=True, slots=True)
 class Launcher:
-    """How to start the script: a micromamba env prefix (conda-only, lead decision 9)."""
+    """How to start the script: a micromamba env ``prefix`` (``path`` is the env), or the image
+    under ``docker`` (``image`` is the ref, pulled by ``docker run``) or ``apptainer`` (``path``
+    is the cached ``.img``, ``image`` its ref)."""
 
-    kind: Literal["prefix"]
-    path: Path
+    kind: Literal["prefix", "docker", "apptainer"]
+    path: Path | None
+    image: str = ""
 
 
 # ---------------------------------------------------------------- launcher
@@ -114,10 +130,38 @@ def _has_r(prefix: Path) -> bool:
     return (prefix / "bin" / _front_end()).is_file()
 
 
+def _image_ref() -> str | None:
+    """``images.json["fgsea"]["ref"]`` of the workflow tree, or ``None`` without an entry."""
+    return _step_images(workflow_main().parent / "conf" / "images.json").get("fgsea")
+
+
+def _image_launcher(environ: Mapping[str, str]) -> Launcher:
+    """The image under ``GIAP_CONTAINER_RUNTIME`` (``docker`` | ``apptainer``), else
+    ``FgseaEngineUnavailable`` with the unbuilt-env message."""
+    runtime = environ.get(RUNTIME_ENV)
+    if runtime is None:
+        raise FgseaEngineUnavailable(_NOT_BUILT)
+    if runtime not in ("docker", "apptainer"):
+        raise FgseaEngineUnavailable(f"{_NOT_BUILT}; {RUNTIME_ENV}={runtime!r} is not a runtime")
+    ref = _image_ref()
+    if ref is None:
+        raise FgseaEngineUnavailable(f"{_NOT_BUILT}; workflow/conf/images.json pins no fgsea image")
+    if runtime == "docker":
+        return Launcher("docker", None, ref)
+    keys = ("NXF_APPTAINER_CACHEDIR", "GIAP_ROOT", "GIAP_DB_DIR")
+    if not any(environ.get(k) for k in keys):
+        raise FgseaEngineUnavailable(f"{_NOT_BUILT}; no apptainer image cache ({', '.join(keys)})")
+    img = image_cache(environ, Path(environ.get("GIAP_DB_DIR", ""))) / _image_file_name(ref)
+    if not img.is_file():
+        raise FgseaEngineUnavailable(f"{_NOT_BUILT}; image {ref} not in the apptainer cache {img}")
+    return Launcher("apptainer", img, ref)
+
+
 def resolve_launcher(environ: Mapping[str, str]) -> Launcher:
-    """``GIAP_FGSEA_PREFIX``, else ``$GIAP_ROOT/micromamba/envs/giap-fgsea`` when its
-    ``.giap-built`` matches ``workflow/envs/fgsea.yml``; the prefix must hold R (lead
-    decision 6). Otherwise ``FgseaEngineUnavailable``."""
+    """In order (M11-14 item 1): ``GIAP_FGSEA_PREFIX``, which never falls through (it must be a
+    directory holding R); ``$GIAP_ROOT/micromamba/envs/giap-fgsea`` when its ``.giap-built``
+    matches ``workflow/envs/fgsea.yml``; the image under ``GIAP_CONTAINER_RUNTIME``. Otherwise
+    ``FgseaEngineUnavailable``."""
     explicit = environ.get("GIAP_FGSEA_PREFIX", "")
     if explicit:
         prefix = Path(explicit)
@@ -132,14 +176,13 @@ def resolve_launcher(environ: Mapping[str, str]) -> Launcher:
         prefix = envs / ENV_NAME
         if _env_built(FGSEA_TOOL, envs, workflow_main().parent / "envs") and _has_r(prefix):
             return Launcher("prefix", prefix)
-    raise FgseaEngineUnavailable(_NOT_BUILT)
+    return _image_launcher(environ)
 
 
-def command(call: EngineCall) -> list[str]:
-    """The script and its nine options (spec §3); file names are relative to the call dir."""
+def _options(call: EngineCall) -> list[str]:
+    """The nine options (spec §3); file names are relative to the call dir."""
     p = call.params
     return [
-        str(script_path()),
         "--stats", "stats.tsv",
         "--sets", "sets.tsv",
         "--jobs", "jobs.tsv",
@@ -152,9 +195,72 @@ def command(call: EngineCall) -> list[str]:
     ]  # fmt: skip
 
 
+def command(
+    call: EngineCall, launcher: Launcher | None = None, call_dir: Path | None = None
+) -> list[str]:
+    """The script and its nine options for a prefix (or no) launcher. For an image launcher, the
+    ``docker run`` / ``apptainer exec`` argv of M11-14 item 1 binding only ``call_dir``, which
+    runs R (``--vanilla``) on the baked-in script (the shebang is not read)."""
+    if launcher is None or launcher.kind == "prefix":
+        return [str(script_path()), *_options(call)]
+    if call_dir is None:
+        raise ValueError(f"the {launcher.kind} fgsea launcher needs the call directory")
+    d = str(call_dir)
+    tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *_options(call)]
+    if launcher.kind == "docker":
+        user = f"{os.getuid()}:{os.getgid()}"
+        return ["docker", "run", "--rm", "--cidfile", str(cid_file(call_dir)), "-u", user,
+                "-v", f"{d}:{d}", "-w", d, "-e", "LC_ALL=C", launcher.image, *tail]  # fmt: skip
+    return ["apptainer", "exec", "--cleanenv", "-B", d, "--pwd", d, str(launcher.path), *tail]
+
+
+def cid_file(call_dir: Path) -> Path:
+    """``<call_dir>.cid``: where ``docker run --cidfile`` writes the container ID (a sibling of
+    the bound directory; not created beforehand, since docker refuses an existing file)."""
+    return call_dir.with_name(call_dir.name + ".cid")
+
+
+def _docker(args: list[str]) -> bool:
+    """Run ``docker <args>``; ``False`` (logged) on any failure, never raises."""
+    try:
+        proc = subprocess.run(
+            ["docker", *args],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=_DOCKER_CLEANUP_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        _LOG.warning("R fgsea: docker %s failed: %s", " ".join(args), exc)
+        return False
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", errors="replace").strip()
+        _LOG.warning("R fgsea: docker %s exited %d: %s", " ".join(args), proc.returncode, err)
+        return False
+    return True
+
+
+def kill_container(cid_path: Path) -> None:
+    """``docker kill <id>`` then ``docker rm -f <id>`` (also when the kill fails) for the ID in
+    ``cid_path``; a missing or empty file means no container. Failures are logged, never raised:
+    the caller re-raises the error that interrupted the call."""
+    try:
+        cid = cid_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return
+    if not cid:
+        _LOG.warning("R fgsea: docker cid file %s is empty; no container to kill", cid_path)
+        return
+    _docker(["kill", cid])
+    _docker(["rm", "-f", cid])
+
+
 def child_env(launcher: Launcher, environ: Mapping[str, str]) -> dict[str, str]:
     """``environ`` with the env's ``bin`` first on ``PATH``, user and site R libraries neutralised
-    and ``LC_ALL=C``, so no other R library can shadow the pinned fgsea."""
+    and ``LC_ALL=C``, so no other R library can shadow the pinned fgsea. An image launcher gets
+    ``environ`` unchanged: the container does not see it (``-e LC_ALL=C``, ``--cleanenv``)."""
+    if launcher.kind != "prefix" or launcher.path is None:
+        return dict(environ)
     env = {k: v for k, v in environ.items() if k != "R_HOME"}
     path, bin_dir = environ.get("PATH", ""), str(launcher.path / "bin")
     env["PATH"] = f"{bin_dir}{os.pathsep}{path}" if path else bin_dir
@@ -336,7 +442,7 @@ class RFgseaEngine:
     def _run(self, call: EngineCall, cwd: Path) -> None:
         try:
             proc = subprocess.Popen(
-                command(call),
+                command(call, self.launcher, cwd),
                 cwd=cwd,
                 env=child_env(self.launcher, os.environ),
                 stdin=subprocess.DEVNULL,
@@ -346,20 +452,32 @@ class RFgseaEngine:
             )
         except (FileNotFoundError, PermissionError) as exc:
             raise FgseaEngineUnavailable(f"cannot start R fgsea: {exc}") from exc
+        cid = cid_file(cwd) if self.launcher.kind == "docker" else None
         try:
-            _, stderr = proc.communicate(timeout=self.timeout_s)
-        except subprocess.TimeoutExpired:
-            _kill_group(proc)
-            proc.communicate()
-            raise FgseaEngineError(f"R fgsea timed out after {self.timeout_s:g} s") from None
-        except BaseException:
-            _kill_group(proc)
-            proc.communicate()
-            raise
+            try:
+                _, stderr = proc.communicate(timeout=self.timeout_s)
+            except subprocess.TimeoutExpired:
+                self._stop(proc, cid)
+                raise FgseaEngineError(f"R fgsea timed out after {self.timeout_s:g} s") from None
+            except BaseException:
+                self._stop(proc, cid)
+                raise
+        finally:
+            if cid is not None:
+                cid.unlink(missing_ok=True)
         if proc.returncode != 0:
             raise FgseaEngineError(
                 f"R fgsea failed (exit {proc.returncode}, {len(call.jobs)} jobs): {_tail(stderr)}"
             )
+
+    @staticmethod
+    def _stop(proc: subprocess.Popen[bytes], cid: Path | None) -> None:
+        """Kill the process group, drain it, then (docker) the container itself: killing the
+        ``docker run`` client does not stop the container."""
+        _kill_group(proc)
+        proc.communicate()
+        if cid is not None:
+            kill_container(cid)
 
 
 def r_fgsea_engine(

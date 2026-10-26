@@ -337,8 +337,13 @@ def _run_operons(chain: Any, root: Path, source: str | None) -> pd.DataFrame:
     if source is not None:
         ins["operon_meta"] = _meta(root / "operon_meta.json", source)
     outs = {k: root / "tables" / f"{k}.tsv" for k in ("pairs", "operons", "operon_flags")}
-    logging.getLogger("giap").setLevel(logging.WARNING)
-    reg.run_step("operons", GiapConfig(seed=1), ins, outs)
+    log = logging.getLogger("giap")
+    level = log.level
+    log.setLevel(logging.WARNING)
+    try:
+        reg.run_step("operons", GiapConfig(seed=1), ins, outs)
+    finally:  # module-scoped caller: a leaked level hides INFO events from later caplog tests
+        log.setLevel(level)
     return pd.read_csv(outs["pairs"], sep="\t", dtype=str, keep_default_na=False)
 
 
