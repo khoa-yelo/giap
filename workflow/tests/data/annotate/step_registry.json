@@ -56,6 +56,7 @@
       "detectability_summary",
       "features",
       "id_map",
+      "operon_meta",
       "peptides",
       "replicon_depth",
       "stratum0_classes",
@@ -303,6 +304,7 @@
     ],
     "optional_inputs": [
       "detection_summary",
+      "operon_meta",
       "peptide_hits",
       "peptide_runs",
       "peptides",

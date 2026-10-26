@@ -10,7 +10,9 @@ Work-directory tables are 0-based half-open; ``tus.parquet`` ``genes`` is a nati
 
 ``operons`` chains M6-04 ``pair_frame``, M6-05 ``discordance``, M6-06 ``missed_operons`` and
 M6-07 ``merge_tests`` / ``flag_pairs`` / ``operons_table`` and writes
-``tables/pairs.tsv``, ``operons.tsv`` and ``operon_flags.tsv``. Each absent evidence layer
+``tables/pairs.tsv``, ``operons.tsv`` and ``operon_flags.tsv``; with ``operon_meta`` saying
+``distance_model`` every ``both_detected_t`` row of ``pairs.tsv`` carries
+``tu_source_distance_model`` (ADR-0061). Each absent evidence layer
 (``promoter_windows`` → ``promoters``, ``terminators``, ``tx_rates``) gives NA evidence and the
 WARNING run flag ``layer_missing:<layer>``; a precomputed layer arrives as its M2-02 TSV under the
 same key. The §6.7 event ``operons.missed_operons`` records π₀ and the decoy bin counts (M6-08
@@ -54,7 +56,7 @@ from giap.io.work_tables import _read_tsv_table
 from giap.model.coords import Replicon
 from giap.operons import detection_limit as dl
 from giap.operons.discordance import FALLBACK_WARN, NO_DL_MODEL, SIGMA_MODEL, PMissFn, discordance
-from giap.operons.flags import LAYER_MISSING, flag_pairs, merge_tests
+from giap.operons.flags import LAYER_MISSING, add_tu_source_flag, flag_pairs, merge_tests
 from giap.operons.missed import missed_operons
 from giap.operons.pairs import RNA_TYPES, Evidence, pair_frame
 from giap.operons.tu_table import operons_table
@@ -62,10 +64,15 @@ from giap.rng import for_step
 from giap.stats import tdist
 from giap.stats.tdist import ScaledStudentT
 from giap.steps.common import one_path as _path
+from giap.steps.common import operon_source
 from giap.steps.common import read_genes as _genes
 from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import StepContext, external, step
 
+#: ``operon_meta.json`` reasons of the distance model (M11-14d; ``UniOP failed (...)`` when UniOP
+#: ran and produced no pair)
+REASON_NOT_INSTALLED = "UniOP not installed"
+REASON_DISABLED = "UniOP disabled (annotation.uniop.enabled=false)"
 _STR, _INT, _F64 = pa.string(), pa.int64(), pa.float64()
 _PAIR_COLS = [("gene_a", _STR), ("gene_b", _STR), ("uniop_p", _F64), ("source", _STR)]
 _TU_COLS = [
@@ -120,19 +127,32 @@ def operon_pairs(ctx: StepContext) -> None:
     reps = _replicons(_path(ctx.inputs["replicons"]))
     genes = _genes(_path(ctx.inputs["genes"]))
     model = calibration.load()["operon_distance"]
-    uniop = _uniop_pairs(ctx, reps)
+    uni = ctx.cfg.annotation.uniop
+    precomputed = ctx.cfg.annotation.precomputed.operon_pairs is not None
+    off = not precomputed and uni.enabled is False  # a stray uniop.pred is ignored
+    uniop = None if off else _uniop_pairs(ctx, reps)
     pairs, flags = build_pairs(genes, reps, uniop, float(model["d0"]), float(model["s"]))
-    if ctx.cfg.annotation.precomputed.operon_pairs is not None:
+    if precomputed:
         meta = {"operon_source": "precomputed", "reason": "annotation.precomputed.operon_pairs"}
     elif DISTANCE_FLAG in flags:
-        why = "no uniop.pred" if "uniop_pred" not in ctx.inputs else "uniop.pred has no pair"
-        meta = {"operon_source": "distance_model", "reason": f"UniOP failed ({why})"}
+        if off:
+            reason = REASON_NOT_INSTALLED if uni.resolved_from == "auto" else REASON_DISABLED
+        else:
+            why = "no uniop.pred" if "uniop_pred" not in ctx.inputs else "uniop.pred has no pair"
+            reason = f"UniOP failed ({why})"
+        meta = {"operon_source": "distance_model", "reason": reason}
         ctx.log.warning(
             "operon_pairs: %s; distance model used, run flag %s",
-            why,
+            reason,
             DISTANCE_FLAG,
             extra={"event": "operon_pairs.run_flag", "data": {"flag": DISTANCE_FLAG}},
         )
+        ctx.log.warning(
+            "%suniop: operon pairs and TUs come from the distance model",
+            LAYER_MISSING,
+            extra={"event": "operon_pairs.layer_missing",
+                   "data": {"layer": "uniop", "flag": f"{LAYER_MISSING}uniop"}},
+        )  # fmt: skip
     else:
         meta = {"operon_source": "uniop", "reason": "UniOP probabilities (pin 3ed14dfc)"}
     ctx.outputs["operon_meta"].write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
@@ -250,7 +270,7 @@ def discordance_fit_data(s: ScaledStudentT) -> dict[str, Any]:
     "operons",
     inputs=["gene_table", "genes", "replicons", "tus", "pairs_raw", "features"],
     optional_inputs=["promoter_windows", "terminators", "tx_rates", "peptides", "peptide_hits",
-                     "peptide_runs", "detection_summary"],
+                     "peptide_runs", "detection_summary", "operon_meta"],
     outputs=["pairs", "operons", "operon_flags"],
 )  # fmt: skip
 def operons_step(ctx: StepContext) -> None:
@@ -307,6 +327,8 @@ def operons_step(ctx: StepContext) -> None:
     }
     ctx.log.info("operons: decoy bin counts recorded (pi0 = %s)", data["pi0"],
                  extra={"event": _MISSED_EVENT, "data": data})  # fmt: skip
+    # ADR-0061 decision 1: both_detected_t rows are conservative under distance-model TUs
+    pairs = add_tu_source_flag(pairs, "pairs", operon_source(ctx.inputs.get("operon_meta")))
     write_pairs_tsv(ctx.outputs["pairs"], pairs)
     write_operons_tsv(ctx.outputs["operons"], ops)
     write_operon_flags_tsv(ctx.outputs["operon_flags"], flagged)

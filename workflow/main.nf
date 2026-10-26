@@ -87,13 +87,16 @@ workflow {
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
                     opt(inputs.replicon_depth), GENETABLE.out.tier_summary,
-                    ANNOTATE.out.layers_for_pairs, VARIANTS.out.variants_qc)
+                    ANNOTATE.out.layers_for_pairs.mix(kv('operon_meta', ANNOTATE.out.operon_meta)),
+                    VARIANTS.out.variants_qc)
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs,
                   MAPPING.out.hits_exact.combine(MAPPING.out.hits_tolerant).combine(MAPPING.out.placement_costs).first())
             // M6-05H: C11 peptide_hits joins the optional [key, path] inputs (M6-02 detection-limit model)
+            // M11-14d: operon_meta (the operon source) rides along for the ADR-0061 row flags
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
-                    ANNOTATE.out.layers_for_pairs.mix(kv('peptide_hits', ofMapping(MAPPING.out.mapping, 'peptide_hits.tsv'))))
+                    ANNOTATE.out.layers_for_pairs.mix(kv('peptide_hits', ofMapping(MAPPING.out.mapping, 'peptide_hits.tsv')),
+                                                      kv('operon_meta', ANNOTATE.out.operon_meta)))
             DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
                          ANNOTATE.out.regions, CONTEXT.out.gene_context)
             // M8-16: after DETERMINANTS and beside FUNCTION (its enriched categories family)

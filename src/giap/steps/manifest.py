@@ -84,12 +84,20 @@ def write_provenance(outdir: Path, base: Mapping[str, Any]) -> None:
     ms.write_manifest(outdir / "work" / "provenance.json", core)
 
 
-def _nf_annotation_meta(trace: Sequence[Mapping[str, str]], outdir: Path) -> Any:
+def _nf_meta(
+    trace: Sequence[Mapping[str, str]], outdir: Path, step: str = "parse_bakta",
+    name: str = "annotation_meta.json",
+) -> Any:  # fmt: skip
+    """``name`` of the first completed (or cached) ``step`` task of the trace, parsed."""
     for row in trace:
-        if _step_name(row.get("name") or "") == "parse_bakta" and row.get("status") in {
+        if _step_name(row.get("name") or "") == step and row.get("status") in {
             "COMPLETED", "CACHED"}:  # fmt: skip
-            return ms.read_json(Path(_task_dir(row, outdir / "work")) / "annotation_meta.json")
+            return ms.read_json(Path(_task_dir(row, outdir / "work")) / name)
     return None
+
+
+def _nf_annotation_meta(trace: Sequence[Mapping[str, str]], outdir: Path) -> Any:
+    return _nf_meta(trace, outdir)
 
 
 def _content_files(outdir: Path) -> dict[str, Any]:
@@ -108,18 +116,21 @@ def run_tail(
 ) -> None:  # fmt: skip
     """Write ``OUT/run_manifest.json`` after the graph (D-B step 5); raises on any error."""
     events = ms.read_events(outdir / "logs" / "events.jsonl")
-    trace = meta = None
+    trace = meta = operon = None
     reports: list[dict[str, Any]] = []
     if base["executor"] == "nextflow":
         trace = ms.read_trace(outdir / "logs" / "trace.tsv")
         meta = _nf_annotation_meta(trace or [], outdir)
+        operon = _nf_meta(trace or [], outdir, "operon_pairs", "operon_meta.json")
         locks = _source_root() / "workflow" / "envs" / "locks"
         reports = ms.tool_reports(trace or [], outdir / "work", locks)
     else:
         meta = ms.read_json(outdir / "work" / "annotation_meta")
+        operon = ms.read_json(outdir / "work" / "operon_meta")
     src = ManifestSources(**base, finished_at=_now(), exit_code=exit_code,
                           failed_step=failed_step, failed_log=failed_log, events=events,
-                          annotation_meta=meta, trace=trace, local_steps=local_steps,
+                          annotation_meta=meta, operon_meta=operon, trace=trace,
+                          local_steps=local_steps,
                           tool_reports=reports, **_content_files(outdir))  # fmt: skip
     ms.write_manifest(outdir / "run_manifest.json", build_manifest(src))
 

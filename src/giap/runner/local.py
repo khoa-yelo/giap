@@ -63,6 +63,8 @@ _OPT_IN: dict[str, Callable[[GiapConfig], bool]] = {
 
 
 def _enabled(cfg: GiapConfig, spec: reg.StepSpec) -> bool:
+    if spec.name == "uniop" and cfg.annotation.uniop.enabled is False:  # M11-14d
+        return False
     if spec.module == "opt_in":
         flag = _OPT_IN.get(spec.name)
         return flag is not None and bool(flag(cfg))

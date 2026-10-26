@@ -89,6 +89,7 @@ class ManifestSources:
     inputs_absent: Sequence[str] = ()
     events: Sequence[Mapping[str, Any]] = ()
     annotation_meta: Mapping[str, Any] | None = None
+    operon_meta: Mapping[str, Any] | None = None  # the parsed operon_meta.json (M11-14d)
     trace: Sequence[Mapping[str, str]] | None = None
     local_steps: Sequence[Mapping[str, Any]] = ()
     tool_reports: Sequence[Mapping[str, Any]] = ()
@@ -349,6 +350,13 @@ def _annotation(meta: Mapping[str, Any] | None) -> dict[str, Any] | None:
             "db_version": meta.get("db_version"), "db_type": meta.get("db_type")}  # fmt: skip
 
 
+def _operon_source(meta: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``operon_source`` and ``operon_source_reason`` copied from ``operon_meta.json``."""
+    source, reason = (meta or {}).get("operon_source"), (meta or {}).get("reason")
+    return {"operon_source": source if isinstance(source, str) else None,
+            "operon_source_reason": reason if isinstance(reason, str) else None}  # fmt: skip
+
+
 def build_manifest(src: ManifestSources) -> dict[str, Any]:
     """The manifest (D-C) of ``src``; pure and deterministic."""
     cfg = src.cfg
@@ -372,6 +380,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "tools": _tools(src.tool_reports),
         "databases": _databases(src.db_manifest),
         "annotation": _annotation(src.annotation_meta),
+        **_operon_source(src.operon_meta),
         "detection_tier": src.detection_tier or src.preflight.get("evidence_tier"),
         "seeds": seeds,
         "steps": steps,

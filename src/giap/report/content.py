@@ -22,6 +22,7 @@ from markupsafe import Markup
 import giap
 import giap.determinants
 from giap.context.diagnostics import render_l_hat
+from giap.data import calibration
 from giap.io.run_view import RunView
 from giap.io.tsv import format_value
 
@@ -48,6 +49,22 @@ GSEA_CLUSTER = (
 #: docs/methods/islands.md, "Validity domain (ADR-0021 Amendment 1)"
 ISLANDS = "The FWER is claimed for a dependence regime, not for a replicon size."
 KEGG_TERMS = "KEGG data: academic use only (rest.kegg.jp terms)."
+#: ADR-0061 decision 1 (rows flagged ``tu_source_distance_model``), verbatim
+MORAN_DISTANCE = (
+    "Moran's I under the TU-block null is anti-conservative at short lags when TUs come from the "
+    "distance model; rejection at α = 0.05 was 0.34 in simulation"
+)
+DISCORDANCE_DISTANCE = (
+    "conservative under the distance-model fallback (merged TU boundaries widen the "
+    "within-operon fit); fewer discordant pairs are found"
+)
+#: ADR-0061 decision 4 (rows flagged ``tu_block_tu_error``, every run), verbatim
+MORAN_TU_ERROR = (
+    "Moran's I under the TU-block null assumes exact TU boundaries and is anti-conservative at "
+    "short lags when TUs are split; rejection at α = 0.05 was 0.67 in simulation with UniOP's "
+    "K-12 error rates"
+)
+DISTANCE_MODEL = "distance_model"
 NOT_WRITTEN = "run_manifest.json not written by this GIAP version."
 NOT_RECORDED = "not recorded"
 _DIAG_HEADER = ["replicon", "ℓ̂ (l_hat)", "ℓ′ (block_len)", "Î₁ (lag-1 Moran's I)", "block rule"]
@@ -154,16 +171,58 @@ def _missed(view: RunView) -> list[dict[str, Any]]:
              "caption": caption}]  # fmt: skip
 
 
+def _num(value: Any) -> str:
+    return f"{value:.3f}" if isinstance(value, int | float) else NOT_RECORDED
+
+
+def operon_source_sentence(reason: str | None) -> str:
+    """The M11-14d summary and Methods sentence of a distance-model run; the operating point
+    (14s2) is read from ``calibration.yaml`` at render time."""
+    op = calibration.load().get("operon_distance") or {}
+
+    def ci(key: str) -> str:
+        return f"{_num(op.get(key))} [{_num(op.get(key + '_ci_low'))}, " \
+               f"{_num(op.get(key + '_ci_high'))}]"  # fmt: skip
+
+    return (
+        f"Operons/TUs: intergenic-distance model ({reason or NOT_RECORDED}); "
+        f"precision {ci('precision_at_pair_threshold')}, recall {ci('recall_at_pair_threshold')}"
+        " on RegulonDB K-12 at the pair threshold; TU-based tests use these units."
+    )
+
+
+def _tu_block_morans(view: RunView) -> bool:
+    if not view.has("autocorrelation"):
+        return False
+    ac = _safe(view, "autocorrelation")
+    if ac is None or not {"statistic", "null_model"} <= set(ac.columns):
+        return False
+    return bool(((ac["statistic"] == "morans_i") & (ac["null_model"] == "tu_block")).any())
+
+
 def extras(view: RunView, doc: Mapping[str, Any] | None) -> dict[str, list[dict[str, Any]]]:
     """Section id -> its caveat paragraphs (``text``) and small tables (``key``, ``header``,
-    ``rows``, ``caption``), each present when its condition holds (M9-16 behaviour 3, 4)."""
+    ``rows``, ``caption``), each present when its condition holds (M9-16 behaviour 3, 4), plus
+    the operon-source sentence and the ADR-0061 caveats (M11-14d)."""
     out: dict[str, list[dict[str, Any]]] = {}
+    distance = (doc or {}).get("operon_source") == DISTANCE_MODEL
+    if distance:
+        sentence = _p(operon_source_sentence((doc or {}).get("operon_source_reason")))
+        out["summary"] = [sentence]
+        out["methods"] = [sentence]
     if view.has("pairs") or view.has("operon_flags"):
         out["operons"] = [_p(SIGMA70), *_missed(view)]
+        if distance and view.has("pairs"):
+            text = "Discordance tests (both_detected_t, flagged tu_source_distance_model) are"
+            out["operons"].append(_p(f"{text} {DISCORDANCE_DISTANCE}."))
     if view.has("determinants_model"):
         out["determinants"] = [_p(t) for t in (*giap.determinants.CAVEATS, *DETERMINANTS)]
     out["function"] = _function(view, doc)
     ctx = [_p(f"{ISLANDS} See the islands methods note.")] if view.has("islands") else []
+    if _tu_block_morans(view):
+        ctx.append(_p(f"{MORAN_TU_ERROR} (rows flagged tu_block_tu_error)."))
+        if distance:
+            ctx.append(_p(f"{MORAN_DISTANCE} (rows flagged tu_source_distance_model)."))
     out["genome-context"] = ctx + _diagnostics(view)
     return out
 

@@ -55,7 +55,7 @@ from giap.operons.tu_table import OPERON_COLUMNS
 SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
 REQUIRED = {"gene_table", "genes", "replicons", "tus", "pairs_raw", "features"}
 OPTIONAL = {"promoter_windows", "terminators", "tx_rates", "peptides", "peptide_hits",
-            "peptide_runs", "detection_summary"}  # fmt: skip
+            "peptide_runs", "detection_summary", "operon_meta"}  # fmt: skip
 OUTPUTS = {"pairs": "pairs.tsv", "operons": "operons.tsv", "operon_flags": "operon_flags.tsv"}
 LAYER_NAME = {"promoter_windows": "promoters", "terminators": "terminators", "tx_rates": "tx_rates"}
 EVENT = "operons.missed_operons"

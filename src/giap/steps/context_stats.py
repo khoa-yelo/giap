@@ -58,7 +58,9 @@ from giap.io.work_tables import (
     default_paths,
     load_m4_inputs,
 )
+from giap.operons.flags import add_tu_source_flag
 from giap.rng import for_step
+from giap.steps.common import operon_source
 from giap.steps.gene_table import contract_paths
 from giap.steps.registry import InputPath, StepContext, step
 
@@ -191,9 +193,13 @@ def _m5_context(
     oriter = oriter_rows(
         genes, m4.tus, m4.replicons, features, cfg, for_step("context_stats.oriter", seed)
     )
-    write_autocorrelation(
-        outputs["autocorrelation"], autocorrelation_table([rows, oriter], m4.replicons)
+    # ADR-0061 decisions 1 and 4: the TU-block Moran's I rows' flags (operon source from C5's step)
+    autocorr = add_tu_source_flag(
+        autocorrelation_table([rows, oriter], m4.replicons),
+        "autocorrelation",
+        operon_source(inputs.get("operon_meta")),
     )
+    write_autocorrelation(outputs["autocorrelation"], autocorr)
 
     island_rng = for_step("context_stats.islands", seed)  # scan_replicons, then islands_frame
     span = float(cfg.context.islands.detrend_span_frac)
@@ -297,6 +303,9 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     features = work_dir / "features.parquet"  # C15 (M5-04), optional
     if features.exists():
         inputs["features"] = features
+    meta = work_dir / "operon_meta"  # operon_pairs' source record (local layout; M11-14d)
+    if meta.exists():
+        inputs["operon_meta"] = meta
     if replicon_depth is not None:
         inputs["replicon_depth"] = replicon_depth
     tables = work_dir / "tables"
@@ -320,6 +329,7 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
         *sorted(OPTIONAL_KEYS),
         "detectability_summary",
         "features",
+        "operon_meta",
         "replicon_depth",
         "stratum0_classes",
         "tier_summary",
