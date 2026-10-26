@@ -23,6 +23,7 @@ from typing import Any
 import giap
 from giap.config import GiapConfig
 from giap.runner.nextflow import _step_name
+from giap.schemas import OUTPUT_SCHEMA_VERSION
 from giap.steps.registry import StepSpec
 
 #: JSON pointers (``*`` = every child) that differ between equivalent runs (D-C "Volatile").
@@ -372,6 +373,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
     m: dict[str, Any] = {k: getattr(src, k) for k in _COPIED}
     m |= {
         "schema_version": cfg.schema_version,
+        "output_schema_version": OUTPUT_SCHEMA_VERSION,
         "command_line": list(src.command_line),
         "status": "completed" if src.exit_code == 0 else "failed",
         "config": cfg.model_dump(mode="json"),
