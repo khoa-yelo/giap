@@ -64,8 +64,8 @@ decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
   - merge 1890902, evaluate 1890903;
   - verdict pass (`validation/pilot/metrics/a3_feasibility.json`, c9d01876);
   - `PROVENANCE.md` f6689615;
-  - the sample at `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` (863 rows = n_top,
-    sha256 38873d14…cc36, not committed).
+  - the sample at `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` (first 1,000 rows in file order, re-recorded 2026-10-25,
+    sha256 2a5e03d6…946e, not committed).
 - **M7-16b (#335):**
   - full fast suite 1892218 green;
   - observer full tier 1891877: R 300, 224 origin rows, 0 off-origin, 165 replicates (matches
