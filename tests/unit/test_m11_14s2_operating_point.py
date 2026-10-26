@@ -10,7 +10,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -94,34 +93,18 @@ def test_point_nothing_called_gives_nan_precision() -> None:
     assert res["recall"] == 0.0 and res["f1"] == 0.0 and res["n_called"] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ZeroDivisionError,
-    reason="_point divides by p = y.sum() (recall) and tp + fp + p (f1) without a p = 0 guard",
-)
 def test_point_no_positives_is_nan_recall() -> None:
     res = _point(np.array([0.1, 0.2]), np.array([0, 0]), 0.5)
     assert math.isnan(res["recall"])
     assert math.isnan(res["f1"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ZeroDivisionError,
-    reason="_point: p = 0 with pairs called still divides tp / p for recall",
-)
 def test_point_no_positives_with_calls_is_nan_recall() -> None:
     res = _point(np.array([0.9, 0.8]), np.array([0, 0]), 0.5)
     assert res["precision"] == 0.0
     assert math.isnan(res["recall"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ValueError,
-    reason="operating_point: d[pd_ >= t].max() on an empty selection raises when no pair is "
-    "called by the distance model",
-)
 def test_operating_point_no_distance_calls() -> None:
     L = _L(40)
     L["d"] = 5000  # p_dist ~ 0 everywhere: nothing called
