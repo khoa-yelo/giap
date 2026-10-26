@@ -122,43 +122,60 @@ def parse_transterm_tt(path: Path, replicons: Mapping[str, Replicon]) -> list[Te
     return out
 
 
-_BTF_COLS = {
-    "contig": ("contig", "chrom", "seq_id", "seqid", "chromosome"),
-    "start": ("start",),
-    "end": ("end", "stop"),
-    "strand": ("strand",),
-    "confidence": ("probability", "prob", "confidence", "score"),
-}
+_BTF_NAME = "SampleName"
+_BTF_PROB = "probability_mean"
+
+
+def _btf_interval(name: str, where: str) -> Interval:
+    """``<u_id>_<seq_id>_<start>_<end>_<strand>``: ``u_id`` split off at the first ``_``, the
+    rest split at its last three (``seq_id`` may contain ``_``). ``start``/``end`` are the
+    slice bounds ``seq[i:i + 101]`` of genome_scan.py: 0-based half-open, no shift."""
+    u_id, sep, rest = name.partition("_")
+    parts = rest.rsplit("_", 3)
+    if not sep or len(parts) != 4 or not parts[0]:
+        raise ValueError(f"{where}: malformed SampleName {name!r}")
+    seq_id, start, end, strand = parts
+    try:
+        int(u_id)
+        a, b = int(start), int(end)
+    except ValueError:
+        raise ValueError(f"{where}: malformed SampleName {name!r}") from None
+    st = _strand(strand, where)
+    try:
+        return Interval(seq_id, a, b, st)
+    except ValueError as e:
+        raise ValueError(f"{where}: {e}") from None
 
 
 def parse_bactermfinder(path: Path, replicons: Mapping[str, Replicon]) -> list[Terminator]:
-    """BacTermFinder calls (provisional until a run is recorded: a CSV/TSV with a header naming
-    contig, 1-based closed start/end, strand and probability columns)."""
+    """BacTermFinder ``genome_scan.py`` table ``<prefix><genome>_mean.csv`` at the pinned commit
+    (ADR-0008): columns ``SampleName`` and ``probability_mean`` (other probability columns are
+    ignored). One ``Terminator`` per data row, in file order, unfiltered; ``confidence`` is
+    ``probability_mean``."""
     text = path.read_text().splitlines()
     if not text:
         return []
-    delim = "\t" if "\t" in text[0] else ","
-    rows = list(csv.reader(text, delimiter=delim))
-    header = [h.strip().lower() for h in rows[0]]
-    idx: dict[str, int] = {}
-    for key, names in _BTF_COLS.items():
-        hit = [header.index(c) for c in names if c in header]
-        if not hit:
-            raise ValueError(f"{path.name}: no {key} column in header {rows[0]}")
-        idx[key] = hit[0]
+    rows = list(csv.reader(text))
+    header = [h.strip() for h in rows[0]]
+    for col in (_BTF_NAME, _BTF_PROB):
+        if col not in header:
+            raise ValueError(f"{path.name}: no {col} column in header {rows[0]}")
+    i_name, i_prob = header.index(_BTF_NAME), header.index(_BTF_PROB)
     out = []
     for n, r in enumerate(rows[1:], start=2):
         if not any(c.strip() for c in r):
             continue
         where = f"{path.name}:{n}"
-        iv = Interval(
-            r[idx["contig"]],
-            int(r[idx["start"]]) - 1,
-            int(r[idx["end"]]),
-            _strand(r[idx["strand"]].strip(), where),
-        )
-        conf = float(r[idx["confidence"]])
-        out.append(Terminator(_validated(iv, replicons, where), conf, "BacTermFinder"))
+        if len(r) <= max(i_name, i_prob):
+            raise ValueError(f"{where}: expected {len(header)} columns, got {len(r)}")
+        iv = _btf_interval(r[i_name].strip(), where)
+        try:
+            conf = float(r[i_prob])
+            iv = _validated(iv, replicons, where)
+        except ValueError as e:
+            msg = str(e)
+            raise ValueError(msg if msg.startswith(where) else f"{where}: {msg}") from None
+        out.append(Terminator(iv, conf, "BacTermFinder"))
     return out
 
 
