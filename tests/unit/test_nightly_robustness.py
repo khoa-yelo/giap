@@ -14,7 +14,8 @@ Run for real in the M2-21 sandbox (``tests/helpers/slurm_sandbox.py``), with thi
    the task's row (exit 143) is written well before Slurm's KillWait.
 3. Stale git lock: an ``index.lock`` left in the task worktree's git dir is removed before the
    checkout; a worktree whose checkout still fails is removed (``git worktree remove --force``),
-   pruned and re-added; ``checkout -f`` is skipped when HEAD already is the target commit.
+   pruned and re-added; ``checkout -f`` is skipped when HEAD already is the target commit and the
+   tree is clean (stray edits to tracked files are reset).
 4. ``tests/conftest.py``'s capability probe timeout comes from ``GIAP_PROBE_TIMEOUT`` (default
    30 s), and nightly.sbatch exports ``GIAP_PROBE_TIMEOUT`` (default ≥ 180 s, an outer value wins).
 """
@@ -188,6 +189,34 @@ def test_slow_node_hops_are_counted(sb: Sandbox) -> None:
     assert set((option(subs[0], "exclude", "x") or "").split(",")) >= {"rye-01", HOST}, subs[0]
 
 
+def test_two_hops_both_extend_the_summary(sb: Sandbox) -> None:
+    """scontrol replaces the dependency list: a second hop keeps the first one (#403 B1)."""
+    sb.set_squeue("giap-nightly-summary", [f"9100 nightly:{JOB}"])
+    for task, jid in ((0, 7001), (2, 7002)):
+        sb.set_next_job_id(jid)
+        res = _nightly(sb, task, NIGHTLY_SLOW_NODE_SECS="1", FAKE_IMPORT_SLEEP="3")
+        assert len(_self_resubmissions(sb)) == (1 if task == 0 else 2), _diag(res, sb)
+    last = [ln for ln in sb.calls_log() if ln.startswith("scontrol ")][-1]
+    deps = re.search(r"Dependency=afterany:(\S+)", last)
+    assert deps and set(deps[1].split(":")) >= {JOB, "7001", "7002"}, last
+
+
+def test_pinned_benchmark_hop_keeps_the_wheat_constraint(sb: Sandbox) -> None:
+    """A pinned benchmark job that hops must not land on a non-wheat node (#403 B2)."""
+    res = _nightly(sb, 1, NIGHTLY_SLOW_NODE_SECS="1", FAKE_IMPORT_SLEEP="3",
+                   NIGHTLY_BENCH_PINNED="1", FAKE_HOSTNAME="wheat-01")  # fmt: skip
+    subs = _self_resubmissions(sb)
+    assert len(subs) == 1, f"expected one hop: {subs}" + _diag(res, sb)
+    assert option(subs[0], "constraint", "C") == "CPU_SKU:6148", subs[0]
+
+
+def test_failing_pytest_exit_reaches_the_row(sb: Sandbox) -> None:
+    """``{ … | tee; exit ${PIPESTATUS[0]}; } & wait $!`` keeps pytest's exit code (#403 B4)."""
+    res = _nightly(sb, 2, FAKE_PYTEST="fail")
+    rows = _rows(sb, f"{JOB}_2")
+    assert len(rows) == 1 and rows[0][3] == "1", _diag(res, sb)
+
+
 @pytest.mark.parametrize(
     ("hops", "extra"),
     [("2", {}), ("1", {"NIGHTLY_SLOW_MAX_HOPS": "1"}), ("0", {"NIGHTLY_SLOW_NODE_GUARD": "0"})],
@@ -317,6 +346,10 @@ def test_stale_index_lock_is_removed_before_checkout(sb: Sandbox) -> None:
     diag = _diag(res, sb)
     assert not lock.exists(), "the stale index.lock is still there" + diag
     assert _head(w) == target, "the worktree is not at the new origin/main" + diag
+    git_log = (sb.state / "git.log").read_text()
+    assert "worktree remove" not in git_log, (
+        "the lock was not removed: the re-add fallback ran" + diag
+    )
     rows = _rows(sb, f"{JOB}_2")
     assert len(rows) == 1 and rows[0][3] == "0", diag
 
@@ -332,6 +365,17 @@ def test_checkout_is_skipped_when_head_is_already_the_target(sb: Sandbox) -> Non
     )
     rows = _rows(sb, f"{JOB}_2")
     assert len(rows) == 1 and rows[0][3] == "0", diag
+
+
+def test_stray_edits_are_reset_when_head_is_already_the_target(sb: Sandbox) -> None:
+    """The row names a commit: a tracked file edited in the worktree must not survive (#403 B3)."""
+    w = _first_run(sb)
+    tracked = w / "scripts" / "slurm" / "nightly.sbatch"
+    clean = tracked.read_text()
+    tracked.write_text(clean + "# stray edit\n")
+    res = _nightly(sb, 2)
+    assert tracked.read_text() == clean, "a stray edit survived the checkout" + _diag(res, sb)
+    assert len(_rows(sb, f"{JOB}_2")) == 1, _diag(res, sb)
 
 
 def test_broken_worktree_is_removed_pruned_and_re_added(sb: Sandbox) -> None:

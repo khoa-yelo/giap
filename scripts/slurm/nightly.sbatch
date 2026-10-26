@@ -99,6 +99,7 @@ case ",$PROFILE," in
     report 2 "$trap_label NIGHTLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
 esac
 find "$CI/runs" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null
+find "$CI" -maxdepth 1 -name 'summary-deps-*' -mtime +7 -delete 2>/dev/null
 rm -rf "$RUN"; mkdir -p "$RUN"
 stage="checkout of $REF"
 (
@@ -108,7 +109,9 @@ stage="checkout of $REF"
   if [ -d "$W" ]; then
     # a killed task can leave index.lock behind; under this flock no other git runs in $W
     gd=$(git -C "$W" rev-parse --absolute-git-dir 2>/dev/null) && rm -f "$gd/index.lock"
-    if [ "$(git -C "$W" rev-parse -q --verify HEAD 2>/dev/null)" != "$target" ] &&
+    # skip checkout -f only for a clean tree at the target: the row must name the tested tree
+    if { [ "$(git -C "$W" rev-parse -q --verify HEAD 2>/dev/null)" != "$target" ] ||
+         ! git -C "$W" diff --quiet HEAD --; } &&
        ! git -C "$W" checkout -q -f --detach "$target"; then
       echo "checkout in $W failed: removing and re-adding the worktree" >&2
       git -C "$GIAP_REPO" worktree remove --force "$W" || rm -rf "$W"
@@ -173,7 +176,13 @@ extend_summary() {  # extend_summary <job>: decision 19, the night's summary als
   local sid
   sid=$(squeue -u "${USER:-$(id -un)}" -h -t PENDING -n giap-nightly-summary -o '%i %k' 2>/dev/null \
     | awk -v c="nightly:$JOB" '$2 == c {print $1; exit}')
-  [ -n "$sid" ] && scontrol update JobId="$sid" Dependency="afterany:$JOB:$1"
+  [ -n "$sid" ] || return 1
+  # scontrol replaces the whole dependency list: keep every hop of the night in one file (flock)
+  (
+    flock 8
+    echo "$1" >> "$CI/summary-deps-$JOB"
+    scontrol update JobId="$sid" Dependency="afterany:$JOB:$(paste -sd: "$CI/summary-deps-$JOB")"
+  ) 8>"$CI/summary-deps-$JOB.lock"
 }
 
 task_benchmarks() {
@@ -247,7 +256,9 @@ slow_node_guard() {  # resubmits this task off a node where Python start-up stal
            $(grep -oP '^#SBATCH\s+(--exclude[= ]|-x\s*)\K\S+' scripts/slurm/nightly.sbatch | tr ',' ' ') \
            "$host" | awk 'NF && !seen[$0]++' | paste -sd,)
   # NIGHTLY_EXCLUDE rides in the environment (--export=ALL): sbatch splits --export at commas
-  if ! j=$(NIGHTLY_EXCLUDE="$excl" sbatch --parsable --array="$TASK" --exclude="$excl" \
+  local pin=()   # a pinned benchmark task keeps its wheat constraint across the hop
+  [ -n "${NIGHTLY_BENCH_PINNED:-}" ] && pin=(--constraint=CPU_SKU:6148)
+  if ! j=$(NIGHTLY_EXCLUDE="$excl" sbatch --parsable --array="$TASK" --exclude="$excl" "${pin[@]}" \
     --export="ALL,MODE=$MODE,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT,NIGHTLY_SLOW_HOPS=$((hops + 1)),NIGHTLY_REF=$commit,NIGHTLY_WORKTREE=$W" \
     scripts/slurm/nightly.sbatch); then
     slow_note=" [slow node $host: import giap ${took} ms; the resubmission failed]"; return 0
