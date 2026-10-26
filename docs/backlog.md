@@ -1136,7 +1136,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 
 ### 2026-10-25 afternoon (lead)
 - **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
-- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer.
+- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer. Spec: [docs/specs/V03-order-within-kind.md](specs/V03-order-within-kind.md) (`stats`).
 - **Quickstart demo peptide table:** ship a small peptide table (< 100 KB) under `docs/tutorials/data/` so the quickstart can run `giap run` with `--peptides`. Prefer giapsim-generated peptides (no sourcing question) over in-silico tryptic K-12 peptides.
 - **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
 - **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
@@ -1294,6 +1294,13 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
 - **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
 - **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
+- **V03 order review nits (#360, one round; statistician BLOCK fixed in the PR, code review APPROVE):**
+  - `V03_locus.tsv`'s `kind` column cannot tell the two operon-flag families apart; append an `estimate` column later.
+  - The spec's Edge cases table lacks the row on re-rendering at a higher `alpha.context` (the lead decisions call for it).
+  - Q4: show the V03 and V13 locus plots in the report in index-rank order.
+  - `FAMILY_ORDER.index` raises `ValueError` for an `operon_flag` Locus built without a family (only `_flag_loci` builds them today).
+  - `_order` looks up the family position per locus and `_index` recomputes the tier per row (negligible).
+  - The user guide could say "BH q-value within each region type".
 - **#359 review (demo peptides; B1 and S1, S3, S4 fixed in the PR):**
   - Bug (src, own PR): `run_manifest.json` `detection_tier` copies preflight's provisional tier (`src/giap/manifest.py:374`), so it says `decoy_picked` while genes.tsv and detection_summary.tsv say `mayu` (demo run 1894327: unscored decoys, rule 4(c)). The `decoy_unscored` warning is also missing from the manifest warnings.
   - S2: no CI test runs `scripts/docs/make_demo_peptides.py --check`; a later giapsim change could silently break the committed table. Test-author.
