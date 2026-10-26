@@ -3,10 +3,14 @@
 Spec docs/specs/M11-14-container-install.md. Everything runs on temporary trees; nothing touches a
 registry or the network.
 
-Interface fixed by these tests (the key must work from an installed wheel, where ``scripts/`` is
-not shipped, so it lives in ``src/``; ``scripts/release/image_key.py`` is a thin CLI over it):
+Interface fixed by these tests. The key must work from an installed wheel, where ``scripts/`` is
+not shipped, so ``key()`` lives in ``src/giap/io/image_key.py`` (spec amendment from #370);
+``scripts/release/image_key.py`` and readiness H4 are thin callers of it.
 
-``giap.containers``
+``giap.io.image_key``
+    ``root`` is the directory holding ``workflow/``; it is optional everywhere and defaults to
+    ``giap.runner.nextflow.workflow_main().parent.parent`` looked up at call time (the checkout,
+    or the installed package whose bundled ``workflow/`` M11-01 ships).
     ``key_inputs(tool, root) -> list[str]``
         repo-relative POSIX paths (relative to ``root``, the directory holding ``workflow/``) of
         every file under ``workflow/containers/<tool>/`` (recursive), ``workflow/envs/<tool>.yml``,
@@ -14,11 +18,11 @@ not shipped, so it lives in ``src/``; ``scripts/release/image_key.py`` is a thin
         ``fgsea`` also ``workflow/bin/giap_fgsea.R``; sorted by code point (``sorted`` on ``str``).
     ``key_text(tool, root) -> str``
         one ``<path>\\t<mode>\\t<sha256 hex of the bytes>\\n`` line per input, in that order;
-        ``<mode>`` is ``100755`` when the working-tree file has the owner exec bit, else
-        ``100644`` (what Docker ``COPY`` preserves).
-    ``image_key(tool, root) -> str``
+        ``<mode>`` is ``100755`` when any exec bit of the file is set, else ``100644`` (git's two
+        modes, without git; Docker ``COPY`` preserves the bit).
+    ``key(tool, root) -> str``
         the first 12 hex of sha256 over ``key_text`` encoded as UTF-8.
-    ``image_tag(version, key) -> str``
+    ``tag(version, key) -> str``
         ``<version>-<key>``; ``git:<40 hex>`` is written ``git-<first 8 hex>``, every character
         outside ``[A-Za-z0-9_.-]`` becomes ``_``; a result that does not fully match
         ``[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}`` raises ``ValueError``.
@@ -26,6 +30,8 @@ not shipped, so it lives in ``src/``; ``scripts/release/image_key.py`` is a thin
         the build-context sources of each ``COPY`` in ``workflow/containers/<tool>/Dockerfile``
         (flags such as ``--chown`` skipped, ``COPY --from=…`` ignored, shell and JSON forms) that
         are not key inputs, in file order.
+    ``image_cache(environ, db_dir) -> Path``
+        the image-cache helper (tests in ``test_m11_14_image_cache.py``).
 
 ``scripts/release/image_key.py [--root DIR] [--images PATH] (TOOL ... | --plan | --check)``
     ``--root`` defaults to the repository, ``--images`` to ``<root>/workflow/conf/images.json``
@@ -62,8 +68,8 @@ TAG_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
 PROMOTECH_SHA = "56251ad9b883ef831b4753fc623d5ec970fe65e0"
 
 
-def _containers():  # type: ignore[no-untyped-def]
-    import giap.containers as c
+def _ik():  # type: ignore[no-untyped-def]
+    import giap.io.image_key as c
 
     return c
 
@@ -102,7 +108,7 @@ def _expected_text(root: Path, rels: list[str]) -> str:
     out = []
     for rel in sorted(rels):
         p = root / rel
-        mode = "100755" if p.stat().st_mode & 0o100 else "100644"
+        mode = "100755" if p.stat().st_mode & 0o111 else "100644"
         out.append(f"{rel}\t{mode}\t{hashlib.sha256(p.read_bytes()).hexdigest()}\n")
     return "".join(out)
 
@@ -131,12 +137,12 @@ def _cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 def test_example1_ostir_inputs_are_the_four_files(tmp_path: Path) -> None:
     root = _ostir_tree(tmp_path)
-    assert _containers().key_inputs("ostir", root) == sorted(OSTIR_FILES)
+    assert _ik().key_inputs("ostir", root) == sorted(OSTIR_FILES)
 
 
 def test_example1_key_text_is_four_sorted_path_mode_sha_lines(tmp_path: Path) -> None:
     root = _ostir_tree(tmp_path)
-    text = _containers().key_text("ostir", root)
+    text = _ik().key_text("ostir", root)
     assert text == _expected_text(root, list(OSTIR_FILES))
     lines = text.splitlines()
     assert len(lines) == 4
@@ -146,16 +152,16 @@ def test_example1_key_text_is_four_sorted_path_mode_sha_lines(tmp_path: Path) ->
 
 def test_example1_key_is_12_hex_of_sha256_over_the_lines(tmp_path: Path) -> None:
     root = _ostir_tree(tmp_path)
-    key = _containers().image_key("ostir", root)
+    key = _ik().key("ostir", root)
     assert re.fullmatch(r"[0-9a-f]{12}", key)
     assert key == _expected_key(root, list(OSTIR_FILES))
 
 
 def test_example1_tag_is_version_dash_key(tmp_path: Path) -> None:
-    c = _containers()
+    c = _ik()
     root = _ostir_tree(tmp_path)
-    key = c.image_key("ostir", root)
-    assert c.image_tag("1.1.3", key) == f"1.1.3-{key}"
+    key = c.key("ostir", root)
+    assert c.tag("1.1.3", key) == f"1.1.3-{key}"
 
 
 def test_example1_cli_prints_tool_key_and_tag(tmp_path: Path) -> None:
@@ -170,13 +176,13 @@ def test_missing_locks_are_simply_not_inputs(tmp_path: Path) -> None:
     root = _ostir_tree(tmp_path)
     (root / "workflow/envs/locks/ostir.pip.txt").unlink()
     rels = [r for r in OSTIR_FILES if not r.endswith(".pip.txt")]
-    assert _containers().key_inputs("ostir", root) == sorted(rels)
-    assert _containers().image_key("ostir", root) == _expected_key(root, rels)
+    assert _ik().key_inputs("ostir", root) == sorted(rels)
+    assert _ik().key("ostir", root) == _expected_key(root, rels)
 
 
 def test_nested_container_files_are_inputs(tmp_path: Path) -> None:
     root = _ostir_tree(tmp_path, {"workflow/containers/ostir/sub/helper.sh": "echo hi\n"})
-    assert "workflow/containers/ostir/sub/helper.sh" in _containers().key_inputs("ostir", root)
+    assert "workflow/containers/ostir/sub/helper.sh" in _ik().key_inputs("ostir", root)
 
 
 def test_paths_sort_by_code_point_not_locale(tmp_path: Path) -> None:
@@ -187,12 +193,12 @@ def test_paths_sort_by_code_point_not_locale(tmp_path: Path) -> None:
         "workflow/containers/ostir/é.txt": "e\n",
     }
     root = _ostir_tree(tmp_path, extra)
-    got = _containers().key_inputs("ostir", root)
+    got = _ik().key_inputs("ostir", root)
     assert got == sorted([*OSTIR_FILES, *extra])
     # 'D' < 'Z' < '_' < 'a' < 'é' by code point
     names = [p.rsplit("/", 1)[1] for p in got if p.startswith("workflow/containers/ostir/")]
     assert names == ["Dockerfile", "Z.txt", "_u.txt", "a.txt", "é.txt"]
-    assert _containers().image_key("ostir", root) == _expected_key(root, [*OSTIR_FILES, *extra])
+    assert _ik().key("ostir", root) == _expected_key(root, [*OSTIR_FILES, *extra])
 
 
 def test_fgsea_includes_the_baked_in_script(tmp_path: Path) -> None:
@@ -204,11 +210,11 @@ def test_fgsea_includes_the_baked_in_script(tmp_path: Path) -> None:
             "workflow/envs/locks/fgsea.explicit.txt": "@EXPLICIT\n",
         },
     )
-    c = _containers()
+    c = _ik()
     assert "workflow/bin/giap_fgsea.R" in c.key_inputs("fgsea", root)
-    before = c.image_key("fgsea", root)
+    before = c.key("fgsea", root)
     _write(root, "workflow/bin/giap_fgsea.R", "#!/usr/bin/env Rscript\n# changed\n")
-    assert c.image_key("fgsea", root) != before
+    assert c.key("fgsea", root) != before
     assert "workflow/bin/giap_fgsea.R" not in c.key_inputs("ostir", root)
 
 
@@ -216,41 +222,48 @@ def test_fgsea_includes_the_baked_in_script(tmp_path: Path) -> None:
 
 
 def test_example2_one_byte_in_env_file_changes_only_that_key(tmp_path: Path) -> None:
-    c = _containers()
+    c = _ik()
     root = _ostir_tree(tmp_path)
-    ostir, promotech = c.image_key("ostir", root), c.image_key("promotech", root)
+    ostir, promotech = c.key("ostir", root), c.key("promotech", root)
     env = root / "workflow/envs/ostir.yml"
     data = bytearray(env.read_bytes())
     data[0] ^= 0x01
     env.write_bytes(bytes(data))
-    assert c.image_key("ostir", root) != ostir
-    assert c.image_key("promotech", root) == promotech
+    assert c.key("ostir", root) != ostir
+    assert c.key("promotech", root) == promotech
 
 
 def test_example2b_exec_bit_alone_changes_the_key(tmp_path: Path) -> None:
-    c = _containers()
+    c = _ik()
     root = _ostir_tree(tmp_path)
-    before = c.image_key("ostir", root)
+    before = c.key("ostir", root)
     (root / "workflow/containers/ostir/Dockerfile").chmod(0o755)
     text = c.key_text("ostir", root)
     assert "workflow/containers/ostir/Dockerfile\t100755\t" in text
-    assert c.image_key("ostir", root) != before
+    assert c.key("ostir", root) != before
     (root / "workflow/containers/ostir/Dockerfile").chmod(0o644)
-    assert c.image_key("ostir", root) == before
+    assert c.key("ostir", root) == before
+
+
+@pytest.mark.parametrize("mode", [0o654, 0o645, 0o744])
+def test_any_exec_bit_is_mode_100755(tmp_path: Path, mode: int) -> None:
+    root = _ostir_tree(tmp_path)
+    (root / "workflow/containers/ostir/Dockerfile").chmod(mode)
+    assert "workflow/containers/ostir/Dockerfile\t100755\t" in _ik().key_text("ostir", root)
 
 
 def test_key_ignores_mtime_and_listing_order(tmp_path: Path) -> None:
-    c = _containers()
+    c = _ik()
     a = _ostir_tree(tmp_path / "a")
     b = tmp_path / "b"
     for rel, text in reversed(list({**DISTRACTORS, **OSTIR_FILES}.items())):
         _write(b, rel, text)
-    assert c.image_key("ostir", a) == c.image_key("ostir", b)
-    before = c.image_key("ostir", a)
+    assert c.key("ostir", a) == c.key("ostir", b)
+    before = c.key("ostir", a)
     for rel in OSTIR_FILES:
         os.utime(a / rel, (1_000_000, 1_000_000))
-    assert c.image_key("ostir", a) == before
-    assert c.image_key("ostir", a) == c.image_key("ostir", a)
+    assert c.key("ostir", a) == before
+    assert c.key("ostir", a) == c.key("ostir", a)
 
 
 @settings(max_examples=25, deadline=None)
@@ -273,10 +286,10 @@ def test_property_key_matches_the_definition(
         rels.append(rel)
     _write(root, "workflow/envs/ostir.yml", "name: giap-ostir\n")
     rels.append("workflow/envs/ostir.yml")
-    c = _containers()
+    c = _ik()
     assert c.key_inputs("ostir", root) == sorted(rels)
     assert c.key_text("ostir", root) == _expected_text(root, rels)
-    assert c.image_key("ostir", root) == _expected_key(root, rels)
+    assert c.key("ostir", root) == _expected_key(root, rels)
 
 
 # --- example 4 and tag rules ----------------------------------------------------------------
@@ -284,7 +297,7 @@ def test_property_key_matches_the_definition(
 
 def test_example4_git_version_is_shortened() -> None:
     key = "0b7e19c4aa21"
-    assert _containers().image_tag(f"git:{PROMOTECH_SHA}", key) == f"git-56251ad9-{key}"
+    assert _ik().tag(f"git:{PROMOTECH_SHA}", key) == f"git-56251ad9-{key}"
 
 
 def test_example4_promotech_cli_tag_uses_the_registry_version() -> None:
@@ -294,7 +307,7 @@ def test_example4_promotech_cli_tag_uses_the_registry_version() -> None:
     _, key, tag = line.split("\t")
     assert re.fullmatch(r"[0-9a-f]{12}", key)
     assert tag == f"git-56251ad9-{key}"
-    assert key == _containers().image_key("promotech", REPO)
+    assert key == _ik().key("promotech", REPO)
 
 
 @pytest.mark.parametrize(
@@ -306,13 +319,13 @@ def test_example4_promotech_cli_tag_uses_the_registry_version() -> None:
     ],
 )
 def test_tag_replaces_characters_outside_the_tag_alphabet(version: str, tag: str) -> None:
-    assert _containers().image_tag(version, "0123456789ab") == tag
+    assert _ik().tag(version, "0123456789ab") == tag
 
 
 @pytest.mark.parametrize("version", [".1", "-1", "x" * 120])
 def test_tag_that_cannot_match_the_grammar_is_rejected(version: str) -> None:
     with pytest.raises(ValueError):
-        _containers().image_tag(version, "0123456789ab")
+        _ik().tag(version, "0123456789ab")
 
 
 @settings(max_examples=200, deadline=None)
@@ -323,10 +336,10 @@ def test_property_tag_is_sanitized_version_and_key_or_an_error(version: str) -> 
     base = f"git-{m.group(1)[:8]}" if m else re.sub(r"[^A-Za-z0-9_.-]", "_", version)
     want = f"{base}-{key}"
     if TAG_RE.fullmatch(want):
-        assert _containers().image_tag(version, key) == want
+        assert _ik().tag(version, key) == want
     else:
         with pytest.raises(ValueError):
-            _containers().image_tag(version, key)
+            _ik().tag(version, key)
 
 
 # --- static COPY check ----------------------------------------------------------------------
@@ -342,7 +355,7 @@ def test_repo_has_dockerfiles_to_check() -> None:
 
 @pytest.mark.parametrize("tool", _ghcr_dockerfiles())
 def test_every_repo_dockerfile_copy_source_is_a_key_input(tool: str) -> None:
-    assert _containers().uncovered_copy_sources(tool, REPO) == []
+    assert _ik().uncovered_copy_sources(tool, REPO) == []
 
 
 def test_copy_of_a_file_outside_the_inputs_is_reported(tmp_path: Path) -> None:
@@ -357,7 +370,7 @@ def test_copy_of_a_file_outside_the_inputs_is_reported(tmp_path: Path) -> None:
         tmp_path,
         {"workflow/containers/ostir/Dockerfile": docker, "workflow/bin/helper.py": "x\n"},
     )
-    got = _containers().uncovered_copy_sources("ostir", root)
+    got = _ik().uncovered_copy_sources("ostir", root)
     assert got == ["workflow/bin/helper.py", "workflow/envs/promotech.yml"]
 
 
@@ -383,15 +396,15 @@ def _ghcr_tools(root: Path) -> list[str]:
 def _pin_all(root: Path) -> dict[str, str]:
     from giap.annotate.tools import TOOLS
 
-    c = _containers()
+    c = _ik()
     images: dict[str, dict[str, object]] = {}
     keys = {}
     for i, tool in enumerate(_ghcr_tools(root)):
-        key = c.image_key(tool, root)
+        key = c.key(tool, root)
         keys[tool] = key
         images[tool] = {
             "key": key,
-            "tag": c.image_tag(TOOLS[tool].version, key),
+            "tag": c.tag(TOOLS[tool].version, key),
             "ref": f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{format(i + 1, 'x') * 64}",
             "processes": [tool.upper()],
             "built_from": "0123456789abcdef0123456789abcdef01234567",
@@ -418,8 +431,8 @@ def test_example3_comment_in_upstream_tool_env_changes_no_ghcr_key(tmp_path: Pat
     keys = _pin_all(root)
     bakta = root / "workflow/envs/bakta.yml"
     bakta.write_text(bakta.read_text() + "# a comment\n")
-    c = _containers()
-    assert {t: c.image_key(t, root) for t in keys} == keys
+    c = _ik()
+    assert {t: c.key(t, root) for t in keys} == keys
     proc = _cli("--root", str(root), "--plan")
     assert proc.returncode == 0, proc.stderr
     assert _rebuild_lines(proc.stdout) == ["will rebuild: none"]
@@ -431,7 +444,7 @@ def test_example2_plan_names_only_the_changed_tool(tmp_path: Path) -> None:
     keys = _pin_all(root)
     env = root / "workflow/envs/ostir.yml"
     env.write_bytes(env.read_bytes() + b" ")
-    new = _containers().image_key("ostir", root)
+    new = _ik().key("ostir", root)
     assert new != keys["ostir"]
     proc = _cli("--root", str(root), "--plan")
     assert proc.returncode == 0, proc.stderr
@@ -449,7 +462,7 @@ def test_plan_lists_a_ghcr_tool_with_no_entry(tmp_path: Path) -> None:
     lines = _rebuild_lines(proc.stdout)
     assert len(lines) == 1
     assert lines[0].startswith("will rebuild: terminatornet (")
-    assert _containers().image_key("terminatornet", root) in lines[0]
+    assert _ik().key("terminatornet", root) in lines[0]
 
 
 def test_plan_never_lists_uniop(tmp_path: Path) -> None:
@@ -480,3 +493,38 @@ def test_example2_check_reports_the_stale_tool_only(tmp_path: Path) -> None:
 def test_check_on_the_repository_passes() -> None:
     proc = _cli("--check")
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+# --- the installed package computes the same keys ------------------------------------------
+
+
+def _installed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Pretend to be a wheel: the bundled workflow under site/giap/workflow (modes kept)."""
+    pkg = tmp_path / "site" / "giap"
+    for rel in ("workflow/containers", "workflow/envs"):
+        shutil.copytree(REPO / rel, pkg / rel)
+    (pkg / "workflow/bin").mkdir(parents=True)
+    shutil.copy2(REPO / "workflow/bin/giap_fgsea.R", pkg / "workflow/bin/giap_fgsea.R")
+    (pkg / "workflow/main.nf").write_text("// bundled\n")
+    monkeypatch.setattr("giap.runner.nextflow.workflow_main", lambda: pkg / "workflow" / "main.nf")
+    return pkg
+
+
+def test_default_root_is_the_checkout() -> None:
+    ik = _ik()
+    for tool in [*_ghcr_dockerfiles(), "fgsea"]:
+        assert ik.key(tool) == ik.key(tool, REPO), tool
+
+
+def test_installed_package_key_equals_the_repo_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    ik = _ik()
+    want = {t: ik.key(t, REPO) for t in [*_ghcr_dockerfiles(), "fgsea"]}
+    pkg = _installed(monkeypatch, tmp_path)
+    assert {t: ik.key(t) for t in want} == want
+    # the default really reads the bundled copy: a change there changes the key
+    env = pkg / "workflow/envs/ostir.yml"
+    env.write_text(env.read_text() + "# bundled edit\n")
+    assert ik.key("ostir") != want["ostir"]
+    assert ik.key("ostir", REPO) == want["ostir"]

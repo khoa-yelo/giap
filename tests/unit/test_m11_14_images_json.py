@@ -11,8 +11,8 @@ Interface fixed by these tests (readings chosen where the spec leaves room):
   ``licence``. The file ends with a newline.
 * ``update_digests.py`` gains ``--images PATH`` (default: ``images.json`` next to ``--config``)
   and ``--root DIR`` (the tree the keys are computed from; default the repository). For every
-  pinned tool it writes the entry: ``key = giap.containers.image_key(tool, root)``,
-  ``tag = image_tag(TOOLS[tool].version, key)``, ``ref`` from ``digests.json``,
+  pinned tool it writes the entry: ``key = giap.io.image_key.key(tool, root)``,
+  ``tag = tag(TOOLS[tool].version, key)``, ``ref`` from ``digests.json``,
   ``processes`` = the processes whose ``withName`` line in the new ``containers.config`` carries
   that ref (sorted), ``built_from = --source-commit``, ``licence = TOOLS[tool].licence``.
   Entries of other tools are kept. A second run with the same input changes nothing.
@@ -108,12 +108,12 @@ def _images(root: Path) -> dict[str, dict[str, object]]:
 
 def _entry(root: Path, tool: str, ref: str, processes: list[str]) -> dict[str, object]:
     from giap.annotate.tools import TOOLS
-    from giap.containers import image_key, image_tag
+    from giap.io.image_key import key, tag
 
-    key = image_key(tool, root)
+    k = key(tool, root)
     return {
-        "key": key,
-        "tag": image_tag(TOOLS[tool].version, key),
+        "key": k,
+        "tag": tag(TOOLS[tool].version, k),
         "ref": ref,
         "processes": processes,
         "built_from": COMMIT,

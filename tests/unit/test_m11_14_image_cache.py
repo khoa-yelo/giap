@@ -1,6 +1,6 @@
 """The image-cache helper (M11-14 item 3, Q-L11; shared by preflight 14f1, fgsea 14c, setup 14f2).
 
-``giap.containers.image_cache(environ, db_dir) -> Path`` is ``NXF_APPTAINER_CACHEDIR``, else
+``giap.io.image_key.image_cache(environ, db_dir) -> Path`` is ``NXF_APPTAINER_CACHEDIR``, else
 ``$GIAP_ROOT/containers``, else ``<db_dir>/containers``. Reading chosen here: an empty value
 counts as unset (as ``os.environ.get(...) or ...`` does in preflight today); the function is pure:
 it reads only ``environ`` (never ``os.environ``) and creates nothing.
@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 
 
 def _image_cache():  # type: ignore[no-untyped-def]
-    from giap.containers import image_cache
+    from giap.io.image_key import image_cache
 
     return image_cache
 
