@@ -68,7 +68,9 @@ py="${UV_PROJECT_ENVIRONMENT:-}/bin/python"; [ -x "$py" ] || py=python3
 "$py" "$wt/scripts/ci/calibration_lanes.py" check --plan "$plan" ||
   die 2 "the plan $plan of $sha is invalid; nothing submitted"
 names=(); sizes=(); total=0; max_s=0
-while IFS=$'\t' read -r suite shards groups _ cpl mpl time _; do
+# `|| [ -n "$suite" ]` keeps a last row without a final newline (check accepts it; #399 S1)
+suite=""
+while IFS=$'\t' read -r suite shards groups _ cpl mpl time _ || [ -n "$suite" ]; do
   lanes=$((10#$shards + 10#$groups))
   IFS=: read -r hh mm ss <<< "$time"
   secs=$((10#$hh * 3600 + 10#$mm * 60 + 10#$ss))
@@ -113,7 +115,9 @@ mkdir -p "$log"
 export GIAP_CALIBRATION_LOG_DIR="$log"
 ids=()
 cancel() {
-  [ "${#ids[@]}" -eq 0 ] || scancel "${ids[@]}"
+  if [ "${#ids[@]}" -gt 0 ] && ! scancel "${ids[@]}"; then  # orphans would hold R14 (#399 S2)
+    die 1 "$1; scancel FAILED for the job(s) already submitted (${ids[*]}): cancel them by hand"
+  fi
   die 1 "$1; cancelled the ${#ids[@]} job(s) already submitted (${ids[*]:-none})"
 }
 for k in "${!names[@]}"; do

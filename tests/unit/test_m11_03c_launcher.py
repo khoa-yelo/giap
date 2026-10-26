@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from helpers.slurm_sandbox import REPO, Sandbox, option
+from helpers.slurm_sandbox import REPO, Sandbox, option, write_exe
 from unit.test_m11_03b_launcher import (  # noqa: F401  (fixture sb)
     _export,
     _job_name,
@@ -174,6 +174,28 @@ def test_jobs_are_sized_from_the_worktree_plan(sb: Sandbox) -> None:
     last = _suite_jobs(sb)[-1]["argv"]
     assert option(last, "cpus-per-task", "c") == "4" and option(last, "time", "t") == "03:00:00"
     assert re.search(r"\bcpus=100\b", res.stdout), res.stdout
+
+
+def test_a_plan_without_a_final_newline_keeps_its_last_suite(sb: Sandbox) -> None:
+    """#399 review S1: ``check`` accepts it, so the bash read must not drop the last row."""
+    path = sb.repo / "scripts" / "slurm" / "calibration_plan.tsv"
+    path.write_text(path.read_text().rstrip("\n"))
+    for args in (("commit", "-q", "-am", "plan"), ("push", "-q", "origin", "main")):
+        subprocess.run(["git", *args], cwd=sb.repo, env=sb.env, check=True, capture_output=True)
+    _queue(sb, [])
+    res = _launch(sb)
+    assert res.returncode == 0, _out(res)
+    assert len(_suite_jobs(sb)) == 15 and re.search(r"\bcpus=98\b", res.stdout), res.stdout
+
+
+def test_a_failed_scancel_is_reported(sb: Sandbox) -> None:
+    """#399 review S2: orphaned suite jobs would hold R14 resources unnoticed."""
+    fail = '#!/bin/bash\necho "scancel $*" >> "$FAKE_SLURM_DIR/calls.log"\nexit 1\n'
+    write_exe(sb.bin / "scancel", fail)
+    _queue(sb, [])
+    res = _launch(sb, FAKE_SBATCH_FAIL="15")
+    assert res.returncode == 1, _out(res)
+    assert "scancel FAILED" in _out(res) and "4242" in _out(res), _out(res)
 
 
 @pytest.mark.parametrize("args", [("origin/main", "--fast"), ("--shard",)])
