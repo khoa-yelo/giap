@@ -156,9 +156,9 @@ PILOT_TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
 
 
 def required_tools(cfg: GiapConfig, abundance: bool = False) -> list[ToolSpec]:
-    """External tools a run with ``cfg`` needs (registry order); precomputed layers skip theirs.
-    fgsea only when ``function`` runs GSEA, i.e. ``--abundance`` is given (M8-17 lead
-    decision 8)."""
+    """External tools a run with ``cfg`` needs (registry order); precomputed layers skip theirs,
+    and ``annotation.uniop.enabled: false`` skips UniOP. fgsea only when ``function`` runs GSEA,
+    i.e. ``--abundance`` is given (M8-17 lead decision 8)."""
     ann = cfg.annotation
     pre = ann.precomputed
     term = ann.terminators
@@ -166,7 +166,8 @@ def required_tools(cfg: GiapConfig, abundance: bool = False) -> list[ToolSpec]:
     no_terms = pre.terminators is None
     need = {
         "bakta": pre.bakta_json is None,
-        "uniop": pre.operon_pairs is None,
+        # ``auto`` needs it too: preflight decides from whether it is installed (M11-14d)
+        "uniop": pre.operon_pairs is None and ann.uniop.enabled is not False,
         "promotech": pre.promoters is None,
         "promoter_calculator": ann.promoter_calculator.enabled and pre.tx_rates is None,
         "terminatornet": no_terms and term.tool == "terminatornet",

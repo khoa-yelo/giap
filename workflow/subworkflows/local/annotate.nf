@@ -111,9 +111,13 @@ workflow ANNOTATE {
         def U = UNIOP_INPUT.out.outputs
         ev += [UNIOP_INPUT.out.events]
         def cds = pick(U, 'uniop_cds.gff')
-        UNIOP(gid.combine(cds))
-        pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv')),
-                 kv('uniop_pred', UNIOP.out.pred)]
+        pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv'))]
+        // params.run_uniop = the resolved annotation.uniop.enabled (giap run, M11-14d): when
+        // false UNIOP is skipped and operon_pairs builds the distance-model pairs
+        if (params.run_uniop != false) {
+            UNIOP(gid.combine(cds))
+            pairs += [kv('uniop_pred', UNIOP.out.pred)]
+        }
     }
     def op = stepIn('operon_pairs', [genes, reps, kv('genome', genome)] + pairs)
     OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
@@ -251,5 +255,6 @@ workflow ANNOTATE {
     regions    = c7.combine(c8)     // [regions, region_genes] from region_layer
     layer_pairs = all_layers     // [key, path] of every layer (M7-08 NOVEL)
     layers_for_pairs = forPairs.inject(channel.empty()) { acc, c -> acc.mix(c) }  // [key, path] (M6-08)
+    operon_meta = pick(O, 'operon_meta.json')  // the operon source of operons / context_stats (M11-14d)
     events     = ev.inject(channel.empty()) { acc, c -> acc.mix(c) }  // step event logs (M9-13)
 }
