@@ -2,14 +2,14 @@
 #SBATCH --job-name=giap-weekly
 #SBATCH --partition=normal
 #SBATCH --qos=normal
-#SBATCH --array=0-1
+#SBATCH --array=0-2
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=60G
 #SBATCH --time=12:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
 # Weekly end-to-end runs on origin/main (GIAP_SPEC.md §12; M2-21), one array task per genome:
 #   0 = k12_mg1655 (U00096.3), 1 = nissle1917 (CP171242-CP171245), from $GIAP_ROOT/data/genomes
-#   (every replicon marked [topology=circular]: all are closed).
+#   (every replicon marked [topology=circular]: all are closed); 2 = k12_distance_model (14s2).
 # Per genome: (a) the farmshare_weekly capability gate (pytest --require-capabilities, the Bakta
 # full-DB contract tests; a missing DB fails); (b) real `giap run` with live full-DB Bakta and every
 # annotation tool, including the antiSMASH live run (its trace row must be COMPLETED); (c) `giap
@@ -20,6 +20,12 @@
 # then validation/proxies/te_proxies.py te8 -> $GIAP_ROOT/ci/validation/<date>_te8_<job>.json;
 # (f) Nissle only: TE2 (§11.6, M7-14): validation/proxies/te_proxies.py te2 on the committed Nissle
 # genome and recorded full-DB JSON -> $GIAP_ROOT/ci/validation/<date>_te2_<job>.json.
+# (g) task 2 only (M11-14 14s2, AC 10): K-12 `giap run` with the recorded full-DB JSON and
+# `annotation.uniop.enabled=false` (the distance-model operon fallback), row label
+# k12_distance_model (never k12_mg1655, so readiness keeps reading TE8 from task 0). The row has
+# the run's exit, operon_source from its run_manifest.json and the TU pair precision / recall vs
+# RegulonDB (scripts/tu_agreement.py) next to the UniOP K-12 arm's (task 0's recorded_json of this
+# job, else the newest earlier one; "not available" if none). Reported, not gated: task 2 exits 0.
 # Measured runtimes: scripts/measure_runtimes.py on each trace.
 # Evidence stand-in (M2 annotation track only; MAPPING is M3): `giap run` requires --proteins or
 # --peptides, so the evidence is a deterministic 60 % subset of the recorded Bakta proteins
@@ -43,14 +49,16 @@ PROFILE="${WEEKLY_PROFILE:-farmshare_local,apptainer}"
 TASK="${SLURM_ARRAY_TASK_ID:-0}"
 JOB="${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}"
 N="${SLURM_CPUS_PER_TASK:-16}"
-SAMPLES=(k12_mg1655 nissle1917)
+SAMPLES=(k12_mg1655 nissle1917 k12_mg1655)
+LABELS=(k12_mg1655 nissle1917 k12_distance_model)
 S="${SAMPLES[$TASK]:-none}"
+L="${LABELS[$TASK]:-none}"
 CI="$GIAP_ROOT/ci"
 W="$GIAP_ROOT/ci/weekly-$(echo "${REF#origin/}" | tr '/' '-')-t$TASK"
 RUN="$CI/runs/weekly_${JOB}_$TASK"
 REC="$GIAP_ROOT/recordings/bakta_full/$S"
 commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
-rc=0; summary="$S:"; stage="setup"; reported=""; numba_tmp=""
+rc=0; summary="$L:"; stage="setup"; reported=""; numba_tmp=""
 mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
 
 report() {  # report <exit> <summary>: this task's one weekly.tsv line
@@ -71,7 +79,7 @@ case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE
 case ",$PROFILE," in
   *,farmshare,*)   # decision 22: Slurm-executor child jobs would break the R14 CPU budget
     echo "WEEKLY_PROFILE=$PROFILE: the farmshare (Slurm executor) profile is refused (R14); use farmshare_local" >&2
-    report 2 "$S: WEEKLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
+    report 2 "$L: WEEKLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
 esac
 rm -rf "$RUN"; mkdir -p "$RUN/tmp"
 stage="checkout of $REF"
@@ -87,19 +95,40 @@ export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
 commit=$(git -C "$W" rev-parse --short HEAD)
 stage="the run"
-echo "weekly genome=$S mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
+echo "weekly genome=$S arm=$L mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
 step() { [ "$1" -gt "$rc" ] && rc=$1; summary="$summary $2;"; echo "STEP exit=$1 $2"; }
+
+# inputs: genome (circular replicons) and the 60 % protein stand-in
+zcat "$GIAP_ROOT"/data/genomes/"$S"/*.fna.gz | sed -E 's/^>(\S+)/>\1 [topology=circular]/' > "$RUN/genome.fa"
+awk '/^>/ {n++} (n - 1) % 5 < 3' "$REC/bakta/$S.faa" > "$RUN/proteins.faa"
+common=(--genome "$RUN/genome.fa" --proteins "$RUN/proteins.faa" --threads "$N" --memory 56.GB --profile "$PROFILE")
+
+# (g) task 2: the distance-model fallback arm, reported, not gated
+if [ "$TASK" = 2 ]; then
+  stage="the distance-model fallback run"
+  out="$RUN/distance_model"
+  giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json" \
+    --set annotation.uniop.enabled=false
+  r=$?
+  src=$(python -c 'import json, sys
+try: print(json.load(open(sys.argv[1])).get("operon_source") or "missing")
+except (OSError, ValueError, AttributeError): print("missing")' "$out/run_manifest.json")
+  uni="$CI/runs/weekly_${JOB}_0/recorded_json"
+  if [ ! -f "$uni/tables/operons.tsv" ]; then
+    last=$(ls -td "$CI"/runs/weekly_*_0/recorded_json/tables/operons.tsv 2>/dev/null | head -1)
+    [ -z "$last" ] || uni="${last%/tables/operons.tsv}"
+  fi
+  agree=$(python scripts/tu_agreement.py --regulondb-dir "$GIAP_DATA_DIR/regulondb/14.5.0" --arm "fallback=$out" \
+    --arm "uniop ($(basename "$(dirname "$uni")"))=$uni" 2>&1 | tail -1 | tr '\t' ' ')
+  report "$r" "$summary giap run distance_model exit $r; operon_source=$src; ${agree:-TU pairs vs regulondb: not available; uniop: not available};"
+  exit 0
+fi
 
 # (a) capability gate
 caps=$(python -c 'import yaml; print(",".join(yaml.safe_load(open("ci/gates.yaml"))["required_capabilities"]["farmshare_weekly"]))')
 python -m pytest -p no:cacheprovider -q tests/contract/test_recording_bakta_full.py tests/contract/test_te6_oric.py \
   --require-capabilities "$caps" 2>&1 | tee "$RUN/gate.txt"
 step "${PIPESTATUS[0]}" "gate $(grep -E '[0-9]+ (passed|failed|error)' "$RUN/gate.txt" | tail -1 | tr -d '=' | xargs)"
-
-# inputs: genome (circular replicons) and the 60 % protein stand-in
-zcat "$GIAP_ROOT"/data/genomes/"$S"/*.fna.gz | sed -E 's/^>(\S+)/>\1 [topology=circular]/' > "$RUN/genome.fa"
-awk '/^>/ {n++} (n - 1) % 5 < 3' "$REC/bakta/$S.faa" > "$RUN/proteins.faa"
-common=(--genome "$RUN/genome.fa" --proteins "$RUN/proteins.faa" --threads "$N" --memory 56.GB --profile "$PROFILE")
 
 # (b) live full-DB Bakta + annotation track (antiSMASH live); (c) recorded full-DB JSON
 for variant in live recorded_json; do
