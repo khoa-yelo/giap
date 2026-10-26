@@ -720,3 +720,127 @@ def test_check_reports_a_db_pin_change(
     res = setup_cli(["--db-dir", str(db), *args, "--check"])
     assert res.exit_code == 2, res.output
     assert f"{item}: installed {old}, this release pins {new}" in res.output
+
+
+# ---------------------------------------------------------------- review round (PR #384)
+
+
+def test_toolrunner_docker_antismash_uses_the_downloader_as_entrypoint(tmp_path: Path) -> None:
+    """The antiSMASH image's ENTRYPOINT is a wrapper: docker runs the downloader in its place."""
+    db, out = tmp_path / "db", tmp_path / "db" / "antismash.partial"
+    out.mkdir(parents=True)
+    ref = read_containers_config(CONTAINERS_CONFIG)["ANTISMASH"]
+    cmd = _runner(db).command(
+        "antismash", ["download-antismash-databases", "--database-dir", str(out)]
+    )
+    assert cmd[:2] == ["docker", "run"], cmd
+    assert cmd[-5:] == [
+        "--entrypoint",
+        "download-antismash-databases",
+        ref,
+        "--database-dir",
+        str(out),
+    ]
+    head = cmd[:-5]
+    assert "-u" in head and head[head.index("-u") + 1] == f"{os.getuid()}:{os.getgid()}"
+    assert f"{out}:{out}" in [head[i + 1] for i, a in enumerate(head) if a in ("-v", "--volume")]
+
+
+def test_docker_pulls_a_shared_ref_once(tmp_path: Path) -> None:
+    """Two tools pinned to one image (as the BLAST and TBLASTN processes are): one pull, and an
+    ``ok`` item for each tool under its own name."""
+    blast = read_containers_config(CONTAINERS_CONFIG)["BLAST"]
+    conf = tmp_path / "conf"
+    conf.mkdir()
+    (conf / "containers.config").write_text(
+        "process {\n"
+        f"  withName: 'BLAST' {{ container = '{blast}' }}\n"
+        f"  withName: 'TBLASTN' {{ container = '{blast}' }}\n"
+        f"  withName: 'MINIPROT' {{ container = '{blast}' }}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    db = tmp_path / "db"
+    code = _images().install_images(["blast", "miniprot"], "docker", tmp_path / "c", db, conf)
+    assert code == 0
+    pulled = [p[-1] for p in calls(tmp_path, "docker pull")]
+    assert pulled == [blast]
+    items = manifest_items(db)
+    for tool in ("blast", "miniprot"):
+        assert items[f"image:{tool}"]["status"] == "ok", items
+        assert items[f"image:{tool}"]["checksum"] == blast.split("@", 1)[1]
+
+
+@pytest.mark.parametrize("profile", ["docker", "apptainer"])
+def test_rerun_keeps_an_unchanged_ok_record(
+    tmp_path: Path, tree: dict[str, str], profile: str
+) -> None:
+    db = tmp_path / "db"
+    args = ["--db-dir", str(db), *SKIP_DBS, "--images", "--profile", profile]
+    assert setup_cli(args).exit_code == 0
+    path = db / "db_manifest.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for item in data["items"]:
+        if item["name"].startswith("image:"):
+            item["retrieved"] = "2020-01-01"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = manifest_items(db)
+    res = setup_cli(args)
+    assert res.exit_code == 0, res.output
+    after = manifest_items(db)
+    for name, item in before.items():
+        if name.startswith("image:"):
+            assert after[name] == item, name  # the installed date is not rewritten
+            assert after[name]["retrieved"] == "2020-01-01"
+
+
+def test_images_respects_the_setup_lock(tmp_path: Path, tree: dict[str, str]) -> None:
+    import fcntl
+
+    from giap.setupdb.run import LOCK
+
+    db = tmp_path / "db"
+    db.mkdir()
+    with (db / LOCK).open("a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            res = setup_cli(["--db-dir", str(db), *SKIP_DBS, "--images", "--profile", "docker"])
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+    assert res.exit_code == 2, res.output
+    assert "another giap setup is running" in res.output
+    assert not calls(tmp_path)
+    assert not (db / "db_manifest.json").exists()
+
+
+def test_apptainer_pull_that_writes_no_image_is_absent(
+    tmp_path: Path, tree: dict[str, str]
+) -> None:
+    fake = tmp_path / "fakebin" / "apptainer"
+    fake.write_text('#!/bin/sh\nprintf \'%s\\n\' "apptainer $*" >> "$FAKE_RUNTIME_LOG"\nexit 0\n')
+    db = tmp_path / "db"
+    res = setup_cli(["--db-dir", str(db), *SKIP_DBS, "--images", "--profile", "apptainer"])
+    assert res.exit_code == 2, res.output
+    assert calls(tmp_path, "apptainer pull")
+    items = manifest_items(db)
+    for tool in default_set(tree):
+        item = items[f"image:{tool}"]
+        assert item["status"] == "absent", item
+        assert "wrote no" in item["message"] and simple_name(tree[tool]) in item["message"]
+
+
+def test_check_bakta_other_minor_is_not_a_pin_change(tmp_path: Path) -> None:
+    from giap.setupdb.items import SOURCES
+
+    major = SOURCES["bakta_light"].version.split(".")[0]
+    other = f"{major}.{int(SOURCES['bakta_light'].version.split('.')[1]) + 1}"
+    db = tmp_path / "db"
+    (db / "bakta" / "db-light").mkdir(parents=True)
+    # the wrong type keeps the copy from verifying, so only the minor differs from a pin change
+    (db / "bakta" / "db-light" / "version.json").write_text(
+        json.dumps({"major": int(major), "minor": int(other.split(".")[1]), "type": "full"})
+    )
+    res = setup_cli(["--db-dir", str(db), "--no-genomad", "--no-promotech-models", "--check"])
+    assert res.exit_code == 2, res.output
+    assert "this release pins" not in res.output
+    assert f"found v{other} full" in res.output
