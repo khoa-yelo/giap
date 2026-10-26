@@ -370,12 +370,13 @@ says `array <j0>` (lead decision Q5: fine).
     `--junitxml=<GIAP_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml` **on the command line** (it wins
     over the merge's inherited `PYTEST_ADDOPTS` `--junitxml`, so the L processes never share a
     file). It waits for all of them, folds their exits with `fold_shard_exits`, then merges again.
-  - Every run writes `<log>/<suite>.confirm_parts.json`: the list of JUnit names it launched (empty
-    when nothing was pending). The job lists exactly these in `parts`. A missing file after a
+  - Every run with `CONFIRM_LANES` set (`L ≥ 1`) writes `<log>/<suite>.confirm_parts.json`: the
+    list of JUnit names it launched (empty when nothing was pending). The job lists exactly these in `parts`. A missing file after a
     merge that exited 0 or 1 is a check problem (exit 2).
   - A non-integer value, `L < 1`, or `CONFIRM_LANES` set without `CONFIRM_JUNIT` returns
-    **`MERGE_ERROR`**; it never falls back silently to one lane. Unset, or `L = 1`: unchanged (one
-    process, today's JUnit).
+    **`MERGE_ERROR`**; it never falls back silently to one lane. `L = 1`: one process (slice `0/1`,
+    all of block 2) with its own lane-0 JUnit, listed in `confirm_parts.json`. Unset: unchanged
+    (one process, today's JUnit, no `confirm_parts.json`).
   - Block-2 lanes never write `<suite>.shards.jsonl`, and they write no `deferred` outcome
     (conftest sets `shard = None` under CONFIRM).
 - **Unchanged:** `check`, the criteria, R, α, the bounds, `_verdict`, `merge_shards`/`_collect`,
@@ -398,7 +399,7 @@ closed, already true for shard lanes). Per-lane record files would remove the ri
 | # | Input | Expected |
 |---|---|---|
 | 1 | The initial plan; `replicates_full` keys unchanged | `read_plan` returns 15 rows in key order; total lanes 46, CPUs 98; `max(time)` = 6 h |
-| 2 | determinants row (`0 5 * 2 …`), collection = the 19 nodeids, durations: `[full-autocorr_pos-lightgbm]` 8364 s, `[full-detect-lightgbm]` 7782 s, the rest from the TSV | 5 group lanes; each nodeid in exactly one lane; the two largest go to lanes 0 and 1; each lane's `deselect` is the other 4 lanes' tests; no shard lane, no merge; record `sharded: false`, parts `task-10.group0..4.junit.xml` |
+| 2 | determinants row (`0 5 * 2 …`), collection = the 19 nodeids, durations: `[full-autocorr_pos-lightgbm]` 8366 s, `[full-detect-lightgbm]` 7784 s (probe job 1895353), the rest from the TSV | 5 group lanes; each nodeid in exactly one lane; the two largest go to lanes 0 and 1; each lane's `deselect` is the other 4 lanes' tests; no shard lane, no merge; record `sharded: false`, parts `task-10.group0..4.junit.xml` |
 | 3 | placement row (`2 8 direct`), lane report marking the 28 shard-0-only tests | shard lanes 0/2 and 1/2 deselect exactly those 28 and keep the same 30 tests; the 28 are spread over 8 group lanes by LPT; `attack5_reversed_stretches…full` runs in both shard lanes (replicates 0–149, 150–299); the merge deselects the 28; record `sharded: true` |
 | 4 | novel_orfs row with `group_select` `-` | `PlanError` at collection: 6 shard-0-only tests present (`test_planted_tir_calibration_300k_full[…]` ×2, …); exit 2, no lane starts |
 | 5 | `fold_exit([0, 0, 1], 0)` / `([0, 143, 1], 0)` / `([0, 0], 2)` / `([0, 0], None)` | 1 / 143 / 2 / 0 |
