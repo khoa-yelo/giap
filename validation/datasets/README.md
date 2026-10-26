@@ -51,8 +51,13 @@ PXD053195 and other *B. subtilis* timsTOF sets (MaxQuant `combined.zip` only). N
   - No `--annotation`: Bakta runs live (full database from `giap setup`), as for a new user.
   - `annotation.bakta.complete=true`: NCBI headers carry no topology tag; each genome is one
     complete circular chromosome.
-  - `--threads 3 --memory 12.GB`: the R14 share of this work unit is 32 CPUs, and Nextflow's
-    `queueSize = 8` gives at most 8 x 3 + 2 (head) = 26 CPUs. Runs go one at a time.
+  - R14 share of this work unit: 32 CPUs. `mhyo` ran with `--threads 3 --memory 12.GB` and the
+    default `queueSize = 8` (at most 8 x 3 + head). After the coordinator's R14 alert (GIAP at
+    20 jobs), the later runs cap Nextflow's queue with a launch-directory `OUT/nextflow.config`
+    holding `executor { queueSize = 4 }`. `giap run` starts Nextflow with `cwd = OUT`, and
+    `nextflow config` confirms that the override wins. They use `--threads 6 --memory 24.GB`, at
+    most 4 x 6 + head = 28 CPUs and 5 jobs. Bakta full peaked at 11.8 GB on the 0.84 Mb genome,
+    at the 12 GB clamp. Runs go one at a time.
   - Defaults otherwise (seed 20261014, `genome_relation = related`, all modules).
 
 ## Reports
