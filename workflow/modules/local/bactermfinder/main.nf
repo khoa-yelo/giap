@@ -15,7 +15,16 @@ process BACTERMFINDER {
     script:
     """
     BACTERMFINDER_HOME=\${BACTERMFINDER_HOME:-\$CONDA_PREFIX/share/bactermfinder}
-    python \$BACTERMFINDER_HOME/genome_scan.py genome.fa bactermfinder
+    # genome_scan.py <fasta> <step> <prefix> <batch> (README example) reads its models and
+    # iLearnPlus from, and writes scratch files to, its working directory: run it from a
+    # task-local directory of links, never inside the shared (read-only) source directory.
+    rm -rf btf_work && mkdir btf_work bactermfinder
+    ln -s \$BACTERMFINDER_HOME/genome_scan.py \$BACTERMFINDER_HOME/iLearnPlus \$BACTERMFINDER_HOME/*.h5 btf_work/
+    ln -s ../genome.fa btf_work/genome.fa
+    cd btf_work
+    python genome_scan.py genome.fa 3 out 10000 > log.out
+    cd ..
+    cp btf_work/outgenome.fa_mean.csv bactermfinder/
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
