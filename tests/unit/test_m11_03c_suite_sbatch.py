@@ -40,6 +40,13 @@ The sandbox:
   ``STUB_PENDING``, starts ``L`` block-2 pytests with
   ``--junitxml=<CONFIRM_JUNIT>.lane<k>.junit.xml`` on their command line; their names are the
   JSON list.
+- Review round (#389): ``STUB_DIE_ONCE=<word>`` makes the first stub-interpreter call whose
+  argv holds ``<word>`` SIGKILL itself (the job's record helper dying, S1);
+  ``STUB_SPAWN_DELAY_<role>`` delays a wrapper's pytest child (the interrupt rescan). The fold of
+  a hand-built job state (S2) calls the job's Python helper (the ``<<'PY'`` here-document of the
+  script) directly, using its state files (``meta.json``, ``plan.json``, ``lanes.json``,
+  ``launched``, ``exit.<pos>``, ``merge.launched``, ``exit.merge``): implementation-specific by
+  design (reviewer's suggestion).
 - ``taskset`` is a fake that accepts ``-c|--cpu-list LIST cmd…``, exports ``STUB_TASKSET=LIST`` and
   ``exec``s the command.
 
@@ -129,6 +136,10 @@ argv = sys.argv[1:]
 i = 0
 while i < len(argv) and argv[i].startswith("-") and argv[i] not in ("-m", "-c", "-"):
     i += 1
+_die = os.environ.get("STUB_DIE_ONCE")
+if _die and _die in argv and not os.path.exists(os.environ["STUB_LOG"] + ".died"):
+    open(os.environ["STUB_LOG"] + ".died", "w").close()
+    os.kill(os.getpid(), signal.SIGKILL)  # the first matching call dies (review S1)
 mode = None
 if i + 1 < len(argv) and argv[i] == "-m" and argv[i + 1] == "pytest":
     mode, rest = "pytest", argv[i + 2:]
@@ -140,7 +151,8 @@ if mode is None:
 ENV_KEYS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS",
             "SLURM_CPUS_PER_TASK", "STUB_TASKSET", "GIAP_CALIBRATION_LOG_DIR",
             "GIAP_CALIBRATION_CONFIRM_LANES", "GIAP_CALIBRATION_CONFIRM_JUNIT",
-            "GIAP_CALIBRATION_CONFIRM", "GIAP_CALIBRATION_REPLICATES", "PYTEST_ADDOPTS")
+            "GIAP_CALIBRATION_CONFIRM", "GIAP_CALIBRATION_REPLICATES", "PYTEST_ADDOPTS",
+            "GIAP_CALIBRATION_CONFIRM_SLICE")
 addopts = shlex.split(os.environ.get("PYTEST_ADDOPTS", ""))
 opts = addopts + rest
 
@@ -284,6 +296,7 @@ def criteria_main():
         return merge_main()
     log(event="start", proc="criteria")
     try:
+        nap(float(os.environ.get(f"STUB_SPAWN_DELAY_{ROLE}", "0")))
         rc = subprocess.run(child([]), check=False).returncode
     except KeyboardInterrupt:
         log(event="int", proc="criteria")
@@ -848,6 +861,12 @@ def test_example_3_placement_shards_groups_and_merge(box: Box, lanes_mod: Module
     assert merge["env"]["GIAP_CALIBRATION_CONFIRM_LANES"] == "2"
     assert merge["env"]["GIAP_CALIBRATION_CONFIRM_JUNIT"] == f"{log}/task-0.merge"
     assert merge["env"]["GIAP_CALIBRATION_LOG_DIR"] == str(log)
+    # step 4: the merge runs on the shard lanes' cores with the lanes' thread limits
+    shard_cpus = set().union(*(_cpulist(w["env"]["STUB_TASKSET"] or "") for w in wrappers
+                               if w["role"].startswith("shard")))  # fmt: skip
+    assert len(shard_cpus) == 4
+    assert _cpulist(merge["env"]["STUB_TASKSET"] or "") == shard_cpus, merge["env"]
+    assert {k: merge["env"][k] for k in THREAD_VARS} == dict.fromkeys(THREAD_VARS, "2")
     assert sorted(e["role"] for e in run.of(proc="pytest") if e["role"].startswith("lane")) == [
         "lane0",
         "lane1",
@@ -1151,6 +1170,199 @@ def test_sigterm_during_lanes_records_143_once(box: Box) -> None:
     run, _sent = _signal_run(box, "determinants", report, extra, _inner_started(roles),
                              sig=signal.SIGTERM)  # fmt: skip
     assert run.rc != 0
+    assert record(run.log, 10)["exit"] == 143
+
+
+# ------------------------------------------------------------------ review round (#389)
+
+
+def test_stale_confirm_parts_is_removed_before_the_merge(box: Box) -> None:
+    box.log.mkdir(parents=True)
+    (box.log / "variants.confirm_parts.json").write_text('["task-13.bogus.junit.xml"]\n')
+    run = box.run("variants", var_report(), "0-19", {"STUB_NO_CONFIRM_PARTS": "1"})
+    assert run.rc == 2, run.stderr
+    rec = record(run.log, 13)
+    assert rec["exit"] == 2 and rec["checks"], rec
+    assert "task-13.bogus.junit.xml" not in rec["parts"]
+
+
+def test_leaked_confirm_and_replicate_variables_are_unset(box: Box) -> None:
+    leak = {"GIAP_CALIBRATION_CONFIRM": '[["x", "c", 0.05, 10]]',
+            "GIAP_CALIBRATION_CONFIRM_LANES": "5", "GIAP_CALIBRATION_CONFIRM_JUNIT": "/nowhere",
+            "GIAP_CALIBRATION_CONFIRM_SLICE": "0/2",
+            "GIAP_CALIBRATION_REPLICATES": "0:1"}  # fmt: skip
+    run = box.run("variants", var_report(), "0-19", leak)
+    assert run.rc == 0, run.stderr
+    for e in run.lane_wrappers() + [e for e in run.of(proc="pytest") if e["role"] != "collect"
+                                    and not e["role"].startswith("lane")]:  # fmt: skip
+        assert not any(e["env"].get(k) for k in leak), (e["role"], e["env"])
+    (merge,) = run.of(proc="criteria", role="merge")
+    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_LANES"] == "2"
+    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_JUNIT"] == f"{run.log}/task-13.merge"
+    for k in ("GIAP_CALIBRATION_CONFIRM", "GIAP_CALIBRATION_CONFIRM_SLICE",
+              "GIAP_CALIBRATION_REPLICATES"):  # fmt: skip
+        assert not merge["env"].get(k), (k, merge["env"])
+
+
+def test_record_is_written_when_the_record_helper_dies(box: Box) -> None:
+    """S1: the traps must still write ``task-<i>.json`` when the first attempt is killed."""
+    run = box.run("variants", var_report(), "0-19", {"STUB_DIE_ONCE": "record"})
+    assert Path(f"{box.stub_log}.died").exists(), "no interpreter call with 'record' in argv"
+    rec = record(run.log, 13)
+    assert rec["exit"] == run.rc, (rec["exit"], run.rc)
+    assert rec["exit"] in (0, 2), rec
+
+
+def _job_helper(box: Box) -> Path:
+    m = re.search(r"<<'PY'\n(.*?)\nPY\n", SBATCH.read_text(), re.S)
+    assert m, "the job's Python helper here-document (<<'PY' ... PY)"
+    path = box.base / "suite_job.py"
+    path.write_text(m.group(1) + "\n")
+    return path
+
+
+def _hand_state(box: Box, lanes_mod: ModuleType, *, lane_exits: Mapping[int, str | None],
+                merge_exit: str | None, merged: bool = True) -> Path:  # fmt: skip
+    """A finished variants job's state: every lane's JUnit present and complete."""
+    import dataclasses
+
+    report = var_report()
+    rows = {r.suite: r for r in lanes_mod.read_plan(
+        box.repo / "scripts" / "slurm" / "calibration_plan.tsv", SUITES)}  # fmt: skip
+    lanes = lanes_mod.lanes(rows["variants"], report, {})
+    st = box.base / "state"
+    st.mkdir()
+    box.log.mkdir(parents=True, exist_ok=True)
+    (st / "meta.json").write_text(
+        json.dumps(
+            {
+                "suite": "variants",
+                "task": 13,
+                "job": JOB,
+                "checkout": str(box.repo),
+                "log": str(box.log),
+            }
+        )
+    )
+    (st / "plan.json").write_text(json.dumps(dataclasses.asdict(rows["variants"])))
+    (st / "lanes.json").write_text(json.dumps([dataclasses.asdict(ln) for ln in lanes]))
+    (st / "launched").write_text("")
+    for pos, ln in enumerate(lanes):
+        cases = "".join(f'<testcase classname="c" name="t{j}" time="0.1"/>'
+                        for j in range(len(ln.expected)))  # fmt: skip
+        (box.log / ln.part).write_text(f"<testsuites><testsuite>{cases}</testsuite></testsuites>")
+        rc = lane_exits.get(pos, "0")
+        if rc is not None:
+            (st / f"exit.{pos}").write_text(f"{rc}\n")
+    if merged:
+        (st / "merge.launched").write_text("")
+        (box.log / "variants.confirm_parts.json").write_text("[]\n")
+        if merge_exit is not None:
+            (st / "exit.merge").write_text(merge_exit)
+    return st
+
+
+@pytest.mark.parametrize(
+    ("lane_exits", "merge_exit", "want"),
+    [
+        ({}, "0\n", 0),
+        ({}, None, 2),  # S2: launched merge, exit lost
+        ({}, "garbage\n", 2),  # S2: unparsable merge exit
+        ({}, "", 2),
+        ({1: None}, "0\n", 2),  # a lane with no exit file
+        ({2: None}, "1\n", 2),
+    ],
+    ids=[
+        "clean",
+        "merge-exit-missing",
+        "merge-exit-garbage",
+        "merge-exit-empty",
+        "lane-exit-missing",
+        "group-exit-missing",
+    ],
+)
+def test_fold_of_a_lost_exit_is_2(box: Box, lanes_mod: ModuleType,
+                                  lane_exits: dict[int, str | None], merge_exit: str | None,
+                                  want: int) -> None:  # fmt: skip
+    helper = _job_helper(box)
+    st = _hand_state(box, lanes_mod, lane_exits=lane_exits, merge_exit=merge_exit)
+    res = subprocess.run([sys.executable, str(helper), "record", str(st), "-"],
+                         capture_output=True, text=True, check=False, timeout=60)  # fmt: skip
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.strip() == str(want), (res.stdout, res.stderr)
+    assert record(box.log, 13)["exit"] == want
+
+
+def _alive(pid: int) -> bool:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return False
+    return stat.rsplit(")", 1)[1].split()[0] != "Z"
+
+
+def test_usr1_keeps_the_grace_then_kills_survivors_in_its_tree(
+    box: Box, decoy: subprocess.Popen[bytes]
+) -> None:
+    report, durations = det_report()
+    box.durations(durations)
+    roles = {f"group{g}" for g in range(5)}
+    grace = 4
+    extra = {"STUB_IGNORE_INT": "1", "GIAP_CALIBRATION_GRACE": str(grace),
+             **{f"STUB_SLEEP_{r}": "120" for r in roles}}  # fmt: skip
+    run, sent = _signal_run(box, "determinants", report, extra, _inner_started(roles),
+                            timeout=60)  # fmt: skip
+    done = time.time()
+    assert done - sent >= grace - 0.5, "USR1 waits the grace for pytests that ignore SIGINT"
+    assert record(run.log, 10)["exit"] == 143
+    lane_pids = [e["pid"] for e in run.of(proc="pytest") if e["role"] in roles]
+    assert len(lane_pids) == 5
+    deadline = time.monotonic() + 3
+    while any(_alive(p) for p in lane_pids) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert not [p for p in lane_pids if _alive(p)], "survivors after the grace get SIGKILL"
+    assert decoy.poll() is None, "only the job's own tree is killed"
+
+
+def test_sigterm_writes_the_record_without_waiting_the_grace(box: Box) -> None:
+    """S3: KillWait is 30 s on FarmShare; a TERM record must not wait a 120 s grace."""
+    report, durations = det_report()
+    box.durations(durations)
+    roles = {f"group{g}" for g in range(5)}
+    extra = {"STUB_IGNORE_INT": "1", "GIAP_CALIBRATION_GRACE": "60",
+             **{f"STUB_SLEEP_{r}": "120" for r in roles}}  # fmt: skip
+    proc, _out, err = box.start(box.env("determinants", report, "0-19", extra))
+    _wait_for(box, _inner_started(roles))
+    proc.send_signal(signal.SIGTERM)
+    sent = time.monotonic()
+    rec_path = box.log / "task-10.json"
+    while not rec_path.exists() and time.monotonic() - sent < 20:
+        time.sleep(0.1)
+    took = time.monotonic() - sent
+    assert rec_path.exists(), (
+        f"no record {took:.0f} s after SIGTERM (grace 60 s): {err.read_text()}"
+    )
+    time.sleep(0.3)  # the rename is atomic; let a second (wrong) write show up
+    assert record(box.log, 10)["exit"] == 143
+
+
+def test_interrupt_rescans_for_pytests_started_after_usr1(box: Box) -> None:
+    report, durations = det_report()
+    box.durations(durations)
+    early = {f"group{g}" for g in range(4)}
+    extra = {"GIAP_CALIBRATION_GRACE": "15", "STUB_SPAWN_DELAY_group4": "2.5",
+             **{f"STUB_SLEEP_group{g}": "120" for g in range(5)}}  # fmt: skip
+
+    def ready(ev: list[dict[str, Any]]) -> bool:
+        wrappers = {e["role"] for e in ev if e.get("event") == "start"
+                    and e.get("proc") == "criteria"}  # fmt: skip
+        return _inner_started(early)(ev) and "group4" in wrappers
+
+    run, sent = _signal_run(box, "determinants", report, extra, ready, timeout=60)
+    (late,) = run.of(proc="pytest", role="group4")
+    assert late["t"] > sent, "the group4 pytest must start after USR1 for this test"
+    ints = {e["role"] for e in run.events if e.get("event") == "int" and e["proc"] == "pytest"}
+    assert ints == early | {"group4"}, ints
     assert record(run.log, 10)["exit"] == 143
 
 
