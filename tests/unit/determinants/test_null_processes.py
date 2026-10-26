@@ -1,8 +1,9 @@
-"""The elastic-net permutation null on worker processes (perf; ADR-0053 follow-up, ADR-0063).
+"""The permutation null on worker processes (perf; ADR-0053 follow-up, ADR-0063).
 
-With ``threads`` > 1 the null refits of both models run on one pool of spawned worker processes,
-one BLAS/OpenMP thread each, collected in b order: the null R² arrays, p and b are bit-identical
-to the serial path (``threads`` = 1) for any worker count.
+With ``threads`` > 1 and B >= ``_PROCESS_MIN_B`` (lowered to 2 here) the null refits of both
+models run on one pool of spawned worker processes, one BLAS/OpenMP thread each, collected in
+b order: the null R² arrays, p and b are bit-identical to the serial path (``threads`` = 1) for
+any worker count; a smaller B keeps the LightGBM thread pool and the serial elastic net.
 """
 
 from __future__ import annotations
@@ -46,6 +47,11 @@ def _key(res: dict[str, Any]) -> dict[str, tuple[bytes, float, int, int, str]]:
     return {m: (r.null_r2.tobytes(), r.p, r.b_count, r.n_perm, r.flags) for m, r in res.items()}
 
 
+@pytest.fixture(autouse=True)
+def _processes_from_b2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(N, "_PROCESS_MIN_B", 2)
+
+
 @pytest.mark.parametrize("threads", [2, 3])
 def test_process_null_is_bit_identical_to_serial(threads: int) -> None:
     assert _key(_run(threads)) == _key(_run(1))
@@ -53,6 +59,13 @@ def test_process_null_is_bit_identical_to_serial(threads: int) -> None:
 
 def test_both_models_bit_identical_across_threads() -> None:
     both = ("lightgbm", "elastic_net")
+    assert _key(_run(3, both, B=7)) == _key(_run(1, both, B=7))
+
+
+def test_small_b_keeps_the_threads_and_is_bit_identical(monkeypatch: pytest.MonkeyPatch) -> None:
+    both = ("lightgbm", "elastic_net")
+    monkeypatch.setattr(N, "_PROCESS_MIN_B", 100)
+    monkeypatch.setattr(N, "_process_columns", None)  # must not be reached
     assert _key(_run(3, both, B=7)) == _key(_run(1, both, B=7))
 
 
@@ -67,6 +80,10 @@ def test_threads_above_one_use_the_process_pool(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(N, "_process_columns", spy)
     _run(2, B=5)
     assert calls == [2]
+    calls.clear()
+    monkeypatch.setattr(N, "_PROCESS_MIN_B", 6)
+    _run(2, B=5)
+    assert calls == []
     calls.clear()
     _run(1, B=5)
     assert calls == []
