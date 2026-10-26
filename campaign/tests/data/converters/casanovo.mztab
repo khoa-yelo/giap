@@ -1,10 +1,18 @@
 MTD	mzTab-version	1.0.0
 MTD	mzTab-mode	Summary
 MTD	mzTab-type	Identification
-MTD	description	Casanovo identification file Ecoli_WT_1
-MTD	software[1]	[MS, MS:1003281, Casanovo, 4.2.1]
+MTD	description	Casanovo identification file campaign_denovo
+MTD	software[1]	[MS, MS:1003281, Casanovo, 5.2.1]
+MTD	software[1]-setting[1]	model = casanovo_massivekb_5.2.1.ckpt
 MTD	psm_search_engine_score[1]	[MS, MS:1001143, search engine specific score for PSMs, ]
-MTD	ms_run[1]-location	file:///data/raw/Ecoli_WT_1.mzML
+MTD	ms_run[1]-location	file:///data/run_A.mzML
+MTD	ms_run[2]-location	file:///data/run_B.mzML.gz
 MTD	fixed_mod[1]	[UNIMOD, UNIMOD:4, Carbamidomethyl, ]
+MTD	variable_mod[1]	[UNIMOD, UNIMOD:35, Oxidation, ]
+MTD	variable_mod[2]	[UNIMOD, UNIMOD:1, Acetyl, ]
 PSH	sequence	PSM_ID	accession	unique	database	database_version	search_engine	search_engine_score[1]	modifications	retention_time	charge	exp_mass_to_charge	calc_mass_to_charge	spectra_ref	pre	post	start	end	opt_ms_run[1]_aa_scores
-PSM	PEPTIDEK	0	null	null	null	null	[MS, MS:1003281, Casanovo, 4.2.1]	0.9312	null	null	2	472.7400	472.7398	ms_run[1]:index=0	null	null	null	null	0.95,0.93,0.92,0.94,0.91,0.95,0.96,0.92
+PSM	PEPTIDEK	1	null	null	null	null	[MS, MS:1003281, Casanovo, 5.2.1]	0.9312	null	null	2	465.7400	465.7398	ms_run[1]:index=0	null	null	null	null	0.95,0.93,0.92,0.94,0.91,0.95,0.96,0.92
+PSM	+42.011PEPTIDEK	2	null	null	null	null	[MS, MS:1003281, Casanovo, 5.2.1]	0.8120	null	null	2	486.7453	486.7451	ms_run[1]:index=4	null	null	null	null	0.81,0.80,0.85,0.83,0.79,0.82,0.84,0.80
+PSM	M[Oxidation]LVNELTEFAK	3	null	null	null	null	[MS, MS:1003281, Casanovo, 5.2.1]	0.7755	null	null	3	437.2265	437.2263	ms_run[2]:index=3	null	null	null	null	0.70,0.77,0.78,0.80,0.79,0.76,0.75,0.77,0.78,0.80,0.81
+PSM	AC[Carbamidomethyl]DEFGHIK	4	null	null	null	null	[MS, MS:1003281, Casanovo, 5.2.1]	null	null	null	2	539.7368	539.7369	ms_run[2]:index=7	null	null	null	null	null
+PSM	VLSEAM+15.995K	5	null	null	null	null	[MS, MS:1003281, Casanovo, 5.2.1]	-0.4100	null	null	2	404.2041	404.2040	ms_run[2]:index=9	null	null	null	null	0.40,0.42,0.39,0.41,0.40,0.43,0.41
