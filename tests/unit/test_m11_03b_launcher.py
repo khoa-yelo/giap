@@ -8,10 +8,12 @@ criterion 6, example 10).
 ``sbatch`` calls had happened when it ran. The sandbox commit also carries
 ``tests/calibration/tolerances.yaml`` (15 ``replicates_full`` keys).
 
-R14 (spec rule 3 as amended in the #349 review, B3): a launch queues 16 jobs, so refuse when
-``jobs + 16 > 20``; ``T = min(15, floor((128 - cpus - 1) / 4))``, refuse when ``T < 4``; refuse when
-the worst-case end ``now + ceil(15 / T) * 4 h + 20 min`` reaches the next nightly start (01:30). The
-clock is ``GIAP_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own.
+R14 (M11-03c PR 4, superseding the M11-03b array and throttle): a launch queues 16 jobs (15
+per-suite jobs and the aggregator), so refuse when ``jobs + 16 > 20``; refuse when
+``cpus + Σ + 1 > 128`` (Σ = 98 from ``calibration_plan.tsv``); refuse when the worst-case end
+``now + max(time) + 20 min`` (6 h 20 m) reaches the next nightly start (01:30). The clock is
+``GIAP_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own. The per-suite
+details are pinned in ``test_m11_03c_launcher.py``.
 """
 
 from __future__ import annotations
@@ -35,7 +37,8 @@ from helpers.slurm_sandbox import (
 )
 
 LAUNCH = REPO / "scripts" / "slurm" / "calibration_full_launch.sh"
-ARRAY, ROWS = "4242", "4243"
+FIRST, ROWS = "4242", "4257"
+SUITE_IDS = [str(4242 + i) for i in range(15)]
 
 R14_SQUEUE = r"""#!/bin/bash
 printf '%s\n' "squeue $*" >> "$FAKE_SLURM_DIR/calls.log"
@@ -78,11 +81,11 @@ def _launch(sb: Sandbox, *args: str, **env: str) -> subprocess.CompletedProcess[
     return sb.run(["bash", str(script), *args], env=env)
 
 
-def _array(sb: Sandbox) -> dict[str, Any]:
-    calls = [c for c in sb.sbatch_calls() if any(a.endswith("calibration_full.sbatch")
+def _suites(sb: Sandbox) -> list[dict[str, Any]]:
+    calls = [c for c in sb.sbatch_calls() if any(a.endswith("calibration_suite.sbatch")
                                                 for a in c["argv"])]  # fmt: skip
-    assert len(calls) == 1, sb.sbatch_calls()
-    return calls[0]
+    assert len(calls) == 15, sb.sbatch_calls()
+    return calls
 
 
 def _rows_job(sb: Sandbox) -> dict[str, Any]:
@@ -111,13 +114,13 @@ def _export(call: dict[str, Any], key: str) -> str | None:
 # ------------------------------------------------------------------ the happy path
 
 
-def test_empty_queue_submits_array_and_aggregator(sb: Sandbox) -> None:
+def test_empty_queue_submits_the_suite_jobs_and_aggregator(sb: Sandbox) -> None:
     _queue(sb, [])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     sha = sb.head
-    arr, rows = _array(sb), _rows_job(sb)
-    assert option(arr["argv"], "array", "a") == "0-14%15", arr["argv"]
+    arr, rows = _suites(sb)[0], _rows_job(sb)
+    assert option(arr["argv"], "array", "a") is None, arr["argv"]
     assert "--parsable" in arr["argv"]
     assert (option(arr["argv"], "export") or "").split(",")[0] == "ALL", arr["argv"]
     wt = _export(arr, "GIAP_WORKTREE")
@@ -129,16 +132,18 @@ def test_empty_queue_submits_array_and_aggregator(sb: Sandbox) -> None:
     assert re.fullmatch(rf"{re.escape(str(sb.root))}/logs/calibration/full-{sha[:12]}-"
                         r"\d{8}-\d{6}", log), log  # fmt: skip
     assert option(rows["argv"], "cpus-per-task", "c") == "1", rows["argv"]
-    assert option(rows["argv"], "dependency", "d") == f"afterany:{ARRAY}", rows["argv"]
+    want = "afterany:" + ":".join(SUITE_IDS)
+    assert option(rows["argv"], "dependency", "d") == want, rows["argv"]
     assert _job_name(rows) == "giap-calibration-rows"
     assert (_job_name(arr) or "").startswith("giap-"), arr
     cmd = " ".join(rows["argv"]) + " " + (rows.get("script") or "")
     assert "calibration_rows.py" in cmd, cmd
-    for pat in (rf"--job[= ]{ARRAY}\b", rf"--commit[= ]{sha}\b", r"--expect[= ]15\b",
+    for pat in (rf"--job[= ]{FIRST}\b", rf"--commit[= ]{sha}\b", r"--expect[= ]15\b",
                 rf"--log-dir[= ]{re.escape(log)}(\s|$|['\"])",
                 rf"--tsv[= ]{re.escape(str(sb.root))}/logs/nightly\.tsv"):  # fmt: skip
         assert re.search(pat, cmd), (pat, cmd)
-    assert re.search(rf"array={ARRAY} rows={ROWS} log={re.escape(log)} throttle=15\b",
+    jobs = ",".join(SUITE_IDS)
+    assert re.search(rf"jobs={jobs} rows={ROWS} log={re.escape(log)} cpus=98\b",
                      res.stdout), res.stdout  # fmt: skip
 
 
@@ -154,20 +159,17 @@ def test_squeue_runs_before_the_first_sbatch(sb: Sandbox) -> None:
 
 
 @pytest.mark.parametrize(
-    ("lines", "throttle", "hour"),
-    [(["8 giap-a", "4 giap-b", "64 not-giap"], 15, 10),  # cpus 12: min(15, 28); jobs 2 + 16
-     (["1 giap-j"] * 4, 15, 10),                         # jobs 4 + 16 = 20 (boundary)
-     (["68 giap-big"], 14, 10),                          # floor(59/4) = 14; ends 18:20
-     (["111 giap-big"], 4, 5)],                          # floor(16/4) = 4 (boundary); ends 21:20
+    "lines",
+    [["8 giap-a", "4 giap-b", "64 not-giap"],  # giap cpus 12: 12 + 98 + 1 <= 128; jobs 2 + 16
+     ["1 giap-j"] * 4,                         # jobs 4 + 16 = 20 (boundary)
+     ["29 giap-big"]],                         # 29 + 98 + 1 = 128 (boundary)
 )  # fmt: skip
-def test_throttle_follows_the_r14_budget(
-    sb: Sandbox, lines: list[str], throttle: int, hour: int
-) -> None:
+def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
-    res = _launch(sb, GIAP_NOW=at(hour))
+    res = _launch(sb)
     assert res.returncode == 0, _out(res)
-    assert option(_array(sb)["argv"], "array", "a") == f"0-14%{throttle}"
-    assert f"throttle={throttle}" in res.stdout
+    assert len(_suites(sb)) == 15
+    assert "cpus=98" in res.stdout
 
 
 # ------------------------------------------------------------------ refusals
@@ -176,7 +178,7 @@ def test_throttle_follows_the_r14_budget(
 @pytest.mark.parametrize(
     "lines",
     [["16 giap-n"] * 4 + ["3 giap-x", "3 giap-y"],   # example 10: 70 CPUs / 6 jobs
-     ["112 giap-big"],                               # floor(15/4) = 3 < 4
+     ["112 giap-big"],                               # 112 + 98 + 1 = 211 > 128
      ["1 giap-j"] * 5],                              # 5 + 16 = 21 > 20 jobs
 )  # fmt: skip
 def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> None:
@@ -191,7 +193,9 @@ def test_example10_message_names_the_numbers(sb: Sandbox) -> None:
     _queue(sb, ["16 giap-n"] * 4 + ["3 giap-x", "3 giap-y"])
     res = _launch(sb)
     out = _out(res)
-    assert res.returncode == 2 and re.search(r"\b70\b", out) and re.search(r"\b6\b", out), out
+    assert res.returncode == 2, out
+    # 6 + 16 > 20: the job count is checked before the CPU fit (test_m11_03c_launcher pins that)
+    assert all(re.search(rf"\b{n}\b", out) for n in (6, 16, 20)), out
 
 
 def test_squeue_failure_refuses(sb: Sandbox) -> None:
@@ -225,13 +229,13 @@ def test_explicit_ref_is_resolved_to_its_sha(sb: Sandbox) -> None:
                      + " " + (_rows_job(sb).get("script") or ""))  # fmt: skip
 
 
-def test_failed_aggregator_submission_cancels_exactly_the_array(sb: Sandbox) -> None:
+def test_failed_aggregator_submission_cancels_exactly_the_suite_jobs(sb: Sandbox) -> None:
     _queue(sb, [])
-    res = _launch(sb, FAKE_SBATCH_FAIL="1")  # the second sbatch call fails
+    res = _launch(sb, FAKE_SBATCH_FAIL="15")  # the 16th sbatch call (the aggregator) fails
     assert res.returncode == 1, _out(res)
     cancels = [c for c in sb.calls_log() if c.startswith("scancel")]
     assert len(cancels) == 1, cancels
-    assert re.findall(r"\b\d+\b", cancels[0]) == [ARRAY], cancels
+    assert re.findall(r"\b\d+\b", cancels[0]) == SUITE_IDS, cancels
 
 
 def test_failed_array_submission_submits_nothing_else(sb: Sandbox) -> None:
