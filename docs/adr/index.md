@@ -63,3 +63,4 @@
 - [ADR-0059: Bare image references in `containers.config` (no `docker://` prefix)](ADR-0059-bare-image-refs.md): proposed
 - [ADR-0060: Release versioning and immutable, content-addressed tool images](ADR-0060-release-versioning-and-image-keys.md): proposed
 - [ADR-0061: Scope of the TU-blocked claims under the distance-model operon fallback](ADR-0061-distance-model-fallback-scope.md): accepted
+- [ADR-0063: The determinants null on worker processes and partial dependence on threads](ADR-0063-determinants-null-processes-pd-threads.md): proposed

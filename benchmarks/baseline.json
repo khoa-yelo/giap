@@ -554,6 +554,20 @@
     "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
     "note": "before = origin/main d29a2ea5 on the same node; enet_path check_input=False, elastic net serial, LightGBM pooled"
   },
+  "determinants_null_b400_n400_t8": {
+    "benchmark": "benchmarks/test_determinants_null_processes_bench.py::test_determinants_null_b400_n400_t8_budget",
+    "budget_s": 140.0,
+    "secs": 45.9,
+    "secs_before": 117.5,
+    "permutations": 400,
+    "threads": 8,
+    "node": "rye-01 (Slurm jobs 1897338 before, 1897339 after; 3 rounds each, median)",
+    "cpu": "AMD EPYC 9754",
+    "date": "2026-10-26",
+    "issue": "perf/determinants-null (ADR-0063, proposed)",
+    "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
+    "note": "before = origin/main f1ff5b2f (LightGBM thread pool, elastic net serial); after = both models on one spawned worker-process pool (B >= 200)"
+  },
   "m6_09_operon_calibration_fast": {
     "source": "docs/specs/M6-09-calibration-gate.md (benchmarks/baseline.json gains the fast-suite runtimes)",
     "tests": [
