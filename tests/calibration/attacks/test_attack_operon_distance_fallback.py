@@ -723,26 +723,35 @@ def _ac_params() -> list[Any]:
     out = []
     for source in AC_SOURCES:
         for statistic in ad.STATISTICS:
-            for full in (False, True):
-                marks = (
-                    [pytest.mark.calibration_full]
-                    if full
-                    else [pytest.mark.calibration, pytest.mark.calibration_nightly]
-                )
-                if (source, statistic) == (GATED_SOURCE, "morans_i"):
-                    marks.append(scope_xfail(full))
-                tier = "full" if full else "fast"
-                out.append(
-                    pytest.param(
-                        source, statistic, full, marks=marks, id=f"{source}-{statistic}-{tier}"
+            for lag in AC_LAGS:
+                for full in (False, True):
+                    marks = (
+                        [pytest.mark.calibration_full]
+                        if full
+                        else [pytest.mark.calibration, pytest.mark.calibration_nightly]
                     )
-                )
+                    # only lag 1 fails (Slurm 1895399/1895506): lag 20 stays a live gate
+                    if (source, statistic, lag) == (GATED_SOURCE, "morans_i", 1):
+                        marks.append(scope_xfail(full))
+                    tier = "full" if full else "fast"
+                    out.append(
+                        pytest.param(
+                            source,
+                            statistic,
+                            lag,
+                            full,
+                            marks=marks,
+                            id=f"{source}-{statistic}-lag{lag}-{tier}",
+                        )
+                    )
     return out  # fmt: skip
 
 
 @pytest.mark.calsuite(AC)
-@pytest.mark.parametrize(("source", "statistic", "full"), _ac_params())
-def test_arm_b_autocorrelation_tu_block_at_level(source: str, statistic: str, full: bool) -> None:
+@pytest.mark.parametrize(("source", "statistic", "lag", "full"), _ac_params())
+def test_arm_b_autocorrelation_tu_block_at_level(
+    source: str, statistic: str, lag: int, full: bool
+) -> None:
     """Moran's I at lag 1 under the distance model fails at the full tier (rejection 0.152 /
     0.342 / 0.445 at alpha 0.01 / 0.05 / 0.10 in block 1, confirmed in block 2; Slurm 1895399):
     a split true TU leaves two correlated blocks that the TU-block permutation separates
@@ -750,20 +759,15 @@ def test_arm_b_autocorrelation_tu_block_at_level(source: str, statistic: str, fu
     R = C.replicates(AC, full)
     n = AC_GENES[1] if full else AC_GENES[0]
     levels = list(C.load_tolerances().levels)
-    failed: list[Any] = []
-    detail: list[str] = []
-    for lag in AC_LAGS:
-        stream = f"{AC}.fallback_b.tu_null_{n}.{source}.{statistic}.tu_block.lag{lag}"
-        index = _index(stream, R)
+    stream = f"{AC}.fallback_b.tu_null_{n}.{source}.{statistic}.tu_block.lag{lag}"
+    index = _index(stream, R)
 
-        def rep(rng: np.random.Generator, s: str = statistic, k: int = lag,
-                ix: dict[int, int] = index) -> float:  # fmt: skip
-            return acal.lag_p(_ac_rows(n, source, _rep_index(rng, ix)), s, "tu_block", k)
+    def rep(rng: np.random.Generator) -> float:
+        return acal.lag_p(_ac_rows(n, source, _rep_index(rng, index)), statistic, "tu_block", lag)
 
-        gate = calibrate_levels(AC, "level", levels, rep, R, stream=stream)
-        failed += gate.failed
-        detail += gate.detail()
-    _assert_or_record(source, failed, detail, f"autocorrelation.tu_null_{n}.{statistic}")
+    gate = calibrate_levels(AC, "level", levels, rep, R, stream=stream)
+    what = f"autocorrelation.tu_null_{n}.{statistic}.lag{lag}"
+    _assert_or_record(source, list(gate.failed), gate.detail(), what)
 
 
 def test_genome_blocks_split_and_merge_true_tus() -> None:
