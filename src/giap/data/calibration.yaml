@@ -11,6 +11,15 @@ operon_distance:
   date: "2026-10-24"
   auroc: 0.9067313255841931
   n_pairs: 2739
+  # M11-14 14s2, ADR-0022 addendum: the fallback's operating point, p_dist >= pair_threshold (0.5,
+  # i.e. d <= 102 bp) on the same 2,739 labelled pairs; directon-bootstrap 95 % percentile CIs
+  # (B = 2,000, threshold fixed), validation/operon_fallback_operating_point.py
+  precision_at_pair_threshold: 0.8284518828451883
+  precision_at_pair_threshold_ci_low: 0.8047682923680792
+  precision_at_pair_threshold_ci_high: 0.8474587186405749
+  recall_at_pair_threshold: 0.915606936416185
+  recall_at_pair_threshold_ci_low: 0.9008000451524601
+  recall_at_pair_threshold_ci_high: 0.930507500774723
 uniop_pair_threshold:
   value: 0.5
   provenance: "RegulonDB 14.5.0 K-12, ADR-0022 (M6-12); 0.5 by Khoa's decision 2026-10-24"
