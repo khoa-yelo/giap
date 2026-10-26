@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=60G
 #SBATCH --time=06:00:00
+#SBATCH --exclude=rye-02
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
+# --exclude=rye-02 is a stopgap: on that node Python/JVM start-up stalls 50-250x (nightly 1870584,
+# 1896018); a slow-node guard replaces it.
 # Nightly job array on the latest origin/main (GIAP_SPEC.md §12; M2-21 lead decisions 3-5):
 #   0  tests/integration + tests/contract with --require-capabilities <ci/gates.yaml farmshare_nightly>
 #      (a missing DB fails, never skips), then nf-test test workflow/tests --profile $NF_PROFILE
