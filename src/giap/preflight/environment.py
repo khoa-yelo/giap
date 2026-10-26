@@ -32,9 +32,10 @@ from typing import Literal
 
 from giap.annotate.tools import TOOLS, ToolSpec, read_containers_config
 from giap.config import GiapConfig
+from giap.io.image_key import key as image_key
 from giap.preflight.checks import Check, JsonValue, Level
 from giap.runner.nextflow import workflow_main
-from giap.setupdb.items import RESOURCES
+from giap.setupdb.items import RESOURCES, SOURCES
 
 __all__ = [
     "GENOME_PROMOTECH_RAM_BYTES",
@@ -58,6 +59,7 @@ __all__ = [
     "requirements",
     "resolve_uniop",
     "resource_needs",
+    "uniop_local_problem",
     "uniop_runtime",
     "uniop_runtime_problem",
     "uniop_setup_command",
@@ -203,6 +205,7 @@ _CONDA_PROFILES = frozenset({"conda", "farmshare", "farmshare_local"})
 _STEP_STARTED = frozenset({"fgsea"})
 _WITH_NAME = re.compile(r"withName\s*:\s*(['\"]?)([A-Za-z0-9_]+)\1")
 _CONTAINER = re.compile(r"(?:^|[\s;])container\s*=\s*(['\"])(.*?)\1")
+_CONDA = re.compile(r"(?:^|[\s;])conda\s*=\s*(['\"])(.*?)\1")
 
 
 def _strip_comments(text: str) -> str:
@@ -260,10 +263,13 @@ def _blocks(text: str) -> tuple[list[tuple[str, str]], str]:
     return blocks, "".join(rest)
 
 
-def _local_containers(local_tools: Path | None, runtime: str | None) -> dict[str, str]:
-    """Registry tool name → ``container`` of the ``withName`` selectors in the
+def _local_containers(
+    local_tools: Path | None, runtime: str | None, directive: str = "container"
+) -> dict[str, str]:
+    """Registry tool name → ``container`` (or ``conda``) of the ``withName`` selectors in the
     ``profiles { <runtime> { process { … } } }`` block of ``local_tools.config``; empty without
     a file or a block for ``runtime``."""
+    pattern = _CONDA if directive == "conda" else _CONTAINER
     if local_tools is None or runtime is None:
         return {}
     try:
@@ -282,7 +288,7 @@ def _local_containers(local_tools: Path | None, runtime: str | None) -> dict[str
                     continue
                 for selector, inner in _blocks(selectors)[0]:
                     m = _WITH_NAME.fullmatch(selector)
-                    c = _CONTAINER.search(_blocks(inner)[1])
+                    c = pattern.search(_blocks(inner)[1])
                     if m and c:
                         found[m.group(2).lower()] = c.group(2)
     return found
@@ -328,9 +334,9 @@ def missing_tool_reasons(
     (ADR-0059). A conda-only tool needs the prebuilt env ``<env_root>/giap-<tool>`` with a
     ``.giap-built`` marker equal to the sha256 of ``workflow/envs/<tool>.yml``; under a container
     profile without conda (``docker`` or plain ``apptainer``) it is missing, since it would run on
-    the host. A ``container`` line of ``local_tools`` (a local UniOP build) counts under docker
-    (``docker image inspect``) and apptainer (the ``.sif`` file). ``test``/``stub`` need nothing;
-    in-process tools are never missing.
+    the host. A local UniOP build of ``local_tools`` counts under its own runtime
+    (:func:`uniop_local_problem`). ``test``/``stub`` need nothing; in-process tools are never
+    missing.
     """
     names = _profiles(profile)
     if names & _NO_TOOL_PROFILES:
@@ -342,15 +348,19 @@ def missing_tool_reasons(
     }
     conda_on = bool(names & _CONDA_PROFILES)
     runtime = container_runtime(profile)
-    local = {} if conda_on else _local_containers(local_tools, runtime)
+    local_uniop = (
+        uniop_local_problem(profile, local_tools) if any(t.name == "uniop" for t in tools) else None
+    )
     setup_images = f"run: {_PKG} setup --images --profile apptainer"
     reasons: dict[str, str] = {}
     for tool in tools:
         if tool.in_process:
             continue
         ref = pinned.get(tool.name)
-        built = local.get(tool.name)
-        if ref is not None:
+        if tool.name == "uniop" and local_uniop is not None:
+            if local_uniop:
+                reasons[tool.name] = local_uniop
+        elif ref is not None:
             image = image_cache / _image_file_name(ref)
             if runtime == "apptainer" and not image.is_file():
                 where = (
@@ -360,16 +370,6 @@ def missing_tool_reasons(
                     "NXF_APPTAINER_CACHEDIR or $GIAP_ROOT, or give a DB directory)"
                 )
                 reasons[tool.name] = f"image {ref} {where}; {setup_images}"
-        elif built is not None and runtime == "docker":
-            if not _docker_image_exists(built):
-                reasons[tool.name] = f"local image {built} not found (docker image inspect)"
-        elif built is not None and runtime == "apptainer":
-            if not Path(built).is_absolute():
-                reasons[tool.name] = (
-                    f"{LOCAL_TOOLS} apptainer container '{built}' is not an absolute .sif path"
-                )
-            elif not Path(built).is_file():
-                reasons[tool.name] = f"local image {built} not found"
         elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
             reasons[tool.name] = (
                 f"conda-only tool under a container profile without conda: {tool.name}"
@@ -378,6 +378,95 @@ def missing_tool_reasons(
             where = "$GIAP_ROOT is not set" if env_root is None else "not built"
             reasons[tool.name] = f"prebuilt env {tool.env_name}: {where}"
     return dict(sorted(reasons.items()))
+
+
+_BUILD_BLOCK = {"docker": "docker", "apptainer": "apptainer", "micromamba": "conda"}
+
+
+def _uniop_build(db_dir: Path) -> dict[str, str] | None:
+    """``local_build`` of the ``ok`` ``image:uniop`` item of ``<db_dir>/db_manifest.json``."""
+    try:
+        data = json.loads((db_dir / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    items = data.get("items") if isinstance(data, dict) else None
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, dict) and item.get("name") == UNIOP_SETUP_ITEM:
+            build = item.get("local_build") if item.get("status") == "ok" else None
+            return {str(k): str(v) for k, v in build.items()} if isinstance(build, dict) else None
+    return None
+
+
+def _docker_image_id(tag: str) -> str | None:
+    docker = shutil.which("docker")
+    if docker is None:
+        return None
+    try:
+        proc = subprocess.run([docker, "image", "inspect", "--format", "{{.Id}}", tag],
+                              capture_output=True, text=True, check=False, timeout=60)  # fmt: skip
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def _uniop_commit_problem(prefix: Path) -> str:
+    want = SOURCES["uniop_source"].version.removeprefix("git:")
+    try:
+        have = (prefix / "share" / "uniop" / "GIAP_COMMIT").read_text(encoding="utf-8").strip()
+    except OSError:
+        have = ""
+    return "" if have == want else f"{prefix}/share/uniop/GIAP_COMMIT is not the pin {want[:8]}"
+
+
+def _artifact_problem(runtime: str, ref: str, digest: str | None) -> str:
+    """Why the built image/env ``ref`` is not usable (``digest`` ``None``: only its presence)."""
+    if runtime == "micromamba":
+        return _uniop_commit_problem(Path(ref))
+    if runtime == "docker":
+        if digest is None:
+            ok = _docker_image_exists(ref)
+        else:
+            image_id = _docker_image_id(ref)
+            ok = image_id is not None
+            if ok and image_id != digest:
+                return f"local image {ref} is {image_id}, not the recorded build {digest}"
+        return "" if ok else f"local image {ref} not found (docker image inspect)"
+    if not Path(ref).is_file():
+        return f"local image {ref} not found"
+    sha = _sha256(Path(ref))
+    if digest is not None and f"sha256:{sha}" != digest:
+        return f"local image {ref} differs from the recorded build (sha256 {digest})"
+    return ""
+
+
+def uniop_local_problem(profile: str, local_tools: Path | None) -> str | None:
+    """The local UniOP build for ``profile`` (spec item 3): ``""`` usable, else why not; ``None``
+    when none applies (no file, no block for ``R(P)``, or a ``farmshare*`` list, where
+    ``prebuilt_envs.config`` owns UNIOP) and the generic rows decide. The block must match the
+    ``local_build`` of ``db_manifest.json`` next to the file (runtime, ref, ``key("uniop")``,
+    digest); without a manifest only the block's image or env is checked (14f1)."""
+    runtime = uniop_runtime(profile)
+    if local_tools is None or runtime is None or _profiles(profile) & _FARMSHARE_PROFILES:
+        return None
+    directive = "conda" if runtime == "micromamba" else "container"
+    ref = _local_containers(local_tools, _BUILD_BLOCK[runtime], directive).get("uniop")
+    if ref is None:
+        return None
+    if runtime != "docker" and not Path(ref).is_absolute():
+        return f"{LOCAL_TOOLS} {_BUILD_BLOCK[runtime]} path '{ref}' is not absolute"
+    if not (local_tools.parent / MANIFEST).is_file():
+        return _artifact_problem(runtime, ref, None)
+    build = _uniop_build(local_tools.parent)
+    if build is None:
+        return f"no local UniOP build recorded in {MANIFEST}"
+    if build.get("runtime") != runtime:
+        return f"the recorded local build is for {build.get('runtime')}, not {runtime}"
+    if build.get("ref") != ref:
+        return f"{LOCAL_TOOLS} names {ref}, not the recorded build {build.get('ref')}"
+    want = image_key("uniop")
+    if build.get("key") != want:
+        return f"local build {build.get('key')} does not match this release ({want})"
+    return _artifact_problem(runtime, ref, None if runtime == "micromamba" else build.get("digest"))
 
 
 def missing_tools(
@@ -545,9 +634,11 @@ def _uniop_argv(
     """The ``--help`` command line of UniOP under ``profile``, or why there is none."""
     runtime = uniop_runtime(profile)
     if runtime == "micromamba":
-        if env_root is None:
+        local = "" if _profiles(profile) & _FARMSHARE_PROFILES else "conda"
+        block = _local_containers(local_tools, local or None, "conda").get("uniop")
+        if env_root is None and block is None:
             return "$GIAP_ROOT is not set"
-        prefix = env_root / TOOLS["uniop"].env_name
+        prefix = Path(block) if block else Path(str(env_root)) / TOOLS["uniop"].env_name
         home = os.environ.get("UNIOP_HOME") or str(prefix / "share" / "uniop")
         return [str(prefix / "bin" / "python"), f"{home}/src/UniOP", "--help"]
     if runtime is None:
