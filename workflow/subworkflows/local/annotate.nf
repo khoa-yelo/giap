@@ -102,6 +102,7 @@ workflow ANNOTATE {
     // layer (read by the step from the config) replaces uniop_input and UniOP, and is staged under
     // both keys, as the local executor does (registry precomputed="operon_pairs"; MVP-03 example 10).
     def pairs
+    def ranUniop = false
     if (pc.operon_pairs) {
         def layer = channel.value(file(pc.operon_pairs, checkIfExists: true))
         pairs = [kv('uniop_cds', layer), kv('uniop_map', layer)]
@@ -117,10 +118,14 @@ workflow ANNOTATE {
         if (params.run_uniop != false) {
             UNIOP(gid.combine(cds))
             pairs += [kv('uniop_pred', UNIOP.out.pred)]
+            ranUniop = true
         }
     }
     def op = stepIn('operon_pairs', [genes, reps, kv('genome', genome)] + pairs)
-    OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
+    // stub runs: operon_meta.json names UniOP as the source when UNIOP ran (M11-14u2 example 21)
+    def stubMeta = workflow.stubRun && ranUniop ?
+        ' {"operon_source": "uniop", "reason": "UniOP probabilities (stub run)"}' : ''
+    OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json' + stubMeta] +
         scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions != null ? params.stub.tu_regions as int : 1, true))
     def O = OPERON_PAIRS.out.outputs
     ev += [OPERON_PAIRS.out.events]

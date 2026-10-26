@@ -179,9 +179,11 @@ def setup(
     db_dir: Path = opts["db_dir"]
     check = bool(opts["check"])
     fetcher = HttpsFetcher()
-    # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b)
-    code = run_setup(SetupOptions(**opts, uniop=uniop and check), ToolRunner(db_dir=db_dir),
-                     fetcher)  # fmt: skip
+    # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b).
+    # An explicit --uniop installs UniOP only (Q-K27): no database is planned.
+    dbs = SetupOptions(db_dir, bakta="skip", genomad=False, promotech_models=False, check=check,
+                       uniop=check) if uniop else SetupOptions(**opts)  # fmt: skip
+    code = run_setup(dbs, ToolRunner(db_dir=db_dir), fetcher)
     cache = cache_dir or image_cache(os.environ, db_dir)
     if images is not None and runtime is not None and not check:
         tools = image_set(cfg, images == "all")
