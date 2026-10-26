@@ -160,7 +160,11 @@ def test_rscript_guard_flags_exactly_the_files_that_mention_it(
     ("rel", "line", "flagged"),
     [
         ("giap/io/fgsea_r.py", 'tail = ["Rscript", BAKED_SCRIPT]', False),
+        ("giap/io/fgsea_r.py", 'tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *opts]', False),
         ("giap/io/fgsea_r.py", 'cmd = ["Rscript", "other.R"]', True),
+        ("giap/io/fgsea_r.py", 'run(["Rscript", "-e", code])  # not BAKED_SCRIPT', True),
+        ("giap/io/fgsea_r.py", '["Rscript", "-e", code, BAKED_SCRIPT]', True),
+        ("giap/io/fgsea_r.py", '"""runs ``Rscript`` on the baked-in script"""', True),
         ("giap/io/other.py", 'tail = ["Rscript", BAKED_SCRIPT]', True),
     ],
 )
