@@ -263,7 +263,7 @@ Spatial autocorrelation of detection and abundance along each replicon and the o
 | `q_value` | number | — | Benjamini-Hochberg q-value within (contig, statistic, null_model); NA whenever p_value is NA | minimum 0; maximum 1 |
 | `method` | string | — | Method that produced the row | required |
 | `n_perm` | integer | — | Valid permutations or bootstrap replicates behind the row | minimum 0 |
-| `flags` | string | — | Semicolon-joined flags from the controlled vocabulary (§9.4) | pattern `(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated))*` |
+| `flags` | string | — | Semicolon-joined flags from the controlled vocabulary (§9.4) | pattern `(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated|tu_block_tu_error|tu_source_distance_model)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated|tu_block_tu_error|tu_source_distance_model))*` |
 
 ## `category_summary`
 
@@ -645,7 +645,7 @@ Expression islands: contiguous runs of transcription units with unusually high o
 | `method` | string | — | Method that produced the row | required; one of `scan_max_stat` |
 | `null_model` | string | — | Null the FWER p-value is drawn from | required; one of `circular_block_bootstrap` |
 | `n_perm` | integer | — | Valid bootstrap replicates behind the FWER p-value | minimum 0 |
-| `flags` | string | — | Semicolon-joined flags from the controlled vocabulary (§9.4) | pattern `(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated))*` |
+| `flags` | string | — | Semicolon-joined flags from the controlled vocabulary (§9.4) | pattern `(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated|tu_block_tu_error|tu_source_distance_model)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated|tu_block_tu_error|tu_source_distance_model))*` |
 
 ## `mapping_fdr`
 
@@ -755,7 +755,7 @@ Adjacent gene pairs and the SW decoy triples with their between-gene evidence, p
 | `null_model` | string | — | Null model (within_operon_t, p_detect_model, decoy CV/SW pairs); NA when test = none | — |
 | `n_perm` | integer | — | Number of permutations or decoys behind the p-value; NA when not resampled | minimum 0 |
 | `lfdr` | number | — | Local false discovery rate (missed_operon_decoy; ranks, never calls) | minimum 0; maximum 1 |
-| `flags` | string | — | Semicolon-joined pair-scope flags (§9.4 Operons rna_between; M6-08 lead decision 7, extended only through this schema). abundance_imputed is the pair-scope token (a gene of the pair has an imputed abundance); it is distinct from the gene-scope imputed_abundance of genes.tsv. | pattern `(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing)(?:;(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing))*` |
+| `flags` | string | — | Semicolon-joined pair-scope flags (§9.4 Operons rna_between; M6-08 lead decision 7, extended only through this schema; tu_source_distance_model: ADR-0061). abundance_imputed is the pair-scope token (a gene of the pair has an imputed abundance); it is distinct from the gene-scope imputed_abundance of genes.tsv. | pattern `(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing|tu_source_distance_model)(?:;(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing|tu_source_distance_model))*` |
 
 ## `peptide_hits`
 

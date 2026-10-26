@@ -46,7 +46,9 @@ def write_params(
     db_dir: Path | None = None,
 ) -> tuple[Path, Path]:
     """Write ``OUT/work/params.json`` and ``OUT/resolved_config.yaml`` deterministically;
-    ``params.db_dir`` (absolute) only when ``db_dir`` is given."""
+    ``params.db_dir`` (absolute) only when ``db_dir`` is given. ``params.run_uniop`` is true
+    when ``cfg.annotation.uniop.enabled`` (already resolved by preflight, M11-14d) is ``true``
+    and no precomputed operon layer replaces UniOP."""
     outdir = Path(outdir).absolute()
     resolved = outdir / "resolved_config.yaml"
     params = outdir / "work" / "params.json"
@@ -70,6 +72,8 @@ def write_params(
         "memory": memory,
         "modules": list(cfg.modules),
         "outdir": str(outdir),
+        "run_uniop": cfg.annotation.uniop.enabled is True
+        and cfg.annotation.precomputed.operon_pairs is None,
         "threads": cfg.threads,
     }
     if db_dir is not None:

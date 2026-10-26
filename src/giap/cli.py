@@ -352,7 +352,10 @@ def run(
         _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
-    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
+    roots, cfg = _run_preflight(
+        cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"]), publication
+    )
+    inputs.update(roots)
     from giap.runner.local import contaminant_library
 
     lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
@@ -413,7 +416,8 @@ def _finalize(outdir: Path) -> None:
 
 
 def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
-    """The run tail (MVP-03 D-B steps 5-6): the manifest, even after a failed step, then the
+    """The run tail (MVP-03 D-B steps 5-6): the manifest, even after a failed step (with one
+    warning line when the operons came from the distance model, M11-14d), then the
     ``report.html`` re-render when the manifest says ``completed`` (M9-16b, ADR-0040 amendment
     1). A tail error after a successful graph is exit 4; after a failed graph it is only logged."""
     import traceback
@@ -433,6 +437,9 @@ def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
         click.echo(f"giap run: the run manifest was not written; log: {log}", err=True)
         return int(code)
     manifest = json.loads((outdir / "run_manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("operon_source") == "distance_model":  # never silent (ADR-0061 decision 5)
+        why = manifest.get("operon_source_reason") or "reason not recorded"
+        click.echo(f"giap run: warning: operons used the distance model: {why}", err=True)
     if manifest.get("status") != "completed":
         return int(code)
     from giap.steps import plots as P
@@ -468,10 +475,12 @@ def _run_preflight(
     db_dir: Path | None,
     strict: bool,
     profile: str,
-) -> dict[str, Path]:
+    publication: bool = False,
+) -> tuple[dict[str, Path], GiapConfig]:
     """Preflight in run mode (§5.1): exits on an error (or a warning with ``strict``) before
     Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json
-    (plus ``peptides`` and ``proteins_long`` when given, for MAPPING).
+    (plus ``peptides`` and ``proteins_long`` when given, for MAPPING) and the configuration
+    with ``annotation.uniop.enabled`` resolved (M11-14d).
     Tools are checked for the Nextflow ``profile`` under ``$GIAP_ROOT`` (run-wiring 4a)."""
     from giap.preflight.report import render_preflight_md
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
@@ -490,7 +499,7 @@ def _run_preflight(
     root = os.environ.get("GIAP_ROOT")
     report, norm = run_preflight(
         inp, cfg, None, "run", outdir, db_dir,
-        giap_root=Path(root) if root else None, profile=profile,
+        giap_root=Path(root) if root else None, profile=profile, publication=publication,
     )  # fmt: skip
     outdir.mkdir(parents=True, exist_ok=True)
     write_outputs(outdir, report, norm)
@@ -498,6 +507,9 @@ def _run_preflight(
     if code != ExitCode.SUCCESS:
         click.echo(render_preflight_md(report), err=True, nl=False)
         sys.exit(code)
+    for c in report.checks:  # the UniOP fallback is never silent (ADR-0061 decision 5)
+        if c.rule_id == "environment.tools" and c.level == "warn":
+            click.echo(f"giap run: warning: environment.tools: {c.message}", err=True)
     work = outdir / "work" / "preflight"
     roots = {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
     for key, (raw, name) in _NORM_INPUTS.items():
@@ -506,7 +518,7 @@ def _run_preflight(
     report_json = outdir / "preflight" / "preflight.json"  # gene_table's abundance_scale (M1-12)
     if report_json.is_file():
         roots["preflight"] = report_json
-    return roots
+    return roots, norm.cfg or cfg
 
 
 def _run_nextflow(
@@ -621,6 +633,10 @@ def _run_local(
         click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
         sys.exit(ExitCode.INTERNAL)
     roots = _local_roots(cfg, outdir, genome, inputs)
+    from giap.preflight.environment import resolve_uniop
+
+    # no tool runs here: ``auto`` resolves as preflight does without a profile (M11-14d)
+    cfg = resolve_uniop(cfg, installed=True, publication=bool(info["publication"])).cfg
     try:
         local.plan_local(cfg, targets, set(roots))
     except local.LayerMissing as exc:

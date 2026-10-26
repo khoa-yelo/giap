@@ -15,8 +15,10 @@ from pydantic import (
     Field,
     PlainSerializer,
     SerializationInfo,
+    SerializerFunctionWrapHandler,
     WithJsonSchema,
     field_validator,
+    model_serializer,
 )
 
 Module = Literal["core", "mobile", "bgc", "function"]
@@ -95,8 +97,25 @@ class BaktaConfig(_Strict):
 
 
 class UniopConfig(_Strict):
+    """``enabled``: run UniOP (``true``), use the ADR-0022 distance model (``false``), or decide
+    in preflight from whether UniOP is installed for the profile (``auto``; M11-14d).
+
+    ``resolved_from`` is written by preflight only: ``"auto"`` when ``enabled`` is the resolved
+    value of ``auto`` (``operon_pairs`` then says "UniOP not installed" rather than "UniOP
+    disabled"). It is left out of every dump while unset, so a config without it round-trips.
+    """
+
+    enabled: bool | Literal["auto"] = True
     pair_threshold: float = 0.5
     fallback: Literal["distance"] = "distance"
+    resolved_from: Literal["auto"] | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_unset_resolution(self, handler: SerializerFunctionWrapHandler) -> Any:
+        data = handler(self)
+        if isinstance(data, dict) and data.get("resolved_from") is None:
+            data.pop("resolved_from", None)
+        return data
 
 
 class PromotersConfig(_Strict):

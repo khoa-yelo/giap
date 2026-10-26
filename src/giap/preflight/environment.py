@@ -5,6 +5,10 @@ found at a usable version → else error (exit 2). Binaries and environments com
 registry (:func:`missing_tools`: pinned images, in the apptainer image cache under apptainer;
 prebuilt micromamba envs with a matching build marker where conda is enabled); databases and
 models from the ``giap setup`` manifest (:func:`read_manifest`, run-wiring lead decision 4).
+``annotation.uniop.enabled`` (M11-14d, ADR-0061 decision 5) is resolved against whether UniOP is
+installed (:func:`resolve_uniop`, pure) after one ``--help`` run of UniOP in the profile's
+runtime (:func:`probe_uniop`); the reason UniOP is missing includes a failed or absent
+``image:uniop`` setup item (:func:`uniop_setup_record`).
 ``environment.resources``: the only warning is RAM below the 24 GiB that genome-wide Promotech
 needs (the caller passes it as ``need_ram_bytes``, see :func:`resource_needs`). The check holds
 the verdict only, never the raw RAM and disk numbers, so ``preflight.json`` is identical across
@@ -27,6 +31,7 @@ from pathlib import Path
 from typing import Literal
 
 from giap.annotate.tools import TOOLS, ToolSpec, read_containers_config
+from giap.config import GiapConfig
 from giap.preflight.checks import Check, JsonValue, Level
 from giap.runner.nextflow import workflow_main
 from giap.setupdb.items import RESOURCES
@@ -41,14 +46,20 @@ __all__ = [
     "EnvProbe",
     "ProbeError",
     "Requirement",
+    "UniopResolution",
     "container_runtime",
     "environment_checks",
     "missing_tool_reasons",
     "missing_tools",
     "probe_resources",
+    "probe_uniop",
     "read_manifest",
     "requirements",
+    "resolve_uniop",
     "resource_needs",
+    "uniop_runtime",
+    "uniop_setup_command",
+    "uniop_setup_record",
 ]
 
 GIB = 1024**3
@@ -376,6 +387,193 @@ def missing_tools(
 ) -> list[str]:
     """Sorted names of ``tools`` not usable under ``profile`` (:func:`missing_tool_reasons`)."""
     return sorted(missing_tool_reasons(tools, profile, image_cache, env_root, local_tools))
+
+
+# ---------------------------------------------------------------- UniOP (M11-14d)
+
+UniopRuntime = Literal["micromamba", "apptainer", "docker"]
+UniopLevel = Literal["ok", "warn", "error"]
+#: UniOP's entry point in an image (``modules/local/uniop/main.nf``; the image installs it under
+#: ``/opt/conda/share/uniop``)
+_UNIOP_HELP = 'python "${UNIOP_HOME:-${CONDA_PREFIX:-/opt/conda}/share/uniop}/src/UniOP" --help'
+PROBE_TIMEOUT_S = 300
+#: spec item 1 (c): the warning and error texts (``{cmd}``: :func:`uniop_setup_command`)
+UNIOP_AUTO_WARNING = (
+    "uniop not installed (unlicensed, not distributed); operons use the distance model; run: {cmd}"
+)
+UNIOP_AUTO_PUBLICATION_ERROR = (
+    "uniop not installed; set annotation.uniop.enabled: false to publish with the "
+    "distance-model operons (see Methods)"
+)
+UNIOP_FALSE_WARNING = (
+    "annotation.uniop.enabled is false; operons use the distance model (see Methods)"
+)
+UNIOP_TRUE_ERROR = "uniop not installed; run: {cmd}"
+UNIOP_SETUP_ITEM = "image:uniop"
+
+
+@dataclass(frozen=True, slots=True)
+class UniopResolution:
+    """How ``annotation.uniop.enabled`` resolved (:func:`resolve_uniop`).
+
+    ``cfg`` is the configuration ``resolved_config.yaml`` records: ``enabled`` is a bool, and
+    ``resolved_from`` is ``"auto"`` when it came from ``auto``. ``message`` is the
+    ``environment.tools`` warning or error text, ``""`` when ``level`` is ``ok``.
+    """
+
+    run_uniop: bool
+    level: UniopLevel
+    message: str
+    cfg: GiapConfig
+
+
+def uniop_setup_command(profile: str | None = None, db_dir: str | None = None) -> str:
+    """The command that installs UniOP for ``profile`` into ``db_dir`` (spec item 3)."""
+    return (
+        f"{_PKG} setup --uniop --profile {profile or '<profile>'} "
+        f"--db-dir {db_dir or '<db_dir>'} --accept-uniop-terms"
+    )
+
+
+def _with_detail(message: str, detail: str) -> str:
+    return f"{message}; {detail}" if detail else message
+
+
+def _set_enabled(
+    cfg: GiapConfig, enabled: bool, resolved_from: Literal["auto"] | None
+) -> GiapConfig:
+    uniop = cfg.annotation.uniop.model_copy(
+        update={"enabled": enabled, "resolved_from": resolved_from}
+    )
+    ann = cfg.annotation.model_copy(update={"uniop": uniop})
+    return cfg.model_copy(update={"annotation": ann})
+
+
+def resolve_uniop(
+    cfg: GiapConfig,
+    *,
+    installed: bool,
+    publication: bool,
+    detail: str = "",
+    setup_command: str | None = None,
+) -> UniopResolution:
+    """Resolve ``annotation.uniop.enabled`` (spec item 1 (c) table; ADR-0061 decision 5). Pure.
+
+    ``true``: UniOP runs, or ``environment.tools`` errors (exit 2) when it is not installed.
+    ``auto``: resolves to ``true`` when installed; else to ``false`` with a warning, or an error
+    under ``publication``. ``false``: the distance model, always with a warning (accepted under
+    ``publication``). ``detail`` (why UniOP is missing) is appended to the error or the warning
+    when UniOP is not installed. A precomputed operon layer needs no UniOP: ``ok``, UniOP does
+    not run. A configuration resolved before (``resolved_from: auto``) resolves the same way
+    again.
+    """
+    uni = cfg.annotation.uniop
+    cmd = setup_command or uniop_setup_command()
+    if cfg.annotation.precomputed.operon_pairs is not None:
+        on = uni.enabled is True
+        return UniopResolution(False, "ok", "", _set_enabled(cfg, on, uni.resolved_from))
+    auto = uni.enabled == "auto" or uni.resolved_from == "auto"
+    if uni.enabled is False and not auto:
+        return UniopResolution(False, "warn", UNIOP_FALSE_WARNING, cfg)
+    if auto and uni.enabled is False:
+        installed = False  # already resolved: keep the recorded outcome
+    if installed:
+        return UniopResolution(True, "ok", "", _set_enabled(cfg, True, "auto" if auto else None))
+    if not auto:
+        return UniopResolution(
+            False, "error", _with_detail(UNIOP_TRUE_ERROR.format(cmd=cmd), detail), cfg
+        )
+    out = _set_enabled(cfg, False, "auto")
+    if publication:
+        return UniopResolution(
+            False, "error", _with_detail(UNIOP_AUTO_PUBLICATION_ERROR, detail), out
+        )
+    return UniopResolution(
+        False, "warn", _with_detail(UNIOP_AUTO_WARNING.format(cmd=cmd), detail), out
+    )
+
+
+def uniop_runtime(profile: str) -> UniopRuntime | None:
+    """``R(P)`` (spec item 1b): micromamba when a profile enables conda, else apptainer, else
+    docker; ``None`` without a container or conda profile."""
+    names = _profiles(profile)
+    if names & _CONDA_PROFILES:
+        return "micromamba"
+    if "apptainer" in names:
+        return "apptainer"
+    return "docker" if "docker" in names else None
+
+
+def _uniop_argv(
+    profile: str, image_cache: Path, env_root: Path | None, local_tools: Path | None
+) -> list[str] | str:
+    """The ``--help`` command line of UniOP under ``profile``, or why there is none."""
+    runtime = uniop_runtime(profile)
+    if runtime == "micromamba":
+        if env_root is None:
+            return "$GIAP_ROOT is not set"
+        prefix = env_root / TOOLS["uniop"].env_name
+        home = os.environ.get("UNIOP_HOME") or str(prefix / "share" / "uniop")
+        return [str(prefix / "bin" / "python"), f"{home}/src/UniOP", "--help"]
+    if runtime is None:
+        return "no container or conda profile"
+    built = _local_containers(local_tools, runtime).get("uniop")
+    if built is None:
+        return f"no local UniOP image in {LOCAL_TOOLS}"
+    if runtime == "docker":
+        docker = shutil.which("docker")
+        if docker is None:
+            return "docker not found on PATH"
+        return [docker, "run", "--rm", built, "sh", "-c", _UNIOP_HELP]
+    exe = shutil.which("apptainer") or shutil.which("singularity")
+    if exe is None:
+        return "apptainer not found on PATH"
+    sif = Path(built)
+    if not sif.is_absolute():
+        sif = image_cache / _image_file_name(built)
+    return [exe, "exec", "--cleanenv", str(sif), "sh", "-c", _UNIOP_HELP]
+
+
+def probe_uniop(
+    profile: str, *, image_cache: Path, env_root: Path | None, local_tools: Path | None
+) -> tuple[int, str]:
+    """Run UniOP's entry point with ``--help`` in the runtime ``profile`` resolves to
+    (:func:`uniop_runtime`): the prebuilt env, the local image of ``local_tools`` under docker,
+    or its ``.sif`` under apptainer. Returns ``(returncode, stderr)``; 127 when it cannot be
+    started, 124 on a timeout."""
+    argv = _uniop_argv(profile, image_cache, env_root, local_tools)
+    if isinstance(argv, str):
+        return 127, argv
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, check=False, timeout=PROBE_TIMEOUT_S
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"UniOP --help timed out after {PROBE_TIMEOUT_S} s"
+    except OSError as exc:
+        return 127, f"{type(exc).__name__}: {exc}"
+    return proc.returncode, proc.stderr or ""
+
+
+def uniop_setup_record(db_dir: str | Path | None) -> str:
+    """``(last setup: <message>)`` of a ``db_manifest.json`` ``image:uniop`` item whose
+    ``status`` is not ``ok``; ``""`` without one (or without a readable manifest)."""
+    if not db_dir:
+        return ""
+    try:
+        data = json.loads((Path(db_dir) / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    items = data.get("items") if isinstance(data, dict) else None
+    for item in items if isinstance(items, list) else []:
+        if (
+            isinstance(item, dict)
+            and item.get("name") == UNIOP_SETUP_ITEM
+            and item.get("status") != "ok"
+        ):
+            message = str(item.get("message") or item.get("status") or "").strip()
+            return f"(last setup: {message})"
+    return ""
 
 
 def _slurm_mem_bytes() -> int | None:

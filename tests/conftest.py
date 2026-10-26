@@ -176,3 +176,14 @@ def golden_seed(tolerances: dict[str, object]) -> int:
     seeds = tolerances["seeds"]
     assert isinstance(seeds, dict)
     return int(seeds["GOLDEN_SEED"])
+
+
+@pytest.fixture(autouse=True)
+def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preflight's UniOP probe (14d) reports success unless a test opts in with
+    ``real_uniop_probe``: it would otherwise run the session's real UniOP env or image."""
+    if request.node.get_closest_marker("real_uniop_probe"):
+        return
+    from giap.preflight import environment
+
+    monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)

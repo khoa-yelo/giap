@@ -1,0 +1,68 @@
+// M11-14d: params.run_uniop (docs/specs/M11-14-container-install.md item 1 (c) "Run": `giap run`
+// passes params.run_uniop from the resolved annotation.uniop.enabled, and UNIOP is skipped when it
+// is false; AC 8). Stub runs of ANNOTATE through ../main.nf, as annotate.nf.test.
+//
+// With run_uniop = false: no UNIOP task, operon_pairs still runs once (it builds the
+// distance-model pairs) and receives no uniop_pred; every py step's --in keys still follow the
+// giap.steps registry. With run_uniop = true (the nextflow.config default), UNIOP runs once and
+// operon_pairs receives uniop_pred.
+
+nextflow_pipeline {
+
+    name "ANNOTATE: params.run_uniop (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "annotate"
+
+    test("run_uniop = false: UNIOP skipped, operon_pairs runs without uniop_pred") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                run_uniop = false
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran with run_uniop = false: ${H.names(workflow.trace)}"
+            assert H.stepCount(workflow.trace, 'operon_pairs') == 1
+            def op = H.stepDirs(work, 'operon_pairs')
+            assert op.size() == 1
+            def keys = H.stepInputs(op[0]).collect { it[0] }
+            assert !keys.contains('uniop_pred') : "operon_pairs got uniop_pred: ${keys}"
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+        }
+    }
+
+    test("run_uniop = true: UNIOP once, operon_pairs gets uniop_pred") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                run_uniop = true
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert H.count(workflow.trace, 'UNIOP') == 1
+            def op = H.stepDirs(work, 'operon_pairs')
+            assert op.size() == 1
+            assert H.stepInputs(op[0]).collect { it[0] }.contains('uniop_pred')
+        }
+    }
+}

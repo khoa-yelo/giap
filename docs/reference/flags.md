@@ -44,6 +44,8 @@
 - `not_estimable`
 - `few_values`
 - `ci_unestimated`
+- `tu_block_tu_error`
+- `tu_source_distance_model`
 
 ## `category_summary`
 
@@ -127,6 +129,8 @@ No fixed vocabulary in the schema.
 - `not_estimable`
 - `few_values`
 - `ci_unestimated`
+- `tu_block_tu_error`
+- `tu_source_distance_model`
 
 ## `mapping_fdr`
 
@@ -146,6 +150,7 @@ No fixed vocabulary in the schema.
 - `no_detection_limit_model`
 - `relative_scale`
 - `pmiss_covariates_missing`
+- `tu_source_distance_model`
 
 ## `peptide_hits`
 

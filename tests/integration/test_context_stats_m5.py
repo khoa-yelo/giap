@@ -238,7 +238,10 @@ def test_no_autocorrelation_row_loses_its_flags(runs: dict[str, Run], name: str)
     got = cd.read_table(run.autocorrelation)
     assert len(got) == len(want)
     for (_, g), (_, w) in zip(got.iterrows(), want.iterrows(), strict=True):
-        assert cd.flag_set(g["flags"]) == cd.flag_set(w["flags"]), dict(w)
+        expected = cd.flag_set(w["flags"])
+        if w["statistic"] == "morans_i" and w["null_model"] == "tu_block":
+            expected |= {"tu_block_tu_error"}  # ADR-0061 decision 4: on every run (M11-14d)
+        assert cd.flag_set(g["flags"]) == expected, dict(w)
 
 
 def test_no_island_row_loses_its_flags(runs: dict[str, Run]) -> None:

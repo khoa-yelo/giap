@@ -48,6 +48,7 @@
 | `annotation.translation_table` | `11` | integer | — |
 | `annotation.start_codons` | `["ATG", "GTG", "TTG"]` | array | — |
 | `annotation.region_min_overlap_frac` | `0.5` | number | — |
+| `annotation.uniop.enabled` | `true` | boolean or `auto` | — |
 | `annotation.uniop.pair_threshold` | `0.5` | number | — |
 | `annotation.uniop.fallback` | `distance` | `distance` | — |
 | `annotation.tu_upstream_bp` | `[-300, 50]` | array | — |
