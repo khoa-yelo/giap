@@ -1,0 +1,1 @@
+R fgsea runs from the new `giap-fgsea` image (R 4.5.3, fgsea 1.36.2, `giap_fgsea.R` baked in) when no `GIAP_FGSEA_PREFIX` and no prebuilt `giap-fgsea` env is found: `giap run` exports `GIAP_CONTAINER_RUNTIME` and `GIAP_DB_DIR`, preflight accepts the pinned image under `docker` and plain `apptainer`, and `containers.yml` builds the image.

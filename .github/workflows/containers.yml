@@ -1,7 +1,8 @@
 # Build the conda-only tools' images, push them to GHCR and open a digest PR (GIAP_SPEC.md §12;
-# docs/specs/M11-06-ghcr-containers.md). Five images: promotech, promoter_calculator, terminatornet,
-# bactermfinder, ostir. UniOP is unlicensed (R5/R11) and fgsea is deferred (M8-17 decision 9): neither
-# is built here. Third-party actions are pinned by commit SHA with the tag in a comment (Q-L5).
+# docs/specs/M11-06-ghcr-containers.md). Six images: promotech, promoter_calculator, terminatornet,
+# bactermfinder, ostir and fgsea (M11-14 14c: R fgsea with workflow/bin/giap_fgsea.R baked in; its ref
+# goes to workflow/conf/images.json only). UniOP is unlicensed (R5/R11) and never built here.
+# Third-party actions are pinned by commit SHA with the tag in a comment (Q-L5).
 # Nothing here pushes to main: the digests land through a `ci/digests-<sha7>` pull request.
 name: containers
 
@@ -11,10 +12,11 @@ on:
     paths:
       - "workflow/containers/**"
       - "workflow/envs/**"
+      - "workflow/bin/giap_fgsea.R"
   workflow_dispatch:
     inputs:
       tools:
-        description: "Comma- or space-separated tools to build, or `all` (the five images)"
+        description: "Comma- or space-separated tools to build, or `all` (the six images)"
         required: false
         default: all
 
@@ -47,7 +49,7 @@ jobs:
           AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
-          ALL="promotech promoter_calculator terminatornet bactermfinder ostir"
+          ALL="promotech promoter_calculator terminatornet bactermfinder ostir fgsea"
           want=""
           if [ "$EVENT" = "workflow_dispatch" ]; then
             req="$(echo "${INPUT_TOOLS:-all}" | tr ',' ' ' | tr '[:upper:]' '[:lower:]')"
@@ -66,13 +68,16 @@ jobs:
           else
             if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
                 || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-              changed="$(git ls-files workflow/containers workflow/envs)"
+              changed="$(git ls-files workflow/containers workflow/envs workflow/bin/giap_fgsea.R)"
             else
-              changed="$(git diff --name-only "$BEFORE" "$AFTER" -- workflow/containers workflow/envs)"
+              changed="$(git diff --name-only "$BEFORE" "$AFTER" -- workflow/containers workflow/envs workflow/bin/giap_fgsea.R)"
             fi
             echo "changed files:"; echo "$changed"
             for t in $ALL; do
-              if echo "$changed" | grep -qE "^(workflow/containers/$t/|workflow/envs/$t\.yml$)"; then
+              pat="^(workflow/containers/$t/|workflow/envs/$t\.yml$|workflow/envs/locks/$t\.explicit\.txt$)"
+              # fgsea bakes in its script, a key input (M11-14 item 2)
+              if [ "$t" = "fgsea" ]; then pat="$pat|^workflow/bin/giap_fgsea\.R$"; fi
+              if echo "$changed" | grep -qE "$pat"; then
                 want="$want $t"
               fi
             done
@@ -106,6 +111,7 @@ jobs:
           case "$TOOL" in
             promoter_calculator) version="$(grep -oP 'promotercalculator==\K\S+' "$env_file")"; lic="GPL-3.0-or-later" ;;
             ostir) version="$(grep -oP 'ostir==\K\S+' "$env_file")"; lic="GPL-3.0" ;;
+            fgsea) version="$(grep -oP 'bioconductor-fgsea=\K\S+' "$env_file")"; lic="MIT AND GPL-2.0-or-later" ;;
             terminatornet) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="MIT" ;;
             promotech|bactermfinder) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="GPL-3.0" ;;
             *) echo "::error::no version rule for $TOOL"; exit 1 ;;
@@ -197,6 +203,7 @@ jobs:
               "terminatornet": ["TERMINATORNET"],
               "bactermfinder": ["BACTERMFINDER"],
               "ostir": ["OSTIR", "OSTIR_NOVEL"],
+              "fgsea": ["FGSEA"],  # no Nextflow process: images.json only (update_digests IMAGE_ONLY)
           }
           ns = os.environ["IMAGE_NS"]
           out = {}
@@ -221,7 +228,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add workflow/conf/containers.config workflow/nextflow.config
+          git add workflow/conf/containers.config workflow/conf/images.json workflow/nextflow.config
           git commit -m "ci: pin GHCR digests ($sha7)"
           git push origin "$branch"
           {

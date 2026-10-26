@@ -22,8 +22,9 @@ codon-bias (MIT), which runs in-process. Pins, digests and licence checks: docs/
 | codon-bias | MIT | 0.5.0; imported in-process (PyPI) |
 | DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
 
-Container images: `.github/workflows/containers.yml` builds five images for GHCR
-(`ghcr.io/khoa-yelo/giap-<tool>`: promotech, promoter_calculator, terminatornet, bactermfinder, ostir).
+Container images: `.github/workflows/containers.yml` builds six images for GHCR
+(`ghcr.io/khoa-yelo/giap-<tool>`: promotech, promoter_calculator, terminatornet, bactermfinder, ostir, and
+fgsea, described below).
 Their digests enter `workflow/conf/containers.config` only through the digest-pin PR that the workflow opens;
 until that PR merges, these tools run from their Conda environments. Four of them contain GPL-3.0 tools fetched from
 upstream at build time, unmodified: Promotech (https://github.com/BioinformaticsLabAtMUN/PromoTech),
@@ -32,6 +33,14 @@ Promoter Calculator (GPL-3.0-or-later, https://pypi.org/project/promotercalculat
 the corresponding source is available at those links at the pinned versions and commits above, and each image's
 Dockerfile is in `workflow/containers/<tool>/`. TerminatorNet (MIT, https://github.com/btjaden/TerminatorNet) is
 the fifth. UniOP (unlicensed) is never published.
+
+The `giap-fgsea` image (`ghcr.io/khoa-yelo/giap-fgsea`, built by the same workflow from
+`workflow/containers/fgsea/Dockerfile`) contains R 4.5.3 (GPL-2, https://www.r-project.org/), fgsea 1.36.2
+(MIT, Bioconductor) and data.table 1.18.6.1 (MPL-2.0), installed unmodified from the conda packages of the
+committed lock `workflow/envs/locks/fgsea.explicit.txt`, plus GIAP's `workflow/bin/giap_fgsea.R`. GIAP starts it
+only as a separate process (`docker run` / `apptainer exec`) and never imports R or fgsea; the corresponding
+source is available from CRAN, Bioconductor and conda-forge/bioconda at those versions. Its ref is pinned in
+`workflow/conf/images.json` only.
 
 Data resources: KEGG (academic use), RegulonDB (not redistributed), Gene Ontology (CC BY 4.0), NCBI COG 2020
 (NCBI FTP).

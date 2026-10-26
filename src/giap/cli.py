@@ -478,8 +478,11 @@ def _run_nextflow(
 
     outdir = outdir.absolute()
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
+    from giap.preflight.environment import container_runtime
+
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
-    code = nf.run_nextflow(cmd, outdir)
+    env = nf.launch_env(os.environ, container_runtime(profile), db_dir)
+    code = nf.run_nextflow(cmd, outdir, env)
     if code == ExitCode.SUCCESS:
         from giap.runner.local import write_datapackage
 
