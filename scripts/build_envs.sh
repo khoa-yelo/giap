@@ -42,6 +42,9 @@ done
 
 # shellcheck source=/dev/null
 source "$GIAP_REPO/scripts/farmshare_env.sh"
+# The env's Python must never see ~/.local: a user-site package would leak into the version step
+# and into `pip freeze`, so the pip lock would pin it (M11-14b; e.g. ViennaRNA 2.7.1 over conda's).
+export PYTHONNOUSERSITE=1
 PY="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
 LOCKS="$GIAP_REPO/workflow/envs/locks"
 mkdir -p "$LOCKS"
@@ -155,7 +158,8 @@ build_one() {
 
   # Locks (decision 1), then the marker (decision 2).
   micromamba env export -n "$env_name" --explicit > "$LOCKS/$tool.explicit.txt.tmp" || return 1
-  micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" || return 1
+  PYTHONNOUSERSITE=1 micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" \
+    || return 1
   mv "$LOCKS/$tool.explicit.txt.tmp" "$LOCKS/$tool.explicit.txt"
   mv "$LOCKS/$tool.pip.txt.tmp" "$LOCKS/$tool.pip.txt"
   echo "$want" > "$marker"

@@ -280,6 +280,7 @@ lines.
   fresh `--array=2` on R, whose row is newest). Fix if wanted: label task 2's trap rows
   `calibration_nightly: task 2 killed …` (exit ≠ 0), keeping the MODE=record skip row as `task 2:`
   (it has exit 0 and would otherwise read as a pass).
+- *Superseded for R3/R4 by M11-14 item 4 (14g): reuse needs `reusable(C, R)`, not code-equal.*
 - **Q6. `CALIB_PATHS` misses inputs of the calibration suites.** 64 files in `tests/calibration`
   import `giapsim` (`tests/sim/`) and many use `tests/helpers/`; a change there alters the nulls but
   not `CALIB_PATHS = ("src", "tests/calibration", "ci")`, so an older row stays code-equal. Default:
