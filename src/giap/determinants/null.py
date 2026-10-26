@@ -12,7 +12,7 @@ from __future__ import annotations
 import multiprocessing
 import zlib
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,10 +36,9 @@ DEGENERATE = "null_degenerate"
 #: pass 1 (ADR-0034): the permutation p is valid only for exchangeable TUs; on every result
 UNCALIBRATED = "null_uncalibrated"
 UNESTIMATED = "unestimated"
-#: models refitted in worker processes, never threads, and with no other pool running: the
-#: elastic net's path holds the GIL, so threading it -- or overlapping it with the LightGBM pool
-#: (GIL convoy on a loaded node) -- is slower than one thread (2.5x at 4 threads)
-_SERIAL: frozenset[ModelName] = frozenset({"elastic_net"})
+#: with threads > 1 the refits run on spawned worker processes, never threads: the elastic net's
+#: path holds the GIL, so threading it -- or overlapping it with a LightGBM thread pool (GIL convoy
+#: on a loaded node) -- is slower than one thread (2.5x at 4 threads; ADR-0053, ADR-0063)
 #: permutations per task sent to a worker process (amortises the pickling of the response)
 _CHUNK = 8
 
@@ -60,17 +59,20 @@ def _worker_r2(args: tuple[ModelName, F64]) -> float:
     return float(refit_r2(m, w["X"], yb, w["folds"], w["cfg"], w["seed"], 1, tu=w["tus"])[0])
 
 
-def _process_column(
-    m: ModelName, ys: Sequence[F64], X: pd.DataFrame, folds: I64, cfg: DeterminantsConfig,
-    seed: int, tus: list[str], threads: int,
-) -> list[float]:  # fmt: skip
-    """``[one(m, yb) for yb in ys]`` on ``threads`` spawned worker processes, in b order."""
+def _process_columns(
+    models: Sequence[ModelName], ys: Sequence[F64], X: pd.DataFrame, folds: I64,
+    cfg: DeterminantsConfig, seed: int, tus: list[str], threads: int,
+) -> list[list[float]]:  # fmt: skip
+    """``[[one(m, yb) for yb in ys] for m in models]`` on one pool of ``threads`` spawned worker
+    processes, model by model, each column in b order."""
     ctx = multiprocessing.get_context("spawn")  # never fork a process with live BLAS threads
     with ProcessPoolExecutor(
         max_workers=min(threads, len(ys)), mp_context=ctx, initializer=_init_worker,
         initargs=(X, folds, cfg, seed, tus),
     ) as pool:  # fmt: skip
-        return list(pool.map(_worker_r2, [(m, yb) for yb in ys], chunksize=_CHUNK))
+        return [
+            list(pool.map(_worker_r2, [(m, yb) for yb in ys], chunksize=_CHUNK)) for m in models
+        ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,9 +135,9 @@ def null_p(
 
     Permutation b draws from child b of ``SeedSequence([seed, crc32(NULL_STREAM)]).spawn(B)``
     (independent of B), so results are reproducible and identical for any ``threads``: each fit
-    is single-threaded and independent; model by model, LightGBM refits run on ``threads``
-    worker threads and the elastic net's (GIL-bound) on ``threads`` worker processes (serially
-    when ``threads`` is 1), collected in b order.
+    is single-threaded and independent; with ``threads`` > 1 they run model by model on one
+    pool of ``threads`` spawned worker processes (one BLAS/OpenMP thread each), serially
+    otherwise, collected in b order.
     Every TU size unique: every permutation is the identity, so no refit is made, each null R²
     is the observed value, b = B, p = 1 and the result is flagged ``null_degenerate``."""
     if B < 1:
@@ -161,13 +163,11 @@ def null_p(
         return [one(m, yb) for yb in ys]
 
     null = np.empty((B, len(models)), dtype=np.float64)
-    for j, m in enumerate(models):
-        if threads > 1 and m not in _SERIAL:
-            with ThreadPoolExecutor(max_workers=threads) as pool:
-                null[:, j] = list(pool.map(lambda yb, m=m: one(m, yb), ys))
-        elif threads > 1 and len(ys) > 1:
-            null[:, j] = _process_column(m, ys, X, folds, cfg, seed, tus, threads)
-        else:
+    if threads > 1 and B > 1:
+        for j, col in enumerate(_process_columns(models, ys, X, folds, cfg, seed, tus, threads)):
+            null[:, j] = col
+    else:
+        for j, m in enumerate(models):
             null[:, j] = column(m)
     out: dict[str, NullResult] = {}
     for j, m in enumerate(models):

@@ -1,8 +1,8 @@
-"""The elastic-net permutation null on worker processes (perf; ADR-0053 follow-up, ADR-0062).
+"""The elastic-net permutation null on worker processes (perf; ADR-0053 follow-up, ADR-0063).
 
-With ``threads`` > 1 the elastic net's refits run on spawned worker processes, one BLAS/OpenMP
-thread each, collected in b order: the null R² arrays, p and b are bit-identical to the serial
-path (``threads`` = 1) for any worker count, and the LightGBM column is unaffected.
+With ``threads`` > 1 the null refits of both models run on one pool of spawned worker processes,
+one BLAS/OpenMP thread each, collected in b order: the null R² arrays, p and b are bit-identical
+to the serial path (``threads`` = 1) for any worker count.
 """
 
 from __future__ import annotations
@@ -58,13 +58,13 @@ def test_both_models_bit_identical_across_threads() -> None:
 
 def test_threads_above_one_use_the_process_pool(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[int] = []
-    real = N._process_column
+    real = N._process_columns
 
-    def spy(*args: Any) -> list[float]:
+    def spy(*args: Any) -> list[list[float]]:
         calls.append(args[-1])
         return real(*args)
 
-    monkeypatch.setattr(N, "_process_column", spy)
+    monkeypatch.setattr(N, "_process_columns", spy)
     _run(2, B=5)
     assert calls == [2]
     calls.clear()
