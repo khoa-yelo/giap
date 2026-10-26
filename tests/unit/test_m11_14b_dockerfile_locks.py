@@ -319,3 +319,19 @@ def test_no_pip_only_packages_without_a_pip_section(tool: str) -> None:
     conda = _explicit_pkgs(tool)
     extra = sorted(n for n in _pip_pkgs(tool) if n not in conda)
     assert extra == [], f"{tool}.yml has no pip section, but its pip lock adds {extra}"
+
+
+@pytest.mark.parametrize("tool", GHCR)
+def test_pip_lock_install_drops_conda_file_lines(tool: str) -> None:
+    """Review item 9 (M13): `name @ file://…` lines are conda's own packages; pip cannot fetch them.
+
+    The RUN that pip-installs the lock filters them out first (grep -v / sed on `@ file://`)."""
+    if not _lock(tool, "pip").is_file():
+        pytest.skip(f"{tool} has no pip lock")
+    dest = _copies(tool)[f"workflow/envs/locks/{tool}.pip.txt"]
+    hits = [r for r in _runs(tool) if dest in r and "pip install" in r]
+    assert hits, f"{tool}: no RUN pip install of {dest}"
+    for r in hits:
+        assert re.search(r"(grep\s+-v|sed\b)[^;&|]*@ file://", r), r
+        filt = r.index("@ file://")
+        assert filt < r.index("pip install"), "filter the lock before pip reads it"

@@ -30,6 +30,7 @@ from __future__ import annotations
 import functools
 import os
 import re
+import shutil
 import stat
 import subprocess
 import tomllib
@@ -362,3 +363,64 @@ def test_property_classification(tmp_path: Path, noise: str, pattern: str, code:
     assert (proc.returncode, proc.stdout.strip().splitlines()[-1:]) == (0, ["absent"])
     proc, _ = _check(tmp_path, code, f"ERROR: {noise}")
     assert proc.returncode != 0 and "absent" not in proc.stdout
+
+
+# --- review round 1 (PR #383) -----------------------------------------------------------------
+
+
+def test_build_and_digest_pr_run_only_on_main() -> None:
+    """Review item 8: a dispatch from a feature branch never reaches a push or the digest PR."""
+    _, build, _ = _build()
+    _, digest = _digest_job()
+    for job in (build, digest):
+        assert re.search(r"github\.ref\s*==\s*'refs/heads/main'", str(job.get("if", ""))), job.get(
+            "if"
+        )
+
+
+def test_plan_reads_the_revision_label_of_existing_images() -> None:
+    """Review item 5: an existing image's provenance comes from its OCI revision label."""
+    _, plan = _plan()
+    assert "org.opencontainers.image.revision" in _runs(plan)
+
+
+def _check_without_docker(tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    """Run the check with a PATH that has the usual tools but no `docker`."""
+    assert CHECK.is_file(), "scripts/release/ghcr_tag_state.sh is missing"
+    bindir = tmp_path / "nodocker"
+    bindir.mkdir()
+    for tool in ("grep", "cat", "sed", "awk", "head", "tail", "tr", "cut", "printf", "env"):
+        found = shutil.which(tool)
+        if found:
+            (bindir / tool).symlink_to(found)
+    bash = shutil.which("bash")
+    assert bash
+    return subprocess.run(
+        [bash, str(CHECK), REF],
+        env={"PATH": str(bindir), "HOME": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_missing_docker_is_an_error_not_absent(tmp_path: Path) -> None:
+    """Review item 1: bash's `docker: command not found` (rc 127) must not match `not found`."""
+    proc = _check_without_docker(tmp_path)
+    assert proc.returncode != 0, proc.stdout
+    assert "absent" not in proc.stdout and "exists" not in proc.stdout
+
+
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        (127, "bash: docker: command not found"),
+        (126, "bash: /usr/bin/docker: Permission denied"),
+        (127, "/usr/libexec/docker/cli-plugins/docker-buildx: not found"),
+    ],
+)
+def test_docker_cannot_run_is_an_error(tmp_path: Path, code: int, message: str) -> None:
+    """rc 126/127 means docker (or buildx) could not run: never `absent`, whatever the text."""
+    proc, _ = _check(tmp_path, code, message)
+    assert proc.returncode != 0, proc.stdout
+    assert "absent" not in proc.stdout
