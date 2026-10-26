@@ -132,9 +132,16 @@ def cli() -> None:
     "--cache-dir",
     type=_out_path,
     default=None,
-    help="Apptainer image cache [default: NXF_APPTAINER_CACHEDIR, $GIAP_ROOT/containers, "
-    "DIR/containers].",
+    help="Apptainer image cache and UniOP build context [default: NXF_APPTAINER_CACHEDIR, "
+    "$GIAP_ROOT/containers, DIR/containers].",
 )
+@click.option("--uniop", is_flag=True, help="Fetch UniOP from its authors and build it locally.")
+@click.option(
+    "--accept-uniop-terms",
+    is_flag=True,
+    help="UniOP has no licence file: you decide that your use is permitted (needed without a TTY).",
+)
+@click.option("--no-uniop", is_flag=True, help="Do not build UniOP under --images.")
 @shared_options
 def setup(
     config_file: Path | None,
@@ -143,14 +150,21 @@ def setup(
     images: str | None,
     profile: str | None,
     cache_dir: Path | None,
+    uniop: bool,
+    accept_uniop_terms: bool,
+    no_uniop: bool,
     **opts: Any,
 ) -> None:
     """Download databases and models (writes DIR/db_manifest.json)."""
+    from giap.annotate.tools import required_tools
     from giap.io.image_key import image_cache
     from giap.preflight.environment import container_runtime
     from giap.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
     from giap.setupdb.images import image_set, install_images
+    from giap.setupdb.uniop_build import setup_uniop
 
+    if uniop and no_uniop:
+        raise click.UsageError("--uniop and --no-uniop exclude each other")
     cfg = _resolve(config_file, sets, log_level)
     runtime = container_runtime(profile or "")
     if images not in (None, "config", "all"):
@@ -160,11 +174,22 @@ def setup(
     if images is not None and runtime is None:
         raise click.UsageError("--images needs --profile apptainer or --profile docker")
     db_dir: Path = opts["db_dir"]
-    code = run_setup(SetupOptions(**opts), ToolRunner(db_dir=db_dir), HttpsFetcher())
-    if images is not None and runtime is not None and not opts["check"]:
+    check = bool(opts["check"])
+    fetcher = HttpsFetcher()
+    # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b)
+    code = run_setup(SetupOptions(**opts, uniop=uniop and check), ToolRunner(db_dir=db_dir),
+                     fetcher)  # fmt: skip
+    cache = cache_dir or image_cache(os.environ, db_dir)
+    if images is not None and runtime is not None and not check:
         tools = image_set(cfg, images == "all")
-        cache = cache_dir or image_cache(os.environ, db_dir)
         if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
+            code = ExitCode.ENVIRONMENT
+    needed = images is not None and not no_uniop and "uniop" in {
+        t.name for t in required_tools(cfg)}  # fmt: skip
+    if (uniop or needed) and not check:
+        step = setup_uniop(profile or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
+                           explicit=uniop)  # fmt: skip
+        if step != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
     sys.exit(int(code))
 
@@ -534,8 +559,14 @@ def _run_nextflow(
     from giap.runner import nextflow as nf
 
     outdir = outdir.absolute()
+    from giap.preflight.environment import LOCAL_TOOLS, local_tools_applies
+
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
-    cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
+    # a local UniOP build (M11-14); absolute, since Nextflow runs in outdir (#396 review B1)
+    local = (db_dir / LOCAL_TOOLS).absolute() if db_dir is not None else None
+    if local is None or not local.is_file() or not local_tools_applies(profile):
+        local = None
+    cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)
     code = nf.run_nextflow(cmd, outdir)
     if code == ExitCode.SUCCESS:
         from giap.runner.local import write_datapackage

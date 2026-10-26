@@ -1,0 +1,24 @@
+# giap-uniop for Apptainer (M11-14 item 1b; mirrors the Dockerfile in this directory). Pins: ADR-0008.
+# This image is built only locally by `giap setup --uniop` from the authors' archive; never pushed
+# (unlicensed).
+# The build context is the one setup stages: uniop.yml at workflow/envs/ and the verified archive
+# as uniop-src.tar.gz. No chown: a fakeroot build maps a single uid.
+Bootstrap: docker
+From: mambaorg/micromamba@sha256:f90ebbd10a6dabe1ab87497babd33085d6cf743da6176cf6bf119b9431cdf251
+
+%files
+    workflow/envs/uniop.yml /tmp/env.yml
+    uniop-src.tar.gz /tmp/src.tar.gz
+
+%post
+    GIT_SHA=3ed14dfc2a5d69b993d99a26e50c1f8e9723c087
+    micromamba install -y -n base -c conda-forge -c bioconda --override-channels -f /tmp/env.yml
+    micromamba clean -a -y
+    mkdir -p /opt/conda/share/uniop
+    tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/uniop
+    echo "$GIT_SHA" > /opt/conda/share/uniop/GIAP_COMMIT
+    rm /tmp/src.tar.gz /tmp/env.yml
+    chmod -R a+rX /opt/conda/share/uniop
+
+%labels
+    org.opencontainers.image.title giap-uniop

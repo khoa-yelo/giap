@@ -96,3 +96,11 @@ contaminants:                                        # Frankenfield et al. 2022 
   path: contaminants/contaminants.fasta
   tool: null
   check: fasta:381
+uniop_source:                                        # M11-14 item 1b: the authors' archive at the ADR-0008 commit; no licence file: fetched by `setup --uniop`, built locally, never vendored or pushed (R5, R6)
+  version: "git:3ed14dfc2a5d69b993d99a26e50c1f8e9723c087"
+  url: https://github.com/hongsua/UniOP/archive/3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz
+  # sha256 of the official archive, downloaded twice on FarmShare 2026-10-26 (spec AC 9b)
+  checksum: sha256:1f6b96f0a8659ad28e4f4b1ed49d538ded82f5f7669af74b265583d837a4108a
+  path: uniop/UniOP-3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz
+  tool: null
+  check: sha256

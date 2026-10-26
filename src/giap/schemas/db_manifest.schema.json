@@ -23,7 +23,19 @@
           "retrieved": {"type": "string", "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$"},
           "path": {"type": "string"},
           "status": {"enum": ["ok", "absent", "mismatch"]},
-          "message": {"type": "string"}
+          "message": {"type": "string"},
+          "local_build": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["runtime", "ref", "digest", "key", "terms"],
+            "properties": {
+              "runtime": {"enum": ["docker", "apptainer", "micromamba", "prebuilt"]},
+              "ref": {"type": "string"},
+              "digest": {"type": "string"},
+              "key": {"type": "string"},
+              "terms": {"enum": ["flag", "prompt", ""]}
+            }
+          }
         }
       }
     }

@@ -95,6 +95,7 @@ class SetupOptions:
     kegg: bool = False
     cog: bool = False
     contaminants: bool = False
+    uniop: bool = False  # the UniOP source archive (M11-14 item 1b; built by setup --uniop)
 
 
 def _safe_name(name: str) -> bool:
@@ -136,6 +137,7 @@ def plan(opts: SetupOptions) -> list[DbItem]:
     names += [n for n, on in (("genomad", opts.genomad), ("antismash", opts.antismash),
                               ("promotech_models", opts.promotech_models)) if on]  # fmt: skip
     names += [n for flag, group in RESOURCES if getattr(opts, flag) for n in group]
+    names += ["uniop_source"] if opts.uniop else []
     return [SOURCES[n] for n in names]
 
 

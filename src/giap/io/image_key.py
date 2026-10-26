@@ -14,11 +14,21 @@ import shlex
 from collections.abc import Mapping
 from pathlib import Path
 
-__all__ = ["image_cache", "key", "key_inputs", "key_text", "tag", "uncovered_copy_sources"]
+__all__ = [
+    "UNIOP_ARCHIVE",
+    "image_cache",
+    "key",
+    "key_inputs",
+    "key_text",
+    "tag",
+    "uncovered_copy_sources",
+]
 
 _GIT_VERSION = re.compile(r"git:([0-9a-f]{40})")
 _TAG = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
 _EXTRA_INPUTS: dict[str, tuple[str, ...]] = {"fgsea": ("workflow/bin/giap_fgsea.R",)}
+#: the verified UniOP archive the Dockerfile ``COPY``s (M11-14 item 1b): keyed by its pin
+UNIOP_ARCHIVE = "uniop-src.tar.gz"
 
 
 def _root(root: Path | None) -> Path:
@@ -43,8 +53,20 @@ def key_inputs(tool: str, root: Path | None = None) -> list[str]:
     return sorted(p.relative_to(base).as_posix() for p in found)
 
 
+def _archive_line(tool: str) -> list[str]:
+    """``uniop-src.tar.gz\\t100644\\t<pinned sha256>\\n`` for UniOP, so a pin bump changes
+    the tag; the pin is read at call time from ``db_sources.yaml`` (``uniop_source``)."""
+    if tool != "uniop":
+        return []
+    from giap.setupdb import items
+
+    pin = items.SOURCES["uniop_source"].checksum.removeprefix("sha256:")
+    return [f"{UNIOP_ARCHIVE}\t100644\t{pin}\n"]
+
+
 def key_text(tool: str, root: Path | None = None) -> str:
-    """One ``<path>\\t<mode>\\t<sha256>\\n`` line per input (git's two file modes)."""
+    """One ``<path>\\t<mode>\\t<sha256>\\n`` line per input (git's two file modes), plus the
+    archive line of UniOP, sorted by path."""
     base = _root(root)
     inputs = key_inputs(tool, base)
     if not inputs:
@@ -54,7 +76,8 @@ def key_text(tool: str, root: Path | None = None) -> str:
         p = base / rel
         mode = "100755" if p.stat().st_mode & 0o111 else "100644"
         lines.append(f"{rel}\t{mode}\t{hashlib.sha256(p.read_bytes()).hexdigest()}\n")
-    return "".join(lines)
+    lines += _archive_line(tool)
+    return "".join(sorted(lines, key=lambda ln: ln.split("\t", 1)[0]))
 
 
 def key(tool: str, root: Path | None = None) -> str:
@@ -102,6 +125,8 @@ def uncovered_copy_sources(tool: str, root: Path | None = None) -> list[str]:
     out = []
     for src in _copy_sources(dockerfile):
         rel = src.removeprefix("./").rstrip("/")
+        if tool == "uniop" and rel == UNIOP_ARCHIVE:
+            continue  # covered by the archive line of key_text
         path = base / rel
         files = [path] if not path.is_dir() else [p for p in path.rglob("*") if p.is_file()]
         rels = {p.relative_to(base).as_posix() for p in files}
