@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 188/191 done (98 %), 1 running · generated 2026-10-25 14:09 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 190/192 done (99 %), 0 running · generated 2026-10-25 18:42 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -22,15 +22,19 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 | M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 18 | 0 | 0 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
-| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 83 % | 10 | 1 | 1 |
+| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
 | M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
 ## Current milestone
-(2026-10-25 morning) M0–M9 are done. M10 has M10-04 (#296, pass-1 run evidence) left, with M10-10a
-after it; M11 (release 1.0) has M11-01 and M11-02 merged and wave B in the loop. M7-16b-3 and
-M7-16c are follow-ups inside M7-16.
+(2026-10-25 evening) M0–M9 are done. M10: #296 (M10-04) and #364 (M10-10a) merged; the A3 run
+(Slurm 1894682, COMPLETED 0:0, 3 h 01 m, 77/0 tasks) passed rule set A and the three-way compare
+(Slurm 1895328, COMPLETED 0:0) passed rule set C (README section: #368). #366 (M10-10b, metric 6
+and H4 with the pre-registered Bonferroni fallback; full-tier attack 1895284 10/10, statistician
+lifted the hold) is in the merge queue. M11: #367 (M11-14 container-complete pip install and
+ADR-0060 versioning, Khoa's option 1) is reviewed and queued; its waves follow, then the GIPPA
+rename, then Khoa publishes.
 
 **Merged 2026-10-25 (new lead account):** M11 wave B, all one review round each:
 - #338 M11-06 GHCR containers (56f71b2d);
@@ -92,7 +96,10 @@ decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
   e2e) has started (test-author).
 - **M7-16c** (annotated internal Sec/Pyl codons, ADR-0058 item 6) has started with the
   statistician's quick check of the recoded cells.
-- **M10-10a (branch m10/spec-10, no PR yet):** waits for #296.
+- **M10-10 A3 (#368, draft → queue):** A3 used the CPU-route Cascadia `.ssl` files (GPU de novo
+  skipped; DEVIATION in pass2 ATTEMPTS.tsv); detection tier `two_peptide` (no decoys); TerminatorNet
+  2 h 55 m vs 1 h 08 m in A1. Step 6 (`metrics.py compute` with the A3 options) runs after #366 merges.
+- **Full-tier calibration array 1894441:** 5 tasks still running; then the M11-13 readiness check.
 
 **Nightly:** the 2026-10-25 run (array 1891597, 0667e366) was partly cancelled for R14 (tasks 0
 and 2, benchmark resubmit 1891690, summary 1891598; tasks 1 and 3 completed). Re-run it once the
@@ -434,18 +441,16 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. #296 (M10-04): in the merge queue. Don't queue PRs that touch `src/` or `workflow/`
-   while a `giap_run` reads the main checkout.
-2. M7-16b-3 (rule 14), feature loop: test-author → implementer → review.
-3. M7-16c, after the statistician's quick check.
-4. M10-10a once #296 has merged.
-5. M11 wave B (M11-03, M11-06, M11-07), then the rest of M11, including the user-guide section
-   "kinds of placement" (M11-08).
-6. The partly cancelled nightly: re-run it once the pilot arms end, or let the 2026-10-26 01:30
-   run cover it.
+1. Merge queue: #366 (M10-10b), #367 (M11-14 spec), #368 (A3 README).
+2. After #366: M10-10 step 6, `metrics.py compute` with `--peptides-a3/--convert-a3/--cmp3`, render.
+3. M11-14 wave 1 after #367: 14a, 14p, 14f1, 14s1, 14s2 (14p, 14b, 14g, 14h change CI: Khoa approves).
+4. When 1894441 ends: the M11-13 readiness check.
+5. #360 (V03 baseline) waits for Khoa; Q-K13–Q-K19 parked in local/handoff/khoa_q.md.
+6. The GIPPA rename after M11-14, before the first publish.
 
 Slurm jobs this session (2026-10-25): 1892719, 1892882, 1893676 (pilot pass-1 arms), 1894360
-(pilot compare), 1894327 (demo quickstart run).
+(pilot compare), 1894327 (demo quickstart run), 1894441 (full calibration), 1894680 (A3 convert),
+1894682 (A3 run), 1894858 and 1895284 (H4 attack fast/full), 1895328 (three-way compare).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
