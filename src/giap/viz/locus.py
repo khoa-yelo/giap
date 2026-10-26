@@ -37,6 +37,15 @@ if TYPE_CHECKING:
 
 Kind = Literal["prophage", "bgc", "island", "operon_flag", "novel_orf"]
 KIND_ORDER: tuple[str, ...] = ("prophage", "bgc", "island", "operon_flag", "novel_orf")
+#: the §8.1 test families in their row order; the V3 order rotates over these (V03-order spec)
+FAMILY_ORDER: tuple[str, ...] = ("prophage", "bgc", "island", "operon_discordance",
+                                 "missed_operon", "novel_orf")  # fmt: skip
+FLAG_FAMILIES: tuple[str, ...] = ("operon_discordance", "missed_operon")
+#: the name of each family's own estimate, printed in the index figure
+ESTIMATE = {"island": "FWER p", "missed_operon": "decoy-FDR q"}
+TIER_HEADERS = ("significant at each family's own level", "not significant", "no estimate")
+INDEX_CAPTION = ("Order alternates between test families; values from different test families "
+                 "are on different scales and are not compared.")  # fmt: skip
 FLANK = 2_000  # bp each side of the span (index decision 20)
 SINGLE_MAX_BP = 20_000
 MAX_TICKS = 5  # labelled position ticks at most (K-12 survey: 7-digit bp labels collided)
@@ -63,7 +72,12 @@ _OPTIONAL_TRACKS = ("promoters_bed", "terminators_bed", "peptide_hits")
 @dataclass(frozen=True)
 class Locus:
     """One candidate locus; ``start0``/``end0`` are its span, 0-based half-open (``end0`` may
-    exceed the length on circular contigs); ``error`` orders the pool (``None`` = NA)."""
+    exceed the length on circular contigs). ``error`` is the locus family's own estimate
+    (``None`` = NA): the BH q for prophage and BGC regions, the FWER p for islands, the
+    discordance BH q or the missed-operon decoy-FDR q for operon flags. Estimates of different
+    families are on different scales and are never compared with each other. ``family`` is the
+    §8.1 test family (empty = the same as ``kind``); operon flags carry ``operon_discordance``
+    (``uniop_class = OP``) or ``missed_operon`` (``NO``)."""
 
     locus_id: str
     kind: Kind
@@ -72,6 +86,12 @@ class Locus:
     end0: int
     error: float | None
     label: str
+    family: str = ""
+
+    @property
+    def test_family(self) -> str:
+        """The §8.1 family that ``error`` belongs to."""
+        return self.family or self.kind
 
 
 @dataclass(frozen=True)
@@ -177,14 +197,16 @@ def _flag_loci(view: RunView, alpha: float) -> list[Locus]:
         else:
             span = _pair_span(view, a, b)
         clause = f"{f.flag} between {f.gene_a} and {f.gene_b} (q = {base.sig(q, 3)})"
-        kept.append((q, str(f.pair_id), str(a.contig), span, clause))
-    merged: dict[tuple[str, int, int], list[tuple[float, str, str]]] = {}
-    for q, pid, contig, span, clause in sorted(kept, key=lambda k: (k[0], k[1])):
-        merged.setdefault((contig, *span), []).append((q, pid, clause))
+        family = "missed_operon" if str(f.uniop_class) == "NO" else "operon_discordance"
+        kept.append((q, str(f.pair_id), family, str(a.contig), span, clause))
+    # merge within a family only, so a merged locus never takes a minimum across families
+    merged: dict[tuple[str, str, int, int], list[tuple[float, str, str]]] = {}
+    for q, pid, family, contig, span, clause in sorted(kept, key=lambda k: (k[0], k[1])):
+        merged.setdefault((family, contig, *span), []).append((q, pid, clause))
     return [
         Locus(group[0][1], "operon_flag", contig, s, e, group[0][0],
-              "; ".join(c for _, _, c in group))
-        for (contig, s, e), group in merged.items()
+              "; ".join(c for _, _, c in group), family)
+        for (family, contig, s, e), group in merged.items()
     ]  # fmt: skip
 
 
@@ -199,16 +221,49 @@ def _pair_span(view: RunView, a: Any, b: Any) -> tuple[int, int]:
     return (s + length, e + length) if s < 0 and length else (s, e)
 
 
-def _order(lo: Locus) -> tuple[bool, float, int, str]:
-    err = lo.error
-    return (err is None, 0.0 if err is None else err, KIND_ORDER.index(lo.kind), lo.locus_id)
+def family_alpha(family: str, cfg: GiapConfig) -> float:
+    """The level of ``family``: ``stats.alpha.operon_flags`` for both flag families,
+    ``stats.alpha.context`` otherwise (regions, islands)."""
+    alpha = cfg.stats.alpha
+    return alpha.operon_flags if family in FLAG_FAMILIES else alpha.context
+
+
+def tier(lo: Locus, cfg: GiapConfig) -> int:
+    """0 when ``error <= alpha`` of the locus family (plain float comparison), 1 above, 2 NA."""
+    if lo.error is None:
+        return 2
+    return 0 if lo.error <= family_alpha(lo.test_family, cfg) else 1
+
+
+def _order(pool: Sequence[Locus], cfg: GiapConfig) -> list[Locus]:
+    """Sort by ``(tier, family_rank, family_index, locus_id)``. ``family_rank`` is the 1-based
+    position within the same family and tier by ``(error, locus_id)`` (0 in tier 2), so the
+    families take turns within a tier and no error is compared with another family's."""
+    groups: dict[tuple[int, str], list[Locus]] = {}
+    for lo in pool:
+        groups.setdefault((tier(lo, cfg), lo.test_family), []).append(lo)
+    keyed: list[tuple[tuple[int, int, int, str], Locus]] = []
+    for (t, family), members in groups.items():
+        members.sort(key=lambda lo: (lo.error or 0.0, lo.locus_id))
+        for rank, lo in enumerate(members, start=1):
+            key = (t, 0 if t == 2 else rank, FAMILY_ORDER.index(family), lo.locus_id)
+            keyed.append((key, lo))
+    return [lo for _, lo in sorted(keyed, key=lambda kl: kl[0])]
 
 
 def select_loci(view: RunView, cfg: GiapConfig) -> list[Locus]:
-    """The whole V3 pool ordered by error (NA last), then kind, then ID (decisions 3, 5, 8)."""
+    """The whole V3 pool (decision 5) in display order (docs/specs/V03-order-within-kind.md).
+
+    Loci significant at their own family's level come first, then the non-significant ones, then
+    those with no estimate. Within the first two tiers the §8.1 families (prophage, BGC, island,
+    operon discordance, missed operon) take turns: the best of each family, then the second
+    best, and so on; within a family the order is by its own estimate (§10.2 "ordered by q"
+    applies within each family). The resulting position (the index ``rank``) is a display order,
+    not a ranking of evidence across families: their estimates are on different scales.
+    """
     pool = _region_loci(view) + _island_loci(view)
     pool += _flag_loci(view, cfg.stats.alpha.operon_flags)
-    return sorted(pool, key=_order)
+    return _order(pool, cfg)
 
 
 # --- rendering ------------------------------------------------------------------------------
@@ -492,21 +547,36 @@ def _empty(columns: Iterable[str]) -> pd.DataFrame:
     return pd.DataFrame({c: pd.Series([], dtype=object) for c in columns})
 
 
-def _index(loci: Sequence[Locus], n_rendered: int) -> base.Instance:
+def _index(loci: Sequence[Locus], n_rendered: int, cfg: GiapConfig) -> base.Instance:
     rows = [
         [i + 1, lo.locus_id, lo.kind, lo.contig, lo.start0, lo.end0,
          math.nan if lo.error is None else lo.error, i < n_rendered]
         for i, lo in enumerate(loci)
     ]  # fmt: skip
     data = pd.DataFrame(rows, columns=list(INDEX_COLUMNS))
-    fig = style.new_figure("single", 0.4 + 0.13 * len(loci))
+    lines: list[tuple[str, str]] = [(INDEX_CAPTION, "italic")]
+    previous = -1
+    for i, lo in enumerate(loci):
+        t = tier(lo, cfg)
+        if t != previous:
+            lines.append((TIER_HEADERS[t], "bold"))
+            previous = t
+        mark = "" if i < n_rendered else " (not rendered)"
+        estimate = ESTIMATE.get(lo.test_family, "q")
+        lines.append((f"{i + 1}. {lo.locus_id} [{lo.kind}] {estimate} {base.sig(lo.error, 3)}"
+                      f"{mark}", "normal"))  # fmt: skip
+    # the caption wraps at the figure edge (one Text item), so it takes two line slots
+    slots = [2 if weight == "italic" else 1 for _, weight in lines]
+    fig = style.new_figure("single", 0.4 + 0.13 * sum(slots))
     ax = fig.add_axes((0.02, 0.02, 0.96, 0.96))
     ax.set_axis_off()
-    for i, lo in enumerate(loci):
-        mark = "" if i < n_rendered else " (not rendered)"
-        y = 1.0 - (i + 0.5) / len(loci)
-        text = f"{i + 1}. {lo.locus_id} [{lo.kind}] {base.sig(lo.error, 3)}{mark}"
-        ax.text(0.0, y, text, fontsize=6, va="center", transform=ax.transAxes)
+    top = 0
+    for (text, weight), n in zip(lines, slots, strict=True):
+        y = 1.0 - (top + n / 2) / sum(slots)
+        top += n
+        ax.text(0.0, y, text, fontsize=6, va="center", transform=ax.transAxes, wrap=True,
+                fontweight="bold" if weight == "bold" else "normal",
+                fontstyle="italic" if weight == "italic" else "normal")  # fmt: skip
     return base.Instance(None, fig, data, f"V3 loci: {n_rendered} of {len(loci)} rendered",
                          ("start",))  # fmt: skip
 
@@ -520,4 +590,4 @@ def locus_plots(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Sk
     n = max(0, min(cfg.report.max_locus_plots, len(loci)))
     scale = run_scale(view.table("genes_tsv"))
     shown = [render_locus(lo, view, cfg, scale) for lo in loci[:n]]
-    return [*shown, _index(loci, n)]
+    return [*shown, _index(loci, n, cfg)]

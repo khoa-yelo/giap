@@ -1136,13 +1136,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 
 ### 2026-10-25 afternoon (lead)
 - **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
-- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer.
+- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer. Spec: [docs/specs/V03-order-within-kind.md](specs/V03-order-within-kind.md) (`stats`).
 - **Quickstart demo peptide table:** ship a small peptide table (< 100 KB) under `docs/tutorials/data/` so the quickstart can run `giap run` with `--peptides`. Prefer giapsim-generated peptides (no sourcing question) over in-silico tryptic K-12 peptides.
 - **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
 - **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
 - **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
 
 ### M11-14 spec review nits (#367)
+- #370 review N4 (14u2): preflight hashes the UniOP `.sif` (≈ 1 GB) on every run; cache the hash by `(size, mtime)` in `local_build`, or record that the cost is accepted.
+- #370 review N5 (14u2): `scripts/build_envs.sh` builds the FarmShare prebuilt `giap-uniop` with an unchecked `git clone`, while `setup --uniop` uses the sha256-checked archive; move `build_envs.sh` to the same verified archive, or record why the two paths may differ.
 - Code review N3: the published images redistribute GPL-3 tools (OSTIR, PromoTech, Promoter Calculator, BacTermFinder) and GPL-2 R (fgsea image). Add one line to the spec and NOTICE on how corresponding source is offered (the `org.opencontainers.image.source` label, the pinned commit and archive URL, NOTICE links), or cite M11-06 AC 4 and extend it to fgsea/R. Docs role, with 14c or 14i.
 
 ### 2026-10-25 evening (lead)
@@ -1292,6 +1294,13 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
 - **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
 - **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
+- **V03 order review nits (#360, one round; statistician BLOCK fixed in the PR, code review APPROVE):**
+  - `V03_locus.tsv`'s `kind` column cannot tell the two operon-flag families apart; append an `estimate` column later.
+  - The spec's Edge cases table lacks the row on re-rendering at a higher `alpha.context` (the lead decisions call for it).
+  - Q4: show the V03 and V13 locus plots in the report in index-rank order.
+  - `FAMILY_ORDER.index` raises `ValueError` for an `operon_flag` Locus built without a family (only `_flag_loci` builds them today).
+  - `_order` looks up the family position per locus and `_index` recomputes the tier per row (negligible).
+  - The user guide could say "BH q-value within each region type".
 - **#359 review (demo peptides; B1 and S1, S3, S4 fixed in the PR):**
   - Bug (src, own PR): `run_manifest.json` `detection_tier` copies preflight's provisional tier (`src/giap/manifest.py:374`), so it says `decoy_picked` while genes.tsv and detection_summary.tsv say `mayu` (demo run 1894327: unscored decoys, rule 4(c)). The `decoy_unscored` warning is also missing from the manifest warnings.
   - S2: no CI test runs `scripts/docs/make_demo_peptides.py --check`; a later giapsim change could silently break the committed table. Test-author.
@@ -1314,3 +1323,4 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - `validation/pilot/report_template.md:226` should say `not_supported` needs two consecutive reportable bins.
   - No unit test pins the strict `<` at `genome.ci_high == L_b_adj.ci_low` (equal reads `consistent`).
   - `tests/calibration/attacks/test_attack_h4_lower_bound.py` docstring still describes the one-bin rule (statistician-only docstring edit).
+- **#374/M11-14p review nits (one round):** update_digests follows only line-leading `includeConfig` (inline profile includes are not; the docstring should say so); with docker `-u`, `HOME=/` is not writable in the container and the tools' cache writes are untested (the probe runs `bakta --version` only); a `db_dir` with spaces or `:` breaks the bind argument (apptainer too); `docker_db.nf.test` without `GIAP_SMOKE_DB_DIR` leaves a temp dir per load; the actions warn about the Node 20 deprecation (as the existing job).
