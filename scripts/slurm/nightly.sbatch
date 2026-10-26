@@ -123,7 +123,9 @@ task_integration() {
   caps=$(python -c 'import yaml; print(",".join(yaml.safe_load(open("ci/gates.yaml"))["required_capabilities"]["farmshare_nightly"]))')
   pyt integration tests/integration tests/contract -q -n 8 --require-capabilities "$caps"
   r0=$rc; s0=$summary
-  nf-test test workflow/tests --profile "$NF_PROFILE" 2>&1 | tee "$RUN/nf-test.txt"
+  # docker_smoke.nf.test and docker_db.nf.test run real images (docker-smoke.yml), as in ci.yml
+  nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test \
+    ! -name docker_db.nf.test | sort) --profile "$NF_PROFILE" 2>&1 | tee "$RUN/nf-test.txt"
   local r1=${PIPESTATUS[0]}
   rc=$(( r0 > r1 ? r0 : r1 ))
   summary="$s0; nf-test $NF_PROFILE: $(sed 's/\x1b\[[0-9;]*m//g' "$RUN/nf-test.txt" | grep -E '^(SUCCESS|FAILURE):' | tail -1)"

@@ -1326,13 +1326,18 @@ class Gap(str):
 def _walk(doc: Any, path: str) -> tuple[Any, Any]:
     """(value or ``_MISSING``, the nearest ``reason`` of the dicts walked through)."""
     cur, reason = doc, None
-    for part in path.split("."):
+    parts, i = path.split("."), 0
+    while i < len(parts):
+        part = parts[i]
         if isinstance(cur, Mapping):
             reason = cur.get("reason", reason)
-        if isinstance(cur, Mapping) and part in cur:
-            cur = cur[part]
+            # a key may itself hold dots (a contig accession such as ``CP171243.1``): longest match
+            j = next((j for j in range(len(parts), i, -1) if ".".join(parts[i:j]) in cur), None)
+            if j is None:
+                return _MISSING, reason
+            cur, i = cur[".".join(parts[i:j])], j
         elif isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
-            cur = cur[int(part)]
+            cur, i = cur[int(part)], i + 1
         else:
             return _MISSING, reason
     return cur, reason

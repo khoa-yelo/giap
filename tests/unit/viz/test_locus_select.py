@@ -23,16 +23,12 @@ Interface assumed where the spec leaves it open (reported to the lead):
 from __future__ import annotations
 
 import math
-import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import pytest
 from helpers import viz_locus as vl
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
 
 from giap.config import GiapConfig, resolve_config
 from giap.io.plot_files import write_instance
@@ -281,7 +277,8 @@ def test_ties_break_by_kind_then_id(tmp_path: Path, cfg: GiapConfig) -> None:
         flags=[vl.flag("PAIR_1", "g3", "g4", 0.05)],
     )
     loci = select_loci(RunView.from_outdir(out), cfg)
-    assert _ids(loci) == ["prophage_1", "prophage_2", "bgc_1", "ISL_1", "PAIR_1"]
+    # V03-order-within-kind: all at alpha (tier 0); families take turns, then IDs
+    assert _ids(loci) == ["prophage_1", "bgc_1", "ISL_1", "PAIR_1", "prophage_2"]
 
 
 def test_na_errors_sort_last_then_by_kind(tmp_path: Path, cfg: GiapConfig) -> None:
@@ -296,51 +293,6 @@ def test_na_errors_sort_last_then_by_kind(tmp_path: Path, cfg: GiapConfig) -> No
     loci = select_loci(RunView.from_outdir(out), cfg)
     assert _ids(loci) == ["bgc_1", "prophage_2", "ISL_2"]
     assert [lo.error is None for lo in loci] == [False, True, True]
-
-
-@st.composite
-def _pools(draw: Any) -> list[tuple[str, float | None]]:
-    errors = st.sampled_from([None, 0.001, 0.01, 0.05, 0.5, 1.0])
-    pool: list[tuple[str, float | None]] = []
-    for kind in ("prophage", "bgc", "island"):
-        pool += [(kind, draw(errors)) for _ in range(draw(st.integers(0, 3)))]
-    flag_q = st.sampled_from([0.001, 0.01, 0.05, 0.1])
-    pool += [("operon_flag", draw(flag_q)) for _ in range(draw(st.integers(0, 3)))]
-    return pool
-
-
-@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-@given(_pools())
-def test_property_order_is_error_na_last_then_kind_then_id(pool: list[tuple[str, Any]]) -> None:
-    regions, islands, flags, genes, tus = [], [], [], [], []
-    expected: list[tuple[bool, float, int, str]] = []
-    counters = dict.fromkeys(KIND_ORDER, 0)
-    for kind, err in pool:
-        counters[kind] += 1
-        n = counters[kind]
-        base_pos = 7_000 * len(expected) + 1
-        if kind in ("prophage", "bgc"):
-            lid = f"{kind}_{n}"
-            regions.append(vl.region_stat(lid, kind, "chr1", base_pos, base_pos + 999, err))
-        elif kind == "island":
-            lid = f"ISL_{n}"
-            islands.append(vl.island(lid, "chr1", base_pos, base_pos + 999, err))
-        else:
-            lid = f"PAIR_{n}"
-            a, b, tid = f"ga{n}", f"gb{n}", f"TU{n:04d}"
-            genes += [
-                vl.gene(a, "chr1", base_pos, base_pos + 299, tu_id=tid),
-                vl.gene(b, "chr1", base_pos + 400, base_pos + 699, tu_id=tid),
-            ]
-            tus.append(vl.tu(tid, "chr1", base_pos, base_pos + 699, "+", [a, b]))
-            flags.append(vl.flag(lid, a, b, err))
-        expected.append((err is None, 0.0 if err is None else err, KIND_ORDER.index(kind), lid))
-    with tempfile.TemporaryDirectory() as tmp:
-        out = vl.build_out(
-            Path(tmp), genes=genes, tus=tus, regions_stats=regions, islands=islands, flags=flags
-        )
-        loci = select_loci(RunView.from_outdir(out), resolve_config())
-    assert _ids(loci) == [e[3] for e in sorted(expected)]
 
 
 # --- the cap and the index ---------------------------------------------------------------------

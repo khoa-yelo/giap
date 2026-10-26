@@ -45,7 +45,12 @@ def _apptainer_block() -> str:
         elif NEXTFLOW[i] == "}":
             depth -= 1
             if depth == 0:
-                return NEXTFLOW[start : i + 1]
+                # inline the profile's includeConfig files (M11-14p: conf/container_common.config)
+                return re.sub(
+                    r"includeConfig\s+'([^']+)'",
+                    lambda m: (REPO / "workflow" / m.group(1)).read_text(),
+                    NEXTFLOW[start : i + 1],
+                )
     raise AssertionError("unbalanced apptainer profile")
 
 
