@@ -10,6 +10,7 @@
 # Weekly end-to-end runs on origin/main (GIAP_SPEC.md §12; M2-21), one array task per genome:
 #   0 = k12_mg1655 (U00096.3), 1 = nissle1917 (CP171242-CP171245), from $GIAP_ROOT/data/genomes
 #   (every replicon marked [topology=circular]: all are closed); 2 = k12_distance_model (14s2).
+# R14: 3 x 16 = 48 CPUs; with the Sunday nightly (65) that is 113 of 128 during the overlap.
 # Per genome: (a) the farmshare_weekly capability gate (pytest --require-capabilities, the Bakta
 # full-DB contract tests; a missing DB fails); (b) real `giap run` with live full-DB Bakta and every
 # annotation tool, including the antiSMASH live run (its trace row must be COMPLETED); (c) `giap
@@ -118,8 +119,9 @@ except (OSError, ValueError, AttributeError): print("missing")' "$out/run_manife
     last=$(ls -td "$CI"/runs/weekly_*_0/recorded_json/tables/operons.tsv 2>/dev/null | head -1)
     [ -z "$last" ] || uni="${last%/tables/operons.tsv}"
   fi
+  # a crash reports "not available", never its last stderr line (stderr stays in the job log)
   agree=$(python scripts/tu_agreement.py --regulondb-dir "$GIAP_DATA_DIR/regulondb/14.5.0" --arm "fallback=$out" \
-    --arm "uniop ($(basename "$(dirname "$uni")"))=$uni" 2>&1 | tail -1 | tr '\t' ' ')
+    --arm "uniop ($(basename "$(dirname "$uni")"))=$uni" | tail -1 | tr '\t' ' '; exit "${PIPESTATUS[0]}") || agree=""
   report "$r" "$summary giap run distance_model exit $r; operon_source=$src; ${agree:-TU pairs vs regulondb: not available; uniop: not available};"
   exit 0
 fi
