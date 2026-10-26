@@ -1,0 +1,1 @@
+The opt-in BacTermFinder terminator step now calls `genome_scan.py` with the arguments its README gives (step 3, batch 10000) and runs it from a task-local directory, so it no longer fails at start-up or writes into the shared tool directory.
