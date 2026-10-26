@@ -156,6 +156,25 @@ def test_rscript_guard_flags_exactly_the_files_that_mention_it(
     assert bool(found) == planted
 
 
+@pytest.mark.parametrize(
+    ("rel", "line", "flagged"),
+    [
+        ("giap/io/fgsea_r.py", 'tail = ["Rscript", BAKED_SCRIPT]', False),
+        ("giap/io/fgsea_r.py", 'cmd = ["Rscript", "other.R"]', True),
+        ("giap/io/other.py", 'tail = ["Rscript", BAKED_SCRIPT]', True),
+    ],
+)
+def test_rscript_guard_allows_only_the_baked_script_in_the_fgsea_launcher(
+    tmp_path: Path, rel: str, line: str, flagged: bool
+) -> None:
+    """M11-14 14c: the image argv in fgsea_r.py runs the baked-in giap_fgsea.R; any other
+    Rscript mention, there or elsewhere, still fails."""
+    root = tmp_path / "src"
+    (root / rel).parent.mkdir(parents=True)
+    (root / rel).write_text(line + "\n")
+    assert bool(_load(CHECK_RSCRIPT).violations(root)) == flagged
+
+
 # --- the provenance guard ------------------------------------------------------------------
 
 

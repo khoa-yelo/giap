@@ -172,8 +172,7 @@ def test_literal_matrix_lists_exactly_the_five_tools() -> None:
     for v in lists:
         if all(isinstance(x, str) for x in v) and set(v) & (TOOLS | {"uniop"}):
             assert set(v) == TOOLS, v
-    assert "uniop" not in yaml.safe_dump(matrix)
-    assert "fgsea" not in yaml.safe_dump(matrix)
+    assert "uniop" not in yaml.safe_dump(matrix)  # fgsea is built here since M11-14 14c
 
 
 def test_build_push_action_inputs() -> None:
@@ -221,7 +220,7 @@ def test_build_job_exposes_the_pushed_digest() -> None:
     assert f"steps.{step['id']}.outputs.digest" in yaml.safe_dump(job)
 
 
-# --- guards: no UniOP, no fgsea, tools input validated ---------------------------------------
+# --- guards: no UniOP, tools input validated (fgsea is built since M11-14 14c) ----------------
 
 
 def test_uniop_rejected_before_any_build() -> None:
