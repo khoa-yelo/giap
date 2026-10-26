@@ -27,6 +27,17 @@
 <body>
 <h1>GIAP run comparison</h1>
 <p>GIAP {{ version }}. {{ runs | length }} runs on one genome; every ρ is shown with its TU-block bootstrap 95 % CI.</p>
+{% if versions %}
+<section id="compare_versions">
+<h2>Version differences (compare_versions)</h2>
+<p>The runs differ in package, tool, database, operon-source or output-schema versions; their results may not be directly comparable.</p>
+<ul>
+{% for line in versions %}
+<li>{{ line }}</li>
+{% endfor %}
+</ul>
+</section>
+{% endif %}
 <section id="runs">
 <h2>Runs</h2>
 <table data-table-runs="runs">
