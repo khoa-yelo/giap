@@ -1306,7 +1306,7 @@ def _run_block2(
     suite: str, full: bool, pending: Sequence[Mapping[str, Any]], lanes: int | None = None
 ) -> int:
     """Run block 2 of the ``pending`` checks through the suite's pytest command; its exit code.
-    With ``lanes`` L >= 2: L concurrent pytests, lane k running slice ``k/L`` of every pending
+    With ``lanes`` L >= 1: L concurrent pytests, lane k running slice ``k/L`` of every pending
     check with its own ``--junitxml`` (listed in ``<suite>.confirm_parts.json`` before they start);
     their exits folded by ``fold_shard_exits``."""
     cmd = [sys.executable, "-m", "pytest", *pytest_args(suite, full)]
@@ -1314,7 +1314,7 @@ def _run_block2(
     drop = (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV, CONFIRM_SLICE_ENV, CONFIRM_LANES_ENV,
             CONFIRM_JUNIT_ENV)  # fmt: skip
     base = {k: v for k, v in os.environ.items() if k not in drop}
-    if lanes is None or lanes < 2:
+    if lanes is None:  # unset: one process, today's JUnit, no confirm_parts.json
         print(f"{CONFIRM_ENV}={shlex.quote(checks)} {shlex.join(cmd)}", file=sys.stderr)
         return subprocess.run(cmd, env={**base, CONFIRM_ENV: checks}, check=False).returncode
     junit = os.environ[CONFIRM_JUNIT_ENV]
@@ -1347,7 +1347,7 @@ def _merge_main(suite: str, full: bool) -> int:
     code = 0
     try:
         lanes = confirm_lanes()
-        if lanes is not None and lanes >= 2:  # nothing pending leaves it empty
+        if lanes is not None:  # nothing pending leaves it empty
             log_dir().mkdir(parents=True, exist_ok=True)
             _confirm_parts_path(suite).write_text("[]\n")
     except (OSError, ValueError) as exc:
