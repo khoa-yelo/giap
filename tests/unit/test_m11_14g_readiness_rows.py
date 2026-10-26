@@ -37,6 +37,7 @@ from helpers.release_readiness import (
     Fixture,
     git,
     load_module,
+    passing_nightly,
     row,
     text_of,
 )
@@ -125,6 +126,24 @@ def test_report_change_reuses_and_cites_the_evidence_commit(fx: Fixture) -> None
     assert r3["status"] == "pass", r3
     assert any(fx.short(c) in e for e in r3["evidence"]), r3["evidence"]
     assert f"reused from {c[:7]}" in text_of(r3)
+
+
+def test_evidence_from_a_non_ancestor_commit_is_not_reused(fx: Fixture) -> None:
+    """Review #385: a nightly row logged on a side commit whose diff to HEAD is docs-only still
+    leaves R3/R4 pending, because C must be an ancestor of R."""
+    base = fx.r
+    git(fx.repo, "checkout", "-q", "-b", "side")
+    fx.write_text("docs/side.md", "# side\n")
+    side = fx.commit("side: docs")
+    git(fx.repo, "checkout", "-q", base)
+    git(fx.repo, "checkout", "-q", "-B", "release")
+    fx.write_text("docs/side.md", "# side\n")
+    fx.write_text("docs/x.md", "# x\n")
+    fx.commit("release: docs")
+    fx.set_nightly(passing_nightly(fx.short(side)))
+    for r in _calib(fx):
+        assert r["status"] == "pending", r
+        assert "reused from" not in text_of(r)
 
 
 # ------------------------------------------------------------------ H4 image keys

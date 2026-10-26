@@ -7,9 +7,9 @@ exists). Every git test builds its own throw-away repository; nothing touches th
 Interface fixed by these tests (in ``scripts/release/readiness.py``, which holds the lists):
 
 ``NON_STATS_PATHS: tuple[str, ...]``
-    exactly the 14 entries of the spec; a directory entry ends with ``/``, a file entry does not.
+    exactly the 19 entries of the spec; a directory entry ends with ``/``, a file entry does not.
 ``NEVER_PATHS: tuple[str, ...]``
-    the never list, exactly the 15 entries of the spec (same notation).
+    the never list, exactly the 16 entries of the spec (same notation).
 ``non_stats_path(path: str) -> bool``
     ``path`` (repo-relative POSIX) lies under an entry of ``NON_STATS_PATHS``, matched on whole
     path components: a directory entry ``a/b/`` matches ``a/b/x`` but not ``a/bx``; a file entry
@@ -35,16 +35,19 @@ from helpers.release_readiness import REPO, load_module
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+# review #385: scripts/dev/ narrowed to four files; CITATION.cff and validation/release/ added
 SPEC_NON_STATS = {
-    "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "mkdocs.yml", "PROGRESS.md",
-    "AGENTS.md", "CLAUDE.md", ".claude/", ".github/", "scripts/dev/", "scripts/docs/",
-    "src/giap/report/", "src/giap/viz/",
+    "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "CITATION.cff", "mkdocs.yml",
+    "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/", ".github/",
+    "scripts/dev/approval_packet.py", "scripts/dev/progress_bars.py", "scripts/dev/replant.sh",
+    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/giap/report/", "src/giap/viz/",
+    "validation/release/",
 }  # fmt: skip
 SPEC_NEVER = {
     "src/giap/preflight/", "src/giap/runner/", "src/giap/setupdb/", "src/giap/cli.py",
     "src/giap/data/", "src/giap/config/", "src/giap/rng.py", "src/giap/io/", "workflow/",
     "pyproject.toml", "uv.lock", "tests/sim/", "tests/calibration/", "ci/",
-    "scripts/release/readiness.py",
+    "scripts/release/readiness.py", "scripts/dev/island_power.py",
 }  # fmt: skip
 
 _GIT_ENV = {
@@ -142,7 +145,8 @@ def test_each_non_stats_entry_alone_is_reusable(rd, repo, rel: str) -> None:  # 
     ["src/giap/cli.py", "src/giap/stats/fdr.py", "src/giap/rng.py", "src/giap/io/x.py",
      "workflow/main.nf", "pyproject.toml", "uv.lock", "tests/sim/giapsim/nulls.py",
      "tests/calibration/test_x.py", "ci/gates.yaml", "benchmarks/baseline.json",
-     "tests/helpers/x.py", "CITATION.cff", "src/giap/preflight/x.py"],
+     "tests/helpers/x.py", "scripts/dev/island_power.py", "scripts/dev/record_fgsea.py",
+     "validation/pilot/x.py", "src/giap/preflight/x.py"],
 )  # fmt: skip
 def test_example13_any_other_path_is_not_reusable(rd, repo, rel: str) -> None:  # type: ignore[no-untyped-def]
     r, c = repo

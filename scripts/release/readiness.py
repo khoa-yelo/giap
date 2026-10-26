@@ -47,16 +47,19 @@ PAPERWORK_TREES = ("validation/release/", "docs/", "changelog.d/")
 # every path of ``git diff --name-only --no-renames C R`` lies under NON_STATS_PATHS (whole path
 # components; a directory entry ends with "/"). Changes to either list need `stats` review (Q-L15).
 NON_STATS_PATHS: tuple[str, ...] = (
-    "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "mkdocs.yml", "PROGRESS.md",
-    "AGENTS.md", "CLAUDE.md", ".claude/", ".github/", "scripts/dev/", "scripts/docs/",
-    "src/giap/report/", "src/giap/viz/",
+    "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "CITATION.cff", "mkdocs.yml",
+    "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/", ".github/",
+    # single files: scripts/dev/island_power.py feeds a calibration test (never list)
+    "scripts/dev/approval_packet.py", "scripts/dev/progress_bars.py", "scripts/dev/replant.sh",
+    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/giap/report/", "src/giap/viz/",
+    "validation/release/",
 )  # fmt: skip
 # Never reusable; disjoint from NON_STATS_PATHS (a unit test asserts it).
 NEVER_PATHS: tuple[str, ...] = (
     "src/giap/preflight/", "src/giap/runner/", "src/giap/setupdb/", "src/giap/cli.py",
     "src/giap/data/", "src/giap/config/", "src/giap/rng.py", "src/giap/io/", "workflow/",
     "pyproject.toml", "uv.lock", "tests/sim/", "tests/calibration/", "ci/",
-    "scripts/release/readiness.py",
+    "scripts/release/readiness.py", "scripts/dev/island_power.py",
 )  # fmt: skip
 SELF_PATH = "scripts/release/readiness.py"  # self-protection: a widening commit never certifies
 VERSION_FILE = "src/giap/__init__.py"
@@ -583,7 +586,7 @@ def _image_key(tool: str, root: Path) -> str:
     """``giap.io.image_key.key`` of the checkout next to this script (ValueError: no inputs)."""
     src = str(Path(__file__).resolve().parents[2] / "src")
     if src not in sys.path:
-        sys.path.append(src)
+        sys.path.insert(0, src)  # the checkout's image_key, not an installed giap's
     from giap.io.image_key import key
 
     return key(tool, root)
