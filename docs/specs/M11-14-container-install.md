@@ -3,8 +3,8 @@
 Milestone M11 · **pass 2, after the rebrand** · depends on: M11-01 (wheel bundles `workflow/`),
 M11-04 (`release.yml`), M11-06 (`containers.yml`, `update_digests.py`), M11-09 (docker smoke),
 M11-09b (bare refs, ADR-0059), M11-03 (readiness H4), ADR-0022 (operon distance model); the
-GIAP → GIPPA rename PR (backlog "Rebrand") before any publish · estimate ≈ 1,490 code lines +
-≈ 2,020 test lines in 13 code/test PRs and one docs PR (table at the end), plus one Khoa action (14j)
+GIAP → GIPPA rename PR (backlog "Rebrand") before any publish · estimate ≈ 1,540 code lines +
+≈ 2,090 test lines in 13 code/test PRs and one docs PR (table at the end), plus one Khoa action (14j)
 · **`stats` (14d, 14d2, 14s1, 14s2, 14g)**: 14d changes which model builds the TUs, which are the
 exchangeability blocks of most §8 nulls; 14g decides when calibration evidence is reused ·
 roles: implementer (`scripts/release/`, `src/giap/preflight/`, `src/giap/setupdb/`,
@@ -43,8 +43,9 @@ and "iterate on the final version fast. Make sure that whatever is built can be 
 ```text
 1. pip install gippa                       # Python package; workflow/, containers.config, images.json inside
 2. Docker or Apptainer, Nextflow ≥ 25.04.8 + Java ≥ 17 on PATH   (prerequisites, Q-K17)
-3. gippa setup --db-dir DB [--images --profile docker|apptainer]   # databases (+ pre-pulled images)
-4. gippa preflight ... --profile docker|apptainer                  # passes
+3. gippa setup --db-dir DB --images --profile docker|apptainer [--accept-uniop-terms]
+                                           # databases, pre-pulled images, local UniOP build (item 1b)
+4. gippa preflight ... --profile docker|apptainer                  # passes, with UniOP
 5. gippa run ... --profile docker|apptainer
 ```
 
@@ -53,11 +54,13 @@ tool image by digest (docker), or runs it from the cache that step 3 filled (app
 `<pkg>` is the PyPI project name read from `pyproject.toml` (`giap` today, `gippa` after the
 rename); `<owner>` is the GitHub owner (`khoa-yelo`, Q-K14).
 
-**UniOP caveat until 14d2.** UniOP has no licence, so no published image exists. Until the
-statistical evidence of 14s1/14s2 clears the distance-model fallback as a default (item 1), the
-default stays `annotation.uniop.enabled: true`. A pip user without UniOP then sets
-`--set annotation.uniop.enabled=false` (or `auto`) explicitly, and the install page says so. After
-14d2, `auto` is the default and step 4 passes without that line.
+**UniOP (Khoa, 2026-10-25: "UniOP is published research, we should be able to allow a mechanism
+for installing it").** UniOP has no licence file, so GIAP never redistributes it (no published
+image, no vendoring; R5/R11). Step 3 instead fetches the pinned commit from the authors' GitHub on
+the user's machine, checks its sha256 and builds it locally (item 1b, 14u), after the user accepts
+the terms. Step 4 then passes **with UniOP** under the default `annotation.uniop.enabled: true`.
+The distance-model fallback (`enabled: auto`, item 1 (c)) is kept only for installs where that
+build fails (offline, no build rights), and it becomes the default only after 14s1/14s2 (14d2).
 
 ## Definition
 
@@ -68,7 +71,7 @@ default stays `annotation.uniop.enabled: true`. A pip user without UniOP then se
 | bakta, transtermhp, genomad, antismash, miniprot, blast (BLAST, TBLASTN) | upstream, by digest | unchanged | none |
 | promotech, promoter_calculator, terminatornet, bactermfinder, ostir | Dockerfile, never built (M11-06) | `ghcr.io/<owner>/<pkg>-<tool>` by digest, content-addressed tag (item 2) | 14a, 14b, 14j |
 | fgsea | conda-only, started by the `function` step (M8-17 decision 9, ADR-0038) | `ghcr.io/<owner>/<pkg>-fgsea` with `giap_fgsea.R` baked in; run by `giap.io.fgsea_r` when no env or prefix is found | 14c |
-| uniop | conda-only; unlicensed | **never published.** `annotation.uniop.enabled: true \| false \| auto` (14d); `auto` becomes the default only after 14s1 + 14s2 (14d2); opt-in local build `<pkg> setup --tools uniop` (14e); Khoa asks the author for a licence in parallel | 14d, 14d2, 14e, 14s1, 14s2 |
+| uniop | conda-only; unlicensed | **never published.** Built locally from the authors' archive by `<pkg> setup --uniop`, which `setup --images` runs by default (14u); `annotation.uniop.enabled: true \| false \| auto` (14d) for the failure path; `auto` becomes the default only after 14s1 + 14s2 (14d2); Khoa may ask the authors for a licence | 14u, 14d, 14d2, 14s1, 14s2 |
 | codon_bias | in-process | unchanged | none |
 | cascadia, timsconvert (`PILOT_TOOLS`), DIA-NN | pilot only | out of scope: not on the user path | none |
 
@@ -98,13 +101,13 @@ default stays `annotation.uniop.enabled: true`. A pip user without UniOP then se
 - No GSEA Nextflow process is added (M8-17 decision 9 stays: the step starts R itself). R is GPL-2
   and fgsea MIT; the image label and NOTICE say so.
 
-**UniOP (14d, 14d2, 14e, 14s1, 14s2).** Three options, not exclusive:
+**UniOP (14u, 14d, 14d2, 14s1, 14s2).** Three options, not exclusive:
 
 | Option | What happens | Default |
 |---|---|---|
-| (a) licence from the author | publish `<pkg>-uniop` like the others | Khoa asks in parallel (Q-K13) |
-| (b) local build (14e) | item 1b below | opt-in |
-| (c) degrade (14d) | `enabled: auto` resolves to `true` when UniOP is installed for the profile, else `false`; operons use the ADR-0022 distance model | **available in 14d; the default only after 14d2** |
+| (a) licence from the authors | publish `<pkg>-uniop` like the others; the local build (b) becomes a fallback | optional: Khoa may ask (Q-K13) |
+| (b) local build (14u) | item 1b below: fetched from the authors, built on the user's machine | **the install path** (`setup --images` includes it) |
+| (c) degrade (14d) | `enabled: auto` resolves to `true` when UniOP is installed for the profile, else `false`; operons use the ADR-0022 distance model | **failures only** (offline, no build rights); available in 14d, the default only after 14d2 |
 
 *(c) in detail (14d, `stats`).*
 - **Config.** `annotation.uniop.enabled: true | false | auto` (new; config model, `defaults.yaml`
@@ -119,7 +122,7 @@ default stays `annotation.uniop.enabled: true`. A pip user without UniOP then se
   | `true` | yes | any | run UniOP |
   | `true` | no | any | exit 2, `environment.tools: uniop` missing |
   | `auto` | yes | any | resolves to `true` |
-  | `auto` | no | no | resolves to `false`; warning `environment.tools: uniop not installed (unlicensed, not distributed); operons use the distance model` |
+  | `auto` | no | no | resolves to `false`; warning `environment.tools: uniop not installed (unlicensed, not distributed); operons use the distance model; run: <pkg> setup --uniop …` (item 3) |
   | `auto` | no | yes | exit 2, `environment.tools: uniop not installed; set annotation.uniop.enabled: false to publish with the distance-model operons (see Methods)` |
   | `false` | any | any | distance model, flag and caveat below (accepted under `--publication`) |
 
@@ -181,30 +184,76 @@ moves).*
     the TU agreement with RegulonDB next to the UniOP arm in `weekly.tsv`. The arm is reported,
     not gated, and adds no bound.
 
-**1b. UniOP local build (14e).**
-- **Command.** `<pkg> setup --tools uniop --runtime docker|apptainer|micromamba [--cache-dir DIR]`
-  fetches the pinned commit's GitHub archive (official, R6) on the user's machine. The fetch is
-  checked against `--checksum` (14b, N5). It prints that UniOP has no licence and that the build
-  is for the user's own use, and records the result as a `db_manifest.json` item `image:uniop`
-  with `"local": true`. Nothing is ever pushed.
-- **How Nextflow finds the build.** `setup` writes `<db_dir>/local_tools.config`. `giap run` adds
-  it with `-c` when the file exists, and preflight reads it for the item 3 table.
-  - **docker:** `docker build -f workflow/containers/uniop/Dockerfile -t localhost/<pkg>-uniop:<version>-<key> <bundled build context>`.
+**1b. UniOP local build (14u).**
+- **Command.** `<pkg> setup --uniop --db-dir DB --profile docker|apptainer|conda [--cache-dir DIR]
+  [--accept-uniop-terms]`. The runtime follows the profile: `docker` → docker build, `apptainer`
+  → Apptainer build, `conda` or any `farmshare*` profile → micromamba env. It replaces the 14e
+  draft's `--tools uniop --runtime`.
+- **Included by default.** `setup --images --profile P` runs the same step whenever `uniop` is in
+  `required_tools(cfg)` for the resolved config (true for the defaults; false with
+  `annotation.uniop.enabled: false` or precomputed operon pairs). `--no-uniop` skips it.
+- **Fetch (one download, one check, three runtimes).**
+  - The archive is a new row of `src/giap/data/db_sources.yaml`: `uniop_source`, URL
+    `https://github.com/hongsua/UniOP/archive/3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz`
+    (official, R6; the commit equals `annotate/tools.py`, ADR-0008), checksum `sha256:<hex>`.
+  - The existing `HttpsFetcher` downloads it to `<cache>/uniop/UniOP-<commit>.tar.gz` and checks
+    the sha256 before anything is built. A mismatch deletes the file and exits 2:
+    `uniop: archive sha256 <got> != pinned <want>`.
+  - No builder fetches anything itself. `setup` assembles a staging context
+    `<cache>/uniop/context/` from the bundled files, at the repo-relative paths the Dockerfile
+    `COPY`s (`workflow/envs/uniop.yml`, its locks), plus the Dockerfile, `uniop.def` and the
+    verified archive as `uniop-src.tar.gz`.
+  - **Image key.** The uniop key (item 2) gains one extra line,
+    `uniop-src.tar.gz\t100644\t<pinned sha256>`, so a pin bump changes the tag. The AC 1
+    `COPY`-source test accepts `uniop-src.tar.gz` through that line.
+- **Terms notice (always printed, one line):** `UniOP (github.com/hongsua/UniOP @3ed14dfc) is
+  fetched from its authors and built on this machine; it has no licence file, so <pkg> does not
+  distribute it and whether your use is permitted is yours to decide.`
+  - **Default: not accepted unless the user says so.** On a TTY, setup asks
+    `Build UniOP for your own use? [y/N]`. Without a TTY and without `--accept-uniop-terms`, UniOP
+    is not built. Its item is recorded `absent` with the message
+    `terms not accepted; rerun with --accept-uniop-terms`.
+  - **Exit codes.** Under explicit `--uniop`, a refusal or a missing acceptance exits 2. Under the
+    implicit `setup --images`, the other items still install and setup exits 0 with a warning, so
+    a scripted install never hangs and never fails on UniOP alone. Preflight then names the
+    command (item 3). Once the terms are accepted, a failed fetch, checksum or build exits 2 in
+    both forms, after the other items are installed.
+  - **Why this default.** With no licence, GIAP has no permission to pass on and cannot accept on
+    the user's behalf. A silent yes in a non-interactive install would make GIAP the one deciding.
+    A default of no costs a scripted install one flag, and pip users following the install page
+    copy that flag knowingly.
+- **Build, and how Nextflow finds it.** `setup` writes `<db_dir>/local_tools.config`. `giap run`
+  adds it with `-c` when the file exists, and preflight reads it (item 3). Nothing is ever pushed.
+  - **docker:** `docker build -f <context>/Dockerfile -t localhost/<pkg>-uniop:<version>-<key> <context>`.
     The config line is `withName: 'UNIOP' { container = 'localhost/<pkg>-uniop:<version>-<key>' }`,
-    with `docker.runOptions` unchanged (item 3b).
-  - **apptainer:** `apptainer build --fakeroot <cache>/localhost-<pkg>-uniop-<version>-<key>.sif workflow/containers/uniop/uniop.def`.
-    `uniop.def` is new, mirrors the Dockerfile, and is a key input. The config line is
-    `withName: 'UNIOP' { container = '<absolute path of the .sif>' }`; Nextflow runs a local
-    image file directly. Without fakeroot (or root), the command exits 2 and names the docker
-    and micromamba alternatives.
-  - **micromamba:** builds `giap-uniop` from the bundled `uniop.yml` and the locks under
-    `<cache-dir>/envs`. The config line is `withName: 'UNIOP' { conda = '<prefix>' }` with
-    `conda.enabled = true`. This works **only with a conda-enabled profile** (`conda` or the
-    farmshare profiles). Under `docker` or `apptainer` alone the conda directive is ignored
-    (item 3), and preflight reports `uniop` missing with that reason.
-- **Dockerfile header.** 14e fixes the header of `workflow/containers/uniop/Dockerfile`, which
-  today says "Built by containers.yml … referenced by digest in containers.config". The new text:
-  "built only locally by `setup --tools uniop`; never pushed (unlicensed)".
+    with `docker.runOptions` unchanged (item 3b). Docker uses a local tag without pulling.
+  - **apptainer:** `apptainer build --fakeroot <cache>/localhost-<pkg>-uniop-<version>-<key>.sif <context>/uniop.def`.
+    `workflow/containers/uniop/uniop.def` is new and is a key input. It mirrors the Dockerfile:
+    `Bootstrap: docker` from the same digest-pinned micromamba base, with `%files` for
+    `uniop.yml` and `uniop-src.tar.gz`, and `%post` doing the same install and extraction into
+    `/opt/conda/share/uniop` plus `GIAP_COMMIT`. Apptainer cannot build from a Dockerfile. The
+    config line is `withName: 'UNIOP' { container = '<absolute path of the .sif>' }`. Without
+    fakeroot (or root), the step exits 2 and names the docker and conda alternatives and the
+    fallback (item 3).
+  - **micromamba:** creates `<cache-dir>/envs/giap-uniop` from the lock, then extracts the archive
+    into `<prefix>/share/uniop` with `GIAP_COMMIT`, which is where `UNIOP_HOME` defaults in
+    `modules/local/uniop/main.nf`. The config line is `withName: 'UNIOP' { conda = '<prefix>' }`
+    with `conda.enabled = true`. This works **only with a conda-enabled profile**. Under `docker`
+    or `apptainer` alone the conda directive is ignored (item 3), and preflight reports `uniop`
+    missing with that reason.
+  - **Dockerfile.** `ADD https://…/archive/${GIT_SHA}.tar.gz` becomes `COPY uniop-src.tar.gz`,
+    so the build reads only the verified archive. The header says "built only locally by
+    `<pkg> setup --uniop` from the authors' archive; never pushed (unlicensed)".
+    `update_digests.py` keeps refusing `UNIOP`, and `containers.yml` never builds it.
+- **What is recorded.**
+  - The `db_manifest.json` item `image:uniop` has `version: git:3ed14dfc…`, the archive `url`,
+    `checksum: sha256:<archive>`, `path` (the `.sif`, the env prefix, or `""` for docker) and
+    `status`.
+  - A new optional object `local_build` holds `{"runtime", "ref", "digest", "key",
+    "terms": "flag" | "prompt"}`. `digest` is the docker image ID (`docker image inspect
+    --format '{{.Id}}'`), the sha256 of the `.sif`, or `""` for micromamba.
+  - The run manifest's `uniop` tool entry takes `version` and `container_digest` from it, plus
+    `source_sha256` and `local_build: true` (the same schema minor as 14d).
 
 ### 2. Content-addressed, immutable image tags (14a, 14b; ADR-0060 §1)
 
@@ -279,7 +328,8 @@ profiles). Under `docker` alone **and under plain `apptainer`**, a process that 
 | pinned image (upstream or GHCR) | present (Nextflow pulls by digest) | present iff `<image_cache>/<simpleName>.img` exists | as today |
 | pinned image **and** a prebuilt env | the image is used; the env is ignored | same | as today (env) |
 | conda-only (after M11-14: only a micromamba-built local UniOP) | **missing**: `conda-only tool under a container profile without conda: <tool>` | same | needs the prebuilt env (as today) |
-| uniop with a local image (`local_tools.config`) | present iff the local tag exists (`docker image inspect`, a fake in tests) | present iff the `.sif` exists | as today |
+| uniop with a local build (`local_tools.config` + `local_build`) | present iff the local tag exists and its image ID equals `local_build.digest` (`docker image inspect`, a fake in tests) | present iff the `.sif` exists and its sha256 equals `local_build.digest` | the micromamba prefix with `GIAP_COMMIT` equal to the pin, or the prebuilt env (as today) |
+| uniop, not built or stale (no item, `absent`, or `local_build.key` ≠ this release's key) | missing; the message names the command (below) | same | same |
 | uniop with `enabled: auto` / `false` | the item 1 table | same | same |
 | fgsea | prefix → env → image (item 1) | same | as today (prefix) |
 | in-process | never missing | never missing | never missing |
@@ -299,8 +349,15 @@ profiles). Under `docker` alone **and under plain `apptainer`**, a process that 
   - It verifies that the pulled digest equals the pin, and records
     `{"name": "image:<tool>", "version": "<tag or upstream tag>", "checksum": "<digest>",
     "status": "ok"}` items in `db_manifest.json`.
-  - This and `setup --tools uniop` are the only commands that touch a registry or the network for
-    images.
+  - This and `setup --uniop` (which `--images` includes, item 1b) are the only commands that
+    touch a registry or the network for images.
+- **UniOP message.** When `uniop` is missing under `enabled: true`, preflight exits 2 with
+  `environment.tools: uniop not installed; run: <pkg> setup --uniop --profile <profile> --db-dir <db_dir> --accept-uniop-terms`,
+  filled in with the run's own profile and DB directory. A stale build says `uniop: local build
+  <key_old> does not match this release (<key_new>)` and the same command. The reason from
+  `local_build`/the item message is appended when there is one (for example `terms not accepted`,
+  `no fakeroot`). Under `enabled: auto` the same text is the warning (item 1 (c)). The
+  `--publication` rule is unchanged.
 - **`ToolRunner` (14f2)** runs the Bakta and antiSMASH downloaders. It gains a `docker run -u
   <uid>:<gid> -v …` path, and drops its requirement for `GIAP_ROOT` or a checkout
   (`setupdb/run.py:108-113`). It looks up the micromamba env, then the apptainer cache from
@@ -494,8 +551,10 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
   - `pip install`, `setup --images`, preflight, run;
   - FarmShare from a checkout as a second section;
   - the "Supported platform" warning replaced by the tested-platforms table (M11-09);
-  - UniOP: what is lost, the explicit `enabled` line needed until 14d2, how to opt in (14e), and
-    the licence warning;
+  - UniOP: `setup --images` builds it from the authors' archive (14u); the terms notice and
+    `--accept-uniop-terms` for scripted installs; what to do when the build fails (offline, no
+    fakeroot): rerun elsewhere, or `--set annotation.uniop.enabled=auto` (the default after 14d2)
+    with what the distance model loses;
   - on a Slurm executor, every node needs the same Python environment, because `GIAP_STEP` runs
     on the host (Q-L8: no core image).
 - **`docs/get-started/upgrade.md`** is new, placed after install in the nav. It covers:
@@ -539,6 +598,17 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 | 14 | `update_digests.py` with `{"UNIOP": "ghcr.io/…/gippa-uniop@sha256:…"}` | exit 1 (M11-06 example 5 still holds) |
 | 15 | `fgsea_r.command` under `GIAP_CONTAINER_RUNTIME=docker`, no prefix, no env | the exact docker argv of item 1, `-u <uid>:<gid>`, `Rscript /opt/<pkg>/giap_fgsea.R` |
 | 15b | `GIAP_FGSEA_PREFIX` set to a directory without R, image available | `FgseaEngineUnavailable` (no fall-through) |
+| 16 | `setup --images --profile docker --accept-uniop-terms`, fake fetcher serving the fixture archive whose sha256 equals the pin, fake `docker` | one fetch of the pinned URL; `docker build … -t localhost/<pkg>-uniop:git-3ed14dfc-<key> <context>`; `local_tools.config` has the `withName: 'UNIOP'` line; `image:uniop` `ok` with `local_build.runtime: docker`, `digest` = the fake image ID, `terms: flag`; no `push` |
+| 16b | the same, profile `apptainer`, fakeroot available | `apptainer build --fakeroot <cache>/localhost-<pkg>-uniop-git-3ed14dfc-<key>.sif <context>/uniop.def`; the config line names the absolute `.sif` path; `digest` = its sha256 |
+| 16c | the same, profile `conda` | env at `<cache-dir>/envs/giap-uniop`; `<prefix>/share/uniop/GIAP_COMMIT` = the commit; `conda = '<prefix>'` line |
+| 17 | the fixture archive with one byte changed | exit 2 `uniop: archive sha256 <got> != pinned <want>`; the file is deleted; no build command runs; no `local_tools.config` line |
+| 18 | `setup --images --profile docker`, no TTY, no `--accept-uniop-terms` | the notice is printed; no fetch and no build; `image:uniop` `absent`, message `terms not accepted; rerun with --accept-uniop-terms`; other images pulled; exit 0 with a warning |
+| 18b | `setup --uniop --profile docker`, no TTY, no flag | exit 2 with the same message |
+| 18c | TTY, the user answers `n` (or presses Enter) | as 18 (`--images`) or 18b (`--uniop`); answering `y` builds, with `terms: prompt` |
+| 19 | preflight, default `enabled: true`, profile `docker`, after example 16 | exit 0; `uniop` present; after the run the manifest has `operon_source: uniop` and the `uniop` tool entry with `local_build: true`, `source_sha256`, `container_digest` = `local_build.digest` |
+| 19b | preflight, `enabled: true`, `--db-dir /data/db`, profile `apptainer`, nothing built | exit 2 `environment.tools: uniop not installed; run: <pkg> setup --uniop --profile apptainer --db-dir /data/db --accept-uniop-terms` |
+| 19c | after example 16, the local tag removed (or its image ID differs from `local_build.digest`) | `uniop` missing, the same command |
+| 20 | `setup --images --profile apptainer --accept-uniop-terms`, no fakeroot | the other images are installed first; `image:uniop` `absent` with `no fakeroot: use --profile docker or conda, or set annotation.uniop.enabled=auto`; setup exits 2; preflight under `enabled: auto` then gives example 8 |
 
 ## Edge cases
 
@@ -566,7 +636,23 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 - **Empty input** (no enabled tool needs an image, e.g. every layer precomputed):
   `setup --images` pulls nothing and records nothing, and preflight passes.
 - **Precomputed operon pairs** (`annotation.precomputed.operon_pairs`): UniOP is not required and
-  `enabled` is ignored. `operon_source` is `precomputed` (as today).
+  `enabled` is ignored. `operon_source` is `precomputed` (as today). `setup --images` does not
+  build UniOP for that config.
+- **UniOP: offline or no build rights** (no network, no docker daemon access, no fakeroot): the
+  item is `absent` with the reason, and setup exits 2 (item 1b). The documented way out is to
+  build on a machine that can (docker: `docker save`/`load`; apptainer: copy the `.sif`, then
+  rerun `setup --uniop` there to record it), or `enabled: auto`/`false` (item 1 (c)).
+- **UniOP: the build host is not the run host** (docker on a laptop, run on a server; an
+  apptainer `.sif` on a path compute nodes cannot see): preflight checks the run host, so the
+  image-ID or `.sif` check fails there and names the command.
+- **UniOP: package upgrade.** A new release whose uniop key differs (Dockerfile, `.def`, env,
+  locks or archive pin changed) reports the old build as stale (example 19c). A release with the
+  same key reuses the build.
+- **UniOP: GitHub regenerates the archive.** The bytes of a commit archive can change while the
+  commit stays the same. The sha256 check then fails (example 17), and nothing is built from
+  unverified bytes. The fix is a reviewed pin update (R6 official source), not a bypass flag.
+- **UniOP: rerun after success.** `setup --uniop` with an `ok` item whose key and digest still
+  match does nothing (idempotent); `--check` verifies without building.
 - **GHCR outage or rate limit**: the plan job fails (B3 classification). R6: retry once later, then
   PROGRESS › Blocked.
 - Genomic edge cases: circular replicons matter only through the operon fallback, where
@@ -625,13 +711,23 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
      distance-model `operon_pairs.tsv`;
    - each of the three reasons appears in its case;
    - the report fixture shows the operon-source text with the numbers from `calibration.yaml`.
-9. UniOP local build (14e):
-   - with fake runtimes, the docker path builds `localhost/<pkg>-uniop:<version>-<key>`, the
-     apptainer path builds the `.sif` from `uniop.def`, and `local_tools.config` has the right
-     `withName` line;
-   - no `push` is ever called;
-   - micromamba under `-profile docker` is reported missing with the conda reason;
-   - `uniop.def` is a key input.
+9. UniOP local build (14u), with a fake fetcher and fake `docker`/`apptainer`/`micromamba` on
+   `PATH`; no socket is opened (the `tests/conftest.py` network guard), and the fixture archive is
+   a few-byte tarball made by the test (never UniOP code, R5):
+   - examples 16–20 and 18b/18c, including the exact build argv and `local_tools.config` lines;
+   - the archive is fetched once, from the pinned URL, and verified before any build command;
+     the Dockerfile has no `ADD` of a URL, and `uniop.def` has no `curl`/`wget`/URL fetch;
+   - the notice text is printed on every path, and the prompt default is no;
+   - no `push` is ever called; `update_digests.py` still refuses `UNIOP` (example 14);
+   - the `local_build` object, the manifest `uniop` entry and the preflight table rows (item 3)
+     agree; the preflight message is exactly the command of example 19b;
+   - `uniop.def` and the archive pin are key inputs (example 2 style: changing either changes the
+     key);
+   - micromamba under `-profile docker` is reported missing with the conda reason.
+
+   One manual Slurm job on FarmShare (ID in the PR, not a CI test) runs the real
+   `setup --uniop --profile apptainer --accept-uniop-terms` and `preflight`. It also records the
+   archive sha256 that the pin carries.
 10. **14s1/14s2 (statistician):**
     - arms A and B run at the existing bounds; the outcome is recorded in the PR;
     - `calibration.yaml: operon_distance` carries the precision and recall at 0.5 with CIs;
@@ -679,19 +775,19 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
 | 14s1 | `tests/calibration/attacks/test_attack_operon_distance_fallback.py`, arms A and B | 0 | 260 | none | **`stats`**, statistician |
 | 14s2 | precision/recall at 0.5 with CIs in `calibration.yaml`; ADR-0022 addendum; weekly arm `uniop.enabled=false` | 40 | 40 | none | **`stats`**, statistician |
 | 14d2 | default `auto` (`defaults.yaml`, model); guard test | 10 | 20 | 14d, 14s1, 14s2, statistician sign-off | **`stats`** |
-| 14e | `setup --tools uniop` (docker / apptainer `.def` / micromamba), `local_tools.config`, `giap run -c`, Dockerfile header | 180 | 150 | 14d, 14f2 | |
+| 14u | `setup --uniop` and its inclusion in `setup --images` (`--no-uniop`); `uniop_source` pin and the verified fetch; terms notice, prompt and `--accept-uniop-terms`; staging context; docker / apptainer `.def` / micromamba builders; `local_tools.config`, `giap run -c`; `local_build` item, manifest `uniop` entry; preflight rows and message; key line for the archive; Dockerfile `COPY` + header (replaces the 14e draft) | 230 | 220 | 14a (key), 14d (messages), 14f2 (`--images`) | |
 | 14c | fgsea Dockerfile with the script baked in; `fgsea_r` image path; `GIAP_CONTAINER_RUNTIME` from `giap run`; NOTICE line | 130 | 150 | 14a, 14f1 (cache helper, runtime) | |
 | 14g | readiness: `reusable(C, R)` (components, `--no-renames`, version-line exception, self-protection), `NON_STATS_PATHS` + never list, H4 key check and process-less fgsea; `release.yml` verify: `--check` + anonymous inspect | 140 | 170 | 14a | **`stats`**, CI change, **Khoa approval** |
 | 14h | compare version, digest and operon-source warnings; `output_schema_version`; schema diff test; `fetch-depth: 0` in CI | 120 | 190 | 14d (operon_source) | CI change, **Khoa approval** |
 | 14i | docs: install, upgrade, release.md, backlog entry closed; changelog fragments | 0 (≈ 380 prose) | 20 | all above | |
 | 14j | **Khoa**: `ghcr` environment, `GHCR_PUBLISH`, dispatch `tools=all`, approve, make public; then the digest PR and AC 16 | 0 | 0 | rename, 14b | Khoa |
 
-Total ≈ 1,490 code, ≈ 2,020 test lines, ≈ 380 prose.
+Total ≈ 1,540 code, ≈ 2,090 test lines, ≈ 380 prose.
 
 **Waves:**
 - W1: 14a, 14p, 14f1, 14s1, 14s2.
 - W2: 14b, 14f2, 14d, 14g, 14c.
-- W3: 14e, 14h.
+- W3: 14u, 14h.
 - W4: 14d2, after the statistician's sign-off, and 14i.
 - Then the rename, then 14j.
 
@@ -705,7 +801,7 @@ default that the PRs use.
 
 | # | Question | Default in use | PR |
 |---|---|---|---|
-| Q-K13 | UniOP for pip users: (a) ask the author for a licence, (b) opt-in local build, (c) degrade to the distance model when absent? And under `--publication`? | statistician's recommendation: (c) via `enabled: auto`, the default only after 14s1/14s2 clear it (14d2); (b) opt-in; Khoa sends (a). Under `--publication`, `auto` must resolve to `true` or exit 2; an explicit `enabled: false` is accepted, with the flag and the caveat | 14d, 14d2, 14e |
+| Q-K13 | UniOP for pip users: (a) ask the authors for a licence, (b) local build, (c) degrade to the distance model when absent? And under `--publication`? | **answered by Khoa 2026-10-25 (install mechanism):** (b) is the install path: pip install → `setup` (incl. UniOP, fetched from the authors with a sha256 check, built locally after the user accepts the terms) → preflight passes with UniOP (14u). (c) `enabled: auto` is kept only for failed builds, still the default only after 14s1/14s2 and the statistician (14d2). `--publication` unchanged: `auto` must resolve to `true` or exit 2; an explicit `enabled: false` is accepted, with the flag and the caveat. (a) optional: Khoa may ask the authors; if granted, `<pkg>-uniop` is published like the others and the local build becomes a fallback | 14u, 14d, 14d2 |
 | Q-K14 | GHCR owner after the rename: `ghcr.io/khoa-yelo/gippa-<tool>` or an organisation? | `khoa-yelo` (same as the repo owner today) | 14b, 14j |
 | Q-K15 | Release candidates: TestPyPI only, or also PyPI pre-releases (`pip install --pre`)? | TestPyPI only; PyPI gets finals only (M11 Q-K4 for 1.0, extended to every release) | 14g, 14i |
 | Q-K16 | GHCR retention: prune unreleased digests after 180 days, or never prune? | never prune (public storage is free); the 180-day rule applies only if Khoa chooses to prune | ADR-0060 |
@@ -733,6 +829,14 @@ default that the PRs use.
 - **The Python environment must match on every node.** `GIAP_STEP` runs on the host with the
   host's `giap`, so on a Slurm executor every node needs the same environment. The install page
   says so.
+- **UniOP archive sha256 not yet known** (14u). The pin needs the sha256 of the official commit
+  archive, computed once on FarmShare by the 14u implementer (the Slurm job of AC 9). GitHub
+  does not strictly guarantee byte-stable archives; if one changes, the check fails closed
+  (edge cases). The alternative, a `git clone` at the commit with a tree-hash check, needs `git`
+  on the user's machine, so it is not the default.
+- **Non-interactive default for the terms** (14u): no, unless `--accept-uniop-terms` or a TTY
+  "y". The lead may prefer yes-with-notice; that is a one-line change to the default, but it
+  means GIAP accepts on the user's behalf, which is why it is not the default here.
 - **The distance-model fallback has not been tested as a default.** No calibration test or attack
   runs the TU-block nulls with `source = distance_model`. giapsim's gap layout never makes the
   model split a true TU, and `pair_threshold = 0.5` was calibrated on UniOP scores. 14s1 and 14s2
