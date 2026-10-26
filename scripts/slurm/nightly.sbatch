@@ -2,12 +2,12 @@
 #SBATCH --job-name=giap-nightly
 #SBATCH --partition=normal
 #SBATCH --qos=normal
+#SBATCH --signal=B:TERM@600
 #SBATCH --array=0-3
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=60G
 #SBATCH --time=06:00:00
 #SBATCH --exclude=rye-02
-#SBATCH --signal=B:TERM@600
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
 # --exclude=rye-02 is a stopgap: on that node Python/JVM start-up stalls 50-250x (nightly 1870584,
 # 1896018); a slow-node guard replaces it.
