@@ -528,3 +528,43 @@ def test_installed_package_key_equals_the_repo_key(
     env.write_text(env.read_text() + "# bundled edit\n")
     assert ik.key("ostir") != want["ostir"]
     assert ik.key("ostir", REPO) == want["ostir"]
+
+
+# --- review round 1 (lead): directory sources, continuation lines, unknown tools -------------
+
+
+def test_directory_copy_source_with_a_non_input_file_is_reported(tmp_path: Path) -> None:
+    docker = "FROM scratch\nCOPY workflow/containers/ostir/ /opt/\nCOPY workflow/bin/ /opt/\n"
+    root = _ostir_tree(
+        tmp_path,
+        {"workflow/containers/ostir/Dockerfile": docker, "workflow/bin/other.py": "x\n"},
+    )
+    assert _ik().uncovered_copy_sources("ostir", root) == ["workflow/bin/"]
+
+
+def test_copy_continuation_lines_are_joined(tmp_path: Path) -> None:
+    docker = "FROM scratch\nCOPY workflow/envs/ostir.yml \\\n     workflow/bin/helper.py /opt/\n"
+    root = _ostir_tree(
+        tmp_path,
+        {"workflow/containers/ostir/Dockerfile": docker, "workflow/bin/helper.py": "x\n"},
+    )
+    assert _ik().uncovered_copy_sources("ostir", root) == ["workflow/bin/helper.py"]
+
+
+def test_copy_source_sharing_a_prefix_with_an_input_is_reported(tmp_path: Path) -> None:
+    docker = "FROM scratch\nCOPY workflow/envs/ostir /opt/\n"
+    root = _ostir_tree(tmp_path, {"workflow/containers/ostir/Dockerfile": docker})
+    assert _ik().uncovered_copy_sources("ostir", root) == ["workflow/envs/ostir"]
+
+
+def test_key_of_a_tool_with_no_inputs_is_an_error(tmp_path: Path) -> None:
+    root = _ostir_tree(tmp_path)
+    with pytest.raises(ValueError, match="typo"):
+        _ik().key("typo", root)
+
+
+def test_cli_unknown_tool_says_so() -> None:
+    proc = _cli("typo")
+    assert proc.returncode == 2
+    assert "unknown tool typo" in proc.stderr
+    assert "Traceback" not in proc.stderr

@@ -50,6 +50,9 @@ def main(argv: list[str] | None = None) -> int:
         from giap.annotate.tools import TOOLS
 
         for tool in args.tools:
+            if tool not in TOOLS:
+                print(f"image_key: unknown tool {tool}", file=sys.stderr)
+                return 2
             k = key(tool, root)
             print(f"{tool}\t{k}\t{tag(TOOLS[tool].version, k)}")
         return 0

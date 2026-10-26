@@ -46,8 +46,11 @@ def key_inputs(tool: str, root: Path | None = None) -> list[str]:
 def key_text(tool: str, root: Path | None = None) -> str:
     """One ``<path>\\t<mode>\\t<sha256>\\n`` line per input (git's two file modes)."""
     base = _root(root)
+    inputs = key_inputs(tool, base)
+    if not inputs:
+        raise ValueError(f"unknown tool {tool!r}: no image inputs under {base}")
     lines = []
-    for rel in key_inputs(tool, base):
+    for rel in inputs:
         p = base / rel
         mode = "100755" if p.stat().st_mode & 0o111 else "100644"
         lines.append(f"{rel}\t{mode}\t{hashlib.sha256(p.read_bytes()).hexdigest()}\n")
@@ -90,14 +93,19 @@ def _copy_sources(dockerfile: str) -> list[str]:
 
 
 def uncovered_copy_sources(tool: str, root: Path | None = None) -> list[str]:
-    """Build-context ``COPY`` sources of the tool's Dockerfile that are not key inputs."""
+    """Build-context ``COPY`` sources of the tool's Dockerfile that are not key inputs.
+
+    A directory source is covered only when every file under it is a key input."""
     base = _root(root)
-    inputs = key_inputs(tool, base)
+    inputs = set(key_inputs(tool, base))
     dockerfile = (base / "workflow" / "containers" / tool / "Dockerfile").read_text()
     out = []
     for src in _copy_sources(dockerfile):
         rel = src.removeprefix("./").rstrip("/")
-        if not any(i == rel or i.startswith(rel + "/") for i in inputs):
+        path = base / rel
+        files = [path] if not path.is_dir() else [p for p in path.rglob("*") if p.is_file()]
+        rels = {p.relative_to(base).as_posix() for p in files}
+        if not rels or not rels <= inputs:
             out.append(src)
     return out
 

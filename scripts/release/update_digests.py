@@ -93,6 +93,11 @@ def validate(digests: Mapping[str, object]) -> dict[str, str]:
         expected = f"{REGISTRY}/giap-{tool}@sha256:"
         if not ref.startswith(expected):
             raise DigestError(f"wrong image for {process}: {ref} (need {expected}<64 hex>)")
+    refs: dict[str, set[str]] = {}
+    for process, ref in digests.items():
+        refs.setdefault(PROCESS_TOOL.get(process) or IMAGE_ONLY[process], set()).add(str(ref))
+    if split := sorted(t for t, r in refs.items() if len(r) > 1):
+        raise DigestError(f"one image, several digests: {', '.join(split)} (pin one ref per tool)")
     return {p: str(digests[p]) for p in [*PROCESS_TOOL, *IMAGE_ONLY] if p in digests}
 
 

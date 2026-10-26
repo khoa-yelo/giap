@@ -287,3 +287,34 @@ def test_property_images_json_is_consistent_with_containers_config(chosen: dict[
             assert set(entry) == FIELDS
             assert entry["processes"] == _pinned_processes(config, str(entry["ref"]))
             assert entry == _entry(root, tool, str(entry["ref"]), list(entry["processes"]))
+
+
+# --- review round 1 (lead) -------------------------------------------------------------------
+
+
+def test_one_tool_with_two_different_digests_is_rejected(tmp_path: Path) -> None:
+    root = _tree(tmp_path)
+    before = (root / "workflow/conf/containers.config").read_text()
+    proc = _run(root, {"OSTIR": _ref("ostir", "a" * 64), "OSTIR_NOVEL": _ref("ostir", "b" * 64)})
+    assert proc.returncode == 1
+    assert "ostir" in proc.stderr
+    assert (root / "workflow/conf/containers.config").read_text() == before
+    assert not (root / "workflow/conf/images.json").exists()
+
+
+def test_fgsea_never_enters_the_conda_off_selector(tmp_path: Path) -> None:
+    root = _tree(tmp_path)
+    nf = root / "workflow/nextflow.config"
+    nf.write_text("process {\n  withName: 'BAKTA' { conda = '' }\n}\n")
+    dj = root / "digests.json"
+    dj.write_text(json.dumps({"OSTIR": _ref("ostir", "a" * 64), "FGSEA": _ref("fgsea", "c" * 64)}))
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--digests", str(dj),
+         "--config", str(root / "workflow/conf/containers.config"),
+         "--nextflow-config", str(nf), "--root", str(root),
+         "--date", DATE, "--source-commit", COMMIT],
+        capture_output=True, text=True, cwd=root, timeout=120, env=ENV,
+    )  # fmt: skip
+    assert proc.returncode == 0, proc.stderr
+    assert "withName: 'BAKTA|OSTIR' { conda = '' }" in nf.read_text()
+    assert sorted(_images(root)) == ["fgsea", "ostir"]
