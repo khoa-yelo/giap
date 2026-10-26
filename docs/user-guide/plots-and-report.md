@@ -31,9 +31,18 @@ Notes on particular plots:
 - **V04 and V09 are deferred.** V04 was a locus browser and V09 a mass-fraction treemap. Neither
   is built in 1.0.
 - **V03** draws at most `report.max_locus_plots` loci (50 by default). The loci are prophages
-  and BGCs with a region test, islands and flagged operon pairs (q ≤ `stats.alpha.operon_flags`). They are ordered by their error
-  value, NA last, then by kind and ID. The error value is the region or operon q-value, or the
-  island's FWER p-value, so one ordering mixes two scales. Novel ORFs are drawn by V13.
+  and BGCs with a region test, islands and flagged operon pairs (q ≤ `stats.alpha.operon_flags`).
+  Each locus carries its own test family's estimate: the region q-value, the island's FWER
+  p-value, the operon discordance q-value or the missed-operon decoy-FDR q-value. These are on
+  different scales and are never compared with each other. Loci significant at their family's own
+  level (`stats.alpha.context` for regions and islands, `stats.alpha.operon_flags` for flags) come
+  first, then the non-significant ones, then those with no estimate. Within each group the
+  families take turns: the best locus of each family, then the second best, and so on. Within a
+  family the order is by its own estimate, then by ID. The index `rank` is therefore a display
+  order, not a ranking of evidence across families. Under the cap, every family with a significant
+  locus gets a plot as long as the cap is at least the number of such families; non-significant
+  loci and loci with no estimate come after all significant ones.
+  Novel ORFs are drawn by V13.
 - **V18** shows the detectability reliability curve, p-value histograms per test family and null
   distributions against the observed statistic. These are diagnostics, not a calibration test. The
   calibration evidence is the simulation suites in the [methods notes](../methods/index.md). A flat

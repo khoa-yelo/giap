@@ -145,3 +145,9 @@ for islands "ISL_3 (low): mean log2 `<m>`, FWER p `<p>`"; operon flags "`<flag>`
     of the upstream Promotech window (high coordinate on +, low on −); + marks above the gene-track
     centre, − below. (Corrects the review-round brief, which said low on +.)
 14. Imputed genes keep their data-TSV row with `value` NA and `category = imputed`.
+
+## Lead decision (2026-10-25): order within family
+
+`docs/specs/V03-order-within-kind.md` (statistician-reviewed) **replaces decision 3** and
+**refines decision 8**. Loci are tiered by their own family's alpha (tier 2 is NA), and within a
+tier the §8.1 families take turns. §10.2's "ordered by q" holds within a family only.

@@ -370,7 +370,8 @@ Other scripts:
 - `update_digests.py --digests FILE --date YYYY-MM-DD --source-commit SHA [--config FILE]
   [--nextflow-config FILE]`: used by `containers.yml`. It pins `ghcr.io/khoa-yelo/giap-<tool>@sha256:…`
   in `workflow/conf/containers.config`. With `--nextflow-config`, it also adds the pinned processes
-  to the apptainer `conda = ''` selector.
+  to the one `conda = ''` selector, found by following that file's `includeConfig` lines (it lives
+  in `workflow/conf/container_common.config`, shared by the `apptainer` and `docker` profiles).
 - `check_changelog.py BASE` (in `scripts/ci/`): a PR that changes `src/` or `workflow/` (except
   `workflow/tests/`) must add `changelog.d/<PR>.<type>.md` or `changelog.d/+<slug>.<type>.md`. The
   types are `feature`, `bugfix`, `doc`, `removal` and `misc`. A PR is exempt with the label
