@@ -83,7 +83,7 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     has no tools. The runtime is a launch concern, not a preflight one."""
     import giap.cli
 
-    monkeypatch.setattr(giap.cli, "_run_preflight", lambda *a, **k: {})
+    monkeypatch.setattr(giap.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
     exe = bindir / "nextflow"
