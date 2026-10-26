@@ -244,3 +244,56 @@ AUROC diagnostic.
      `tests/unit/novel/test_novel_evidence.py` (2) and
      `tests/unit/novel/test_novel_evidence_review_180.py` (1). The spec's last acceptance
      criterion asks PR-C to list these; they should pass explicit thresholds.
+
+## Addendum (M11-14 14s2, 2026-10-25): the distance-model fallback at `pair_threshold` 0.5
+
+- Status of the addendum: proposed (statistician); it records measurements and changes no value,
+  threshold, bound or default. Needs Khoa: yes (it adds keys to the protected
+  `calibration.yaml`).
+- Spec: `docs/specs/M11-14-container-install.md` 14s2. Context: Khoa's decision (2026-10-25) that
+  pip users get a UniOP install mechanism, so the fallback runs only when UniOP is absent or
+  fails; `annotation.uniop.enabled: auto` becomes the default only after 14s1 and 14s2 (14d2).
+
+**Question.** The operating point above was measured for UniOP at t = 0.5 and for the distance
+model only at 0.529415. TUs are built from `p ≥ annotation.uniop.pair_threshold` whatever the
+source, so the fallback runs at p_dist ≥ 0.5, i.e. d ≤ d₀ = 102.69 bp (integer d ≤ 102).
+
+**Method.** `validation/operon_fallback_operating_point.py`: the same labelled set L as M6-12
+(2,739 pairs, P / N = 1,730 / 1,009, 773 directons; the driver's identity checks pass on the
+ADR-0022 pins), d₀ and s read from `calibration.yaml`, t from `defaults.yaml`. Directon-bootstrap
+percentile 95 % CIs with t fixed (the M6-12 `fixed_cutoff_ci`, not re-selected), B = 2,000, seed
+20261014, `giap.rng.for_step("m11_14s2_operon_fallback", seed)`. UniOP at the same t and the
+paired difference UniOP − distance (same directon replicates) are reported for comparison.
+Output `$GIAP_ROOT/stat/m11-14s2/operating_point.json` (sha256 fbed7547…c645; not committed,
+R6/R11); a rerun with the same seed is identical apart from `date`. Run in the session allocation
+(Slurm 1892896, 14 s).
+
+| t = 0.5 | precision | 95 % CI (directon) | recall | 95 % CI (directon) | TP / FP | F1 |
+|---|---|---|---|---|---|---|
+| **distance model** (d ≤ 102 bp) | **0.828** | **[0.805, 0.847]** | **0.916** | **[0.901, 0.931]** | 1,584 / 328 | 0.870 |
+| UniOP (as recorded above) | 0.896 | [0.878, 0.912] | 0.853 | [0.834, 0.872] | 1,476 / 172 | 0.874 |
+| UniOP − distance (paired) | +0.067 | [+0.056, +0.079] | −0.062 | [−0.076, −0.051] | — | — |
+
+iid (single-pair) CIs, for comparison only: distance precision [0.812, 0.845], recall
+[0.902, 0.929].
+
+**Reading.**
+- The fallback trades precision for recall: at the same t it links 1,912 labelled pairs against
+  1,648, so it **merges** adjacent TUs about twice as often as UniOP (FP 328 vs 172; 32.5 % of the
+  labelled non-operon pairs are linked) and **splits** true operons less often (8.4 % of the
+  labelled operon pairs are unlinked, against 14.7 %). Both differences exclude 0.
+- The precision 0.828 is **below the 0.90 target of §15.4** and below UniOP; no new threshold is
+  chosen (spec 14s2: "No new threshold and no re-selection"; R3). Precision is prevalence-bound
+  as noted above (K-12 labelled π = 0.632), and d₀ and s transfer worse than AUROC.
+- These keys are recorded in `calibration.yaml: operon_distance` as
+  `precision_at_pair_threshold`, `recall_at_pair_threshold` and their `_ci_low` / `_ci_high`
+  (flat keys: every non-metadata value of an entry is a number, `test_calibration_yaml_entries`).
+  The report's distance-model caveat (14d) quotes them.
+- What the merges and splits do to the TU-blocked nulls is 14s1's question
+  (`tests/calibration/attacks/test_attack_operon_distance_fallback.py`); its arm B draws K-12-like
+  gaps from the binned table above.
+
+**Not done here.** The weekly arm (K-12 with `annotation.uniop.enabled=false`, a `weekly.tsv` row,
+reported, not gated) needs the config key of 14d, which is not merged; it is added after 14d.
+
+**Multiple testing.** None: estimates with CIs, no p or q values (no §8.1 family).
