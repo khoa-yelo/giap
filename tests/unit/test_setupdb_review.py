@@ -414,14 +414,27 @@ def test_command_falls_back_to_the_pinned_image_with_binds(tmp_path: Path) -> No
     assert "light" not in cmd[:i], "relative arguments are not bound"
 
 
-def test_command_without_environment_or_image_is_unavailable(tmp_path: Path) -> None:
+def _no_docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """14f2: ToolRunner falls back to ``docker run``; these cases mean a host without docker."""
+    nodocker = tmp_path / "nodocker"
+    nodocker.mkdir()
+    monkeypatch.setenv("PATH", str(nodocker))
+
+
+def test_command_without_environment_or_image_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _no_docker(tmp_path, monkeypatch)
     from giap.setupdb import ToolRunner, ToolUnavailable
 
     with pytest.raises(ToolUnavailable, match="build_envs"):
         ToolRunner().command("bakta", ["bakta_db", "download"])
 
 
-def test_install_with_no_environment_is_absent_and_starts_nothing(tmp_path: Path) -> None:
+def test_install_with_no_environment_is_absent_and_starts_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _no_docker(tmp_path, monkeypatch)
     from giap.setupdb import ToolRunner, install
 
     rec = install(sources()["bakta_light"], tmp_path, ToolRunner(), NoFetcher())
