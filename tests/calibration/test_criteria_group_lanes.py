@@ -204,14 +204,17 @@ def _direct(logs: list[Path]) -> Counter[str]:
 Outcomes = dict[str, tuple[str, str]]
 
 
-def _run_groups(tmp: Path, nodeids: list[str], G: int) -> tuple[list[int], list[Path], Outcomes]:
+def _run_groups(
+    tmp: Path, nodeids: list[str], G: int, universe: list[str] | None = None
+) -> tuple[list[int], list[Path], Outcomes]:
+    """Group lane g deselects every collected test (``universe``, default ``nodeids``) not in g."""
     rcs: list[int] = []
     logs: list[Path] = []
     outcomes: Outcomes = {}
     for g, mine in enumerate(_groups(nodeids, G)):
         log = tmp / "lanes" / f"{SUITE}-group{g}"
         junit = tmp / f"task-5.group{g}.junit.xml"
-        others = [n for n in nodeids if n not in mine]
+        others = [n for n in (universe or nodeids) if n not in mine]
         env = _env(log, {"PYTEST_ADDOPTS": _addopts(others, junit)})
         res = _pytest(_args(OK), env)
         rcs.append(res.returncode)
@@ -259,7 +262,7 @@ def test_direct_layout_shard_lanes_plus_group_lanes_equal_unsharded(
     monkeypatch.setenv("GIAP_CALIBRATION_CONFIRM_JUNIT", str(shards / "task-5.merge"))
     rc_merge = C.main(["--suite", SUITE, "--fast", "--merge"])
 
-    g_rcs, g_logs, _out = _run_groups(tmp_path, group_tests, 2)
+    g_rcs, g_logs, _out = _run_groups(tmp_path, group_tests, 2, universe=sorted(report))
     assert (rc_one, rcs, rc_merge, g_rcs) == (0, [0, 0], 0, [0, 0])
 
     ref = _records([one])
