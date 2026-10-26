@@ -188,14 +188,8 @@ def test_build_push_action_inputs() -> None:
     assert str(w["push"]).strip().lower() == "true"
 
 
-def test_two_tags_sha7_and_tool_version() -> None:
-    wf = _load()
-    _, _, step = _build(wf)
-    tags = [t.strip() for t in re.split(r"[,\n]", str(step["with"]["tags"])) if t.strip()]
-    assert len(tags) == 2, tags
-    pat = re.compile(rf"^ghcr\.io/{OWNER}/giap-\$\{{\{{\s*matrix\.[\w.]+\s*\}}\}}:\S.*$")
-    for t in tags:
-        assert pat.match(t), t
+# test_two_tags_sha7_and_tool_version retired by M11-14 14b: one content-key tag per image
+# (tests/unit/test_m11_14b_containers_workflow.py pins the single tag).
 
 
 def test_oci_labels() -> None:
