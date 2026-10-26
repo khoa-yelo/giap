@@ -47,7 +47,7 @@ under `src/` changed, so any patch reruns the full calibration.
    days, keeping the latest digest per tool. UniOP (unlicensed, R5/R11) is never published. Each
    user's `<pkg> setup --uniop` (included in `setup --images`) fetches the pinned commit from the
    authors' GitHub with a sha256 check and builds it locally, after the user accepts the terms
-   (M11-14 item 1b, 14u). If the authors grant a licence, it is published like the others and
+   (M11-14 item 1b, 14u1/14u2). If the authors grant a licence, it is published like the others and
    the local build becomes a fallback.
 3. **What bumps what.**
    - **Major:** anything that breaks a user's script or a cross-run comparison. That covers
