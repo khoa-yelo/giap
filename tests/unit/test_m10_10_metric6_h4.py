@@ -31,6 +31,9 @@ each is reversible):
   query, definition 1).
 * ``h4_bin(n_b, k_b, genome, n_reportable) -> {"L_b", "L_b_adj", "U_b", "relation_95",
   "relation_adj"}`` (definition 7 for one bin; ``genome`` = {precision, ci_low, ci_high, …}).
+  Definitions 7 and 8 follow "Lead decision: the H4 fallback (2026-10-25)": ``relation_adj``
+  compares ``genome.ci_high`` with ``L_b_adj.ci_low``; ``U_b`` is descriptive only;
+  ``not_supported`` needs two consecutive reportable bins below.
 * ``hypothesis4(queries, d2, mapping_fdr, *, searchable=None, n_denovo_logged=None) -> dict``
   with ``verdict``, ``B``, ``bins`` (a list in ``score_bin`` order; per bin ``score_bin``,
   ``n_b``, ``k_b``, ``L_b``, ``L_b_adj``, ``U_b``, ``genome``, ``reportable``, ``relation_95``,
@@ -42,6 +45,8 @@ each is reversible):
 
 from __future__ import annotations
 
+import itertools
+import re
 from pathlib import Path
 from typing import Any
 
@@ -73,10 +78,13 @@ from helpers.a3_metrics_m10_10b import (
     z_ratio,
 )
 from helpers.pilot_metrics_m10 import load_metrics
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, Phase, assume, given, settings
 from hypothesis import strategies as st
 
 ORF_KEY = ("contig", "strand", "end")
+# The whole-rule properties call hypothesis4 on up to 1,500 peptides per example; shrinking a
+# failure takes minutes, so they report the first failing example (inputs in the message).
+NO_SHRINK = (Phase.explicit, Phase.reuse, Phase.generate)
 ALT_KEY = ("contig", "codon_start", "strand", "alt_aa")
 
 
@@ -514,6 +522,11 @@ def test_novel_summary_buckets_partition_rows(M: Any, tmp_path: Path, rows: list
 
 
 # ------------------------------------------------------------------ hypothesis 4: definition 7
+#
+# Definition 7 as amended by "Lead decision: the H4 fallback (2026-10-25)": ``relation_adj`` is
+# ``below_lower_bound`` when ``genome.ci_high < L_b^adj.ci_low`` (the unrescaled 95 % genome
+# upper limit against the two-sided Wilson at 1 - 0.05/B); ``U_b`` is still written, as a
+# descriptive column, and no longer enters any relation.
 
 
 def test_example_11_bin_7(M: Any) -> None:
@@ -525,22 +538,34 @@ def test_example_11_bin_7(M: Any) -> None:
         wilson(120, 200, 0.995), abs=1e-9
     )
     assert b["U_b"] == approx4(0.8103) and b["U_b"] == pytest.approx(upper(0.71, 0.78, 10))
-    assert b["relation_95"] == "consistent" and b["relation_adj"] == "consistent"
+    assert b["relation_95"] == "consistent" and b["relation_adj"] == "consistent"  # 0.78 >= 0.5008
 
 
 def test_example_11_bin_3_below_at_95_but_not_adjusted(M: Any) -> None:
     b = fn(M, "h4_bin")(150, 90, {"precision": 0.41, "ci_low": 0.33, "ci_high": 0.49}, 10)
     assert (b["L_b"]["ci_low"], b["L_b"]["ci_high"]) == (approx4(0.5200), approx4(0.6750))
     assert (b["L_b_adj"]["ci_low"], b["L_b_adj"]["ci_high"]) == (approx4(0.4855), approx4(0.7046))
-    assert b["U_b"] == approx4(0.5246)
+    assert b["U_b"] == approx4(0.5246)  # still written (descriptive)
     assert b["relation_95"] == "below_lower_bound"  # 0.49 < 0.52
-    assert b["relation_adj"] == "consistent"  # 0.5246 >= 0.4855
+    assert b["relation_adj"] == "consistent"  # adopted fallback: ci_high 0.49 >= 0.4855
 
 
 def test_example_11_bin_5_below_adjusted(M: Any) -> None:
     b = fn(M, "h4_bin")(150, 90, {"precision": 0.31, "ci_low": 0.24, "ci_high": 0.37}, 10)
     assert b["U_b"] == approx4(0.3959)
-    assert b["relation_95"] == "below_lower_bound" and b["relation_adj"] == "below_lower_bound"
+    assert b["relation_95"] == "below_lower_bound"
+    assert b["relation_adj"] == "below_lower_bound"  # ci_high 0.37 < 0.4855
+
+
+def test_relation_adj_compares_ci_high_not_u_b(M: Any) -> None:
+    """The fallback's discriminating case: ci_high 0.48 < L_b^adj.ci_low 0.4855 <= U_b 0.5146.
+    The one-bin rule (U_b against L_b^adj) read ``consistent``; the adopted rule reads below."""
+    g = {"precision": 0.40, "ci_low": 0.32, "ci_high": 0.48}
+    b = fn(M, "h4_bin")(150, 90, g, 10)
+    lo_adj = wilson(90, 150, 1 - 0.05 / 10)[0]
+    assert 0.48 < lo_adj <= upper(0.40, 0.48, 10)  # the oracle agrees the case discriminates
+    assert b["U_b"] == pytest.approx(upper(0.40, 0.48, 10))  # U_b still computed and written
+    assert b["relation_adj"] == "below_lower_bound"
 
 
 def test_z_ratio_of_example_11() -> None:
@@ -578,7 +603,8 @@ def test_relation_adj_implies_relation_95(
     M: Any, n: int, frac: float, g: list[float], B: int
 ) -> None:
     """Attack plan: ``relation_95 ⊇ relation_adj`` (a bin below at the adjusted level is below
-    at 95 %), and U_b ≥ ci_high (the one-sided level is stricter)."""
+    at 95 %: L_b^adj.ci_low <= L_b.ci_low); U_b >= ci_high and U_b = the descriptive rescaling;
+    ``relation_adj`` from ``ci_high`` against ``L_b^adj.ci_low`` (the adopted fallback)."""
     k = round(frac * n)
     p, hi = g
     b = fn(M, "h4_bin")(n, k, {"precision": p, "ci_low": max(0.0, p - 0.05), "ci_high": hi}, B)
@@ -589,26 +615,38 @@ def test_relation_adj_implies_relation_95(
     assert b["L_b"]["ci_low"] == pytest.approx(lo95, abs=1e-9)
     assert b["L_b_adj"]["ci_low"] == pytest.approx(lo_adj, abs=1e-9)
     assert b["relation_95"] == ("below_lower_bound" if hi < lo95 else "consistent")
-    assert b["relation_adj"] == ("below_lower_bound" if b["U_b"] < lo_adj else "consistent")
+    assert b["relation_adj"] == ("below_lower_bound" if hi < lo_adj else "consistent")
     if b["relation_adj"] == "below_lower_bound":
         assert b["relation_95"] == "below_lower_bound"
 
 
 # ------------------------------------------------------------------ hypothesis 4: the whole rule
+#
+# Definition 8 as amended: ``not_supported`` needs two consecutive reportable bins (adjacent in
+# ``score_bin`` order after the non-reportable bins are removed; labels skipped by merged ties do
+# not break adjacency) both ``below_lower_bound``; with B = 1 it is impossible.
+
+LOW = (0.31, 0.24, 0.37)  # example 11's bin 5: below L_b^adj (0.4855 at n = 150, k = 90)
 
 
-def _ex11_frame(variant_bin5: bool) -> tuple[pd.DataFrame, set[str], list[dict[str, object]]]:
-    """Ten bins of 200 peptides, k = 120 in each; genome rows as example 11 (bin 7 0.71
-    [0.64, 0.78], bin 3 0.41 [0.33, 0.49]; bin 5 0.31 [0.24, 0.37] in the variant; the other
-    bins 0.9 [0.85, 0.95])."""
-    peps, scores, by_bin = equal_bins(10, 200)
-    d2 = {p for b in by_bin for p in b[:120]}
-    g = {b: (0.9, 0.85, 0.95) for b in range(10)}
+def _ex11_frame(
+    below: tuple[int, ...] = (), unreported: tuple[int, ...] = ()
+) -> tuple[pd.DataFrame, set[str], list[dict[str, object]]]:
+    """Ten bins of 150 peptides, k = 90 in each (example 11's bin 3 and 5 counts); genome rows
+    as example 11 (bin 7 0.71 [0.64, 0.78], bin 3 0.41 [0.33, 0.49]; the bins of ``below`` 0.31
+    [0.24, 0.37] as the variant bin 5; the others 0.9 [0.85, 0.95]); the bins of ``unreported``
+    carry no precision (flag ``unreported``)."""
+    peps, scores, by_bin = equal_bins(10, 150)
+    d2 = {p for b in by_bin for p in b[:90]}
+    g: dict[int, tuple[float | None, ...]] = {b: (0.9, 0.85, 0.95) for b in range(10)}
     g[7], g[3] = (0.71, 0.64, 0.78), (0.41, 0.33, 0.49)
-    if variant_bin5:
-        g[5] = (0.31, 0.24, 0.37)
-    fdr = [PLACEMENT_ROW] + [fdr_row(b, *g[b]) for b in range(10)]
-    return queries_frame(peps, scores), d2, fdr
+    for b in below:
+        g[b] = LOW
+    rows = [
+        fdr_row(b, None, None, None, flags="unreported") if b in unreported else fdr_row(b, *g[b])
+        for b in range(10)
+    ]
+    return queries_frame(peps, scores), d2, [PLACEMENT_ROW, *rows]
 
 
 def _h4(
@@ -619,37 +657,143 @@ def _h4(
     return out
 
 
+def _below(out: dict[str, Any]) -> list[int]:
+    return [b["score_bin"] for b in out["bins"] if b["relation_adj"] == "below_lower_bound"]
+
+
 def test_example_11_verdict_consistent_with_lower_bound(M: Any, tmp_path: Path) -> None:
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
+    q, d2, fdr = _ex11_frame()
     out = _h4(M, tmp_path, q, d2, fdr)
     assert out["B"] == 10
     assert [b["score_bin"] for b in out["bins"]] == list(range(10))
     b3, b7 = out["bins"][3], out["bins"][7]
-    assert (b3["n_b"], b3["k_b"]) == (200, 120)
+    assert (b3["n_b"], b3["k_b"]) == (150, 90)
     assert b3["relation_95"] == "below_lower_bound" and b3["relation_adj"] == "consistent"
     assert b7["relation_95"] == b7["relation_adj"] == "consistent"
-    assert b3["U_b"] == pytest.approx(upper(0.41, 0.49, 10))
+    assert b3["U_b"] == pytest.approx(upper(0.41, 0.49, 10))  # written, descriptive
     assert b3["genome"]["precision"] == pytest.approx(0.41)
     assert b3["genome"]["ci_high"] == pytest.approx(0.49)
     assert out["verdict"] == "consistent_with_lower_bound"
 
 
-def test_example_11_variant_bin_5_not_supported(M: Any, tmp_path: Path) -> None:
-    q, d2, fdr = _ex11_frame(variant_bin5=True)
+def test_example_11_variant_bin_5_alone_is_consistent(M: Any, tmp_path: Path) -> None:
+    """Under the adopted fallback, bin 5 below on its own reads ``consistent_with_lower_bound``
+    (the one-bin rule read ``not_supported``)."""
+    q, d2, fdr = _ex11_frame(below=(5,))
     out = _h4(M, tmp_path, q, d2, fdr)
-    assert out["bins"][5]["relation_adj"] == "below_lower_bound"
+    assert _below(out) == [5]
+    assert out["verdict"] == "consistent_with_lower_bound"
+
+
+def test_example_11_bins_5_and_6_not_supported(M: Any, tmp_path: Path) -> None:
+    """Example 11: bin 6 also as bin 5 (two consecutive reportable bins) -> ``not_supported``."""
+    q, d2, fdr = _ex11_frame(below=(5, 6))
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert _below(out) == [5, 6]
     assert out["verdict"] == "not_supported"
+
+
+def test_example_11_bins_5_and_7_not_adjacent(M: Any, tmp_path: Path) -> None:
+    """Example 11: bins 5 and 7 below with bin 6 consistent -> ``consistent_with_lower_bound``."""
+    q, d2, fdr = _ex11_frame(below=(5, 7))
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert _below(out) == [5, 7] and out["bins"][6]["relation_adj"] == "consistent"
+    assert out["verdict"] == "consistent_with_lower_bound"
+
+
+@pytest.mark.parametrize("below", [(0, 9), (0, 2, 4, 6, 8), (1, 3, 5, 7, 9)])
+def test_below_bins_never_adjacent_are_consistent(
+    M: Any, tmp_path: Path, below: tuple[int, ...]
+) -> None:
+    """Two (or five) reportable bins below, no two consecutive: no refutation."""
+    q, d2, fdr = _ex11_frame(below=below)
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert _below(out) == list(below)
+    assert out["verdict"] == "consistent_with_lower_bound"
+
+
+def test_adjacent_across_a_non_reportable_bin(M: Any, tmp_path: Path) -> None:
+    """Bins 5 and 7 below and bin 6 unreported: after removing bin 6 the reportable bins 5 and 7
+    are consecutive -> ``not_supported``."""
+    q, d2, fdr = _ex11_frame(below=(5, 7), unreported=(6,))
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert out["B"] == 9 and out["bins"][6]["reportable"] is False
+    assert _below(out) == [5, 7]
+    assert out["verdict"] == "not_supported"
+
+
+def test_adjacent_across_two_non_reportable_bins(M: Any, tmp_path: Path) -> None:
+    """Bins 5 and 8 below, bins 6 and 7 unreported: reportable bins 5 and 8 are consecutive."""
+    q, d2, fdr = _ex11_frame(below=(5, 8), unreported=(6, 7))
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert out["B"] == 8
+    assert out["verdict"] == "not_supported"
+
+
+def _tied_bins() -> tuple[pd.DataFrame, set[str], list[int], dict[int, int]]:
+    """60 distinct low scores, 40 tied at 0.9 and 100 distinct high scores: ``score_bins``
+    merges edges at the ties and leaves label 4 empty (labels 0-3, 5-9; bin 3 holds the 40
+    ties, every other bin 20). Every peptide is confirmed (k_b = n_b)."""
+    import numpy as np
+
+    from giap.mapping.denovo_precision import score_bins
+
+    scores = [
+        *(0.80 + 0.05 * i / 61 for i in range(1, 61)),
+        *([0.9] * 40),
+        *(0.95 + 0.05 * i / 100 for i in range(1, 101)),
+    ]
+    peps = synthetic_peptides(len(scores))
+    bins = score_bins(np.asarray(scores))
+    labels = sorted({int(b) for b in bins})
+    sizes = {lab: int((bins == lab).sum()) for lab in labels}
+    assert labels == [0, 1, 2, 3, 5, 6, 7, 8, 9], labels  # the fixture really skips label 4
+    assert min(sizes.values()) >= 20, sizes
+    return queries_frame(peps, scores), set(peps), labels, sizes
+
+
+@pytest.mark.parametrize(
+    ("below", "want"), [((3, 5), "not_supported"), ((3, 6), "consistent_with_lower_bound")]
+)
+def test_adjacent_across_a_skipped_tie_label(
+    M: Any, tmp_path: Path, below: tuple[int, int], want: str
+) -> None:
+    """Merged ties skip label 4: reportable bins 3 and 5 are consecutive (skipped labels do not
+    break adjacency); bins 3 and 6 are not (bin 5 between them is reportable and consistent)."""
+    q, d2, labels, _ = _tied_bins()
+    fdr = [PLACEMENT_ROW] + [fdr_row(b, *(LOW if b in below else (0.95, 0.9, 1.0))) for b in labels]
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert [b["score_bin"] for b in out["bins"]] == labels and out["B"] == 9
+    assert _below(out) == list(below)
+    assert out["verdict"] == want
+
+
+def test_b_equal_1_single_bin_below_is_consistent(M: Any, tmp_path: Path) -> None:
+    """B = 1 (one tied bin): the bin is below, but ``not_supported`` needs two bins."""
+    peps = synthetic_peptides(150)
+    q = queries_frame(peps, [0.9] * 150)
+    out = _h4(M, tmp_path, q, set(peps[:90]), [fdr_row(0, *LOW)])
+    assert out["B"] == 1 and _below(out) == [0]
+    assert out["verdict"] == "consistent_with_lower_bound"
+
+
+def test_b_equal_1_among_unreported_bins_is_consistent(M: Any, tmp_path: Path) -> None:
+    """B = 1 with nine unreported bins: the one reportable bin below reads consistent."""
+    q, d2, fdr = _ex11_frame(below=(5,), unreported=(0, 1, 2, 3, 4, 6, 7, 8, 9))
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert out["B"] == 1 and _below(out) == [5]
+    assert out["verdict"] == "consistent_with_lower_bound"
 
 
 def test_descriptive_extras(M: Any, tmp_path: Path) -> None:
     """Definition 9: the n-weighted mean genome precision and the pooled share Σk/Σn."""
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
+    q, d2, fdr = _ex11_frame()
     out = _h4(M, tmp_path, q, d2, fdr)
     want = (8 * 0.9 + 0.71 + 0.41) / 10  # equal n per bin
     assert val(out["mean_genome_precision"]) == pytest.approx(want)
     pooled = out["pooled_L"]
-    assert (pooled["k"], pooled["n"]) == (1200, 2000)
-    assert (pooled["ci_low"], pooled["ci_high"]) == pytest.approx(wilson(1200, 2000), abs=1e-9)
+    assert (pooled["k"], pooled["n"]) == (900, 1500)
+    assert (pooled["ci_low"], pooled["ci_high"]) == pytest.approx(wilson(900, 1500), abs=1e-9)
 
 
 def test_example_12_small_bins_not_evaluable(M: Any, tmp_path: Path) -> None:
@@ -666,7 +810,7 @@ def test_example_12_small_bins_not_evaluable(M: Any, tmp_path: Path) -> None:
 
 
 def test_example_12_c_assumed_not_evaluable(M: Any, tmp_path: Path) -> None:
-    q, d2, fdr = _ex11_frame(variant_bin5=True)  # would be not_supported
+    q, d2, fdr = _ex11_frame(below=(5, 6))  # would be not_supported
     for r in fdr[1:]:
         r["flags"] = "c_assumed"
     out = _h4(M, tmp_path, q, d2, fdr)
@@ -675,15 +819,14 @@ def test_example_12_c_assumed_not_evaluable(M: Any, tmp_path: Path) -> None:
 
 
 def test_unreported_bin_is_not_reportable(M: Any, tmp_path: Path) -> None:
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
-    fdr[1 + 3] = fdr_row(3, None, None, None, flags="unreported")
+    q, d2, fdr = _ex11_frame(unreported=(3,))
     out = _h4(M, tmp_path, q, d2, fdr)
     assert out["B"] == 9 and out["bins"][3]["reportable"] is False
     assert out["bins"][7]["U_b"] == pytest.approx(upper(0.71, 0.78, 9))
 
 
 def test_d2_empty_warns_and_never_refutes(M: Any, tmp_path: Path) -> None:
-    q, _, fdr = _ex11_frame(variant_bin5=True)
+    q, _, fdr = _ex11_frame(below=(5, 6))
     out = _h4(M, tmp_path, q, set(), fdr)
     assert "a2_empty" in codes(out["warnings"])
     for b in out["bins"]:
@@ -702,7 +845,7 @@ def test_i_l_folded_on_both_sides(M: Any, tmp_path: Path) -> None:
 
 def test_bin_labels_cross_check_is_inconsistent(M: Any, tmp_path: Path) -> None:
     """Definition 2: the bin labels must equal ``mapping_fdr.tsv``'s ``score_bin`` values."""
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
+    q, d2, fdr = _ex11_frame()
     with pytest.raises(M.Inconsistent):
         _h4(M, tmp_path, q, d2, [*fdr, fdr_row(10, 0.5, 0.4, 0.6)])
     with pytest.raises(M.Inconsistent):
@@ -711,7 +854,7 @@ def test_bin_labels_cross_check_is_inconsistent(M: Any, tmp_path: Path) -> None:
 
 def test_denovo_count_cross_check(M: Any, tmp_path: Path) -> None:
     """S6 / lead decision: |S| against the placement log's "(M de novo)"."""
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
+    q, d2, fdr = _ex11_frame()
     with pytest.raises(M.Inconsistent):
         _h4(M, tmp_path, q, d2, fdr, n_denovo_logged=len(q) - 1)
     out = _h4(M, tmp_path, q, d2, fdr, n_denovo_logged=None)
@@ -744,7 +887,7 @@ def test_l_b_searchable(M: Any, tmp_path: Path) -> None:
 def test_caveats_rendered_with_the_result(M: Any, tmp_path: Path) -> None:
     """Definition 10 and S3: (0.8, 1] only; c_value from A2 (shared dependence); ALT error rates
     unestimated; dependent rows; contaminants in c_l; A2's own FDR."""
-    q, d2, fdr = _ex11_frame(variant_bin5=False)
+    q, d2, fdr = _ex11_frame()
     cav = _h4(M, tmp_path, q, d2, fdr)["caveats"]
     assert isinstance(cav, list) and all(isinstance(c, str) and c for c in cav)
     text = " ".join(cav).lower()
@@ -752,40 +895,118 @@ def test_caveats_rendered_with_the_result(M: Any, tmp_path: Path) -> None:
         assert needle in text, needle
 
 
+def test_caveat_one_bin_failure_reads_consistent(M: Any, tmp_path: Path) -> None:
+    """Lead decision (H4 fallback): the report's H4 caveats state the cost, that a failure
+    confined to one score bin reads ``consistent_with_lower_bound`` (two consecutive reportable
+    bins are needed). One caveat string carries both the one-bin statement and the verdict."""
+    q, d2, fdr = _ex11_frame()
+    cav = _h4(M, tmp_path, q, d2, fdr)["caveats"]
+    hits = [
+        c
+        for c in cav
+        if "consistent_with_lower_bound" in c
+        and re.search(r"\b(one|single)\b[^.]*\bbin\b", c.lower())
+        and re.search(r"consecutive|adjacent", c.lower())
+    ]
+    assert hits, cav
+
+
+def _rule(below_in_order: list[bool]) -> bool:
+    """The oracle of definition 8: some two consecutive entries (reportable bins in score_bin
+    order) are both below."""
+    return any(a and b for a, b in itertools.pairwise(below_in_order))
+
+
 @settings(
-    max_examples=25, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    max_examples=40,
+    deadline=None,
+    phases=NO_SHRINK,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
+@given(
+    below=st.sets(st.integers(min_value=0, max_value=9)),
+    unreported=st.sets(st.integers(min_value=0, max_value=9)),
+)
+def test_verdict_follows_the_two_consecutive_bins_rule(
+    M: Any, tmp_path: Path, below: set[int], unreported: set[int]
+) -> None:
+    """Any pattern of below / unreported bins on the example 11 frame: the verdict is
+    ``not_supported`` iff two reportable bins, consecutive once the unreported ones are removed,
+    are both below (derived here, not read from the output's relations)."""
+    q, d2, fdr = _ex11_frame(below=tuple(sorted(below)), unreported=tuple(sorted(unreported)))
+    rep = [b for b in range(10) if b not in unreported]
+    out = _h4(M, tmp_path, q, d2, fdr)
+    assert out["B"] == len(rep)
+    if not rep:
+        assert out["verdict"] == "not_evaluable"
+        return
+    lo_adj = wilson(90, 150, 1 - 0.05 / len(rep))[0]
+    ci_high = {b: LOW[2] if b in below else {3: 0.49, 7: 0.78}.get(b, 0.95) for b in rep}
+    flags = [ci_high[b] < lo_adj for b in rep]
+    want = "not_supported" if _rule(flags) else "consistent_with_lower_bound"
+    assert out["verdict"] == want, (sorted(below), sorted(unreported))
+
+
+@settings(
+    max_examples=40,
+    deadline=None,
+    phases=NO_SHRINK,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
 )
 @given(
     per_bin=st.integers(min_value=15, max_value=40),
     ks=st.lists(st.floats(min_value=0, max_value=1), min_size=10, max_size=10),
     gs=st.lists(_genome, min_size=10, max_size=10),
-    flags=st.sampled_from([None, "c_assumed", "unreported"]),
+    unreported=st.lists(st.booleans(), min_size=10, max_size=10),
+    c_assumed=st.booleans(),
 )
 def test_verdict_never_supported_and_follows_rule(
-    M: Any, tmp_path: Path, per_bin: int, ks: list[float], gs: list[list[float]], flags: str | None
+    M: Any,
+    tmp_path: Path,
+    per_bin: int,
+    ks: list[float],
+    gs: list[list[float]],
+    unreported: list[bool],
+    c_assumed: bool,
 ) -> None:
+    """The verdict re-derived from definitions 6-8 with an independent oracle: reportable =
+    precision reported and n_b >= 20; below = genome ci_high < Wilson(k_b, n_b, 1 - 0.05/B)
+    lower limit (textbook formula); ``not_supported`` iff two consecutive reportable bins are
+    below; ``not_evaluable`` with no reportable bin or any ``c_assumed``."""
     peps, scores, by_bin = equal_bins(10, per_bin)
-    d2 = {p for j, b in enumerate(by_bin) for p in b[: round(ks[j] * per_bin)]}
+    k = [round(f * per_bin) for f in ks]
+    d2 = {p for j, b in enumerate(by_bin) for p in b[: k[j]]}
     fdr = [
         fdr_row(
             j,
-            None if flags == "unreported" and j == 0 else g[0],
-            max(0.0, g[0] - 0.05),
-            g[1],
-            flags=flags if j == 0 else None,
+            None if unreported[j] else g[0],
+            None if unreported[j] else max(0.0, g[0] - 0.05),
+            None if unreported[j] else g[1],
+            flags="unreported"
+            if unreported[j]
+            else ("c_assumed" if c_assumed and j == 0 else None),
         )
         for j, g in enumerate(gs)
     ]
+    rep = [j for j in range(10) if not unreported[j] and per_bin >= 20]
+    B = len(rep)
+    lo_adj = {j: wilson(k[j], per_bin, 1 - 0.05 / B)[0] for j in rep}
+    assume(all(abs(gs[j][1] - lo_adj[j]) > 1e-6 for j in rep))  # no float near-ties
+    below = [gs[j][1] < lo_adj[j] for j in rep]
     out = _h4(M, tmp_path, queries_frame(peps, scores), d2, fdr)
     assert out["verdict"] in VERDICTS and out["verdict"] != "supported"
-    rep = [b for b in out["bins"] if b["reportable"]]
-    assert out["B"] == len(rep) == (0 if per_bin < 20 else 10 - (flags == "unreported"))
-    if flags == "c_assumed" or not rep:
+    assert out["B"] == B == sum(b["reportable"] for b in out["bins"])
+    by_label = {b["score_bin"]: b for b in out["bins"]}
+    for j, x in zip(rep, below, strict=True):
+        assert by_label[j]["relation_adj"] == ("below_lower_bound" if x else "consistent")
+    if (c_assumed and not unreported[0]) or not rep:
         assert out["verdict"] == "not_evaluable"
-    elif any(b["relation_adj"] == "below_lower_bound" for b in rep):
+    elif _rule(below):
         assert out["verdict"] == "not_supported"
     else:
         assert out["verdict"] == "consistent_with_lower_bound"
+    if B == 1:
+        assert out["verdict"] != "not_supported"
 
 
 # ------------------------------------------------------------------ hypothesis 4: definition 1
