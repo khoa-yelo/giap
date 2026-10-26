@@ -334,9 +334,10 @@ write_record() {  # write_record <exit|->: task-<i>.json once ("-": fold); print
   if "$PY" "$JOBPY" record "$STATE" "$1"; then recorded=1
   else echo "calibration_suite: could not write task-$TASK.json" >&2; fi
 }
+now_us() { local t=${EPOCHREALTIME//[^0-9]/}; echo $(( 10#$t )); }  # bash 5 wall clock, µs
 interrupt() {  # SIGINT to this shell's pytest descendants; wait up to the grace; SIGKILL the rest
   local end p live sent=""
-  end=$(( $(date +%s) + GRACE ))
+  end=$(( $(now_us) + GRACE * 1000000 ))  # microseconds: whole seconds could cut the grace by 1 s
   while :; do
     for p in $("$PY" -I "$JOBPY" tree "$$" pytest); do
       case " $sent " in *" $p "*) ;; *) kill -INT "$p" 2>/dev/null; sent="$sent $p" ;; esac
@@ -345,7 +346,7 @@ interrupt() {  # SIGINT to this shell's pytest descendants; wait up to the grace
     for p in ${step_pids[@]+"${step_pids[@]}"} $sent; do
       if kill -0 "$p" 2>/dev/null; then live=1; fi
     done
-    [ -n "$live" ] && [ "$(date +%s)" -lt "$end" ] || break
+    [ -n "$live" ] && [ "$(now_us)" -lt "$end" ] || break
     sleep 0.2
   done
   for p in $("$PY" -I "$JOBPY" tree "$$" all); do kill -KILL "$p" 2>/dev/null; done
