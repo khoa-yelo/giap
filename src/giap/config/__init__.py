@@ -66,12 +66,16 @@ def resolve_config(
     config_file: Path | str | None = None,
     overrides: Iterable[str] = (),
     publication: bool = False,
+    base: Mapping[str, Any] | None = None,
 ) -> GiapConfig:
-    """Defaults ← config file (deep merge) ← ``--publication`` ← ``--set key=value`` overrides.
+    """Defaults ← ``base`` ← config file (deep merge) ← ``--publication`` ← ``--set key=value``
+    overrides. ``base`` is a recorded run config (``run_manifest.json`` ``config``).
 
     Raises ``ValueError`` (pydantic ``ValidationError`` included) naming any unknown key.
     """
     data = load_defaults()
+    if base is not None:
+        data = _deep_merge(data, base)
     if config_file is not None:
         path = Path(config_file)
         data = _deep_merge(data, _load_yaml_mapping(path.read_text(encoding="utf-8"), str(path)))
