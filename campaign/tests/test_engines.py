@@ -8,12 +8,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from giap.mapping.digest import cut_sites, digest
 from giap_campaign.engines import (
     bakta_argv,
     bruker_to_mzml_argv,
-    cascadia_argv,
     casanovo_argv,
+    cascadia_argv,
     diann_argvs,
     giap_compare_argv,
     giap_run_argv,
@@ -24,6 +23,8 @@ from giap_campaign.engines import (
 )
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from giap.mapping.digest import cut_sites, digest
 
 W = Path("/scratch/giap/campaign/PXD000001_562")
 DIANN = "/diann-2.3.1/diann-linux"
@@ -410,7 +411,7 @@ def _diann(tmp_path: Path, cfg: str = CFG, spectra: list[Path] | None = None) ->
 
 
 def _check_prefix(argv: list[str]) -> list[str]:
-    """``apptainer exec [-B <bind> ...] <sif> /diann-2.3.1/diann-linux``; returns the DIA-NN args."""
+    """Check ``apptainer exec [-B <bind> ...] <sif> /diann-2.3.1/diann-linux``; the rest."""
     assert argv[:2] == ["apptainer", "exec"]
     k = argv.index("/images/diann_2.3.1.sif")
     binds = argv[2:k]

@@ -82,8 +82,10 @@ def test_classify_raw_file(name: str, expected: str | None) -> None:
 @given(
     stem=st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789_-", min_size=1, max_size=12),
     ext=st.sampled_from(
-        [".raw", ".d.zip", ".d.tar", ".d.tar.gz", ".d.tgz", ".mzml", ".mzml.gz", ".wiff", ".wiff2"]
-        + [".wiff.scan", ".mgf", ".txt", ".mzid", ".zip"]
+        [
+            *(".raw", ".d.zip", ".d.tar", ".d.tar.gz", ".d.tgz", ".mzml", ".mzml.gz"),
+            *(".wiff", ".wiff2", ".wiff.scan", ".mgf", ".txt", ".mzid", ".zip"),
+        ]
     ),
     upper=st.lists(st.booleans(), min_size=30, max_size=30),
 )
@@ -412,7 +414,7 @@ def _spectrum(i: int, level: int, lower: float | None = None, upper: float | Non
                 f'name="isolation window upper offset" value="{upper}"/>'
             )
         out.append(
-            "        </isolationWindow><selectedIonList count=\"1\"><selectedIon>"
+            '        </isolationWindow><selectedIonList count="1"><selectedIon>'
             '<cvParam cvRef="MS" accession="MS:1000744" name="selected ion m/z" value="500.0"/>'
             "</selectedIon></selectedIonList></precursor></precursorList>"
         )
