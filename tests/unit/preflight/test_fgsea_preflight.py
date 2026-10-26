@@ -132,43 +132,46 @@ def test_required_tools_without_abundance_is_unchanged() -> None:
 # ---------------------------------------------------------------- missing_tools
 
 
+def _missing(tools: list[Any], profile: str, root: Path) -> list[str]:
+    """``missing_tools`` with a fake ``$GIAP_ROOT``'s image cache and env directory (14f1)."""
+    from giap.preflight.environment import missing_tools
+
+    return missing_tools(tools, profile, root / "containers", root / "micromamba" / "envs", None)
+
+
 @pytest.mark.parametrize("profile", PROFILES)
 def test_missing_when_env_not_built(tmp_path: Path, profile: str) -> None:
     from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tools
 
     root = fake_giap_root(tmp_path / "root", skip=["fgsea"])
-    assert missing_tools([TOOLS["fgsea"]], profile, root) == ["fgsea"]
+    assert _missing([TOOLS["fgsea"]], profile, root) == ["fgsea"]
 
 
 @pytest.mark.parametrize("profile", PROFILES)
 def test_present_when_env_built(tmp_path: Path, profile: str) -> None:
     from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tools
 
     root = fake_giap_root(tmp_path / "root")
     marker = root / "micromamba" / "envs" / "giap-fgsea" / MARKER
     assert marker.read_text().strip() == env_yml_sha256("fgsea")
-    assert missing_tools([TOOLS["fgsea"]], profile, root) == []
+    assert _missing([TOOLS["fgsea"]], profile, root) == []
 
 
 @pytest.mark.parametrize("how", ["stale", "no_marker"])
 def test_stale_or_unmarked_env_is_missing(tmp_path: Path, how: str) -> None:
     from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tools
 
     root = fake_giap_root(tmp_path / "root", **{how: ["fgsea"]})
-    assert missing_tools([TOOLS["fgsea"]], "farmshare,apptainer", root) == ["fgsea"]
+    assert _missing([TOOLS["fgsea"]], "farmshare,apptainer", root) == ["fgsea"]
 
 
 @pytest.mark.parametrize("profile", NO_TOOL_PROFILES)
 def test_never_missing_under_test_or_stub(tmp_path: Path, profile: str) -> None:
     from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tools
 
     empty = tmp_path / "empty"
     empty.mkdir()
-    assert missing_tools([TOOLS["fgsea"]], profile, empty) == []
+    assert _missing([TOOLS["fgsea"]], profile, empty) == []
 
 
 # ---------------------------------------------------------------- run_preflight and giap run
@@ -180,6 +183,8 @@ def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         empty = tmp_path / f"unset_{var.lower()}"
         empty.mkdir()
         monkeypatch.setenv(var, str(empty))
+    # 14f1: a set cache directory wins over $GIAP_ROOT/containers; unset, never the session's
+    monkeypatch.delenv("NXF_APPTAINER_CACHEDIR")
     monkeypatch.delenv("GIAP_FGSEA_PREFIX", raising=False)
 
 

@@ -37,6 +37,7 @@ from giap.io.fasta import (
     sanitize_id,
     write_fasta,
 )
+from giap.io.image_key import image_cache
 from giap.io.issues import Issue
 from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
 from giap.io.protein_fasta import ProteinRecord, Route, read_protein_fasta, route_by_length
@@ -45,13 +46,14 @@ from giap.mapping.denovo_precision import REF_MAX_Q
 from giap.model import Replicon
 from giap.preflight.checks import Check, JsonValue
 from giap.preflight.environment import (
+    LOCAL_TOOLS,
     MANIFEST,
     RESOURCES_RULE,
     TOOLS_RULE,
     EnvProbe,
     ProbeError,
     environment_checks,
-    missing_tools,
+    missing_tool_reasons,
     probe_resources,
     read_manifest,
     requirements,
@@ -129,6 +131,7 @@ def _environment(
     outdir: Path,
     db_dir: str | None,
     tools_missing: list[str],
+    tool_reasons: dict[str, str],
 ) -> tuple[list[Check], tuple[int, int] | None]:
     """Environment checks and, for the real probe, the raw ``(free_disk, ram)`` bytes to log.
 
@@ -152,6 +155,7 @@ def _environment(
         if tools_missing:
             value["missing"] = list[JsonValue](tools_missing)
             missing += "; missing: " + ", ".join(tools_missing)
+            missing += "".join(f"; {k}: {v}" for k, v in sorted(tool_reasons.items()))
         return [_tools_error(missing, value)], None
     resources: tuple[int, int] | None = None
     try:
@@ -171,8 +175,9 @@ def _environment(
         )  # fmt: skip
     else:
         tools = environment_checks(
-            reqs, EnvProbe(found=found, free_disk_bytes=0, total_ram_bytes=0), 0, 0, tools_missing
-        )[0]
+            reqs, EnvProbe(found=found, free_disk_bytes=0, total_ram_bytes=0), 0, 0,
+            tools_missing, tool_reasons,
+        )[0]  # fmt: skip
     return [tools, res], resources
 
 
@@ -230,7 +235,11 @@ def run_preflight(
     measures free disk where ``outdir`` is (default: the working directory), reads the
     manifest from ``db_dir`` (default: ``$GIAP_DB_DIR``; the environment is never modified)
     and, when a Nextflow ``profile`` is given, checks the registry tools the run needs under
-    ``giap_root`` (default: ``$GIAP_ROOT``; unset: every tool missing)."""
+    ``giap_root`` (default: ``$GIAP_ROOT``): pinned images in the apptainer cache
+    (:func:`giap.io.image_key.image_cache`), prebuilt envs under ``<giap_root>/micromamba/envs``
+    (unset: none) and a local UniOP build in ``<db_dir>/local_tools.config``. An ambient
+    ``NXF_APPTAINER_CACHEDIR`` wins over ``giap_root`` for the cache (as for Nextflow itself);
+    ``giap_root`` then only locates the prebuilt envs."""
     lo, hi = cfg.input.peptide_len
     refs = [_input_ref("genome", inp.genome)]
 
@@ -316,15 +325,24 @@ def run_preflight(
 
     env_db = os.environ.get("GIAP_DB_DIR")
     db = str(db_dir.absolute()) if db_dir is not None else env_db
-    tools_missing: list[str] = []
+    tool_reasons: dict[str, str] = {}
     if probe is None and profile is not None:
-        # unset $GIAP_ROOT: an empty root, so every tool that needs one is reported missing
-        root = giap_root or Path(os.environ.get("GIAP_ROOT") or "/nonexistent/GIAP_ROOT")
-        tools_missing = missing_tools(
-            required_tools(cfg, abundance=inp.abundance is not None), profile, root
+        environ = dict(os.environ)
+        if giap_root is not None:
+            environ["GIAP_ROOT"] = str(giap_root)
+        root = environ.get("GIAP_ROOT")
+        db_path = Path(db) if db else Path("/nonexistent/GIAP_DB_DIR")
+        local_tools = db_path / LOCAL_TOOLS
+        tool_reasons = missing_tool_reasons(
+            required_tools(cfg, abundance=inp.abundance is not None),
+            profile,
+            image_cache(environ, db_path),
+            Path(root) / "micromamba" / "envs" if root else None,
+            local_tools if local_tools.is_file() else None,
         )
+    tools_missing = sorted(tool_reasons)
     where = Path.cwd() if outdir is None else outdir
-    env, resources = _environment(cfg, probe, mode, where, db, tools_missing)
+    env, resources = _environment(cfg, probe, mode, where, db, tools_missing, tool_reasons)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)
     checks = [

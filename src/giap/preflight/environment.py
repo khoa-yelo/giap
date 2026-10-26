@@ -2,14 +2,15 @@
 
 ``environment.tools``: every binary, environment, database and model of the enabled modules is
 found at a usable version → else error (exit 2). Binaries and environments come from the M2-01 tool
-registry (:func:`missing_tools`: pinned images under ``$GIAP_ROOT/containers``, prebuilt
-micromamba envs with a matching build marker); databases and models from the ``giap setup``
-manifest (:func:`read_manifest`, run-wiring lead decision 4). ``environment.resources``: the only
-warning is RAM below the 24 GiB that genome-wide Promotech needs (the caller passes it as
-``need_ram_bytes``, see :func:`resource_needs`). The check holds the verdict only, never the raw
-RAM and disk numbers, so ``preflight.json`` is identical across machines (§6.6); the caller logs
-the raw numbers (§6.7). Rules take an injected :class:`EnvProbe`; the real sources are
-read by :func:`read_manifest` (``$GIAP_DB_DIR/db_manifest.json``) and :func:`probe_resources`.
+registry (:func:`missing_tools`: pinned images, in the apptainer image cache under apptainer;
+prebuilt micromamba envs with a matching build marker where conda is enabled); databases and
+models from the ``giap setup`` manifest (:func:`read_manifest`, run-wiring lead decision 4).
+``environment.resources``: the only warning is RAM below the 24 GiB that genome-wide Promotech
+needs (the caller passes it as ``need_ram_bytes``, see :func:`resource_needs`). The check holds
+the verdict only, never the raw RAM and disk numbers, so ``preflight.json`` is identical across
+machines (§6.6); the caller logs the raw numbers (§6.7). Rules take an injected
+:class:`EnvProbe`; the real sources are read by :func:`read_manifest`
+(``$GIAP_DB_DIR/db_manifest.json``) and :func:`probe_resources`.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,13 +34,16 @@ from giap.setupdb.items import RESOURCES
 __all__ = [
     "GENOME_PROMOTECH_RAM_BYTES",
     "GIB",
+    "LOCAL_TOOLS",
     "MANIFEST",
     "RESOURCES_RULE",
     "TOOLS_RULE",
     "EnvProbe",
     "ProbeError",
     "Requirement",
+    "container_runtime",
     "environment_checks",
+    "missing_tool_reasons",
     "missing_tools",
     "probe_resources",
     "read_manifest",
@@ -149,6 +154,7 @@ def _setup_manifest(items: list[object]) -> dict[str, str | None]:
 # ---------------------------------------------------------------- tools from the registry
 
 MARKER = ".giap-built"
+LOCAL_TOOLS = "local_tools.config"  # written into db_dir by setup --uniop
 _NO_TOOL_PROFILES = frozenset({"test", "stub"})
 
 
@@ -164,9 +170,11 @@ def _sha256(path: Path) -> str | None:
         return None
 
 
-def _env_built(tool: ToolSpec, giap_root: Path, envs_dir: Path) -> bool:
+def _env_built(tool: ToolSpec, env_root: Path | None, envs_dir: Path) -> bool:
     """The prebuilt env's ``.giap-built`` marker equals the sha256 of its env file."""
-    marker = giap_root / "micromamba" / "envs" / tool.env_name / MARKER
+    if env_root is None:
+        return False
+    marker = env_root / tool.env_name / MARKER
     want = _sha256(envs_dir / f"{tool.name}.yml")
     try:
         have = marker.read_text(encoding="utf-8").strip()
@@ -175,39 +183,199 @@ def _env_built(tool: ToolSpec, giap_root: Path, envs_dir: Path) -> bool:
     return want is not None and have == want
 
 
-def missing_tools(tools: Sequence[ToolSpec], profile: str, giap_root: Path) -> list[str]:
-    """Sorted names of ``tools`` not installed under ``giap_root`` for the Nextflow ``profile``.
+_PKG = __name__.split(".", 1)[0]
+_CONDA_PROFILES = frozenset({"conda", "farmshare", "farmshare_local"})
+# Started by a GIAP step from its prebuilt env, not by a Nextflow ``conda`` directive, so the env
+# counts under every profile (giap.io.fgsea_r; its image fallback is a separate change).
+_STEP_STARTED = frozenset({"fgsea"})
+_WITH_NAME = re.compile(r"withName\s*:\s*(['\"]?)([A-Za-z0-9_]+)\1")
+_CONTAINER = re.compile(r"(?:^|[\s;])container\s*=\s*(['\"])(.*?)\1")
 
-    ``profile`` is comma-joined; naming ``test`` or ``stub`` requires no tools. Under an
-    ``apptainer`` profile a tool pinned in ``workflow/conf/containers.config`` needs its image
-    ``<giap_root>/containers/<ref, scheme stripped, '/' and ':' → '-'>.img``; a conda-only tool
-    (no pinned image) needs ``<giap_root>/micromamba/envs/giap-<tool>/.giap-built`` equal to the
-    sha256 of ``workflow/envs/<tool>.yml`` (``scripts/build_envs.sh``) under every profile.
-    In-process tools are never missing.
+
+def _strip_comments(text: str) -> str:
+    """``text`` with ``//`` and ``/* */`` comments outside quotes blanked."""
+    out: list[str] = []
+    i, quote = 0, ""
+    while i < len(text):
+        c = text[i]
+        if quote:
+            out.append(c)
+            quote = "" if c == quote and text[i - 1] != "\\" else quote
+        elif c in "'\"":
+            out.append(c)
+            quote = c
+        elif text.startswith("//", i):
+            j = text.find("\n", i)
+            i = len(text) if j < 0 else j
+            continue
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = len(text) if j < 0 else j + 2
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _blocks(text: str) -> tuple[list[tuple[str, str]], str]:
+    """Top-level ``<header> { <body> }`` blocks of a comment-free Nextflow config fragment, in
+    order, and the text outside them (its statements); braces inside quotes are skipped."""
+    blocks: list[tuple[str, str]] = []
+    rest: list[str] = []
+    depth, quote, start, head = 0, "", 0, 0
+    for i, c in enumerate(text):
+        if quote:
+            if c == quote and text[i - 1] != "\\":
+                quote = ""
+        elif c in "'\"":
+            quote = c
+        elif c == "{":
+            if depth == 0:
+                seg = text[head:i]
+                cut = max(seg.rfind("\n"), seg.rfind(";"), seg.rfind("}"))
+                rest.append(seg[: cut + 1])
+                blocks.append((seg[cut + 1 :].strip(), ""))
+                start = i + 1
+            depth += 1
+        elif c == "}" and depth > 0:
+            depth -= 1
+            if depth == 0:
+                blocks[-1] = (blocks[-1][0], text[start:i])
+                head = i + 1
+    rest.append(text[head:] if depth == 0 else "")
+    return blocks, "".join(rest)
+
+
+def _local_containers(local_tools: Path | None, runtime: str | None) -> dict[str, str]:
+    """Registry tool name → ``container`` of the ``withName`` selectors in the
+    ``profiles { <runtime> { process { … } } }`` block of ``local_tools.config``; empty without
+    a file or a block for ``runtime``."""
+    if local_tools is None or runtime is None:
+        return {}
+    try:
+        text = _strip_comments(local_tools.read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    found: dict[str, str] = {}
+    for top, profiles in _blocks(text)[0]:
+        if top != "profiles":
+            continue
+        for name, body in _blocks(profiles)[0]:
+            if name != runtime:
+                continue
+            for proc, selectors in _blocks(body)[0]:
+                if proc != "process":
+                    continue
+                for selector, inner in _blocks(selectors)[0]:
+                    m = _WITH_NAME.fullmatch(selector)
+                    c = _CONTAINER.search(_blocks(inner)[1])
+                    if m and c:
+                        found[m.group(2).lower()] = c.group(2)
+    return found
+
+
+def _profiles(profile: str) -> set[str]:
+    return {n.strip() for n in profile.split(",") if n.strip()}
+
+
+def container_runtime(profile: str) -> Literal["docker", "apptainer"] | None:
+    """The container runtime the comma-joined Nextflow ``profile`` selects (apptainer first);
+    ``None`` without one."""
+    names = _profiles(profile)
+    if "apptainer" in names:
+        return "apptainer"
+    return "docker" if "docker" in names else None
+
+
+def _docker_image_exists(tag: str) -> bool:
+    docker = shutil.which("docker")
+    if docker is None:
+        return False
+    try:
+        proc = subprocess.run(
+            [docker, "image", "inspect", tag], capture_output=True, check=False, timeout=60
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0
+
+
+def missing_tool_reasons(
+    tools: Sequence[ToolSpec],
+    profile: str,
+    image_cache: Path,
+    env_root: Path | None,
+    local_tools: Path | None,
+) -> dict[str, str]:
+    """Why each of ``tools`` is not usable under the comma-joined Nextflow ``profile``.
+
+    A tool pinned in the bundled ``containers.config`` is satisfied by its image: under docker
+    Nextflow pulls it by digest; under apptainer it needs ``<image_cache>/<simpleName>.img``
+    (ADR-0059). A conda-only tool needs the prebuilt env ``<env_root>/giap-<tool>`` with a
+    ``.giap-built`` marker equal to the sha256 of ``workflow/envs/<tool>.yml``; under a container
+    profile without conda (``docker`` or plain ``apptainer``) it is missing, since it would run on
+    the host. A ``container`` line of ``local_tools`` (a local UniOP build) counts under docker
+    (``docker image inspect``) and apptainer (the ``.sif`` file). ``test``/``stub`` need nothing;
+    in-process tools are never missing.
     """
-    names = {n.strip() for n in profile.split(",")}
+    names = _profiles(profile)
     if names & _NO_TOOL_PROFILES:
-        return []
+        return {}
     workflow = workflow_main().parent
     pinned = {
         process.lower(): ref
         for process, ref in read_containers_config(workflow / "conf" / "containers.config").items()
     }
-    containers = giap_root / "containers"
-    missing: list[str] = []
+    conda_on = bool(names & _CONDA_PROFILES)
+    runtime = container_runtime(profile)
+    local = {} if conda_on else _local_containers(local_tools, runtime)
+    setup_images = f"run: {_PKG} setup --images --profile apptainer"
+    reasons: dict[str, str] = {}
     for tool in tools:
         if tool.in_process:
             continue
         ref = pinned.get(tool.name)
-        if ref is None:
-            present = _env_built(tool, giap_root, workflow / "envs")
-        elif "apptainer" in names:
-            present = (containers / _image_file_name(ref)).is_file()
-        else:  # docker/conda/standard: the image or env is resolved by Nextflow itself
-            present = True
-        if not present:
-            missing.append(tool.name)
-    return sorted(set(missing))
+        built = local.get(tool.name)
+        if ref is not None:
+            image = image_cache / _image_file_name(ref)
+            if runtime == "apptainer" and not image.is_file():
+                where = (
+                    f"not in the apptainer cache {image_cache}"
+                    if image_cache.is_dir()
+                    else f"not found: the apptainer cache {image_cache} does not exist (set "
+                    "NXF_APPTAINER_CACHEDIR or $GIAP_ROOT, or give a DB directory)"
+                )
+                reasons[tool.name] = f"image {ref} {where}; {setup_images}"
+        elif built is not None and runtime == "docker":
+            if not _docker_image_exists(built):
+                reasons[tool.name] = f"local image {built} not found (docker image inspect)"
+        elif built is not None and runtime == "apptainer":
+            if not Path(built).is_absolute():
+                reasons[tool.name] = (
+                    f"{LOCAL_TOOLS} apptainer container '{built}' is not an absolute .sif path"
+                )
+            elif not Path(built).is_file():
+                reasons[tool.name] = f"local image {built} not found"
+        elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
+            reasons[tool.name] = (
+                f"conda-only tool under a container profile without conda: {tool.name}"
+            )
+        elif not _env_built(tool, env_root, workflow / "envs"):
+            where = "$GIAP_ROOT is not set" if env_root is None else "not built"
+            reasons[tool.name] = f"prebuilt env {tool.env_name}: {where}"
+    return dict(sorted(reasons.items()))
+
+
+def missing_tools(
+    tools: Sequence[ToolSpec],
+    profile: str,
+    image_cache: Path,
+    env_root: Path | None,
+    local_tools: Path | None,
+) -> list[str]:
+    """Sorted names of ``tools`` not usable under ``profile`` (:func:`missing_tool_reasons`)."""
+    return sorted(missing_tool_reasons(tools, profile, image_cache, env_root, local_tools))
 
 
 def _slurm_mem_bytes() -> int | None:
@@ -345,7 +513,10 @@ def _reported_tools(reqs: Sequence[Requirement], probe: EnvProbe) -> list[Requir
 
 
 def _tools_check(
-    reqs: Sequence[Requirement], probe: EnvProbe, tools_missing: Sequence[str] = ()
+    reqs: Sequence[Requirement],
+    probe: EnvProbe,
+    tools_missing: Sequence[str] = (),
+    tool_reasons: Mapping[str, str] | None = None,
 ) -> Check:
     rule = TOOLS_RULE
     missing: list[str] = list(tools_missing)
@@ -367,6 +538,7 @@ def _tools_check(
     if missing:
         value["missing"] = list[JsonValue](sorted(set(missing)))
         parts.append("missing: " + ", ".join(sorted(set(missing))))
+        parts += [f"{k}: {v}" for k, v in sorted((tool_reasons or {}).items())]
     if wrong:
         value["wrong_version"] = dict(sorted(wrong.items()))
         parts.append("wrong version: " + ", ".join(f"{k} {v}" for k, v in sorted(wrong.items())))
@@ -395,13 +567,15 @@ def environment_checks(
     need_disk_bytes: int,
     need_ram_bytes: int,
     tools_missing: Sequence[str] = (),
+    tool_reasons: Mapping[str, str] | None = None,
 ) -> list[Check]:
     """``environment.tools`` and ``environment.resources`` for ``reqs`` against ``probe``;
-    ``tools_missing`` (from :func:`missing_tools`) are reported missing alongside databases.
+    ``tools_missing`` (from :func:`missing_tools`) are reported missing alongside databases,
+    each with its ``tool_reasons`` entry (:func:`missing_tool_reasons`) in the message.
 
     Free disk never warns (ADR-0005 item 4): ``need_disk_bytes`` is only recorded.
     """
     return [
-        _tools_check(reqs, probe, tools_missing),
+        _tools_check(reqs, probe, tools_missing, tool_reasons),
         _resources_check(probe, need_disk_bytes, need_ram_bytes),
     ]
