@@ -114,7 +114,8 @@ def test_no_tool_source_vendored() -> None:
             continue
         for path in tree.rglob("*"):
             if path.is_file():
-                assert path.name in allowed or path.suffix in {".yml", ".config"}, path
+                # .def: an Apptainer recipe (14u1 uniop.def), not tool source
+                assert path.name in allowed or path.suffix in {".yml", ".config", ".def"}, path
 
 
 # ---------------------------------------------------------------- NOTICE.md

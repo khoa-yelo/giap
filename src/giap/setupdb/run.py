@@ -171,6 +171,8 @@ def tool_env(environ: Mapping[str, str]) -> dict[str, str]:
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
 # Official hosts of the same organisation a source may redirect to (M2-09 lead decision 1; R6).
 REDIRECT_HOSTS = {
+    # the UniOP archive: GitHub answers 302 to codeload, which streams it (M11-14 item 1b)
+    "github.com": frozenset({"codeload.github.com"}),
     "purl.obolibrary.org": frozenset({"release.geneontology.org", "current.geneontology.org"}),
 }
 

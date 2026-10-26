@@ -82,6 +82,9 @@ jobs:
       UV_PYTHON: "3.13"   # overrides .python-version, so uv never rebuilds the venv
     steps:
       - uses: actions/checkout@v4
+        with:  # the schema diff test (tests/unit) reads the previous v* tag (M11-14h)
+          fetch-depth: 0
+          fetch-tags: true
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen --all-extras
       - name: unit, property, golden, contract, snapshot — shard ${{ matrix.shard }} of 4
@@ -119,6 +122,9 @@ jobs:
       UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v4
+        with:  # the schema diff test (tests/unit) reads the previous v* tag (M11-14h)
+          fetch-depth: 0
+          fetch-tags: true
       - uses: astral-sh/setup-uv@v6
       - name: OpenMP runtime for the LightGBM wheel (macOS)
         if: runner.os == 'macOS'

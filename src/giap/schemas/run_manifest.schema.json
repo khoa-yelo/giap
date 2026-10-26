@@ -6,7 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "giap_version", "git_commit", "git_dirty", "command_line", "executor",
+    "schema_version", "output_schema_version", "giap_version", "git_commit", "git_dirty", "command_line", "executor",
     "profile", "resume", "outdir", "started_at", "finished_at", "status", "exit_code",
     "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
     "databases", "annotation", "operon_source", "operon_source_reason", "detection_tier",
@@ -21,7 +21,8 @@
     "nint": {"type": ["integer", "null"]}
   },
   "properties": {
-    "schema_version": {"type": "string"},
+    "schema_version": {"type": "string", "description": "The config format (Q-L13)."},
+    "output_schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$", "description": "MAJOR.MINOR of the tables and the manifest (giap.schemas.OUTPUT_SCHEMA_VERSION; M11-14h)."},
     "giap_version": {"type": "string"},
     "git_commit": {"$ref": "#/$defs/nstr"},
     "git_dirty": {"type": ["boolean", "null"]},

@@ -98,11 +98,18 @@ def workflow_main() -> Path:
 
 
 def launch_command(
-    workflow: Path, params: Path, profile: str, outdir: Path, resume: bool
+    workflow: Path,
+    params: Path,
+    profile: str,
+    outdir: Path,
+    resume: bool,
+    local_tools: Path | None = None,
 ) -> list[str]:
-    """The ``nextflow run`` command line of §6.3 (no plugins, no ``--param`` flags)."""
+    """The ``nextflow run`` command line of §6.3 (no plugins, no ``--param`` flags), with
+    ``-c <local_tools>`` when given (a local UniOP build; M11-14 item 1b)."""
     logs = outdir / "logs"
     cmd = ["nextflow", "run", str(workflow), "-params-file", str(params), "-profile", profile]
+    cmd += ["-c", str(local_tools)] if local_tools is not None else []
     cmd += ["-work-dir", str(outdir / "work"), "-with-trace", str(logs / "trace.tsv")]
     cmd += ["-with-timeline", str(logs / "timeline.html")]
     cmd += ["-with-report", str(logs / "nf_report.html")]

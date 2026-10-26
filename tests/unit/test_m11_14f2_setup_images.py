@@ -73,7 +73,7 @@ GHCR = {
     "bactermfinder": (BTF_REF, "git-deadbeef-0123456789ac", ["BACTERMFINDER"]),
     "fgsea": (FGSEA_REF, "1.36.2-0123456789ad", []),
 }
-SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models"]
+SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models", "--no-uniop"]
 BAD = "sha256:" + "ee" * 32
 
 FAKE_RUNTIME = r"""#!/bin/sh
