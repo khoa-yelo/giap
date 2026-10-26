@@ -25,7 +25,16 @@ TOOLS = Path(os.environ.get("GIAP_TOOLS_DIR", ROOT / "tools"))
 TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 
 
-def _ok(cmd: list[str], timeout: float = 30) -> bool:
+def _probe_timeout() -> float:
+    """Seconds per capability probe: ``GIAP_PROBE_TIMEOUT`` (the nightly sets 180), default 30."""
+    try:
+        return float(os.environ.get("GIAP_PROBE_TIMEOUT") or 30)  # GIAP_PROBE_TIMEOUT default 30
+    except ValueError:
+        return 30.0
+
+
+def _ok(cmd: list[str], timeout: float | None = None) -> bool:
+    timeout = _probe_timeout() if timeout is None else timeout
     if shutil.which(cmd[0]) is None:
         return False
     try:
