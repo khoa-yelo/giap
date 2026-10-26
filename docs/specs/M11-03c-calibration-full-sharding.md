@@ -399,7 +399,7 @@ closed, already true for shard lanes). Per-lane record files would remove the ri
 | # | Input | Expected |
 |---|---|---|
 | 1 | The initial plan; `replicates_full` keys unchanged | `read_plan` returns 15 rows in key order; total lanes 46, CPUs 98; `max(time)` = 6 h |
-| 2 | determinants row (`0 5 * 2 …`), collection = the 19 nodeids, durations: `[full-autocorr_pos-lightgbm]` 8364 s, `[full-detect-lightgbm]` 7782 s, the rest from the TSV | 5 group lanes; each nodeid in exactly one lane; the two largest go to lanes 0 and 1; each lane's `deselect` is the other 4 lanes' tests; no shard lane, no merge; record `sharded: false`, parts `task-10.group0..4.junit.xml` |
+| 2 | determinants row (`0 5 * 2 …`), collection = the 19 nodeids, durations: `[full-autocorr_pos-lightgbm]` 8366 s, `[full-detect-lightgbm]` 7784 s (probe job 1895353), the rest from the TSV | 5 group lanes; each nodeid in exactly one lane; the two largest go to lanes 0 and 1; each lane's `deselect` is the other 4 lanes' tests; no shard lane, no merge; record `sharded: false`, parts `task-10.group0..4.junit.xml` |
 | 3 | placement row (`2 8 direct`), lane report marking the 28 shard-0-only tests | shard lanes 0/2 and 1/2 deselect exactly those 28 and keep the same 30 tests; the 28 are spread over 8 group lanes by LPT; `attack5_reversed_stretches…full` runs in both shard lanes (replicates 0–149, 150–299); the merge deselects the 28; record `sharded: true` |
 | 4 | novel_orfs row with `group_select` `-` | `PlanError` at collection: 6 shard-0-only tests present (`test_planted_tir_calibration_300k_full[…]` ×2, …); exit 2, no lane starts |
 | 5 | `fold_exit([0, 0, 1], 0)` / `([0, 143, 1], 0)` / `([0, 0], 2)` / `([0, 0], None)` | 1 / 143 / 2 / 0 |

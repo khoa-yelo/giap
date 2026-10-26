@@ -618,8 +618,8 @@ def test_committed_durations_file(mod: ModuleType) -> None:
     assert len(ids) == len(set(ids)) and all(n.startswith("tests/calibration/") for n in ids)
     assert all(ln.split("\t")[2] for ln in lines[1:])
     got = mod.read_durations(DURATIONS)
-    assert round(got[f"{DET}[full-autocorr_pos-lightgbm]"]) == 8364  # example 2
-    assert round(got[f"{DET}[full-detect-lightgbm]"]) == 7782
+    assert round(got[f"{DET}[full-autocorr_pos-lightgbm]"]) == 8366  # example 2 (probe 1895353)
+    assert round(got[f"{DET}[full-detect-lightgbm]"]) == 7784
     rel = DURATIONS.relative_to(REPO).as_posix()  # outside CALIB_PATHS (Q6)
     assert not rel.startswith(("src/", "tests/calibration/", "ci/", "tests/sim/", "tests/helpers/"))
 
