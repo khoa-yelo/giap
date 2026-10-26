@@ -1143,6 +1143,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
 
 ### M11-14 spec review nits (#367)
+- #370 review N4 (14u2): preflight hashes the UniOP `.sif` (≈ 1 GB) on every run; cache the hash by `(size, mtime)` in `local_build`, or record that the cost is accepted.
+- #370 review N5 (14u2): `scripts/build_envs.sh` builds the FarmShare prebuilt `giap-uniop` with an unchecked `git clone`, while `setup --uniop` uses the sha256-checked archive; move `build_envs.sh` to the same verified archive, or record why the two paths may differ.
 - Code review N3: the published images redistribute GPL-3 tools (OSTIR, PromoTech, Promoter Calculator, BacTermFinder) and GPL-2 R (fgsea image). Add one line to the spec and NOTICE on how corresponding source is offered (the `org.opencontainers.image.source` label, the pinned commit and archive URL, NOTICE links), or cite M11-06 AC 4 and extend it to fgsea/R. Docs role, with 14c or 14i.
 
 ### 2026-10-25 evening (lead)

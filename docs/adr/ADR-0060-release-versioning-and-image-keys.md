@@ -44,8 +44,11 @@ under `src/` changed, so any patch reruns the full calibration.
 2. **No deletion, no retagging.** Agents never delete, retag or change the visibility of a package
    or a version. Every digest named by a released `containers.config` or `images.json` is kept forever. Pruning
    unreleased digests is Khoa's choice alone. The default is never; if Khoa prunes, the floor is 180
-   days, keeping the latest digest per tool. UniOP (unlicensed, R5/R11) is never published. It is
-   built only locally, on the user's request.
+   days, keeping the latest digest per tool. UniOP (unlicensed, R5/R11) is never published. Each
+   user's `<pkg> setup --uniop` (included in `setup --images`) fetches the pinned commit from the
+   authors' GitHub with a sha256 check and builds it locally, after the user accepts the terms
+   (M11-14 item 1b, 14u1/14u2). If the authors grant a licence, it is published like the others and
+   the local build becomes a fallback.
 3. **What bumps what.**
    - **Major:** anything that breaks a user's script or a cross-run comparison. That covers
      removed, renamed, retyped or reinterpreted columns, tables, manifest keys, flag tokens, config
@@ -109,7 +112,7 @@ Before:
 
 After 14j:
 
-- 0 conda-only tools on the pip path (UniOP is optional);
+- 0 conda-only tools on the pip path (UniOP is built locally by `setup`, not published);
 - one immutable tag per build;
 - a docs-or-CLI-only patch reuses the calibration evidence.
 
@@ -122,9 +125,10 @@ After 14j:
   `image_key.py --check`.
 - Releases reuse evidence only for diffs inside `NON_STATS_PATHS` (plus the version line). Any
   other diff pays the calibration, pilot and benchmark reruns, by design (R3).
-- UniOP's distance-model default (`enabled: auto`) waits for the statistician's attack and the
-  ADR-0022 operating-point addendum (M11-14 14s1, 14s2). Until then a pip user without UniOP
-  sets `enabled: false` or `auto` explicitly. If Khoa refuses the default, that explicit line
-  stays in the install page until a licence arrives.
+- The expected pip path runs UniOP (Khoa, 2026-10-25): pip install → setup (incl. the local
+  UniOP build) → preflight passes with UniOP. The distance-model fallback (`enabled: auto`)
+  covers only failed builds (offline, no build rights). It becomes the default only after the
+  statistician's attack and the ADR-0022 operating-point addendum (M11-14 14s1, 14s2, 14d2).
+  Until then, a user whose build failed sets `enabled: auto` or `false` explicitly.
 - On acceptance: M11-06 is amended (tags, publishing guard), and ADR-0008's image section gains
   "tags superseded by ADR-0060".
