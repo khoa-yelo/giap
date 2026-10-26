@@ -224,7 +224,9 @@ def test_manifest_key_removed_or_added(tmp_path: Path) -> None:
     added = head(root, version="1.1.0", output="1.0", manifest=MANIFEST_KEYS)
     assert any("operon_source" in p for p in added), added
     removed = head(root, version="1.1.0", output="1.1", manifest=MANIFEST_KEYS[:-2])
-    assert any("output_schema_version" in p for p in removed), removed
+    assert any("giap_version" in p and "removed" in p for p in removed), removed  # [:-2] drops it
+    ok = head(root, version="2.0.0", output="2.0", manifest=MANIFEST_KEYS[:-2])
+    assert ok == [], ok
 
 
 def test_compares_with_the_newest_reachable_tag(tmp_path: Path) -> None:
