@@ -6,7 +6,8 @@ Pure functions (frames and dicts in, dicts out) plus a thin CLI that reads and w
     python validation/pilot/metrics.py compute --a1 OUT_A1 --a2 OUT_A2 --cmp CMP \\
         --peptides-a1 PEP_A1 --peptides-a2 PEP_A2 --convert-a1 CONV_A1 --convert-a2 CONV_A2 \\
         [--summary-a1 SUM_A1 --summary-a2 SUM_A2] --bakta-json BAKTA_JSON --genome GENOME \\
-        --k12-fasta K12_FASTA [--sacct SACCT] [--a3 OUT_A3] --out METRICS_DIR
+        --k12-fasta K12_FASTA [--sacct SACCT] [--a3 OUT_A3 --peptides-a3 PEP_A3 \\
+        --convert-a3 CONV_A3 --cmp3 CMP3 [--strain-db STRAIN_DB]] --out METRICS_DIR
     python validation/pilot/metrics.py render --metrics METRICS_DIR/metrics.json \\
         [--notes METRICS_DIR/notes.md] --out METRICS_DIR/REPORT.md
 
@@ -30,6 +31,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from importlib import resources
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -656,6 +658,410 @@ def hypothesis3(m4: Mapping[str, Any] | None, m5: Mapping[str, Any] | None) -> d
     return {"verdict": verdict, "criteria": crit, "region_tests": "not compared in pass 1"}
 
 
+# ---------------------------------------------------------------- metric 6 (M10-10b)
+
+#: the class enum of novel_orfs.schema.json
+NOVEL_CLASSES = ("nterm_extension", "cterm_extension", "intergenic", "cds_outframe", "antisense",
+                 "pseudogene", "sorf")  # fmt: skip
+BUCKETS = ("called", "unestimated", "not_called")
+ALT_TYPES = ("substitution", "swap", "block", "frameshift")  # variants.schema.json enum
+CONFIDENCE = ("high", "candidate")
+ORF_KEY = ("contig", "strand", "end")  # the stop codon (spec Q6): peptide-independent
+ALT_KEY = ("contig", "codon_start", "strand", "alt_aa")  # compare_stability's alt_sites key
+A3_NOT_RUN = {"reason": "a3_not_run"}  # lead decision after the M10-15a review
+
+
+def _str_eq(df: pd.DataFrame, col: str, value: str) -> np.ndarray:
+    out: np.ndarray = (df[col].astype(str) == value).to_numpy(dtype=bool)
+    return out
+
+
+def _called(df: pd.DataFrame) -> np.ndarray:
+    out: np.ndarray = df["called"].fillna(False).astype(bool).to_numpy(dtype=bool)
+    return out
+
+
+def novel_summary(novel_orfs: pd.DataFrame) -> dict[str, Any]:
+    """Metric 6 per arm: ``novel_orfs.tsv`` rows by class x bucket (``called``; ``unestimated``:
+    not called and ``class_fdr = unestimated``; ``not_called``: the rest) and the totals."""
+    called = _called(novel_orfs)
+    unest = ~called & _str_eq(novel_orfs, "class_fdr", "unestimated")
+    bucket = np.where(called, "called", np.where(unest, "unestimated", "not_called"))
+    cls = novel_orfs["class"].astype(str).to_numpy()
+    by = {c: {b: int(((cls == c) & (bucket == b)).sum()) for b in BUCKETS} for c in NOVEL_CLASSES}
+    totals = {b: int((bucket == b).sum()) for b in BUCKETS}
+    return {"n_rows": len(novel_orfs), "by_class": by, "totals": totals}
+
+
+def variant_summary(variants: pd.DataFrame) -> dict[str, Any]:
+    """Metric 6 per arm: ``call = ALT`` rows by ``alt_type`` x ``confidence``, the ``mixed``
+    count and ``class_error`` (rows with a numeric ``class_error_rate`` vs ``unestimated``)."""
+    alt = _str_eq(variants, "call", "ALT")
+    t = variants["alt_type"].astype(str).to_numpy()
+    c = variants["confidence"].astype(str).to_numpy()
+    rate = variants["class_error_rate"]
+    numeric = pd.to_numeric(rate, errors="coerce").notna().to_numpy(dtype=bool)
+    return {
+        "alt": {a: {k: int((alt & (t == a) & (c == k)).sum()) for k in CONFIDENCE}
+                for a in ALT_TYPES},
+        "mixed": int(_str_eq(variants, "call", "mixed").sum()),
+        "class_error": {"numeric": int(numeric.sum()),
+                        "unestimated": int(_str_eq(variants, "class_error_rate", "unestimated")
+                                           .sum())},
+    }  # fmt: skip
+
+
+def _keys(df: pd.DataFrame, key: Sequence[str]) -> list[tuple[Any, ...]]:
+    return [tuple(clean(v) for v in row) for row in zip(*(df[k] for k in key), strict=True)]
+
+
+def overlap(a2: pd.DataFrame, a3: pd.DataFrame, key: Sequence[str]) -> dict[str, Any]:
+    """A2/A3 overlap of one set (frames already filtered) on the ``key`` columns (keys
+    de-duplicated): counts, union, Jaccard (None, ``reason = both_empty``, at union 0) and the
+    two Wilson shares ``a3_confirmed_by_a2`` and ``a2_found_by_a3`` (descriptive)."""
+    x, y = set(_keys(a2, key)), set(_keys(a3, key))
+    shared, union = len(x & y), len(x | y)
+    out: dict[str, Any] = {"n_a2": len(x), "n_a3": len(y), "n_shared": shared, "union": union,
+                           "jaccard": shared / union if union else None,
+                           "a3_confirmed_by_a2": share(shared, len(y)),
+                           "a2_found_by_a3": share(shared, len(x))}  # fmt: skip
+    if not union:
+        out["reason"] = "both_empty"
+    return out
+
+
+def _g6(v: Any) -> str | None:
+    return None if clean(v) is None else f"{float(v):.6g}"
+
+
+def _a2_a3_row(compare_stability: pd.DataFrame | None, family: str) -> dict[str, Any] | None:
+    """The (A2, A3) row of ``family`` oriented as A2 = ``n_a``, A3 = ``n_b`` (None if absent)."""
+    if compare_stability is None:
+        return None
+    rows = _pair(compare_stability, ("A2", "A3"))
+    rows = rows[rows["family"].astype(str) == family]
+    if not len(rows):
+        return None
+    rec = {k: clean(rows[k].iloc[0]) for k in (*STABILITY_FIELDS, "run_a")}
+    if rec["run_a"] == "A3":
+        rec["n_a"], rec["n_b"] = rec["n_b"], rec["n_a"]
+    return rec
+
+
+def _novel_overlap(
+    a2: pd.DataFrame, a3: pd.DataFrame, cmp_row: Mapping[str, Any] | None, warnings: list[Any]
+) -> dict[str, Any]:
+    c2, c3 = a2[_called(a2)], a3[_called(a3)]
+    called = overlap(c2, c3, ORF_KEY)
+    cls2: dict[tuple[Any, ...], str] = {}
+    for k, c in zip(_keys(c2, ORF_KEY), c2["class"].astype(str), strict=True):
+        cls2.setdefault(k, c)
+    cls3: dict[tuple[Any, ...], str] = {}
+    for k, c in zip(_keys(c3, ORF_KEY), c3["class"].astype(str), strict=True):
+        cls3.setdefault(k, c)
+    called["class_agree"] = sum(cls2[k] == c for k, c in cls3.items() if k in cls2)
+    called["by_class_a3"] = {
+        cl: {"n": sum(c == cl for c in cls3.values()),
+             "shared": sum(c == cl and k in cls2 for k, c in cls3.items())}
+        for cl in NOVEL_CLASSES
+    }  # fmt: skip
+    for arm, df in (("A2", a2), ("A3", a3)):
+        if len(keys := _keys(df, ORF_KEY)) != len(set(keys)):
+            warnings.append({"code": "duplicate_orf_key", "arm": arm,
+                             "n_duplicates": len(keys) - len(set(keys))})  # fmt: skip
+    orf_j = None if cmp_row is None else cmp_row["jaccard"]
+    if cmp_row is None:
+        warnings.append({"code": "compare_row_missing", "family": "novel_orfs"})
+    else:
+        if (cmp_row["n_a"], cmp_row["n_b"]) != (called["n_a2"], called["n_a3"]):
+            warnings.append({"code": "duplicate_orf_key", "compare_n_a2": cmp_row["n_a"],
+                             "compare_n_a3": cmp_row["n_b"], "n_a2": called["n_a2"],
+                             "n_a3": called["n_a3"]})  # fmt: skip
+        if _g6(orf_j) != _g6(called["jaccard"]):
+            warnings.append({"code": "novel_orf_key_differs",
+                             "stop_codon_jaccard": called["jaccard"],
+                             "orf_id_jaccard": orf_j})  # fmt: skip
+    return {"called": called, "any_row": overlap(a2, a3, ORF_KEY), "orf_id_jaccard": orf_j}
+
+
+def _alt_overlap(
+    a2: pd.DataFrame, a3: pd.DataFrame, cmp_row: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """ALT sites (``call = ALT``) and each arm's own ``high`` rows; the ALT set must equal
+    compare's (A2, A3) ``alt_sites`` row (counts exactly, Jaccard after ``%.6g``)."""
+    x2, x3 = a2[_str_eq(a2, "call", "ALT")], a3[_str_eq(a3, "call", "ALT")]
+    alt = overlap(x2, x3, ALT_KEY)
+    hi = overlap(x2[_str_eq(x2, "confidence", "high")], x3[_str_eq(x3, "confidence", "high")],
+                 ALT_KEY)  # fmt: skip
+    if cmp_row is None:
+        raise Inconsistent("metric 6: compare_stability has no (A2, A3) alt_sites row")
+    ours = (alt["n_a2"], alt["n_a3"], alt["n_shared"], _g6(alt["jaccard"]), alt["union"] == 0)
+    theirs = (cmp_row["n_a"], cmp_row["n_b"], cmp_row["n_shared"], _g6(cmp_row["jaccard"]),
+              "both_empty" in items(cmp_row["flags"]))  # fmt: skip
+    if ours != theirs:
+        raise Inconsistent(
+            f"metric 6: ALT sites (n_a2, n_a3, n_shared, jaccard, both_empty) {ours} != "
+            f"compare_stability alt_sites (A2, A3) {theirs}"
+        )
+    return {"alt": alt, "high": hi}
+
+
+def metric6(
+    tables: Mapping[str, Mapping[str, pd.DataFrame | None]],
+    compare_stability: pd.DataFrame | None,
+) -> dict[str, Any]:
+    """Metric 6 (§15.5): per-arm summaries (an absent table ``missing:<table>.tsv``), the A2/A3
+    overlap (``a3_not_run`` without an ``A3`` entry) with its cross-checks against compare's
+    (A2, A3) rows, and ``warnings``. Raises ``Inconsistent`` when the ALT set differs from
+    compare's."""
+    out: dict[str, Any] = {}
+    warnings: list[Any] = []
+    for arm, t in tables.items():
+        out[arm] = {
+            "novel_orfs": _or_missing("novel_orfs.tsv", novel_summary, t.get("novel_orfs")),
+            "variants": _or_missing("variants.tsv", variant_summary, t.get("variants")),
+        }
+    if "A3" not in tables:
+        out["A3"] = dict(A3_NOT_RUN)
+        out["overlap_a2_a3"] = dict(A3_NOT_RUN)
+        out["warnings"] = warnings
+        return out
+    v3 = tables["A3"].get("variants")
+    if v3 is not None and (n := int(pd.to_numeric(v3["class_error_rate"], errors="coerce")
+                                    .notna().sum())):  # fmt: skip
+        warnings.append({"code": "a3_class_error_estimated", "n_rows": n})
+    a2, a3 = tables.get("A2") or {}, tables["A3"]
+    ov: dict[str, Any] = {}
+    n2, n3 = a2.get("novel_orfs"), a3.get("novel_orfs")
+    ov["novel_orfs"] = (
+        _missing("novel_orfs.tsv")
+        if n2 is None or n3 is None
+        else _novel_overlap(n2, n3, _a2_a3_row(compare_stability, "novel_orfs"), warnings)
+    )
+    w2, w3 = a2.get("variants"), a3.get("variants")
+    ov["alt_sites"] = (
+        _missing("variants.tsv")
+        if w2 is None or w3 is None
+        else _alt_overlap(w2, w3, _a2_a3_row(compare_stability, "alt_sites"))
+    )
+    out["overlap_a2_a3"] = ov
+    out["warnings"] = warnings
+    return out
+
+
+# ---------------------------------------------------------------- hypothesis 4 (M10-10b)
+
+H4_MIN_N = 20  # definition 6 (R3: not tuned)
+H4_LEVEL = 0.95
+H4_VERDICTS = ("not_supported", "consistent_with_lower_bound", "not_evaluable")
+PLACEMENT_LOG = re.compile(r"placement: \d+ queries \((\d+) de novo\)")
+SEARCHABLE_DIGEST = (
+    "GIAP's digest (trypsin_p, at most 1 missed cleavage, 7-30 residues, no N-terminal Met "
+    "excision; not DIA-NN's settings) of --strain-db, I folded to L"
+)
+H4_CAVEATS = (
+    "The score bins span the de novo scores of (0.8, 1] only (Cascadia's reported range).",
+    "c_value comes from A2's own exact matches and the confirmations from A2's identifications, "
+    "so A2 enters both sides: a shared dependence, not an independent check.",
+    "Class error rates of A3's ALT calls are unestimated (no spectrum pairing).",
+    "Dependent rows: nested or overlapping de novo peptides of one locus share correctness, so "
+    "the genome bin CI can be too narrow and a not_supported can come from that undercoverage; "
+    "nested_share shows how clustered each bin is.",
+    "Contaminant rows count in c_value (they never match the genome), which biases the genome "
+    "precision up and lowers the power to refute; de novo contaminant peptides are not in A2's "
+    "set and count as unconfirmed.",
+    "A2's identifications are at 1 % FDR, so the lower bound can be off by up to that share "
+    "(not corrected).",
+    "A failure confined to a single score bin reads consistent_with_lower_bound: not_supported "
+    "needs two consecutive reportable bins below the bound (the pre-registered fallback).",
+)
+
+
+def _fold(p: str) -> str:
+    return p.replace("I", "L")
+
+
+def _selected_denovo(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+    """The placement step's de novo queries (``validate_peptides``, ``aggregate_peptides``
+    (score = max over a peptide's rows), ``select_queries``), before the length-class filter."""
+    from giap.io.peptides import aggregate_peptides
+
+    V, _ = validate_peptides(P, cfg.input)
+    Q = select_queries(aggregate_peptides(V)[0], cfg)
+    keep = (Q["source"].astype(str) == "denovo").to_numpy(dtype=bool)
+    return Q.loc[keep, ["peptide", "score", "source"]].reset_index(drop=True)
+
+
+def denovo_count(P: pd.DataFrame, cfg: GiapConfig) -> int:
+    """The placement log's "(M de novo)": de novo queries before the length-class filter,
+    unscored ones included (B1)."""
+    return len(_selected_denovo(P, cfg))
+
+
+def denovo_queries(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+    """Definition 1: the de novo queries as the mapping step bins them (``_selected_denovo``),
+    keeping rows whose length falls in a ``mapping.length_classes`` class."""
+    from giap.steps.mapping import length_label
+
+    Q = _selected_denovo(P, cfg)
+    classes = cfg.mapping.length_classes
+    in_cls = [length_label(len(p), classes) is not None for p in Q["peptide"].astype(str)]
+    return Q.loc[np.asarray(in_cls, dtype=bool)].reset_index(drop=True)
+
+
+def placement_denovo_count(log_text: str) -> int | None:
+    """The "(M de novo)" count of the last ``placement: N queries (M de novo)`` log line."""
+    found = PLACEMENT_LOG.findall(log_text)
+    return int(found[-1]) if found else None
+
+
+def _nested(peps: Sequence[str]) -> set[str]:
+    """Peptides that are a substring of another peptide of ``peps`` (equal strings included)."""
+    lens = sorted({len(p) for p in peps})
+    subs: set[str] = set()
+    for p in set(peps):
+        for n in (x for x in lens if x < len(p)):
+            subs.update(p[i : i + n] for i in range(len(p) - n + 1))
+    seen: dict[str, int] = {}
+    for p in peps:
+        seen[p] = seen.get(p, 0) + 1
+    return {p for p in peps if p in subs or seen[p] > 1}
+
+
+def h4_bin(n_b: int, k_b: int, genome: Mapping[str, Any], n_reportable: int) -> dict[str, Any]:
+    """Definition 7 for one reportable bin: ``L_b`` (Wilson 95 %), ``L_b_adj`` (Wilson at
+    1 - 0.05/B), ``U_b`` (GIAP's upper half-width rescaled to 1 - 0.025/B, capped at 1;
+    descriptive) and the relations ``relation_95`` (descriptive) and ``relation_adj`` (the
+    verdict's: the unrescaled genome upper limit below ``L_b_adj``'s lower limit, the adopted
+    fallback)."""
+    from scipy.stats import norm
+
+    B = n_reportable
+    p, hi = float(genome["precision"]), float(genome["ci_high"])
+    lb = share(k_b, n_b)
+    lo_adj, hi_adj = wilson_ci(k_b, n_b, level=1.0 - 0.05 / B)
+    ratio = float(norm.ppf(1.0 - 0.025 / B) / norm.ppf(1.0 - (1.0 - H4_LEVEL) / 2.0))
+    u = min(1.0, p + (hi - p) * ratio)
+    return {
+        "L_b": lb,
+        "L_b_adj": lb | {"ci_low": lo_adj, "ci_high": hi_adj, "level": 1.0 - 0.05 / B},
+        "U_b": u,
+        "relation_95": "below_lower_bound" if hi < lb["ci_low"] else "consistent",
+        "relation_adj": "below_lower_bound" if hi < lo_adj else "consistent",
+    }
+
+
+def _two_consecutive_below(rep: Sequence[Mapping[str, Any]]) -> bool:
+    """Definition 8: two consecutive reportable bins (``rep`` in ``score_bin`` order, the
+    non-reportable bins removed, so skipped labels do not break adjacency) both have
+    ``relation_adj = below_lower_bound``. False when B < 2."""
+    below = [x["relation_adj"] == "below_lower_bound" for x in rep]
+    return any(a and b for a, b in pairwise(below))
+
+
+def hypothesis4(
+    queries: pd.DataFrame,
+    d2: Collection[str],
+    mapping_fdr: pd.DataFrame,
+    *,
+    searchable: Collection[str] | None = None,
+    n_denovo_logged: int | None = None,
+    n_denovo: int | None = None,
+    a2_contaminant_rows: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """H4 (§15.7, definitions 2-10): per score bin of ``queries`` (``score_bins``, the step's
+    own function) n_b, k_b (I→L folded on both sides), ``L_b`` and the genome row of
+    ``mapping_fdr.tsv``; the relations of reportable bins (precision reported, n_b >= 20), the
+    verdict, the descriptive extras (both over reportable bins), ``nested_share``,
+    ``L_b_searchable`` and the caveats. Raises ``Inconsistent`` when the bin labels differ from
+    ``mapping_fdr``'s or ``n_denovo_logged`` differs from ``n_denovo`` (the de novo queries
+    before the length-class filter; default ``len(queries)``). Unscored (NaN) queries form no
+    bin, as in the mapping step, but count in ``n_denovo``."""
+    from giap.mapping.denovo_precision import score_bins
+
+    peps = [_fold(p) for p in queries["peptide"].astype(str)]
+    bins = score_bins(pd.to_numeric(queries["score"], errors="coerce").to_numpy(dtype=float))
+    dn = mapping_fdr[mapping_fdr["section"].astype(str) == "denovo_precision"]
+    recs = [r for r in dn.to_dict("records") if clean(r["score_bin"]) is not None]
+    rows = {int(r["score_bin"]): r for r in recs}
+    labels = sorted({int(b) for b in bins if b >= 0})
+    if set(labels) != set(rows) or len(rows) != len(dn):
+        raise Inconsistent(
+            f"H4: score bins {labels} != mapping_fdr.tsv denovo_precision bins {sorted(rows)}"
+        )
+    warnings: list[Any] = []
+    if n_denovo_logged is None:
+        warnings.append({"code": "denovo_count_unchecked"})
+    elif n_denovo_logged != (n_dn := len(peps) if n_denovo is None else n_denovo):
+        raise Inconsistent(f"H4: {n_dn} de novo queries != placement log {n_denovo_logged}")
+    D = {_fold(str(p)) for p in d2}
+    if not D:
+        warnings.append({"code": "a2_empty"})
+    srch = None if searchable is None else {_fold(str(p)) for p in searchable}
+    nested = _nested(peps)
+    per: list[dict[str, Any]] = []
+    for b in labels:
+        S_b = [p for p, x in zip(peps, bins, strict=True) if x == b]
+        r = rows[b]
+        genome = {k: clean(r.get(k)) for k in ("precision", "ci_low", "ci_high", "c_value")}
+        genome["flags"] = items(r.get("flags"))
+        k_b = sum(p in D for p in S_b)
+        if srch is None:
+            searchable_b: dict[str, Any] = {**share(0, 0), "reason": "not_evaluable"}
+        else:
+            on = [p for p in S_b if p in srch]
+            searchable_b = share(sum(p in D for p in on), len(on)) | {"label": "descriptive"}
+        per.append({"score_bin": b, "n_b": len(S_b), "k_b": k_b, "genome": genome,
+                    "reportable": genome["precision"] is not None and len(S_b) >= H4_MIN_N,
+                    "nested_share": share(sum(p in nested for p in S_b), len(S_b)),
+                    "L_b_searchable": searchable_b})  # fmt: skip
+    rep = [x for x in per if x["reportable"]]
+    for x in per:
+        if x["reportable"]:
+            x |= h4_bin(x["n_b"], x["k_b"], x["genome"], len(rep))
+        else:
+            x |= {"L_b": share(x["k_b"], x["n_b"]), "L_b_adj": None, "U_b": None,
+                  "relation_95": None, "relation_adj": None}  # fmt: skip
+    c_assumed = any("c_assumed" in items(r.get("flags")) for r in rows.values())
+    if not rep or c_assumed:
+        verdict = "not_evaluable"
+    elif _two_consecutive_below(rep):
+        verdict = "not_supported"
+    else:
+        verdict = "consistent_with_lower_bound"
+    n_rep = sum(x["n_b"] for x in rep)
+    mean = (
+        {"value": sum(x["n_b"] * x["genome"]["precision"] for x in rep) / n_rep, "n": n_rep}
+        if n_rep
+        else {"value": None, "n": 0, "reason": "no_reportable_bin"}
+    )
+    caveats = list(H4_CAVEATS)
+    if rep and all(x["genome"]["ci_high"] == 1.0 for x in rep):
+        caveats.append("Every reportable bin has a genome CI clipped at 1: no refutation was "
+                       "possible in those bins.")  # fmt: skip
+    return {
+        "verdict": verdict,
+        "B": len(rep),
+        "n_queries": len(peps),
+        "c_assumed": c_assumed,
+        "bins": per,
+        "mean_genome_precision": mean | {"label": "descriptive"},
+        "pooled_L": share(sum(x["k_b"] for x in rep), n_rep) | {"label": "descriptive"},
+        "searchable_definition": SEARCHABLE_DIGEST if srch is not None else None,
+        "a2_contaminant_rows": dict(a2_contaminant_rows) if a2_contaminant_rows else None,
+        "caveats": caveats,
+        "warnings": warnings,
+    }
+
+
+def contaminant_rows(P: pd.DataFrame, cfg: GiapConfig) -> dict[str, Any]:
+    """S3: the share of A2's accepted target rows (q <= 0.01) that are contaminant rows, the
+    rows ``c_by_class`` counts into c_value."""
+    V, _ = validate_peptides(P, cfg.input)
+    acc = V.loc[~V["is_decoy"].to_numpy(dtype=bool) & (_q(V) <= Q_ACCEPT)]
+    return share(int(acc["is_contaminant"].astype(bool).sum()), len(acc))
+
+
 def _bullet1_draft(codes: Mapping[str, Any]) -> str:
     """Bullet 1 as ``compute`` writes it (M10-05's strings; ``render --final`` relabels it)."""
     if all(codes.get(a) == 0 for a in ("A1", "A2", "A3")):
@@ -908,6 +1314,7 @@ NOTES_MARK = "<!-- notes -->"
 M3_MARK = "<!-- m3 rows -->"
 NOT_EVALUATED_MARK = "<!-- not evaluated -->"
 DEFECT_REASONS = ("missing:", "pending")  # a defect in the final report, never a finding
+M6_FINAL_ARMS = ("A2", "A3", "overlap_a2_a3")  # a ``missing:`` table here refuses --final (S3)
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 _MISSING = object()
 
@@ -919,13 +1326,18 @@ class Gap(str):
 def _walk(doc: Any, path: str) -> tuple[Any, Any]:
     """(value or ``_MISSING``, the nearest ``reason`` of the dicts walked through)."""
     cur, reason = doc, None
-    for part in path.split("."):
+    parts, i = path.split("."), 0
+    while i < len(parts):
+        part = parts[i]
         if isinstance(cur, Mapping):
             reason = cur.get("reason", reason)
-        if isinstance(cur, Mapping) and part in cur:
-            cur = cur[part]
+            # a key may itself hold dots (a contig accession such as ``CP171243.1``): longest match
+            j = next((j for j in range(len(parts), i, -1) if ".".join(parts[i:j]) in cur), None)
+            if j is None:
+                return _MISSING, reason
+            cur, i = cur[".".join(parts[i:j])], j
         elif isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
-            cur = cur[int(part)]
+            cur, i = cur[int(part)], i + 1
         else:
             return _MISSING, reason
     return cur, reason
@@ -1004,7 +1416,81 @@ def expand(template: str, metrics: Mapping[str, Any]) -> str:
     names = dict.fromkeys(n for a in ARMS for n in (m3.get(a) or {}).get("order", []))
     rows = [f"| {n} | " + " | ".join(f"{{{{m3.{a}.subsets.{n}.share}}}}" for a in ARMS) + " |"
             for n in names]  # fmt: skip
-    return template.replace(M3_MARK, "\n".join(rows))
+    text = template.replace(M3_MARK, "\n".join(rows))
+    for mark, lines in _m6_h4_rows(metrics).items():
+        text = text.replace(mark, "\n".join(lines))
+    return text
+
+
+M6_ARMS = ("A1", "A2", "A3")
+OVERLAP_SETS = (("novel_orfs", "called", "novel ORFs, called"),
+                ("novel_orfs", "any_row", "novel ORFs, any row"),
+                ("alt_sites", "alt", "ALT sites"),
+                ("alt_sites", "high", "ALT sites, high confidence"))  # fmt: skip
+OVERLAP_FIELDS = ("n_a2", "n_a3", "n_shared", "union", "jaccard", "a3_confirmed_by_a2",
+                  "a2_found_by_a3")  # fmt: skip
+H4_ROW = ("score_bin", "n_b", "L_b", "genome.precision", "genome.ci_low", "genome.ci_high",
+          "genome.c_value", "U_b", "L_b_adj", "relation_95", "relation_adj", "nested_share",
+          "L_b_searchable")  # fmt: skip
+
+
+def _row(label: str, paths: Iterable[str]) -> str:
+    return f"| {label} | " + " | ".join(f"{{{{{p}}}}}" for p in paths) + " |"
+
+
+def _m6_computed(m6: Mapping[str, Any], table: str) -> tuple[list[str], list[str]]:
+    """(arms whose ``table`` summary was computed, a reason placeholder per other arm): an arm
+    or table with a reason is cited by its ``reason``, never by an unresolvable path."""
+    done, why = [], []
+    for a in M6_ARMS:
+        arm = m6.get(a)
+        if not isinstance(arm, Mapping) or "reason" in arm:
+            why.append(f"{a} {{{{m6.{a}.reason}}}}" if isinstance(arm, Mapping) else "")
+        elif isinstance(arm.get(table), Mapping) and "reason" in arm[table]:
+            why.append(f"{a} {{{{m6.{a}.{table}.reason}}}}")
+        else:
+            done.append(a)
+    return done, [w for w in why if w]
+
+
+def _m6_h4_rows(metrics: Mapping[str, Any]) -> dict[str, list[str]]:
+    """The generated lines of the metric-6 and H4 tables (per-arm columns for the arms whose
+    tables were computed, one H4 row per bin, one line per caveat), keyed by template marker."""
+    m6 = metrics.get("m6") if isinstance(metrics.get("m6"), Mapping) else {}
+    arms, why = _m6_computed(m6, "novel_orfs")
+    bk = [(a, b) for a in arms for b in BUCKETS]
+    cls = [f"| class | {' | '.join(f'{a} {b}' for a, b in bk)} |", "|---" * (len(bk) + 1) + "|"]
+    cls += [_row(c, (f"m6.{a}.novel_orfs.by_class.{c}.{b}" for a, b in bk)) for c in NOVEL_CLASSES]
+    cls.append(_row("total", (f"m6.{a}.novel_orfs.totals.{b}" for a, b in bk)))
+    if not arms:
+        cls = []
+    cls += [f"Not computed: {'; '.join(why)}."] if why else []
+    arms, why = _m6_computed(m6, "variants")
+    tc = [(a, c) for a in arms for c in CONFIDENCE]
+    alt = [f"| ALT type | {' | '.join(f'{a} {c}' for a, c in tc)} |", "|---" * (len(tc) + 1) + "|"]
+    alt += [_row(t, (f"m6.{a}.variants.alt.{t}.{c}" for a, c in tc)) for t in ALT_TYPES]
+    alt.append("")
+    alt += [f"{a}: mixed calls {{{{m6.{a}.variants.mixed}}}}; class error rate numeric "
+            f"{{{{m6.{a}.variants.class_error.numeric}}}}, unestimated "
+            f"{{{{m6.{a}.variants.class_error.unestimated}}}}." for a in arms]  # fmt: skip
+    if not arms:
+        alt = []
+    alt += [f"Not computed: {'; '.join(why)}."] if why else []
+    ov = [_row(label, (f"m6.overlap_a2_a3.{f}.{s}.{x}" for x in OVERLAP_FIELDS))
+          for f, s, label in OVERLAP_SETS]  # fmt: skip
+    h4 = metrics.get("h4") or {}
+    bins = h4.get("bins") if isinstance(h4.get("bins"), list) else []
+    caveats = h4.get("caveats") if isinstance(h4.get("caveats"), list) else []
+    return {
+        "<!-- m6 class rows -->": cls,
+        "<!-- m6 alt rows -->": alt,
+        "<!-- m6 overlap rows -->": ov,
+        "<!-- h4 rows -->": [
+            _row(f"{{{{h4.bins.{i}.score_bin}}}}", (f"h4.bins.{i}.{p}" for p in H4_ROW[1:]))
+            for i in range(len(bins))
+        ],
+        "<!-- h4 caveats -->": [f"- {{{{h4.caveats.{i}}}}}" for i in range(len(caveats))],
+    }
 
 
 SECTION = re.compile(r"^<!-- (if|ifnot) ([\w.]+) -->\n(.*?)^<!-- end \2 -->\n", re.M | re.S)
@@ -1028,12 +1514,16 @@ def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
 
 
 def not_evaluated(metrics: Mapping[str, Any]) -> list[str]:
-    """One line per metric or hypothesis (and its direct sub-blocks) carrying a ``reason``."""
+    """One line per metric or hypothesis (and its sub-blocks, to depth three) carrying a
+    ``reason``."""
     out = []
     for key in sorted(k for k in metrics if re.fullmatch(r"m\d|h\d|te1", k)):
         blocks = [(key, metrics[key])]
         if isinstance(metrics[key], Mapping):
-            blocks += [(f"{key}.{k}", v) for k, v in sorted(metrics[key].items())]
+            for k, v in sorted(metrics[key].items()):
+                blocks.append((f"{key}.{k}", v))
+                if isinstance(v, Mapping):
+                    blocks += [(f"{key}.{k}.{k2}", v2) for k2, v2 in sorted(v.items())]
         for path, v in blocks:
             if isinstance(v, Mapping) and isinstance(r := v.get("reason"), str):
                 finding = not r.startswith(DEFECT_REASONS)
@@ -1043,7 +1533,8 @@ def not_evaluated(metrics: Mapping[str, Any]) -> list[str]:
 
 def final_problems(metrics: Mapping[str, Any]) -> list[str]:
     """What the final report refuses: a ``pending``/``partial`` checklist row or an empty
-    evidence string, a ``pending`` or absent TE2-TE5 or TE7 status (each message names it)."""
+    evidence string, a ``pending`` or absent TE2-TE5 or TE7 status, a ``missing:`` table of
+    metric 6 under A2, A3 or their overlap (S3; A1's stays a value) (each message names it)."""
     out = []
     for i, row in enumerate(metrics["checklist"]):
         if str(row.get("status")).startswith(("pending", "partial")):
@@ -1054,6 +1545,12 @@ def final_problems(metrics: Mapping[str, Any]) -> list[str]:
     statuses = {f"te_real.{k}.status": (te.get(k) or {}).get("status") for k in TE_KEYS}
     statuses["te7.giap.status"] = (te7.get("giap") or {}).get("status")
     out += [f"{p} is {s!r}" for p, s in statuses.items() if s is None or s.startswith("pending")]
+    m6 = metrics.get("m6")
+    for arm in M6_FINAL_ARMS if isinstance(m6, Mapping) else ():
+        block = m6.get(arm)
+        for table, v in sorted(block.items()) if isinstance(block, Mapping) else ():
+            if isinstance(v, Mapping) and str(v.get("reason", "")).startswith("missing:"):
+                out.append(f"m6.{arm}.{table} is {v['reason']!r}")
     return out
 
 
@@ -1104,10 +1601,14 @@ TE_INPUTS = ("te_real", "te7")
 #: M10-15 inputs (committed, read-only): ``benchmarks/baseline.json``, ADR-M10-D and
 #: ``a3_feasibility.json``; the runbook is an input of ``render --final`` only (B1)
 GATE_INPUTS = ("baseline", "benchmark_adr", "a3_feasibility")
+#: M10-10b inputs: ``--a3`` needs all of ``A3_COMPANIONS``; ``--strain-db`` is optional (S4)
+A3_COMPANIONS = ("peptides_a3", "convert_a3", "cmp3")
+A3_INPUTS = ("peptides_a3", "convert_a3", "strain_db")
 INPUTS = ("peptides_a1", "peptides_a2", "convert_a1", "convert_a2", "summary_a1", "summary_a2",
           "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS, *GATE_INPUTS,
-          "entrapment")  # fmt: skip
-OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS, *GATE_INPUTS, "entrapment")
+          "entrapment", *A3_INPUTS)  # fmt: skip
+OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS, *GATE_INPUTS, "entrapment",
+            *A3_INPUTS, "cmp3")  # fmt: skip
 REQUIRED = ("a1", "a2", "cmp", *(k for k in INPUTS if k not in OPTIONAL), "out")
 COMPARE = ("compare_detection", "compare_abundance", "compare_stability")
 MAP_TABLES = "peptide_hits.tsv/unmapped.tsv"
@@ -1290,13 +1791,131 @@ def _cross_checks(arm: Mapping[str, Any], m1: Mapping[str, Any], warnings: list[
                              "raw_vs_written_q01": diff, "q_crossings": qc})  # fmt: skip
 
 
+A3_NEEDS = "--a3 needs --peptides-a3, --convert-a3 and --cmp3"
+
+
+def _a3_options(a: argparse.Namespace) -> None:
+    """``--a3`` and its companions come together (example 13); ``--strain-db`` needs ``--a3``."""
+    given = [k for k in (*A3_COMPANIONS, "strain_db") if getattr(a, k) is not None]
+    if a.a3 is not None and any(getattr(a, k) is None for k in A3_COMPANIONS):
+        raise Precondition(A3_NEEDS)
+    if a.a3 is None and given:
+        opts = ", ".join("--" + k.replace("_", "-") for k in given)
+        raise Precondition(f"{opts} given without --a3 ({A3_NEEDS})")
+
+
+def _arm_tables(out: Path) -> dict[str, pd.DataFrame | None]:
+    """An arm's ``novel_orfs.tsv`` and ``variants.tsv`` (None when the module was off)."""
+    t: dict[str, pd.DataFrame | None] = {}
+    for stem in ("novel_orfs", "variants"):
+        f = _run_table(out, f"{stem}.tsv")
+        t[stem] = None if f is None else _table(f, stem)
+    return t
+
+
+def _placement_logged(out: Path) -> int | None:
+    """The placement line's de novo count from the ``.command.log`` of the last COMPLETED
+    placement task of ``OUT/logs/trace.tsv`` (B1); None without a trace, task dir or line."""
+    from giap.runner.nextflow import _step_name, _task_dir
+
+    trace = out / "logs" / "trace.tsv"
+    if not trace.is_file():
+        return None
+    with trace.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    done = [
+        r
+        for r in rows
+        if (r.get("status") or "").strip() == "COMPLETED"
+        and _step_name(r.get("name") or "") == "placement"
+    ]
+    if not done:
+        return None
+    log = Path(_task_dir(done[-1], out / "work")) / ".command.log"
+    if not log.is_file():
+        return None
+    return placement_denovo_count(log.read_text(encoding="utf-8", errors="replace"))
+
+
+def _read_a3(a: argparse.Namespace, genome_sha: str) -> dict[str, Any]:
+    """The A3 inputs and their preconditions (spec "metrics.py changes (10b)")."""
+    from giap.io.compare_io import genome_digest
+    from giap.io.peptides import read_peptide_table
+
+    out = _need(resolve_attempt(a.a3)[0])
+    mp = out / "run_manifest.json"
+    man = _json(mp)
+    if man.get("exit_code") != 0:
+        raise Precondition(f"{mp}: exit_code {man.get('exit_code')}")
+    if genome_digest(out) != genome_sha:
+        raise Precondition(f"{mp}: genome sha256 differs from --genome")
+    pep_sha = sha256(a.peptides_a3)
+    if _input_sha(man, "peptides") != pep_sha:
+        raise Precondition(f"{a.peptides_a3}: sha256 differs from the run's peptides input ({out})")
+    if _input_sha(man, "reference_peptides") != sha256(a.peptides_a2):
+        raise Precondition(f"{mp}: the reference_peptides input is not --peptides-a2")
+    conv = _json(a.convert_a3)
+    if conv.get("failures"):
+        raise Precondition(f"{a.convert_a3}: failures {conv.get('failures')}")
+    if ((conv.get("outputs") or {}).get("peptides") or {}).get("sha256") != pep_sha:
+        raise Precondition(f"{a.convert_a3}: peptide table sha256 differs from --peptides-a3")
+    cmp3: dict[str, pd.DataFrame] = {}
+    for stem in COMPARE:
+        cmp3[stem] = _table(a.cmp3 / "tables" / f"{stem}.tsv", stem)
+    fdr = _run_table(out, "mapping_fdr.tsv")
+    if fdr is None:
+        raise Precondition(f"{out}: no mapping/mapping_fdr.tsv")
+    return {"out": out, "manifest": man, "cfg": _cfg(man, mp),
+            "P": _load(a.peptides_a3, lambda p: read_peptide_table(p)[0]),
+            "tables": _arm_tables(out), "cmp3": cmp3,
+            "mapping_fdr": _table(fdr, "mapping_fdr"),
+            "logged": _placement_logged(out)}  # fmt: skip
+
+
+def _searchable(path: Path | None) -> set[str] | None:
+    """In-silico tryptic peptides of ``--strain-db`` (GIAP's digest, I→L), or None."""
+    from giap.io.protein_fasta import read_protein_fasta
+
+    if path is None:
+        return None
+    out: set[str] = set()
+    for rec in _load(path, read_protein_fasta):
+        out |= _digest_il(rec.sequence)
+    return out
+
+
+def _m6_h4(
+    a: argparse.Namespace,
+    arms: Mapping[str, Mapping[str, Any]],
+    a3: Mapping[str, Any] | None,
+    warnings: list[Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Metric 6 and H4 from the read inputs (``a3_not_run`` stubs without ``--a3``)."""
+    tables = {x: _arm_tables(arms[x]["out"]) for x in ARMS}
+    if a3 is None:
+        m6 = metric6(tables, None)
+        return m6, dict(A3_NOT_RUN)
+    tables["A3"] = a3["tables"]
+    m6 = metric6(tables, a3["cmp3"]["compare_stability"])
+    a2 = arms["A2"]
+    _, D2, _ = split_contaminants(a2["P"], a2["cfg"])
+    h4 = hypothesis4(denovo_queries(a3["P"], a3["cfg"]), D2, a3["mapping_fdr"],
+                     searchable=_searchable(a.strain_db), n_denovo_logged=a3["logged"],
+                     n_denovo=denovo_count(a3["P"], a3["cfg"]),
+                     a2_contaminant_rows=contaminant_rows(a2["P"], a2["cfg"]))  # fmt: skip
+    if a3["manifest"].get("git_commit") != arms["A2"]["manifest"].get("git_commit"):
+        warnings.append({"code": "giap_commit_differs", "A3": a3["manifest"].get("git_commit")})
+    return m6, h4
+
+
 def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Every metric from the parsed arguments (reads only; raises on a precondition)."""
     from giap.io.output_checks import check_tsv
     from giap.io.protein_fasta import read_protein_fasta
 
+    _a3_options(a)
     _outside_repo(a.out, "--out")
-    for k in ("cmp", *INPUTS):
+    for k in ("cmp", "cmp3", *INPUTS):
         if getattr(a, k) is not None:
             _need(getattr(a, k))
     genome_sha = sha256(a.genome)
@@ -1367,9 +1986,12 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     warnings += doc["h1"]["warnings"]
     doc["h3"] = hypothesis3(doc["m4"], doc["m5"])
     states: dict[str, Any] = {"A1": 0, "A2": 0, "A3": None, "compare_ok": compare_ok}
-    if a.a3 is not None:
-        states["A3"] = _json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
+    a3 = None if a.a3 is None else _read_a3(a, genome_sha)
+    if a3 is not None:
+        states["A3"] = a3["manifest"].get("exit_code")
     doc |= te_placeholders() | pending_placeholders()
+    doc["m6"], doc["h4"] = _m6_h4(a, arms, a3, warnings)
+    warnings += doc["m6"]["warnings"] + doc["h4"].get("warnings", [])
     for key in TE_INPUTS:
         if getattr(a, key) is not None:
             doc[key] = _json(getattr(a, key))
@@ -1380,6 +2002,8 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     files = {k: getattr(a, k) for k in INPUTS} | {
         f"manifest_{x.lower()}": arms[x]["out"] / "run_manifest.json" for x in ARMS
     }
+    if a3 is not None:
+        files["manifest_a3"] = a3["out"] / "run_manifest.json"
     doc["inputs"] = {
         k: {"path": str(Path(p).resolve()), "sha256": sha256(Path(p))}
         for k, p in files.items()
