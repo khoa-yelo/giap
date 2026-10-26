@@ -303,7 +303,9 @@ def run_preflight(
     and, when a Nextflow ``profile`` is given, checks the registry tools the run needs under
     ``giap_root`` (default: ``$GIAP_ROOT``): pinned images in the apptainer cache
     (:func:`giap.io.image_key.image_cache`), prebuilt envs under ``<giap_root>/micromamba/envs``
-    (unset: none) and a local UniOP build in ``<db_dir>/local_tools.config``.
+    (unset: none) and a local UniOP build in ``<db_dir>/local_tools.config``. An ambient
+    ``NXF_APPTAINER_CACHEDIR`` wins over ``giap_root`` for the cache (as for Nextflow itself);
+    ``giap_root`` then only locates the prebuilt envs.
 
     ``annotation.uniop.enabled`` is resolved (:func:`giap.preflight.environment.resolve_uniop`,
     ``publication`` for ``--publication``) against UniOP being present and passing its probe

@@ -199,9 +199,91 @@ _CONDA_PROFILES = frozenset({"conda", "farmshare", "farmshare_local"})
 # Started by a GIAP step from its prebuilt env, not by a Nextflow ``conda`` directive, so the env
 # counts under every profile (giap.io.fgsea_r; its image fallback is a separate change).
 _STEP_STARTED = frozenset({"fgsea"})
-_LOCAL_LINE = re.compile(
-    r"withName:\s*['\"]([^'\"]+)['\"]\s*\{\s*(container|conda)\s*=\s*['\"]([^'\"]*)['\"]"
-)
+_WITH_NAME = re.compile(r"withName\s*:\s*(['\"]?)([A-Za-z0-9_]+)\1")
+_CONTAINER = re.compile(r"(?:^|[\s;])container\s*=\s*(['\"])(.*?)\1")
+
+
+def _strip_comments(text: str) -> str:
+    """``text`` with ``//`` and ``/* */`` comments outside quotes blanked."""
+    out: list[str] = []
+    i, quote = 0, ""
+    while i < len(text):
+        c = text[i]
+        if quote:
+            out.append(c)
+            quote = "" if c == quote and text[i - 1] != "\\" else quote
+        elif c in "'\"":
+            out.append(c)
+            quote = c
+        elif text.startswith("//", i):
+            j = text.find("\n", i)
+            i = len(text) if j < 0 else j
+            continue
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = len(text) if j < 0 else j + 2
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _blocks(text: str) -> tuple[list[tuple[str, str]], str]:
+    """Top-level ``<header> { <body> }`` blocks of a comment-free Nextflow config fragment, in
+    order, and the text outside them (its statements); braces inside quotes are skipped."""
+    blocks: list[tuple[str, str]] = []
+    rest: list[str] = []
+    depth, quote, start, head = 0, "", 0, 0
+    for i, c in enumerate(text):
+        if quote:
+            if c == quote and text[i - 1] != "\\":
+                quote = ""
+        elif c in "'\"":
+            quote = c
+        elif c == "{":
+            if depth == 0:
+                seg = text[head:i]
+                cut = max(seg.rfind("\n"), seg.rfind(";"), seg.rfind("}"))
+                rest.append(seg[: cut + 1])
+                blocks.append((seg[cut + 1 :].strip(), ""))
+                start = i + 1
+            depth += 1
+        elif c == "}" and depth > 0:
+            depth -= 1
+            if depth == 0:
+                blocks[-1] = (blocks[-1][0], text[start:i])
+                head = i + 1
+    rest.append(text[head:] if depth == 0 else "")
+    return blocks, "".join(rest)
+
+
+def _local_containers(local_tools: Path | None, runtime: str | None) -> dict[str, str]:
+    """Registry tool name → ``container`` of the ``withName`` selectors in the
+    ``profiles { <runtime> { process { … } } }`` block of ``local_tools.config``; empty without
+    a file or a block for ``runtime``."""
+    if local_tools is None or runtime is None:
+        return {}
+    try:
+        text = _strip_comments(local_tools.read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    found: dict[str, str] = {}
+    for top, profiles in _blocks(text)[0]:
+        if top != "profiles":
+            continue
+        for name, body in _blocks(profiles)[0]:
+            if name != runtime:
+                continue
+            for proc, selectors in _blocks(body)[0]:
+                if proc != "process":
+                    continue
+                for selector, inner in _blocks(selectors)[0]:
+                    m = _WITH_NAME.fullmatch(selector)
+                    c = _CONTAINER.search(_blocks(inner)[1])
+                    if m and c:
+                        found[m.group(2).lower()] = c.group(2)
+    return found
 
 
 def _profiles(profile: str) -> set[str]:
@@ -215,21 +297,6 @@ def container_runtime(profile: str) -> Literal["docker", "apptainer"] | None:
     if "apptainer" in names:
         return "apptainer"
     return "docker" if "docker" in names else None
-
-
-def _local_containers(local_tools: Path | None) -> dict[str, str]:
-    """Registry tool name → ``container`` of the ``withName`` lines of ``local_tools.config``."""
-    if local_tools is None:
-        return {}
-    try:
-        text = local_tools.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    return {
-        m.group(1).lower(): m.group(3)
-        for m in _LOCAL_LINE.finditer(text)
-        if m.group(2) == "container"
-    }
 
 
 def _docker_image_exists(tag: str) -> bool:
@@ -273,7 +340,7 @@ def missing_tool_reasons(
     }
     conda_on = bool(names & _CONDA_PROFILES)
     runtime = container_runtime(profile)
-    local = {} if conda_on else _local_containers(local_tools)
+    local = {} if conda_on else _local_containers(local_tools, runtime)
     setup_images = f"run: {_PKG} setup --images --profile apptainer"
     reasons: dict[str, str] = {}
     for tool in tools:
@@ -284,18 +351,23 @@ def missing_tool_reasons(
         if ref is not None:
             image = image_cache / _image_file_name(ref)
             if runtime == "apptainer" and not image.is_file():
-                reasons[tool.name] = (
-                    f"image {ref} not in the apptainer cache {image_cache}; {setup_images}"
+                where = (
+                    f"not in the apptainer cache {image_cache}"
+                    if image_cache.is_dir()
+                    else f"not found: the apptainer cache {image_cache} does not exist (set "
+                    "NXF_APPTAINER_CACHEDIR or $GIAP_ROOT, or give a DB directory)"
                 )
+                reasons[tool.name] = f"image {ref} {where}; {setup_images}"
         elif built is not None and runtime == "docker":
             if not _docker_image_exists(built):
                 reasons[tool.name] = f"local image {built} not found (docker image inspect)"
         elif built is not None and runtime == "apptainer":
-            sif = Path(built)
-            if not sif.is_absolute():
-                sif = image_cache / _image_file_name(built)
-            if not sif.is_file():
-                reasons[tool.name] = f"local image {sif} not found"
+            if not Path(built).is_absolute():
+                reasons[tool.name] = (
+                    f"{LOCAL_TOOLS} apptainer container '{built}' is not an absolute .sif path"
+                )
+            elif not Path(built).is_file():
+                reasons[tool.name] = f"local image {built} not found"
         elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
             reasons[tool.name] = (
                 f"conda-only tool under a container profile without conda: {tool.name}"
@@ -445,7 +517,7 @@ def _uniop_argv(
         return [str(prefix / "bin" / "python"), f"{home}/src/UniOP", "--help"]
     if runtime is None:
         return "no container or conda profile"
-    built = _local_containers(local_tools).get("uniop")
+    built = _local_containers(local_tools, runtime).get("uniop")
     if built is None:
         return f"no local UniOP image in {LOCAL_TOOLS}"
     if runtime == "docker":
