@@ -1,6 +1,7 @@
 #!/bin/sh
 # Minimal /proc-based `ps` for the pinned BAKTA and ANTISMASH images, which ship without procps
-# (M2-07 review decision 3). The apptainer profile binds it to /usr/bin/ps in those two processes.
+# (M2-07 review decision 3). The apptainer and docker profiles bind it to /usr/bin/ps in those two
+# processes (M11-14 item 3b).
 # Nextflow's task-metrics wrapper (.command.run, nxf_tree) only runs `ps -e -o pid= -o ppid=`; this
 # prints "<pid> <ppid>" per process, the same listing for any arguments. The host's procps ps cannot
 # be bound instead: it needs libproc2 and GLIBC 2.38 (antiSMASH's Debian 12 image has 2.36).

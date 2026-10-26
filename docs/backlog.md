@@ -1316,3 +1316,4 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - `validation/pilot/report_template.md:226` should say `not_supported` needs two consecutive reportable bins.
   - No unit test pins the strict `<` at `genome.ci_high == L_b_adj.ci_low` (equal reads `consistent`).
   - `tests/calibration/attacks/test_attack_h4_lower_bound.py` docstring still describes the one-bin rule (statistician-only docstring edit).
+- **#374/M11-14p review nits (one round):** update_digests follows only line-leading `includeConfig` (inline profile includes are not; the docstring should say so); with docker `-u`, `HOME=/` is not writable in the container and the tools' cache writes are untested (the probe runs `bakta --version` only); a `db_dir` with spaces or `:` breaks the bind argument (apptainer too); `docker_db.nf.test` without `GIAP_SMOKE_DB_DIR` leaves a temp dir per load; the actions warn about the Node 20 deprecation (as the existing job).

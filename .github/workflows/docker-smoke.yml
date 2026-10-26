@@ -2,6 +2,8 @@
 # TBLASTN processes run in their pinned images (workflow/conf/containers.config, by digest) under
 # `-profile test,docker` on GitHub's ubuntu runner. Advisory: not in ci.yml's `summary` needs, so a
 # registry outage never blocks a merge. Q-K10 default: path-filtered PRs plus a weekly run on main.
+# M11-14 item 3b (14p): the `bakta-db-visibility` job checks, through the same docker profile, that
+# params.db_dir is visible and readable inside the pinned BAKTA image (also advisory).
 name: docker-smoke
 
 on:
@@ -57,3 +59,50 @@ jobs:
           done
       - name: nf-test smoke under -profile test,docker
         run: nf-test test workflow/tests/docker_smoke.nf.test --profile test,docker
+
+  bakta-db-visibility:
+    # A probe named BAKTA (workflow/tests/lib/bakta_db_probe.nf, suite workflow/tests/docker_db.nf.test) runs in the pinned bakta image under
+    # -profile test,docker and reads <params.db_dir>/version.json through the profile's read-only
+    # bind; it also checks the ps shim, the per-task TMPDIR and -u. The Bakta light DB is too large
+    # for a hosted runner, so params.db_dir is a version.json fixture outside the work directory.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: install Nextflow and nf-test (as in ci.yml nf-test-stub)
+        run: |
+          curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
+          curl -fsSL https://get.nf-test.com | bash -s 0.9.5 && sudo mv nf-test /usr/local/bin/
+      - name: pull the pinned BAKTA image (one retry)
+        run: |
+          set -euo pipefail
+          img=$(grep -E "withName: 'BAKTA' \{ container" workflow/conf/containers.config \
+            | sed -E "s|.*container = '(docker://)?([^']+)'.*|\2|")
+          test -n "$img"
+          if docker pull "$img" 2> pull.err || { sleep 20; docker pull "$img" 2> pull.err; }; then
+            exit 0
+          fi
+          cat pull.err >&2
+          if grep -qiE 'toomanyrequests|rate limit' pull.err; then
+            echo "bakta-db-visibility: rate-limited pulling \`$img\` (registry limit, not a code failure: rerun)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "bakta-db-visibility: pull failed for \`$img\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 1
+      - name: params.db_dir readable inside the BAKTA container (test -r <db_dir>/version.json)
+        env:
+          GIAP_SMOKE_DB_DIR: ${{ runner.temp }}/bakta-db
+        run: |
+          set -euo pipefail
+          mkdir -p "$GIAP_SMOKE_DB_DIR"
+          printf '{"type": "light"}\n' > "$GIAP_SMOKE_DB_DIR/version.json"
+          # the docker_db suite sets params.db_dir = $GIAP_SMOKE_DB_DIR; run from workflow/ so that
+          # projectDir (the ps shim path in the profile) is the pipeline's
+          cd workflow
+          nf-test test tests/docker_db.nf.test --profile test,docker
