@@ -1240,7 +1240,21 @@
     },
     "UniopConfig": {
       "additionalProperties": false,
+      "description": "``enabled``: run UniOP (``true``), use the ADR-0022 distance model (``false``), or decide\nin preflight from whether UniOP is installed for the profile (``auto``; M11-14d).\n\n``resolved_from`` is written by preflight only: ``\"auto\"`` when ``enabled`` is the resolved\nvalue of ``auto`` (``operon_pairs`` then says \"UniOP not installed\" rather than \"UniOP\ndisabled\"). It is left out of every dump while unset, so a config without it round-trips.",
       "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            }
+          ],
+          "default": true,
+          "title": "Enabled"
+        },
         "fallback": {
           "const": "distance",
           "default": "distance",
@@ -1251,6 +1265,19 @@
           "default": 0.5,
           "title": "Pair Threshold",
           "type": "number"
+        },
+        "resolved_from": {
+          "anyOf": [
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved From"
         }
       },
       "title": "UniopConfig",

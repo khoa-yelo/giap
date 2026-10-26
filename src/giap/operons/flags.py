@@ -31,7 +31,10 @@ __all__ = [
     "FLAGS",
     "FLAG_COLUMNS",
     "PATTERNS",
+    "TU_ERROR_FLAG",
+    "TU_SOURCE_FLAG",
     "abundance_pattern",
+    "add_tu_source_flag",
     "evidence_yes",
     "flag_for",
     "flag_pairs",
@@ -52,6 +55,11 @@ FLAG_COLUMNS: tuple[str, ...] = (
     "terminator_between_yes", "abundance_pattern", "flag", "q_value", "lfdr", "evidence_note",
 )  # fmt: skip
 LAYER_MISSING = "layer_missing:"
+#: ADR-0061 decision 1: rows whose calibration does not hold with distance-model TUs
+TU_SOURCE_FLAG = "tu_source_distance_model"
+#: ADR-0061 decision 4: TU-block Moran's I rows assume exact TU boundaries (every run)
+TU_ERROR_FLAG = "tu_block_tu_error"
+_TU_TABLES = ("autocorrelation", "pairs")
 _DISCORDANT = frozenset(PATTERNS[:3])
 #: the §7.4.5 table: class, promoter yes (None = any), terminator yes, patterns, flag
 _TABLE: tuple[tuple[str, bool | None, bool, frozenset[str], str], ...] = (
@@ -216,3 +224,46 @@ def merge_tests(
         merged.append(list(dict.fromkeys(fl)))
     out["flags"] = pd.Series(merged, index=out.index, dtype=object)
     return out[list(PAIR_COLUMNS)]
+
+
+def _tu_targets(frame: pd.DataFrame, table: str) -> npt.NDArray[np.bool_]:
+    if table == "autocorrelation":
+        hit = (frame["statistic"] == "morans_i") & (frame["null_model"] == "tu_block")
+    else:
+        hit = frame["test"] == "both_detected_t"
+    return np.asarray(hit.fillna(False), dtype=np.bool_)
+
+
+def _with_tokens(cell: object, add: Sequence[str]) -> object:
+    """``cell`` with the ``add`` tokens appended (existing tokens kept, none duplicated), in the
+    cell's own form: a ``;``-joined string, a tuple or a list."""
+    old = _flags(cell)
+    new = [t for t in add if t not in old]
+    if not new:
+        return cell
+    tokens = [*old, *new]
+    if isinstance(cell, str):
+        return ";".join(tokens)
+    return tuple(tokens) if isinstance(cell, tuple) else tokens
+
+
+def add_tu_source_flag(frame: pd.DataFrame, table: str, operon_source: str | None) -> pd.DataFrame:
+    """ADR-0061 row flags of ``autocorrelation`` or ``pairs`` rows (a new frame; pure).
+
+    Every ``morans_i`` row with ``null_model = tu_block`` gets :data:`TU_ERROR_FLAG` whatever
+    the source (decision 4); when ``operon_source`` is ``distance_model``, those rows and every
+    ``both_detected_t`` pair row also get :data:`TU_SOURCE_FLAG` (decision 1). Only the
+    ``flags`` cells of the target rows change. ``ValueError`` for any other ``table``.
+    """
+    if table not in _TU_TABLES:
+        raise ValueError(f"add_tu_source_flag: unknown table {table!r}; use one of {_TU_TABLES}")
+    add = [TU_ERROR_FLAG] if table == "autocorrelation" else []
+    if operon_source == "distance_model":
+        add.append(TU_SOURCE_FLAG)
+    out = frame.copy()
+    if not add or not len(out):
+        return out
+    hit = _tu_targets(out, table)
+    cells = [_with_tokens(c, add) if h else c for c, h in zip(out["flags"], hit, strict=True)]
+    out["flags"] = pd.Series(cells, index=out.index, dtype=object)
+    return out

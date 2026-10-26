@@ -44,7 +44,8 @@ from giap.io.protein_fasta import ProteinRecord, Route, read_protein_fasta, rout
 from giap.io.tsv import write_tsv
 from giap.mapping.denovo_precision import REF_MAX_Q
 from giap.model import Replicon
-from giap.preflight.checks import Check, JsonValue
+from giap.preflight import environment as env_rules
+from giap.preflight.checks import Check, JsonValue, Level
 from giap.preflight.environment import (
     LOCAL_TOOLS,
     MANIFEST,
@@ -52,12 +53,16 @@ from giap.preflight.environment import (
     TOOLS_RULE,
     EnvProbe,
     ProbeError,
+    UniopResolution,
     environment_checks,
     missing_tool_reasons,
     probe_resources,
     read_manifest,
     requirements,
+    resolve_uniop,
     resource_needs,
+    uniop_setup_command,
+    uniop_setup_record,
 )
 from giap.preflight.evidence import (
     abundance_checks,
@@ -115,6 +120,8 @@ class NormalisedInputs:
     abundance: pd.DataFrame | None = None
     peptide_spectra: pd.DataFrame | None = None  # C17 (M7-10), with --reference-peptides
     resources: tuple[int, int] | None = None  # live (free_disk, ram) bytes; logged, not reported
+    #: the configuration for the run: ``annotation.uniop.enabled`` resolved (M11-14d)
+    cfg: GiapConfig | None = None
 
 
 # ---------------------------------------------------------------- environment
@@ -220,6 +227,64 @@ def _short_protein_rows(
     return validate_peptides(raw, cfg.input)[0]
 
 
+_NO_PROBE_PROFILES = frozenset({"test", "stub"})
+
+
+def _stderr_tail(stderr: str) -> str:
+    lines = [ln.strip() for ln in stderr.splitlines() if ln.strip()]
+    return lines[-1] if lines else ""
+
+
+def _uniop_state(
+    cfg: GiapConfig,
+    profile: str,
+    reasons: dict[str, str],
+    cache: Path,
+    env_root: Path | None,
+    local_tools: Path | None,
+    db: str | None,
+) -> tuple[bool, str]:
+    """``(installed, detail)`` of UniOP for a run under ``profile``: present in the registry
+    check (``reasons``) and passing one ``--help`` probe (M11-14d). The probe runs only when
+    UniOP is otherwise present and needed and the profile is not ``test``/``stub``; ``detail``
+    names why UniOP is missing (the registry reason or the probe's last stderr line, plus a
+    failed or absent setup item)."""
+    names = {n.strip() for n in profile.split(",") if n.strip()}
+    needed = any(t.name == "uniop" for t in required_tools(cfg))
+    if not needed or names & _NO_PROBE_PROFILES:
+        return True, ""
+    parts: list[str] = []
+    if "uniop" in reasons:
+        parts.append(reasons["uniop"])
+    else:
+        code, err = env_rules.probe_uniop(
+            profile, image_cache=cache, env_root=env_root, local_tools=local_tools
+        )
+        if code == 0:
+            return True, ""
+        tail = _stderr_tail(err)
+        parts.append(f"UniOP --help exited {code}" + (f": {tail}" if tail else ""))
+    record = uniop_setup_record(db)
+    if record:
+        parts.append(record)
+    return False, "; ".join(parts)
+
+
+def _with_uniop(checks: list[Check], res: UniopResolution) -> list[Check]:
+    """``environment.tools`` carrying the UniOP warning (at least ``warn``, the message
+    appended); other checks unchanged."""
+    if res.level != "warn":
+        return checks
+    out = []
+    for c in checks:
+        if c.rule_id == "environment.tools":
+            level: Level = "error" if c.level == "error" else "warn"
+            message = f"{c.message}; {res.message}" if c.message else res.message
+            c = replace(c, level=level, message=message)
+        out.append(c)
+    return out
+
+
 def run_preflight(
     inp: PreflightInputs,
     cfg: GiapConfig,
@@ -230,6 +295,7 @@ def run_preflight(
     *,
     giap_root: Path | None = None,
     profile: str | None = None,
+    publication: bool = False,
 ) -> tuple[PreflightReport, NormalisedInputs]:
     """Evaluate every preflight rule; ``probe=None`` selects the real environment probe, which
     measures free disk where ``outdir`` is (default: the working directory), reads the
@@ -237,7 +303,12 @@ def run_preflight(
     and, when a Nextflow ``profile`` is given, checks the registry tools the run needs under
     ``giap_root`` (default: ``$GIAP_ROOT``): pinned images in the apptainer cache
     (:func:`giap.io.image_key.image_cache`), prebuilt envs under ``<giap_root>/micromamba/envs``
-    (unset: none) and a local UniOP build in ``<db_dir>/local_tools.config``."""
+    (unset: none) and a local UniOP build in ``<db_dir>/local_tools.config``.
+
+    ``annotation.uniop.enabled`` is resolved (:func:`giap.preflight.environment.resolve_uniop`,
+    ``publication`` for ``--publication``) against UniOP being present and passing its probe
+    under ``profile`` (without a profile it counts as installed); the warning or error goes onto
+    ``environment.tools`` and the resolved configuration into ``NormalisedInputs.cfg``."""
     lo, hi = cfg.input.peptide_len
     refs = [_input_ref("genome", inp.genome)]
 
@@ -324,6 +395,7 @@ def run_preflight(
     env_db = os.environ.get("GIAP_DB_DIR")
     db = str(db_dir.absolute()) if db_dir is not None else env_db
     tool_reasons: dict[str, str] = {}
+    installed, detail, command = True, "", uniop_setup_command(profile, db)
     if probe is None and profile is not None:
         environ = dict(os.environ)
         if giap_root is not None:
@@ -331,16 +403,28 @@ def run_preflight(
         root = environ.get("GIAP_ROOT")
         db_path = Path(db) if db else Path("/nonexistent/GIAP_DB_DIR")
         local_tools = db_path / LOCAL_TOOLS
+        cache = image_cache(environ, db_path)
+        env_root = Path(root) / "micromamba" / "envs" if root else None
+        local = local_tools if local_tools.is_file() else None
         tool_reasons = missing_tool_reasons(
             required_tools(cfg, abundance=inp.abundance is not None),
             profile,
-            image_cache(environ, db_path),
-            Path(root) / "micromamba" / "envs" if root else None,
-            local_tools if local_tools.is_file() else None,
+            cache,
+            env_root,
+            local,
         )
+        installed, detail = _uniop_state(cfg, profile, tool_reasons, cache, env_root, local, db)
+    uniop = resolve_uniop(
+        cfg, installed=installed, publication=publication, detail=detail, setup_command=command
+    )
+    if uniop.level == "error":
+        tool_reasons["uniop"] = uniop.message
+    else:
+        tool_reasons.pop("uniop", None)
     tools_missing = sorted(tool_reasons)
     where = Path.cwd() if outdir is None else outdir
     env, resources = _environment(cfg, probe, mode, where, db, tools_missing, tool_reasons)
+    env = _with_uniop(env, uniop)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)
     checks = [
@@ -385,6 +469,7 @@ def run_preflight(
         abundance=abundance,
         peptide_spectra=spectra,
         resources=resources,
+        cfg=uniop.cfg,
     )
     return report, norm
 
