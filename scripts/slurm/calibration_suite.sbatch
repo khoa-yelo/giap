@@ -235,6 +235,8 @@ def record(state, forced):
     merged = Path(state, "merge.launched").exists()
     checks = _checks(state)
     merge_rc = _rc(Path(state, "exit.merge")) if merged else None
+    if merged and merge_rc is None:  # started, but its exit was lost
+        merge_rc = 2
     merge_parts = []
     if merged:
         merge_parts, problem = _confirm_parts(log, suite)
@@ -329,8 +331,8 @@ PY
 
 write_record() {  # write_record <exit|->: task-<i>.json once ("-": fold); prints the exit
   [ -z "$recorded" ] && [ -n "$TASK" ] || return 0
-  recorded=1
-  "$PY" "$JOBPY" record "$STATE" "$1" || echo "calibration_suite: could not write task-$TASK.json" >&2
+  if "$PY" "$JOBPY" record "$STATE" "$1"; then recorded=1
+  else echo "calibration_suite: could not write task-$TASK.json" >&2; fi
 }
 interrupt() {  # SIGINT to this shell's pytest descendants; wait up to the grace; SIGKILL the rest
   local end p live sent=""
@@ -348,10 +350,11 @@ interrupt() {  # SIGINT to this shell's pytest descendants; wait up to the grace
   done
   for p in $("$PY" -I "$JOBPY" tree "$$" all); do kill -KILL "$p" 2>/dev/null; done
 }
-on_signal() {
+on_signal() {  # on_signal USR1|TERM; TERM records first: Slurm may SIGKILL before the grace ends
   [ "${BASHPID:-$$}" = "$$" ] || exit 143
   [ -z "$in_signal" ] || return 0
   in_signal=1
+  if [ "$1" = TERM ]; then write_record 143 >/dev/null; fi
   echo "calibration_suite: signal received, interrupting the lanes (grace ${GRACE} s)" >&2
   interrupt
   write_record 143 >/dev/null
@@ -365,7 +368,8 @@ on_exit() {
   exit "$rc"
 }
 trap on_exit EXIT
-trap on_signal USR1 TERM
+trap 'on_signal USR1' USR1
+trap 'on_signal TERM' TERM
 
 await() {  # await <pid>: its exit status, waiting again when a trapped signal ended `wait`
   local rc
@@ -473,8 +477,7 @@ if [ "$SHARDS" -gt 0 ]; then
   printf '%s\n' "$rc" > "$STATE/exit.merge"
   echo "calibration_suite: merge exit $rc"
 fi
-recorded=1
-final=$("$PY" "$JOBPY" record "$STATE" -) || final=""
+final=$("$PY" "$JOBPY" record "$STATE" -) && recorded=1 || final=""
 case "$final" in
   ''|*[!0-9]*) echo "calibration_suite: could not write task-$TASK.json" >&2; final=2 ;;
 esac
