@@ -130,6 +130,17 @@ def test_first_fakeroot_success_builds_once(archive: bytes, tmp_path: Path) -> N
     assert "--ignore-fakeroot-command" not in builds[0]
 
 
+def test_relative_cache_dir_builds(
+    archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--db-dir DB --cache-dir cache`` (relative): the build runs in the context, so the def
+    and the sif must be absolute (#401 review B1)."""
+    monkeypatch.chdir(tmp_path)
+    code, out = _uniop(Path("db"), Path("cache"), ACCEPT)
+    assert code == 0, out
+    assert sif_path(tmp_path / "cache").is_file(), out
+
+
 def test_root_builds_without_fakeroot(
     archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

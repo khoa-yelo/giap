@@ -245,8 +245,8 @@ def _apptainer_build(context: Path, sif: Path) -> tuple[str, str]:
     why = "no output"
     for argv in apptainer_build_argvs(sif, context / "uniop.def", os.geteuid() == 0):
         try:
-            proc = subprocess.run([exe, *argv[1:]], cwd=context, capture_output=True, text=True,
-                                  check=False)  # fmt: skip
+            proc = subprocess.run([exe, *argv[1:]], cwd=context, stdin=subprocess.DEVNULL,
+                                  capture_output=True, text=True, check=False)  # fmt: skip
         except OSError as exc:
             why = str(exc)
             continue
@@ -270,7 +270,8 @@ def _micromamba_build(context: Path, prefix: Path, version: str) -> str:
     prefix.parent.mkdir(parents=True, exist_ok=True)
     argv = [exe, "create", "-y", "-p", str(prefix), "-f", str(context / LOCK_FILE)]
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, check=False)
+        proc = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              check=False)  # fmt: skip
     except OSError as exc:
         return f"micromamba create failed: {exc}"
     if proc.returncode != 0:
@@ -315,6 +316,7 @@ def _build(item: DbItem, db_dir: Path, cache: Path, fetcher: Fetcher, runtime: s
            terms: Terms) -> tuple[list[DbRecord], dict[str, str] | None]:  # fmt: skip
     """Fetch, verify, stage and build under ``runtime``; the records to write and the
     ``local_build`` object of a successful build."""
+    cache = cache.absolute()  # the apptainer build runs in the context: no relative paths
     src = fetch_archive(item, db_dir, fetcher)
     _report(src)
     if src.status != "ok":
