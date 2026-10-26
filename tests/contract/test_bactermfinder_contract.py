@@ -1,10 +1,11 @@
 """Contract test: BacTermFinder parser (M2-15; GIAP_SPEC.md §5.4, §7.1.1, §7.1.5).
 
-``pending_sample`` until M2-10 records an opt-in BacTermFinder run (pinned commit) under
-``tests/data/recorded/terminators/bactermfinder/<sample>/`` (the tool's output files plus
-``PROVENANCE.md``). The output format is fixed by that fixture (spec: "format fixed by the recorded
-fixture"); the generic contract checked here: every call becomes a ``Terminator`` with
-``source == "BacTermFinder"``, a valid interval on its replicon and a confidence in [0, 1]
+Active since fix-bactermfinder-parser: every sample directory under
+``tests/data/recorded/bactermfinder/024870447f62/`` (pinned commit; genome FASTA, the tool's
+``*_mean.csv`` and ``PROVENANCE.md``) is parsed. The output format is fixed by that fixture
+(spec: "format fixed by the recorded fixture"); the generic contract checked here: every call
+becomes a ``Terminator`` with ``source == "BacTermFinder"``, a valid interval on its replicon and
+a confidence in [0, 1]
 (Example 10 checks that such calls never count for ``terminator_between``).
 """
 
@@ -15,16 +16,13 @@ from pathlib import Path
 import pytest
 
 RECORDED = (
-    Path(__file__).resolve().parents[1] / "data" / "recorded" / "terminators" / "bactermfinder"
+    Path(__file__).resolve().parents[1] / "data" / "recorded" / "bactermfinder" / "024870447f62"
 )
 SAMPLES = sorted(p for p in RECORDED.glob("*") if p.is_dir()) if RECORDED.is_dir() else []
 
-pytestmark = [
-    pytest.mark.pending_sample,
-    pytest.mark.skipif(
-        not SAMPLES, reason=f"pending_sample: no recorded BacTermFinder run in {RECORDED}"
-    ),
-]
+
+def test_recordings_exist() -> None:
+    assert len(SAMPLES) >= 2, RECORDED
 
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[p.name for p in SAMPLES])
