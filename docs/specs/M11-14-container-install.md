@@ -92,8 +92,17 @@ build fails (offline, no build rights), and it becomes the default only after 14
      (`docker` | `apptainer`; unset → `FgseaEngineUnavailable`). The cache directory comes from
      the same helper as preflight (item 3; 14a).
 - The image argv (AC 7 pins it):
-  - docker: `docker run --rm -u <uid>:<gid> -v <call_dir>:<call_dir> -w <call_dir> -e LC_ALL=C <ref> Rscript /opt/<pkg>/giap_fgsea.R <the nine options of command()>`;
-  - apptainer: `apptainer exec --cleanenv -B <call_dir> --pwd <call_dir> <cache>/<simpleName>.img Rscript /opt/<pkg>/giap_fgsea.R <options>`.
+  - docker: `docker run --rm --cidfile <call_dir>.cid -u <uid>:<gid> -v <call_dir>:<call_dir> -w <call_dir> -e LC_ALL=C <ref> Rscript --vanilla /opt/<pkg>/giap_fgsea.R <the nine options of command()>`;
+  - apptainer: `apptainer exec --cleanenv -B <call_dir> --pwd <call_dir> <cache>/<simpleName>.img Rscript --vanilla /opt/<pkg>/giap_fgsea.R <options>`.
+
+  Lead amendment (2026-10-26, #386 review B1/S1): `--vanilla` stays on the image path, because
+  apptainer binds `$HOME`, so the user's `~/.Rprofile`, `~/.Renviron` and `~/R` library would
+  otherwise load. A killed `docker run` client does not stop its container (dockerd owns it, and R
+  as PID 1 ignores SIGTERM), so docker writes its container ID to `<call_dir>.cid`, a sibling of
+  the bound directory that survives its removal. On timeout or any exception the engine runs
+  `docker kill <id>` and then `docker rm -f <id>`; failures there are logged and do not hide the
+  original error. The `.cid` file is removed afterwards. Apptainer stays in the process group and
+  needs no extra step.
 
   The options name files relative to the call directory (as `command()` does today), so only that
   directory is bound. The shebang front end is not read under the image path; the image runs
@@ -710,7 +719,7 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 | 13c | a move `src/giap/stats/x.py` → `docs/x.py` | `D` lists both paths (`--no-renames`); not reusable |
 | 13d | `D` = {`src/giap/report_stats.py`} | not reusable (component match: `src/giap/report/` does not match) |
 | 14 | `update_digests.py` with `{"UNIOP": "ghcr.io/…/gippa-uniop@sha256:…"}` | exit 1 (M11-06 example 5 still holds) |
-| 15 | `fgsea_r.command` under `GIAP_CONTAINER_RUNTIME=docker`, no prefix, no env | the exact docker argv of item 1, `-u <uid>:<gid>`, `Rscript /opt/<pkg>/giap_fgsea.R` |
+| 15 | `fgsea_r.command` under `GIAP_CONTAINER_RUNTIME=docker`, no prefix, no env | the exact docker argv of item 1, `--cidfile <call_dir>.cid`, `-u <uid>:<gid>`, `Rscript --vanilla /opt/<pkg>/giap_fgsea.R` |
 | 15b | `GIAP_FGSEA_PREFIX` set to a directory without R, image available | `FgseaEngineUnavailable` (no fall-through) |
 | 16 | `setup --images --profile docker --accept-uniop-terms`, fake fetcher serving the fixture archive (sha256 equal to the pin) behind a fake `302` from `github.com` to `codeload.github.com`, fake `docker` | one fetch of the pinned URL, the redirect followed; archive at `<db_dir>/uniop/UniOP-<commit>.tar.gz` (mode `0600`); `docker build … -t localhost/<pkg>-uniop:git-3ed14dfc-<key> <context>`; `local_tools.config` has only the `docker` block, with `conda = ''`, and no `conda.enabled`; `image:uniop` `ok` with `local_build.runtime: docker`, `digest` = the fake image ID, `terms: flag`; no `push` |
 | 16a | a redirect to any other host | `refused …` (the allowlist holds only `codeload.github.com` for `github.com`) |

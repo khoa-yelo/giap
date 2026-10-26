@@ -46,7 +46,9 @@ from giap.io.image_key import tag as image_tag
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / ".github" / "workflows" / "containers.yml"
-GHCR = sorted(["bactermfinder", "ostir", "promoter_calculator", "promotech", "terminatornet"])
+GHCR = sorted(
+    ["bactermfinder", "fgsea", "ostir", "promoter_calculator", "promotech", "terminatornet"]
+)
 NS = "ghcr.io/khoa-yelo"
 SHA = "c0ffee" + "0" * 34
 OLD_REVISION = "0123456789abcdef0123456789abcdef01234567"
@@ -400,7 +402,7 @@ def test_push_plans_tools_of_a_cancelled_pending_run(tmp_path: Path) -> None:
 
 
 def test_push_builds_every_unpublished_tool(tmp_path: Path) -> None:
-    """Nothing published yet: a push touching one env file plans all five (no tool is lost)."""
+    """Nothing published yet: a push touching one env file plans all six (no tool is lost)."""
     root = _tree(tmp_path)
     _, env = _fakes(tmp_path)
     before = _git(root, "rev-parse", "HEAD")

@@ -171,10 +171,11 @@ def _string_constants(path: Path) -> list[str]:
     ]
 
 
-def test_wrapper_never_starts_apptainer() -> None:
-    """Lead decision 9: fgsea is conda-only; the step never calls ``apptainer exec`` itself."""
+def test_wrapper_never_reads_an_image_variable() -> None:
+    """Lead decision 9 was reversed by M11-14 14c (the image launcher starts ``apptainer exec``
+    or ``docker run`` itself); the image ref still comes from images.json, never from a
+    ``GIAP_FGSEA_IMAGE`` override."""
     consts = _string_constants(WRAPPER)
-    assert not [c for c in consts if "apptainer" in c.lower()]
     assert not [c for c in consts if c == "GIAP_FGSEA_IMAGE"]
 
 

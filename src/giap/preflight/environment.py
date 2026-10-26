@@ -198,8 +198,8 @@ def _env_built(tool: ToolSpec, env_root: Path | None, envs_dir: Path) -> bool:
 
 _PKG = __name__.split(".", 1)[0]
 _CONDA_PROFILES = frozenset({"conda", "farmshare", "farmshare_local"})
-# Started by a GIAP step from its prebuilt env, not by a Nextflow ``conda`` directive, so the env
-# counts under every profile (giap.io.fgsea_r; its image fallback is a separate change).
+# Started by a GIAP step (giap.io.fgsea_r), not by a Nextflow process: the prebuilt env counts under
+# every profile, and under docker / plain apptainer its image from images.json (M11-14 14c).
 _STEP_STARTED = frozenset({"fgsea"})
 _WITH_NAME = re.compile(r"withName\s*:\s*(['\"]?)([A-Za-z0-9_]+)\1")
 _CONTAINER = re.compile(r"(?:^|[\s;])container\s*=\s*(['\"])(.*?)\1")
@@ -301,6 +301,23 @@ def container_runtime(profile: str) -> Literal["docker", "apptainer"] | None:
     return "docker" if "docker" in names else None
 
 
+def _step_images(images_json: Path) -> dict[str, str]:
+    """Step-started tool → its ``ref`` in ``images.json`` (``{}`` when unreadable)."""
+    try:
+        data = json.loads(images_json.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: dict[str, str] = {}
+    for name in _STEP_STARTED:
+        entry = data.get(name)
+        ref = entry.get("ref") if isinstance(entry, dict) else None
+        if isinstance(ref, str) and ref:
+            out[name] = ref
+    return out
+
+
 def _docker_image_exists(tag: str) -> bool:
     docker = shutil.which("docker")
     if docker is None:
@@ -328,9 +345,11 @@ def missing_tool_reasons(
     (ADR-0059). A conda-only tool needs the prebuilt env ``<env_root>/giap-<tool>`` with a
     ``.giap-built`` marker equal to the sha256 of ``workflow/envs/<tool>.yml``; under a container
     profile without conda (``docker`` or plain ``apptainer``) it is missing, since it would run on
-    the host. A ``container`` line of ``local_tools`` (a local UniOP build) counts under docker
-    (``docker image inspect``) and apptainer (the ``.sif`` file). ``test``/``stub`` need nothing;
-    in-process tools are never missing.
+    the host. A step-started tool (fgsea) instead counts there through its ``images.json`` ref:
+    under docker that entry suffices (``docker run`` pulls it), under plain apptainer it needs
+    ``<image_cache>/<simpleName>.img``. A ``container`` line of ``local_tools`` (a local UniOP
+    build) counts under docker (``docker image inspect``) and apptainer (the ``.sif`` file).
+    ``test``/``stub`` need nothing; in-process tools are never missing.
     """
     names = _profiles(profile)
     if names & _NO_TOOL_PROFILES:
@@ -343,6 +362,7 @@ def missing_tool_reasons(
     conda_on = bool(names & _CONDA_PROFILES)
     runtime = container_runtime(profile)
     local = {} if conda_on else _local_containers(local_tools, runtime)
+    step_images = {} if conda_on else _step_images(workflow / "conf" / "images.json")
     setup_images = f"run: {_PKG} setup --images --profile apptainer"
     reasons: dict[str, str] = {}
     for tool in tools:
@@ -370,6 +390,22 @@ def missing_tool_reasons(
                 )
             elif not Path(built).is_file():
                 reasons[tool.name] = f"local image {built} not found"
+        elif tool.name in _STEP_STARTED and not conda_on and runtime is not None:
+            if _env_built(tool, env_root, workflow / "envs"):
+                continue
+            step_ref = step_images.get(tool.name)
+            if step_ref is None:
+                where = "$GIAP_ROOT is not set" if env_root is None else "not built"
+                reasons[tool.name] = (
+                    f"prebuilt env {tool.env_name}: {where}; "
+                    "workflow/conf/images.json pins no image for it"
+                )
+            elif runtime == "apptainer":
+                image = image_cache / _image_file_name(step_ref)
+                if not image.is_file():
+                    reasons[tool.name] = (
+                        f"image {step_ref} not in the apptainer cache {image_cache}; {setup_images}"
+                    )
         elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
             reasons[tool.name] = (
                 f"conda-only tool under a container profile without conda: {tool.name}"

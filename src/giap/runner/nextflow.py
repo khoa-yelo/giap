@@ -211,10 +211,33 @@ def append_step_events(outdir: Path) -> int:
     return len(lines)
 
 
-def run_nextflow(cmd: Sequence[str], outdir: Path) -> ExitCode:
-    """Run Nextflow in ``outdir`` and append the step events (:func:`append_step_events`); 0 on
-    success, else 4 with a message naming step and log."""
-    proc = subprocess.run(list(cmd), cwd=outdir, check=False)
+RUNTIME_ENV = "GIAP_CONTAINER_RUNTIME"
+
+
+def launch_env(
+    environ: Mapping[str, str], runtime: str | None, db_dir: Path | None
+) -> dict[str, str]:
+    """``environ`` for ``nextflow run``: ``GIAP_CONTAINER_RUNTIME`` set to ``runtime`` (an inherited
+    value is dropped when ``runtime`` is ``None``) and ``GIAP_DB_DIR`` to the absolute ``db_dir``
+    when given, so the function step finds the fgsea image where preflight checked it (M11-14
+    14c). ``environ`` itself is not modified."""
+    env = {k: v for k, v in environ.items() if k != RUNTIME_ENV}
+    if runtime is not None:
+        env[RUNTIME_ENV] = runtime
+    if db_dir is not None:
+        env["GIAP_DB_DIR"] = str(Path(db_dir).absolute())
+    return env
+
+
+def run_nextflow(
+    cmd: Sequence[str], outdir: Path, env: Mapping[str, str] | None = None
+) -> ExitCode:
+    """Run Nextflow in ``outdir`` (with ``env``, else the inherited environment) and append the
+    step events (:func:`append_step_events`); 0 on success, else 4 with a message naming step
+    and log."""
+    proc = subprocess.run(
+        list(cmd), cwd=outdir, check=False, env=None if env is None else dict(env)
+    )
     append_step_events(outdir)
     if proc.returncode == 0:
         return ExitCode.SUCCESS

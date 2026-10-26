@@ -14,7 +14,8 @@ import os
 import platform
 import shutil
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar, get_args
 
@@ -374,7 +375,9 @@ def run(
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
         keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
-        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+        # no profile, so no container runtime: the function step must not see the shell's (14c)
+        with _env_unset("GIAP_CONTAINER_RUNTIME"):
+            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
     roots, cfg = _run_preflight(
@@ -562,12 +565,15 @@ def _run_nextflow(
     from giap.preflight.environment import LOCAL_TOOLS, local_tools_applies
 
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
+    from giap.preflight.environment import container_runtime
+
     # a local UniOP build (M11-14); absolute, since Nextflow runs in outdir (#396 review B1)
     local = (db_dir / LOCAL_TOOLS).absolute() if db_dir is not None else None
     if local is None or not local.is_file() or not local_tools_applies(profile):
         local = None
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)
-    code = nf.run_nextflow(cmd, outdir)
+    env = nf.launch_env(os.environ, container_runtime(profile), db_dir)
+    code = nf.run_nextflow(cmd, outdir, env)
     if code == ExitCode.SUCCESS:
         from giap.runner.local import write_datapackage
 
@@ -642,6 +648,18 @@ def _local_roots(
                 "preflight": outdir / "preflight" / "preflight.json"}  # fmt: skip
     roots |= {k: p for k, p in produced.items() if p.is_file()}
     return roots
+
+
+@contextmanager
+def _env_unset(name: str) -> Iterator[None]:
+    """``os.environ`` without ``name`` for the block; the caller's value is restored after it
+    (also on ``SystemExit``)."""
+    saved = os.environ.pop(name, None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            os.environ[name] = saved
 
 
 def _run_local(
