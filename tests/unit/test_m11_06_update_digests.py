@@ -343,7 +343,10 @@ def test_all_five_images_leave_only_uniop_conda_only(tmp_path: Path) -> None:
     )
 )
 def test_property_pins_are_exact_preserving_and_idempotent(chosen: dict[str, str]) -> None:
-    digests = {p: _ref(PROCESSES[p], h) for p, h in chosen.items()}
+    hexes: dict[str, str] = {}  # one digest per image: OSTIR and OSTIR_NOVEL share one (#372)
+    for p, h in chosen.items():
+        hexes.setdefault(PROCESSES[p], h)
+    digests = {p: _ref(PROCESSES[p], hexes[PROCESSES[p]]) for p in chosen}
     with tempfile.TemporaryDirectory() as d:
         proc, cfg = _run(Path(d), digests)
         assert proc.returncode == 0, proc.stderr

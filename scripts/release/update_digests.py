@@ -14,6 +14,12 @@ closing brace; the tool leaves the "Conda-only for now" comment list; one
 to (or replaced in) the "Tags the digests were resolved from" comment.
 Every other line stays byte-identical, and a second run with the same input changes nothing.
 
+``workflow/conf/images.json`` (``--images``, default next to ``--config``) gets one entry per
+pinned tool (M11-14 item 2): ``key``/``tag`` from ``giap.io.image_key`` over ``--root`` (default the
+repository), the bare ``ref``, the ``processes`` whose ``withName`` line carries that ref,
+``built_from`` (``--source-commit``) and the registry ``licence``; other entries are kept.
+``FGSEA`` has no Nextflow process: its ref goes to ``images.json`` only (``"processes": []``).
+
 With ``--nextflow-config`` the newly pinned processes are also appended to the one
 ``withName: '…' { conda = '' }`` selector, so the pinned set equals the conda-off set (item 4).
 The selector is looked up in the given file and in every file it pulls in through
@@ -39,6 +45,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 DEFAULT_CONFIG = REPO / "workflow" / "conf" / "containers.config"
 REGISTRY = "ghcr.io/khoa-yelo"
 
@@ -53,6 +60,8 @@ PROCESS_TOOL: dict[str, str] = {
     "OSTIR": "ostir",
     "OSTIR_NOVEL": "ostir",
 }
+# images with no Nextflow process: pinned in images.json only (M11-14, fgsea)
+IMAGE_ONLY: dict[str, str] = {"FGSEA": "fgsea"}
 TOOL_ORDER: tuple[str, ...] = tuple(dict.fromkeys(PROCESS_TOOL.values()))
 
 _DIGEST = re.compile(r".+@sha256:[0-9a-f]{64}")
@@ -75,15 +84,21 @@ def validate(digests: Mapping[str, object]) -> dict[str, str]:
     for process, ref in digests.items():
         if process.upper() == "UNIOP":
             raise DigestError("UNIOP must not be pinned to a public image (unlicensed; R5)")
-        if process not in PROCESS_TOOL:
-            known = ", ".join(PROCESS_TOOL)
+        tool = PROCESS_TOOL.get(process) or IMAGE_ONLY.get(process)
+        if tool is None:
+            known = ", ".join([*PROCESS_TOOL, *IMAGE_ONLY])
             raise DigestError(f"unknown process {process} (pinnable: {known})")
         if not isinstance(ref, str) or not _DIGEST.fullmatch(ref):
             raise DigestError(f"bad digest for {process}: {ref!r} (need <image>@sha256:<64 hex>)")
-        expected = f"{REGISTRY}/giap-{PROCESS_TOOL[process]}@sha256:"
+        expected = f"{REGISTRY}/giap-{tool}@sha256:"
         if not ref.startswith(expected):
             raise DigestError(f"wrong image for {process}: {ref} (need {expected}<64 hex>)")
-    return {p: str(digests[p]) for p in PROCESS_TOOL if p in digests}
+    refs: dict[str, set[str]] = {}
+    for process, ref in digests.items():
+        refs.setdefault(PROCESS_TOOL.get(process) or IMAGE_ONLY[process], set()).add(str(ref))
+    if split := sorted(t for t, r in refs.items() if len(r) > 1):
+        raise DigestError(f"one image, several digests: {', '.join(split)} (pin one ref per tool)")
+    return {p: str(digests[p]) for p in [*PROCESS_TOOL, *IMAGE_ONLY] if p in digests}
 
 
 def pin_line(process: str, ref: str) -> str:
@@ -151,6 +166,9 @@ def _record_tags(lines: list[str], tools: list[str], date: str, commit: str) -> 
 def update_containers(text: str, pins: Mapping[str, str], date: str, commit: str) -> str:
     """Return the new containers.config text for already validated pins."""
     lines = text.splitlines()
+    pins = {p: r for p, r in pins.items() if p in PROCESS_TOOL}
+    if not pins:
+        return text
     tools = [t for t in TOOL_ORDER if any(PROCESS_TOOL[p] == t for p in pins)]
     lines = _set_pins(lines, pins)
     lines = _drop_conda_only(lines, set(tools))
@@ -172,6 +190,32 @@ def update_conda_off(text: str, processes: list[str]) -> str:
     names += [p for p in processes if p not in names]
     lines[hits[0]] = m.group("pre") + "|".join(names) + m.group("post")
     return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+
+
+def update_images(
+    text: str | None, pins: Mapping[str, str], config: str, root: Path, commit: str
+) -> str:
+    """Return the new images.json text: one entry per pinned tool, other entries kept."""
+    from giap.annotate.tools import TOOLS
+    from giap.io.image_key import key, tag
+
+    images: dict[str, object] = json.loads(text) if text else {}
+    pinned = re.compile(r"^\s*withName: '([A-Z0-9_]+)' \{ container = '([^']+)' \}$")
+    lines = [m for ln in config.splitlines() if (m := pinned.match(ln))]
+    refs: dict[str, str] = {}  # tool -> ref of its first pinned process (canonical order)
+    for process, ref in pins.items():
+        refs.setdefault(PROCESS_TOOL.get(process) or IMAGE_ONLY[process], ref)
+    for tool, ref in refs.items():
+        k = key(tool, root)
+        images[tool] = {
+            "key": k,
+            "tag": tag(TOOLS[tool].version, k),
+            "ref": ref,
+            "processes": sorted(m.group(1) for m in lines if m.group(2) == ref),
+            "built_from": commit,
+            "licence": TOOLS[tool].licence,
+        }
+    return json.dumps(dict(sorted(images.items())), indent=2, ensure_ascii=False) + "\n"
 
 
 def count_conda_off(text: str) -> int:
@@ -216,7 +260,7 @@ def _write(path: Path, text: str) -> None:
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     with os.fdopen(fd, "w") as fh:
         fh.write(text)
-    os.chmod(tmp, path.stat().st_mode & 0o777)
+    os.chmod(tmp, path.stat().st_mode & 0o777 if path.exists() else 0o644)
     os.replace(tmp, path)
 
 
@@ -227,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--digests", type=Path, required=True)
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--nextflow-config", type=Path, default=None)
+    ap.add_argument("--images", type=Path, default=None, help="default: next to --config")
+    ap.add_argument("--root", type=Path, default=REPO, help="the tree the image keys come from")
     ap.add_argument("--date", required=True, help="build date, YYYY-MM-DD (UTC)")
     ap.add_argument("--source-commit", required=True, help="the commit the images were built from")
     args = ap.parse_args(argv)
@@ -246,14 +292,19 @@ def main(argv: list[str] | None = None) -> int:
         nf: Path | None = None
         if args.nextflow_config is not None:
             nf = selector_file(args.nextflow_config)
-            new_nf = update_conda_off(nf.read_text(), list(pins))
-    except (DigestError, OSError, json.JSONDecodeError) as exc:
+            new_nf = update_conda_off(nf.read_text(), [p for p in pins if p in PROCESS_TOOL])
+        images: Path = args.images or args.config.parent / "images.json"
+        old_images = images.read_text() if images.is_file() else None
+        new_images = update_images(old_images, pins, new_cfg, args.root, args.source_commit)
+    except (DigestError, OSError, ValueError) as exc:
         print(f"update_digests: {exc}", file=sys.stderr)
         return 1
     if new_cfg != args.config.read_text():
         _write(args.config, new_cfg)
     if new_nf is not None and nf is not None and new_nf != nf.read_text():
         _write(nf, new_nf)
+    if new_images != old_images:
+        _write(images, new_images)
     for process, ref in pins.items():
         print(f"pinned {process} {ref}")
     return 0

@@ -370,12 +370,13 @@ says `array <j0>` (lead decision Q5: fine).
     `--junitxml=<GIAP_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml` **on the command line** (it wins
     over the merge's inherited `PYTEST_ADDOPTS` `--junitxml`, so the L processes never share a
     file). It waits for all of them, folds their exits with `fold_shard_exits`, then merges again.
-  - Every run writes `<log>/<suite>.confirm_parts.json`: the list of JUnit names it launched (empty
-    when nothing was pending). The job lists exactly these in `parts`. A missing file after a
+  - Every run with `CONFIRM_LANES` set (`L ≥ 1`) writes `<log>/<suite>.confirm_parts.json`: the
+    list of JUnit names it launched (empty when nothing was pending). The job lists exactly these in `parts`. A missing file after a
     merge that exited 0 or 1 is a check problem (exit 2).
   - A non-integer value, `L < 1`, or `CONFIRM_LANES` set without `CONFIRM_JUNIT` returns
-    **`MERGE_ERROR`**; it never falls back silently to one lane. Unset, or `L = 1`: unchanged (one
-    process, today's JUnit).
+    **`MERGE_ERROR`**; it never falls back silently to one lane. `L = 1`: one process (slice `0/1`,
+    all of block 2) with its own lane-0 JUnit, listed in `confirm_parts.json`. Unset: unchanged
+    (one process, today's JUnit, no `confirm_parts.json`).
   - Block-2 lanes never write `<suite>.shards.jsonl`, and they write no `deferred` outcome
     (conftest sets `shard = None` under CONFIRM).
 - **Unchanged:** `check`, the criteria, R, α, the bounds, `_verdict`, `merge_shards`/`_collect`,
