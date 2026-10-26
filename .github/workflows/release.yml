@@ -41,6 +41,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+          fetch-tags: true
       - name: ref, version and tag
         run: |
           set -euo pipefail
@@ -59,6 +60,47 @@ jobs:
           fi
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv sync --frozen --all-extras
+      - name: image keys match images.json (M11-14)
+        run: |
+          set -euo pipefail
+          uv run --no-sync python scripts/release/image_key.py --check
+      - name: every GHCR pin is public (anonymous imagetools inspect)
+        run: |
+          set -euo pipefail
+          # An empty Docker config: no stored credentials, so a private package fails here.
+          DOCKER_CONFIG=$(mktemp -d)
+          export DOCKER_CONFIG
+          refs=$(python3 - <<'EOF'
+          import json, pathlib, re, sys
+          pat = re.compile(r"ghcr\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}")
+          conf, refs = pathlib.Path("workflow/conf"), set()
+          cfg = conf / "containers.config"
+          if cfg.is_file():
+              for line in cfg.read_text(encoding="utf-8").splitlines():
+                  if not line.lstrip().startswith("//"):
+                      refs.update(pat.findall(line))
+          img = conf / "images.json"
+          if img.is_file():
+              for tool, entry in json.loads(img.read_text(encoding="utf-8")).items():
+                  ref = str((entry or {}).get("ref", ""))
+                  if pat.fullmatch(ref):
+                      refs.add(ref)
+                  elif ref.startswith("ghcr.io/"):
+                      sys.exit(f"::error::images.json {tool}: not a digest ref: {ref}")
+          print("\n".join(sorted(refs)))
+          EOF
+          )
+          fail=0
+          for ref in $refs; do
+            if docker buildx imagetools inspect "$ref" > /dev/null; then
+              echo "public: $ref"
+            else
+              echo "::error::not public: $ref"
+              fail=1
+            fi
+          done
+          [ -n "$refs" ] || echo "no GHCR pins"
+          exit "$fail"
       - name: readiness (fatal only for a PyPI publish)
         id: readiness
         run: |
