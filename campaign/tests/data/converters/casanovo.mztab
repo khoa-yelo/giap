@@ -1,0 +1,10 @@
+MTD	mzTab-version	1.0.0
+MTD	mzTab-mode	Summary
+MTD	mzTab-type	Identification
+MTD	description	Casanovo identification file Ecoli_WT_1
+MTD	software[1]	[MS, MS:1003281, Casanovo, 4.2.1]
+MTD	psm_search_engine_score[1]	[MS, MS:1001143, search engine specific score for PSMs, ]
+MTD	ms_run[1]-location	file:///data/raw/Ecoli_WT_1.mzML
+MTD	fixed_mod[1]	[UNIMOD, UNIMOD:4, Carbamidomethyl, ]
+PSH	sequence	PSM_ID	accession	unique	database	database_version	search_engine	search_engine_score[1]	modifications	retention_time	charge	exp_mass_to_charge	calc_mass_to_charge	spectra_ref	pre	post	start	end	opt_ms_run[1]_aa_scores
+PSM	PEPTIDEK	0	null	null	null	null	[MS, MS:1003281, Casanovo, 4.2.1]	0.9312	null	null	2	472.7400	472.7398	ms_run[1]:index=0	null	null	null	null	0.95,0.93,0.92,0.94,0.91,0.95,0.96,0.92
