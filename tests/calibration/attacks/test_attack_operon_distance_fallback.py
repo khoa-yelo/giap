@@ -104,6 +104,18 @@ M_POOLED = 200
 P_SAME = 0.6
 #: giapsim's UniOP-like classes (LayoutConfig uniop_beta_in / uniop_beta_out)
 BETA_IN, BETA_OUT = (8.0, 2.0), (2.0, 8.0)
+#: UniOP's K-12 error rates at 0.5 (ADR-0022: TP 1,476 of P 1,730, FP 172 of N 1,009): the
+#: autocorrelation arm's third, recorded source, which separates "TU errors" from "the fallback"
+UNIOP_K12_SPLIT, UNIOP_K12_MERGE = 1 - 1476 / 1730, 172 / 1009
+#: the scope ADR of the failing gated checks (spec 14s1 outcome rule; proposed, Khoa decides)
+SCOPE_ADR = "ADR-0061 (proposed): uncalibrated under the distance-model fallback"
+
+
+def scope_xfail(full: bool) -> pytest.MarkDecorator:
+    """The outcome-rule mark of a check that fails at the full tier: strict there; non-strict at
+    the fast tier, whose R (and genome size) does not resolve the failure."""
+    return pytest.mark.xfail(strict=full, raises=AssertionError, reason=SCOPE_ADR)
+
 
 #: ADR-0022 binned table (RegulonDB 14.5.0 K-12 labelled pairs): (lo, hi) bp (half-open; the open
 #: end bins closed at -60 and 600), n pairs, observed operon share
@@ -177,6 +189,9 @@ def link_scores(rng: np.random.Generator, operon: np.ndarray, source: str) -> np
         return p_dist(k12_gaps(rng, operon))
     if source == "uniop_like":
         return np.where(operon, rng.beta(*BETA_IN, operon.size), rng.beta(*BETA_OUT, operon.size))
+    if source == "uniop_k12_rates":  # link with UniOP's K-12 rates at 0.5 (recorded only)
+        u = rng.random(operon.size)
+        return np.where(operon, u >= UNIOP_K12_SPLIT, u < UNIOP_K12_MERGE).astype(float)
     raise ValueError(source)
 
 
@@ -376,9 +391,19 @@ def test_arm_a_discordance_pooled_level(scen: str, full: bool) -> None:
     gate.assert_ok()
 
 
+def _xfail_modes() -> list[Any]:
+    return [pytest.param(False, marks=[pytest.mark.calibration, pytest.mark.calibration_nightly,
+                                       scope_xfail(False)], id="fast"),
+            pytest.param(True, marks=[pytest.mark.calibration_full, scope_xfail(True)],
+                         id="full")]  # fmt: skip
+
+
 @pytest.mark.calsuite(DI)
-@pytest.mark.parametrize("full", NIGHTLY_MODES)
+@pytest.mark.parametrize("full", _xfail_modes())
 def test_arm_a_discordance_p_uniform(full: bool) -> None:
+    """Fails at the full tier in the conservative direction (KS p 0 in both blocks, R = 1,000,
+    Slurm 1895399) while the pooled level is far below alpha (0.0078 at 0.05): the merged
+    boundary pairs widen the t fit, so the null p pile up near 1 (a power loss, ADR-0061)."""
     stream = f"{DI}.fallback_a.operon_null"
 
     def rep(rng: np.random.Generator) -> float:
@@ -691,28 +716,54 @@ def _ac_rows(n: int, source: str, i: int) -> pd.DataFrame:
     return ad.rows(genes, tables.replicons, cfg, seed)
 
 
+AC_SOURCES = (*SOURCES, "uniop_k12_rates")
+
+
+def _ac_params() -> list[Any]:
+    out = []
+    for source in AC_SOURCES:
+        for statistic in ad.STATISTICS:
+            for full in (False, True):
+                marks = (
+                    [pytest.mark.calibration_full]
+                    if full
+                    else [pytest.mark.calibration, pytest.mark.calibration_nightly]
+                )
+                if (source, statistic) == (GATED_SOURCE, "morans_i"):
+                    marks.append(scope_xfail(full))
+                tier = "full" if full else "fast"
+                out.append(
+                    pytest.param(
+                        source, statistic, full, marks=marks, id=f"{source}-{statistic}-{tier}"
+                    )
+                )
+    return out  # fmt: skip
+
+
 @pytest.mark.calsuite(AC)
-@pytest.mark.parametrize("full", NIGHTLY_MODES)
-@pytest.mark.parametrize("source", SOURCES)
-def test_arm_b_autocorrelation_tu_block_at_level(source: str, full: bool) -> None:
+@pytest.mark.parametrize(("source", "statistic", "full"), _ac_params())
+def test_arm_b_autocorrelation_tu_block_at_level(source: str, statistic: str, full: bool) -> None:
+    """Moran's I at lag 1 under the distance model fails at the full tier (rejection 0.152 /
+    0.342 / 0.445 at alpha 0.01 / 0.05 / 0.10 in block 1, confirmed in block 2; Slurm 1895399):
+    a split true TU leaves two correlated blocks that the TU-block permutation separates
+    (ADR-0061). The join count and lag 20 pass."""
     R = C.replicates(AC, full)
     n = AC_GENES[1] if full else AC_GENES[0]
     levels = list(C.load_tolerances().levels)
     failed: list[Any] = []
     detail: list[str] = []
-    for statistic in ad.STATISTICS:
-        for lag in AC_LAGS:
-            stream = f"{AC}.fallback_b.tu_null_{n}.{source}.{statistic}.tu_block.lag{lag}"
-            index = _index(stream, R)
+    for lag in AC_LAGS:
+        stream = f"{AC}.fallback_b.tu_null_{n}.{source}.{statistic}.tu_block.lag{lag}"
+        index = _index(stream, R)
 
-            def rep(rng: np.random.Generator, s: str = statistic, k: int = lag,
-                    ix: dict[int, int] = index) -> float:  # fmt: skip
-                return acal.lag_p(_ac_rows(n, source, _rep_index(rng, ix)), s, "tu_block", k)
+        def rep(rng: np.random.Generator, s: str = statistic, k: int = lag,
+                ix: dict[int, int] = index) -> float:  # fmt: skip
+            return acal.lag_p(_ac_rows(n, source, _rep_index(rng, ix)), s, "tu_block", k)
 
-            gate = calibrate_levels(AC, "level", levels, rep, R, stream=stream)
-            failed += gate.failed
-            detail += gate.detail()
-    _assert_or_record(source, failed, detail, f"autocorrelation.tu_null_{n}")
+        gate = calibrate_levels(AC, "level", levels, rep, R, stream=stream)
+        failed += gate.failed
+        detail += gate.detail()
+    _assert_or_record(source, failed, detail, f"autocorrelation.tu_null_{n}.{statistic}")
 
 
 def test_genome_blocks_split_and_merge_true_tus() -> None:
