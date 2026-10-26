@@ -128,8 +128,9 @@ def resolve_launcher(environ: Mapping[str, str]) -> Launcher:
         return Launcher("prefix", prefix)
     root = environ.get("GIAP_ROOT", "")
     if root:
-        prefix = Path(root) / "micromamba" / "envs" / ENV_NAME
-        if _env_built(FGSEA_TOOL, Path(root), workflow_main().parent / "envs") and _has_r(prefix):
+        envs = Path(root) / "micromamba" / "envs"
+        prefix = envs / ENV_NAME
+        if _env_built(FGSEA_TOOL, envs, workflow_main().parent / "envs") and _has_r(prefix):
             return Launcher("prefix", prefix)
     raise FgseaEngineUnavailable(_NOT_BUILT)
 
