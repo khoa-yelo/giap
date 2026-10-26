@@ -84,6 +84,10 @@ LOG_DIR_ENV = "GIAP_CALIBRATION_LOG_DIR"
 SHARD_ENV = "GIAP_CALIBRATION_REPLICATES"
 BLOCK_ENV = "GIAP_CALIBRATION_BLOCK"
 CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R], ...]: block 2 only
+#: ``k/L``: a block-2 lane runs ``shard_replicates(R, L, k)`` of block 2 (read only under CONFIRM)
+CONFIRM_SLICE_ENV = "GIAP_CALIBRATION_CONFIRM_SLICE"
+CONFIRM_LANES_ENV = "GIAP_CALIBRATION_CONFIRM_LANES"  # L: --merge runs block 2 on L pytests
+CONFIRM_JUNIT_ENV = "GIAP_CALIBRATION_CONFIRM_JUNIT"  # lane k's JUnit: <value>.lane<k>.junit.xml
 CRITERIA = ("level", "uniform", "fdr", "fwer")
 POOLED_F1 = "pooled_f1"  # criterion of ``calibrate_pooled`` (count records, not scalars)
 F1_COUNTS = ("tp_p", "n_pred", "tp_r", "n_truth")
@@ -648,6 +652,20 @@ def confirm_checks() -> frozenset[CheckKey] | None:
         raise ValueError(f"{CONFIRM_ENV}={raw!r}: {exc}") from None
 
 
+def confirm_slice(R: int) -> range:
+    """Block-2 replicates (local, 0..R-1) of this confirm run: all of them, or under
+    ``GIAP_CALIBRATION_CONFIRM_SLICE=k/L`` (one of ``--merge``'s L block-2 lanes)
+    ``shard_replicates(R, L, k)``. Called only in the confirm branches of the harness."""
+    raw = os.environ.get(CONFIRM_SLICE_ENV)
+    if raw is None:
+        return range(R)
+    try:
+        k_s, l_s = raw.split("/")
+        return shard_replicates(R, int(l_s), int(k_s))
+    except ValueError as exc:
+        raise ValueError(f"{CONFIRM_SLICE_ENV}={raw!r}: {exc}") from None
+
+
 def calibrate(
     suite: str,
     criterion: str,
@@ -696,9 +714,11 @@ def calibrate(
             return _record(
                 suite, name, criterion, level, R, 1, reps, [], 0.0, None, SKIPPED_STATUS, m
             )
-        absolute, values, dt = run(2, reps)
+        local = confirm_slice(R)
+        absolute, values, dt = run(2, local)
         rec = _record(suite, name, criterion, level, R, 2, absolute, values, dt, None, "shard", m)
-        _append([rec], suite, log_dir)
+        if len(local) or CONFIRM_SLICE_ENV not in os.environ:  # an empty lane logs nothing
+            _append([rec], suite, log_dir)
         return rec
 
     if reps != range(R):
@@ -1066,8 +1086,10 @@ def _calibrate_counts(
     if confirm is not None:
         if (stream, criterion, float(bound), int(R), key) not in confirm:
             return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
-        out = rec(2, *run(2, reps), None, SHARD_STATUS)
-        _append([out], suite, log_dir)
+        local = confirm_slice(R)
+        out = rec(2, *run(2, local), None, SHARD_STATUS)
+        if len(local) or CONFIRM_SLICE_ENV not in os.environ:  # an empty lane logs nothing
+            _append([out], suite, log_dir)
         return out
     if reps != range(R):
         block = replicate_block()
@@ -1263,13 +1285,50 @@ def _check_key(r: Mapping[str, Any]) -> list[Any]:
     return [*out, str(r["key"])] if r["criterion"] in COUNT_CRITERIA else out
 
 
-def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) -> int:
-    """Run block 2 of the ``pending`` checks through the suite's pytest command; its exit code."""
+def confirm_lanes() -> int | None:
+    """``GIAP_CALIBRATION_CONFIRM_LANES`` as L >= 1, or None when unset; ValueError for a
+    non-integer, L < 1, or L set without ``GIAP_CALIBRATION_CONFIRM_JUNIT`` (no silent fallback)."""
+    raw = os.environ.get(CONFIRM_LANES_ENV)
+    if raw is None:
+        return None
+    if not raw.isdigit() or int(raw) < 1:
+        raise ValueError(f"{CONFIRM_LANES_ENV}={raw!r}: expected an integer >= 1")
+    if not os.environ.get(CONFIRM_JUNIT_ENV):
+        raise ValueError(f"{CONFIRM_LANES_ENV}={raw} set without {CONFIRM_JUNIT_ENV}")
+    return int(raw)
+
+
+def _confirm_parts_path(suite: str) -> Path:
+    return log_dir() / f"{suite}.confirm_parts.json"
+
+
+def _run_block2(
+    suite: str, full: bool, pending: Sequence[Mapping[str, Any]], lanes: int | None = None
+) -> int:
+    """Run block 2 of the ``pending`` checks through the suite's pytest command; its exit code.
+    With ``lanes`` L >= 2: L concurrent pytests, lane k running slice ``k/L`` of every pending
+    check with its own ``--junitxml`` (listed in ``<suite>.confirm_parts.json`` before they start);
+    their exits folded by ``fold_shard_exits``."""
     cmd = [sys.executable, "-m", "pytest", *pytest_args(suite, full)]
     checks = json.dumps([_check_key(r) for r in pending])
-    print(f"{CONFIRM_ENV}={shlex.quote(checks)} {shlex.join(cmd)}", file=sys.stderr)
-    base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
-    return subprocess.run(cmd, env={**base, CONFIRM_ENV: checks}, check=False).returncode
+    drop = (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV, CONFIRM_SLICE_ENV, CONFIRM_LANES_ENV,
+            CONFIRM_JUNIT_ENV)  # fmt: skip
+    base = {k: v for k, v in os.environ.items() if k not in drop}
+    if lanes is None or lanes < 2:
+        print(f"{CONFIRM_ENV}={shlex.quote(checks)} {shlex.join(cmd)}", file=sys.stderr)
+        return subprocess.run(cmd, env={**base, CONFIRM_ENV: checks}, check=False).returncode
+    junit = os.environ[CONFIRM_JUNIT_ENV]
+    paths = [Path(f"{junit}.lane{k}.junit.xml") for k in range(lanes)]
+    _confirm_parts_path(suite).write_text(json.dumps([p.name for p in paths]) + "\n")
+    procs = []
+    for k, path in enumerate(paths):
+        lane = [*cmd, f"--junitxml={path}"]  # the command line wins over PYTEST_ADDOPTS
+        sl = f"{k}/{lanes}"
+        print(f"{CONFIRM_SLICE_ENV}={sl} {CONFIRM_ENV}={shlex.quote(checks)} {shlex.join(lane)}",
+              file=sys.stderr)  # fmt: skip
+        env = {**base, CONFIRM_ENV: checks, CONFIRM_SLICE_ENV: sl}
+        procs.append(subprocess.Popen(lane, env=env))
+    return fold_shard_exits([p.wait() for p in procs])
 
 
 def _merge_main(suite: str, full: bool) -> int:
@@ -1286,6 +1345,14 @@ def _merge_main(suite: str, full: bool) -> int:
     harness records (shard 0's direct assertions, shard-local checks). See ``shard_exit_verdict``.
     """
     code = 0
+    try:
+        lanes = confirm_lanes()
+        if lanes is not None and lanes >= 2:  # nothing pending leaves it empty
+            log_dir().mkdir(parents=True, exist_ok=True)
+            _confirm_parts_path(suite).write_text("[]\n")
+    except (OSError, ValueError) as exc:
+        print(f"merge {suite}: {exc}", file=sys.stderr)
+        return MERGE_ERROR
     try:
         shard = shard_exit_verdict(suite)
     except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -1311,7 +1378,7 @@ def _merge_main(suite: str, full: bool) -> int:
         merged = merge_shards(suite)
         pending = [r for r in merged if r["status"] == PENDING_STATUS]
         if pending:
-            code = _run_block2(suite, full, pending)
+            code = _run_block2(suite, full, pending, lanes)
             merged = merge_shards(suite)
             still = [r for r in merged if r["status"] == PENDING_STATUS]
             if still:
