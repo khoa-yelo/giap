@@ -299,9 +299,11 @@ def test_failing_fallback_run_is_reported_not_gated(tmp_path: Path) -> None:
         "a failing distance-model run changed the gated rows or task exits "
         f"(reported, not gated):\nok  {main(ok)}\nbad {main(bad)}"
     )
-    for w in (ok, bad):
+    # the row records the run's real exit; "not gated" = no other row or task exit changes, and
+    # readiness never reads this label (lead decision, #400)
+    for w, rc in ((ok, "0"), (bad, "1")):
         row = _fallback_row(w)
-        assert row[3] == "0", f"the fallback row's exit column gates: {row}"
+        assert row[3] == rc, f"the fallback row's exit column is not the run's exit: {row}"
     assert re.search(r"\bexit 1\b", _fallback_row(bad)[4]), (
         f"the fallback run's failure is not reported: {_fallback_row(bad)}"
     )
