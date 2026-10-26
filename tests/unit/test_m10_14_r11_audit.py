@@ -50,9 +50,7 @@ D_DIR_ALLOWED = frozenset({"changelog.d"})
 PARQUET_ALLOWED = ("workflow/tests/data/",)
 PARQUET_FORBIDDEN = ("validation/", "tests/data/recorded/")
 METRICS_DIR = "validation/pilot/metrics/"
-METRICS_ALLOWED = frozenset(
-    {"a3_feasibility.json", "metrics.json", "te1.json", "REPORT.md"}
-)  # Q-K1
+METRICS_ALLOWED = frozenset({"a3_feasibility.json", "metrics.json", "te1.json"})  # Q-K1, M10-15 D5
 
 DIANN_NAMES = (
     "a[1-3]*.tsv*",

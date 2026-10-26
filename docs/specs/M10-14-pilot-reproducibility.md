@@ -282,7 +282,7 @@ them, since the role guard forbids editing them):
    `tests/data/recorded/diann/`, `te_real_exceptions.tsv`, `te7_files.tsv`,
    `entrapment_discoveries.tsv`, `ATTEMPTS.tsv`, `evidence/*.json`, `report.html`, `compare.html`.
 5. `validation/pilot/metrics/` holds only `a3_feasibility.json` and the aggregates Khoa's Q-K1
-   answer (2026-10-24) allows: `metrics.json`, `te1.json`, `REPORT.md`.
+   answer (2026-10-24) allows, committed by M10-15 (D5): `metrics.json`, `te1.json`.
 6. No file name containing `regulondb` other than code and docs (`*.py`, `*.md`), and no KEGG
    content file (a `kegg` data file under `tests/data/` or `validation/`); the test-author pins the
    current allow-list.
