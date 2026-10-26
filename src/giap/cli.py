@@ -562,7 +562,8 @@ def _run_nextflow(
     from giap.preflight.environment import LOCAL_TOOLS, local_tools_applies
 
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
-    local = db_dir / LOCAL_TOOLS if db_dir is not None else None  # a local UniOP build (M11-14)
+    # a local UniOP build (M11-14); absolute, since Nextflow runs in outdir (#396 review B1)
+    local = (db_dir / LOCAL_TOOLS).absolute() if db_dir is not None else None
     if local is None or not local.is_file() or not local_tools_applies(profile):
         local = None
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)

@@ -327,6 +327,23 @@ def test_docker_missing_from_path_is_recorded(
     assert item["status"] != "ok" and "docker" in item["message"], item
 
 
+def test_os_error_in_the_build_is_recorded_and_exits_2(
+    state: Path, archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An OSError (e.g. a shared cache dir owned by another user) is a record, not a traceback."""
+    from giap.setupdb import uniop_build
+
+    def denied(context: Path, archive: Path, root: Path) -> None:
+        raise PermissionError(13, "Permission denied", str(context))
+
+    monkeypatch.setattr(uniop_build, "stage_context", denied)
+    db = tmp_path / "db"
+    code, out = setup_cli(uniop_args(db, ACCEPT))
+    assert code == 2, out
+    item = manifest_items(db)["image:uniop"]
+    assert item["status"] == "absent" and "Permission denied" in item["message"], item
+
+
 # ---------------------------------------------------------------- terms gate
 
 
@@ -497,6 +514,26 @@ def test_run_adds_local_tools_config_only_for_its_runtimes(
 ) -> None:
     argv = _nf_argv(run_env, profile, tmp_path)
     assert _has_local_tools(argv, run_env["db"]) is adds, argv
+
+
+def test_run_passes_an_absolute_local_tools_path(
+    run_env: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nextflow runs in outdir, so a relative --db-dir must reach -c as an absolute path."""
+    from click.testing import CliRunner
+
+    from giap.cli import cli
+
+    monkeypatch.chdir(tmp_path)
+    env = run_env
+    CliRunner().invoke(
+        cli,
+        ["run", "--genome", str(env["genome"]), "--proteins", str(env["proteins"]),
+         "--outdir", "OUT", "--db-dir", "db", "--profile", "docker"],
+    )  # fmt: skip
+    argv = env["args"].read_text().splitlines()
+    given = [b for a, b in itertools.pairwise(argv) if a in ("-c", "-config")]
+    assert str(env["db"].absolute() / LOCAL_TOOLS) in given, argv
 
 
 def test_run_without_the_file_adds_nothing(run_env: dict[str, Path], tmp_path: Path) -> None:

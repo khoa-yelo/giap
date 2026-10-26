@@ -251,7 +251,10 @@ def setup_uniop(profile: str, db_dir: Path, cache: Path, fetcher: Fetcher, *, ac
             recs = [_record(item, "absent", f"uniop: the local {runtime} build is not available "
                                             "in this version; use --profile docker")]  # fmt: skip
         else:
-            recs, build = _build(item, db_dir, cache, fetcher, "flag")
+            try:
+                recs, build = _build(item, db_dir, cache, fetcher, "flag")
+            except OSError as exc:  # e.g. a shared cache dir owned by another user (review S2)
+                recs, build = [_record(item, "absent", f"uniop: {exc}")], None
             code = ExitCode.SUCCESS if recs[-1].status == "ok" else ExitCode.ENVIRONMENT
         image = recs[-1]
         if image.status == "ok":
