@@ -170,6 +170,19 @@ BAD = {  # rule -> (overrides, columns of which the message names one)
         ("group_select", "groups"),
     ),
     "direct_without_groups": ({S: {"groups": "0"}}, ("group_select", "groups")),
+    "cpus_zero": ({S: {"cpus_per_lane": "0"}}, ("cpus_per_lane",)),
+    "mem_zero": ({S: {"mem_per_lane_mb": "0"}}, ("mem_per_lane_mb",)),
+    "time_zero": ({S: {"time": "00:00:00"}}, ("time",)),
+    "unknown_zero": ({S: {"unknown_min": "0"}}, ("unknown_min",)),
+    "unknown_negative": ({S: {"unknown_min": "-5"}}, ("unknown_min",)),
+    "unknown_nan": ({S: {"unknown_min": "nan"}}, ("unknown_min",)),
+    "unknown_inf": ({S: {"unknown_min": "inf"}}, ("unknown_min",)),
+    "unknown_word": ({S: {"unknown_min": "x"}}, ("unknown_min",)),
+    "select_trailing_comma": ({S: {"group_select": "direct,"}}, ("group_select",)),
+    "select_leading_comma": (
+        {S: {"group_select": ",tests/calibration/test_placement_fdr_sim.py::"}},
+        ("group_select",),
+    ),
 }
 
 

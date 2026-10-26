@@ -13,6 +13,7 @@ plan is valid and 2 on a ``PlanError`` (message on stderr).
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -85,7 +86,7 @@ def _row(cells: Mapping[str, str], where: str) -> PlanRow:
     if sel == "-" and groups > 0:
         raise PlanError(f"{where}: group_select '-' needs groups == 0")
     if sel not in ("*", "-"):
-        tokens = sel.split(",")
+        tokens = [t.strip() for t in sel.split(",")]
         if "direct" in tokens and shards == 0:
             raise PlanError(f"{where}: group_select 'direct' needs shards > 0 (use '*')")
         if groups == 0:
@@ -102,13 +103,13 @@ def _row(cells: Mapping[str, str], where: str) -> PlanRow:
     if not _TIME.fullmatch(time):
         raise PlanError(f"{where}: time must be HH:MM:SS, got {time!r}")
     row = PlanRow(cells["suite"], shards, groups, sel, cpus, mem, time, 0.0)
-    if row.time_s > MAX_TIME_S:
-        raise PlanError(f"{where}: time {time} is over 08:00:00")
+    if not 0 < row.time_s <= MAX_TIME_S:  # Slurm reads --time=0 as no limit
+        raise PlanError(f"{where}: time must be in (00:00:00, 08:00:00], got {time}")
     try:
         unknown = float(cells["unknown_min"])
     except ValueError:
         unknown = -1.0
-    if not unknown > 0:
+    if not (math.isfinite(unknown) and unknown > 0):
         raise PlanError(f"{where}: unknown_min must be a positive number")
     return PlanRow(row.suite, shards, groups, sel, cpus, mem, time, unknown)
 
