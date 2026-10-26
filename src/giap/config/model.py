@@ -105,7 +105,7 @@ class UniopConfig(_Strict):
     disabled"). It is left out of every dump while unset, so a config without it round-trips.
     """
 
-    enabled: bool | Literal["auto"] = True
+    enabled: bool | Literal["auto"] = "auto"  # M11-14d2 (ADR-0061)
     pair_threshold: float = 0.5
     fallback: Literal["distance"] = "distance"
     resolved_from: Literal["auto"] | None = None
