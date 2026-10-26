@@ -386,7 +386,9 @@ def db(tmp_path: Path) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _probe_ok(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
+def _probe_ok(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> list[tuple[Any, ...]]:
     """The UniOP probe (``giap.preflight.environment.probe_uniop``, looked up as a module
     attribute) succeeds unless a test says otherwise; the fake roots hold no real UniOP."""
     calls: list[tuple[Any, ...]] = []
@@ -395,7 +397,8 @@ def _probe_ok(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
         calls.append((args, kw))
         return 0, ""
 
-    monkeypatch.setattr(_env_mod(), "probe_uniop", ok, raising=False)
+    if request.node.get_closest_marker("real_uniop_probe") is None:
+        monkeypatch.setattr(_env_mod(), "probe_uniop", ok, raising=False)
     return calls
 
 
