@@ -1,0 +1,43 @@
+{
+  "ci_high": 0.9988831170518422,
+  "ci_low": 0.9979606198164566,
+  "ci_low_below_threshold": false,
+  "exact_inframe": 27785,
+  "exact_inframe_masked": 18,
+  "misses": {
+    "exact_other_class": {},
+    "exact_other_gene": 0,
+    "non_atg_nterm": 42,
+    "tolerant_only": 0,
+    "unplaced": {}
+  },
+  "n_misses": 42,
+  "n_peptides": 27827,
+  "non_atg_nterm": {
+    "misses": 42,
+    "peptides": 42
+  },
+  "passed": true,
+  "share_exact_inframe": 0.9984906745247422,
+  "share_excluding_non_atg": {
+    "ci_high": 1.0,
+    "ci_low": 0.9998617625414005,
+    "k": 27785,
+    "n": 27785,
+    "value": 1.0
+  },
+  "share_without_q_at_cutoff": {
+    "ci_high": null,
+    "ci_low": null,
+    "k": 0,
+    "n": 0,
+    "pass_becomes_fail": false,
+    "q_crossings": 0,
+    "reason": "no_crossings",
+    "removed": null,
+    "value": null
+  },
+  "target_q_na": 0,
+  "threshold": 0.995,
+  "unknown_source": 0
+}

@@ -39,12 +39,14 @@ def test_no_discoveries_table_is_tracked() -> None:
     assert not bad, f"row-level DIA-NN content is never committed: {bad}"
 
 
-def test_nothing_under_validation_pilot_metrics() -> None:
-    # M10-08 deliverable 10 commits the A3 verdict (aggregates only) here; nothing else
-    assert _tracked("validation/pilot/metrics/") in (
-        [],
-        ["validation/pilot/metrics/a3_feasibility.json"],
-    )
+AGGREGATE_METRICS = ("a3_feasibility.json", "metrics.json", "te1.json", "REPORT.md")
+
+
+def test_only_aggregates_under_validation_pilot_metrics() -> None:
+    # M10-08 deliverable 10 commits the A3 verdict here; Khoa's Q-K1 answer (2026-10-24, pilot data
+    # rule) adds the aggregate metrics; nothing else (never te1_exceptions.tsv)
+    allowed = {f"validation/pilot/metrics/{n}" for n in AGGREGATE_METRICS}
+    assert set(_tracked("validation/pilot/metrics/")) <= allowed
 
 
 def test_the_entrapment_script_and_sbatch_are_tracked() -> None:

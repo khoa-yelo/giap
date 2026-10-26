@@ -50,7 +50,9 @@ D_DIR_ALLOWED = frozenset({"changelog.d"})
 PARQUET_ALLOWED = ("workflow/tests/data/",)
 PARQUET_FORBIDDEN = ("validation/", "tests/data/recorded/")
 METRICS_DIR = "validation/pilot/metrics/"
-METRICS_ALLOWED = frozenset({"a3_feasibility.json"})
+METRICS_ALLOWED = frozenset(
+    {"a3_feasibility.json", "metrics.json", "te1.json", "REPORT.md"}
+)  # Q-K1
 
 DIANN_NAMES = (
     "a[1-3]*.tsv*",
@@ -243,7 +245,7 @@ BREAKERS: dict[str, list[Entry]] = {
         ("validation/pilot/compare.html", 10, b"<!DO"),
     ],
     "5_metrics": [
-        ("validation/pilot/metrics/metrics.json", 10, b"{\n  "),
+        ("validation/pilot/metrics/te1_exceptions.tsv", 10, b"kind"),
         ("validation/pilot/metrics/freeze-0123456/metrics.json", 10, b"{\n  "),
     ],
     "6_regulondb_kegg": [
