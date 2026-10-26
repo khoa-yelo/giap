@@ -73,8 +73,9 @@ def _point(score: np.ndarray, y: np.ndarray, t: float) -> dict[str, Any]:
     called = score >= t
     tp, fp = int((called & (y == 1)).sum()), int((called & (y == 0)).sum())
     p = int(y.sum())
-    return {"precision": tp / (tp + fp) if tp + fp else math.nan, "recall": tp / p,
-            "f1": 2 * tp / (tp + fp + p), "tp": tp, "fp": fp, "n_called": tp + fp}  # fmt: skip
+    return {"precision": tp / (tp + fp) if tp + fp else math.nan,
+            "recall": tp / p if p else math.nan, "f1": 2 * tp / (tp + fp + p) if p else math.nan,
+            "tp": tp, "fp": fp, "n_called": tp + fp}  # fmt: skip
 
 
 def operating_point(
@@ -92,7 +93,7 @@ def operating_point(
     out: dict[str, Any] = {
         "distance_model": _point(pd_, y, t),
         "uniop": _point(pu, y, t),
-        "d_max_called_bp": int(d[pd_ >= t].max()),
+        "d_max_called_bp": int(d[pd_ >= t].max()) if (pd_ >= t).any() else None,
     }
     for suffix, cl in (("", L["directon_id"].to_numpy()), ("_iid", np.arange(len(L)))):
         for name, score in (("distance_model", pd_), ("uniop", pu)):
