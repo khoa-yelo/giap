@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from helpers.a3_metrics_m10_10b import build_a3
 from helpers.pilot_metrics_m10 import (
     GIAP_COMMIT,
     REPO,
@@ -50,7 +51,6 @@ from helpers.pilot_metrics_m10 import (
     run_cli,
     sha256,
     sim_world,
-    write_a3,
     write_peptides,
 )
 
@@ -261,10 +261,10 @@ def test_checklist_a1_a2_only(pilot: Pilot, tmp_path: Path) -> None:
     assert _cl(cl[4]).startswith("pending") and "M10-06" in _cl(cl[4])
 
 
-def test_checklist_with_a3_at_exit_0(pilot: Pilot, tmp_path: Path) -> None:
-    a3 = write_a3(pilot.root, sha256(pilot.genome))
+def test_checklist_with_a3_at_exit_0(pilot: Pilot, tmp_path: Path, world: World) -> None:
+    a3 = build_a3(pilot, world)  # M10-10b: --a3 comes with its companions
     out = tmp_path / "metrics"
-    _ok(_compute(pilot, out, "--a3", str(a3)))
+    _ok(_compute(pilot, out, *a3.args()))
     cl = _metrics(out)["checklist"]
     assert _cl(cl[0]) == "pass"
     assert _cl(cl[3]).startswith("pending") and _cl(cl[4]).startswith("pending")
@@ -729,11 +729,15 @@ def test_s10_q_crossings_reach_te1(tmp_path: Path, world: World) -> None:  # 80
     assert sq["removed"] == 0 and sq["value"] == pytest.approx(1.0)
 
 
-def test_s10_checklist_a3_at_exit_1_fails(pilot: Pilot, tmp_path: Path) -> None:  # 56
-    a3 = write_a3(pilot.root, sha256(pilot.genome), exit_code=1)
+def test_s10_checklist_a3_at_exit_1_fails(pilot: Pilot, tmp_path: Path, world: World) -> None:
+    """56; since M10-10b an A3 run that did not exit 0 is a precondition (exit 2, nothing
+    written) instead of a computed bullet-1 ``fail``."""
+    a3 = build_a3(pilot, world, exit_code=1)
     out = tmp_path / "metrics"
-    _ok(_compute(pilot, out, "--a3", str(a3)))
-    assert _cl(_metrics(out)["checklist"][0]) == "fail"
+    res = _compute(pilot, out, *a3.args())
+    assert res.returncode == 2, f"exit {res.returncode}\n{res.stderr}"
+    assert "precondition:" in res.stderr, res.stderr
+    assert not (out / "metrics.json").exists()
 
 
 # ---------------------------------------------------------------- S8, statistician B1/B2/SF3/SF4
