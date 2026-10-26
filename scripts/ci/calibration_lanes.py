@@ -228,11 +228,11 @@ def verify_partition(row: PlanRow, lane_list: Sequence[Lane],
     """Problems of the per-lane ``--collect-only`` sets; ``[]`` = ok.
 
     ``collected`` maps each non-empty lane's ``part`` to its collected nodeids and ``"all"`` to
-    the suite's full collection.
+    the suite's full collection. ``lanes()`` builds disjoint group sets and identical shard sets,
+    so each lane's own ``expected`` check covers overlaps and differing shard lanes.
     """
     problems: list[str] = []
-    shard_sets: list[set[str]] = []
-    group_sets: list[tuple[int, set[str]]] = []
+    union: set[str] = set()
     for ln in lane_list:
         if ln.part is None:
             continue
@@ -248,25 +248,10 @@ def verify_partition(row: PlanRow, lane_list: Sequence[Lane],
             short = sorted(set(ln.expected) - have)
             problems.append(f"{row.suite}: {ln.part} collected {len(have)} tests, planned "
                             f"{len(ln.expected)}; extra {extra}, missing {short}")  # fmt: skip
-        if ln.kind == "shard":
-            shard_sets.append(have)
-        else:
-            group_sets.append((ln.index, have))
-    if any(s != shard_sets[0] for s in shard_sets[1:]):
-        problems.append(f"{row.suite}: the shard lanes collected different sets")
-    shard_union = set().union(*shard_sets)
-    seen: dict[str, int] = {}
-    for g, have in group_sets:
-        for n in sorted(have):
-            if n in shard_union:
-                problems.append(f"{row.suite}: {n} is in group lane {g} and in the shard lanes")
-            if n in seen:
-                problems.append(f"{row.suite}: {n} is in group lanes {seen[n]} and {g}")
-            seen.setdefault(n, g)
+        union |= have
     if "all" not in collected:
         problems.append(f"{row.suite}: no full collection ('all')")
     else:
-        union = shard_union | set(seen)
         everything = set(collected["all"])
         if union != everything:
             problems.append(f"{row.suite}: the lanes run {len(union)} tests, the collection has "
@@ -319,8 +304,10 @@ def read_durations(path: Path) -> dict[str, float]:
             seconds = float(cells[1]) if len(cells) == 3 else math.nan
         except ValueError:
             seconds = math.nan
-        if not (math.isfinite(seconds) and seconds >= 0) or not cells[0] or cells[0] in out:
-            raise PlanError(f"{path}: line {n}: need a new nodeid, seconds >= 0 and a source")
+        if not (math.isfinite(seconds) and seconds >= 0) or not cells[0] or not cells[2]:
+            raise PlanError(f"{path}: line {n}: need a nodeid, seconds >= 0 and a source")
+        if cells[0] in out:
+            raise PlanError(f"{path}: line {n}: {cells[0]} is listed twice")
         out[cells[0]] = seconds
     return out
 
@@ -348,23 +335,32 @@ def durations_from_junit(paths: Iterable[Path]) -> dict[str, float]:
     return out
 
 
-_PROBE_START = re.compile(r"([0-9]+) (tests/\S+::\S+) ?")
-_PROBE_END = re.compile(r"([0-9]+) \[gw[0-9]+\] \[ *[0-9]+%\] "
-                        r"(?:PASSED|FAILED|XFAIL|XPASS|SKIPPED|ERROR) "
+_STAMP = re.compile(r"([0-9]+)(?: (.*))?")
+_PROBE_START = re.compile(r"(tests/\S+::\S+) ?")
+_PROBE_END = re.compile(r"\[gw[0-9]+\] \[ *[0-9]+%\] (?:PASSED|FAILED|XFAIL|XPASS|SKIPPED|ERROR) "
                         r"(tests/\S+::\S+) ?")  # fmt: skip
 
 
 def durations_from_probe_log(path: Path) -> dict[str, float]:
-    """``nodeid -> seconds`` from a ``pytest -n N -v`` log whose lines are prefixed with the epoch
-    second: the time from a test's start line to its outcome line. Unfinished tests are left out."""
+    """``nodeid -> seconds`` from a ``pytest -n N -v`` log whose lines carry an epoch-second stamp:
+    from a test's start line to its outcome line. xdist ends each line only when the next event
+    arrives, so a line's true time is the stamp of the previous stamped line. Unfinished tests are
+    left out."""
     start: dict[str, int] = {}
     out: dict[str, float] = {}
+    prev: int | None = None
     for line in Path(path).read_text().splitlines():
-        if m := _PROBE_END.fullmatch(line):
-            if m.group(2) in start:
-                out[m.group(2)] = float(int(m.group(1)) - start[m.group(2)])
-        elif m := _PROBE_START.fullmatch(line):
-            start.setdefault(m.group(2), int(m.group(1)))
+        if not (stamp := _STAMP.fullmatch(line)):
+            continue
+        text, at = stamp.group(2) or "", prev
+        prev = int(stamp.group(1))
+        if at is None:
+            continue
+        if m := _PROBE_END.fullmatch(text):
+            if m.group(1) in start:
+                out[m.group(1)] = float(at - start[m.group(1)])
+        elif m := _PROBE_START.fullmatch(text):
+            start.setdefault(m.group(1), at)
     return out
 
 
@@ -395,7 +391,14 @@ def _lanes_cli(ns: argparse.Namespace) -> list[dict[str, object]]:
     if ns.suite not in rows:
         raise PlanError(f"{ns.suite}: not a suite of the plan")
     raw = json.loads(Path(ns.report).read_text())
-    report = {str(n): bool(v["shard0_only"]) for n, v in raw.items()}
+    if not isinstance(raw, dict):
+        raise PlanError(f"{ns.report}: the lane report must be a JSON object")
+    report: dict[str, bool] = {}
+    for n, v in raw.items():
+        flag = v.get("shard0_only") if isinstance(v, dict) else None
+        if not isinstance(flag, bool):
+            raise PlanError(f"{ns.report}: {n}: shard0_only must be a JSON bool, got {v!r}")
+        report[str(n)] = flag
     path = ns.durations if ns.durations is not None else DURATIONS
     durations = {} if ns.durations is None and not path.exists() else read_durations(path)
     return [dataclasses.asdict(ln) for ln in lanes(rows[ns.suite], report, durations)]
@@ -432,7 +435,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 found = durations_from_junit(ns.files)
             added = _write_durations(ns.out, found, ns.source, ns.append)
             print(f"calibration_lanes: {added} rows from {ns.source} -> {ns.out}", file=sys.stderr)
-    except (PlanError, OSError, ET.ParseError, KeyError, TypeError) as exc:
+    except (ValueError, OSError, ET.ParseError, KeyError, TypeError) as exc:  # all exit 2
         print(f"calibration_lanes: {exc}", file=sys.stderr)
         return 2
     return 0
