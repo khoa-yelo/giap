@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tarfile
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Protocol
@@ -158,7 +158,14 @@ class ToolRunner:
         )
 
     def run(self, tool: str, argv: Sequence[str]) -> int:
-        return subprocess.run(self.command(tool, argv), check=False).returncode
+        env = tool_env(os.environ)
+        return subprocess.run(self.command(tool, argv), check=False, env=env).returncode
+
+
+def tool_env(environ: Mapping[str, str]) -> dict[str, str]:
+    """A copy of ``environ`` with ``PYTHONNOUSERSITE=1``: a tool's Python must not import
+    packages from the user site (``~/.local``) over its pinned environment."""
+    return {**environ, "PYTHONNOUSERSITE": "1"}
 
 
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
