@@ -215,7 +215,8 @@ def test_micromamba_only_build_is_missing_under_docker(
     p = tmp_path / "p.faa"
     p.write_text(">P1\nMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA\n")
     cfg = resolve_config(overrides=["preflight.min_n50_warn=1",
-                                    "preflight.min_largest_contig_warn=1"])  # fmt: skip
+                                    "preflight.min_largest_contig_warn=1",
+                                    "annotation.uniop.enabled=true"])  # fmt: skip
     report, _ = run_preflight(PreflightInputs(genome=g, proteins=p), cfg, None, "run",
                               tmp_path / "OUT", db, profile="docker")  # fmt: skip
     (tools,) = [c for c in report.checks if c.rule_id == "environment.tools"]

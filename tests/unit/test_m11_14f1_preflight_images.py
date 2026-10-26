@@ -732,9 +732,10 @@ def _db(tmp_path: Path) -> Path:
 def _tools_check(tmp_path: Path, db: Path, profile: str) -> Any:
     from giap.preflight.run import run_preflight
 
-    cfg = resolve_config(
-        overrides=["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
-    )
+    cfg = resolve_config(  # 14d2: the default is auto; pin the enabled: true path
+        overrides=["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1",
+                   "annotation.uniop.enabled=true"]
+    )  # fmt: skip
     report, _ = run_preflight(_inputs(tmp_path), cfg, None, "run", tmp_path / "OUT", db,
                               profile=profile)  # fmt: skip
     checks = [c for c in report.checks if c.rule_id == "environment.tools"]
