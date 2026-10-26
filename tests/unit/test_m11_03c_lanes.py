@@ -37,7 +37,17 @@ Conventions settled by the test author where the spec leaves them open:
   ``<path>.py::<name>`` with its ``time`` (calibration tests are module-level functions).
 - CLI ``lanes --suite S --report PATH [--durations PATH] [--plan PATH]`` prints the lanes as a
   JSON list of objects with the ``Lane`` field names (exit 2 + stderr on ``PlanError``);
-  ``durations --source ID --out PATH JUNIT...`` writes the durations TSV.
+  ``durations --source ID --out PATH JUNIT...`` writes the durations TSV. Every input error of the
+  CLI (bad plan, malformed lane-report JSON, a ``shard0_only`` that is not a JSON bool, a
+  non-numeric JUnit ``time``) exits 2 with a message on stderr, never 1 (1 means "a test failed").
+- ``expected`` lists its nodeids sorted (``Lane`` equality is part of the order-independence check).
+- ``durations_from_probe_log`` (review B1 of PR 1b): in a ``pytest -n N -v`` log piped through a
+  line stamper, xdist writes each line without its newline and the next event writes it, so a line's
+  stamp is the time of the *next* event; a line's true time is the stamp of the previous stamped
+  line. The fixture below is a real stamped log of sleeps 1/6/2/3 s under ``-n 2 -v``.
+- ``verify_partition`` problems name the lane's ``part`` (or ``'all'``) and the offending nodeid;
+  the checks that ``lanes()`` output makes unreachable (shard lanes differ, group/shard overlap,
+  two group lanes) may be absent, their cases are caught by the per-lane ``expected`` check.
 
 No statistical claim is made here (scheduling only, R3), so no calibration test applies.
 """
@@ -520,11 +530,14 @@ def _break(case: str, got: dict[str, list[str]], out: list[Any]) -> None:
         del got[g1]
     elif case == "all_missing":
         del got["all"]
+    elif case == "collected_twice":  # same set, one nodeid printed twice
+        got[g0] = [*got[g0], got[g0][0]]
 
 
 @pytest.mark.parametrize("case", [
     "shard_lanes_differ", "shard_lane_extra", "group_lane_short", "group_lane_extra",
     "groups_overlap", "union_short_of_collection", "lane_not_collected", "all_missing",
+    "collected_twice",
 ])  # fmt: skip
 def test_verify_partition_reports_each_problem(mod: ModuleType, plan: dict[str, Any],
                                                case: str) -> None:  # fmt: skip
@@ -535,6 +548,23 @@ def test_verify_partition_reports_each_problem(mod: ModuleType, plan: dict[str, 
     problems = mod.verify_partition(row, out, got)
     assert isinstance(problems, list) and problems, case
     assert all(isinstance(p, str) and p for p in problems)
+    s0, s1 = "task-0.shard0.junit.xml", "task-0.shard1.junit.xml"
+    g0, g1 = "task-0.group0.junit.xml", "task-0.group1.junit.xml"
+    clean = _collected(out, report)
+    # (substrings one problem must contain together): the per-lane check names part and nodeid
+    want: dict[str, list[tuple[str, ...]]] = {
+        "shard_lanes_differ": [(s1, clean[s1][0])],
+        "shard_lane_extra": [(s0, clean[g0][0]), (s1, clean[g0][0])],
+        "group_lane_short": [(g0, clean[g0][0])],
+        "group_lane_extra": [(g0, clean[s0][0])],
+        "groups_overlap": [(g1, clean[g0][0])],
+        "union_short_of_collection": [("tests/calibration/test_new.py::t_unplanned",)],
+        "lane_not_collected": [(g1,)],
+        "all_missing": [("'all'",)],
+        "collected_twice": [(g0, "twice")],
+    }
+    for need in want[case]:
+        assert any(all(w in p for w in need) for p in problems), (case, need, problems)
 
 
 # ------------------------------------------------------------------ verify_counts (crit. 3)
@@ -671,3 +701,195 @@ def test_durations_cli_round_trip(mod: ModuleType, tmp_path: Path) -> None:
     assert out.read_text().splitlines()[0].split("\t") == ["nodeid", "seconds", "source"]
     assert mod.read_durations(out) == mod.durations_from_junit([a])
     assert all(ln.endswith("\t1894441") for ln in out.read_text().splitlines()[1:])
+
+
+# ------------------------------------------------------------------ review of PR 1b
+
+# A real stamped log: `pytest -n 2 -v` of test_s[d] = time.sleep(d) for d in 1, 6, 2, 3, piped
+# through `while IFS= read -r l; do echo "$(date +%s) $l"; done` (header trimmed).
+PROBE_LOG = """start 1792998930
+1792998932 ============================= test session starts ==============================
+1792998932 platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /venv/bin/python
+1792998932 rootdir: /tmp/proj
+1792998932 plugins: xdist-3.8.0
+1792998932 created: 2/2 workers
+1792998932 2 workers [4 items]
+1792998932~
+1792998932 scheduling tests via LoadScheduling
+1792998932~
+1792998932 tests/calibration/test_s.py::test_s[2]~
+1792998933 tests/calibration/test_s.py::test_s[1]~
+1792998933 [gw0] [ 25%] PASSED tests/calibration/test_s.py::test_s[1]~
+1792998934 tests/calibration/test_s.py::test_s[6]~
+1792998934 [gw1] [ 50%] PASSED tests/calibration/test_s.py::test_s[2]~
+1792998937 tests/calibration/test_s.py::test_s[3]~
+1792998939 [gw1] [ 75%] PASSED tests/calibration/test_s.py::test_s[3]~
+1792998940 [gw0] [100%] PASSED tests/calibration/test_s.py::test_s[6]~
+1792998940~
+1792998940 ============================== 4 passed in 8.58s ===============================
+""".replace("~\n", " \n")  # "~" marks the trailing space pytest leaves
+
+
+def test_durations_from_probe_log_uses_the_previous_stamp(mod: ModuleType, tmp_path: Path) -> None:
+    """Review B1: a line's stamp is the next event's time; the true durations are 1/6/2/3 s."""
+    log = tmp_path / "giap-probe-03c-x.1.out"
+    log.write_text(PROBE_LOG)
+    f = "tests/calibration/test_s.py::test_s"
+    assert mod.durations_from_probe_log(log) == {f"{f}[1]": 1.0, f"{f}[6]": 6.0, f"{f}[2]": 2.0,
+                                                 f"{f}[3]": 3.0}  # fmt: skip
+    # a test still running at the end of the log (start line, no outcome) is left out
+    cut = PROBE_LOG.split("1792998939 [gw1]")[0]
+    log.write_text(cut)
+    got = mod.durations_from_probe_log(log)
+    assert got == {f"{f}[1]": 1.0, f"{f}[2]": 2.0}
+
+
+def test_durations_cli_probe_log(mod: ModuleType, tmp_path: Path) -> None:
+    log = tmp_path / "giap-probe-03c-x.1.out"
+    log.write_text(PROBE_LOG)
+    out = tmp_path / "d.tsv"
+    res = _cli("durations", "--source", "probe-1", "--probe-log", "--out", str(out), str(log))
+    assert res.returncode == 0, res.stderr
+    f = "tests/calibration/test_s.py::test_s"
+    assert mod.read_durations(out) == {f"{f}[{d}]": float(d) for d in (1, 2, 3, 6)}
+
+
+@pytest.mark.parametrize(("nodeid", "seconds"), [
+    # probe rows are 8-worker times; values = the stamp of the previous line in the real logs
+    ("tests/calibration/attacks/test_attack_readthrough_recoded.py::"
+     "test_attack_d4_index_and_variants_site_sets[full]", 22.0),  # TSV had 7682
+    ("tests/calibration/attacks/test_region_tests_attacks.py::"
+     "test_atu_region_specific_tu_fragmentation_hl_at_level[full]", 4449.0),  # had 252
+    ("tests/calibration/test_sim_function_calibration.py::"
+     "test_example6_determinants_null_features_independent_of_response[full]", 50.0),  # had 855
+])  # fmt: skip
+def test_committed_probe_rows_are_regenerated(mod: ModuleType, nodeid: str, seconds: float) -> None:
+    got = mod.read_durations(DURATIONS)
+    assert got[nodeid] == pytest.approx(seconds, abs=3.0)
+
+
+def test_lanes_cli_malformed_report_exits_2(tmp_path: Path) -> None:
+    """Review S1: exit 1 means "a test failed"; input errors fail closed with 2."""
+    rep = tmp_path / "report.json"
+    for text in ('{"tests/calibration/test_n.py::t_a": {"shard0_only": tru', "[]", ""):
+        rep.write_text(text)
+        res = _cli("lanes", "--suite", "novel_orfs", "--report", str(rep), "--durations",
+                   str(DURATIONS))  # fmt: skip
+        assert res.returncode == 2, (text, res.returncode, res.stderr)
+        assert res.stderr and "Traceback" not in res.stderr, res.stderr
+
+
+@pytest.mark.parametrize("value", ["no", "false", 1, 0, None])
+def test_lanes_cli_shard0_only_must_be_a_bool(tmp_path: Path, value: Any) -> None:
+    """Review S2: ``"no"`` must not become ``True`` (nor 0 / null ``False``)."""
+    rep = tmp_path / "report.json"
+    rep.write_text(
+        json.dumps(
+            {
+                "tests/calibration/test_v.py::t_a": {"shard0_only": value},
+                "tests/calibration/test_v.py::t_b": {"shard0_only": False},
+            }
+        )
+    )
+    res = _cli("lanes", "--suite", "variants", "--report", str(rep), "--durations", str(DURATIONS))
+    assert res.returncode == 2, (value, res.returncode, res.stdout, res.stderr)
+    assert "shard0_only" in res.stderr and "Traceback" not in res.stderr, res.stderr
+
+
+def test_durations_cli_non_numeric_junit_time_exits_2(tmp_path: Path) -> None:
+    a = _junit(tmp_path / "a.junit.xml", [("tests.calibration.test_a", "test_x", "fast")])
+    out = tmp_path / "d.tsv"
+    res = _cli("durations", "--source", "1", "--out", str(out), str(a))
+    assert res.returncode == 2, (res.returncode, res.stderr)
+    assert res.stderr and "Traceback" not in res.stderr, res.stderr
+
+
+def test_durations_from_junit_sums_a_nodeid_over_parts(mod: ModuleType, tmp_path: Path) -> None:
+    c = "tests.calibration.test_placement_harness"
+    a = _junit(tmp_path / "task-0.shard0.junit.xml", [(c, "test_check_full", "3.0"),
+                                                       (c, "test_other", "1.0")])  # fmt: skip
+    b = _junit(tmp_path / "task-0.shard1.junit.xml", [(c, "test_check_full", "4.5")])
+    got = mod.durations_from_junit([a, b])
+    assert got == {"tests/calibration/test_placement_harness.py::test_check_full": 7.5,
+                   "tests/calibration/test_placement_harness.py::test_other": 1.0}  # fmt: skip
+
+
+def test_durations_from_junit_test_classes(mod: ModuleType, tmp_path: Path) -> None:
+    a = _junit(tmp_path / "a.junit.xml", [
+        ("tests.calibration.test_k.TestLevel", "test_a[1]", "2.0"),
+        ("tests.calibration.attacks.test_q.TestOuter.TestInner", "test_b", "3.0"),
+    ])  # fmt: skip
+    assert mod.durations_from_junit([a]) == {
+        "tests/calibration/test_k.py::TestLevel::test_a[1]": 2.0,
+        "tests/calibration/attacks/test_q.py::TestOuter::TestInner::test_b": 3.0,
+    }
+
+
+def test_durations_cli_keeps_calibration_only_and_appends(mod: ModuleType, tmp_path: Path) -> None:
+    out = tmp_path / "d.tsv"
+    old = "tests/calibration/test_a.py::test_old"
+    out.write_text(f"nodeid\tseconds\tsource\n{old}\t10.0\tprobe-7\n")
+    a = _junit(tmp_path / "a.junit.xml", [
+        ("tests.calibration.test_a", "test_old", "99.0"),  # already in --out: kept as it was
+        ("tests.calibration.test_a", "test_new", "5.0"),
+        ("tests.unit.test_u", "test_unit", "1.0"),  # not under tests/calibration/: dropped
+    ])  # fmt: skip
+    res = _cli("durations", "--source", "1894441", "--append", "--out", str(out), str(a))
+    assert res.returncode == 0, res.stderr
+    rows = {ln.split("\t")[0]: ln.split("\t")[1:] for ln in out.read_text().splitlines()[1:]}
+    assert set(rows) == {old, "tests/calibration/test_a.py::test_new"}
+    assert float(rows[old][0]) == 10.0 and rows[old][1] == "probe-7"
+    new = rows["tests/calibration/test_a.py::test_new"]
+    assert float(new[0]) == 5.0 and new[1] == "1894441"
+    # without --append the file is rewritten from the JUnit alone
+    res = _cli("durations", "--source", "1894441", "--out", str(out), str(a))
+    assert res.returncode == 0, res.stderr
+    assert mod.read_durations(out) == {old: 99.0, "tests/calibration/test_a.py::test_new": 5.0}
+
+
+@pytest.mark.parametrize("body", [
+    "tests/calibration/test_r.py::t\t1.0\tj\ntests/calibration/test_r.py::t\t2.0\tk\n",  # duplicate
+    "tests/calibration/test_r.py::t\t1.0\t\n",  # empty source
+])  # fmt: skip
+def test_read_durations_rejects_bad_rows(mod: ModuleType, tmp_path: Path, body: str) -> None:
+    p = tmp_path / "d.tsv"
+    p.write_text("nodeid\tseconds\tsource\n" + body)
+    with pytest.raises(ValueError):
+        mod.read_durations(p)
+
+
+def test_lanes_needs_a_task_index(mod: ModuleType, plan: dict[str, Any]) -> None:
+    row = plan["regions"]
+    fields = {f.name: getattr(row, f.name) for f in dataclasses.fields(row) if f.name != "task"}
+    unset = mod.PlanRow(**fields)  # not from read_plan
+    with pytest.raises(mod.PlanError):
+        mod.lanes(unset, {"tests/calibration/test_r.py::t_a": False}, {})
+    with pytest.raises(mod.PlanError):
+        mod.lanes(
+            dataclasses.replace(row, task=-1), {"tests/calibration/test_r.py::t_a": False}, {}
+        )
+
+
+def test_prefix_list_zero_shards_does_not_group_unmatched_shard0_only(
+    mod: ModuleType, plan: dict[str, Any]
+) -> None:
+    """With no shard lane, shard-0-only does not make a test a group test: it must match."""
+    sel = "tests/calibration/test_compare.py::"
+    row = _row(plan, "compare", shards=0, groups=1, group_select=sel)
+    report = {sel + "t_a": False, "tests/calibration/test_other.py::t_d": True}
+    with pytest.raises(mod.PlanError) as exc:
+        mod.lanes(row, report, {})
+    assert "test_other.py::t_d" in str(exc.value)
+
+
+def test_expected_lists_are_sorted(mod: ModuleType, plan: dict[str, Any]) -> None:
+    """Nit of review 1b: ``expected`` is sorted, not in LPT placement order."""
+    f = "tests/calibration/test_r.py::t_"
+    row = _row(plan, "regions", groups=2)
+    report = dict.fromkeys([f + "z", f + "a", f + "m", f + "b"], False)
+    durations = {f + "z": 900.0, f + "m": 800.0, f + "b": 100.0, f + "a": 50.0}
+    # LPT: z -> 0, m -> 1, b -> 1 (800 < 900), a -> 0 (900 = 900, lowest lane)
+    _, group = _split(mod.lanes(row, report, durations))
+    assert [ln.expected for ln in group] == [(f + "a", f + "z"), (f + "b", f + "m")]
+    shard, _ = _split(mod.lanes(*_example3(plan)))
+    assert all(list(ln.expected) == sorted(ln.expected) for ln in shard)
