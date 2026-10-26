@@ -114,13 +114,58 @@ def cli() -> None:
 @click.option("--cog", is_flag=True, help="COG categories.")
 @click.option("--contaminants", is_flag=True, help="Contaminant protein sequences.")
 @click.option("--check", is_flag=True, help="Only verify what is installed.")
+@click.option(
+    "--images",
+    is_flag=False,
+    flag_value="config",
+    default=None,
+    metavar="[all]",
+    help="Pull the pinned container images the config needs (with 'all': every pinned image).",
+)
+@click.option(
+    "--profile",
+    default=None,
+    metavar="apptainer|docker",
+    help="Container runtime for --images (a comma-joined Nextflow profile is accepted).",
+)
+@click.option(
+    "--cache-dir",
+    type=_out_path,
+    default=None,
+    help="Apptainer image cache [default: NXF_APPTAINER_CACHEDIR, $GIAP_ROOT/containers, "
+    "DIR/containers].",
+)
 @shared_options
-def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **opts: Any) -> None:
+def setup(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    images: str | None,
+    profile: str | None,
+    cache_dir: Path | None,
+    **opts: Any,
+) -> None:
     """Download databases and models (writes DIR/db_manifest.json)."""
+    from giap.io.image_key import image_cache
+    from giap.preflight.environment import container_runtime
     from giap.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
+    from giap.setupdb.images import image_set, install_images
 
-    _resolve(config_file, sets, log_level)
-    code = run_setup(SetupOptions(**opts), ToolRunner(), HttpsFetcher())
+    cfg = _resolve(config_file, sets, log_level)
+    runtime = container_runtime(profile or "")
+    if images not in (None, "config", "all"):
+        raise click.BadParameter(
+            f"{images!r}: give --images alone or --images all", param_hint="--images"
+        )
+    if images is not None and runtime is None:
+        raise click.UsageError("--images needs --profile apptainer or --profile docker")
+    db_dir: Path = opts["db_dir"]
+    code = run_setup(SetupOptions(**opts), ToolRunner(db_dir=db_dir), HttpsFetcher())
+    if images is not None and runtime is not None and not opts["check"]:
+        tools = image_set(cfg, images == "all")
+        cache = cache_dir or image_cache(os.environ, db_dir)
+        if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
+            code = ExitCode.ENVIRONMENT
     sys.exit(int(code))
 
 

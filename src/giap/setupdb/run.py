@@ -13,20 +13,21 @@ import fcntl
 import http.client
 import os
 import posixpath
-import re
 import shutil
 import ssl
 import subprocess
 import sys
 import tarfile
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Protocol
 from urllib.parse import urljoin, urlparse
 
 from giap.exitcodes import ExitCode
+from giap.io.image_key import image_cache
+from giap.setupdb.images import pinned_images, simple_name
 from giap.setupdb.items import (
     FILE_CHECKS,
     SOURCES,
@@ -100,35 +101,71 @@ def _containers_config() -> Path:
     return workflow_main().parent / "conf" / "containers.config"
 
 
+# Images whose ENTRYPOINT is a wrapper: docker runs the downloader as the entrypoint instead.
+_DOCKER_ENTRYPOINT = frozenset({"antismash"})
+
+
+def _mamba_root() -> Path | None:
+    """``$MAMBA_ROOT_PREFIX``, else ``$GIAP_ROOT/micromamba``, else the checkout's
+    ``local/micromamba``; ``None`` for an installed package without either variable."""
+    if os.environ.get("MAMBA_ROOT_PREFIX"):
+        return Path(os.environ["MAMBA_ROOT_PREFIX"])
+    if os.environ.get("GIAP_ROOT"):
+        return Path(os.environ["GIAP_ROOT"]) / "micromamba"
+    repo = _checkout()
+    return repo / "local" / "micromamba" if repo is not None else None
+
+
 class ToolRunner:
-    """Runs a downloader in ``giap-<tool>`` (micromamba) or else the image pinned in
-    ``workflow/conf/containers.config`` via Apptainer (M2-08 lead decision 5)."""
+    """Runs a downloader in ``giap-<tool>`` (micromamba), else in the image pinned in the bundled
+    ``containers.config``: the apptainer cache file (``image_cache``), else ``docker run`` (M2-08
+    lead decision 5; M11-14 14f2). Neither ``$GIAP_ROOT`` nor a checkout is required."""
+
+    def __init__(self, *, db_dir: Path | None = None) -> None:
+        self.db_dir = db_dir
+
+    def _cache(self) -> Path | None:
+        if self.db_dir is not None:
+            return image_cache(os.environ, self.db_dir)
+        if os.environ.get("NXF_APPTAINER_CACHEDIR"):
+            return Path(os.environ["NXF_APPTAINER_CACHEDIR"])
+        if os.environ.get("GIAP_ROOT"):
+            return Path(os.environ["GIAP_ROOT"]) / "containers"
+        return None
 
     def command(self, tool: str, argv: Sequence[str]) -> list[str]:
-        repo = _checkout()
-        if not os.environ.get("GIAP_ROOT") and repo is None:
-            raise ToolUnavailable(
-                f"GIAP_ROOT is not set: it holds the giap-{tool} environment or image "
-                "(an installed package has no checkout to default to)"
-            )
-        root = Path(os.environ.get("GIAP_ROOT") or Path(str(repo)) / "local")
-        mamba = Path(os.environ.get("MAMBA_ROOT_PREFIX") or root / "micromamba")
-        if (mamba / "envs" / f"giap-{tool}").is_dir():
+        mamba = _mamba_root()
+        if mamba is not None and (mamba / "envs" / f"giap-{tool}").is_dir():
             return ["micromamba", "run", "-n", f"giap-{tool}", *argv]
-        conf = _containers_config().read_text(encoding="utf-8")
-        m = re.search(rf"withName: '{tool.upper()}' \{{ container = '(?:docker://)?([^']+)'", conf)
-        cache = Path(os.environ.get("NXF_APPTAINER_CACHEDIR") or root / "containers")
-        img = cache / (re.sub(r"[/:]", "-", m.group(1)) + ".img") if m else None
-        if img is None or not img.is_file():
-            raise ToolUnavailable(
-                f"no giap-{tool} environment and no pinned {tool} image ({img}); "
-                "run sbatch scripts/slurm/build_envs.sbatch " + tool
-            )
-        binds = [b for a in argv if os.path.isabs(a) and Path(a).exists() for b in ("--bind", a)]
-        return ["apptainer", "exec", *binds, str(img), *argv]
+        ref = pinned_images(_containers_config().parent).get(tool)
+        cache = self._cache()
+        img = cache / simple_name(ref) if ref is not None and cache is not None else None
+        paths = list(dict.fromkeys(a for a in argv if os.path.isabs(a) and Path(a).exists()))
+        if img is not None and img.is_file():
+            binds = [b for a in paths for b in ("--bind", a)]
+            return ["apptainer", "exec", *binds, str(img), *argv]
+        if ref is not None and shutil.which("docker") is not None:
+            vols = [v for a in paths for v in ("-v", f"{a}:{a}")]
+            head = ["docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", *vols]
+            if tool in _DOCKER_ENTRYPOINT and argv:
+                return [*head, "--entrypoint", argv[0], ref, *argv[1:]]
+            return [*head, ref, *argv]
+        where = f"no pinned {tool} image" if ref is None else f"no pinned {tool} image in {img}"
+        raise ToolUnavailable(
+            f"no giap-{tool} environment, {where} and no docker on PATH; run giap setup --images "
+            f"--profile apptainer|docker (in a checkout: sbatch scripts/slurm/build_envs.sbatch "
+            f"{tool})"
+        )
 
     def run(self, tool: str, argv: Sequence[str]) -> int:
-        return subprocess.run(self.command(tool, argv), check=False).returncode
+        env = tool_env(os.environ)
+        return subprocess.run(self.command(tool, argv), check=False, env=env).returncode
+
+
+def tool_env(environ: Mapping[str, str]) -> dict[str, str]:
+    """A copy of ``environ`` with ``PYTHONNOUSERSITE=1``: a tool's Python must not import
+    packages from the user site (``~/.local``) over its pinned environment."""
+    return {**environ, "PYTHONNOUSERSITE": "1"}
 
 
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
@@ -403,10 +440,24 @@ def _report(rec: DbRecord) -> None:
          f"{rec.name}: {rec.message or rec.status}")  # fmt: skip
 
 
+def _pin_changed(item: DbItem, rec: DbRecord) -> bool:
+    """An installed copy of another release than this one's pin (Bakta: another major; geNOMAD:
+    another version), as read from its version file by ``verify``."""
+    if rec.status == "ok" or not rec.version or rec.version == item.version:
+        return False
+    kind = item.check.partition(":")[0]
+    if kind == "bakta":
+        return rec.version.split(".")[0] != item.version.split(".")[0]
+    return kind == "genomad"
+
+
 def _check(item: DbItem, db_dir: Path, old: dict[str, DbRecord], runner: CommandRunner) -> DbRecord:
     """``--check`` of one item. antiSMASH recorded as installed from the image (url "image")
     passes when ``antismash --check-prereqs`` passes there (M2-09 review decision 1)."""
     rec = verify(item, db_dir)
+    if _pin_changed(item, rec):
+        return dataclasses.replace(rec, status="mismatch", message=(
+            f"installed {rec.version}, this release pins {item.version}"))  # fmt: skip
     prev = old.get(item.name)
     if rec.status == "ok" or item.check != "antismash" or prev is None:
         return rec

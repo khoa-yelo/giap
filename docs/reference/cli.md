@@ -141,6 +141,9 @@ Download databases and models (writes DIR/db_manifest.json).
 | `--cog` | flag | — | — | COG categories. |
 | `--contaminants` | flag | — | — | Contaminant protein sequences. |
 | `--check` | flag | — | — | Only verify what is installed. |
+| `--images` | `[all]` | — | — | Pull the pinned container images the config needs (with 'all': every pinned image). |
+| `--profile` | `apptainer|docker` | — | — | Container runtime for --images (a comma-joined Nextflow profile is accepted). |
+| `--cache-dir` | `PATH` | — | — | Apptainer image cache [default: NXF_APPTAINER_CACHEDIR, $GIAP_ROOT/containers, DIR/containers]. |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |

@@ -342,7 +342,7 @@ def _pending_then_block2(
     monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp))
     seen: list[Any] = []
 
-    def fake_block2(suite: str, full: bool, pending: Any) -> int:
+    def fake_block2(suite: str, full: bool, pending: Any, lanes: int | None = None) -> int:
         seen.append([C._check_key(r) for r in pending])
         rec_fn = table(good=set(range(6, 12)) if good2 else set())
         _shards(monkeypatch, tmp, rec_fn, ["0:3", "3:6"], block="2")

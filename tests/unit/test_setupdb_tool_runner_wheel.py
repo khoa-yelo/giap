@@ -47,10 +47,16 @@ def test_wheel_reads_the_bundled_containers_config(
 def test_wheel_without_giap_root_is_tool_unavailable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """14f2: an installed wheel no longer needs $GIAP_ROOT; with no env, no image and no docker
+    the tool is unavailable for that reason, not for the unset variable."""
     _wheel(monkeypatch, tmp_path)
     monkeypatch.delenv("GIAP_ROOT", raising=False)
-    with pytest.raises(sr.ToolUnavailable, match="GIAP_ROOT is not set"):
+    nodocker = tmp_path / "nodocker"
+    nodocker.mkdir()
+    monkeypatch.setenv("PATH", str(nodocker))
+    with pytest.raises(sr.ToolUnavailable, match="build_envs") as exc:
         sr.ToolRunner().command("bakta", ["bakta_db", "download"])
+    assert "GIAP_ROOT is not set" not in str(exc.value)
 
 
 def test_wheel_with_giap_root_uses_its_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
