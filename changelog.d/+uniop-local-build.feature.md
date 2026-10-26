@@ -1,0 +1,1 @@
+`giap setup --uniop --profile docker --accept-uniop-terms` fetches UniOP from its authors (pinned commit, sha256 checked), builds the image locally with docker and records it in `local_tools.config` and `db_manifest.json`; `setup --images` includes the step (`--no-uniop` skips it), and `giap run` adds the local build under docker, apptainer and conda (M11-14u1).

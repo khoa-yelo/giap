@@ -49,6 +49,7 @@ __all__ = [
     "UniopResolution",
     "container_runtime",
     "environment_checks",
+    "local_tools_applies",
     "missing_tool_reasons",
     "missing_tools",
     "probe_resources",
@@ -58,6 +59,7 @@ __all__ = [
     "resolve_uniop",
     "resource_needs",
     "uniop_runtime",
+    "uniop_runtime_problem",
     "uniop_setup_command",
     "uniop_setup_record",
 ]
@@ -493,15 +495,48 @@ def resolve_uniop(
     )
 
 
+_FARMSHARE_PROFILES = frozenset({"farmshare", "farmshare_local"})
+_CONTAINER_PROFILES = frozenset({"docker", "apptainer"})
+
+
+def _uniop_ambiguous(names: set[str]) -> bool:
+    """Plain ``conda`` combined with a container profile (no ``farmshare*``): not supported."""
+    return (
+        "conda" in names and bool(names & _CONTAINER_PROFILES) and not names & _FARMSHARE_PROFILES
+    )
+
+
 def uniop_runtime(profile: str) -> UniopRuntime | None:
     """``R(P)`` (spec item 1b): micromamba when a profile enables conda, else apptainer, else
-    docker; ``None`` without a container or conda profile."""
+    docker; ``None`` without a container or conda profile, and for an ambiguous list (``conda``
+    with ``docker`` or ``apptainer`` and no ``farmshare*``; :func:`uniop_runtime_problem`)."""
     names = _profiles(profile)
+    if _uniop_ambiguous(names):
+        return None
     if names & _CONDA_PROFILES:
         return "micromamba"
     if "apptainer" in names:
         return "apptainer"
     return "docker" if "docker" in names else None
+
+
+def uniop_runtime_problem(profile: str) -> str:
+    """Why ``R(P)`` is ``None`` (``""`` when it resolves): an ambiguous list, or no container or
+    conda profile."""
+    names = _profiles(profile)
+    if _uniop_ambiguous(names):
+        return f"ambiguous UniOP runtime for {profile}: use one of conda | docker | apptainer"
+    return "" if uniop_runtime(profile) is not None else "no container or conda profile"
+
+
+def local_tools_applies(profile: str) -> bool:
+    """``giap run`` adds ``-c <db_dir>/local_tools.config`` only when ``R(P)`` is docker,
+    apptainer, or micromamba under plain ``conda``; never under ``farmshare*``, where
+    ``prebuilt_envs.config`` owns UNIOP (spec item 1b)."""
+    runtime = uniop_runtime(profile)
+    if runtime == "micromamba":
+        return not _profiles(profile) & _FARMSHARE_PROFILES
+    return runtime is not None
 
 
 def _uniop_argv(
@@ -516,7 +551,7 @@ def _uniop_argv(
         home = os.environ.get("UNIOP_HOME") or str(prefix / "share" / "uniop")
         return [str(prefix / "bin" / "python"), f"{home}/src/UniOP", "--help"]
     if runtime is None:
-        return "no container or conda profile"
+        return uniop_runtime_problem(profile)
     built = _local_containers(local_tools, runtime).get("uniop")
     if built is None:
         return f"no local UniOP image in {LOCAL_TOOLS}"
