@@ -529,6 +529,263 @@ The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
     those of `pass1/cmp_a1_a2`.
   - A1/A2 ran at `6f969ee7` and A3 at `242ce506`. This is recorded, not failed (spec Q4).
 
+## Pass-3 runs: wild-type reference (M10 re-run)
+
+Passes 1 and 2 used **GCA_043228065.1** as the Nissle reference. That assembly is the engineered
+chassis XTC004-ILA (BioSample SAMN44054533), not wild-type Nissle 1917. Khoa decided on
+2026-10-25 ("go with your recommendation") to re-run the pilot against an official wild-type
+assembly. Passes 1 and 2 stay as earlier attempts. Pass 3 re-did every genome-dependent step
+(Bakta, the A2 database, the A2 search and conversion), then the GIAP runs of A1 and A2 and their
+`giap compare`. A3 was not re-run in pass 3.
+
+Like the pass-1 section, this section holds provenance only. The run directories, the evidence
+JSON, the compare, the attempts table and the interim metrics stay under `$GIAP_ROOT` and are not
+committed:
+
+- runs: `$GIAP_ROOT/runs/pilot/pass3/`;
+- inputs: `$GIAP_ROOT/pilot/pass3/`;
+- the interim `metrics.json` and `REPORT.md` (rendered without `--final`):
+  `$GIAP_ROOT/pilot/metrics/pass3/`.
+
+M10-15 owns the committed `metrics/metrics.json` and `REPORT.md`.
+
+### Reference genome
+
+| item | value |
+|---|---|
+| assembly | **GCF_021559835.1** (ASM2155983v1, RefSeq; GenBank twin GCA_021559835.1) |
+| records | chromosome `NZ_CP058217.1`, plasmid pMUT1 `NZ_CP058218.1`, plasmid pMUT2 `NZ_CP058219.1` |
+| source | NCBI (`ftp.ncbi.nlm.nih.gov/genomes/all/GCF/021/559/835/`), R6 |
+| GCA download | md5 `3c1d874a2172b3bfd63a05fb651ab7d2`, equal to NCBI's `md5checksums.txt` |
+| GCF copy | re-gzipped; decompressed, it is byte-identical to NCBI's GCF file (NCBI md5 `eaa414c72e26fc9dd49dacd4ca256283`, re-checked 2026-10-26). Its sequences equal the GCA download's |
+| GIAP input | `nissle1917_wt.fna.gz`: the GCF records with ` [topology=circular]` appended to each header, sha256 `1a654e6b83292353f15be4e7a7973b896d728761a4c9dfde533953f76e7961ad` |
+
+The two plasmids are the pMUT1 and pMUT2 that §15.1 names, so the pass-1 note about three unnamed
+plasmid records does not apply to pass 3. The genome is not committed. A circular-tagged copy sits
+untracked in the staging worktree, and the reference copy is `$GIAP_ROOT/pilot/pass3/genome/`.
+
+### Annotation, strain database, A2 search and conversion
+
+| step | Slurm job | node | state | elapsed | CPUs |
+|---|---|---|---|---|---|
+| Bakta 1.12.2 full DB 6.0 (`record_bakta_full.sbatch`) | 1895437 | rye-02 | COMPLETED, exit 0 | 01:42:40 | 18 CPUs |
+| strip, decompress, `giap makedb`, L6 on WT_1 | 1895583 | wheat-05 | COMPLETED, exit 0 | 00:00:23 | 2 CPUs |
+| DIA-NN 2.3.1 A2, steps 1 and 2 | 1895586 | rye-02 | COMPLETED, exit 0 | 00:42:00 | 16 CPUs |
+| `diann_report.sbatch A2` checks | 1895667 | wheat-08 | COMPLETED, exit 0 | 00:00:08 | 4 CPUs |
+| `diann_convert.sbatch A2` | 1895670 | wheat-01 | COMPLETED, exit 0 | 00:00:28 | 4 CPUs |
+
+- **Bakta:**
+  - Bakta 1.12.2 ran from image `sha256:1e24ae2f`, with `--keep-contig-headers --replicons` on the
+    preflight-normalised genome and 16 threads.
+  - The JSON was stripped of `sequences.nt` (`import_recording.py --strip-json-key`, as in M2-10):
+    `nissle1917_wt.json.gz`, sha256 `b680d455d8760a23476edf4d624dd5e816bba0df387098812354ea13adc7f223`.
+  - It was decompressed once to `nissle1917_wt.bakta.json` (13,680,327 bytes, sha256
+    `dbe5e126ede2d027e63f1f57b7abc6475238718dcbfd4468ee0bbecef2b93a00`, read-only).
+- **Strain database:**
+  - Built as in "How `db_a2` was built" above, with `--genome` set to the GCF copy.
+  - Contents: 4,613 CDS + 72 sORFs = 4,685 proteins, with no contaminants and no decoys.
+    `strain_db.faa.gz` is 989,209 bytes, sha256
+    `20e36adfa049110906bc688d20ea83f8ca251f9afcc7add18d78ca31029417b8`.
+  - It is **not** committed: the committed `db_a2/` stays the pass-1 database.
+  - DIA-NN and the conversion contract tests read the database from the staging worktree
+    `pilot3-stage-4ccce8a532c3`, whose `db_a2/strain_db.faa.gz` was replaced and left
+    uncommitted. That is why `a2.convert.json` records `dirty: true`.
+- **A2 search:**
+  - DIA-NN 2.3.1 used the same image pin and an unchanged `diann_A2.cfg` (sha256 `c0d145e8`).
+  - Step 1 built a new predicted library from the pass-3 database, and step 2 searched the three
+    runs. Report checks: `ok`, `failures: []`.
+  - `A2_report.parquet` sha256 `c274bbb028b386c67d72410fd5ae48a6eaf0edeb7ac2a8030ab8bbf73ea6bc06`.
+- **Conversion:** deterministic (the two conversions were equal under `cmp`), and the five contract
+  tests passed with 0 skipped. `a2.tsv.gz` is 2,054,199 bytes, sha256
+  `d7f1ddf5d2badb0038b50f55a6d99b43be61ccc9e2c8fadff9f5a7ab0c405fbf`, with 94,363 peptide rows.
+  `a2_abundance.tsv.gz` has 3,250 protein groups, sha256
+  `3970344b9c0edc0fcf756b267063a1d1c30c05f6b6bdb6654d973eae1e6f888e`.
+- **A1** reuses the pass-1 `a1.tsv.gz`. The K-12 search does not depend on the Nissle genome.
+- **A3 L6 on the wild-type genome:** WT_1's `.ssl` was re-evaluated against the GCF genome and the
+  pass-3 Bakta JSON, and the verdict is **pass** (`$GIAP_ROOT/pilot/pass3/a3_feasibility.json`).
+  Its aggregates equal the pass-2 WT_1 row above.
+
+### GIAP runs
+
+```bash
+P=$GIAP_ROOT/pilot/pass3; R=$GIAP_ROOT/runs/pilot/pass3
+G=$P/genome/nissle1917_wt.fna.gz; J=$P/inputs/nissle1917_wt.bakta.json
+sbatch -J giap-run-pilot3-a2 --time=12:00:00 scripts/slurm/giap_run.sbatch --genome $G --annotation $J \
+  --peptides $P/inputs/a2.tsv.gz --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
+sbatch -J giap-run-pilot3-a1 --time=12:00:00 scripts/slurm/giap_run.sbatch --genome $G --annotation $J \
+  --peptides $GIAP_ROOT/pilot/inputs/a1.tsv.gz --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
+sbatch -J giap-pilot3-compare --cpus-per-task=2 --mem=8000M scripts/slurm/pilot_compare.sbatch \
+  $R/out_a1 $R/out_a2 $R/cmp_a1_a2
+```
+
+Both arms ran with the pass-1 settings:
+
+- profile `farmshare,apptainer`;
+- default modules (`modules_off` empty), seed 20261014 and `--genome-relation related`;
+- no `--abundance`, no `--strict` and no `--resume`;
+- the pass-3 Bakta JSON, with no live `BAKTA` task;
+- detection tier `decoy_picked`.
+
+Both ran at commit `4ccce8a532c365c9e657c981a3f61b3d0d5c3aa6` from the clean pinned worktree
+`pilot-4ccce8a532c3` (`git_dirty` false), with `GIAP_REPO` exported and `PYTHONPATH` pinned by
+`giap_run.sbatch`. The compare job was submitted from the same worktree.
+
+| role | file | sha256 |
+|---|---|---|
+| genome | `nissle1917_wt.fna.gz` | `1a654e6b83292353f15be4e7a7973b896d728761a4c9dfde533953f76e7961ad` |
+| annotation | `nissle1917_wt.bakta.json` (13,680,327 bytes) | `dbe5e126ede2d027e63f1f57b7abc6475238718dcbfd4468ee0bbecef2b93a00` |
+| peptides A1 | `a1.tsv.gz` (pass 1) | `81818184f0cd222f091ae6b835ff72cc5743b6ce7e6403e7a2cb1740bbf24f3a` |
+| peptides A2 | `a2.tsv.gz` (pass 3) | `d7f1ddf5d2badb0038b50f55a6d99b43be61ccc9e2c8fadff9f5a7ab0c405fbf` |
+
+#### Attempts (the `pass3/` attempts table)
+
+| arm | attempt | head job | class | commit | state | exit | elapsed | MaxRSS (head) | node | rule set | outcome |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A2 | 1 | 1895673 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 04:00:04 | 1285072K | barley-03 | A: pass | **accepted**; OSTIR pre-#390 (below); kept as `out_a2_pre390` |
+| A1 | 1 | 1896178 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 04:29:54 | 1300748K | rye-02 | A: pass | **accepted**, `out_a1` |
+| compare | 1 | 1896978 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 00:00:28 | 270028K | wheat-08 | C: pass | **accepted**, `cmp_a1_a2` |
+| A2 | 2 | 1897025 | resume (#390) | `8b6e93d4` | running | | | | barley-01 | A: pending (job 1897034) | in place in `out_a2`; supersedes attempt 1 when it passes |
+| A1 | 2 | 1897026 | resume (#390) | `8b6e93d4` | pending | | | | | A: pending (job 1897034) | in place in `out_a1` (commit parity) |
+| compare | 2 | 1897034 | fresh | `8b6e93d4` | pending | | | | | C: pending | `o390/cmp_a1_a2` |
+
+Attempt 1 of each arm passed rule set A, and attempt 2 is the #390 resume below. Neither attempt is a failed iteration, which is what R9 counts. While A2 1895673 was pending, its head time limit was
+lowered from 2 days to 12 h so that it could backfill. R14 sums of the running and pending `giap-*`
+CPUs were 1 + 72 at the A2 submission, 50 + 72 at A1 and 1 + 2 at the compare, all within 128.
+
+#### Resources (§15.5)
+
+| arm | head job | tasks | task max AllocCPUS | task peak RSS | top steps by wall time (`measure_runtimes.py`) |
+|---|---|---|---|---|---|
+| A2 | 1895673 | 73 (0 failed, 0 retried) | 14 CPUs | 7.5 GB | terminatornet 1:47:10, promotech (11 tasks) 0:28:06, variants_step 0:14:47, promoter_calculator (27 tasks) 0:13:22, determinants_step 0:10:07 |
+| A1 | 1896178 | 77 (0 failed, 0 retried) | 14 CPUs | 7.5 GB | terminatornet 1:58:32, sensitivity 0:43:39, promotech_novel 0:42:08, promotech (11 tasks) 0:39:44, promoter_calculator (27 tasks) 0:10:53 |
+
+Both head runs took about 4 h, inside MVP-04's range of 3 h to 8 h. TerminatorNet dominates again,
+as it did in passes 1 and 2.
+
+#### Reports
+
+| subject | file | sha256 | bytes |
+|---|---|---|---|
+| A1 | `out_a1/report/report.html` | `aa002250be3819553a6b6c8a7e7c8f7af8ea9a79eaf72fc127ac785df2909914` | 20,649,053 bytes |
+| A2 (pre-#390) | `out_a2_pre390/report/report.html` | `ccb0c1ebfdcf452ab498f8b5ae8e70052036eee5304807e7152bace01f33f66d` | 20,700,021 bytes |
+| compare | `cmp_a1_a2/report/compare.html` | `efb58e2886ebd243e3b05b99705bd21ab3dc3117c1f46e4e97649e7d3458cfed` | 5,201,198 bytes |
+| compare | `cmp_a1_a2/plots/V16_compare.svg` | `9d5de6e87eccccd8ca1d8cd2e4560be0eb399a12e7acd1dc5e729043ce019141` | 254,719 bytes |
+| compare | `cmp_a1_a2/tables/compare_detection.tsv` | `180dca4afed2b511d5a4945fa11c20ec9c62fe51b6ef04c6abf59e8a834a4e8c` | 421,641 bytes |
+| compare | `cmp_a1_a2/tables/compare_abundance.tsv` | `6a0aac4a5b77f00af8f1954ec9a4dd005db205c13ee13b6bf43cc06049300822` | 214 bytes |
+| compare | `cmp_a1_a2/tables/compare_stability.tsv` | `1a60b9a2f747c55225b9f66f982bc953d432d0b8de7f8b4f4f71964c8125bf03` | 230 bytes |
+
+The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+
+#### Evidence verdicts
+
+`pass3/evidence/a1.json`, `a2.json` and `compare.json` all have `failures: []`.
+
+- **Warnings:**
+  - Both arms warn `novel_orfs.decoys_not_makedb` and `region_layer.layer_missing`.
+  - A2 also warns `novel_orfs.layer_missing`.
+  - The compare has no warnings.
+- **Missing layers:**
+  - `layers_missing` lists `antismash` in both arms: the precomputed `bakta_json` has no GBFF
+    next to it, as in passes 1 and 2.
+  - A2 also lacks `rbs_novel`, and its novel-ORF promoter and RBS layers were `not_run`, as in
+    pass 1.
+  - **Cause of the missing antiSMASH layer:** the run input, not the tool or the profile.
+    `annotate.nf` looks for the GBFF next to the precomputed JSON, as `<stem>.gbff[.gz]`. Every pass
+    passed the decompressed `inputs/<name>.bakta.json` alone. The recorded GBFFs
+    (`nissle1917.gbff.gz`, `nissle1917_wt.gbff.gz`) sit next to the recorded `<name>.json.gz`, under
+    another stem and in another directory. The `bgc` module is on and the antiSMASH DB is
+    installed, but the process was never called.
+  - **What that means for H1:** with no antiSMASH there are no BGC genes, so H1's "mostly plasmid,
+    prophage and BGC genes" clause was tested without BGC genes in every pass. Its verdict rule is
+    unchanged.
+  - **Islands and operon flags:** islands are empty in both arms of every pass, and no operon
+    flag is significant in any pass. H3's "supported" therefore rests on the rho and
+    enriched-categories criteria alone. The island and operon families are `not_evaluable`; they
+    do not count as support.
+- **§15.6 status in the interim `metrics.json`:**
+  - "runs end to end" is partial: A1 and A2 ran, and A3 was not re-run.
+  - TE1 passes.
+  - "A1 and A2 compared" passes.
+  - The runtime and TE2-TE5 bullets are pending (M10-12, M10-06), as in pass 2.
+  - The metrics have no warnings. A2's metrics were computed from the `out_a2_pre390` snapshot.
+
+### OSTIR and the Python user site (#390)
+
+Before #390 (merged 2026-10-26 01:15 PDT), the py3.10 tool environments imported `~/.local`
+packages. OSTIR therefore folded RNA with ViennaRNA 2.7.1 instead of the locked 2.6.4. See
+`validation/reports/ostir-usersite-rerecord-2026-10-26.md`: three Nissle genes change, and the
+gene-level TIR changes by up to about 65x.
+
+- **A2 (1895673): pre-fix.** Its head job was submitted before #390 and ran code at `4ccce8a5`,
+  which does not have the fix. Its OSTIR `versions.yml` has no `viennarna:` line, and its `ostir.csv` holds the user-site values for
+  the three genes. `rbs`, the `tir_ostir` determinant and everything computed from them
+  (`determinants`, `sensitivity`, the report) are pre-fix in this attempt.
+- **A1 (1896178): post-fix in effect.** It ran at the same commit, but it was submitted at 05:02,
+  after #390. Most likely `PYTHONNOUSERSITE=1` came in from the submitting shell; this was not
+  recorded. Its `ostir_input.csv` is byte-identical to A2's, and its `ostir.csv` differs from A2's
+  in exactly the three affected rows. A1's values in those rows match the #397 re-record (the
+  isolated ViennaRNA 2.6.4). That match is the only evidence, because neither log nor version file
+  records which ViennaRNA OSTIR imported. Every OSTIR `.command.log` prints `Vienna version: 2.6.4`
+  both before and after the fix: the line comes from `RNAfold --version`, not from the imported
+  module. From the `8b6e93d4` reruns on, the `viennarna:` line in OSTIR's `versions.yml` is the
+  provenance.
+- **A1 is re-run anyway, for commit parity.** Pass 1 superseded an A2 attempt for running at a
+  different commit from A1 (rule A3). The lead decided on 2026-10-26 to resume A1 at `8b6e93d4` as
+  well, so that both pass-3 arms carry one commit. The rerun counts as A1's second R9 attempt.
+- **What the pre-fix A2 affects:** the compare and the interim metrics above read no OSTIR output.
+  The stability families are islands, operon flags, enriched categories, novel ORFs and ALT sites.
+  These numbers are expected to stand, and a re-compare after the rerun checks that.
+- **The post-rerun job:** job 1897034 runs after both reruns. It re-applies rule set A at
+  `8b6e93d4` (`evidence/a1_o390.json`, `a2_o390.json`) and re-runs the compare into
+  `o390/cmp_a1_a2` (rule set C), checking the tables against the pre-fix compare. It then
+  regenerates the interim `metrics.json` and `REPORT.md` into `$GIAP_ROOT/pilot/metrics/pass3/`;
+  the pre-fix render moves to `pass3_pre390/`.
+- **The reruns:** the A2 and A1 directories were copied to `out_a2_pre390` and `out_a1_pre390`,
+  then resumed in place at the post-fix commit `8b6e93d4` (#390), so the unchanged tasks are reused
+  from the cache. See "OSTIR
+  reruns" below.
+
+## OSTIR reruns after #390
+
+Every pipeline run whose OSTIR task predates #390 is re-run for `rbs` and the `tir_ostir`
+determinant (#397). This is the minimal rerun:
+
+- Each run directory is copied to `<dir>_pre390`, which keeps the accepted attempt and its evidence.
+- Each run is then resumed **in place**. The out directory stays the same, so `params.config` and
+  every task script are unchanged, and Nextflow reuses each task whose hash did not change.
+- The runs use the pinned worktree `pilot-8b6e93d4`. Commit `8b6e93d4` is the #390 merge. Its
+  `workflow/` differs from the pass-3 commit only in the OSTIR module, `nextflow.config` (the env
+  scope) and `images.json`.
+- OSTIR re-runs because its module changed. Its dependants re-run only where their inputs' content
+  changed, because `GIAP_STEP` uses `cache 'deep'`.
+- For the older commits, the changed container strings (`genomad`, `transtermhp`) and, for MVP-04,
+  the `sixframe_index`/`loci` inputs also re-run.
+- Each submission sources `farmshare_env.sh` from that worktree, which exports
+  `PYTHONNOUSERSITE=1`, and keeps the recorded arguments (`--resume`, `--time=12:00:00`).
+- At most two chains run at a time, to stay within this agent's R14 share.
+
+| run | out directory | head job | after | original commit |
+|---|---|---|---|---|
+| pilot pass 3 A2 | `pass3/out_a2` | 1897025 | - | `4ccce8a5` |
+| pilot pass 3 A1 (commit parity) | `pass3/out_a1` | 1897026 | job 1897025 | `4ccce8a5` |
+| pilot pass 1 A1 | `pass1/out_a1` | 1897027 | job 1897026 | `6f969ee7` |
+| pilot pass 1 A2 | `pass1/out_a2` | 1897028 | job 1897027 | `6f969ee7` |
+| pilot pass 2 A3 | `pass2/out_a3` | 1897029 | - | `242ce506` |
+| MVP-04 A1 | `mvp04/20261023_a1` | 1897030 | job 1897029 | `76591515` |
+| MVP-04 A2 | `mvp04/20261023_a2` | 1897031 | job 1897030 | `a6bf2e96` |
+
+The first submission of these runs (jobs 1896986, 1897005, 1897008, 1897010, 1897011 and 1897014)
+failed in 4 s with `uv: command not found`, before any run directory was touched. `GIAP_ROOT` was
+not exported, so the worktree's `farmshare_env.sh` defaulted it to `<worktree>/local`. The wrapper
+now exports it.
+
+The superseded pass-1 A2 attempts (`out_a2_0667e366`, `out_a2_1549a930`) are not rerun: they
+failed rule A3, and no metric reads them.
+
+The table of jobs is `$GIAP_ROOT/runs/ostir390/JOBS.tsv`. Rule set A is re-applied to each rerun
+with `--expect-commit 8b6e93d4`. Each rerun's verdict and its changed rows go into that pass's
+attempts table.
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
