@@ -1,10 +1,10 @@
 # ADR-0061: Scope of the TU-blocked claims under the distance-model operon fallback
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-26
 - Spec sections: §7.1.3, §7.3.5, §7.4.2, §8.1, §8.5; R3, R4; `docs/specs/M11-14-container-install.md`
   14s1 (outcome rule), 14d, 14d2; ADR-0022 and its 14s2 addendum
-- Needs Khoa: yes. It adds a row flag and a caveat, it bears on the 14d2 default, and one
-  finding concerns the UniOP path too (question 2).
+- Needs Khoa: answered 2026-10-26 (Khoa: decision 1 accepted; question 2 resolved as decision 4;
+  plus the preflight warning of decision 5).
 
 ## Context
 
@@ -53,7 +53,7 @@ Two controls on the same worlds were recorded and not gated:
   power and is not anti-conservative. Calls on merged pairs are true discoveries, because a
   promoter lies between the genes.
 
-## Decision (proposed)
+## Decision
 
 1. **Fallback rows are flagged.** When `operon_source = distance_model`, the following rows
    carry `tu_source_distance_model`, and the report states the caveat:
@@ -72,8 +72,19 @@ Two controls on the same worlds were recorded and not gated:
    bound. ORA and determinants stay under their existing flags.
 3. No bound, α, R or tolerance moves (R3). No threshold is re-chosen (14s2: precision 0.828
    [0.805, 0.847], recall 0.916 [0.901, 0.931] at 0.5).
+4. **Every TU-block Moran's I row carries a caveat, on every run** (question 2, Khoa 2026-10-26).
+   Each `morans_i` row with `null_model = tu_block` carries `tu_block_tu_error` whatever the
+   operon source, with the caveat: "Moran's I under the TU-block null assumes exact TU
+   boundaries and is anti-conservative at short lags when TUs are split; rejection at α = 0.05
+   was 0.67 in simulation with UniOP's K-12 error rates". Under the fallback such a row carries
+   both flags. A TU-block null robust to split TUs is a backlog item; when it ships and passes
+   the 14s1 arm, this caveat is retired.
+5. **The fallback is never silent** (Khoa 2026-10-26). Whenever a run will use the distance
+   model (`enabled: false`, `auto` resolving to false, or a recorded failed or absent UniOP
+   setup), preflight warns the user, naming the reason; a UniOP failure during the run is
+   flagged in the run's closing summary as well as in the manifest and report (14d).
 
-## Questions for Khoa
+## Questions for Khoa (answered)
 
 1. Accept decision 1? If accepted, 14d2 (`enabled: auto` as the default) can ship with the flag
    and the caveats. The fallback then delivers at-level results everywhere 14s1 looked, except

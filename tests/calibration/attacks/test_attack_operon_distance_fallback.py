@@ -107,8 +107,8 @@ BETA_IN, BETA_OUT = (8.0, 2.0), (2.0, 8.0)
 #: UniOP's K-12 error rates at 0.5 (ADR-0022: TP 1,476 of P 1,730, FP 172 of N 1,009): the
 #: autocorrelation arm's third, recorded source, which separates "TU errors" from "the fallback"
 UNIOP_K12_SPLIT, UNIOP_K12_MERGE = 1 - 1476 / 1730, 172 / 1009
-#: the scope ADR of the failing gated checks (spec 14s1 outcome rule; proposed, Khoa decides)
-SCOPE_ADR = "ADR-0061 (proposed): uncalibrated under the distance-model fallback"
+#: the scope ADR of the failing gated checks (spec 14s1 outcome rule; accepted 2026-10-26)
+SCOPE_ADR = "ADR-0061: uncalibrated under the distance-model fallback"
 
 
 def scope_xfail(full: bool) -> pytest.MarkDecorator:
