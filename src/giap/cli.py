@@ -507,6 +507,9 @@ def _run_preflight(
     if code != ExitCode.SUCCESS:
         click.echo(render_preflight_md(report), err=True, nl=False)
         sys.exit(code)
+    for c in report.checks:  # the UniOP fallback is never silent (ADR-0061 decision 5)
+        if c.rule_id == "environment.tools" and c.level == "warn":
+            click.echo(f"giap run: warning: environment.tools: {c.message}", err=True)
     work = outdir / "work" / "preflight"
     roots = {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
     for key, (raw, name) in _NORM_INPUTS.items():
