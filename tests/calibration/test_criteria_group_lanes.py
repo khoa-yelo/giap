@@ -46,6 +46,8 @@ SHARD0_ONLY = {
     "test_rr_shard0_assert_fails",  # no harness call
     "test_rr_shard0_strict_xpass",  # no harness call
 }
+#: the shard-0-only skip reason (conftest constant) of each flagged test in a shard K > 0
+SHARD0_REASON = {"test_teeth": "TEETH_SKIP", "test_unshardable": "UNSHARDABLE_SKIP"}
 LANE_VARS = ("GIAP_CALIBRATION_CONFIRM_SLICE", "GIAP_CALIBRATION_CONFIRM_LANES",
              "GIAP_CALIBRATION_CONFIRM_JUNIT")  # fmt: skip
 
@@ -157,6 +159,14 @@ def test_shard0_only_agrees_with_runtest_setup_skips(shard: str, tmp_path: Path)
                 if o == "skipped" and "shard 0 only" in msg}  # fmt: skip
     flagged = {_name(t) for t, flag in report.items() if flag}
     assert skipped0 == (flagged if k > 0 else set()), (skipped0, flagged)
+    # and each for its own reason (review S3): swapping two skip messages is caught
+    mod = _load_conftest()
+    want = {name: SHARD0_REASON.get(name, "SHARD_DIRECT_SKIP") for name in flagged}
+    got = {_name(t): msg for t, (o, msg) in outcomes.items() if _name(t) in skipped0}
+    assert got.keys() == (want.keys() if k > 0 else set())
+    for name, const in want.items() if k > 0 else ():
+        reason = getattr(mod, const)
+        assert got[name] == reason or got[name].endswith(f": {reason}"), (name, const, got[name])
 
 
 # --------------------------------------------------------------------------- group lanes

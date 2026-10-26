@@ -27,6 +27,12 @@ if os.environ.get("GIAP_CONFIRM_LANES_FIXTURE") != "1":
     pytest.skip("confirm-lanes fixture suite: run by test_criteria_confirm_lanes.py only",
                 allow_module_level=True)  # fmt: skip
 
+# the one-dead-lane tooth: the block-2 lane whose slice is ``<DIE>/L`` dies at import, before it
+# logs anything (exit 137, as after an OOM kill); the other lanes and every other run are unaffected
+_DIE = os.environ.get("GIAP_CONFIRM_LANES_FIXTURE_DIE")
+if _DIE and os.environ.get("GIAP_CALIBRATION_CONFIRM_SLICE", "").startswith(f"{_DIE}/"):
+    os._exit(137)
+
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("discordance")]
 S = "discordance"
 FX = "discordance.confirm_lanes_fixture"
@@ -167,3 +173,17 @@ def test_xpass_strict_cal() -> None:
 @STRICT
 def test_xpass_strict_fdrc() -> None:
     verdict(fdrc("xpass_strict_fdrc", 7, bad2=False))
+
+
+# --------------------------------------------------------------------------- scenario "raise"
+
+
+def test_raise_after_log() -> None:
+    """Block 1 fails, block 2 passes (``unconfirmed``), but the process holding the block's last
+    replicate raises RuntimeError after its record is logged (``_gc``'s reach check on a broken
+    injection): the unsharded run, the sequential confirm run and exactly one block-2 lane."""
+    R = 5
+    rec = level("raise_after_log", R, bad2=False)
+    if rec.get("block") == 2 and rec["start"] <= 2 * R - 1 < rec["stop"]:
+        raise RuntimeError("fixture: reach check failed after logging")
+    verdict(rec)

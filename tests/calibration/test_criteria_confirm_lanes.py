@@ -235,6 +235,10 @@ SCENARIOS = {
 WANT = {"ok": 0, "fail": 1, "xpass": 1, "vacuous": 0}  # unsharded pytest exit (0 / non-zero)
 WANT_MERGE = {"ok": 0, "fail": C.MERGE_FAIL, "xpass": C.MERGE_FAIL, "vacuous": 0}
 PENDING = {"ok": True, "fail": True, "xpass": True, "vacuous": False}
+#: scenarios outside the equivalence matrix: ``raise`` = a pending check that logs its block-2
+#: slice and then raises RuntimeError in the process whose slice holds the block's last replicate
+#: (``_gc``'s reach check; review S2): one lane of several, the sequential run, the unsharded run
+EXTRA = {"raise": "pass_b1 or raise_after_log or cal_unconfirmed"}
 #: fields compared between a lane merge and the reference (``duration`` aside); ``values`` apart
 FIELDS = ("status", "observed", "bound", "seed", "ok", "R", "block", "start", "stop", "m", "key",
           "test", "xfail")  # fmt: skip
@@ -271,7 +275,7 @@ def _base(scenario: str, root: Path) -> tuple[Path, int, Path]:
     """(unsharded log, unsharded pytest exit, block-1 shard log) of ``scenario``, built once per
     process; every merge works on a copy of the shard log."""
     if scenario not in _BASE:
-        sel = SCENARIOS[scenario]
+        sel = {**SCENARIOS, **EXTRA}[scenario]
         one, shards = root / scenario / "one", root / scenario / "shards"
         cmd = [sys.executable, "-m", "pytest", *_args(sel)]
         rc = subprocess.run(cmd, env=_env(one), cwd=C.REPO, check=False).returncode
@@ -288,7 +292,7 @@ def _merge(scenario: str, root: Path, dest: Path, env: dict[str, str]) -> int:
     _one, _rc, shards = _base(scenario, root)
     shutil.copytree(shards, dest)
     with pytest.MonkeyPatch.context() as mp:
-        _setup(mp, dest, SCENARIOS[scenario])
+        _setup(mp, dest, {**SCENARIOS, **EXTRA}[scenario])
         for k, v in env.items():
             mp.setenv(k, v)
         return C.main(["--suite", SUITE, "--fast", "--merge"])
@@ -385,23 +389,34 @@ def test_block_2_on_lanes_equals_the_sequential_and_unsharded_runs(
     ]
     assert not [o for o in new_outcomes if json.loads(o).get("outcome") == C.DEFERRED]
 
-    # the L block-2 pytests write L distinct JUnit files, listed in confirm_parts.json
+    # the L block-2 pytests write L distinct JUnit files, listed in confirm_parts.json; L = 1 too
+    # (lead decision on review S1: one process with its own lane-0 JUnit, so the job's ``parts``
+    # follows one rule whenever CONFIRM_LANES is set)
     names = [f"{JUNIT_BASE}.lane{k}.junit.xml" for k in range(L)]
-    if L >= 2:
-        parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
-        assert isinstance(parts, list)
-        if PENDING[scenario]:
-            assert sorted(parts) == sorted(names), parts
-            assert len(set(parts)) == L
-            for name in names:
-                assert (log / name).is_file(), name
-            # the per-lane --junitxml (command line) wins over the inherited PYTEST_ADDOPTS one
-            assert not (log / "task-5.merge.junit.xml").exists()
-        else:
-            assert parts == [], parts
-            assert not list(log.glob(f"{JUNIT_BASE}.lane*.junit.xml"))
-    elif PENDING[scenario]:  # L = 1: one process and today's JUnit, as unset
-        assert (log / "task-5.merge.junit.xml").is_file()
+    parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
+    assert isinstance(parts, list)
+    if PENDING[scenario]:
+        assert sorted(parts) == sorted(names), parts
+        assert len(set(parts)) == L
+        for name in names:
+            assert (log / name).is_file(), name
+        # the per-lane --junitxml (command line) wins over the inherited PYTEST_ADDOPTS one
+        assert not (log / "task-5.merge.junit.xml").exists()
+    else:
+        assert parts == [], parts
+        assert not list(log.glob(f"{JUNIT_BASE}.lane*.junit.xml"))
+
+
+@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
+def test_unset_lanes_keeps_todays_junit_and_writes_no_parts(
+    scenario: str, references: dict[str, tuple[int, Path]]
+) -> None:
+    """CONFIRM_LANES unset: today's behaviour (one process, the PYTEST_ADDOPTS JUnit, no
+    ``confirm_parts.json``, no lane JUnit)."""
+    _rc, ref_log = references[scenario]
+    assert not (ref_log / f"{SUITE}.confirm_parts.json").exists()
+    assert not list(ref_log.glob(f"{JUNIT_BASE}.lane*.junit.xml"))
+    assert (ref_log / "task-5.merge.junit.xml").is_file() == PENDING[scenario]
 
 
 def _by_check_stream(log: Path) -> dict[str, dict[str, Any]]:
@@ -490,3 +505,63 @@ def test_a_dead_block_2_lane_is_a_merge_error(base_root: Path, tmp_path: Path) -
     assert _merge("ok", base_root, log, env) == C.MERGE_ERROR
     parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
     assert sorted(parts) == [f"{JUNIT_BASE}.lane{k}.junit.xml" for k in range(2)]  # launched
+
+
+@pytest.mark.parametrize("L", [2, 3])
+def test_a_lane_that_raises_after_logging_is_a_merge_error(
+    L: int, base_root: Path, tmp_path: Path
+) -> None:
+    """Review S2: one lane logs its slice of a pending check, then raises RuntimeError (outside
+    ``raises=AssertionError``); the other lanes succeed. Every replicate is logged and the check
+    is ``unconfirmed``, so the records alone say exit 0: only the folded lane exit carries the
+    failure. ``--merge`` must give MERGE_ERROR, as the sequential confirm run does."""
+    _one, rc_one, _shards = _base("raise", base_root)
+    assert rc_one != 0  # the unsharded run fails too (the raise is in its block 2)
+    ref = tmp_path / "ref"
+    assert _merge("raise", base_root, ref, _lane_env(ref, None)) == C.MERGE_ERROR
+    log = tmp_path / "log"
+    assert _merge("raise", base_root, log, _lane_env(log, L)) == C.MERGE_ERROR
+    stream = f"{FX}.raise_after_log"
+    R = 5
+    assert _block2(log)[stream] == _expected_slices(R, L)  # every slice logged: block 2 complete
+    raised = [k for k in range(L) if R + C.shard_replicates(R, L, k).stop == 2 * R]
+    assert raised == [L - 1]  # exactly one lane raised; the others passed
+    parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
+    assert sorted(parts) == [f"{JUNIT_BASE}.lane{k}.junit.xml" for k in range(L)]
+
+
+@pytest.mark.parametrize("L", [2, 3])
+def test_one_dead_lane_of_several_is_a_merge_error(L: int, base_root: Path, tmp_path: Path) -> None:
+    """Statistician's gap: only lane 1 dies (killed before it logs, exit 137 as after an OOM
+    kill); the other lanes finish and log. Block 2 is incomplete: MERGE_ERROR, never a verdict."""
+    log = tmp_path / "onedead"
+    env = {**_lane_env(log, L), "GIAP_CONFIRM_LANES_FIXTURE_DIE": "1"}
+    assert _merge("ok", base_root, log, env) == C.MERGE_ERROR
+    parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
+    assert sorted(parts) == [f"{JUNIT_BASE}.lane{k}.junit.xml" for k in range(L)]
+    assert not (log / f"{JUNIT_BASE}.lane1.junit.xml").exists()  # lane 1 died
+    for k in set(range(L)) - {1}:
+        assert (log / f"{JUNIT_BASE}.lane{k}.junit.xml").is_file(), k  # the others ran
+    lane0 = C.shard_replicates(5, L, 0)
+    assert (5 + lane0.start, 5 + lane0.stop) in _block2(log)[f"{FX}.cal_unconfirmed"]
+
+
+@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
+def test_a_stray_confirm_slice_without_lanes_gives_the_reference(
+    scenario: str, base_root: Path, tmp_path: Path, references: dict[str, tuple[int, Path]]
+) -> None:
+    """Review S4: CONFIRM_LANES unset and a stray ``GIAP_CALIBRATION_CONFIRM_SLICE=1/3`` in the
+    merge's environment: the sequential confirm child must not inherit it, so block 2 runs whole
+    and the merge gives the reference exit and records."""
+    rc_ref, ref_log = references[scenario]
+    log = tmp_path / "stray"
+    assert _merge(scenario, base_root, log, {**_lane_env(log, None), SLICE_ENV: "1/3"}) == rc_ref
+    ref = _by_check(C.read_results(ref_log / f"{SUITE}.merged.jsonl"))
+    got = _by_check(C.read_results(log / f"{SUITE}.merged.jsonl"))
+    assert got.keys() == ref.keys() and ref
+    for key, r in ref.items():
+        assert json.dumps(got[key]["values"]) == json.dumps(r["values"]), key
+        assert {f: got[key].get(f) for f in (*FIELDS, "outcome")} == {
+            f: r.get(f) for f in (*FIELDS, "outcome")
+        }, key
+    assert _block2(log) == _block2(ref_log)
