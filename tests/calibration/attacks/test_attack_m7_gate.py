@@ -268,7 +268,8 @@ def _gc(R: int, q: float, xfail_cell: bool = False) -> None:
     rec = C.calibrate_fdr_counts(NSUITE, "novel_orfs.gc", k, q, lambda i: N.gc_record(i)["gc"],
                                  R, vacuous={"n_targets": 1.0 / q})  # fmt: skip
     # injection reach (review B2): RuntimeError, so the full-tier xfail cannot absorb it
-    if rec["status"] != C.SKIPPED_STATUS:
+    # an empty block-2 lane slice (R < lanes; M11-03c) ran nothing, so there is no reach to check
+    if rec["status"] != C.SKIPPED_STATUS and rec["stop"] > rec["start"]:
         ran = [N.gc_record(i) for i in range(rec["start"], rec["stop"])]
         N.check_reach(sum(int(r["entered"]["rows"]) for r in ran),
                       sum(int(r["injected"]) for r in ran), f"attack GC q {q}")  # fmt: skip

@@ -14,9 +14,10 @@ c. A manifest in the real ``giap setup`` format (tests/data/db_manifest/db_manif
    and paths faked) and fake container/env directories; never the real $GIAP_DB_DIR / $GIAP_ROOT.
 
 Interface pinned here (implementer):
-- ``giap.preflight.environment.missing_tools(tools, profile, giap_root) -> list[str]``: sorted
+- ``giap.preflight.environment.missing_tools(tools, profile, image_cache, env_root, local_tools)
+  -> list[str]`` (14f1; called here with a fake ``$GIAP_ROOT``'s two directories): sorted
   registry names of ``tools`` (``Sequence[ToolSpec]``) not found for the comma-joined ``profile``
-  under ``giap_root`` (``Path``); ``[]`` when ``profile`` names ``test`` or ``stub``.
+  under the fake root; ``[]`` when ``profile`` names ``test`` or ``stub``.
 - ``requirements(modules, mode)`` lists databases and models only (kinds ``db``/``model``).
 - ``read_manifest(db_dir)`` maps setup item names to requirement names (groups all-``ok``).
 - ``run_preflight(..., giap_root=<Path>, profile=<str>)`` keywords; with ``probe=None`` the
@@ -79,7 +80,12 @@ def _missing_tools() -> Any:
 
     fn = getattr(environment, "missing_tools", None)
     assert fn is not None, "giap.preflight.environment.missing_tools is not implemented"
-    return fn
+
+    def under_root(tools: list[ToolSpec], profile: str, root: Path) -> list[str]:
+        """Images in ``<root>/containers``, envs in ``<root>/micromamba/envs`` (14f1)."""
+        return fn(tools, profile, root / "containers", root / "micromamba" / "envs", None)
+
+    return under_root
 
 
 def external_tools() -> list[ToolSpec]:
@@ -122,16 +128,25 @@ def test_fixture_helpers_match_the_repo_configs(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- a. tools from the registry
 
 
+def _no_conda(profile: str) -> list[str]:
+    """14f1: plain apptainer runs no conda, so conda-only tools are missing there (fgsea is
+    started by the function step, not by a conda directive, so its env still counts)."""
+    if "conda" in profile or profile.startswith("farmshare"):
+        return []
+    return sorted(t for t in conda_only_tools() if t != "fgsea")
+
+
 @pytest.mark.parametrize("profile", APPTAINER_PROFILES)
 def test_a_all_tools_present_in_fake_root(tmp_path: Path, profile: str) -> None:
     root = fake_giap_root(tmp_path / "root")
-    assert _missing_tools()(external_tools(), profile, root) == []
+    assert _missing_tools()(external_tools(), profile, root) == _no_conda(profile)
 
 
 @pytest.mark.parametrize("profile", APPTAINER_PROFILES)
 def test_a_missing_image_reported_by_name(tmp_path: Path, profile: str) -> None:
     root = fake_giap_root(tmp_path / "root", skip=["bakta", "miniprot"])
-    assert _missing_tools()(external_tools(), profile, root) == ["bakta", "miniprot"]
+    want = sorted(["bakta", "miniprot", *_no_conda(profile)])
+    assert _missing_tools()(external_tools(), profile, root) == want
 
 
 def test_a_image_must_match_the_pinned_digest(tmp_path: Path) -> None:
@@ -292,6 +307,8 @@ def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         empty = tmp_path / f"unset_{var.lower()}"
         empty.mkdir()
         monkeypatch.setenv(var, str(empty))
+    # 14f1: a set cache directory wins over $GIAP_ROOT/containers; unset, never the session's
+    monkeypatch.delenv("NXF_APPTAINER_CACHEDIR")
 
 
 def _run_preflight(tmp_path: Path, root: Path, db: Path, profile: str) -> Any:

@@ -161,6 +161,7 @@ nav:
       - adr/ADR-0058-annotated-stop-substitution.md
       - adr/ADR-0059-bare-image-refs.md
       - adr/ADR-0060-release-versioning-and-image-keys.md
+      - adr/ADR-0061-distance-model-fallback-scope.md
   - Developer guide:
       - developer.md
       - release.md
