@@ -162,7 +162,9 @@ qc	length_class	20-40	stratum0_unmapped_share	NA	NA	NA	0
 qc	length_class	7	stratum0_unmapped_share	NA	NA	NA	0	
 qc	length_class	8	stratum0_unmapped_share	NA	NA	NA	0	
 qc	length_class	9	stratum0_unmapped_share	NA	NA	NA	0	
+qc	placement_flag	pyl_site	n_peptides	0	NA	NA	11982	
 qc	placement_flag	readthrough	n_peptides	0	NA	NA	11982	
+qc	placement_flag	sec_site	n_peptides	0	NA	NA	11982	
 qc	placement_kind	exact	n_peptides	7277	NA	NA	11982	
 qc	placement_kind	frameshift	n_peptides	0	NA	NA	11982	
 qc	placement_kind	tolerant	n_peptides	4705	NA	NA	11982	

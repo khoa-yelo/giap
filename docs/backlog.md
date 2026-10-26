@@ -1132,6 +1132,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (#334 review nit 5) The offline guard (`scripts/pilot/cascadia_offline.py`) does not block DNS lookups (`socket.getaddrinfo`, `_socket`); block them too.
 - (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
 - (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
+- #346 review S4/S5 (M7-16c): pin the giapsim selenoprotein exclusion rules against the surviving mutants (C11, `test_giapsim_selenoproteins.py`, incl. M33 the N-extension RBS window); make C12's vacuous acceptance at 100 kb visible (warn or non-strict xfail when `n_acc == 0`). Test-author, small PR.
 
 ### 2026-10-25 afternoon (lead)
 - **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
@@ -1140,6 +1141,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
 - **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
 - **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
+
+### M11-14 spec review nits (#367)
+- #370 review N4 (14u2): preflight hashes the UniOP `.sif` (≈ 1 GB) on every run; cache the hash by `(size, mtime)` in `local_build`, or record that the cost is accepted.
+- #370 review N5 (14u2): `scripts/build_envs.sh` builds the FarmShare prebuilt `giap-uniop` with an unchecked `git clone`, while `setup --uniop` uses the sha256-checked archive; move `build_envs.sh` to the same verified archive, or record why the two paths may differ.
+- Code review N3: the published images redistribute GPL-3 tools (OSTIR, PromoTech, Promoter Calculator, BacTermFinder) and GPL-2 R (fgsea image). Add one line to the spec and NOTICE on how corresponding source is offered (the `org.opencontainers.image.source` label, the pinned commit and archive URL, NOTICE links), or cite M11-06 AC 4 and extend it to fgsea/R. Docs role, with 14c or 14i.
 
 ### 2026-10-25 evening (lead)
 - #350 review backlog (M7-16b-3): spec lines on `n_readthrough = 10` (around the 16b e2e items) and `tests/unit/test_sim_readthrough.py` still cite 10, not 40; de novo errors give two `multi_nt` candidate ALT rows at planted stops (assert every REF `*` site is a planted stop?); add floors (`assert called` in the patch round trip; planted stops ⊆ index terminal sites); give the consuming-rows test its own floor constant; fix the `expressed_proteins` docstring on how the interval grows; pin `pick_readthrough`'s feature order; drop stale `# type: ignore` on `n_readthrough`.
@@ -1295,3 +1301,26 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - `FAMILY_ORDER.index` raises `ValueError` for an `operon_flag` Locus built without a family (only `_flag_loci` builds them today).
   - `_order` looks up the family position per locus and `_index` recomputes the tier per row (negligible).
   - The user guide could say "BH q-value within each region type".
+- **#359 review (demo peptides; B1 and S1, S3, S4 fixed in the PR):**
+  - Bug (src, own PR): `run_manifest.json` `detection_tier` copies preflight's provisional tier (`src/giap/manifest.py:374`), so it says `decoy_picked` while genes.tsv and detection_summary.tsv say `mayu` (demo run 1894327: unscored decoys, rule 4(c)). The `decoy_unscored` warning is also missing from the manifest warnings.
+  - S2: no CI test runs `scripts/docs/make_demo_peptides.py --check`; a later giapsim change could silently break the committed table. Test-author.
+  - Option: have the generator emit scored decoys so the demo shows the `decoy_picked` tier.
+  - Nits: the `cp ../tests/...` step assumes the repo root; download URLs point at unpinned `main`; the gz checksum can vary with the zlib build (`--check` compares uncompressed bytes); README keeps `--profile docker` while the quickstart says FarmShare/apptainer; `MAX_BYTES = 100_000` vs "100 KB".
+  - Demo run warning: one work dir had an unreadable `versions.yml` (ScannerError), skipped by `giap.io.manifest_sources`.
+- **M10-04 (#296) pass-1 findings (validation, 2026-10-25):**
+  - antiSMASH did not run in either arm: the precomputed Bakta JSON has no GBFF next to it, so the step is skipped while the bgc module is on (A9 passes because `modules_off` is empty). Write or locate the GBFF for pass 2, or make the skip a `layers_missing` warning in the report.
+  - A2 lacks `rbs_novel`; its novel-ORF promoter and RBS layers are `not_run`.
+  - `pilot_compare.sbatch` does not record the commit it ran at; record `git -C $GIAP_REPO rev-parse HEAD` in compare.json.
+  - Superseded outdirs renamed after the run keep `out_a2` in their manifests' `command_line`.
+- **Review follow-ups (lead, 2026-10-25):** preflight `_has_ranking` reports `decoy_picked` when the decoy ranking columns are all NA; giapsim `scored_null` yields 0 protein-entry nulls; M11-08 spec line 85 is stale; the 14 slow calibration tests need a Slurm home.
+- **#364 M10-10a review (APPROVE; S1/S2 tests added in the PR):**
+  - S3: `pilot_compare.sbatch` asks `--mem=8G` (8192M on 2 CPUs allocates 3 CPUs at MaxMemPerCPU 4000); the M10-10 Jobs table says 8000M. M10-04's `test_m10_04_compare_job.py:201` pins 8G; change both together.
+  - `cascadia_convert.py` docstring says `src/` is put on `sys.path` (it is, only through the `diann_convert` import); `a3.convert.json` `command` is rebuilt, not the real argv; the 2-label `compare.json` has three extra keys; `A3_OUT_DIR` also redirects the casanovo branch; `$A3` has no outside-the-checkout guard; `--arm A3` A5 requires `reference_peptides` only when passed; a stale `a3.FAILED` stays when the gate or a precondition exits; seven untested boundary cases (review comment).
+- **#363 (manifest detection_tier):** the registry path `giap _step manifest` (`manifest_step`) has no `genes` input, so it still records preflight's tier; `giap run` (`run_tail`) is fixed. Add an optional input if that path is ever used for real runs.
+- **#363 review nits:** `read_detection_tier` does not warn when genes.tsv and detection_summary.tsv disagree; `test_manifest_cli_local.py:223` and `test_manifest_cli_nextflow.py:162` still assert manifest tier == preflight tier (pass only because the sim's tiers agree; point them at genes.tsv); `test_manifest_detection_tier.py` mixes import styles; `manifest_step`'s docstring should say it records the provisional tier.
+- **#366 M10-10b statistical review (LIFT; one round, nits deferred):**
+  - H4 level depends on bin size: `a2_false_confirm` false `not_supported` 0.00 at 300–1,000 peptides/bin, 0.02 at 2,000, 0.27 at 5,000 (scratch seeds, statistician). Add an H4 / methods-table caveat (valid up to ~2,000 peptides per bin at 1 % A2 false confirmations), a reported (not gated) `a2_false_confirm` n=5,000 attack scenario, and Khoa's "correct `L_b` for A2's FDR" amendment before H4 is reused on a larger dataset.
+  - `validation/pilot/report_template.md:226` should say `not_supported` needs two consecutive reportable bins.
+  - No unit test pins the strict `<` at `genome.ci_high == L_b_adj.ci_low` (equal reads `consistent`).
+  - `tests/calibration/attacks/test_attack_h4_lower_bound.py` docstring still describes the one-bin rule (statistician-only docstring edit).
+- **#374/M11-14p review nits (one round):** update_digests follows only line-leading `includeConfig` (inline profile includes are not; the docstring should say so); with docker `-u`, `HOME=/` is not writable in the container and the tools' cache writes are untested (the probe runs `bakta --version` only); a `db_dir` with spaces or `:` breaks the bind argument (apptainer too); `docker_db.nf.test` without `GIAP_SMOKE_DB_DIR` leaves a temp dir per load; the actions warn about the Node 20 deprecation (as the existing job).

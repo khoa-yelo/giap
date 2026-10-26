@@ -20,6 +20,7 @@ from typing import Any
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 import yaml
 
+from giap.io.tsv import read_tsv
 from giap.manifest import canonical_json
 from giap.runner.nextflow import _task_dir
 
@@ -122,6 +123,38 @@ def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
                for k in (*_COUNTS, "jaccard", "agreement")}  # fmt: skip
         out.append({"family": r["family"], "variant": r["variant"], **num})
     return out
+
+
+def _column(path: Path, col: str, where: Mapping[str, str] | None = None) -> set[str]:
+    """Distinct non-NA values of ``col`` in the rows matching ``where``; empty when the table has
+    no such column or is malformed. GIAP's TSVs are unquoted, so cells are split on tabs only."""
+    try:
+        header, rows = read_tsv(path)
+    except ValueError:
+        return set()
+    if col not in header:
+        return set()
+    idx = {name: i for i, name in enumerate(header)}
+    conds = [(idx.get(k), v) for k, v in (where or {}).items()]
+    values: set[str] = set()
+    for row in rows:
+        if all(i is not None and row[i] == v for i, v in conds):
+            value = row[idx[col]]
+            if value is not None:
+                values.add(value)
+    return values
+
+
+def read_detection_tier(tables: Path) -> str | None:
+    """The tier the run's detection used (§7.3.2): ``genes.tsv`` ``detection_tier``, else the
+    ``detection_summary.tsv`` ``tier`` rows' ``group``; None when absent, empty or not one tier."""
+    genes, summary = tables / "genes.tsv", tables / "detection_summary.tsv"
+    tiers: set[str] = set()
+    if _nonempty(genes):
+        tiers = _column(genes, "detection_tier")
+    if not tiers and _nonempty(summary):
+        tiers = _column(summary, "group", {"section": "tier", "group_type": "tier"})
+    return tiers.pop() if len(tiers) == 1 else None
 
 
 def read_island_diagnostics(path: Path | None) -> list[dict[str, Any]] | None:

@@ -38,6 +38,7 @@ from giapsim.readthrough import (
     readthrough_rows,
 )
 from giapsim.scenario_truth import plant_novel_rbs, strong_tirs, write_m7_truth
+from giapsim.selenoproteins import SEC_COLUMNS, plant_selenoproteins
 from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
 from giapsim.strain import STOP_LOSS_COLUMNS, StrainConfig, derive_strain, stop_loss_rows
 
@@ -127,6 +128,8 @@ class SimConfig:
     # (mu, sigma) of the log TIR of planted novel starts in rbs_novel (M7-12 decision 14); the
     # default is the first-round TU RBS distribution; used only with plant_novel_rbs
     planted_tir: tuple[float, float] = (8.0, 0.8)
+    # M7-16c: annotated CDSs with one Sec (U over TGA) codon; 0 = off (nothing drawn)
+    n_selenoproteins: int = 0
     # M7-16 rule 14: genes whose expressed protein reads through the annotated stop to the next
     # in-frame stop 5-60 codons on (giapsim.readthrough); 0 = off
     n_readthrough: int = 0
@@ -157,6 +160,8 @@ class SimConfig:
             raise ValueError("n_readthrough must be >= 0")
         if self.denovo is not None and self.proteomics is None:
             raise ValueError("denovo needs SimConfig.proteomics")
+        if self.n_selenoproteins < 0:
+            raise ValueError("n_selenoproteins must be >= 0")
         if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
         bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
@@ -559,6 +564,8 @@ def _signal_truth(st: _V2, chrom: str, feats: list[Feat], seqs: dict[str, str]) 
 def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     """Simulate a genome with ``config`` and ``seed``; write inputs and truth under ``outdir``."""
     prot = config.proteomics
+    if config.n_selenoproteins and config.strain is not None:
+        raise ValueError("n_selenoproteins > 0 with strain is not supported (M7-16c rule 23)")
     if prot is not None and prot.wrong_source == "other_strain" and config.strain is None:
         raise ValueError("ProteomicsConfig(wrong_source='other_strain') needs SimConfig.strain")
     rng = np.random.default_rng(seed)
@@ -623,6 +630,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )  # fmt: skip
     mrng = np.random.default_rng([seed, _M7_STREAM])  # M7-12 draws; unused by older configs
     planted = plant_novel_rbs(mrng, seqs, novel, feats) if config.plant_novel_rbs else set()
+    sec_rows = plant_selenoproteins(config.n_selenoproteins, seed, seqs, feats, novel)
     text = {cid: s.decode() for cid, s in seqs.items()}
     circular = {cid: topo == "circular" for cid, _, topo in contigs}
     rt = pick_readthrough(config.n_readthrough, seed, feats, text, circular)  # M7-16 rule 14
@@ -654,6 +662,10 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth, gff3=gff,
         truth={"genes": truth, "features": feat_truth},
     )  # fmt: skip
+    if config.n_selenoproteins:
+        sec_truth = out / "truth" / "selenoproteins.tsv"
+        _tsv(sec_truth, SEC_COLUMNS, sec_rows)
+        res = replace(res, truth={**res.truth, "selenoproteins": sec_truth})
     if config.strain is not None:
         dg = ((7, 30), 1) if prot is None else (prot.digest_len, prot.missed_cleavages)
         ref_seqs, lifted, rows, stop_loss = derive_strain(config.strain, seed, text, feats, dg)

@@ -98,6 +98,7 @@ def _content_files(outdir: Path) -> dict[str, Any]:
         "sensitivity": ms.read_sensitivity(outdir / "tables" / "sensitivity.tsv"),
         "island_diagnostics": ms.read_island_diagnostics(
             outdir / "context" / "island_diagnostics.parquet"),
+        "detection_tier": ms.read_detection_tier(outdir / "tables"),
     }  # fmt: skip
 
 

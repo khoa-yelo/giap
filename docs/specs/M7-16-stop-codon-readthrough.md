@@ -3,13 +3,14 @@
 Milestone M7 · track R (mapping) · **pass 2 · option B accepted by Khoa (2026-10-24, "B"); ADR-0058**
 · depends on: merged M3-06/M3-07/M3-08 tolerant routes, M3-10 placement FDR, M3-14 loci, M3-21
 placement suites, M3-23 makedb; M4-16 detection summary; M7-01, M7-05, M7-07, M7-09, M7-11b,
-M7-12, M7-18 · estimate ≈ 490 code lines in three PRs (+ ≈ 155 simulator lines, + ≈ 1,400 test
+M7-12, M7-18 · estimate ≈ 544 code lines in three PRs (+ ≈ 185 simulator lines, + ≈ 1,700 test
 lines; 16a merged as #331) · **stats**: the
 statistician reviews this spec and the `placement-fdr.md` addition **before any code** (§14.1);
 reviewed 2026-10-24 at e7f7f744 (APPROVE WITH CHANGES), and the required changes 1–9 are applied
 in the rules, test plan and acceptance criteria below · **amended 2026-10-24 evening** with
 Khoa's decisions for 16b and the 16c labels (section "Amendment: 16b reporting and the 16c
-labels")
+labels") · **16c amendment 2026-10-25** after the statistician's pre-code check (section "16c
+amendment (2026-10-25)")
 
 The decision-gated text (the gap, the options, the original questions) is kept unchanged below as
 history. The buildable spec starts at "Accepted: option B".
@@ -111,6 +112,8 @@ fdnG needs ADR-0058 item 6.
    a table-11 stop, skip the feature and count it under `not_a_stop` (for example a 3′-partial gene
    at a linear contig edge). Several features with the same `(contig, strand, codon_start)` form one
    site, with `locus_tags` sorted. Output sorted by (contig order, strand, codon_start).
+   **16c:** with `recoded=True` the internal `U`-over-TGA and `O`-over-TAG codons are added as
+   `recoded` sites (rule 21: residue → codon map, length check, skip-and-count, merge).
 2. **Locating the cells** (`frame_cells`, pure). Let `x` range over the codon's positions in the
    frame's extended sequence: `codon_start`, plus `codon_start + n` when that fits inside `ext_nt`
    on a circular replicon.
@@ -151,7 +154,8 @@ fdnG needs ADR-0058 item 6.
    -> StopCells` reads the cells, and format-1 files raise `ValueError` ("rebuild the six-frame
    index"). `map_tolerant` loads the cells and passes them to both routes. `sixframe_index` emits
    one INFO event `mapping.stop_sites` with `data = {"terminal": n, "recoded": 0, "not_a_stop": n,
-   "cells_target": n, "cells_decoy": {kind: n}}`. An empty gene model gives zero sites, an
+   "cells_target": n, "cells_decoy": {kind: n}}` (16c: `recoded` counts the recoded sites, the
+   cell totals include them, and `recoded_skipped` is added; rule 22). An empty gene model gives zero sites, an
    unchanged search and the event with zeros.
 9. **Placement FDR, loci and outputs.** No code change. Read-through hits are tolerant rows at
    `n_diff ≥ 1` and enter strata 1–2 with π̂ = 1. M3-14 classifies them: crossing the annotated 3′
@@ -212,7 +216,7 @@ fdnG needs ADR-0058 item 6.
     keeps the original stop. Truth goes to `truth/readthrough.tsv`: locus_tag, contig, strand,
     codon_start, codon, residue, ext_stop (0-based start of the new stop codon),
     `n_true_peptides_spanning`. In 16c, `n_selenoproteins: int = 0` plants an internal TGA read as
-    `U` with `U` in the annotated protein.
+    `U` with `U` in the annotated protein; the full rule is rule 23.
 
 ## Examples
 
@@ -232,7 +236,7 @@ with `genome_relation = same`.
 | # | Input | Expected |
 |---|---|---|
 | 1 | Query `WQLNEFKWVPAGHTL` (15 aa, k = 2) | one target row: `route` tolerant, `aa [11, 26)`, interval `c1:[33, 78) +`, `n_diff` 1, `diff_types` `substitution`; `locus_class` `cterm_extension`, gene G1 (crosses G1's 3′ end in frame). Variants: codon 54 REF `*` (TGA) ALT `W`, flags `snv;stop_codon` (`snv;strain_difference;stop_codon` under `related`); VCF POS 55, REF TGA, ALT TGG |
-| 2 | **Sec peptide over fdnG's UGA**, Nissle, `search_db = same`: `SLGMLAVDNQARVUHGPTVASLAPTFGR` (28 aa); JMJJOG_02511, `−` `[2576167, 2579215)`; frame window `SLGMLAVDNQARV*HGPTVASLAPTFGR` over `[2578585, 2578669) −`, the `*` = internal TGA `[2578627, 2578630)` | **16a/16b (ADR-0058 items 1–5): no target row**: the TGA is not the gene's last codon (`[2576167, 2576170)`), so it is not marked; the peptide stays `no_hit` exactly as on main. **16c (item 6, if Khoa accepts):** one row `[2578585, 2578669) −`, `n_diff` 1, `cds_inframe` JMJJOG_02511; variants: codon 2578627 ALT `U`, `candidate` (one distinct unique peptide), flags `stop_codon;vcf_unrepresentable`, no VCF record (would be POS 2578628) |
+| 2 | **Sec peptide over fdnG's UGA**, Nissle, `search_db = same`: `SLGMLAVDNQARVUHGPTVASLAPTFGR` (28 aa); JMJJOG_02511, `−` `[2576167, 2579215)`; frame window `SLGMLAVDNQARV*HGPTVASLAPTFGR` over `[2578585, 2578669) −`, the `*` = internal TGA `[2578627, 2578630)` | **16a/16b (ADR-0058 items 1–5): no target row**: the TGA is not the gene's last codon (`[2576167, 2576170)`), so it is not marked; the peptide stays `no_hit` exactly as on main. **16c (item 6, approved; rules 21–26):** one row `[2578585, 2578669) −`, `n_diff` 1, `cds_inframe` JMJJOG_02511; variants: codon 2578627 ALT `U`, `candidate` (one distinct unique peptide), flags `stop_codon;vcf_unrepresentable`, no VCF record (would be POS 2578628) |
 | 3 | **Non-annotated in-frame stop:** query `HTLDMRKQAAGLKE` (14 aa, k = 2) over `aa [23, 37)` = `HTLDMRK*AAGLKE` | no target row: p = 30 is not marked, so the `*` is never consumed; no other window within 2; `unmapped` `no_hit` |
 | 4 | **Annotated stop + one more mismatch, over budget:** `NEFKWVPAGHA` (11 aa, k = 1) vs `aa [14, 25)` = `NEFK*VPAGHT` | no row (cost 2 > 1) |
 | 4b | Same window, `NEFKWVPAGHT` (11 aa, k = 1) | one row `[42, 75) +`, `n_diff` 1 (the stop is the only allowed difference) |
@@ -243,7 +247,7 @@ with `genome_relation = same`.
 | 7b | Patch row `Note=cterm_extension`, G1, `[0, 126) +` (runs over p = 30) | `ValueError`: "patch CDS G1_patch has an internal stop codon" (only the annotated stop becomes `X`) |
 | 8 | **Minus strand:** contig `c2` linear, 300 nt; G2 CDS `−` `[120, 210)`, stop codon `[120, 123)` (gene-strand TAA) | site `(c2, −, 120)`; cell in frame `−0` (`ext_nt` 300, offset 0) at p = (300 − 0 − 3 − 120)/3 = 59; `to_interval(−0, 59, 60)` = `c2:[120, 123) −`. A read-through peptide's flank lies at coordinates < 120 |
 | 9 | Second-pass peptide over the patched `X`: the engine reports `…NEFKXVPAG…` | placed as example 1 (any query letter over a marked cell costs 1); variants skip the X op (`ambiguous`, M7-18), so no ALT site; the ORF evidence (example 6) is unchanged |
-| 10 | Nissle, ADR-0058 items 1–5, `sixframe_index` | event `mapping.stop_sites`: `terminal` 4,689, `not_a_stop` 3, `recoded` 0, `cells_target` 4,689 (all four replicons are circular in the recording; the 3 are partial genes at plasmid edges, JMJJOG_04967/04968/04975), equal decoy counts |
+| 10 | Nissle, ADR-0058 items 1–5, `sixframe_index` | event `mapping.stop_sites`: `terminal` 4,689, `not_a_stop` 3, `recoded` 0, `cells_target` 4,689 (all four replicons are circular in the recording; the 3 are partial genes at plasmid edges, JMJJOG_04967/04968/04975), equal decoy counts. **16c column:** example 29 (`recoded` 3, `cells_target` 4,692) |
 
 ## Edge cases
 
@@ -293,7 +297,7 @@ They are written in here, not re-opened:
 - **D3 (16c, approved).** ADR-0058 item 6 is in force: annotated internal Sec/Pyl codons (`U`
   over TGA, `O` over TAG in the Bakta protein) are consumable, mirrored in the decoys. Rows that
   consume them get the flags `sec_site` and `pyl_site`. Only the label part is written here (rule
-  19); the 16c matcher part is rule 1's `recoded` kind, already specified. 16c is next after 16b.
+  19); the 16c matcher part is rule 1's `recoded` kind, written out in "16c amendment (2026-10-25)" (rules 21–26). 16c is next after 16b.
 - **D4.** Q11 stays pooled: REF `*` sites (read-through) and U/O zero-change ALTs are in class
   `(substitution, mass_equivalent = false)`. Checked: rule 11, the 16b `variants.md` touch-point row, the
   16b acceptance criterion and Q11 already say so. Q11 is now marked answered.
@@ -405,8 +409,10 @@ one table. Acceptance checks that they agree.
     rule as `readthrough_codon`. The `placement_flag` groups `sec_site` and `pyl_site` are added
     to rule 17. `StopSite` already carries `kind` and `codon`, so 16c changes only the mapping
     from kind to flag in `annotate_peptide_hits`, the GFF3 writer and the summary groups. Decoys
-    mirror the recoded cells exactly as the terminal ones (rule 3). The TE1 exception label stays
-    `sec_site` (touch points).
+    mirror the recoded cells exactly as the terminal ones (rule 3). The TE1 exception label is
+    `sec_site` (rule 24). The flag depends on the consumed site's `kind` and `codon`, never on the
+    query letter: a `W` read over fdnG's TGA still gets `sec_site` in `peptide_hits`, and
+    `variants` calls it an ordinary `W` ALT with flags `snv;stop_codon` (rule 26, example 30).
 20. **Strain stop-loss in giapsim (D5).**
     - **Finding (the strain model, checked).** `giapsim.strain.derive_reference` puts SNVs at
       uniform positions, stop codons included. The mapping genome is the sample. The reference
@@ -488,8 +494,10 @@ p = 18).
 - **No `sixframe` input to `loci`:** no flag, one WARNING event (rule 16). The summary then
   counts 0 read-through peptides; the WARNING is the only signal (Q14).
 - **`same_db` exact skipping** never touches read-through rows (they are tolerant, m ≥ 1).
-- **16c:** a site is either `terminal` or `recoded`, never both (an internal codon is never the
-  last codon), so the flags never conflict.
+- **16c:** **per feature**, a site is either `terminal` or `recoded`, never both (an internal codon
+  is never the last codon). Across features, a gene's terminal codon can be another gene's
+  recoded codon; they merge into one `recoded` site with one cell (rule 21 (f), example 27), so
+  the flags still never conflict.
 
 ### ADR and spec deviations
 
@@ -508,6 +516,362 @@ p = 18).
   - §7.2.9 / M3-16's GFF3 attribute list gains `readthrough_codon` (and `recoded_codon`), as M3-16
     lead decision 2 added `frameshift_reread`.
 - No tolerance, bound, α, R or gate changes (R3). No protected file is touched.
+
+## 16c amendment (2026-10-25)
+
+This section makes 16c buildable. It writes out the items the statistician's pre-code check
+(`local/stat/m7-16c-quick-check.md`, verdict GO WITH CHANGES, item Q5) found missing. It also
+replaces the 16c rows, the 16c acceptance items and attack (d) in place. Inputs: ADR-0058 item 6,
+`docs/methods/placement-fdr.md` "16c: annotated recoded codons". The method does not change: no
+tolerance, bound, α or R changes (R3), and no protected file is touched. Where this section and an
+older 16c sentence disagree, this section wins.
+
+### Rules (16c)
+
+21. **Rule 1, recoded part** (`annotated_stops(gm, genome, recoded=True)`, pure).
+    - **(a) Which features.** Every gene with `feature_type` in {`cds`, `sorf`} whose terminal
+      codon is a stop (the features rule 1 turns into terminal sites). Pseudogenes
+      (`feature_type = pseudogene`) are never scanned. Features counted under `not_a_stop` (for
+      example 3′-partial genes) are not scanned either (Q24).
+    - **(b) Length check.** For the unwrapped interval `[s, e)`, the protein must satisfy
+      `len(gene.aa) == (e − s) / 3 − 1`, and `(e − s)` must be divisible by 3. Bakta's `aa` has no
+      trailing `*`. A feature that fails is not scanned. It still gets its terminal site, and the
+      failure is counted once per feature under `length_mismatch`.
+      A feature with an empty `aa` (no protein in the annotation) is not scanned and not
+      counted under either skip (lead decision, #346 review).
+    - **(c) Residue → codon.** For a 0-based residue index `i` with `1 ≤ i ≤ len(aa) − 1`:
+      - on `+` the codon is `[s + 3i, s + 3i + 3)`;
+      - on `−` the codon is `[e − 3i − 3, e − 3i)`;
+      - `codon_start` is the lowest coordinate, wrapped mod the replicon length `n` on circular
+        replicons (the same convention as terminal sites).
+
+      The codon is read on the gene strand with rule 1's reader (reverse complement on `−`).
+    - **(d) Which residues.** Only an upper-case `U` or `O` at `i ≥ 1` is a candidate.
+      - Residue 0 is the start codon and is never scanned: a `U`/`O` there is ignored and not
+        counted.
+      - The terminal codon is never part of `aa`, so it is never recoded.
+      - `*`, `X` and every other letter inside `aa` are ignored (no site, no count).
+    - **(e) Codon check.** A `U` must sit over `TGA` and an `O` over `TAG`. **Default: skip and
+      count** (Q5 1b). Any other codon gives no site, and the event counts it under
+      `codon_mismatch`, once per residue. It is annotation data, not a bug, so it never raises.
+    - **(f) Merging.** Sites are keyed by `(contig, strand, codon_start)` across all features,
+      terminal and recoded together. Features that share a key form **one site with one cell**,
+      with `locus_tags` the sorted union. Its `codon` is the codon read there (identical for every
+      feature, since the key fixes the strand and the bases). Its `kind` is:
+      - `recoded` when at least one feature recodes that codon. This covers the nested-gene case,
+        where one gene's terminal stop is another gene's internal `U`-over-TGA (Q22). The flag
+        follows the kind (rule 19), so such a row gets `sec_site` and never `readthrough`;
+      - `terminal` otherwise.
+
+      The 16a edge case "a site is either `terminal` or `recoded`, never both" holds **per
+      feature**. Across features the merge applies.
+    - **(g) Order.** Recoded and terminal sites are sorted together by (contig order, strand,
+      `codon_start`), as in rule 1. A protein with several `U`s gives one site per `U`.
+    - **(h) `recoded=False`** (the default) gives exactly the 16a/16b output. No `aa` is read.
+
+22. **Signature and callers.**
+    ```python
+    def annotated_stops(gm: GeneModel, genome: Mapping[str, str], recoded: bool = False
+                        ) -> tuple[tuple[StopSite, ...], int]       # unchanged return type
+    def recoded_skips(gm: GeneModel, genome: Mapping[str, str]) -> dict[str, int]
+        # {"length_mismatch": n, "codon_mismatch": n}; pure; the rule-21 (b)/(e) counts
+    ```
+    - The return type is unchanged, so every 16a/16b caller and test stays valid.
+    - `sixframe_index` and `variants_step` both call `annotated_stops(gm, genome, recoded=True)`.
+      They must build the same site set; attack (d4) pins that.
+    - The `mapping.stop_sites` event (rule 8) has these values:
+      - `recoded` is the number of `kind == "recoded"` sites;
+      - `terminal` is the number of `kind == "terminal"` sites, so a merged site is counted once,
+        as recoded;
+      - `cells_target` and each `cells_decoy[kind]` include the recoded sites' cells;
+      - a new key `recoded_skipped` holds `recoded_skips(...)`, for example
+        `{"length_mismatch": 0, "codon_mismatch": 0}` (Q21).
+
+23. **Simulator `n_selenoproteins`** (giapsim tooling; replaces rule 14's last sentence).
+    - **Config.** `SimConfig.n_selenoproteins: int = 0`.
+    - **Default stays byte-identical.** With 0, nothing is drawn and nothing is edited.
+      `truth/selenoproteins.tsv` is not written, so every existing scenario and seed is
+      byte-identical, including the committed giapsim goldens.
+    - **Generator.** All draws come from a separate generator,
+      `np.random.default_rng([seed, _SEC_STREAM])`, with a new SeedSequence key that no other
+      giapsim module uses. Keys in use on 267d0130 are 1–9 and 40, so 12 is suggested. No other
+      stream moves.
+    - **Gene choice.** `n` distinct genes are drawn uniformly without replacement from the
+      eligible genes. A gene is eligible if it:
+      - is an annotated `cds` (not sORF, not pseudogene);
+      - does not cross the origin;
+      - has `len(aa) ≥ 21`;
+      - has at least one eligible codon (next item).
+    - **Codon choice.** One codon per gene, drawn uniformly from the gene's eligible residues `i`
+      with `10 ≤ i ≤ len(aa) − 11`. That is at least 10 codons from the start codon and at least
+      10 sense codons before the terminal stop, so a tryptic peptide of ≥ 10 aa can span it. The
+      codon must not overlap any other annotated feature (any type, either strand) or any other
+      simulator edit (stop-loss, N-terminal extension, novel ORF).
+    - **Edit.** The codon is replaced by `TGA` on the gene strand (`TCA` on `+` coordinates for a
+      `−` gene). Only that codon changes, so no other in-frame stop appears in the gene.
+    - **Annotation and expression.** Residue `i` of the gene's `aa` becomes `U` wherever giapsim
+      writes the annotated protein: the gene table, the Bakta JSON and `genes.parquet`. The
+      expressed protein carries `U` at `i` as well, so true peptides spanning it contain `U` and
+      digestion treats it as an ordinary residue. The implementer checks that giapsim's peptide
+      mass and digestion code accept `U`; giap's `residue_masses.tsv` already has
+      `U 150.95364`.
+    - **Truth.** `truth/selenoproteins.tsv`, one row per planted site, sorted by (contig,
+      `codon_start`). Columns: `locus_tag`, `contig`, `strand`, `codon_start` (0-based, lowest
+      coordinate), `residue` (0-based `i`).
+    - **Shortfall.** If fewer than `n` genes are eligible, raise
+      `ValueError("n_selenoproteins=<n> but only <k> eligible genes")` before any edit.
+    - **Strain.** `n_selenoproteins > 0` together with `strain` set raises `ValueError` (not
+      supported: the strain SNVs could hit the planted codon). Attack (d1) and the 16c
+      integration test are same-strain.
+    - **Pyl. Default: Sec only. No `O`/TAG is planted** (Q23). `pyl_site` is therefore reached
+      only by unit tests. That is a stated limitation of 16c's evidence: no genome in the
+      recordings has a Pyl site either.
+
+24. **TE1 `sec_site` label** (`validation/proxies/te_proxies.py`, `te1_result`). **Default:** the
+    exception row keeps `locus_tag`, `peptide` and `hits` as today, and its `kind` is:
+    - `"sec_site"` for a miss whose peptide has at least one `peptide_hits` row and every one of
+      its rows carries `sec_site` in `flags` (`peptide_hits.tsv` holds accepted placements only);
+    - `"miss"` for every other miss. A peptide with no row keeps `hits = "unplaced"`.
+
+    The other parts of the result:
+    - `counts` gains the diagnostic `sec_site`: the number of misses labelled `sec_site`, counted
+      before the exception cap;
+    - `misses`, `exact_inframe`, the share and the pass rule (`share ≥ 0.999`) are unchanged.
+      Tolerant rows are never exact, so the 4 fdnG peptides stay misses;
+    - `te1_result` reads the `flags` column when it is present. A frame without it is treated as
+      having no flags (Q25), so callers that omit it keep today's result;
+    - **q-values.** `te1_result` gains `per_peptide: pd.DataFrame | None = None`, the run's
+      per-peptide placement table (the one TE8 reads). When it is given, every `miss` or
+      `sec_site` exception row whose peptide appears there also gets `placement_q`, `m_target`
+      and `accepted`. `te1_proxy` passes it. With `None` the rows are as today (Q26).
+
+25. **TE2 note and count** (`te2_result`).
+    - `TE2_NO_STOP_NOTE` becomes exactly:
+      `"no high stop_codon site: annotated stops and recoded Sec/Pyl codons are consumable
+      (M7-16, ADR-0058 items 1-6), but no stop_codon ALT site reached high confidence (on Nissle
+      the two fdnG Sec sites are candidate, one unique peptide each; fdhF has no tryptic peptide
+      over its Sec codon)"`
+      It is one string, wrapped here only for width. The module docstring's TE2 sentence ("…
+      stay unmapped; ADR-0058") is changed to match.
+    - `counts` gains `alt_stop_codon`: the ALT rows flagged `stop_codon`, at any confidence (Q27).
+      The pass rule is unchanged.
+
+26. **Rule 19, added sentence.** The flag depends on the consumed site's `kind` and `codon`, never
+    on the query letter. A `W` read over fdnG's TGA still gets `sec_site` in `peptide_hits`, and
+    `variants` calls it an ordinary `W` ALT with flags `snv;stop_codon`.
+
+### Examples (16c)
+
+Toy genomes: one contig `c`. Only the named codons matter, and every other base is filler that
+makes no stop on the gene's strand and frame. Sites are written
+`(contig, strand, codon_start, locus_tags, codon, kind)`.
+
+| # | Input | Expected output |
+|---|---|---|
+| 21 | **`+`, linear.** `c` linear, length 60. G1 `cds` `+` `[3, 33)`, bases `[3, 33)` = `ATG GCT GCT GCT TGA GCT GCT GCT GCT TAA`, `aa = "MAAAUAAAA"` (9 = 30/3 − 1). | `recoded=True`: `((c,+,15,(G1,),TGA,recoded), (c,+,30,(G1,),TAA,terminal))`, `n_not` 0; `recoded_skips` `{length_mismatch 0, codon_mismatch 0}`. `recoded=False`: `((c,+,30,(G1,),TAA,terminal),)`. Residue 4 → `[3 + 12, 3 + 15)` |
+| 22 | **`−`, linear.** `c` length 60. G2 `cds` `−` `[3, 33)`, `aa = "MAAAUAAAA"`. On `+` coordinates: `[30, 33)` = `CAT` (ATG), `[18, 21)` = `TCA` (TGA), `[3, 6)` = `TTA` (TAA). | `((c,−,3,(G2,),TAA,terminal), (c,−,18,(G2,),TGA,recoded))`. Residue 4 → `[33 − 15, 33 − 12)` |
+| 23 | **`+`, circular wrap.** `c` circular, length 300 (`ext_nt` 426, the 16a edge case). G3 `cds` `+` `[270, 330)` (crosses the origin), 19 aa, `U` at residue 12, `TGA` at `[306, 309)` ≡ `[6, 9)`, terminal at `[327, 330)` ≡ `[27, 30)`. | `((c,+,6,(G3,),TGA,recoded), (c,+,27,(G3,),TAA,terminal))`. `frame_cells`: the recoded site has two cells in frame `+0`, p = 2 (x = 6) and p = 102 (x = 306), and both pass the round trip |
+| 24 | **`−`, circular wrap.** Same contig. G4 `cds` `−` `[270, 330)`, 19 aa, `U` at residue 2. | Codon `[330 − 9, 330 − 6)` = `[321, 324)` ≡ 21. Sites `((c,−,21,(G4,),TGA,recoded), (c,−,270,(G4,),TAA,terminal))` (terminal `[270, 273)` reads TAA on `−`). Two cells in frame `−0`: p = 134 (x = 21) and p = 34 (x = 321) |
+| 25 | **Codon mismatch.** Example 21, but `[15, 18)` = `TAA` with `aa` still `U` at 4; and a second gene with `O` over `TGA`. | No recoded site for either. Terminal sites unchanged. `recoded_skips` `codon_mismatch` 2. No exception |
+| 26 | **Length mismatch.** Example 21 with `aa = "MAAAUAAAA*"` (10 residues). | Only `(c,+,30,(G1,),TAA,terminal)`; `length_mismatch` 1, `codon_mismatch` 0 |
+| 27 | **Nested merge.** Example 21's G1, plus G5 `cds` `+` `[3, 18)`, `aa = "MAAA"`, whose terminal codon `[15, 18)` is G1's recoded TGA. | `recoded=True`: `((c,+,15,(G1,G5),TGA,recoded), (c,+,30,(G1,),TAA,terminal))`: one site, one cell. Event: `terminal` 1, `recoded` 1, `cells_target` 2. A row over `[15, 18)` gets `sec_site`, not `readthrough`. `recoded=False`: `((c,+,15,(G5,),TGA,terminal), (c,+,30,(G1,),TAA,terminal))` |
+| 28 | **Pyl, excluded and ignored letters.** G6 `+` with `O` at residue 3 over `TAG`; G7 a `pseudogene` with `U` over TGA; G8 with `U` at residue 0; G9 with `X` and `*` inside `aa`. | One recoded site for G6 with codon `TAG` (rule 19: `pyl_site`). Nothing for G7, G8 or G9, and no skip counted for them |
+| 29 | **Nissle recording** (`1.12.2-full/nissle`), `sixframe_index` (example 10's 16c column). | `mapping.stop_sites`: `terminal` 4,689, `recoded` 3, `not_a_stop` 3, `cells_target` 4,692, `cells_decoy` 4,692 for each decoy type, `recoded_skipped` `{0, 0}`. The recoded sites are `(contig of JMJJOG_02511, −, 2578627, (JMJJOG_02511,), TGA, recoded)`, JMJJOG_04733 `+` 4825395 and JMJJOG_04490 `+` 4576497 (residues 195, 195, 139) |
+| 30 | **Rule 26.** Nissle `same` search with a strain-like peptide `SLGMLAVDNQARVWHGPTVASLAPTFGR` over JMJJOG_02511's recoded TGA. | `peptide_hits` row tolerant, `n_diff` 1, flags `sec_site` (no `readthrough`), GFF3 `recoded_codon=2578628`. `variants`: ALT `W` at codon 2578627, flags `snv;stop_codon`, a VCF record (TGA → TGG on the gene strand) |
+| 31 | **TE1 label** (`te1_result`, unit). Sources `{pS: {G1}, pT: {G1}, pU: {G1}}`, no exclusion. `peptide_hits`: pS two tolerant rows, flags `sec_site` and `sec_site;multi`; pT one tolerant row, flags `""`; pU no row. | `misses` 3, `sec_site` 1. Exceptions: `{kind: sec_site, peptide: pS, hits: "tolerant:…;tolerant:…"}`, `{kind: miss, peptide: pT}`, `{kind: miss, peptide: pU, hits: "unplaced"}`. The share and `passed` are as without the flags column |
+| 32 | **giapsim** sim100k, same strain, `n_selenoproteins = 5`, seed 1. | `truth/selenoproteins.tsv` has 5 rows. Each genome codon there reads TGA on the gene strand, and the gene's `aa` has `U` at `residue`. The event reports `recoded` 5. `n_selenoproteins = 0` gives an output tree byte-identical to the config without the field. `n_selenoproteins` above the eligible count raises `ValueError` |
+
+### Edge cases (16c)
+
+- **Minus strand.** Rule 21 (c), examples 22 and 24. The residue index counts from the gene's
+  5′ end, which is the highest coordinate.
+- **Circular and linear.** On a circular replicon the codon wraps mod `n`, and a codon near the
+  origin can have two cells (example 23). On a linear replicon the codon always lies inside the
+  gene's interval, so it never runs off the contig.
+- **A codon that crosses the origin** (`[n − 1, n + 2)`): `codon_start = n − 1`, read with rule
+  1's wrapped reader. `frame_cells` treats it like a terminal codon at the origin (16a edge case).
+- **Empty input.** An empty gene model gives `((), 0)` for any `recoded` value, and
+  `recoded_skips` gives zeros. A gene model whose proteins have no `U`/`O` gives exactly the
+  `recoded=False` output, which is the 16a/16b toys and giapsim by default.
+- **Ties.** Two features recoding the same codon (alternative starts): one recoded site, tags
+  merged. A terminal and a recoded site at the same key: one `recoded` site (example 27). Sites
+  never tie in the sort after merging, because the key is unique.
+- **Several `U`s in one protein:** one site each, all sorted with the rest.
+- **Adjacent recoded cells in one peptide** cost 1 each, so they are possible only at k = 2 with
+  no other difference (as for terminal cells).
+- **`O` over TAG on `−`:** `+` coordinates read `CTA`.
+- **Peptides spanning fdhF's Sec codon:** none of 10–30 aa, since there is no K/R within 30 aa
+  (statistician Q3). So fdhF has no TE1/TE2 row. This is expected, not a miss.
+- **Stale index.** An index built by 16b code is format 2 but has no recoded cells. Every run
+  rebuilds `sixframe_index`, so the default is no format bump (Q28).
+
+### TE2 and TE1 expectations on Nissle (16c)
+
+- **TE2** (same strain, `te2_proxy`):
+  - `alt_sites` 233 → **235**, `high` **80**, `high_start_codon` **80**, `high_stop_codon`
+    **0**, `violations` **0**, `alt_stop_codon` **2**;
+  - the two new sites are ALT `U` at JMJJOG_02511 `[2578627, 2578630) −` and JMJJOG_04733
+    `[4825395, 4825398) +`. Each is `candidate` with `n_alt` 1 (its 28-mer). The 16-mer and
+    27-mer are `shared`, because the copies differ in length (1,015 vs 1,016 aa), and
+    `pileup.eligible` drops them;
+  - fdhF (JMJJOG_04490) has no row: no K/R within 30 aa of its `U`, so no placeable tryptic
+    peptide spans it;
+  - the note is rule 25's text.
+- **TE1:**
+  - `misses` stays 4 and the share stays 0.99998;
+  - the 4 exceptions become `kind = sec_site`, with `hits` `tolerant:cds_inframe:<copy>` (the
+    16-mer and 27-mer list both copies), and `counts["sec_site"]` = 4;
+  - the 4 rows record `placement_q`, `m_target` (1) and `accepted`.
+- **Rejection is a finding.** The expectations above hold only if all 4 Sec peptides are accepted
+  (`placement_q ≤ α`). If one is rejected, it stays `kind = miss` with `hits = "unplaced"` and
+  `accepted = False`, and TE2 has one site fewer. That goes to the lead as a finding. It is
+  never a reason to change α or any criterion (R3), and the test then records the value rather
+  than asserting the count.
+
+### Test plan (16c; test-author; new files unless noted)
+
+Following the statistician's Q5 item 6. Slow and Slurm cases are marked.
+
+- **C1** `tests/unit/test_readthrough_recoded.py`: examples 21–24 (both strands, linear and
+  circular, two cells at the origin, the round trip of every recoded cell).
+- **C2** same file: example 25 (U over TAA, O over TGA: skipped, counted, no raise) and
+  example 26 (length mismatch, terminal kept).
+- **C3** same file: example 27, the nested merge (one site, one cell, `kind` recoded, tags
+  merged, event counts), and two features recoding one codon.
+- **C4** same file: example 28 (O over TAG gives a TAG site; pseudogene, residue 0, `X` and `*`
+  ignored), the origin-crossing codon, several `U`s in one protein, and the sort order.
+- **C5** same file: `recoded=False` equals the 16a output on every C1–C4 input and on the 16a
+  toys, and empty input gives `((), 0)` and zero skips.
+- **C6** property (`tests/property/test_recoded_props.py`): the 16a decoy-symmetry property (a)–(c),
+  re-run with random genomes carrying random `U`-over-TGA proteins (both strands, both
+  topologies). Per frame, the target and every decoy have equal cell counts, and every decoy
+  cell holds `*`. `mirror_cells` is an involution for reverse and the identity for shuffle. The
+  reversed-query equality holds after interval mapping.
+- **C7** `tests/unit/test_variants_recoded.py`: M7-01 `align_hits` accepts a `*` at a recoded codon in
+  `site_keys(annotated_stops(..., recoded=True))` and still raises for a `*` at an internal codon
+  outside the set. Example 2's variants row: ALT `U`, `candidate`, flags
+  `stop_codon;vcf_unrepresentable`, no VCF record.
+- **C8** `tests/unit/test_mapping_outputs_recoded.py`: example 20 (`sec_site`, no `readthrough`,
+  `recoded_codon=2578628`); the `pyl_site` row; a row consuming a terminal and a recoded cell
+  carries both flags and both GFF3 attributes; example 30 (W over TGA gives `sec_site` and an
+  ordinary W ALT).
+- **C9** `tests/unit/context/test_placement_kind_rows_recoded.py`: the 14 rule-17 rows, including
+  `placement_flag` `sec_site` and `pyl_site` (counts and `n`); the schema `flags` pattern accepts
+  `sec_site` and `pyl_site`.
+- **C10** `tests/unit/test_te_proxies_recoded.py`: example 31; `te1_result` without `flags`
+  equals today's result except for `sec_site` 0; the `per_peptide` fields; `te2_result`
+  `alt_stop_codon` and the rule-25 note string.
+- **C11** `tests/unit/test_giapsim_selenoproteins.py` (tooling test): example 32's truth, genome
+  and annotation checks; the codon is ≥ 10 codons from both ends and overlaps no other feature;
+  the expressed protein has `U`; the 0 setting is byte-identical; shortfall and `strain` raise.
+- **C12** `tests/integration/test_recoded_sim.py` (integration; `slow` only if over the budget):
+  sim100k, `n_selenoproteins = 5`, through `sixframe_index` → `map_tolerant` → `loci` →
+  `variants_step`. Every truth site whose spanning true peptide is accepted has a `sec_site` row
+  and a `U` ALT site at its codon. No accepted row consumes a recoded cell that is absent from
+  the truth file. The sixframe and variants site sets are equal.
+- **C13** (`slow`, Nissle recording): example 29 (example 10's 16c column).
+- **C14** (`slow`, Slurm): TE1 and TE2 on Nissle with the numbers in "TE2 and TE1 expectations",
+  and the 4 peptides' `placement_q` recorded in the result JSON.
+- **Not the test-author's:** attack (d), d1–d4 (the statistician; see "Re-runs").
+
+### Re-runs (16c; replaces "fast tier suffices")
+
+Every M3-21 suite runs on giapsim, which has no `U`. With `n_selenoproteins = 0` they are
+byte-identical by construction, so they are regression evidence only. Required, with job IDs
+in PROGRESS.md, `placement-fdr.md` (16c paragraph) and ADR-0058 Evidence:
+
+1. **Regression, fast tier** (Slurm `test_branch.sbatch`): `test_placement_fdr_sim.py`,
+   `test_denovo_precision_sim.py`, attack 5, the stressed arm and the decoy-balance check. The
+   FDP tables are identical to main's and the cell counts are unchanged. No full tier.
+2. **Attack (d)** in `tests/calibration/attacks/test_attack_readthrough_recoded.py` (a new file), written by the
+   statistician once the 16c API exists, with no new tolerance key:
+   - **d1:** a recoded-dense giapsim world with ≥ 50 recoded cells per replicate, kind-split
+     masses, and criteria (a)–(c) plus the structural check on the recoded part;
+   - **d2:** three broken builds that must fail (decoys without recoded cells; recoded cells
+     mirrored off by one; target without recoded cells);
+   - **d3** (full tier only): Nissle and K-12 structural equality and reverse i.i.d. exactness,
+     with the shuffle and tryptic shifts logged and only the ≥ −EQUIV margin asserted;
+   - **d4:** `load_stop_cells` sites equal the `variants_step` `site_keys`.
+
+   **(d) passing in both the fast and the full tier is a merge prerequisite.**
+3. **TE1 and TE2** (slow integration on Slurm), on Nissle, with the expectations above.
+4. **TE8** once on the branch (weekly job, or `te_proxies.py te8` on Slurm). Record the pooled FDR
+   (≤ 0.01) and the change in accepted tolerant placements. `k12_exact` does not change.
+5. **Example 29** (C13).
+
+No full M3-21 tier, no stressed-arm run beyond item 1, and no 16b observer re-run.
+
+### Existing tests the lead edits (checked on 267d0130)
+
+- `tests/integration/test_te2_proxy.py`: the line-122 comment ("stay unmapped until M7-16"), and
+  `COUNT_KEYS` gains `alt_stop_codon`. Optionally assert `alt_stop_codon == 2` on Nissle.
+- `tests/unit/test_te2_proxy_result.py`: `COUNT_KEYS` and the exact `counts` dict (line 93) gain
+  `alt_stop_codon`. The module docstring's rule 2 ("the Sec sites stay unmapped") changes.
+- `tests/unit/test_weekly_te2.py`: checked, it pins no note text or count keys. No edit is
+  expected; listed because the brief named it.
+- `tests/unit/test_te_proxies.py::test_te1_result_counts`: the exact `counts` dict gains
+  `"sec_site": 0`. The other TE1 tests keep `kind = miss` (their `HITS` have no `flags` column).
+- `tests/unit/test_mapping_step_readthrough.py` (lines 77 and 96): the exact event dicts gain
+  `recoded_skipped`. Their `recoded` value of 0 stands, because the toys have no `U`.
+- `tests/integration/test_mapping_readthrough.py`: line 160's event dict gains `recoded_skipped`.
+  Example 10 (line 210, `annotated_stops(gm, genome)` with the default) stays 4,689 and needs no
+  edit. It changes only if the lead moves it to the step path, and C13 covers the 16c column.
+- `tests/unit/context/test_placement_kind_rows.py`: `ORDER` gains `("placement_flag",
+  "pyl_site")` and `("placement_flag", "sec_site")`, which makes 14 rows.
+- Goldens with the rule-17 rows gain the two `placement_flag` rows (value 0) and are regenerated:
+  `tests/data/golden/sim50k/m4/detection_summary.tsv`,
+  `tests/data/golden/sim100k_real/m4/detection_summary.tsv`,
+  `tests/data/snapshot/sim_plots/OUT/tables/detection_summary.tsv`.
+- `tests/unit/test_peptide_hits_schema_flags.py` already allows `sec_site`/`pyl_site`. No edit.
+
+### Size (16c; counted lines: `src`, `workflow`, `scripts`, `validation`; ADR-0007)
+
+| File | Change | Lines |
+|---|---|---|
+| `src/giap/mapping/readthrough.py` | recoded scan, merge, `recoded_skips` | 45 |
+| `src/giap/steps/mapping.py` | `recoded=True`, event counts, `recoded_skipped` | 8 |
+| `src/giap/steps/variants.py` | `recoded=True` | 1 |
+| `src/giap/mapping/loci.py` | kind/codon → flag, `recoded_codon` work column | 15 |
+| `src/giap/mapping/outputs.py` | GFF3 `recoded_codon` | 8 |
+| `src/giap/context/summary.py` | two `placement_flag` groups | 4 |
+| `src/giap/schemas/tables/peptide_hits.schema.json` | pattern values | 1 |
+| `validation/proxies/te_proxies.py` | TE1 kind, count, `per_peptide`; TE2 note, `alt_stop_codon`; docstring | 30 |
+| | **counted total** | **≈ 112** |
+| `tests/sim/giapsim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins` (tooling, not counted) | ≈ 70 |
+| tests (C1–C14) | not counted | ≈ 450 |
+
+≈ 112 counted lines fits under the ~400 cap: **one PR, no split.**
+
+### Questions (16c; each has a default, none blocks the test-author)
+
+- **Q21 (lead).** The skip counts go into `mapping.stop_sites` as `recoded_skipped`, which means
+  editing two exact-dict tests. **Default:** the event field, as briefed. Alternative: a separate
+  WARNING event `mapping.recoded_skipped`, emitted only when a count is > 0, which needs no test
+  edit.
+- **Q22 (lead).** A merged terminal/recoded codon gets `kind = recoded` and therefore `sec_site`.
+  **Default:** recoded, because the protein evidence says the codon is decoded. Alternative:
+  `terminal` with `readthrough`.
+- **Q23 (Khoa, batch).** No Pyl planting in giapsim. **Default:** Sec only, and `pyl_site` is
+  unit-tested only, a stated limitation. Alternative: an `n_pyrrolysine` knob (≈ 15 more
+  simulator lines, the same rules with `O`/TAG).
+- **Q24 (lead).** `not_a_stop` features (3′-partial) are not scanned for `U`/`O`. **Default:**
+  not scanned. Their protein length cannot be checked against a terminal stop. On Nissle the 3
+  are plasmid-edge partials with no `U` (statistician count: 3 recoded sites in total).
+- **Q25 (lead).** `te1_result` without a `flags` column treats the rows as unflagged.
+  **Default:** tolerated, so existing callers and tests keep their meaning. Alternative: require
+  the column and edit the TE1 test fixtures.
+- **Q26 (lead).** The four Sec peptides' q-values are recorded in the TE1 result JSON through
+  `per_peptide`. **Default:** in the JSON, so a test can check it. Alternative: record them by
+  hand in the PR body and ADR-0058 Evidence, with no code.
+- **Q27 (lead).** The new TE2 count `alt_stop_codon` makes the "two candidate U sites" checkable.
+  **Default:** add it (2 lines plus the two `COUNT_KEYS` edits). Alternative: rely on
+  `alt_sites` 235.
+- **Q28 (lead).** No index format bump. A 16b-built format-2 index has no recoded cells, and
+  `-resume` could reuse one across the upgrade. **Default:** no bump, because the index is a
+  per-run artifact. Alternative: format 3, or a `recoded` meta key that `load_stop_cells` checks.
+- **Q29 (lead).** The #335 decision put 16b-3 (`n_readthrough`) "before 16c". 16c has no code
+  dependency on it. **Default:** 16c proceeds in parallel and merges main after 16b-3 if both
+  are ready. If not, the lead's ordering stands.
 
 ## Public interface and touch points
 
@@ -566,10 +930,10 @@ def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]
 | 16b | `tests/sim/giapsim/{strain,proteomics,truth}.py` | `StrainConfig.n_stop_loss`, `truth/stop_loss.tsv`, C-terminal wrong peptides first (rule 20; tooling) |
 | 16b | `validation/proxies/te_proxies.py` | TE2 note text (internal Sec sites are not annotated stops; ADR-0058) |
 | 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls; `variants.md` states that REF `*` and U/O zero-change ALTs pool in `(substitution, mass_equivalent = false)` and that their `class_error_rate` does not measure read-through reads (rule 11) |
-| 16c | `src/giap/mapping/readthrough.py` | `annotated_stops(..., recoded=True)`: internal TGA with `U`, TAG with `O` in `Gene.aa` |
-| 16c | `src/giap/steps/mapping.py`, `steps/variants.py` | pass `recoded=True`; event `recoded` count |
-| 16c | `tests/sim/giapsim/…` | `n_selenoproteins` |
-| 16c | `validation/proxies/te_proxies.py` | TE1 exception label `sec_site`; TE2 note |
+| 16c | `src/giap/mapping/readthrough.py` | `annotated_stops(gm, genome, recoded: bool = False)`; `recoded_skips` (rules 21–22) |
+| 16c | `src/giap/steps/mapping.py`, `steps/variants.py` | both pass `recoded=True`; event `recoded`, cell totals, `recoded_skipped` (rule 22) |
+| 16c | `tests/sim/giapsim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins`, `truth/selenoproteins.tsv` (rule 23; tooling) |
+| 16c | `validation/proxies/te_proxies.py` | TE1 `kind = sec_site`, count `sec_site`, `per_peptide` q-values (rule 24); TE2 note, `alt_stop_codon` (rule 25) |
 | 16c | `src/giap/mapping/loci.py`, `outputs.py`, `context/summary.py`, `peptide_hits.schema.json` | `sec_site`/`pyl_site` flags, `recoded_codon`, summary groups, pattern values (rule 19) |
 
 Edits to **existing** tests are the lead's (rules.md). Expected ones: the step-registration test
@@ -634,6 +998,8 @@ The statistician signs it off before 16a merges (review change 3). It must state
    suites are mentioned only as regression evidence (they cannot see the rule).
 
 ## Test plan (test-author; new files unless noted)
+
+16c's cases are C1–C14 in "16c amendment (2026-10-25)" › "Test plan (16c)".
 
 - `tests/unit/test_readthrough_sites.py`: rules 1–3. Cover both strands, linear and circular,
   the origin-crossing codon, the two copies at `[0, 3)`, shared stops, sORF, pseudogene excluded,
@@ -767,8 +1133,10 @@ The statistician signs it off before 16a merges (review change 3). It must state
   16a's `frame_cells`/`mirror_cells` exist; it is the exact-mass version of the review table:
   (a) reverse, i.i.d. law: D_rt = T_rt to rtol 1e-9 per replicate; (b) shuffle, i.i.d. law:
   replicate mean D_rt/T_rt ≥ 1 − 0.01 − `se_multiplier` · SE; (c) tryptic law, both decoys: net
-  shift (D_rt − T_rt)/T_regular of the replicate mean ≥ −0.01; (d) `recoded` cells if ADR-0058
-  item 6 is accepted. The test-author does not write it. **16a's merge waits for it.**
+  shift (D_rt − T_rt)/T_regular of the replicate mean ≥ −0.01; (d) the recoded cells, d1–d4 as
+  in "Re-runs (16c)", written by the statistician once the 16c API exists (the old "(d) … covers
+  them unchanged" was vacuous: giapsim has no `U`). The test-author does not write it. **16a's
+  merge waited for (a)–(c); 16c's merge waits for (d), fast and full.**
 
 ## Acceptance criteria
 
@@ -832,17 +1200,33 @@ The statistician signs it off before 16a merges (review change 3). It must state
 - [ ] **16b (D5, rule 20):** the strain stop-loss e2e passes. With `n_stop_loss = 0` every
   existing giapsim strain build is byte-identical (a golden or hash test). The related-strain
   observer's assertion holds on the full tier, and the PR records the Slurm job ID.
-- [ ] **16c (approved by Khoa, 2026-10-24; next after 16b):** example 2's 16c column holds. On the
-  Nissle TE2 proxy there are two `stop_codon` ALT `U` sites (JMJJOG_02511 `[2578627, 2578630) −`,
-  JMJJOG_04733 `[4825395, 4825398) +`), each `candidate`, and `high_stop_codon` is 0 (the 16-mer
-  and 27-mer Sec peptides are `shared`). TE1's 4 misses are labelled `sec_site`. The 16a
-  statistical re-run is repeated for the 3 extra cells (fast tier suffices: 3 cells against
-  4,689).
+- [ ] **16c (approved by Khoa, 2026-10-24; amended 2026-10-25):** examples 2 (16c column) and
+  21–32 pass as unit/integration tests C1–C13, and every 16c edge case is covered. With
+  `recoded=False`, `annotated_stops` equals the 16a output on every input. `mapping.stop_sites`
+  on Nissle reports `terminal` 4,689, `recoded` 3, `not_a_stop` 3, `cells_target` 4,692, 4,692
+  cells per decoy type and `recoded_skipped` zeros (example 29).
+- [ ] **16c (rule 23):** `n_selenoproteins = 0` leaves every giapsim output and committed golden
+  byte-identical (no regeneration). With `n > 0` the truth file, the TGA codons, the `U` in the
+  annotation and the expressed protein, the ≥ 10-codon margins, the shortfall `ValueError` and the
+  `strain` `ValueError` hold (C11). C12 passes.
+- [ ] **16c (TE, Slurm, C14):** TE2 on Nissle gives `alt_sites` 235, `high` 80,
+  `high_start_codon` 80, `high_stop_codon` 0, `violations` 0, `alt_stop_codon` 2. The two `U`
+  sites are JMJJOG_02511 `[2578627, 2578630) −` and JMJJOG_04733 `[4825395, 4825398) +`, each
+  `candidate`. fdhF has no row. The note is rule 25's text. TE1 keeps `misses` 4, the share
+  0.99998 and `passed`, and its 4 exceptions are `kind = sec_site` with `placement_q`,
+  `m_target` and `accepted` recorded. A rejected Sec peptide is reported as a finding, and α is
+  not changed (R3).
+- [ ] **16c (re-runs):** the five items of "Re-runs (16c)" are done, with job IDs in PROGRESS.md,
+  `placement-fdr.md` and ADR-0058 Evidence. The regression FDP tables are identical to main's.
+  TE8 pooled FDR ≤ 0.01, with the tolerant delta recorded. **Attack (d), d1–d4, written by the
+  statistician after the code exists, passes in the fast and the full tier; 16c does not merge
+  before it.**
 - [ ] **16c labels (rule 19):** example 20 holds. Rows consuming a recoded TGA/`U` cell carry
   `sec_site` and those consuming a TAG/`O` cell carry `pyl_site`, never `readthrough`, with
   `recoded_codon` in the GFF3. The `placement_flag` rows `sec_site` and `pyl_site` are written.
-  On Nissle, the fdnG rows carry `sec_site`; fdhF carries it only if one of its peptides is
-  placed.
+  On Nissle, the fdnG rows carry `sec_site`; fdhF has 0 rows (no K/R within 30 aa of its
+  `U`, so no placeable tryptic peptide spans it). A `W` over a recoded TGA gets `sec_site`
+  and a `snv;stop_codon` W ALT (rule 26).
 - [ ] Statistician sign-off on this spec and on `placement-fdr.md` **before** 16a code; again on the
   re-run tables before 16a merges.
 
@@ -866,11 +1250,12 @@ The statistician signs it off before 16a merges (review change 3). It must state
 | 16b | `peptide_hits.schema.json` pattern (rule 18) | 2 |
 | 16b | `context/summary.py` `placement_kind_rows`, `steps/context_stats.py` part (rule 17) | 45 |
 | | **16b total** | **≈ 222** (+ ≈ 115 simulator incl. ≈ 25 for `n_stop_loss`, + ≈ 600 test lines) |
-| 16c | `readthrough.py` recoded source, steps, TE labels | 45 |
-| 16c | labels: kind → flag, `recoded_codon`, two summary groups, pattern values (rule 19) | 15 |
-| | **16c total** | **≈ 60** (+ ≈ 40 simulator, + ≈ 150 test lines) |
+| 16c | `readthrough.py` recoded source, steps (rules 21–22) | 54 |
+| 16c | TE1/TE2 (rules 24–25) | 30 |
+| 16c | labels: kind → flag, `recoded_codon`, two summary groups, pattern values (rule 19) | 28 |
+| | **16c total** | **≈ 112** (+ ≈ 70 simulator, + ≈ 450 test lines; per file in "Size (16c)") |
 
-Total ≈ 490 code lines (16a ≈ 210 as merged, 16b ≈ 222, 16c ≈ 60), against the gated estimate
+Total ≈ 544 code lines (16a ≈ 210 as merged, 16b ≈ 222, 16c ≈ 112), against the gated estimate
 of 220. The difference is the frameshift precedence (rule 7), the index format and loader, the M7
 call paths (16b) and Khoa's reporting decisions (rules 15–19), which the gated estimate did not
 count.

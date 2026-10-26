@@ -445,10 +445,12 @@ def write_te_inputs(d: Path) -> tuple[Path, Path]:
 def with_later_hooks(doc: dict[str, Any], m6_reason: str | None) -> dict[str, Any]:
     """``doc`` with the keys M10-10 (``m6``, ``h4``) and M10-07 (``m8``) will add: ``m6``/``h4``
     a reason-only finding when ``m6_reason`` is given (``a3_not_run``, ``different_strain``),
-    else numbers; ``m8`` with numbers."""
+    else numbers (kept as computed when compute had the A3 inputs, M10-10b); ``m8`` with
+    numbers."""
     level = {"fdp_combined": 0.012, "fdp_lower": 0.004, "assessment": "within_target"}
     out = dict(doc)
-    if m6_reason is None:
+    computed = "reason" not in (doc.get("m6") or {"reason": None})
+    if m6_reason is None and not computed:
         out["m6"] = {
             "overlap_a2_a3": {
                 "novel_orfs": {"called": {"jaccard": 0.4}},
@@ -456,7 +458,7 @@ def with_later_hooks(doc: dict[str, Any], m6_reason: str | None) -> dict[str, An
             }
         }
         out["h4"] = {"verdict": "holds"}
-    else:
+    elif m6_reason is not None:
         out["m6"] = {"reason": m6_reason}
         out["h4"] = {"verdict": "unestimated", "reason": m6_reason}
     out["m8"] = {"peptide": dict(level), "precursor": dict(level)}

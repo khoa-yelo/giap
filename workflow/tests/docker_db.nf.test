@@ -1,0 +1,54 @@
+// M11-14 item 3b (14p): params.db_dir is visible and readable inside the BAKTA container under the
+// docker profile. The probe (lib/bakta_db_probe.nf) runs in the pinned bakta image with the
+// profile's DB bind, ps shim, TMPDIR and -u, and reads <db_dir>/version.json. The DB is a
+// version.json fixture outside the work directory (so only the profile's -v makes it visible): the
+// full Bakta light DB is too large for a hosted runner.
+//
+// Run only by the docker-smoke workflow's bakta-db-visibility job (.github/workflows/docker-smoke.yml),
+// from workflow/ so that projectDir (the ps shim path) is the pipeline's:
+//   cd workflow && GIAP_SMOKE_DB_DIR=<dir with version.json> nf-test test tests/docker_db.nf.test --profile test,docker
+// Without GIAP_SMOKE_DB_DIR a fixture is written to a fresh temporary directory.
+// The nf-test-stub job in ci.yml leaves this file out: a real image, no stubs.
+def smokeDb() {
+    def env = System.getenv('GIAP_SMOKE_DB_DIR')
+    def dir = env ? new File(env) : File.createTempDir('giap-db-', '')
+    def version = new File(dir, 'version.json')
+    if (!version.exists()) { dir.mkdirs(); version.text = '{"type": "light"}\n' }
+    return dir.canonicalPath
+}
+def dbDir = smokeDb()
+
+nextflow_process {
+
+    name "docker profile: params.db_dir readable inside the BAKTA container"
+    script "./lib/bakta_db_probe.nf"
+    process "BAKTA"
+    config "./docker_db.config"
+    tag "docker_smoke"
+
+    test("BAKTA reads <db_dir>/version.json, has ps and its own TMPDIR, and runs as the user") {
+
+        when {
+            params {
+                db_dir = dbDir
+            }
+            process {
+                """
+                input[0] = params.db_dir
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def probe = path(process.out.probe[0]).readLines()
+            def uid = ["id", "-u"].execute().text.trim()
+            def gid = ["id", "-g"].execute().text.trim()
+            assert "uid=${uid}".toString() in probe
+            assert "gid=${gid}".toString() in probe
+            def expected = new File(dbDir, 'version.json').text.replace('\n', '')
+            assert "version_json=${expected}".toString() in probe
+            assert probe.any { it.startsWith('bakta=bakta ') } : "no bakta version: ${probe}"
+        }
+    }
+}

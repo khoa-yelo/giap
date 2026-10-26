@@ -61,3 +61,4 @@
 - [ADR-0057: the calibration merge honours the xfail mark of the test that owns a check](ADR-0057-calibration-merge-honours-strict-xfail.md): accepted-by-khoa (2026-10-24, in session: "Yes and yes", to "should the merge step honour expected-failure marks?")
 - [ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)](ADR-0058-annotated-stop-substitution.md): accepted-by-khoa (2026-10-24, in session: "B")
 - [ADR-0059: Bare image references in `containers.config` (no `docker://` prefix)](ADR-0059-bare-image-refs.md): proposed
+- [ADR-0060: Release versioning and immutable, content-addressed tool images](ADR-0060-release-versioning-and-image-keys.md): proposed

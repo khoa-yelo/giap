@@ -262,6 +262,10 @@ def expressed_proteins(
             continue
         s0, e0 = f.span()
         aa = translate_cds(codons_of(_slice(seqs[f.contig], s0, e0, f.strand)))
+        if f.sec_residues:  # planted Sec (M7-16c): the TGA is decoded as U, after any extension
+            up = ((f.start - s0) if f.strand == "+" else (e0 - f.end)) // 3
+            for i in f.sec_residues:
+                aa = aa[: up + i] + "U" + aa[up + i + 1 :]
         if f.locus in rt:
             residue, ext = rt[f.locus]
             aa += residue + ext

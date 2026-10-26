@@ -788,7 +788,7 @@ One row per peptide x accepted locus (GIAP_SPEC.md §9.3); rejected placements a
 | `uniqueness` | string | — | Uniqueness of the placement | one of `unique`, `multi_identical`, `shared` |
 | `gene` | string | — | Assigned gene locus tag | — |
 | `novel_candidate_id` | string | — | Novel candidate ID | — |
-| `flags` | string | — | Flags (';'-separated list; §9.4 Placement, including readthrough: the row consumed an annotated terminal stop, M7-16) | pattern `(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|readthrough|same_db|strain_difference)(?:;(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|readthrough|same_db|strain_difference))*` |
+| `flags` | string | — | Flags (';'-separated list; §9.4 Placement, including readthrough: the row consumed an annotated terminal stop; sec_site / pyl_site: it consumed an annotated recoded Sec (TGA) / Pyl (TAG) codon, M7-16) | pattern `(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference)(?:;(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference))*` |
 
 ## `protein_hits`
 

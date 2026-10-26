@@ -30,7 +30,9 @@ RECORDED = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full" / "nis
 NISSLE_JSON = RECORDED / "nissle1917.json.gz"
 NISSLE_GENOME = REPO / "tests" / "data" / "genomes" / "nissle1917.fna.gz"
 NISSLE_SHA256 = "fe74801661e688a525eef7a7a6be6210659ebc9a2e61691efb1f10b65ea623ee"
-COUNT_KEYS = {"alt_sites", "high", "high_start_codon", "high_stop_codon", "violations"}
+COUNT_KEYS = {
+    "alt_sites", "alt_stop_codon", "high", "high_start_codon", "high_stop_codon", "violations"
+}  # fmt: skip
 
 pytestmark = pytest.mark.slow
 
@@ -119,7 +121,7 @@ def test_example_2_te2_nissle_passes() -> None:
     _check_shape(r)
     assert r.counts["violations"] == 0, r.exceptions
     assert r.passed is True
-    # rule 2: the 4 TE1 misses (Sec, fdnG) stay unmapped until M7-16 -> no stop_codon site yet
+    # rule 2: the Sec sites (16c rule 25) are recoded, never readthrough -> no stop_codon site
     assert r.counts["high_stop_codon"] == 0
     # high_start_codon is recorded (expected > 0), not asserted (example 2)
     assert r.counts["high_start_codon"] >= 0
