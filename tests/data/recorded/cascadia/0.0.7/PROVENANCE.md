@@ -9,13 +9,14 @@ spec Q4).
 ## Recorded sample (not committed)
 
 - Path: `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` on FarmShare.
-- Content: the `.ssl` header plus the top `n_top = min(1000, n_pass) = 863` rows (spec steps 1-7:
-  strip, I -> L, length 7-30, `score > 0.8`, one row per folded sequence at its maximum score,
-  sorted by score descending then folded sequence ascending). Fewer than 1,000 rows because
-  `n_pass` = 863 < 1,000. The rank order equals the evaluator's `feasibility_top1000.tsv`.
-- 864 lines (header + 863 rows), 34,258 bytes, gzip with mtime 0;
-  sha256 `38873d141daadbbd43b0d72f1d7ae01878499f1decfe5fc70ce3336c6484cc36`.
-- Source: `$GIAP_ROOT/pilot/A3_cascadia_cpu/WT_1/WT_1.ssl` (1,445 rows; sha256
+- Content: the `.ssl` header plus the **first 1,000 data rows in file order** (M10-index
+  decision 6; M10-09 spec: `head -n 1001 WT_1.ssl | gzip -n`), so `scan` stays strictly
+  increasing as Cascadia 0.0.7 writes it (contract C4). Re-recorded 2026-10-25: the first recording
+  held the evaluator's top 863 rows sorted by score, which broke C4.
+- 1,001 lines (header + 1,000 rows), gzip with mtime 0;
+  sha256 `2a5e03d6b6932c8c6aff7460ab9ae98fac7b194f95a35dc9f339cf26fa81946e`.
+- Source: `$GIAP_ROOT/pilot/A3_cascadia_cpu/WT_1/WT_1.ssl` (the CPU run; `$GIAP_ROOT/pilot/A3_cascadia`
+  is a symlink to it, the path the spec and the contract test read; 1,445 rows; sha256
   `601344b23f89c3caf8142b4a2569187f1a40a8af2e3017377375267734a3712c`).
 
 ## Tool and environment

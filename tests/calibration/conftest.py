@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import types
@@ -341,6 +342,20 @@ def _item_reaches_harness(item: pytest.Function, targets: frozenset[str] = HARNE
     return reaches_harness([item.function, *fixtures], targets)
 
 
+def shard0_only(item: pytest.Item) -> bool:
+    """True for a calibration test that runs in shard 0 of block 1 only (M11-03c group lanes):
+    ``calibration_unshardable``, the ``teeth_log`` fixture, or neither a harness entry point nor
+    ``replicate_range`` reached. ``pytest_runtest_setup`` skips exactly these in shard K > 0."""
+    if not _is_calibration(item):
+        return False
+    assert isinstance(item, pytest.Function)
+    return (
+        item.get_closest_marker(UNSHARDABLE) is not None
+        or TEETH_FIXTURE in item.fixturenames
+        or not _item_reaches_harness(item, SHARD_AWARE_NAMES)
+    )
+
+
 def pytest_runtest_setup(item: pytest.Item) -> None:
     sharded = C.SHARD_ENV in os.environ
     if (C.CONFIRM_ENV not in os.environ and not sharded) or not _is_calibration(item):
@@ -354,12 +369,30 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         if TEETH_FIXTURE in item.fixturenames:
             pytest.skip(TEETH_SKIP)
         return
-    if C.owns_direct_checks():
+    if C.owns_direct_checks() or not shard0_only(item):
         return
-    if not _item_reaches_harness(item, SHARD_AWARE_NAMES):
-        pytest.skip(SHARD_DIRECT_SKIP)
-    if TEETH_FIXTURE in item.fixturenames:
-        pytest.skip(TEETH_SKIP)
+    direct = not _item_reaches_harness(item, SHARD_AWARE_NAMES)
+    pytest.skip(SHARD_DIRECT_SKIP if direct else TEETH_SKIP)
+
+
+LANE_REPORT_OPTION = "--calibration-lane-report"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        LANE_REPORT_OPTION,
+        default=None,
+        metavar="PATH",
+        help="write {nodeid: {shard0_only: bool}} of the collected items to PATH (M11-03c)",
+    )
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    path = session.config.getoption(LANE_REPORT_OPTION)
+    if path is None:
+        return
+    report = {item.nodeid: {"shard0_only": shard0_only(item)} for item in session.items}
+    Path(path).write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
 
 
 # --------------------------------------------------------------------------- shards
