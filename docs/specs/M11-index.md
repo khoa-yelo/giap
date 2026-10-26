@@ -78,8 +78,11 @@ runbook, outline, fragments) is not gated but is listed.
 | 11 | [M11-11](M11-11-preprint-outline.md) | 2 | `docs/preprint/outline.md`: sections, figure plan, claim → evidence map, limitations | 03, 08 (soft) | 0 (≈ 250 prose) | 50 | Q-K11 (venue, authors, AI statement) |
 | 12 | [M11-12](M11-12-changelog-check-readme.md) | 2 | `scripts/ci/check_changelog.py` + CI step; README for 1.0 | 02 | 120 | 130 | no |
 | 13 | [M11-13](M11-13-release-gate.md) | 2, gate | release-prep PR (1.0.0, built changelog, CITATION date), evidence jobs on the RC commit, committed readiness, review packet; Khoa approves and dispatches; post-release PRs (DOI, Bioconda, PyPI smoke) | all | 30 | 60 | **yes** (§14.8 item 5) |
+| 14 | [M11-14](M11-14-container-install.md) | 2, after the rebrand | container-complete pip install: content-addressed immutable GHCR tags (`<version>-<key>`, `images.json`), fgsea image, UniOP optional (distance-model default, opt-in local build), `setup --images`, preflight rule for pinned images, version bump policy, rc/gate reuse, compare version warnings, install + upgrade pages (14a–14j); ADR-0060 | 01, 04, 06, 09b, 03; rename PR before 14j | 1,150 | 1,320 | **yes** (first GHCR publish, Q-K13–Q-K19) |
 
-Total ≈ 1,590 code lines (≈ 750 in pass 1), ≈ 1,730 test lines, ≈ 1,950 prose lines.
+Total ≈ 1,590 code lines (≈ 750 in pass 1), ≈ 1,730 test lines, ≈ 1,950 prose lines, before M11-14
+(added 2026-10-25: ≈ 1,150 code, ≈ 1,320 test, ≈ 350 prose; its questions Q-K13–Q-K19 and Q-L11–Q-L15
+are in the issue file).
 
 ## Dependency DAG
 
