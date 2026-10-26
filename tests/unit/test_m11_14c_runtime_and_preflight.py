@@ -314,3 +314,59 @@ def test_fgsea_has_no_containers_config_line() -> None:
     data = json.loads((WORKFLOW / "conf" / "images.json").read_text())
     if "fgsea" in data:
         assert data["fgsea"]["processes"] == []
+
+
+# ---------------------------------------------------------------- review nits (m10, local executor)
+
+
+def test_launch_env_makes_a_relative_db_dir_absolute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """m10: Nextflow runs with ``cwd=outdir``; a relative ``GIAP_DB_DIR`` would point elsewhere."""
+    from giap.runner.nextflow import launch_env
+
+    monkeypatch.chdir(tmp_path)
+    env = launch_env({"GIAP_DB_DIR": "stale"}, "apptainer", Path("rel") / "db")
+    assert env["GIAP_DB_DIR"] == str(tmp_path / "rel" / "db")
+    assert Path(env["GIAP_DB_DIR"]).is_absolute()
+
+
+@pytest.mark.parametrize("how", ["flag", "inherited"])
+def test_giap_run_exports_an_absolute_db_dir_for_a_relative_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_nf: Path, how: str
+) -> None:
+    write_setup_manifest(tmp_path / "db")
+    monkeypatch.chdir(tmp_path)
+    extra: tuple[str, ...] = ()
+    if how == "flag":
+        extra = ("--db-dir", "db")
+    else:
+        monkeypatch.setenv("GIAP_DB_DIR", "db")
+    code, text = _giap_run(tmp_path, "apptainer", *extra)
+    assert fake_nf.is_file(), (code, text)
+    assert _nf_env(fake_nf)["GIAP_DB_DIR"] == str(tmp_path / "db")
+
+
+def test_local_executor_does_not_honour_an_inherited_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--executor local`` has no profile, so its runtime is ``None``: the function step must not
+    see a ``GIAP_CONTAINER_RUNTIME`` left in the user's shell. The spec says only that ``giap run``
+    passes the runtime (item 1, step 3); this pins the reading that ``giap run`` always sets or
+    clears it, under either executor. The caller's value is back after the run."""
+    import giap.cli
+    from giap.runner import local
+
+    seen: dict[str, str | None] = {}
+
+    def run_local(*a: Any, **k: Any) -> None:
+        seen["runtime"] = os.environ.get("GIAP_CONTAINER_RUNTIME")
+
+    monkeypatch.setattr(giap.cli, "_local_roots", lambda *a, **k: {})
+    monkeypatch.setattr(local, "plan_local", lambda *a, **k: None)
+    monkeypatch.setattr(local, "run_local", run_local)
+    monkeypatch.setenv("GIAP_CONTAINER_RUNTIME", "docker")
+    _giap_run(tmp_path, "docker", "--executor", "local")
+    assert "runtime" in seen, "run_local was not reached"
+    assert seen["runtime"] is None
+    assert os.environ["GIAP_CONTAINER_RUNTIME"] == "docker"

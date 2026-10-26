@@ -23,10 +23,15 @@ Interface pinned here (implementer, ``src/giap/io/fgsea_r.py``):
 - ``command(call, launcher=None, call_dir=None)``: with no launcher or a prefix launcher, today's
   list (script + nine options). For an image launcher, the exact argv of item 1 with ``call_dir``
   (the call's temporary directory) bound:
-  - docker: ``docker run --rm -u <uid>:<gid> -v <d>:<d> -w <d> -e LC_ALL=C <ref> Rscript
-    /opt/<pkg>/giap_fgsea.R <options>``;
+  - docker: ``docker run --rm --cidfile <d>.cid -u <uid>:<gid> -v <d>:<d> -w <d> -e LC_ALL=C
+    <ref> Rscript --vanilla /opt/<pkg>/giap_fgsea.R <options>``;
   - apptainer: ``apptainer exec --cleanenv -B <d> --pwd <d> <cache>/<simpleName>.img Rscript
-    /opt/<pkg>/giap_fgsea.R <options>``.
+    --vanilla /opt/<pkg>/giap_fgsea.R <options>``
+  (lead amendment 2026-10-26, #386 review B1/S1).
+- Under docker, on a timeout or any exception while the call runs, the engine runs ``docker kill
+  <id>`` and then ``docker rm -f <id>`` with the ID that ``docker run`` wrote to ``<d>.cid``;
+  failures there are logged and the original error propagates; the ``.cid`` file is removed
+  afterwards (also on success). Apptainer needs no extra step.
   ``argv[0]`` may be the bare name or an absolute path to it.
 - ``RFgseaEngine`` runs that argv (cwd = the call dir), so a fake ``docker``/``apptainer`` on
   ``PATH`` sees it, and the engine parses what the "image" wrote as before.
@@ -108,13 +113,14 @@ def _options(call: Any) -> list[str]:
 
 
 def docker_argv(d: Path, call: Any, ref: str = REF) -> list[str]:
-    return ["docker", "run", "--rm", "-u", UIDGID, "-v", f"{d}:{d}", "-w", str(d),
-            "-e", "LC_ALL=C", ref, "Rscript", BAKED, *_options(call)]  # fmt: skip
+    return ["docker", "run", "--rm", "--cidfile", f"{d}.cid", "-u", UIDGID,
+            "-v", f"{d}:{d}", "-w", str(d), "-e", "LC_ALL=C", ref,
+            "Rscript", "--vanilla", BAKED, *_options(call)]  # fmt: skip
 
 
 def apptainer_argv(d: Path, call: Any, img: Path) -> list[str]:
     return ["apptainer", "exec", "--cleanenv", "-B", str(d), "--pwd", str(d), str(img),
-            "Rscript", BAKED, *_options(call)]  # fmt: skip
+            "Rscript", "--vanilla", BAKED, *_options(call)]  # fmt: skip
 
 
 def _norm(argv: list[str]) -> list[str]:
@@ -125,13 +131,25 @@ def _norm(argv: list[str]) -> list[str]:
 # ---------------------------------------------------------------- fakes
 
 FAKE_RUNTIME = r'''#!{python} -I
-"""Fake docker/apptainer (tests only): log the argv, then run the fake R front end."""
+"""Fake docker/apptainer (tests only): log the argv, then run the fake R front end.
+
+``docker run --cidfile F`` writes a fake container ID to F first (and, like docker, refuses an
+existing F). ``docker kill`` / ``docker rm`` only log and exit with ``$FAKE_DOCKER_KILL_RC``."""
 import json, os, sys
 from pathlib import Path
 exe = Path(sys.argv[0]).name
 argv = sys.argv[1:]
 with open(os.environ["FAKE_RT_LOG"], "a") as fh:
     fh.write(json.dumps({{"exe": exe, "argv": argv, "cwd": os.getcwd()}}) + "\n")
+if exe == "docker" and argv[:1] in (["kill"], ["rm"]):
+    sys.exit(int(os.environ.get("FAKE_DOCKER_KILL_RC", "0")))
+if exe == "docker" and "--cidfile" in argv:
+    cid = Path(argv[argv.index("--cidfile") + 1])
+    if cid.exists():
+        sys.stderr.write("docker: container ID file found, make sure the other container "
+                         "isn't running or delete " + str(cid) + "\n")
+        sys.exit(125)
+    cid.write_text(os.environ.get("FAKE_CID", "f" * 64))
 flag = "-w" if exe == "docker" else "--pwd"
 if "Rscript" not in argv or flag not in argv:
     sys.stderr.write("fake " + exe + ": unexpected call\n")
@@ -139,7 +157,7 @@ if "Rscript" not in argv or flag not in argv:
 os.chdir(argv[argv.index(flag) + 1])
 fake_r = os.environ["FAKE_R"]
 rest = argv[argv.index("Rscript") + 1:]
-os.execv(fake_r, [fake_r, "--vanilla", *rest])
+os.execv(fake_r, [fake_r, *rest])
 '''
 
 
@@ -252,7 +270,8 @@ def test_docker_argv_runs_as_the_calling_user_and_binds_only_the_call_dir(
                      call_dir=d)  # fmt: skip
     assert got[got.index("-u") + 1] == UIDGID
     assert [got[i + 1] for i, w in enumerate(got) if w == "-v"] == [f"{d}:{d}"]
-    assert got[got.index("Rscript") + 1] == BAKED
+    i = got.index("Rscript")
+    assert got[i + 1 : i + 3] == ["--vanilla", BAKED]
 
 
 def test_docker_needs_no_local_image_and_no_root(wf: Path, tmp_path: Path) -> None:
@@ -567,3 +586,213 @@ def test_property_resolution_order(
             assert got.kind == want[0]
             if want[1] is not None:
                 assert Path(got.path) == want[1]
+
+
+# ---------------------------------------------------------------- S1: --vanilla on the image path
+
+
+@pytest.mark.parametrize("runtime", ["docker", "apptainer"])
+def test_image_argv_runs_rscript_vanilla_on_the_baked_script(
+    wf: Path, tmp_path: Path, runtime: str
+) -> None:
+    """Review S1: apptainer binds ``$HOME``; without ``--vanilla`` the user's ``~/.Rprofile``,
+    ``~/.Renviron`` and ``~/R`` library would load in the image."""
+    cached_img(tmp_path / "nxf")
+    fr = _fr()
+    launcher = fr.resolve_launcher(
+        {"GIAP_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+    )
+    d = tmp_path / "call"
+    d.mkdir()
+    got = fr.command(_call(), launcher=launcher, call_dir=d)
+    i = got.index("Rscript")
+    assert got[i : i + 3] == ["Rscript", "--vanilla", BAKED]
+    assert got.count("Rscript") == 1
+
+
+# ---------------------------------------------------------------- B1: docker kill by container ID
+
+CID = "c1d" + "0" * 61
+
+
+def _docker_engine(tmp_path: Path, timeout_s: float = 60) -> tuple[Any, Path]:
+    fr = _fr()
+    work = tmp_path / "work"
+    work.mkdir()
+    launcher = fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+    return fr.r_fgsea_engine(launcher, timeout_s=timeout_s, tmp_root=work), work
+
+
+def _sleep_r(seconds: int = 30) -> None:
+    from helpers.fgsea_r_data import set_behaviour
+
+    set_behaviour(Path(os.environ["FAKE_R"]).parents[1], {"mode": "sleep", "seconds": seconds})
+
+
+def _cleanup_calls(tmp_path: Path) -> list[list[str]]:
+    return [
+        c["argv"]
+        for c in runtime_calls(tmp_path)
+        if c["exe"] == "docker" and c["argv"][:1] in (["kill"], ["rm"])
+    ]
+
+
+def test_docker_run_writes_its_cid_next_to_the_call_dir(wf: Path, tmp_path: Path) -> None:
+    """``--cidfile <call_dir>.cid``: a sibling of the bound directory, removed after the call."""
+    engine, work = _docker_engine(tmp_path)
+    engine(_call())
+    (run,) = runtime_calls(tmp_path)
+    d = Path(run["cwd"])
+    assert run["argv"][run["argv"].index("--cidfile") + 1] == f"{d}.cid"
+    assert list(work.iterdir()) == [], "the call dir and its .cid are removed on success"
+    assert _cleanup_calls(tmp_path) == [], "a call that exits on its own needs no docker kill"
+
+
+def test_docker_timeout_kills_and_removes_the_container(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_CID", CID)
+    _sleep_r()
+    engine, work = _docker_engine(tmp_path, timeout_s=1.5)
+    with pytest.raises(_fr().FgseaEngineError, match="timed out"):
+        engine(_call())
+    assert _cleanup_calls(tmp_path) == [["kill", CID], ["rm", "-f", CID]]
+    assert list(work.glob("*.cid")) == [], "the .cid file is removed"
+    assert list(work.iterdir()) == []
+
+
+class _Interrupted(Exception):
+    """Stands in for whatever interrupts the wait (Nextflow's SIGTERM, a KeyboardInterrupt)."""
+
+
+def _raise_once_cid_written(
+    monkeypatch: pytest.MonkeyPatch, work: Path, exc: BaseException
+) -> None:
+    """The engine's first ``communicate(timeout=...)`` raises ``exc`` once ``docker run`` wrote
+    the cid; later calls (the engine's drain after the kill) behave normally."""
+    import subprocess
+    import time
+
+    real = subprocess.Popen.communicate
+    state = {"raised": False}
+
+    def communicate(self: Any, *args: Any, **kwargs: Any) -> Any:
+        if not state["raised"] and kwargs.get("timeout") is not None:
+            state["raised"] = True
+            deadline = time.monotonic() + 20
+            while not list(work.glob("*.cid")) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            raise exc
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", communicate)
+
+
+@pytest.mark.parametrize("exc", [_Interrupted("boom"), KeyboardInterrupt()])
+def test_docker_exception_kills_the_container_and_reraises(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exc: BaseException
+) -> None:
+    monkeypatch.setenv("FAKE_CID", CID)
+    _sleep_r()
+    engine, work = _docker_engine(tmp_path)
+    _raise_once_cid_written(monkeypatch, work, exc)
+    with pytest.raises(type(exc)) as info:
+        engine(_call())
+    assert info.value is exc, "the original exception propagates"
+    assert _cleanup_calls(tmp_path) == [["kill", CID], ["rm", "-f", CID]]
+    assert list(work.iterdir()) == [], "the call dir and its .cid are removed"
+
+
+def test_a_failing_docker_kill_does_not_mask_the_timeout(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("FAKE_CID", CID)
+    monkeypatch.setenv("FAKE_DOCKER_KILL_RC", "1")
+    _sleep_r()
+    engine, work = _docker_engine(tmp_path, timeout_s=1.5)
+    caplog.set_level("DEBUG")
+    with pytest.raises(_fr().FgseaEngineError, match="timed out"):
+        engine(_call())
+    calls = _cleanup_calls(tmp_path)
+    assert calls[:1] == [["kill", CID]]
+    assert ["rm", "-f", CID] in calls, "docker rm -f still runs after a failed docker kill"
+    assert any("docker" in r.getMessage() for r in caplog.records), "the failure is logged"
+    assert list(work.iterdir()) == []
+
+
+def test_a_failing_docker_kill_does_not_mask_an_exception(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_CID", CID)
+    monkeypatch.setenv("FAKE_DOCKER_KILL_RC", "1")
+    _sleep_r()
+    engine, work = _docker_engine(tmp_path)
+    exc = _Interrupted("original")
+    _raise_once_cid_written(monkeypatch, work, exc)
+    with pytest.raises(_Interrupted) as info:
+        engine(_call())
+    assert info.value is exc
+    assert _cleanup_calls(tmp_path)[:1] == [["kill", CID]]
+    assert list(work.iterdir()) == []
+
+
+def test_apptainer_timeout_makes_no_docker_calls(wf: Path, tmp_path: Path) -> None:
+    cached_img(tmp_path / "nxf")
+    _sleep_r()
+    fr = _fr()
+    launcher = fr.resolve_launcher(
+        {"GIAP_CONTAINER_RUNTIME": "apptainer", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+    )
+    work = tmp_path / "work"
+    work.mkdir()
+    with pytest.raises(fr.FgseaEngineError, match="timed out"):
+        fr.r_fgsea_engine(launcher, timeout_s=1.5, tmp_root=work)(_call())
+    calls = runtime_calls(tmp_path)
+    assert [c["exe"] for c in calls] == ["apptainer"]
+    assert "--cidfile" not in calls[0]["argv"]
+    assert list(work.iterdir()) == []
+
+
+# ---------------------------------------------------------------- review nits (mutants m5, m8, m15)
+
+
+def test_unknown_runtime_with_a_cached_img_does_not_take_the_apptainer_path(
+    wf: Path, tmp_path: Path
+) -> None:
+    """m5: ``podman`` is not ``apptainer``, even when the apptainer image is in the cache."""
+    cached_img(tmp_path / "nxf")
+    fr = _fr()
+    with pytest.raises(fr.FgseaEngineUnavailable) as info:
+        fr.resolve_launcher(
+            {"GIAP_CONTAINER_RUNTIME": "podman", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+        )
+    assert "podman" in str(info.value)
+
+
+def test_apptainer_without_any_cache_setting_is_unavailable(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """m8: no ``NXF_APPTAINER_CACHEDIR``, ``GIAP_ROOT`` or ``GIAP_DB_DIR``: the cache is not
+    guessed relative to the working directory (``./containers``), even if an image is there."""
+    monkeypatch.chdir(tmp_path)
+    cached_img(tmp_path / "containers")
+    fr = _fr()
+    with pytest.raises(fr.FgseaEngineUnavailable) as info:
+        fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "apptainer"})
+    assert "cache" in str(info.value)
+
+
+@pytest.mark.parametrize("ref", [123, ["ghcr.io/x/y:1"], {"ref": "ghcr.io/x/y:1"}, True])
+def test_a_non_string_ref_is_no_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ref: Any
+) -> None:
+    """m15: ``_step_images`` keeps only non-empty string refs."""
+    from giap.preflight.environment import _step_images
+
+    entry = fgsea_entry()
+    entry["fgsea"]["ref"] = ref
+    tree = fake_workflow(tmp_path, entry)
+    assert _step_images(tree / "conf" / "images.json") == {}
+    monkeypatch.setattr(_fr(), "workflow_main", lambda: tree / "main.nf")
+    with pytest.raises(_fr().FgseaEngineUnavailable):
+        _fr().resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
