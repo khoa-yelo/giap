@@ -6,7 +6,11 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=60G
 #SBATCH --time=06:00:00
+#SBATCH --exclude=rye-02
+#SBATCH --signal=B:TERM@600
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
+# --exclude=rye-02 is a stopgap: on that node Python/JVM start-up stalls 50-250x (nightly 1870584,
+# 1896018); a slow-node guard replaces it.
 # Nightly job array on the latest origin/main (GIAP_SPEC.md §12; M2-21 lead decisions 3-5):
 #   0  tests/integration + tests/contract with --require-capabilities <ci/gates.yaml farmshare_nightly>
 #      (a missing DB fails, never skips), then nf-test test workflow/tests --profile $NF_PROFILE
@@ -35,6 +39,10 @@
 # exit 2, decisions 12 and 22), NIGHTLY_NF_PROFILE, NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
 # Runs nightly from scripts/slurm/nightly_launch.sh (scrontab: scripts/slurm/nightly.scrontab) or by
 # hand: sbatch scripts/slurm/nightly.sbatch (then nothing posts for a task that is SIGKILLed).
+# Slow-node guard: a task whose `python -c 'import giap'` takes longer than NIGHTLY_SLOW_NODE_SECS
+# (default 60) resubmits itself with --exclude=<NIGHTLY_EXCLUDE, the #SBATCH excludes, this host>
+# and writes no row; at most NIGHTLY_SLOW_MAX_HOPS (default 2) hops; NIGHTLY_SLOW_NODE_GUARD=0 off.
+# --signal=B:TERM@600 and `cmd & wait $!` for the long steps: the TERM trap writes the row in time.
 # R14: 4 tasks x 16 CPUs = 64 CPUs + the 1-CPU summary job; no Nextflow child jobs (farmshare_local).
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
@@ -96,21 +104,33 @@ stage="checkout of $REF"
 (
   flock 9   # the array tasks share one repository: fetch and worktree add one at a time
   git -C "$GIAP_REPO" fetch -q origin
-  [ -d "$W" ] || git -C "$GIAP_REPO" worktree add -q --detach "$W" "$REF"
-  git -C "$W" checkout -q -f --detach "$REF"
+  target=$(git -C "$GIAP_REPO" rev-parse -q --verify "$REF^0") || exit 1
+  if [ -d "$W" ]; then
+    # a killed task can leave index.lock behind; under this flock no other git runs in $W
+    gd=$(git -C "$W" rev-parse --absolute-git-dir 2>/dev/null) && rm -f "$gd/index.lock"
+    if [ "$(git -C "$W" rev-parse -q --verify HEAD 2>/dev/null)" != "$target" ] &&
+       ! git -C "$W" checkout -q -f --detach "$target"; then
+      echo "checkout in $W failed: removing and re-adding the worktree" >&2
+      git -C "$GIAP_REPO" worktree remove --force "$W" || rm -rf "$W"
+      git -C "$GIAP_REPO" worktree prune
+    fi
+  fi
+  [ -d "$W" ] || git -C "$GIAP_REPO" worktree add -q --detach "$W" "$target"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
 numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
 tmp_dir="$(mktemp -d /tmp/giap.XXXXXX)"   # node-local, as test_branch.sbatch (not NFS under $RUN)
 export TMPDIR="$tmp_dir" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
+export GIAP_PROBE_TIMEOUT="${GIAP_PROBE_TIMEOUT:-180}"   # tests/conftest.py's tool probes (cold NFS)
 commit=$(git -C "$W" rev-parse --short HEAD)
 stage="task $TASK"
 echo "nightly task=$TASK mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
 
 pyt() {  # pyt <label> <pytest args...>: sets rc and summary
-  python -m pytest -p no:cacheprovider "${@:2}" 2>&1 | tee "$RUN/$1.txt"
-  rc=${PIPESTATUS[0]}
+  # in the background, so the TERM trap runs at once (bash defers traps during a foreground wait)
+  { python -m pytest -p no:cacheprovider "${@:2}" 2>&1 | tee "$RUN/$1.txt"; exit "${PIPESTATUS[0]}"; } &
+  wait $!; rc=$?
   summary="$1: $(grep -E '[0-9]+ (passed|failed|error)' "$RUN/$1.txt" | tail -1 | tr -d '=' | xargs)"
 }
 
@@ -124,9 +144,10 @@ task_integration() {
   pyt integration tests/integration tests/contract -q -n 8 --require-capabilities "$caps"
   r0=$rc; s0=$summary
   # docker_smoke.nf.test and docker_db.nf.test run real images (docker-smoke.yml), as in ci.yml
-  nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test \
+  { nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test \
     ! -name docker_db.nf.test | sort) --profile "$NF_PROFILE" 2>&1 | tee "$RUN/nf-test.txt"
-  local r1=${PIPESTATUS[0]}
+    exit "${PIPESTATUS[0]}"; } &
+  local r1; wait $!; r1=$?
   rc=$(( r0 > r1 ? r0 : r1 ))
   summary="$s0; nf-test $NF_PROFILE: $(sed 's/\x1b\[[0-9;]*m//g' "$RUN/nf-test.txt" | grep -E '^(SUCCESS|FAILURE):' | tail -1)"
 }
@@ -194,11 +215,11 @@ giapsim.simulate(dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfi
   for variant in bakta_light bakta_full_json; do
     out="$RUN/$variant"
     if [ "$variant" = bakta_light ]; then
-      giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=light
+      giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=light &
     else
-      giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$full"
+      giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$full" &
     fi
-    r=$?
+    wait $!; r=$?
     [ "$r" -gt "$rc" ] && rc=$r
     summary="$summary $variant exit $r ($(awk -F'\t' 'NR>1 {n[$6]++} END {for (s in n) printf "%s %d ", s, n[s]}' "$out/logs/trace.tsv" 2>/dev/null | xargs));"
     python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-0}}${SLURM_ARRAY_JOB_ID:+_$SLURM_ARRAY_TASK_ID}" --genome "sim100k ($variant)" \
@@ -209,6 +230,37 @@ giapsim.simulate(dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfi
 if [ "$MODE" = record ] && [ "$TASK" != 0 ]; then
   report 0 "task $TASK: skipped (MODE=record)"; exit 0
 fi
+slow_node_guard() {  # resubmits this task off a node where Python start-up stalls (rye-02, 10-26)
+  local secs="${NIGHTLY_SLOW_NODE_SECS:-60}" hops="${NIGHTLY_SLOW_HOPS:-0}" t0 took host excl j
+  [ "${NIGHTLY_SLOW_NODE_GUARD:-1}" = 0 ] && return 0
+  t0=$(date +%s%N)
+  timeout "$((secs + 60))" python -c 'import giap' >/dev/null 2>&1   # timed whether or not it imports
+  took=$(( ($(date +%s%N) - t0) / 1000000 ))
+  echo "slow-node probe: import giap took ${took} ms on $(hostname -s) (limit ${secs} s, hop $hops)"
+  [ "$took" -le $((secs * 1000)) ] && return 0
+  if [ "$hops" -ge "${NIGHTLY_SLOW_MAX_HOPS:-2}" ]; then
+    slow_note=" [slow node $(hostname -s): import giap ${took} ms; hop limit reached]"; return 0
+  fi
+  host=$(hostname -s)
+  # --exclude on the command line replaces the #SBATCH one: carry those hosts over
+  excl=$(printf '%s\n' ${NIGHTLY_EXCLUDE:+${NIGHTLY_EXCLUDE//,/ }} \
+           $(grep -oP '^#SBATCH\s+(--exclude[= ]|-x\s*)\K\S+' scripts/slurm/nightly.sbatch | tr ',' ' ') \
+           "$host" | awk 'NF && !seen[$0]++' | paste -sd,)
+  # NIGHTLY_EXCLUDE rides in the environment (--export=ALL): sbatch splits --export at commas
+  if ! j=$(NIGHTLY_EXCLUDE="$excl" sbatch --parsable --array="$TASK" --exclude="$excl" \
+    --export="ALL,MODE=$MODE,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT,NIGHTLY_SLOW_HOPS=$((hops + 1)),NIGHTLY_REF=$commit,NIGHTLY_WORKTREE=$W" \
+    scripts/slurm/nightly.sbatch); then
+    slow_note=" [slow node $host: import giap ${took} ms; the resubmission failed]"; return 0
+  fi
+  j=${j%%;*}
+  echo "slow node $host (import giap ${took} ms > ${secs} s): task $TASK resubmitted as job $j, excluding $excl"
+  extend_summary "$j" || tsv_line "${JOB}_note" 0 \
+    "task $TASK resubmitted off slow node $host as job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before it"
+  reported=1; exit 0
+}
+
+slow_note=""
+stage="slow-node probe"; slow_node_guard; stage="task $TASK"
 rc=2; summary="task $TASK: no such sub-task"
 case "${SLURM_ARRAY_TASK_ID:-0}" in
   0) if [ "$MODE" = record ]; then task_record; else task_integration; fi ;;
@@ -216,5 +268,5 @@ case "${SLURM_ARRAY_TASK_ID:-0}" in
   2) task_calibration ;;
   3) task_giap_run ;;
 esac
-report "$rc" "$summary"
+report "$rc" "$summary$slow_note"
 exit "$rc"
