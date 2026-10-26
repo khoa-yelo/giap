@@ -1,19 +1,9 @@
-biopython==1.83
+biopython @ file:///home/conda/feedstock_root/build_artifacts/biopython_1720014885478/work
 cloudpickle @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_cloudpickle_1765303462/work
-ete3==3.1.3
 joblib @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_joblib_1788177170/work
-kaleido==0.2.1
-Levenshtein==0.25.1
-mizani==0.11.2
 numpy @ file:///home/conda/feedstock_root/build_artifacts/numpy_1707225380409/work/dist/numpy-1.26.4-cp310-cp310-linux_x86_64.whl#sha256=51131fd8fc130cd168aecaf1bc0ea85f92e8ffebf211772ceb16ac2e7f10d7ca
 packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1785888127/work
-patsy==0.5.6
-plotnine==0.13.5
 promotercalculator==1.2.4
-python-Levenshtein==0.25.1
-rapidfuzz==3.8.1
 scikit-learn @ file:///home/conda/feedstock_root/build_artifacts/scikit-learn_1726082665124/work/dist/scikit_learn-1.5.2-cp310-cp310-linux_x86_64.whl#sha256=914b88d7388a0d1dbe92050e4583e162038cff9d8bf6b85d76a4d58ac89079d0
 scipy @ file:///home/conda/feedstock_root/build_artifacts/scipy-split_1733620567294/work/dist/scipy-1.14.1-cp310-cp310-linux_x86_64.whl#sha256=740019bfe16f745f6d6adf96dea7ea3d9fdbae7d7d45ef25a7c4361bebd87257
-statsmodels==0.14.2
 threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1741878222898/work
-ViennaRNA==2.7.1

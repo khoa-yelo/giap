@@ -32,6 +32,7 @@ METRICS = "validation/pilot/metrics/metrics.json"
 REPORT = "validation/pilot/REPORT.md"
 BASELINE = "benchmarks/baseline.json"
 # a change here invalidates a calibration row (tests/sim, tests/helpers: M11-03b Q6)
+# (R3/R4 reuse rows by ``reusable`` below since M11-14; the constant stays for its Q6 test)
 CALIB_PATHS = ("src", "tests/calibration", "tests/sim", "tests/helpers", "ci")
 RUN_PATHS = ("src", "workflow", "ci", "validation/proxies")  # ... and a weekly TE8 row
 INTEG_PATHS = ("src", "workflow", "ci", "tests/integration", "tests/contract")  # ... integration
@@ -42,6 +43,31 @@ NOT_CONTAINERISED = frozenset(
 )
 PAPERWORK_FILES = frozenset({"PROGRESS.md", "README.md", "CITATION.cff", "CHANGELOG.md"})
 PAPERWORK_TREES = ("validation/release/", "docs/", "changelog.d/")
+# Evidence reuse (M11-14 item 4; ADR-0060 §4): calibration evidence from commit C stands at R iff
+# every path of ``git diff --name-only --no-renames C R`` lies under NON_STATS_PATHS (whole path
+# components; a directory entry ends with "/"). Changes to either list need `stats` review (Q-L15).
+NON_STATS_PATHS: tuple[str, ...] = (
+    "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "CITATION.cff", "mkdocs.yml",
+    "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/", ".github/",
+    # single files: scripts/dev/island_power.py feeds a calibration test (never list)
+    "scripts/dev/approval_packet.py", "scripts/dev/progress_bars.py", "scripts/dev/replant.sh",
+    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/giap/report/", "src/giap/viz/",
+    "validation/release/",
+)  # fmt: skip
+# Never reusable; disjoint from NON_STATS_PATHS (a unit test asserts it).
+NEVER_PATHS: tuple[str, ...] = (
+    "src/giap/preflight/", "src/giap/runner/", "src/giap/setupdb/", "src/giap/cli.py",
+    "src/giap/data/", "src/giap/config/", "src/giap/rng.py", "src/giap/io/", "workflow/",
+    "pyproject.toml", "uv.lock", "tests/sim/", "tests/calibration/", "ci/",
+    "scripts/release/readiness.py", "scripts/dev/island_power.py",
+)  # fmt: skip
+SELF_PATH = "scripts/release/readiness.py"  # self-protection: a widening commit never certifies
+VERSION_FILE = "src/giap/__init__.py"
+_VERSION_LINE = re.compile(r'__version__ = "[^"]+"')
+REUSED_NOTE = "(reusable: diff ⊆ NON_STATS_PATHS)"
+IMAGES = "workflow/conf/images.json"
+UNPUBLISHED = frozenset({"uniop"})  # never published (R5); scripts/release/image_key.py
+PROCESS_LESS = frozenset({"fgsea"})  # pinned in images.json only, no withName line
 # A bare digest reference (ADR-0059); group 1 catches the docker:// prefix `docker run` rejects.
 _DIGEST = re.compile(r"(docker://)?[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}")
 _WITH_NAME = re.compile(
@@ -98,6 +124,13 @@ def paperwork_path(path: str) -> bool:
     return path.startswith(PAPERWORK_TREES) and not path.startswith("docs/methods/")
 
 
+def non_stats_path(path: str) -> bool:
+    """``path`` lies under an entry of ``NON_STATS_PATHS`` on whole path components (pure)."""
+    return bool(path) and any(
+        path.startswith(e) if e.endswith("/") else path == e for e in NON_STATS_PATHS
+    )
+
+
 # ------------------------------------------------------------------ git and logs
 
 
@@ -117,6 +150,63 @@ def code_equal(repo: Path, commit: str, paths: tuple[str, ...]) -> bool:
     diff = ("diff", "--quiet", "--no-renames", c, "HEAD", "--", *paths)
     tests = (("merge-base", "--is-ancestor", c, "HEAD"), diff)
     return bool(c) and all(_git(repo, *a, check=False) is not None for a in tests)
+
+
+def _resolve(repo: Path, rev: str) -> str | None:
+    return _git(repo, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}", check=False) or None
+
+
+@functools.cache
+def _changed(repo: Path, c: str, r: str) -> tuple[str, ...] | None:
+    """``git diff --name-only --no-renames c r`` (full SHAs); None if git fails."""
+    out = _git(repo, "diff", "-z", "--no-ext-diff", "--name-only", "--no-renames", c, r,
+               check=False)  # fmt: skip
+    return None if out is None else tuple(p for p in out.split("\0") if p)
+
+
+@functools.cache
+def _version_line_only(repo: Path, c: str, r: str) -> bool:
+    """The ``VERSION_FILE`` diff is one hunk: one ``-`` and one ``+`` ``__version__`` line."""
+    out = _git(repo, "diff", "--no-ext-diff", "--no-color", "--no-textconv", "-U0", c, r, "--",
+               VERSION_FILE, check=False)  # fmt: skip
+    if out is None:
+        return False
+    lines = out.splitlines()
+    start = next((i for i, ln in enumerate(lines) if ln.startswith("@@")), None)
+    if start is None:
+        return False
+    body = lines[start:]
+    if sum(ln.startswith("@@") for ln in body) != 1 or len(body) != 3:
+        return False
+    old, new = body[1], body[2]
+    return (old[:1], new[:1]) == ("-", "+") and all(
+        _VERSION_LINE.fullmatch(x[1:]) for x in (old, new)
+    )
+
+
+def reusable(repo: Path, c: str, r: str) -> bool:
+    """Evidence from commit ``c`` stands at ``r`` (M11-14 item 4): every path of ``git diff
+    --name-only --no-renames c r`` is a ``non_stats_path``, except a one-hunk ``__version__``
+    change of ``src/giap/__init__.py``; never if ``scripts/release/readiness.py`` changed or
+    either commit is unknown. Reads ``NON_STATS_PATHS`` at call time."""
+    cc, rr = _resolve(repo, c), _resolve(repo, r)
+    if cc is None or rr is None:
+        return False
+    changed = _changed(repo, cc, rr)
+    if changed is None or SELF_PATH in changed:
+        return False
+    return all(
+        _version_line_only(repo, cc, rr) if p == VERSION_FILE else non_stats_path(p)
+        for p in changed
+    )
+
+
+def reusable_ancestor(repo: Path, commit: str) -> bool:
+    """``commit`` is HEAD or an ancestor of HEAD with ``reusable(commit, HEAD)`` (R3, R4)."""
+    c = _resolve(repo, commit)
+    if c is None or _git(repo, "merge-base", "--is-ancestor", c, "HEAD", check=False) is None:
+        return False
+    return reusable(repo, c, "HEAD")
 
 
 @dataclass(frozen=True)
@@ -199,6 +289,9 @@ class Ctx:
     def commits(self, paths: tuple[str, ...]) -> Callable[[str], bool]:
         return lambda commit: code_equal(self.repo, commit, paths)
 
+    def reusable_from(self, commit: str) -> bool:
+        return reusable_ancestor(self.repo, commit)
+
 
 def _missing(rid: str, what: str, thr: str = "") -> Row:
     return _row(rid, "pending", f"missing: {what}", thr)
@@ -247,12 +340,16 @@ def _labelled(label: str) -> Callable[[LogRow], bool]:
 
 
 def _calib(
-    c: Ctx, rid: str, labels: tuple[str, ...], none: str, paths: tuple[str, ...] = CALIB_PATHS
+    c: Ctx, rid: str, labels: tuple[str, ...], none: str, paths: tuple[str, ...] | None = None
 ) -> Row:
-    thr, rows = "exit 0 and 0 failed for R or a code-equal ancestor", c.log("nightly.tsv")
+    """Newest nightly row per label for R, or for an ancestor C: code-equal on ``paths`` when
+    given (R6), else ``reusable(C, R)`` (R3, R4; M11-14 item 4)."""
+    thr = ("exit 0 and 0 failed for R or a code-equal ancestor" if paths is not None
+           else "exit 0 and 0 failed for R or an ancestor C with reusable(C, R)")  # fmt: skip
+    rows = c.log("nightly.tsv")
     if rows is None:
         return _missing(rid, "logs/nightly.tsv", thr)
-    commits = c.commits(paths)
+    commits = c.commits(paths) if paths is not None else c.reusable_from
     hits = [newest(rows, commits, _labelled(lb)) for lb in labels]
     if any(h is None for h in hits):
         miss = [lb for lb, h in zip(labels, hits, strict=True) if h is None]
@@ -260,6 +357,10 @@ def _calib(
     found = [h for h in hits if h is not None]
     bad = [h.label for h in found if not h.ok()]
     val = f"failed: {', '.join(bad)}" if bad else "; ".join(h.summary for h in found)
+    if paths is None:
+        head = _resolve(c.repo, "HEAD")
+        olds = dict.fromkeys(x for h in found if (x := _resolve(c.repo, h.commit)) != head)
+        val += "".join(f"; reused from {x[:7]} {REUSED_NOTE}" for x in olds if x)
     return _row(rid, "fail" if bad else "pass", val, thr, [h.cite("nightly.tsv") for h in found])
 
 
@@ -476,8 +577,53 @@ def h4(c: Ctx) -> Row:
     ]  # every `container =` (§12)
     bad += [f"not pinned, not conda-only: {n}" for n, inproc in reg.items()
             if not inproc and n not in NOT_CONTAINERISED and n.upper() not in pins]  # fmt: skip
+    bad += _h4_images(c.repo)
     val = "; ".join(bad) or f"{len(pins)} digests; {len(reg) - len(pins)} conda-only/in-process"
-    return _row("H4", "fail" if bad else "pass", val, _H4_EXPECTED, [cfg_rel, tools_rel])
+    return _row("H4", "fail" if bad else "pass", val, _H4_EXPECTED, [cfg_rel, tools_rel, IMAGES])
+
+
+def _image_key(tool: str, root: Path) -> str:
+    """``giap.io.image_key.key`` of the checkout next to this script (ValueError: no inputs)."""
+    src = str(Path(__file__).resolve().parents[2] / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)  # the checkout's image_key, not an installed giap's
+    from giap.io.image_key import key
+
+    return key(tool, root)
+
+
+def _h4_images(root: Path) -> list[str]:
+    """H4 reasons from ``images.json`` (M11-14 item 2): every GHCR tool (a directory under
+    ``workflow/containers/`` but ``uniop``) has a current entry; every entry has image inputs and
+    processes (fgsea excepted). Never raises."""
+    base = root / "workflow" / "containers"
+    tools = sorted(p.name for p in base.iterdir() if p.is_dir() and p.name not in UNPUBLISHED) \
+        if base.is_dir() else []  # fmt: skip
+    path = root / IMAGES
+    if not path.is_file():
+        return [f"not in {IMAGES} (absent): {t}" for t in tools]
+    try:
+        images = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return [f"{IMAGES} unreadable ({type(e).__name__})"]
+    if not isinstance(images, dict):
+        return [f"{IMAGES} is not an object"]
+    bad = [f"not in {IMAGES}: {t}" for t in tools if t not in images]
+    for tool, entry in sorted(images.items()):
+        if not isinstance(entry, dict) or not isinstance(entry.get("key"), str):
+            bad.append(f"invalid {IMAGES} entry: {tool}")
+            continue
+        try:
+            k = _image_key(str(tool), root)
+        except (OSError, ValueError):
+            bad.append(f"no image inputs: {tool}")
+            continue
+        if k != entry["key"]:
+            bad.append(f"stale image: {tool} (inputs changed since {entry['key']})")
+        procs = entry.get("processes")
+        if not isinstance(procs, list) or (not procs and tool not in PROCESS_LESS):
+            bad.append(f"no processes in {IMAGES}: {tool}")
+    return bad
 
 
 def _norm(s: str) -> str:
