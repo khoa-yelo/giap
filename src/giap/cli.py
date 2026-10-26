@@ -14,7 +14,8 @@ import os
 import platform
 import shutil
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar, get_args
 
@@ -349,7 +350,9 @@ def run(
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
         keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
-        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+        # no profile, so no container runtime: the function step must not see the shell's (14c)
+        with _env_unset("GIAP_CONTAINER_RUNTIME"):
+            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
     inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
@@ -602,6 +605,18 @@ def _local_roots(
                 "preflight": outdir / "preflight" / "preflight.json"}  # fmt: skip
     roots |= {k: p for k, p in produced.items() if p.is_file()}
     return roots
+
+
+@contextmanager
+def _env_unset(name: str) -> Iterator[None]:
+    """``os.environ`` without ``name`` for the block; the caller's value is restored after it
+    (also on ``SystemExit``)."""
+    saved = os.environ.pop(name, None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            os.environ[name] = saved
 
 
 def _run_local(

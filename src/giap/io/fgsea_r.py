@@ -14,6 +14,7 @@ never retries and the temporary directory is always removed. The launcher is
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import os
 import re
@@ -48,7 +49,9 @@ __all__ = [
     "Launcher",
     "RFgseaEngine",
     "child_env",
+    "cid_file",
     "command",
+    "kill_container",
     "r_fgsea_engine",
     "read_results",
     "read_versions",
@@ -72,6 +75,8 @@ FGSEA_TOOL = TOOLS["fgsea"]  # the env's registry entry, used for the ``.giap-bu
 _NOT_BUILT = (
     f"the R fgsea environment {ENV_NAME} is not built: sbatch scripts/slurm/build_envs.sbatch fgsea"
 )
+_LOG = logging.getLogger(__name__)
+_DOCKER_CLEANUP_TIMEOUT_S = 60.0
 _R_NUMBER = re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$")
 _SIZE = re.compile(r"^\d+$")
 
@@ -195,18 +200,59 @@ def command(
 ) -> list[str]:
     """The script and its nine options for a prefix (or no) launcher. For an image launcher, the
     ``docker run`` / ``apptainer exec`` argv of M11-14 item 1 binding only ``call_dir``, which
-    runs ``Rscript`` on the baked-in script (the shebang is not read)."""
+    runs R (``--vanilla``) on the baked-in script (the shebang is not read)."""
     if launcher is None or launcher.kind == "prefix":
         return [str(script_path()), *_options(call)]
     if call_dir is None:
         raise ValueError(f"the {launcher.kind} fgsea launcher needs the call directory")
     d = str(call_dir)
-    tail = ["Rscript", BAKED_SCRIPT, *_options(call)]
+    tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *_options(call)]
     if launcher.kind == "docker":
         user = f"{os.getuid()}:{os.getgid()}"
-        return ["docker", "run", "--rm", "-u", user, "-v", f"{d}:{d}", "-w", d,
-                "-e", "LC_ALL=C", launcher.image, *tail]  # fmt: skip
+        return ["docker", "run", "--rm", "--cidfile", str(cid_file(call_dir)), "-u", user,
+                "-v", f"{d}:{d}", "-w", d, "-e", "LC_ALL=C", launcher.image, *tail]  # fmt: skip
     return ["apptainer", "exec", "--cleanenv", "-B", d, "--pwd", d, str(launcher.path), *tail]
+
+
+def cid_file(call_dir: Path) -> Path:
+    """``<call_dir>.cid``: where ``docker run --cidfile`` writes the container ID (a sibling of
+    the bound directory; not created beforehand, since docker refuses an existing file)."""
+    return call_dir.with_name(call_dir.name + ".cid")
+
+
+def _docker(args: list[str]) -> bool:
+    """Run ``docker <args>``; ``False`` (logged) on any failure, never raises."""
+    try:
+        proc = subprocess.run(
+            ["docker", *args],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=_DOCKER_CLEANUP_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        _LOG.warning("R fgsea: docker %s failed: %s", " ".join(args), exc)
+        return False
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", errors="replace").strip()
+        _LOG.warning("R fgsea: docker %s exited %d: %s", " ".join(args), proc.returncode, err)
+        return False
+    return True
+
+
+def kill_container(cid_path: Path) -> None:
+    """``docker kill <id>`` then ``docker rm -f <id>`` (also when the kill fails) for the ID in
+    ``cid_path``; a missing or empty file means no container. Failures are logged, never raised:
+    the caller re-raises the error that interrupted the call."""
+    try:
+        cid = cid_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return
+    if not cid:
+        _LOG.warning("R fgsea: docker cid file %s is empty; no container to kill", cid_path)
+        return
+    _docker(["kill", cid])
+    _docker(["rm", "-f", cid])
 
 
 def child_env(launcher: Launcher, environ: Mapping[str, str]) -> dict[str, str]:
@@ -406,20 +452,32 @@ class RFgseaEngine:
             )
         except (FileNotFoundError, PermissionError) as exc:
             raise FgseaEngineUnavailable(f"cannot start R fgsea: {exc}") from exc
+        cid = cid_file(cwd) if self.launcher.kind == "docker" else None
         try:
-            _, stderr = proc.communicate(timeout=self.timeout_s)
-        except subprocess.TimeoutExpired:
-            _kill_group(proc)
-            proc.communicate()
-            raise FgseaEngineError(f"R fgsea timed out after {self.timeout_s:g} s") from None
-        except BaseException:
-            _kill_group(proc)
-            proc.communicate()
-            raise
+            try:
+                _, stderr = proc.communicate(timeout=self.timeout_s)
+            except subprocess.TimeoutExpired:
+                self._stop(proc, cid)
+                raise FgseaEngineError(f"R fgsea timed out after {self.timeout_s:g} s") from None
+            except BaseException:
+                self._stop(proc, cid)
+                raise
+        finally:
+            if cid is not None:
+                cid.unlink(missing_ok=True)
         if proc.returncode != 0:
             raise FgseaEngineError(
                 f"R fgsea failed (exit {proc.returncode}, {len(call.jobs)} jobs): {_tail(stderr)}"
             )
+
+    @staticmethod
+    def _stop(proc: subprocess.Popen[bytes], cid: Path | None) -> None:
+        """Kill the process group, drain it, then (docker) the container itself: killing the
+        ``docker run`` client does not stop the container."""
+        _kill_group(proc)
+        proc.communicate()
+        if cid is not None:
+            kill_container(cid)
 
 
 def r_fgsea_engine(
