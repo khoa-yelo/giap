@@ -5,8 +5,6 @@ recorded fixture (no ``pending_sample`` left in ``tests/contract/`` for annotati
 
 Still pending, with the reason (checked so the list cannot silently grow):
 
-* ``bactermfinder``: opt-in tool with no environment and no recording yet
-  (``record_tools.sbatch`` skips it; ``$GIAP_ROOT/recordings/`` has no ``bactermfinder``).
 * ``blastp``, ``tblastn``, ``miniprot`` (M3), ``diann`` (M7), ``m4_input`` (M4-21): not
   annotation tools.
 """
