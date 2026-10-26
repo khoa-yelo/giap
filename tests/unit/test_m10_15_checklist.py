@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from helpers.a3_metrics_m10_10b import build_a3
 from helpers.pilot_gate_m10_15 import (
     CELLS,
     EVIDENCE_JOBS,
@@ -47,7 +48,6 @@ from helpers.pilot_metrics_m10 import (
     build_pilot,
     run_cli,
     sim_world,
-    write_a3,
 )
 
 
@@ -56,9 +56,15 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> World:
     return sim_world(tmp_path_factory.mktemp("m10_15_sim"))
 
 
+#: the simulated world of each pilot root, for the A3 inputs (``build_a3``, M10-10b)
+_WORLDS: dict[Path, World] = {}
+
+
 @pytest.fixture
 def pilot(tmp_path: Path, world: World) -> Pilot:
-    return build_pilot(tmp_path / "pilot", world)
+    p = build_pilot(tmp_path / "pilot", world)
+    _WORLDS[p.root] = world
+    return p
 
 
 def _inputs(
@@ -91,8 +97,8 @@ def _run(
     if te:
         te_real, te7 = write_te_inputs(p.root / "te")
         extra += ["--te-real", str(te_real), "--te7", str(te7)]
-    if a3_exit is not None:
-        extra += ["--a3", str(write_a3(p.root, sha256(p.genome), exit_code=a3_exit))]
+    if a3_exit is not None:  # M10-10b: --a3 comes with its companions (build_a3)
+        extra += build_a3(p, _WORLDS[p.root], exit_code=a3_exit).args()
     return run_cli(*p.compute_args(out, *extra), cwd=p.root)
 
 
@@ -135,7 +141,7 @@ def test_b1_metrics_json_never_records_the_runbook(pilot: Pilot, tmp_path: Path)
     assert not (doc["evidence"].get("steps") or {}), doc["evidence"].get("steps")
 
 
-@pytest.mark.parametrize(("a3_exit", "expected"), [(0, 0), (1, 1), (None, None)])
+@pytest.mark.parametrize(("a3_exit", "expected"), [(0, 0), (None, None)])
 def test_evidence_records_the_arm_exit_codes(
     pilot: Pilot, tmp_path: Path, a3_exit: int | None, expected: int | None
 ) -> None:
@@ -146,7 +152,7 @@ def test_evidence_records_the_arm_exit_codes(
 
 @pytest.mark.parametrize(
     ("a3_exit", "expected"),
-    [(0, "pass"), (1, "fail"), (None, "partial (A1, A2; A3 pending M10-10)")],
+    [(0, "pass"), (None, "partial (A1, A2; A3 pending M10-10)")],
 )
 def test_compute_bullet_1_keeps_m10_05_strings(
     pilot: Pilot, tmp_path: Path, a3_exit: int | None, expected: str
@@ -154,6 +160,16 @@ def test_compute_bullet_1_keeps_m10_05_strings(
     """Lead decision (15a tests): without a runbook bullet 1 keeps M10-05's strings."""
     doc = _compute(pilot, tmp_path / "m", _inputs(pilot), a3_exit=a3_exit)
     assert _status(doc, 0) == expected
+
+
+def test_a3_run_that_failed_is_a_precondition(pilot: Pilot, tmp_path: Path) -> None:
+    """M10-10b: an A3 run with a non-zero exit is refused before compute (exit 2, nothing
+    written); it was a computed ``fail`` in 15a."""
+    out = tmp_path / "m"
+    res = _run(pilot, out, _inputs(pilot), a3_exit=1)
+    assert res.returncode == 2, f"exit {res.returncode}\n{res.stderr}"
+    assert "precondition:" in res.stderr, res.stderr
+    assert not (out / "metrics.json").exists()
 
 
 # ------------------------------------------------------------------ S7: absent feasibility
@@ -334,18 +350,18 @@ def test_s7_compute_without_feasibility_is_refused_by_render_final(
 def test_compute_alone_is_refused_by_render_final_until_m10_07_and_m10_10(
     pilot: Pilot, tmp_path: Path
 ) -> None:
-    """In 15a ``m6``/``h4``/``m8`` are pending placeholders: a defect, never a finding."""
+    """``m8`` is a pending placeholder until M10-07: a defect, never a finding. Since M10-10b
+    ``m6``/``h4`` are computed, so only M10-07 is named."""
     doc = _compute(pilot, tmp_path / "m", _inputs(pilot), te=True)
     res, out = _render(tmp_path, doc, a3_branch="cascadia")
     assert res.returncode == 1, f"exit {res.returncode}\n{res.stderr}"
-    for name in ("M10-10", "M10-07"):
-        assert name in res.stderr + res.stdout, (name, res.stderr)
+    assert "M10-07" in res.stderr + res.stdout, res.stderr
     assert not out.exists()
 
 
 def test_n4_draft_render_shows_the_pending_placeholders(pilot: Pilot, tmp_path: Path) -> None:
-    """N4: the draft of compute's output (no ``--runbook``) renders ``m6``, ``h4`` and ``m8`` with
-    their pending reason, never a bare ``NA``."""
+    """N4: the draft of compute's output (no ``--runbook``) renders ``m8`` with its pending reason,
+    never a bare ``NA``; ``m6`` and ``h4`` are computed since M10-10b."""
     doc = _compute(pilot, tmp_path / "m", _inputs(pilot))
     m = write_json(tmp_path / "d" / "metrics.json", doc)
     tpl = write_text(
@@ -357,8 +373,9 @@ def test_n4_draft_render_shows_the_pending_placeholders(pilot: Pilot, tmp_path: 
     res = render_final(m, out, template=tpl, final=False)
     assert res.returncode == 0, res.stderr
     lines = dict(ln.split(": ", 1) for ln in out.read_text(encoding="utf-8").splitlines() if ln)
-    for key, owner in (("M6", "M10-10"), ("H4", "M10-10"), ("M8", "M10-07")):
-        assert owner in lines[key] and not lines[key].startswith("NA"), (key, lines[key])
+    assert "M10-07" in lines["M8"] and not lines["M8"].startswith("NA"), lines["M8"]
+    for key in ("M6", "H4"):
+        assert "pending" not in lines[key] and not lines[key].startswith("NA"), (key, lines[key])
 
 
 def test_draft_render_of_the_real_template_needs_no_runbook(pilot: Pilot, tmp_path: Path) -> None:
