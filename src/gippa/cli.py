@@ -106,6 +106,15 @@ def cli() -> None:
 
 
 # ---------------------------------------------------------------- profiles (M11-15a)
+def _check_setup_profile(ctx: click.Context, param: click.Parameter, value: str) -> str:
+    """:func:`_check_profile`; without a bundled workflow (a bare wheel) only a runtime name."""
+    from gippa.runner.profiles import CONTAINER_RUNTIMES, accepted_profiles
+
+    if not accepted_profiles() and value in CONTAINER_RUNTIMES:
+        return value
+    return _check_profile(ctx, param, value)
+
+
 def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
     """``value`` when it is ``auto`` or valid comma-joined profiles (spec M11-15 item 3: registry
     and combination rules), else a usage error."""
@@ -181,6 +190,7 @@ def _profile_help(lead: str) -> str:
     default="auto",
     show_default=True,
     metavar="auto|apptainer|docker",
+    callback=_check_setup_profile,
     help="Container runtime for --images (a comma-joined Nextflow profile is accepted); auto "
     "detects one.",
 )

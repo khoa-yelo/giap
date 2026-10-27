@@ -241,4 +241,4 @@ def check_profile(value: str) -> str:
     runtimes = [n for n in names if n in CONTAINER_RUNTIMES]
     if len(runtimes) > 1:
         raise ValueError(f"more than one container runtime: {', '.join(runtimes)}")
-    return value
+    return ",".join(names)  # normalised: "slurm, apptainer" reaches Nextflow without the space

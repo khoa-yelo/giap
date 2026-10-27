@@ -105,18 +105,25 @@ def test_cli_profiles_tuple_is_gone() -> None:
     assert not hasattr(gippa.cli, "_PROFILES"), "the registry replaces the hard-coded tuple"
 
 
-@pytest.mark.parametrize("cmd", ["run", "preflight"])
+def _argv(cmd: str, genome: Path, value: str, tmp_path: Path) -> list[str]:
+    """``setup`` validates ``--profile`` while parsing, before any download (spec item 1)."""
+    if cmd == "setup":
+        return [cmd, "--db-dir", str(tmp_path / "db"), "--images", "--profile", value]
+    out = ["--outdir", str(tmp_path / "o")] if cmd == "run" else []
+    return [cmd, "--genome", str(genome), "--profile", value, *out]
+
+
+@pytest.mark.parametrize("cmd", ["run", "preflight", "setup"])
 @pytest.mark.parametrize("value", ["test", "stub", "bogus", "slurm,test"])
 def test_rejected_names(cmd: str, value: str, tmp_path: Path) -> None:
     g = tmp_path / "g.fa"
     g.write_text(">c\nACGT\n")
-    argv = [cmd, "--genome", str(g), "--profile", value]
-    res = _cli(*argv, *(["--outdir", str(tmp_path / "o")] if cmd == "run" else []))
+    res = _cli(*_argv(cmd, g, value, tmp_path))
     assert res.exit_code == 2, _out(res)
     assert "unknown profile" in _out(res)
 
 
-@pytest.mark.parametrize("cmd", ["run", "preflight"])
+@pytest.mark.parametrize("cmd", ["run", "preflight", "setup"])
 @pytest.mark.parametrize(
     ("value", "message"),
     [
@@ -131,8 +138,7 @@ def test_rejected_names(cmd: str, value: str, tmp_path: Path) -> None:
 def test_combination_errors(cmd: str, value: str, message: str, tmp_path: Path) -> None:
     g = tmp_path / "g.fa"
     g.write_text(">c\nACGT\n")
-    argv = [cmd, "--genome", str(g), "--profile", value]
-    res = _cli(*argv, *(["--outdir", str(tmp_path / "o")] if cmd == "run" else []))
+    res = _cli(*_argv(cmd, g, value, tmp_path))
     assert res.exit_code == 2, _out(res)
     assert message in _out(res)
     assert not (tmp_path / "o").exists(), "a usage error before anything is written"
@@ -188,3 +194,9 @@ def test_slurm_config_reads_exactly_the_five_params() -> None:
     read = set(re.findall(r"params\.(slurm_[a-z_]+)", text))
     assert read == set(SLURM_PARAMS)
     assert "includeConfig" not in text
+
+
+def test_profile_value_is_normalised() -> None:
+    from gippa.runner.profiles import check_profile
+
+    assert check_profile("slurm, apptainer") == "slurm,apptainer"
