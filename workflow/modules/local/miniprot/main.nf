@@ -24,7 +24,7 @@ process MINIPROT {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        miniprot: \$(miniprot --version 2>&1)
+        miniprot: \$(miniprot --version 2>/dev/null)
     END_VERSIONS
     """
 

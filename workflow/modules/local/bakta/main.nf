@@ -26,7 +26,7 @@ process BAKTA {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        bakta: \$(bakta --version 2>&1 | sed 's/^bakta //')
+        bakta: \$(bakta --version 2>/dev/null | sed 's/^bakta //')
     END_VERSIONS
     """
 

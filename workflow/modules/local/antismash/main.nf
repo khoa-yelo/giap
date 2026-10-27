@@ -2,7 +2,6 @@
 process ANTISMASH {
     tag "${meta_id}"
     label 'process_high'
-    memory { 32.GB * task.attempt }
     conda "${projectDir}/envs/antismash.yml"
 
     input:
@@ -22,7 +21,7 @@ process ANTISMASH {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        antismash: \$(antismash --version 2>&1 | sed 's/^antiSMASH //')
+        antismash: \$(antismash --version 2>/dev/null | sed 's/^antiSMASH //')
     END_VERSIONS
     """
 
