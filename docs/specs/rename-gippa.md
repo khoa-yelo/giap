@@ -13,10 +13,10 @@ verification, evidence and rollout are in
 | tracked files | 2,920 |
 | files containing `giap` | 2,243 |
 | occurrences of `giap` / `GIAP` / `Giap` (exact case) | 22,181 in total |
-| `GIAP_SPEC` tokens (stay) | 1,171 in 1,060 files |
-| historical records that stay (docs/adr, docs/specs, PROGRESS.md, docs/backlog.md) | 3,140 |
+| `GIAP_SPEC` tokens (planned to stay; renamed since Q-K32) | 1,171 in 1,060 files |
+| historical records (docs/adr, docs/specs, PROGRESS.md, docs/backlog.md; planned to stay, renamed since Q-K32 except the rename record) | 3,140 |
 | recorded tool data and PROVENANCE files that stay | 729 |
-| rename scope, excluding historical, recorded, GIAP_SPEC.md and .github/ | ≈ 15,600 lines in ≈ 1,810 files |
+| rename scope as first planned, excluding historical, recorded, GIAP_SPEC.md and .github/ (since Q-K32 the historical records and GIAP_SPEC.md are in scope too) | ≈ 15,600 lines in ≈ 1,810 files |
 | rename scope in src/ and workflow/ | 2,002 lines in 326 files |
 | import lines `from/import giap…` | 5,591 |
 | import lines `from/import giapsim…` | 659 |
@@ -39,7 +39,7 @@ verification, evidence and rollout are in
 | .github/ (**Khoa**) | 7 | 41 | 29 | 12 | 0 |
 | .claude/ | 3 | 4 | 0 | 4 (all `GIAP_SPEC`) | 0 |
 | ci/ | 2 | 5 | 3 | 2 | 0 |
-| root files | — | GIAP_SPEC.md 228 (stays), PROGRESS.md 50, README.md 22, pyproject.toml 18, AGENTS.md 12, NOTICE.md 12, CITATION.cff 4, CLAUDE.md 2, mkdocs.yml 1, .gitignore 1, uv.lock 1 | | | |
+| root files | — | GIAP_SPEC.md 228 (moves to GIPPA_SPEC.md since Q-K32), PROGRESS.md 50, README.md 22, pyproject.toml 18, AGENTS.md 12, NOTICE.md 12, CITATION.cff 4, CLAUDE.md 2, mkdocs.yml 1, .gitignore 1, uv.lock 1 | | | |
 
 Sub-areas:
 
@@ -54,8 +54,8 @@ Sub-areas:
 | scripts/slurm | 42 | 797 | 17 |
 | docs/user-guide | 11 | 120 | 3 |
 | docs/methods | 32 | 249 | 33 |
-| docs/specs (stays) | 214 | 2,805 | 38 |
-| docs/adr (stays) | 42 | 153 | 9 |
+| docs/specs (renamed since Q-K32, except this page) | 214 | 2,805 | 38 |
+| docs/adr (renamed since Q-K32, except ADR-0064) | 42 | 153 | 9 |
 | validation/pilot | 18 | 452 | 8 |
 | tests/data/recorded (stays) | 58 | 662 | |
 | tests/data/snapshot | 9 | 17 | |
@@ -121,6 +121,8 @@ The most frequent tokens across the repository:
 ## 5. Where a mechanical sed would be wrong
 
 1. **`GIAP_SPEC`** (1,171). The file name stays, so this token goes on the keep list.
+   Superseded by Q-K32 (ADR-0064 amendment): the spec moves to `GIPPA_SPEC.md` and the token
+   is renamed with it.
 2. **Protein sequences.** GIAP is a valid tetrapeptide.
    - It occurs 33–38 times in each recorded Bakta proteome, in `.faa.gz`, `.gbff.gz` and `.json.gz`
      for K-12 and Nissle, and 34 times in `validation/pilot/db_a2/strain_db.faa.gz`.
@@ -159,7 +161,8 @@ The most frequent tokens across the repository:
     `.giap-built`, so every prebuilt env reads as stale until rebuilt. This is intended (ADR-0064
     item 5). Do not hand-edit the markers.
 11. **URLs.** `github.com/khoa-yelo/giap` redirects after the repo rename, but GitHub Pages does
-    not. Rename the URLs in the same PR. Historical records keep the old URL.
+    not. Rename the URLs in the same PR. Historical records keep the old URL
+    (superseded by Q-K32: they are renamed too).
 12. **Historical prose.** Superseded by Q-K32 (ADR-0064 amendment): every document is renamed,
     including docs/adr, docs/specs, PROGRESS.md, docs/backlog.md and validation reports. Only
     the rename record (ADR-0064, its index line, this page) and PROVENANCE text stay as written.
@@ -193,7 +196,7 @@ The `.github/` part has 41 occurrences in 7 files:
   - `/tmp/pkg/bin/giap`;
   - the PyPI and TestPyPI JSON URLs `…/pypi/giap/$VERSION/json`;
   - the release title `GIAP $VERSION`.
-- `ISSUE_TEMPLATE/feature.md`: `GIAP_SPEC.md` (stays).
+- `ISSUE_TEMPLATE/feature.md`: `GIAP_SPEC.md` (planned to stay; `GIPPA_SPEC.md` since Q-K32).
 
 The repository and publishing settings are Khoa's alone:
 
@@ -219,5 +222,6 @@ rename_gippa.py [--apply | --check]
   map:         giap→gippa, GIAP→GIPPA, Giap→Gippa (substring, case-exact), then git mv paths
   regenerate:  config.schema.json, docs reference pages (gen_reference.py), uv.lock
   --check:     prints the remaining hits by keep category; exit 1 on any uncategorised hit
-               or any giap left in the docs outside the rename record and kept data tokens
+               or any giap left in the docs (root docs, docs/, every tracked *.md/*.rst)
+               outside the rename record, the data keep paths and kept data tokens
 ```

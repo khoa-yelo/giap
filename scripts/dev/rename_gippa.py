@@ -36,8 +36,9 @@ farmshare_env.sh, ``giap-*`` job counting in the R14 checks and probe_env.py, ``
 
 Every transition asserts its end state and raises ``TransitionError`` when its anchor no longer
 matches (a later main changed the line), so ``--apply`` refuses and ``--check`` reports it.
-``--check`` also fails on any case-insensitive ``giap`` left in the documentation (``is_doc``)
-outside the rename record and the kept data tokens (``DOC_ALLOWED``).
+``--check`` also fails on any case-insensitive ``giap`` left in the documentation (``is_doc``:
+the root docs, docs/ and every tracked ``*.md`` / ``*.rst``) outside the rename record, the data
+keep paths and the kept data tokens (``DOC_ALLOWED``).
 """
 
 from __future__ import annotations
@@ -76,6 +77,7 @@ KEEP_PATHS: tuple[tuple[str, str], ...] = (
     ("scripts/dev/rename_compare.py", "rename-tooling"),
     ("tests/unit/test_rename_compare.py", "rename-tooling"),
     ("tests/unit/test_rename_gippa_tooling.py", "rename-tooling"),
+    ("tests/unit/test_rename_gippa_docs.py", "rename-tooling"),
 )
 #: keep paths whose *path* also stays (all other keep categories only keep their content)
 PATH_KEEP_CATEGORIES = frozenset(
@@ -89,6 +91,8 @@ BINARY_EXT = frozenset(
 SEQUENCE_EXT = frozenset(
     {".fa", ".faa", ".fasta", ".fas", ".fna", ".ffn", ".frn", ".gbff", ".gbk", ".gb", ".embl"}
 )
+#: never sniffed as FASTA: a page may open with a blockquote (``> **Note** ...``)
+DOC_SUFFIXES = frozenset({".md", ".yml", ".yaml", ".cff", ".txt", ".rst", ".html"})
 
 # ---------------------------------------------------------------- protected spans
 
@@ -232,18 +236,15 @@ def _gitignore(text: str) -> str:
     return "\n".join(lines)
 
 
-#: the old expansion in every variant (Q-K32); the loose form is the end-state assertion
+#: the old expansion in every variant (Q-K32); the loose form is the end-state assertion and is
+#: anchored to "genome-integrated", so other prose about proteomics data never trips it
 NEW_EXPANSION = "genome integrated prokaryotic proteomics analysis"
 _OLD_EXPANSION = re.compile(
     r"genome[-\s]+integrated\s+(?:analysis\s+of\s+proteomics\s+data(?:\s+for\s+bacterial"
     r"\s+genomes)?|annotation\s+of\s+proteomics)",
     re.I,
 )
-_OLD_LOOSE = re.compile(
-    r"genome[-\s]+integrated(?!\s+prokaryotic\s+proteomics\s+analysis)|analysis\s+of\s+"
-    r"proteomics\s+data",
-    re.I,
-)
+_OLD_LOOSE = re.compile(r"genome[-\s]+integrated(?!\s+prokaryotic\s+proteomics\s+analysis)", re.I)
 
 
 def _expansion(text: str) -> str:
@@ -255,13 +256,24 @@ def _expansion(text: str) -> str:
         raise TransitionError(f"old expansion left (update _OLD_EXPANSION): {m[0]!r}")
     # "the GIAP → GIPPA rename" reads "GIPPA → GIPPA" after the map
     text = _SELF_ARROW.sub(lambda m: "rename to GIPPA" if m[1] else "GIPPA rename", text)
-    if m := _SELF_LOOSE.search(text):
-        raise TransitionError(f"'GIPPA → GIPPA' left (update _SELF_ARROW): {m[0]!r}")
+    # "renames the image prefix (`giap-` → `gippa-`)" -> "renames the image prefix to `gippa-`"
+    text = _SELF_PAREN.sub(lambda m: f" to {m[1]}{m[3]}{m[1]}", text)
+    for m in _SELF_LOOSE.finditer(text):
+        if m[1].lower() == m[2].lower():
+            raise TransitionError(f"'GIPPA → GIPPA' left (update _SELF_ARROW): {m[0]!r}")
     return text
 
 
 _SELF_ARROW = re.compile(r"(rename\s+)GIPPA\s+→\s+GIPPA|GIPPA\s+→\s+GIPPA\s+rename")
-_SELF_LOOSE = re.compile(r"GIPPA\s*(→|->)\s*GIPPA")
+_TOKEN = r"\w*gippa[\w*-]*"
+_SELF_PAREN = re.compile(
+    rf"\s*\(\s*([`'\"]*)({_TOKEN})\1\s*(?:→|->)\s*\1(\2)\1\s*\)", re.I
+)  # fmt: skip
+#: any "X → X" left after the map (any case, code spans, quotes, -/_ suffixes), compared by token;
+#: the right side is a lookahead so chains ("a → b → c") are checked pair by pair
+_SELF_LOOSE = re.compile(
+    rf"({_TOKEN})[`'\"*,;:]*\s*(?:→|->|=>|\bto\b)\s*[`'\"*]*(?=({_TOKEN}))", re.I
+)  # fmt: skip
 
 
 #: README "Status": the rename is the PR itself, so its pending item goes (post-map wording)
@@ -350,7 +362,8 @@ def file_kind(path: str, data: bytes) -> str:
         data.decode("utf-8")
     except UnicodeDecodeError:
         return "binary"
-    if suffix in SEQUENCE_EXT or data.lstrip()[:1] == b">":
+    sniff = suffix not in DOC_SUFFIXES and not is_doc(path)
+    if suffix in SEQUENCE_EXT or (sniff and data.lstrip()[:1] == b">"):
         return "sequence"
     return "text"
 
@@ -405,10 +418,10 @@ def transform(path: str, text: str) -> str:
     pieces: list[str] = []
     pos = 0
     for start, end, _ in protected_spans(path, text):
-        pieces += [map_text(text[pos:start]), text[start:end]]
+        pieces += [_expansion(map_text(text[pos:start])), text[start:end]]
         pos = end
-    pieces.append(map_text(text[pos:]))
-    out = _expansion("".join(pieces))
+    pieces.append(_expansion(map_text(text[pos:])))  # protected spans never pass _expansion
+    out = "".join(pieces)
     edit = TRANSITIONS.get(path)
     return edit(out) if edit else out
 
@@ -628,7 +641,10 @@ _ADR64_LINE = _p(r"^- \[ADR-0064:")
 
 
 def is_doc(path: str) -> bool:
-    return path in DOC_FILES or path.startswith("docs/")
+    """Documentation (Q-K32): the root docs, docs/ and every ``*.md`` / ``*.rst`` (data keep
+    paths among them are reported as kept by ``doc_leftovers``)."""
+    suffix = PurePosixPath(path).suffix.lower()
+    return path in DOC_FILES or path.startswith("docs/") or suffix in {".md", ".rst"}
 
 
 def doc_leftovers(repo: Path) -> tuple[list[tuple[str, int, str]], list[str]]:
