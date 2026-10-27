@@ -1,12 +1,9 @@
-"""``scripts/dev/rename_gippa.py`` and ``scripts/dev/rename_compare.py`` (ADR-0064 items 2 and 8;
-dev tooling) on small temporary trees."""
+"""``scripts/dev/rename_gippa.py`` (ADR-0064 item 2; dev tooling) on small temporary trees."""
 
 from __future__ import annotations
 
 import gzip
-import hashlib
 import importlib.util
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -29,11 +26,6 @@ def _load(name: str) -> ModuleType:
 @pytest.fixture(scope="module")
 def rg() -> ModuleType:
     return _load("rename_gippa")
-
-
-@pytest.fixture(scope="module")
-def rc() -> ModuleType:
-    return _load("rename_compare")
 
 
 GZ = gzip.compress(b">p giap\nMKGIAPLL\n", mtime=0)
@@ -210,95 +202,3 @@ def test_binary_and_gz_untouched(rg: ModuleType, tmp_path: Path) -> None:
     rg.main(["--apply", "--repo", str(repo)])
     assert (repo / "tests/data/blob.gz").read_bytes() == GZ
     assert (repo / "tests/data/plot.png").read_bytes() == PNG
-
-
-# ---------------------------------------------------------------- the comparator
-
-
-def _sha(b: bytes) -> str:
-    return hashlib.sha256(b).hexdigest()
-
-
-def _run(root: Path, name: str, commit: str, table: str, fasta: str, png: bytes = PNG) -> Path:
-    files = {
-        "tables/genes.tsv": table.encode(),
-        "annotation/annotation.gff3": f"c1\t{name.upper()}\tCDS\t1\t9\t.\t+\t0\t.\n".encode(),
-        "novel/proteins.faa": fasta.encode(),
-        "plots/V01.png": png,
-        "mapping/hits.tsv.gz": gzip.compress(f"id\tpeptide\n{name.upper()}ORF_1\tPEPK\n".encode()),
-    }
-    for rel, body in files.items():
-        (root / rel).parent.mkdir(parents=True, exist_ok=True)
-        (root / rel).write_bytes(body)
-    manifest = {
-        f"{name}_version": "0.0.1",
-        "git_commit": commit,
-        "git_dirty": False,
-        "provenance_digest": commit * 2,
-        "started_at": commit,
-        "command_line": [name, "run"],
-        "outputs": [{"path": "tables/genes.tsv", "sha256": _sha(files["tables/genes.tsv"])}],
-        "inputs": [{"path": "/elsewhere/genome.fna", "sha256": "ab" * 32}],
-    }
-    (root / "run_manifest.json").write_text(json.dumps(manifest))
-    (root / f"logs/{name}-x.log").parent.mkdir(parents=True, exist_ok=True)
-    (root / f"logs/{name}-x.log").write_text(commit)
-    return root
-
-
-def _pair(tmp_path: Path, **a_over: str) -> tuple[Path, Path]:
-    b = _run(tmp_path / "B", "giap", "a" * 40, "gene\tsource\tn\ng1\tgiapsim\t3\n",
-             ">p1 giap\nMKGIAPLL\n")  # fmt: skip
-    args = {"table": "gene\tsource\tn\ng1\tgippasim\t3\n", "fasta": ">p1 gippa\nMKGIAPLL\n"}
-    args |= a_over
-    a = _run(tmp_path / "A", "gippa", "b" * 40, args["table"], args["fasta"])
-    return b, a
-
-
-def test_compare_passes_on_a_name_only_difference(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path)
-    assert rc.compare(b, a, rc.DEFAULT_EXCLUDES) == []
-    assert rc.main([str(b), str(a)]) == 0
-
-
-def test_compare_fails_on_a_one_byte_data_difference(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path, table="gene\tsource\tn\ng1\tgippasim\t4\n")
-    diffs = rc.compare(b, a, rc.DEFAULT_EXCLUDES)
-    assert any(d.startswith("content differs: tables/genes.tsv") for d in diffs), diffs
-    assert rc.main([str(b), str(a)]) == 1
-
-
-def test_compare_fails_on_a_renamed_sequence(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path, fasta=">p1 gippa\nMKGIPPALL\n")
-    diffs = rc.compare(b, a, rc.DEFAULT_EXCLUDES)
-    assert [d.split("\n")[0] for d in diffs] == [
-        "content differs: novel/proteins.faa | novel/proteins.faa"
-    ]
-
-
-def test_compare_peptide_column_is_exact(rc: ModuleType) -> None:
-    b = rc.tsv_lines("id\tpeptide\nGIAPORF_1\tAGIAPK\n")
-    assert b == rc.tsv_lines("id\tpeptide\nGIPPAORF_1\tAGIAPK\n")
-    assert b != rc.tsv_lines("id\tpeptide\nGIPPAORF_1\tAGIPPAK\n")
-
-
-def test_compare_png_must_be_byte_equal(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path)
-    (a / "plots/V01.png").write_bytes(PNG.replace(b"giap", b"gippa"))
-    assert rc.compare(b, a, rc.DEFAULT_EXCLUDES) == ["bytes differ: plots/V01.png | plots/V01.png"]
-
-
-def test_compare_recomputes_recorded_digests(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path)
-    man = json.loads((a / "run_manifest.json").read_text())
-    man["outputs"][0]["sha256"] = "0" * 64
-    (a / "run_manifest.json").write_text(json.dumps(man))
-    diffs = rc.compare(b, a, rc.DEFAULT_EXCLUDES)
-    assert any(d.startswith("A: run_manifest.json/outputs/0/sha256: recorded") for d in diffs)
-
-
-def test_compare_pairs_files_by_normalised_path(rc: ModuleType, tmp_path: Path) -> None:
-    b, a = _pair(tmp_path)
-    (a / "extra.txt").write_text("x")
-    assert rc.compare(b, a, rc.DEFAULT_EXCLUDES) == ["only in A: extra.txt"]
-    assert rc.compare(b, a, ["extra.txt"]) != []  # logs/ is compared once not excluded
