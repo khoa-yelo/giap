@@ -817,8 +817,11 @@ def demo(outdir: Path, full: bool, **kw: Any) -> None:
     except SystemExit as exc:
         code = exc.code if exc.code is not None else 0
     if code != 0:
-        if full:  # typically preflight (missing setup): a kept outdir would refuse the retry;
-            shutil.rmtree(created, ignore_errors=True)  # the local demo keeps its logs there
+        # A --full run stopped before launch (preflight: input or environment) leaves nothing
+        # worth keeping, and a kept outdir would refuse the retry. A failure after launch keeps
+        # the Nextflow log and work dir, as does any failed local demo.
+        if full and code in (ExitCode.INVALID_INPUT, ExitCode.ENVIRONMENT):
+            shutil.rmtree(created, ignore_errors=True)
         sys.exit(code)
     report = (outdir / "report" / "report.html").resolve()
     click.echo(f"gippa demo: done in {round(time.monotonic() - start)} s; report: {report}")

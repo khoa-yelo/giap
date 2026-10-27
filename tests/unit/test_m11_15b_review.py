@@ -402,3 +402,20 @@ def test_full_with_a_single_function_resource_leaves_function_out(
     assert res.exit_code == 2, res.output
     (call,) = preflight.calls
     assert sorted(call["cfg"].modules) == sorted(DEMO_MODULES), kept
+
+
+@pytest.mark.parametrize("code", [3, 4, 5])
+def test_full_demo_failing_after_launch_keeps_its_outdir(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    """Only a pre-launch failure (exit 1 or 2) removes the outdir; later ones keep the logs."""
+    import gippa.cli as cli
+
+    def _fail(ctx: Any, outdir: Path) -> None:
+        (outdir / ".nextflow.log").write_text("log\n")
+        sys.exit(code)
+
+    monkeypatch.setattr(cli, "_demo_full", _fail)
+    res = _invoke("--full")
+    assert res.exit_code == code, res.output
+    assert (clean_env / "gippa-demo" / ".nextflow.log").is_file()
