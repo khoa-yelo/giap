@@ -89,6 +89,24 @@ def read_manifest(view: RunView) -> tuple[Mapping[str, Any] | None, str | None]:
         return None, f"run_manifest.json could not be read: {type(exc).__name__}"
 
 
+#: preflight rules whose ``warn`` opens the summary section (M11-14w; Q3: this one only in 1.0)
+SUMMARY_WARNINGS = ("genome.genetic_code",)
+
+
+def summary_warnings(view: RunView) -> list[dict[str, str]]:
+    """The ``rule_id`` and ``message`` of each ``SUMMARY_WARNINGS`` preflight check at level
+    ``warn`` in the run's ``preflight.json`` (M11-14w); empty when it is absent or unreadable."""
+    try:
+        doc = view.preflight()
+    except Exception:
+        return []
+    checks = (doc or {}).get("checks") if isinstance(doc, Mapping) else None
+    return [{"rule_id": str(c["rule_id"]), "message": str(c.get("message") or "")}
+            for c in _list(checks)
+            if isinstance(c, Mapping) and c.get("rule_id") in SUMMARY_WARNINGS
+            and c.get("level") == "warn"]  # fmt: skip
+
+
 def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 

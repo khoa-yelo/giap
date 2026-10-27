@@ -72,6 +72,7 @@ from giap.preflight.evidence import (
     protein_checks,
     tier_check,
 )
+from giap.preflight.genetic_code import genetic_code_check
 from giap.preflight.genome import (
     classify_replicons,
     genome_checks,
@@ -454,6 +455,7 @@ def run_preflight(
         *([_annotation_check(inp.annotation)] if inp.annotation is not None else []),
         _translation_table_check(cfg.annotation.translation_table),
         *checks_genome,
+        genetic_code_check([r.sequence for r in genome], cfg.annotation.translation_table),
         *checks_proteins,
         *checks_peptides,
         tier_check(tier),
