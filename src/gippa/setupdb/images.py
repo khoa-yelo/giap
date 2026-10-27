@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import re
 import subprocess
 from collections.abc import Mapping
@@ -23,11 +24,13 @@ from gippa.exitcodes import ExitCode
 from gippa.runner.nextflow import workflow_main
 from gippa.setupdb.items import DbRecord, Status, today
 from gippa.setupdb.manifest import read_records, write_manifest
+from gippa.setupdb.space import disk_full, is_disk_full
 
 __all__ = [
     "Runtime",
     "image_record",
     "image_set",
+    "image_sizes",
     "image_versions",
     "install_images",
     "pinned_images",
@@ -37,6 +40,7 @@ __all__ = [
 
 Runtime = Literal["apptainer", "docker"]
 _UPSTREAM_TAG = re.compile(r"//\s+([a-z0-9./_-]+):([A-Za-z0-9_.-]+)\s*")
+_SIF_GIB = re.compile(r"^//\s+sif_gib((?:\s+[a-z0-9_]+=[0-9.]+)+)\s*$", re.MULTILINE)
 _DIGEST_LINE = re.compile(r"^Digest:\s*(sha256:[0-9a-f]{64})\s*$", re.MULTILINE)
 
 
@@ -96,6 +100,15 @@ def image_versions(conf_dir: Path | None = None) -> dict[str, str]:
     return out
 
 
+def image_sizes(conf_dir: Path | None = None) -> dict[str, float]:
+    """Tool -> SIF size in GiB from the ``//   sif_gib tool=x.y ...`` lines of
+    ``containers.config`` (measured; for the setup plan)."""
+    path = _conf(conf_dir) / "containers.config"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    pairs = (kv.split("=") for m in _SIF_GIB.finditer(text) for kv in m.group(1).split())
+    return {k: float(v) for k, v in pairs}
+
+
 def image_set(cfg: GippaConfig, all_images: bool, conf_dir: Path | None = None) -> list[str]:
     """Sorted tool names to pull: every pin, or the pinned tools ``cfg`` needs (with GSEA)."""
     pins = pinned_images(conf_dir)
@@ -133,7 +146,9 @@ def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> D
         if dest.is_file():
             return image_record(tool, ref, version, "ok", "", dest)
         cache.mkdir(parents=True, exist_ok=True)
-        cmd = ["apptainer", "pull", str(dest), f"docker://{ref}"]
+        # the layer blobs would also land in ~/.apptainer/cache unless the user chose a cache
+        own = ["--disable-cache"] if not os.environ.get("APPTAINER_CACHEDIR") else []
+        cmd = ["apptainer", "pull", *own, str(dest), f"docker://{ref}"]
     else:
         dest = None
         cmd = ["docker", "pull", ref]
@@ -142,6 +157,11 @@ def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> D
     except OSError as exc:
         return image_record(tool, ref, version, "absent", f"{runtime} pull failed: {exc}")
     if proc.returncode != 0:
+        if dest is not None:
+            dest.unlink(missing_ok=True)  # no partial image is left for Nextflow to find
+        if is_disk_full(f"{proc.stderr}\n{proc.stdout}"):
+            where = dest or "the docker storage"
+            return image_record(tool, ref, version, "failed", disk_full(where, " or --cache-dir"))
         why = _last_line(proc.stderr or proc.stdout)
         return image_record(tool, ref, version, "absent", f"{runtime} pull {ref} failed: {why}")
     if runtime == "docker":

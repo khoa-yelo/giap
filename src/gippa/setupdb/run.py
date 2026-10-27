@@ -34,6 +34,7 @@ from gippa.setupdb.items import (
     DbItem,
     DbRecord,
     SetupOptions,
+    Status,
     _safe_name,
     check_dir,
     check_file,
@@ -43,6 +44,7 @@ from gippa.setupdb.items import (
     verify,
 )
 from gippa.setupdb.manifest import read_prefetch, read_records, write_manifest
+from gippa.setupdb.space import DISK_FULL, disk_full
 
 __all__ = [
     "LOCK",
@@ -229,6 +231,8 @@ class HttpsFetcher:
                     raise SourceError(host, f"truncated body: {got} of {want} bytes from {current}")
                 return
             except (OSError, http.client.HTTPException) as exc:
+                if isinstance(exc, OSError) and exc.errno in DISK_FULL:
+                    raise  # our disk, not the source: the item is failed (M11-15 15c1)
                 raise SourceError(host, str(exc)) from exc
             finally:
                 conn.close()
@@ -265,11 +269,15 @@ def _argv(item: DbItem, out: Path) -> list[str]:
     return ["download-antismash-databases", "--database-dir", str(out)]
 
 
-def _absent(item: DbItem, message: str, status: str = "absent") -> DbRecord:
-    rec = DbRecord(
-        item.name, item.version, item.url, item.checksum, 0, "", item.path, "absent", message
+def _absent(item: DbItem, message: str, status: Status = "absent") -> DbRecord:
+    return DbRecord(
+        item.name, item.version, item.url, item.checksum, 0, "", item.path, status, message
     )
-    return dataclasses.replace(rec, status="mismatch") if status == "mismatch" else rec
+
+
+def _full(item: DbItem, exc: OSError, db_dir: Path) -> DbRecord:
+    """``EDQUOT``/``ENOSPC`` while writing ``item``: failed, with the advice (M11-15 15c1)."""
+    return _absent(item, disk_full(exc.filename or db_dir), "failed")
 
 
 def _safe_member(m: tarfile.TarInfo) -> bool:
@@ -329,6 +337,10 @@ def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
         partial.replace(target)
     except SourceError as exc:
         return _absent(item, f"source {exc.host} unreachable ({exc.reason})")
+    except OSError as exc:
+        if exc.errno not in DISK_FULL:
+            raise
+        return _full(item, exc, db_dir)
     finally:
         partial.unlink(missing_ok=True)
     return dataclasses.replace(rec, message=f"downloaded from {item.host}")
@@ -353,8 +365,11 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         return rec
     if item.check == "antismash" and (image := _antismash_image(item, runner)) is not None:
         return image
-    free = shutil.disk_usage(db_dir).free
-    if free < item.size_gib * GIB:
+    try:
+        free: int | None = shutil.disk_usage(db_dir).free
+    except OSError:
+        free = None  # unreadable: the plan has warned; the download decides
+    if free is not None and free < item.size_gib * GIB:
         return _absent(
             item, f"only {free / GIB:.1f} GiB free in {db_dir}, need {item.size_gib} GiB"
         )
@@ -386,6 +401,10 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         return _absent(item, str(exc))
     except SourceError as exc:
         return _absent(item, f"source {exc.host} unreachable ({exc.reason})")
+    except OSError as exc:
+        if exc.errno not in DISK_FULL:
+            raise
+        return _full(item, exc, db_dir)
     finally:
         shutil.rmtree(partial, ignore_errors=True)
     return dataclasses.replace(verify(item, db_dir), message=f"downloaded from {item.host}")

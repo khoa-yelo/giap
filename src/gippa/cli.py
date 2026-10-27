@@ -109,7 +109,12 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--db-dir", type=_out_path, required=True, help="Database directory.")
+@click.option(
+    "--db-dir",
+    type=_out_path,
+    help="Database directory [default: $GIPPA_DB_DIR, the one recorded by the last setup, "
+    "$XDG_DATA_HOME/gippa/db or ~/.local/share/gippa/db]; recorded for run, preflight, makedb.",
+)
 @click.option("--bakta", type=click.Choice(["light", "full", "skip"]), default="light")
 @click.option("--genomad/--no-genomad", default=True)
 @click.option("--antismash/--no-antismash", default=False)
@@ -147,6 +152,7 @@ def cli() -> None:
     help="UniOP has no licence file: you decide that your use is permitted (needed without a TTY).",
 )
 @click.option("--no-uniop", is_flag=True, help="Do not build UniOP under --images.")
+@click.option("--yes", is_flag=True, help="Do not ask before downloading (no TTY: never asked).")
 @shared_options
 def setup(
     config_file: Path | None,
@@ -158,14 +164,17 @@ def setup(
     uniop: bool,
     accept_uniop_terms: bool,
     no_uniop: bool,
+    yes: bool,
     **opts: Any,
 ) -> None:
     """Download databases and models (writes DIR/db_manifest.json)."""
     from gippa.annotate.tools import required_tools
     from gippa.io.image_key import image_cache
     from gippa.preflight.environment import container_runtime
-    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
+    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, plan, run_setup
+    from gippa.setupdb.dbdir import config_home, resolve_db_dir, write_pointer
     from gippa.setupdb.images import image_set, install_images
+    from gippa.setupdb.space import in_shared_home, review_plan, setup_plan
     from gippa.setupdb.uniop_build import setup_uniop
 
     if uniop and no_uniop:
@@ -178,7 +187,10 @@ def setup(
         )
     if images is not None and runtime is None:
         raise click.UsageError("--images needs --profile apptainer or --profile docker")
-    db_dir: Path = opts["db_dir"]
+    chosen = resolve_db_dir(opts["db_dir"], os.environ, config_home(os.environ))
+    if chosen.warning:
+        click.echo(f"gippa setup: {chosen.warning}", err=True)
+    db_dir = opts["db_dir"] = chosen.path
     check = bool(opts["check"])
     fetcher = HttpsFetcher()
     # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b).
@@ -188,21 +200,48 @@ def setup(
     # one cache for the pull, the downloaders that run in an image, preflight and Nextflow
     cache = cache_dir or image_cache(os.environ, db_dir)
     code = ExitCode.SUCCESS
-    if images is not None and runtime is not None and not check:  # before the downloaders
-        tools = image_set(cfg, images == "all")
-        if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
-            code = ExitCode.ENVIRONMENT
+    needed = images is not None and not no_uniop and "uniop" in {
+        t.name for t in required_tools(cfg)}  # fmt: skip
+    pull = images is not None and runtime is not None and not check
+    tools = image_set(cfg, images == "all") if pull else []
+    items = [] if check else [(i.name, float(i.size_gib), i.path) for i in plan(dbs)]
+    if items or tools:  # the plan, before the first download or pull (M11-15 15c1)
+        lines, places = setup_plan(db_dir, items, tools, runtime, cache, os.environ)
+        home = chosen.source == "default" and in_shared_home(db_dir, os.environ)
+        # one question before the downloads: the UniOP terms prompt, when it comes, is that one
+        terms = (uniop or needed) and not accept_uniop_terms
+        stop = review_plan(lines, places, db_dir, home_warning=home, yes=yes or terms,
+                           environ=os.environ)  # fmt: skip
+        if stop is not None:
+            sys.exit(stop)
+    if not check:
+        db_dir.mkdir(parents=True, exist_ok=True)
+        write_pointer(config_home(os.environ), db_dir)
+    # the images before the downloaders
+    if pull and runtime is not None and install_images(tools, runtime, cache, db_dir) != 0:
+        code = ExitCode.ENVIRONMENT
     dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
     if dbs_code != ExitCode.SUCCESS:
         code = dbs_code
-    needed = images is not None and not no_uniop and "uniop" in {
-        t.name for t in required_tools(cfg)}  # fmt: skip
     if (uniop or needed) and not check:
         step = setup_uniop(profile or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
                            explicit=uniop)  # fmt: skip
         if step != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
     sys.exit(int(code))
+
+
+def _reader_db_dir(cmd: str, flag: Path | None) -> Path | None:
+    """The DB directory of a reader (run, preflight, makedb): ``--db-dir``, ``$GIPPA_DB_DIR``,
+    the one ``gippa setup`` recorded (said so), else the default only when it exists."""
+    from gippa.setupdb.dbdir import config_home, resolve_db_dir
+
+    got = resolve_db_dir(flag, os.environ, config_home(os.environ))
+    if got.warning:
+        click.echo(f"gippa {cmd}: {got.warning}", err=True)
+    if got.source == "pointer":
+        click.echo(f"gippa {cmd}: DB directory {got.path} (from gippa setup)", err=True)
+    return None if got.source == "default" and not got.path.is_dir() else got.path
 
 
 # ---------------------------------------------------------------- preflight
@@ -243,7 +282,9 @@ def _check_optional_profile(
     callback=_check_optional_profile,
     default=None,
     help="Also check the tools a run under these profiles needs, as 'gippa run' does (DB "
-    "directory: $GIPPA_DB_DIR). Comma-joined from: " + ", ".join(_PROFILES) + ".",
+    "directory: $GIPPA_DB_DIR, else the one gippa setup recorded). Comma-joined from: "
+    + ", ".join(_PROFILES)
+    + ".",
 )
 @shared_options
 def preflight(
@@ -272,9 +313,9 @@ def preflight(
     if profile is None:
         report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     else:  # the tool check of `gippa run --profile` (same DB directory and $GIPPA_ROOT)
-        env_db, root = os.environ.get("GIPPA_DB_DIR"), os.environ.get("GIPPA_ROOT")
+        root = os.environ.get("GIPPA_ROOT")
         report, norm = run_preflight(
-            inp, cfg, None, "preflight", outdir, Path(env_db) if env_db else None,
+            inp, cfg, None, "preflight", outdir, _reader_db_dir("preflight", None),
             gippa_root=Path(root) if root else None, profile=profile,
         )  # fmt: skip
     if outdir is not None:
@@ -401,15 +442,15 @@ def run(
     from gippa.io.manifest_sources import rotate_events
 
     rotate_events(outdir.absolute() / "logs")  # one events.jsonl per run (MVP-03 D-B step 1)
-    env_db = os.environ.get("GIPPA_DB_DIR")
-    db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
+    db_dir = _reader_db_dir("run", _.get("db_dir"))
     given = {k: _.get(k) for k in _RUN_INPUTS}
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
         keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
         # no profile, so no container runtime: the function step must not see the shell's (14c)
         with _env_unset("GIPPA_CONTAINER_RUNTIME"):
-            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys} | {"db_dir": db_dir},
+                       run_info)  # fmt: skip
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
     roots, cfg = _run_preflight(
@@ -801,8 +842,6 @@ def makedb(
     no_contaminants: bool,
 ) -> None:
     """Build an optional strain search database (no FDR is built on it)."""
-    import os
-
     from gippa.makedb.build import MakedbOptions, build_strain_db
 
     _resolve(config_file, sets, log_level)
@@ -814,8 +853,7 @@ def makedb(
         sys.exit(ExitCode.INVALID_INPUT)
     contaminants: Path | None = None
     if not no_contaminants:
-        env = os.environ.get("GIPPA_DB_DIR")
-        root = db_dir or (Path(env) if env else None)
+        root = _reader_db_dir("makedb", db_dir)
         contaminants = root / "contaminants" / "contaminants.fasta" if root else None
         if contaminants is None or not contaminants.is_file():
             click.echo(
