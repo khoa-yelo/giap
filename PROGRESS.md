@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-26 04:55 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-26 18:54 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -441,15 +441,23 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Khoa approvals (local/handoff/khoa_q.md): Q-K24 (#383 build evidence), Q-K25 (#387 protected
-   defaults.yaml trailer), Q-K26 (#383 before #386), and the CI changes in #383, #385, #386, #395.
-2. After Q-K25: #387 (14d) merges; then retarget #395 (14h) and #396 (14u1) to main and queue.
-3. #396 (14u1): implementer running; then review. 14u2, 14d2, 14e, 14i follow; then the GIPPA rename.
-4. Rerun the OSTIR-dependent pilot and mvp04 runs (pre-#390 user-site ViennaRNA; #397 report).
-5. M11-03c PR 4 (launcher CPU check), then the full calibration launch and the M11-13 readiness check.
-6. Backlog: BacTermFinder probability cut-off (statistician + Khoa); TU-error-robust TU-block null.
+(2026-10-26 evening) Merged today: #387, #395, #396, #399–#410 and #413. 14u1, 14u2, 14d, 14d2,
+14s2 and 14h are done (the `annotation.uniop.enabled` default is now `auto`). Pilot pass 3 and the
+#390 OSTIR reruns are written up (#405). Q-K28 has been answered (ADR-0061 and the ADR-0022
+addendum are accepted-by-khoa).
+1. Full calibration launch (criterion 10), via `scripts/slurm/calibration_full_launch.sh`. It needs
+   ≤ 4 giap-* jobs (it queues 16) and about 6.5 h before the 01:30 nightly. Then the M11-13
+   readiness check.
+2. #412 (determinants null on processes, about 2×): the statistician signed off; code review
+   B1 (merge conflict) and B2 (process-switch tests) are with the performance agent.
+3. antiSMASH on a deployed run (Nissle pks, both precomputed and live Bakta; validation agent);
+   then the H1 GBFF sensitivity run (Q-K29, recorded deviation).
+4. More datasets (#411 draft): mhyo, gsulf and msmeg are running. mhyo found that genetic code 4
+   runs silently as 11 (Q-K30): #413 makes preflight refuse a table other than 11; a heuristic for
+   the default-11 case is in the backlog.
+5. 14i docs, then the GIPPA rename, then the M11-13 readiness check, then Khoa publishes.
 
-Slurm jobs this session (2026-10-26): 1895369, 1895398, 1895399, 1895506, 1895507 (14s1 attacks),
+Slurm jobs this session (2026-10-26): 1897230, 1897239, 1897241, 1897263, 1897264, 1897280 (14u2 AC 9b), 1897399 (14d2 suite, cancelled: CI), 1897025–1897031, 1897034 (#390 pilot reruns), 1897042, 1897048, 1897054, 1897433, 1897434 (more datasets), 1897403 (perf test, released from hold), 1895369, 1895398, 1895399, 1895506, 1895507 (14s1 attacks),
 1895712, 1895849, 1895856, 1895857, 1896088 (branch fast suites), 1895723, 1895730, 1895738,
 1895829, 1895830, 1895897, 1895961 (14b envs, BacTermFinder smoke, podman, lock install),
 1895673 (pilot pass3 A2), 1896018/1896019 (nightly re-run), 1896079 (OSTIR re-record).
