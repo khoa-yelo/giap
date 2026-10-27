@@ -174,11 +174,16 @@ command -v apptainer >/dev/null 2>&1 || { echo "apptainer is not on PATH (module
 
 # bash 3.2 (macOS CI) runs these functions too: no ${v,,}, no ${!v}, no empty-array expansion.
 expand() {  # $VAR / ${VAR} of the GIPPA environment in a cfg value
-  local s="$1" name val
+  local s="$1" name val old
   for name in GIPPA_REPO GIPPA_ROOT GIPPA_DATA_DIR GIPPA_DB_DIR GIPPA_TOOLS_DIR; do
     eval "val=\${$name:-}"
     s="${s//\$\{$name\}/$val}"
     s="${s//\$$name/$val}"
+    # ADR-0064: the sha-pinned validation/pilot/diann_A*.cfg stay as written (rename_gippa.py
+    # KEEP_PATHS) and name the pre-rename variables; each maps to the same value.
+    old="GIAP_${name#GIPPA_}"
+    s="${s//\$\{$old\}/$val}"
+    s="${s//\$$old/$val}"
   done
   printf '%s' "$s"
 }

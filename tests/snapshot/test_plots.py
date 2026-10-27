@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import gzip
 import importlib.util
+import re
 import struct
 from pathlib import Path
 
@@ -230,4 +231,5 @@ def test_snapshot_fixture_has_provenance() -> None:
     assert prov.is_file(), "tests/data/snapshot/PROVENANCE.md is missing"
     text = prov.read_text(encoding="utf-8")
     assert "make_snapshot_fixture.py" in text
-    assert "gippasim" in text
+    # the kept PROVENANCE.md was written before ADR-0064: it names the simulator by its old name
+    assert re.search(r"built from (\w+) \(`tests/sim/\1`\)", text), "names the simulator"
