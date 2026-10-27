@@ -2,7 +2,8 @@
 
 `gippa setup` downloads the databases and models into one directory and records each item in
 `DIR/db_manifest.json`. Run it once per installation. Then pass the directory to `gippa run` with
-`--db-dir DIR`, or set `GIPPA_DB_DIR=DIR`.
+`--db-dir DIR`, or set `GIPPA_DB_DIR=DIR`. Without internet access, or to reuse a shared copy,
+see [Download the databases by hand](manual-databases.md).
 
 ## The command for the default modules
 
@@ -81,7 +82,8 @@ library is pinned: commit `bddf6da9`, with a fixed SHA-256 in `db_sources.yaml`.
 
 `gippa setup` exits with code 2 in two cases: a source cannot be reached, or a checksum does not
 match. The message names the host, and the item stays absent. GIPPA never falls back to another
-source. Run the command again later; `--check` shows which items are present.
+source. Run the command again later; `--check` shows which items are present. To download an item
+yourself and have setup adopt it, see [Download the databases by hand](manual-databases.md).
 
 ## What `gippa setup` does not download
 

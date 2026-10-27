@@ -124,6 +124,7 @@ def test_every_nav_page_exists(cfg: Any) -> None:
                 "get-started/install.md",
                 "get-started/upgrade.md",
                 "get-started/setup-databases.md",
+                "get-started/manual-databases.md",
                 "get-started/quickstart.md",
             ],
         ),
