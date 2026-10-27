@@ -207,16 +207,17 @@ def setup(
     items = [] if check else [(i.name, float(i.size_gib), i.path) for i in plan(dbs)]
     if items or tools:  # the plan, before the first download or pull (M11-15 15c1)
         lines, places = setup_plan(db_dir, items, tools, runtime, cache, os.environ)
-        home = chosen.source == "default" and in_shared_home(db_dir, os.environ)
-        # one question before the downloads: the UniOP terms prompt, when it comes, is that one
-        terms = (uniop or needed) and not accept_uniop_terms
-        stop = review_plan(lines, places, db_dir, home_warning=home, yes=yes or terms,
+        # neither --db-dir nor GIPPA_DB_DIR: a recorded pointer into the home warns too (B4)
+        home = chosen.source in ("default", "pointer") and in_shared_home(db_dir, os.environ)
+        # Proceed? first; the UniOP terms prompt, when it comes, follows (lead decision)
+        stop = review_plan(lines, places, db_dir, home_warning=home, yes=yes,
                            environ=os.environ)  # fmt: skip
         if stop is not None:
             sys.exit(stop)
     if not check:
         db_dir.mkdir(parents=True, exist_ok=True)
-        write_pointer(config_home(os.environ), db_dir)
+        if (why := write_pointer(config_home(os.environ), db_dir)) is not None:
+            click.echo(f"gippa setup: warning: {why}", err=True)
     # the images before the downloaders
     if pull and runtime is not None and install_images(tools, runtime, cache, db_dir) != 0:
         code = ExitCode.ENVIRONMENT

@@ -7,6 +7,8 @@ Order: ``--db-dir``, ``$GIPPA_DB_DIR``, the pointer file ``gippa setup`` writes
 
 from __future__ import annotations
 
+import contextlib
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, NamedTuple
@@ -59,9 +61,17 @@ def resolve_db_dir(flag: Path | None, environ: Mapping[str, str], config: Path) 
     return DbDir(_data_dir(environ) / "db", "default", warning)
 
 
-def write_pointer(config: Path, db_dir: Path) -> Path:
-    """Record ``db_dir`` (absolute) for the readers; returns the pointer file."""
+def write_pointer(config: Path, db_dir: Path) -> str | None:
+    """Record ``db_dir`` (absolute) for the readers, atomically (a temporary file renamed over
+    the pointer); ``None``, or why it could not be written (the caller warns, setup goes on)."""
     ptr = pointer_file(config)
-    ptr.parent.mkdir(parents=True, exist_ok=True)
-    ptr.write_text(f"{db_dir.absolute()}\n", encoding="utf-8")
-    return ptr
+    tmp = ptr.with_name(f".{ptr.name}.{os.getpid()}.tmp")
+    try:
+        ptr.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(f"{db_dir.absolute()}\n", encoding="utf-8")
+        os.replace(tmp, ptr)
+    except OSError as exc:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        return f"cannot record the DB directory in {ptr} ({exc}); pass --db-dir to the readers"
+    return None

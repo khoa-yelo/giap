@@ -22,8 +22,8 @@ import click
 
 from gippa.exitcodes import ExitCode
 
-__all__ = ["MOUNTINFO", "PlanLine", "disk_full", "fs_kind", "mount_of", "quota_remaining",
-           "review_plan", "user_quota"]  # fmt: skip
+__all__ = ["MOUNTINFO", "PlanLine", "disk_full", "fs_kind", "is_disk_full", "mount_of",
+           "quota_remaining", "review_plan", "user_quota"]  # fmt: skip
 
 MOUNTINFO = Path("/proc/self/mountinfo")
 GIB = 1024**3
@@ -113,26 +113,34 @@ def _ask(argv: Sequence[str]) -> str:
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=QUOTA_TIMEOUT,
                               check=False)  # fmt: skip
-    except Exception:  # best effort: a missing, hung or failing quota tool never stops setup
+    except (OSError, subprocess.SubprocessError, ValueError):  # best effort: never stops setup
         return ""
     return proc.stdout if isinstance(proc.stdout, str) else ""  # over quota exits 1: still read
 
 
-def user_quota(path: Path, environ: Mapping[str, str]) -> int | None:
-    """Bytes the user may still write on ``path``'s filesystem, or ``None`` (best effort)."""
-    mount = mount_of(path)
-    devices = None if mount is None else (mount[0], mount[2])
-    found = [quota_remaining(_ask(["quota", "-w"]), devices)]
+def user_quota(paths: Iterable[Path], environ: Mapping[str, str]) -> dict[Path, int]:
+    """Bytes the user may still write on each path's filesystem, where a quota is known (best
+    effort): one ``quota -w`` filtered per place, one ``lfs quota`` per Lustre mount. A path
+    whose mount is unknown gets no quota (another filesystem's row must not count)."""
+    mounts = {p: m for p in paths if (m := mount_of(p)) is not None}
+    if not mounts:
+        return {}
+    text = _ask(["quota", "-w"])
     user = environ.get("USER") or environ.get("LOGNAME")
-    if mount is not None and mount[1] == "lustre" and user:
-        found.append(quota_remaining(_ask(["lfs", "quota", "-u", user, mount[0]]), devices))
-    known = [q for q in found if q is not None]
-    return min(known) if known else None
+    lfs = {m[0]: _ask(["lfs", "quota", "-u", user, m[0]])
+           for m in mounts.values() if m[1] == "lustre" and user}  # fmt: skip
+    out: dict[Path, int] = {}
+    for path, (mnt, _fstype, source) in mounts.items():
+        found = [quota_remaining(t, (mnt, source)) for t in (text, lfs.get(mnt, ""))]
+        known = [q for q in found if q is not None]
+        if known:
+            out[path] = min(known)
+    return out
 
 
 class PlanLine(NamedTuple):
     label: str
-    gib: float
+    gib: float  # 0: the size is not recorded
     where: Path | None  # the directory it is written to; None: nothing to write (present)
     note: str = ""
     temporary: bool = False  # build space, freed afterwards: not in the total
@@ -142,21 +150,26 @@ def _say(message: str) -> None:
     print(f"gippa setup: {message}", file=sys.stderr, flush=True)
 
 
-def _free(where: Path, quota: bool, environ: Mapping[str, str]) -> int | None:
+def _free(where: Path) -> int | None:
     try:
-        free: int | None = shutil.disk_usage(_existing(where)).free
+        return shutil.disk_usage(_existing(where)).free
     except OSError as exc:
         _say(f"warning: cannot read the free space of {where} ({exc}); proceeding")
         return None
-    left = user_quota(where, environ) if quota else None
-    return free if left is None or free is None else min(free, left)
 
 
-def _device(where: Path) -> int | str:
+def _device(where: Path) -> tuple[int | str, str]:
+    """The filesystem of ``where``: its device and mount point (a quota is per mount)."""
+    mount = mount_of(where)
     try:
-        return _existing(where).stat().st_dev
+        dev: int | str = _existing(where).stat().st_dev
     except OSError:
-        return str(where)
+        dev = str(where)
+    return dev, "" if mount is None else mount[0]
+
+
+def _size(gib: float) -> str:
+    return f"{gib:.1f} GiB" if gib else "size not recorded"
 
 
 def review_plan(
@@ -164,16 +177,23 @@ def review_plan(
     home_warning: bool, yes: bool, environ: Mapping[str, str],
 ) -> int | None:  # fmt: skip
     """Print the plan; exit code 2 when a filesystem is too small, 0 when the user says no,
-    else ``None`` (proceed). ``places`` names the directories written to (role -> path)."""
+    else ``None`` (proceed). ``places`` names the directories written to (role -> path); a path
+    shared by two roles counts once, and each path's quota is its own filesystem's."""
     for ln in lines:
-        _say(f"plan: {ln.label} {ln.gib:.1f} GiB{f' ({ln.note})' if ln.note else ''}")
+        _say(f"plan: {ln.label} {_size(ln.gib)}{f' ({ln.note})' if ln.note else ''}")
     total = sum(ln.gib for ln in lines if ln.where is not None and not ln.temporary)
     _say(f"plan: total {total:.1f} GiB")
-    groups: dict[int | str, tuple[Path, float, int | None]] = {}
+    roles: dict[Path, list[str]] = {}
     for role, where in places.items():
-        free = _free(where, where == db_dir, environ)
+        roles.setdefault(where, []).append(role)
+    quotas = user_quota(list(roles), environ) or {}  # one quota -w for every place
+    groups: dict[tuple[int | str, str], tuple[Path, float, int | None]] = {}
+    for where, names in roles.items():
+        free = _free(where)
+        if free is not None and where in quotas:
+            free = min(free, quotas[where])
         if free is not None:
-            _say(f"free: {free / GIB:.1f} GiB on {where} ({role})")
+            _say(f"free: {free / GIB:.1f} GiB on {where} ({', '.join(names)})")
         need = sum(ln.gib for ln in lines if ln.where == where)
         key = _device(where)
         first, had, low = groups.get(key, (where, 0.0, None))
@@ -216,8 +236,7 @@ def setup_plan(
         elif ref in seen:
             line = PlanLine(f"image {tool}", gib, None, "same image as another tool")
         else:
-            line = PlanLine(f"image {tool}", gib, cache if apptainer else None,
-                            "" if gib else "size not recorded")  # fmt: skip
+            line = PlanLine(f"image {tool}", gib, cache if apptainer else None)
         seen.add(ref)
         lines.append(line)
     pulled = [ln.gib for ln in lines if apptainer and ln.where == cache]
