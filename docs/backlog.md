@@ -1351,3 +1351,7 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
   unmapped organism peptides contain W; 246 `strain_difference` and 354
   `nterm_extension_evidence` flags were artefacts. The M11-14w long-ORF ratio is 0.227 for this
   genome, against 0.82–0.88 for three code-11 genomes.
+
+- **#420 review nits (nightly task-2 shards; N4 noted in the nightly.sbatch header):**
+  - N5: tests for shard 2 recording first (shard 1 writes the row; its gate runs in the shard-1 worktree), the "coverage not measured (k of N shard data files)" path, and two concurrent record + merge calls giving exactly one complete merge.
+  - N6: after the first sharded night, compare the shards' `--durations`/junit times and record them in PROGRESS; balance by duration or raise `NIGHTLY_CAL_SHARDS` (≤ 4, R14) if a shard passes ~4 h. The nightly now takes 81 CPUs at 01:30 without checking other `giap-*` jobs (calibration_full overlap).
