@@ -28,7 +28,9 @@ The cell words (tested, smoke-tested, untested) and the CI jobs are explained on
     release step ([Releasing › step 5](../release.md#5-ghcr-publishing-and-package-visibility-khoa)).
     Until it is done, `giap run` under `--profile docker` or `--profile apptainer` alone stops in
     preflight with `conda-only tool under a container profile without conda: <tool>` (exit code 2)
-    for each of them. On FarmShare, use the [checkout path](#farmshare-from-a-checkout). Once a
+    for each of them. Two opt-in tools are missing the same way: BacTermFinder (with
+    `--add-bactermfinder`), and fgsea (module `function` with `--abundance`; `images.json` pins
+    no image for it yet). On FarmShare, use the [checkout path](#farmshare-from-a-checkout). Once a
     release pins those images, the five steps below need nothing else.
 
 ## Prerequisites
@@ -36,7 +38,7 @@ The cell words (tested, smoke-tested, untested) and the CI jobs are explained on
 | Requirement | Version | Where it is pinned |
 |---|---|---|
 | Python | Python ≥ 3.11 | `requires-python = ">=3.11"` in `pyproject.toml` |
-| Nextflow | 26.10.0 (the pinned version) or newer | `scripts/bootstrap_farmshare.sh`, [ADR-0002](../adr/ADR-0002-farmshare-env-pins.md) |
+| Nextflow | 26.10.0 is the pinned, tested version; at least 25.04.8 (advice: GIAP does not check the version) | `scripts/bootstrap_farmshare.sh`, [ADR-0002](../adr/ADR-0002-farmshare-env-pins.md) |
 | Java | 17 or newer, which Nextflow needs; the bootstrap installs OpenJDK 21 | `scripts/bootstrap_farmshare.sh` |
 | Docker or Apptainer | the `docker` CLI with access to a daemon, or `apptainer` | see [Platforms](../user-guide/platforms.md) |
 
@@ -70,7 +72,7 @@ giap setup --db-dir /path/to/db --antismash --go --kegg --cog --contaminants \
     --images --profile apptainer                         # or: --profile docker
 
 # 4. check the inputs
-GIAP_DB_DIR=/path/to/db giap preflight --genome genome.fna --proteins proteins.faa
+GIAP_DB_DIR=/path/to/db giap preflight --genome genome.fna --peptides peptides.tsv
 
 # 5. run
 giap run --genome genome.fna --peptides peptides.tsv --db-dir /path/to/db \
@@ -89,16 +91,25 @@ is merged, use PyPI.
 - `--profile apptainer` runs `apptainer pull <cache>/<name>.img docker://<ref>`, where `<name>` is
   the file name Nextflow looks for ([ADR-0059](../adr/ADR-0059-bare-image-refs.md)).
   `--profile docker` runs `docker pull <ref>` and checks that the pulled digest equals the pin.
-  A comma-joined profile such as `docker,conda` is accepted.
+  A comma-joined profile is accepted for the images, but the UniOP step needs one runtime:
+  `--profile docker,conda` exits 2 with `ambiguous UniOP runtime for docker,conda: use one of
+  conda | docker | apptainer`.
 - Each image is recorded as an `image:<tool>` item in `DIR/db_manifest.json`. A failed pull or a
   digest mismatch (`pulled <d1>, pinned <d2>`) is exit code 2; the other images are still pulled.
-- The cache is `--cache-dir`, else `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else
-  `DIR/containers`. Preflight looks in the same place. Nextflow reads only
-  `NXF_APPTAINER_CACHEDIR` or `$GIAP_ROOT/containers`, so **export `NXF_APPTAINER_CACHEDIR`**
-  for setup and run alike; otherwise Nextflow pulls every image again into its own cache.
-- On a machine with Apptainer and no Docker, the first run reports the Bakta (and antiSMASH)
-  database `absent`: their downloaders run inside the tool image, and setup downloads the
-  databases before it pulls the images. Run the same command again; finished items are kept.
+- **The Apptainer cache: export `NXF_APPTAINER_CACHEDIR`** and keep it set for setup and run.
+  In this release the readers of the cache do not agree on other settings:
+    - `--cache-dir` is used only by the image pull and the UniOP build of this `setup` command;
+    - setup's Bakta and antiSMASH downloaders and `giap run`'s preflight use
+      `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else `DIR/containers`;
+    - Nextflow uses `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else its own cache,
+      where it pulls every image again.
+
+  So do not use `--cache-dir` or rely on `DIR/containers`: with either, preflight reports the
+  images `not in the apptainer cache`.
+- On a machine with Apptainer and no Docker, the first run reports the Bakta (and, with
+  `--antismash`, antiSMASH) database `absent`: their downloaders run inside the tool image, and
+  setup downloads the databases before it pulls the images. With `NXF_APPTAINER_CACHEDIR` set,
+  run the same command again: the images are then in the cache, and finished items are kept.
 - Compute nodes without network: run step 3 where the network is. Preflight checks the cache,
   not the registry.
 
@@ -116,7 +127,8 @@ UniOP, the operon predictor, has no licence file, so GIAP never redistributes it
 UniOP image. `setup --images` (or `setup --uniop` alone) fetches the authors' archive at the pinned
 commit from GitHub, checks its sha256, and builds it on your machine. Nothing is pushed anywhere.
 
-- **Terms.** Setup prints this notice every time:
+- **Terms.** Setup prints this notice whenever it builds or checks a local build (not under a
+  `farmshare*` profile, which uses the prebuilt env):
   "UniOP (github.com/hongsua/UniOP @3ed14dfc) is fetched from its authors and built on this
   machine; it has no licence file, so giap does not distribute it and whether your use is
   permitted is yours to decide." On a terminal it asks `Build UniOP for your own use? [y/N]`; the
@@ -171,7 +183,8 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 host, not in a container. Every node that runs tasks therefore needs the same Python environment
 with the same `giap` version on `PATH`, for example one venv on a shared filesystem. `giap run`
 has no `-c` option for your own Nextflow config; Nextflow also reads `$NXF_HOME/config` (default
-`~/.nextflow/config`), where an executor can be set.
+`~/.nextflow/config`), where an executor can be set. The DB directory and the Apptainer cache
+(`NXF_APPTAINER_CACHEDIR`) must also be on a filesystem that every node sees.
 
 ## What `giap run` needs before preflight passes
 
@@ -224,8 +237,10 @@ sbatch scripts/slurm/giap_run.sbatch <args>           # -profile farmshare,appta
 
 `build_envs.sbatch` builds `$GIAP_ROOT/micromamba/envs/giap-<tool>/` with its `.giap-built`
 marker, including the conda-only tools and UniOP, and pulls every pinned image into
-`$GIAP_ROOT/containers`. Under `farmshare*` profiles a prebuilt environment wins over an image,
-as before.
+`$GIAP_ROOT/containers`. Under `farmshare,apptainer`, the conda-only tools use their prebuilt
+environments and the image-pinned tools use their images: `workflow/conf/container_common.config`,
+shared by the `apptainer` and `docker` profiles, sets `conda = ''` for every image-pinned process,
+so an environment never shadows an image.
 
 ## Licences
 

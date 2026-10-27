@@ -102,8 +102,8 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
    later build needs the same approval until Khoa removes it (Q-K18).
 4. For each package `ghcr.io/khoa-yelo/<pkg>-<tool>` (Promotech, Promoter Calculator,
    TerminatorNet, BacTermFinder, OSTIR, fgsea): profile → Packages → Package settings → Danger
-   Zone → Change visibility → Public (Q-K8). Until then, the FarmShare smoke reports
-   `private package` and `release.yml` verify fails with `not public: <ref>`.
+   Zone → Change visibility → Public (Q-K8). Until then, an Apptainer pull of a private package
+   fails on FarmShare (401 or 403), and `release.yml` verify fails with `not public: <ref>`.
 
 - There is never a UniOP package. UniOP is unlicensed (R5, R11): users build it locally with
   `giap setup --uniop`, and `update_digests.py` refuses it.
@@ -270,7 +270,8 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 - The workflow then:
     - uploads the wheel and sdist;
     - tags `v<v>` on the dispatched commit;
-    - creates the GitHub release "GIAP `<v>`" with `notes.md` (a pre-release for an `rc`).
+    - creates the GitHub release "GIAP `<v>`" with `notes.md`. (The workflow would mark an
+      `rc` as a pre-release, but an `rc` never reaches this step: see below.)
 - Zenodo mints the DOI.
 - **Release candidates stop at step 12.** An `rc` goes to TestPyPI only; PyPI gets finals only
   (M11-14 Q-K15). `release.yml` itself does not refuse an `rc` with `target=pypi`; the rule is this
@@ -365,7 +366,7 @@ Release candidates `1.y.0rc1`, `1.y.0rc2`, … are cut on main by the same relea
 |---|---|---|---|
 | unit, lint, types, package smoke (CI; H1, H6) | rerun | rerun | rerun |
 | `image_key.py --check`, H4, the static schema diff test | rerun | rerun | rerun |
-| calibration: nightly subset, attacks, `calibration_full` (R3, R4) | reuse iff `reusable(C, R)`, else rerun | same rule | full rerun |
+| calibration: nightly subset, attacks, `calibration_full` (R3, R4) | reuse iff `reusable(C, R)`, else rerun (subset; full if `stats`-labelled code, `calibration.yaml` or a tool feeding a statistic changed) | same rule | full rerun |
 | weekly e2e (K-12, Nissle, TE8; R5) | rerun K-12 standard | rerun | rerun |
 | A2 pilot gate (TE1, mapping FDR; R1, R2) | see below | see below | rerun |
 | benchmark `k12_standard` window (R7) | see below | see below | rerun |
@@ -406,8 +407,8 @@ What the code does for the other rows (it does not know the bump):
 - **R1, R2** (pilot) and **R7** (benchmark) read the files committed at R
   (`validation/pilot/metrics/metrics.json`, `benchmarks/baseline.json`); no commit predicate
   applies to them yet (the M11-14 follow-up: their evidence files do not record a commit).
-- "Full rerun" for a major, and the patch-only "rerun K-12 standard", are this runbook's rules:
-  readiness accepts any qualifying row.
+- "Full rerun" for a major, subset versus full calibration, and the patch-only "rerun K-12
+  standard" are this runbook's rules: readiness accepts any qualifying row.
 
 The release freeze of step 6 uses a different, narrower set: `readiness.py verify` accepts a
 readiness commit only if everything after it is paperwork (`paperwork_path`).
