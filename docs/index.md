@@ -18,9 +18,12 @@ Every claim carries a q-value, an FDR, an FWER or the label `unestimated`, and G
 
 ## Start here
 
-- [Install](get-started/install.md) the `gippa` command, Nextflow and a container profile.
-- [Set up the databases](get-started/setup-databases.md) once with `gippa setup`.
-- Run the [Quickstart](get-started/quickstart.md) on public E. coli K-12 inputs.
+- The [Quick start](get-started/quickstart.md): install, set up, check with `gippa demo`, then
+  example runs and the route for your own data.
+- [From raw spectra to a GIPPA run](get-started/from-spectra.md): DIA-NN, six-frame ORFs and de
+  novo, for when you have spectra but no peptide table yet.
+- [Install](get-started/install.md) and [Set up the databases](get-started/setup-databases.md) in
+  detail.
 
 ## User guide
 
