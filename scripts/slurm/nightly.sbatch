@@ -52,6 +52,11 @@
 # exit) after `coverage combine` + the coverage_min gate. R14: + 16 CPUs per extra shard (81 at
 # N=2). The 2026-10-24/27 unsharded runs took 5 h 43 / > 5 h 50 of the 6 h limit on rye-01.
 # Output is -v, so a killed shard's row counts the FAILED lines so far ($RUN/failed_so_far.txt).
+# N > 4 is refused (R14: 64 + 16 (N-1) + 1 <= 128). A shard that never records (SIGKILL, OOM,
+# cancelled) is recorded as failed by nightly_summary.sh, which then writes the failing row.
+# Shards 2..N run the tested commit's nightly.sbatch (submitted from $W), shard 1 the main
+# checkout's spooled copy, as the benchmark resubmission: the protocol is the same unless the main
+# checkout is stale.
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
@@ -95,19 +100,22 @@ report() {  # report <exit> <sub-task: summary>: this task's nightly.tsv line, t
 }
 finish() {  # finish <exit> <summary>: the task's row, or (a task-2 shard) its shard record
   [ -n "$sharded" ] || { report "$@"; return; }
-  reported=1
   local ns="$W/scripts/ci/nightly_shards.py" merged mrc msum
   [ -f "$ns" ] || ns="$GIAP_REPO/scripts/ci/nightly_shards.py"
   echo "shard $SHARD/$SHARDS_N: exit $1 $2"
   mkdir -p "$SHARDS"
-  merged=$( { flock 7
-    python "$ns" record --dir "$SHARDS" --shard "$SHARD" --exit "$1" --summary "$2" &&
-    python "$ns" merge --dir "$SHARDS" --of "$SHARDS_N"; } 7>"$SHARDS/.lock" ) || return 0
+  # reported only once recorded (or the row written): SIGTERM during combine still gets a row
+  merged=$( { flock 7 &&
+    python "$ns" record --dir "$SHARDS" --shard "$SHARD" --exit "$1" --summary "$2" ||
+    { echo "shard $SHARD/$SHARDS_N: record failed (nightly_summary.sh records it)" >&2; exit 4; }
+    python "$ns" merge --dir "$SHARDS" --of "$SHARDS_N"; } 7>"$SHARDS/.lock" )
+  case $? in 0) ;; 3) reported=1; return 0 ;; *) return 0 ;; esac
   mrc=${merged%%$'\t'*}; msum=${merged#*$'\t'}
   coverage_gate; report "$(( mrc > cov_rc ? mrc : cov_rc ))" "$msum$cov_note"
 }
 coverage_gate() {  # the last shard: combine the shards' coverage data, then ci/gates.yaml coverage_min
-  local min k files=() rc_file="$SHARDS/coveragerc"
+  local min k files=() rc_file="$SHARDS/coveragerc" data="$SHARDS/combined.coverage"
+  local txt="$SHARDS/coverage_report.txt"   # neither may start with coverage.: report combines <data>.*
   cov_rc=0; cov_note=""
   min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml 2>/dev/null)
   for k in $(seq 1 "$SHARDS_N"); do [ -s "$SHARDS/coverage.s$k" ] && files+=("$SHARDS/coverage.s$k"); done
@@ -115,11 +123,12 @@ coverage_gate() {  # the last shard: combine the shards' coverage data, then ci/
     cov_rc=1; cov_note="; coverage not measured (${#files[@]} of $SHARDS_N shard data files)"; return
   fi
   printf '[paths]\ngiap =\n    %s/src/giap\n    */src/giap\n' "$PWD" > "$rc_file"
-  python -m coverage combine --keep --rcfile="$rc_file" --data-file="$SHARDS/coverage" "${files[@]}" &&
-    python -m coverage report --rcfile="$rc_file" --data-file="$SHARDS/coverage" --skip-covered \
-      --show-missing --fail-under="$min" > "$SHARDS/coverage.txt"
+  rm -f "$data"
+  python -m coverage combine --keep --rcfile="$rc_file" --data-file="$data" "${files[@]}" &&
+    python -m coverage report --keep-combined --rcfile="$rc_file" --data-file="$data" \
+      --skip-covered --show-missing --fail-under="$min" > "$txt"
   cov_rc=$?
-  cov_note="; coverage $(awk '$1 == "TOTAL" {print $NF}' "$SHARDS/coverage.txt" 2>/dev/null) (min $min%$( [ "$cov_rc" = 0 ] || echo ", FAIL"))"
+  cov_note="; coverage $(awk '$1 == "TOTAL" {print $NF}' "$txt" 2>/dev/null) (min $min%$( [ "$cov_rc" = 0 ] || echo ", FAIL"))"
 }
 failed_so_far() {  # on SIGTERM: the FAILED/ERROR lines pytest -v printed so far
   local f="$RUN/calibration_nightly.txt" n
@@ -145,6 +154,13 @@ case ",$PROFILE," in
     echo "NIGHTLY_PROFILE=$PROFILE: the farmshare (Slurm executor) profile is refused (R14); use farmshare_local" >&2
     finish 2 "$trap_label NIGHTLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
 esac
+if [ "$TASK" = 2 ] && [ "$MODE" != record ]; then
+  case "$SHARDS_N" in
+    1|2|3|4) ;;
+    *) echo "NIGHTLY_CAL_SHARDS=$SHARDS_N: refused (R14: 1-4 shards of 16 CPUs)" >&2
+       finish 2 "$trap_label NIGHTLY_CAL_SHARDS=$SHARDS_N refused (R14: at most 4)"; exit 2 ;;
+  esac
+fi
 find "$CI/runs" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null
 find "$CI" -maxdepth 1 -name 'summary-deps-*' -mtime +7 -delete 2>/dev/null
 rm -rf "$RUN"; mkdir -p "$RUN"
@@ -261,11 +277,13 @@ task_calibration() {
   if [ "$SHARDS_N" -gt 1 ]; then
     if [ "$SHARD" = 1 ]; then   # once per night: clear the shard records, submit shards 2..N
       rm -rf "$SHARDS"; mkdir -p "$SHARDS"; sharded=1
+      printf '%s\t%s\n' "$SHARDS_N" "$commit" > "$SHARDS/plan"   # nightly_summary.sh: N and commit
+      echo "1 ${SLURM_JOB_ID:-}" > "$SHARDS/jobs"
       for k in $(seq 2 "$SHARDS_N"); do
         if j=$(sbatch --parsable --array="$TASK" \
           --export="ALL,MODE=$MODE,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT,NIGHTLY_CAL_SHARD=$k,NIGHTLY_CAL_SHARDS=$SHARDS_N,NIGHTLY_SLOW_HOPS=0,NIGHTLY_REF=$commit,NIGHTLY_WORKTREE=$W-s$k" \
           scripts/slurm/nightly.sbatch); then
-          j=${j%%;*}; echo "task 2 shard $k/$SHARDS_N submitted as job $j"
+          j=${j%%;*}; echo "task 2 shard $k/$SHARDS_N submitted as job $j"; echo "$k $j" >> "$SHARDS/jobs"
           extend_summary "$j" || tsv_line "${JOB}_note" 0 \
             "task 2 shard $k/$SHARDS_N is job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before it"
         else   # the night's row still comes: a refused shard is a failed shard

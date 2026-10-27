@@ -46,6 +46,7 @@ FILES = [f"tests/test_{c}.py" for c in "abcde"]
 # and prints FAKE_SHARD_PYTEST's summary (ok | fail | term: a FAILED line, then SIGTERM).
 _HOOK = r"""
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "coverage" ]; then
+  [ "${FAKE_COV:-}" = real ] && exec {python} "$@"
   printf 'coverage %s\n' "${*:3}" >> "$FAKE_SLURM_DIR/calls.log"
   if [ "${3:-}" = report ]; then
     echo "TOTAL 1000 50 95%"; [ "${FAKE_COV:-ok}" = low ] && exit 2
@@ -54,7 +55,10 @@ if [ "${1:-}" = "-m" ] && [ "${2:-}" = "coverage" ]; then
 fi
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pytest" ]; then
   printf 'pytest %s\n' "${*:3}" >> "$FAKE_SLURM_DIR/calls.log"
-  [ -n "${COVERAGE_FILE:-}" ] && echo data > "$COVERAGE_FILE"
+  if [ "${FAKE_COV:-}" = real ]; then   # real data: src/giap/mod.py run under coverage, branch on
+    {python} -c 'import coverage, runpy; c = coverage.Coverage(branch=True); c.start()
+runpy.run_path("src/giap/mod.py"); c.stop(); c.save()'
+  elif [ -n "${COVERAGE_FILE:-}" ]; then echo data > "$COVERAGE_FILE"; fi
   case "${FAKE_SHARD_PYTEST:-ok}" in
     fail) echo "2 failed, 10 passed, 1 warning in 7.25s"; exit 1 ;;
     term) echo "[gw0] [ 50%] FAILED tests/test_a.py::test_x"; sleep 1
@@ -72,11 +76,13 @@ def sb(tmp_path: Path) -> Sandbox:
     box = make_sandbox(tmp_path)
     head, _, rest = _PYTHON.replace("{python}", sys.executable).partition("\n")
     for name in ("python", "python3"):
-        write_exe(box.bin / name, f"{head}\n{_HOOK}{rest}")
+        write_exe(box.bin / name, f"{head}\n{_HOOK.replace('{python}', sys.executable)}{rest}")
     env = {**os.environ, **box.env}
-    for f in FILES:  # shard_tests.py needs test files in the checkout
+    srcs = {f: "def test_x():\n    pass\n" for f in FILES}  # shard_tests.py needs test files
+    srcs["src/giap/mod.py"] = "def f(x):\n    return x + 1 if x else 0\n\n\nf(1)\nf(0)\n"
+    for f, text in srcs.items():
         (box.repo / f).parent.mkdir(parents=True, exist_ok=True)
-        (box.repo / f).write_text("def test_x():\n    pass\n")
+        (box.repo / f).write_text(text)
     for cmd in (
         ["add", "-A"],
         ["commit", "-q", "-m", "tests"],
@@ -183,6 +189,18 @@ def test_two_shards_write_one_merged_row(sb: Sandbox) -> None:
     assert rep and "--fail-under=90" in rep[0], rep
 
 
+def test_real_coverage_keeps_the_shard_data_and_reports_the_figure(sb: Sandbox) -> None:
+    """``coverage report`` combines ``<data-file>.*``: the shard files must survive (#420 B1)."""
+    res = _two_shards(sb, FAKE_COV="real")
+    rows = _rows(sb)
+    assert len(rows) == 1 and rows[0][3] == "0", _diag(res, sb)
+    assert "coverage 100% (min 90%)" in rows[0][4], rows[0]
+    d = sb.root / "ci" / "runs" / f"{JOB}_2.shards"
+    for name in ("coverage.s1", "coverage.s2", "combined.coverage", "coverage_report.txt"):
+        assert (d / name).is_file(), f"{name} is gone: {sorted(p.name for p in d.iterdir())}"
+    assert "TOTAL" in (d / "coverage_report.txt").read_text()
+
+
 # ---------------------------------------------------------------- 2. failures fail the row
 
 
@@ -212,6 +230,39 @@ def test_refused_shard_submission_still_writes_a_failing_row(sb: Sandbox) -> Non
     assert len(rows) == 1, "no row after a refused shard submission" + _diag(res, sb)
     assert rows[0][3] == "2" and "refused" in rows[0][4], rows[0]
     assert _readiness_view(rows[0]) == ("calibration_nightly", False)
+
+
+def test_too_many_shards_are_refused(sb: Sandbox) -> None:
+    res = _run(sb, NIGHTLY_CAL_SHARDS="5")
+    rows = _rows(sb)
+    assert len(rows) == 1 and rows[0][3] == "2" and "R14" in rows[0][4], _diag(res, sb)
+    assert not _shard_calls(sb) and not _pytest_files(sb), "5 shards were not refused"
+
+
+def _summary(sb: Sandbox) -> subprocess.CompletedProcess[str]:
+    script = sb.repo / "scripts" / "slurm" / "nightly_summary.sh"
+    return sb.run(["bash", str(script), JOB, "--dry-run"], env={"NIGHTLY_EXPECT": "4"})
+
+
+def test_summary_job_fails_the_row_of_a_shard_that_never_recorded(sb: Sandbox) -> None:
+    """A shard SIGKILLed or cancelled leaves no record: no older pass may stand in (#420 B2)."""
+    sb.set_next_job_id(7001)
+    res = _run(sb)
+    assert not _rows(sb), _diag(res, sb)
+    sb.set_sacct([{"JobID": "7001", "JobName": "giap-nightly", "State": "CANCELLED"}])
+    for _ in range(2):  # the second run must not add a row
+        res = _summary(sb)
+    rows = _rows(sb)
+    assert len(rows) == 1, "expected one failing row from the summary job" + _diag(res, sb)
+    assert rows[0][3] == "1" and sb.head.startswith(rows[0][2]), rows[0]
+    assert "shard 2/2 left no record (sacct CANCELLED)" in rows[0][4], rows[0]
+    assert _readiness_view(rows[0]) == ("calibration_nightly", False)
+
+
+def test_summary_job_adds_nothing_when_the_shards_wrote_the_row(sb: Sandbox) -> None:
+    res = _two_shards(sb)
+    res = _summary(sb)
+    assert len(_rows(sb)) == 1, _diag(res, sb)
 
 
 # ---------------------------------------------------------------- 3. a killed shard
