@@ -120,8 +120,23 @@ def _segments(path: Path) -> list[str]:
     return out
 
 
+def _is_setuptools_bootstrap(path: Path, seg: str) -> bool:
+    """The review-B1 pip install of a committed file pinning only the locked setuptools (checked
+    in test_m11_15g_review_dockerfiles.py); not counted as a third install here."""
+    by_target = {dest: src for src, dest in _context_files(path).items()}
+    for target in re.findall(r"(?:^|\s)(?:-r|--requirement)(?:\s+|=)(\S+)", seg):
+        src = by_target.get(target)
+        if src is None or src == LOCK or not (REPO / src).is_file():
+            continue
+        names = re.findall(r"(?m)^([A-Za-z0-9][A-Za-z0-9._\-]*)==", (REPO / src).read_text())
+        if [n.lower() for n in names] == ["setuptools"]:
+            return True
+    return False
+
+
 def _pip(path: Path) -> list[str]:
-    return [s for s in _segments(path) if PIP_INSTALL.search(s)]
+    segs = [s for s in _segments(path) if PIP_INSTALL.search(s)]
+    return [s for s in segs if not _is_setuptools_bootstrap(path, s)]
 
 
 def _lock_cmds(path: Path) -> list[str]:
