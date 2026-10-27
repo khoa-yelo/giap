@@ -1,44 +1,71 @@
-# giap
+# GIPPA
 
-**GIAP** (genome-integrated analysis of proteomics data) takes one assembled bacterial genome plus
-proteomics evidence and asks: *what does genome context explain about which proteins are detected,
-and how abundant they are?* It places peptides and proteins on the genome with its own error
-control, builds one gene table keyed by Bakta locus tags, tests genome context (regions,
-autocorrelation, abundance islands, operons, function, sequence determinants), calls REF/ALT
-residues and novel ORFs, and writes standard tables, plots and an HTML report.
+**GIPPA** (formerly GIAP, genome-integrated analysis of proteomics data) takes one assembled
+bacterial genome plus proteomics evidence and asks: *what does genome context explain about which
+proteins are detected, and how abundant they are?* It places peptides and proteins on the genome
+with its own error control, builds one gene table keyed by Bakta locus tags, tests genome context
+(regions, autocorrelation, abundance islands, operons, function, sequence determinants), calls
+REF/ALT residues and novel ORFs, and writes standard tables, plots and an HTML report.
 
-[![PyPI version](https://img.shields.io/pypi/v/giap.svg)](https://pypi.org/project/giap/)
+The rename is in progress ([ADR-0064](docs/adr/ADR-0064-rename-giap-to-gippa.md)): until the code
+rename lands, the Python package, the command and the environment variables are still `giap`
+(`giap run`, `GIAP_DB_DIR`).
 
-Documentation: [khoa-yelo.github.io/giap](https://khoa-yelo.github.io/giap/). Changes between releases are listed in
-[`CHANGELOG.md`](CHANGELOG.md).
+## Status
 
-## Install
+Pre-1.0 (`0.0.1`); nothing is published yet. The pipeline runs end to end on Stanford FarmShare
+from a checkout (Slurm, Apptainer and prebuilt environments), on the synthetic demo below and on
+the E. coli Nissle 1917 pilot (PXD078459; [`validation/pilot/README.md`](validation/pilot/README.md)).
+Pending:
+
+- the first release: PyPI, the GHCR images of four tools (Promotech, Promoter Calculator,
+  TerminatorNet, OSTIR), the hosted docs (to be at khoa-yelo.github.io/gippa) and Bioconda;
+- the final pilot report, and the code rename to `gippa`;
+- genetic code 4 (Mycoplasma and relatives) is planned after 1.0; only code 11 is supported now.
+
+Off FarmShare, `giap preflight`, `convert`, `compare` and `report` work anywhere; until the first
+image publish, `giap run` under `--profile docker` or `apptainer` alone stops in preflight for the
+four tools above ([Install](docs/get-started/install.md)).
+
+## Install (from a checkout)
 
 ```bash
-pip install giap                                     # Python package and the `giap` command
-micromamba install -c conda-forge -c bioconda giap   # or from Bioconda
+git clone https://github.com/khoa-yelo/gippa.git && cd gippa
+python3 -m venv .venv && . .venv/bin/activate     # Python >= 3.11
+pip install .                                     # the `giap` command
+giap --version
 ```
 
-GIAP runs its steps through Nextflow; see the documentation for the container and Conda profiles.
+`giap run` also needs Nextflow (with Java 17+) and Docker or Apptainer; see
+[Install](docs/get-started/install.md) for the prerequisites, profiles and the FarmShare setup.
 
-## Quickstart
+## Quick start
+
+The demo genome and peptide table are synthetic, made by giapsim, the test simulator
+([provenance](docs/tutorials/data/PROVENANCE.md)). From the checkout:
 
 ```bash
-giap setup --db-dir db --antismash --go --kegg --cog --contaminants   # once
-giap preflight --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz
-giap run --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --db-dir db --outdir out --profile docker
-open out/report/report.html
+giap preflight --genome tests/data/genomes/sim100k.fna.gz \
+    --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --outdir pf    # seconds; exit 0
+giap setup --db-dir db --antismash --go --kegg --cog --contaminants \
+    --images --profile apptainer                                          # once; or --profile docker
+GIAP_DB_DIR=db giap preflight --genome tests/data/genomes/sim100k.fna.gz \
+    --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --profile apptainer
+giap run --genome tests/data/genomes/sim100k.fna.gz \
+    --peptides docs/tutorials/data/sim100k_peptides.tsv.gz \
+    --db-dir db --outdir out --profile apptainer
+xdg-open out/report/report.html
 ```
 
-Run it from a repository checkout: the genome and the peptide table are a small synthetic demo made
-by giapsim, GIAP's test simulator (see [the provenance note](docs/tutorials/data/PROVENANCE.md)).
-For your own data, pass your genome and a peptide table from
-[`giap convert`](https://khoa-yelo.github.io/giap/user-guide/convert/). Inputs, options and
-outputs are described in the [documentation](https://khoa-yelo.github.io/giap/).
+Today the full run works on FarmShare from a checkout, where `--profile` defaults to
+`farmshare,apptainer` (Install › FarmShare from a checkout). The walk-through is [Quickstart](docs/get-started/quickstart.md). For your own data, convert the
+search-engine output with [`giap convert`](docs/user-guide/convert.md); inputs, options and outputs
+are in [Inputs](docs/user-guide/inputs.md), the [CLI reference](docs/reference/cli.md) and
+[Outputs](docs/user-guide/outputs.md). Changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
 
-## Citing GIAP
+## Citing
 
-If you use GIAP, please cite it as described in [`CITATION.cff`](CITATION.cff) (GitHub's
+If you use GIPPA, please cite it as described in [`CITATION.cff`](CITATION.cff) (GitHub's
 "Cite this repository" button reads the same file).
 
 ## Developers
@@ -61,4 +88,7 @@ See [`AGENTS.md`](AGENTS.md) for test layers and conventions.
 ## Licence
 
 MIT. Third-party tools keep their own licences and run only as separate programs; see
-[`NOTICE.md`](NOTICE.md).
+[`NOTICE.md`](NOTICE.md) and [Licences](docs/user-guide/licences.md). geNOMAD (module `mobile`) is
+for non-commercial use only (`giap setup --no-genomad`, `--modules core,bgc,function`); KEGG
+(`--kegg`) is free for academic use only; the GPL and AGPL tools (Bakta, antiSMASH and others) run
+as separate programs and are never imported.
