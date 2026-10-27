@@ -1,10 +1,10 @@
-"""Builders for the M9-22 ``giap compare`` tests (docs/specs/M9-22-compare-tables.md).
+"""Builders for the M9-22 ``gippa compare`` tests (docs/specs/M9-22-compare-tables.md).
 
 Two kinds of input:
 
 - ``genes_frame(rows)``: a ``genes.tsv``-shaped frame as ``RunView.table("genes_tsv")`` returns it
   (every schema column, schema dtypes: ``Int64`` integers, float numbers, nullable ``boolean``,
-  object strings; 0-based ``start``), for the pure functions of ``giap.compare``;
+  object strings; 0-based ``start``), for the pure functions of ``gippa.compare``;
 - ``write_run(out, ...)``: a small ``OUT/`` tree (``tables/genes.tsv`` through the schema, the
   optional tables of ``compare_stability``, ``preflight/preflight.json`` and / or
   ``run_manifest.json`` carrying the genome SHA-256) for ``RunView`` and the CLI.
@@ -14,7 +14,7 @@ Interface assumed (test-author reading of the spec): the genome digest is the ``
 ``preflight/preflight.json``. The manifest written here holds only ``schema_version`` and
 ``inputs``; the compare reader is expected to read the genome row only.
 
-Nothing here touches ``$GIAP_DB_DIR`` or the network.
+Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations

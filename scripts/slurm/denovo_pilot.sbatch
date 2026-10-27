@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=giap-denovo
+#SBATCH --job-name=gippa-denovo
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64000M
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
-# Pilot arm A3, de novo sequencing (GIAP_SPEC.md §15.1, §15.2 step 6; M3-24).
+# Pilot arm A3, de novo sequencing (GIPPA_SPEC.md §15.1, §15.2 step 6; M3-24).
 #
 #   sbatch scripts/slurm/denovo_pilot.sbatch              # Cascadia 0.0.7 on WT_1, WT_2, WT_3
 #   A3_RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # one run
@@ -14,12 +14,12 @@
 #   sbatch scripts/slurm/denovo_pilot.sbatch casanovo     # the documented fallback
 #
 # Main branch (M10-08, deliverable 8): Cascadia 0.0.7 (DIA de novo) on one GPU (1 x L40S on the
-# `gpu` partition), one call per run, on $GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML (from
+# `gpu` partition), one call per run, on $GIPPA_DATA_DIR/pxd078459/mzml/<RUN>.mzML (from
 # mzml_pilot.sbatch). The weights and the Unimod table must match the sha256 committed in
 # validation/pilot/a3_assets.tsv (exit 2 otherwise, R6). Cascadia runs through
 # scripts/pilot/cascadia_offline.py (no Unimod download) in a per-job mktemp -d
-# ${TMPDIR:-/tmp}/giap-a3.XXXXXX/<RUN> (its scratch goes to the cwd; removed on exit), with its
-# default score threshold 0.8, and writes $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl
+# ${TMPDIR:-/tmp}/gippa-a3.XXXXXX/<RUN> (its scratch goes to the cwd; removed on exit), with its
+# default score threshold 0.8, and writes $GIPPA_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl
 # ($A3_OUT_DIR/<RUN>/<RUN>.ssl when A3_OUT_DIR is set, M10-10). Exit 1
 # when CUDA is not available, when its log shows a unimod.org URL (the launcher did not take
 # effect), when Cascadia fails, or when it writes no <RUN>.ssl. 64000M = 16 x MaxMemPerCPU 4000M.
@@ -31,22 +31,22 @@
 #
 # Environment: DENOVO_ENV (micromamba env name), DENOVO_MODEL (model weights), A3_RUN (Cascadia
 # runs), MZML_DIR (Cascadia input), RAW_DIR (Casanovo input runs), OUT_DIR (parent of the output
-# directory), A3_OUT_DIR (the output directory itself; M10-10); outputs go under $GIAP_ROOT.
+# directory), A3_OUT_DIR (the output directory itself; M10-10); outputs go under $GIPPA_ROOT.
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 
 TOOL="${1:-cascadia}"
 case "$TOOL" in
   cascadia)
-    ENV_NAME="${DENOVO_ENV:-giap-cascadia}"
-    DEFAULT_RAW="$GIAP_DATA_DIR/pxd078459"
-    DEFAULT_MODEL="$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt"
+    ENV_NAME="${DENOVO_ENV:-gippa-cascadia}"
+    DEFAULT_RAW="$GIPPA_DATA_DIR/pxd078459"
+    DEFAULT_MODEL="$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt"
     PATTERN="*.d"
     ;;
   casanovo)
-    ENV_NAME="${DENOVO_ENV:-giap-casanovo}"
-    DEFAULT_RAW="$GIAP_DATA_DIR/pxd053727"
-    DEFAULT_MODEL="$GIAP_DB_DIR/casanovo/casanovo_massivekb_5.2.1.ckpt"
+    ENV_NAME="${DENOVO_ENV:-gippa-casanovo}"
+    DEFAULT_RAW="$GIPPA_DATA_DIR/pxd053727"
+    DEFAULT_MODEL="$GIPPA_DB_DIR/casanovo/casanovo_massivekb_5.2.1.ckpt"
     PATTERN="*.mzML"
     ;;
   *)
@@ -57,9 +57,9 @@ esac
 
 RAW_DIR="${RAW_DIR:-$DEFAULT_RAW}"
 MODEL="${DENOVO_MODEL:-$DEFAULT_MODEL}"
-# A3_OUT_DIR (M10-10): the output root itself, e.g. $GIAP_ROOT/pilot/A3; unset, M10-08's
-# $GIAP_ROOT/pilot/A3_<tool> (the WT_1 smoke output stays as M10-08's evidence).
-OUT="${A3_OUT_DIR:-${OUT_DIR:-$GIAP_ROOT/pilot}/A3_$TOOL}"
+# A3_OUT_DIR (M10-10): the output root itself, e.g. $GIPPA_ROOT/pilot/A3; unset, M10-08's
+# $GIPPA_ROOT/pilot/A3_<tool> (the WT_1 smoke output stays as M10-08's evidence).
+OUT="${A3_OUT_DIR:-${OUT_DIR:-$GIPPA_ROOT/pilot}/A3_$TOOL}"
 
 if [ ! -d "$MAMBA_ROOT_PREFIX/envs/$ENV_NAME" ]; then
   echo "the $TOOL environment is missing: $MAMBA_ROOT_PREFIX/envs/$ENV_NAME" >&2
@@ -72,9 +72,9 @@ if [ ! -f "$MODEL" ]; then
 fi
 
 if [ "$TOOL" = "cascadia" ]; then
-  ASSETS="$GIAP_REPO/validation/pilot/a3_assets.tsv"
-  UNIMOD="$GIAP_DB_DIR/cascadia/unimod_tables.xml"
-  MZML_DIR="${MZML_DIR:-$GIAP_DATA_DIR/pxd078459/mzml}"
+  ASSETS="$GIPPA_REPO/validation/pilot/a3_assets.tsv"
+  UNIMOD="$GIPPA_DB_DIR/cascadia/unimod_tables.xml"
+  MZML_DIR="${MZML_DIR:-$GIPPA_DATA_DIR/pxd078459/mzml}"
   field() {  # field ASSET COLUMN: one cell of a3_assets.tsv
     awk -F'\t' -v a="$1" -v c="$2" \
       'NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next } $1 == a { print $k; exit }' \
@@ -111,7 +111,7 @@ if [ "$TOOL" = "cascadia" ]; then
     || cuda="error"
   echo "torch.cuda.is_available(): $cuda"
   [ "$cuda" = "True" ] || { echo "CUDA is not available: Cascadia would run on the CPU" >&2; exit 1; }
-  SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/giap-a3.XXXXXX")"
+  SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/gippa-a3.XXXXXX")"
   trap 'rm -rf "$SCRATCH_ROOT"' EXIT
   for r in $RUN_LIST; do
     mkdir -p "$OUT/$r"
@@ -120,7 +120,7 @@ if [ "$TOOL" = "cascadia" ]; then
     log="$OUT/$r/cascadia.log"
     rc=0
     (cd "$SCRATCH" && micromamba run -n "$ENV_NAME" python -I \
-      "$GIAP_REPO/scripts/pilot/cascadia_offline.py" "$UNIMOD" sequence "$MZML_DIR/$r.mzML" \
+      "$GIPPA_REPO/scripts/pilot/cascadia_offline.py" "$UNIMOD" sequence "$MZML_DIR/$r.mzML" \
       "$MODEL" -o "$OUT/$r/$r" -b 32) 2>&1 | tee "$log" || rc=$?
     if grep -q 'unimod\.org' "$log"; then
       echo "the job log shows a unimod.org URL: the offline launcher did not take effect" >&2
@@ -130,7 +130,7 @@ if [ "$TOOL" = "cascadia" ]; then
     [ -f "$OUT/$r/$r.ssl" ] || { echo "Cascadia exited 0 but wrote no $OUT/$r/$r.ssl: R9" >&2; exit 1; }
     ls -l "$OUT/$r/$r.ssl"
   done
-  echo "== A3 done: $OUT (next: a3_feasibility.py evaluate, then giap convert --from cascadia)"
+  echo "== A3 done: $OUT (next: a3_feasibility.py evaluate, then gippa convert --from cascadia)"
   [ -z "${SLURM_JOB_ID:-}" ] || seff "$SLURM_JOB_ID" 2>/dev/null || true
   exit 0
 fi
@@ -154,5 +154,5 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 micromamba run -n "$ENV_NAME" casanovo sequence \
   --model "$MODEL" --output "$OUT/a3_casanovo.mztab" "${RUNS[@]}"
 
-echo "== A3 done: $OUT (next: giap convert --from cascadia, §15.2 step 7)"
+echo "== A3 done: $OUT (next: gippa convert --from cascadia, §15.2 step 7)"
 [ -z "${SLURM_JOB_ID:-}" ] || seff "$SLURM_JOB_ID" 2>/dev/null || true

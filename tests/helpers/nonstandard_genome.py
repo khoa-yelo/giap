@@ -17,9 +17,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 CODON = {
     "A": "GCT", "C": "TGT", "D": "GAT", "E": "GAA", "F": "TTT", "G": "GGT", "H": "CAT",

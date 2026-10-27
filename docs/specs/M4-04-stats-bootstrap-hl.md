@@ -18,7 +18,7 @@ Milestone M4 · track S · depends on: none · estimate ≈ 260 code lines (+ �
 
 ## Public interface
 
-`src/giap/stats/bootstrap.py`
+`src/gippa/stats/bootstrap.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class BootCI:
@@ -40,7 +40,7 @@ def circular_block_bootstrap(x: ArrayLike, block_len: int, B: int,
   each block takes `block_len` consecutive values, wrapping modulo n; concatenated and truncated to n.
 - Draw order is fixed (strata in sorted order, then replicates) so results are reproducible.
 
-`src/giap/stats/robust.py`
+`src/gippa/stats/robust.py`
 ```python
 def hodges_lehmann(x: ArrayLike, y: ArrayLike) -> float: ...   # median of {x_i − y_j}; NaN-free inputs
 ```

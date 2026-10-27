@@ -14,7 +14,7 @@ from pathlib import Path
 from helpers.report_fixtures import Page, cfg, parse, run_out
 from helpers.viz_out_tree import write_schema_table
 
-from giap.io.run_view import RunView
+from gippa.io.run_view import RunView
 
 FLAG = "denovo_only_unsupported"
 SUFFIX = ("; {k} of {m} calls de novo-only without database or RBS support (exact de novo errors"
@@ -22,7 +22,7 @@ SUFFIX = ("; {k} of {m} calls de novo-only without database or RBS support (exac
 
 
 def _page(out: Path) -> Page:
-    from giap.report.build import build_report
+    from gippa.report.build import build_report
 
     return parse(build_report(RunView.from_outdir(out), {}, {}, cfg()))
 

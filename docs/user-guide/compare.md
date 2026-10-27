@@ -1,22 +1,22 @@
 # Comparing runs
 
-`giap compare` compares two or more runs on the same genome. A typical use is the same sample
+`gippa compare` compares two or more runs on the same genome. A typical use is the same sample
 searched in different ways: a database search, a de novo search, or two search engines. Every
-option is listed in the [CLI reference](../reference/cli.md#giap-compare).
+option is listed in the [CLI reference](../reference/cli.md#gippa-compare).
 
 ```bash
-giap compare out_db out_denovo out_hybrid --outdir cmp --labels db,denovo,hybrid
+gippa compare out_db out_denovo out_hybrid --outdir cmp --labels db,denovo,hybrid
 ```
 
 | Option | Meaning |
 |---|---|
-| `RUNS` | two or more `giap run` output directories |
+| `RUNS` | two or more `gippa run` output directories |
 | `--outdir` | the comparison directory to write (required) |
 | `--labels` | comma-separated run labels, one per run, in the order of `RUNS`; default: the directory names (repeats get `_2`, `_3`, …) |
 
 ## Checks (exit code 1)
 
-`giap compare` stops with exit code 1 when any of these fails:
+`gippa compare` stops with exit code 1 when any of these fails:
 
 - fewer than two runs are given;
 - `--labels` has the wrong number of labels, or labels that are repeated or empty;

@@ -1,4 +1,4 @@
-"""giapsim layout: lead decisions after code review of PR #62 (spec M4-07-sim-layout-tables.md).
+"""gippasim layout: lead decisions after code review of PR #62 (spec M4-07-sim-layout-tables.md).
 
 1. Circular replicons carry the wrap pair (last gene, first gene) in ``operon_pairs`` (layout and M0
    adapter; M2-12 convention, two-gene circular contigs included); linear contigs never do.
@@ -34,15 +34,15 @@ BLOCK_TYPES = ("prophage", "bgc", "crispr")
 
 
 def _layout_mod() -> Any:
-    import giapsim.layout
+    import gippasim.layout
 
-    return giapsim.layout
+    return gippasim.layout
 
 
 def _tables_mod() -> Any:
-    import giapsim.contract_tables
+    import gippasim.contract_tables
 
-    return giapsim.contract_tables
+    return gippasim.contract_tables
 
 
 def simulate(seed: int = 1, **kw: Any) -> Any:
@@ -141,12 +141,12 @@ def test_wrap_pair_gives_first_and_last_gene_uniop_like_production(tmp_path: Pat
 
 @pytest.fixture(scope="module")
 def m0_rich(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Any]:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(genome_length=60000, n_plasmids=2, linear_contig_length=20000,
+    cfg = gippasim.SimConfig(genome_length=60000, n_plasmids=2, linear_contig_length=20000,
                             origin_crossing_gene=True, n_pseudogenes=5, n_sorfs=5,
                             prophage_bp=10000, bgc_bp=8000)  # fmt: skip
-    sim = giapsim.simulate(cfg, 0, tmp_path_factory.mktemp("m0rich"))
+    sim = gippasim.simulate(cfg, 0, tmp_path_factory.mktemp("m0rich"))
     return sim, _layout_mod().layout_from_simulation(sim)
 
 
@@ -161,10 +161,10 @@ def test_wrap_pair_listed_for_circular_replicons_adapter(m0_rich: Any) -> None:
 
 
 def test_wrap_pair_listed_adapter_default_m0(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
     for seed in range(1, 6):
-        sim = giapsim.simulate(giapsim.SimConfig(), seed, tmp_path / str(seed))
+        sim = gippasim.simulate(gippasim.SimConfig(), seed, tmp_path / str(seed))
         layout = _layout_mod().layout_from_simulation(sim)
         want, _ = _wrap_expectation(layout)
         assert want <= _pair_set(layout.operon_pairs), (seed, sorted(want))
@@ -207,7 +207,7 @@ def test_origin_crossing_gene_tu_and_block_region(seed: int, tmp_path: Path) -> 
     t = write(layout, tmp_path / "w")
     _, issues = lo.load_work(tmp_path / "w")
     assert lo.errors(issues) == []
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     for key in lo.WRITTEN_TABLES:
         assert lo.errors(validate_table(key, t[key])) == [], key
@@ -442,10 +442,10 @@ def test_pair_lookup_has_no_p_fallback() -> None:
 
 
 def test_m0_real_rrna_trna_with_zero_trna_runs(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(real_rrna_trna=True, n_trna=0, n_rrna_operons=1)
-    sim = giapsim.simulate(cfg, 1, tmp_path / "sim")
+    cfg = gippasim.SimConfig(real_rrna_trna=True, n_trna=0, n_rrna_operons=1)
+    sim = gippasim.simulate(cfg, 1, tmp_path / "sim")
     with Path(sim.genes_truth).open(newline="") as fh:
         assert list(csv.DictReader(fh, delimiter="\t"))
     layout = _layout_mod().layout_from_simulation(sim)
@@ -453,9 +453,9 @@ def test_m0_real_rrna_trna_with_zero_trna_runs(tmp_path: Path) -> None:
 
 
 def test_m0_real_rrna_trna_with_zero_trna_and_no_rrna_runs(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    giapsim.simulate(giapsim.SimConfig(real_rrna_trna=True, n_trna=0), 2, tmp_path / "sim")
+    gippasim.simulate(gippasim.SimConfig(real_rrna_trna=True, n_trna=0), 2, tmp_path / "sim")
 
 
 def _write_dir(layout: Any, tmp_path: Path) -> Path:

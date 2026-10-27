@@ -1,4 +1,4 @@
-"""Attack nulls for per-peptide pi_wrong in the placement FDR (M3-10; GIAP_SPEC.md §7.2.5, §8.5;
+"""Attack nulls for per-peptide pi_wrong in the placement FDR (M3-10; GIPPA_SPEC.md §7.2.5, §8.5;
 statistician). Decision and derivation: docs/methods/placement-fdr.md, section
 "pi_wrong in the stratum FDR".
 
@@ -156,10 +156,10 @@ def _q_rejected(rep: Replicate, rule: str) -> np.ndarray:
 
 
 def _q_placement(rep: Replicate) -> np.ndarray:
-    from giap.config import GiapConfig
-    from giap.mapping.placement_fdr import placement
+    from gippa.config import GippaConfig
+    from gippa.mapping.placement_fdr import placement
 
-    per, _ = placement(rep.costs, GiapConfig())
+    per, _ = placement(rep.costs, GippaConfig())
     q = per.set_index("peptide")["placement_q"].astype(float)
     return np.asarray(q.reindex(rep.costs["peptide"]).to_numpy(), dtype=float)
 

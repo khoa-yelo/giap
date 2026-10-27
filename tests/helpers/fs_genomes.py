@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from giapsim.codons import CODE_11
+from gippasim.codons import CODE_11
 
 CODONS: dict[str, list[str]] = {}
 for _c, _a in sorted(CODE_11.items()):

@@ -1,7 +1,7 @@
 # M7-03: `pileup.tsv.gz`, `variants.tsv` and `variants.vcf` (VCF 4.3, G14)
 
 Milestone M7 · track V (variants) · **pass 1** · depends on: M7-02; merged M1-05 VCF writer
-(`giap.io.vcf.write_vcf`), M1-04 TSV writer · estimate ≈ 330 code lines (+ ≈ 400 test lines) ·
+(`gippa.io.vcf.write_vcf`), M1-04 TSV writer · estimate ≈ 330 code lines (+ ≈ 400 test lines) ·
 not statistical
 
 ## Spec sections implemented
@@ -9,7 +9,7 @@ not statistical
 - §7.5.5 in full:
   - "`tables/pileup.tsv.gz`: one row per covered codon, with REF, ALT and IL distinct-peptide counts."
   - "`tables/variants.tsv`: sites with an ALT or `mixed` call, plus frameshift events."
-  - "`tables/variants.vcf`, VCF 4.3: **Header:** `##fileformat=VCFv4.3`; `##source=giap-<version>`;
+  - "`tables/variants.vcf`, VCF 4.3: **Header:** `##fileformat=VCFv4.3`; `##source=gippa-<version>`;
     `##reference=` with the genome SHA-256; `##contig` lines with lengths; `##INFO` and `##FORMAT`
     definitions. **Records:** CHROM = contig; POS = the lowest 1-based coordinate of the codon. REF
     = the codon bases on the forward strand. ALT = the minimal-change codon encoding each ALT
@@ -26,7 +26,7 @@ not statistical
 
 ## Public interface
 
-`src/giap/variants/vcf_records.py` (pure)
+`src/gippa/variants/vcf_records.py` (pure)
 ```python
 def minimal_alt_codon(ref_codon: str, alt_aa: str) -> tuple[str, int]: ...   # gene strand
 def vcf_records(sites: pd.DataFrame, pile: pd.DataFrame, genome: Mapping[str, str],
@@ -34,13 +34,13 @@ def vcf_records(sites: pd.DataFrame, pile: pd.DataFrame, genome: Mapping[str, st
 INFO_FIELDS: tuple[VcfHeaderField, ...]
 FORMAT_FIELDS: tuple[VcfHeaderField, ...]
 ```
-`src/giap/io/variant_tables.py` (I/O)
+`src/gippa/io/variant_tables.py` (I/O)
 ```python
 def write_pileup(path: Path, pile: pd.DataFrame) -> None: ...        # gzip, deterministic (mtime 0)
 def write_variants(path: Path, sites: pd.DataFrame) -> None: ...
 def read_variants(path: Path) -> pd.DataFrame: ...
 ```
-Schemas: `src/giap/schemas/tables/pileup.schema.json`, `variants.schema.json`
+Schemas: `src/gippa/schemas/tables/pileup.schema.json`, `variants.schema.json`
 (`coordinates: 1-based-closed`; enums `call`, `confidence`, `alt_type`; `flags` enum = the §9.4
 Variants scope).
 
@@ -74,7 +74,7 @@ Variants scope).
    on a tie (decision 5); `mixed` → `.`.
 8. **FILTER** is `PASS` for every record (decision 6); confidence lives in `CONF`.
 9. **Header** as §7.5.5 via `write_vcf` (`##reference=sha256:<hex>`, ADR-0005), sample =
-   `config.sample_name` resolved by `giap run` (M7-04).
+   `config.sample_name` resolved by `gippa run` (M7-04).
 10. **TSV writers.** 1-based closed `codon_start` (`codon + 1`, wrapped into `[1, length]`), `NA`,
     `%.6g`, `;`-lists, §6.5 order; `pileup.tsv.gz` gzip with `mtime=0` so TE7 (byte-identical
     reruns) holds. `variants.tsv` column order exactly §9.3; columns filled later
@@ -94,7 +94,7 @@ Variants scope).
 | origin-crossing codon | rule 4 |
 | block 1↔2 / frameshift | `variants.tsv` only (rule 2) |
 | contig ID not VCF-safe | the M1-05 writer raises; preflight's safe-ID mapping (ADR-0005) makes this unreachable |
-| sample name `auto` reaching the writer | `ValueError` (it must have been resolved by `giap run`) |
+| sample name `auto` reaching the writer | `ValueError` (it must have been resolved by `gippa run`) |
 
 ## Examples
 
@@ -129,7 +129,7 @@ oracle of the exhaustive table rather than trusting this table.
 ## Hardening owed (pass 2)
 
 - Golden `variants.tsv` and `variants.vcf` for the 50-kb fixture (M7-15).
-- The backlog item "declare GIAP's VCF FILTER values with descriptions": closed by decision 6
+- The backlog item "declare GIPPA's VCF FILTER values with descriptions": closed by decision 6
   (PASS only) unless the lead prefers a `candidate` filter; M7-15 removes the generic `##FILTER`
   path from the writer if no FILTER other than PASS is ever written.
 
@@ -170,7 +170,7 @@ oracle of the exhaustive table rather than trusting this table.
    - **Two-codon events:** POS is the lower codon. A two-codon REF that crosses the origin is `vcf_unrepresentable`.
    - **The M1-05 `write_vcf`** rejects `sample == "auto"`. This is a small change to the merged writer, and it is in scope.
    - **`read_variants`** is the writer's exact inverse.
-   - **The datapackage:** `src/giap/schemas/datapackage.json` is created here with the `pileup` and `variants` resources. Later tables add themselves to it.
+   - **The datapackage:** `src/gippa/schemas/datapackage.json` is created here with the `pileup` and `variants` resources. Later tables add themselves to it.
    - **Multi-allele `FLAGS`:** combined in a way the implementer chooses, sorted and deduplicated.
 4. **After the code review (#160):**
    - Decision 2 is revised: the pileup keeps its DataFrame + `attrs` form, because M7-02's tests pin it. `_ref_codon` is gone (the REF bases travel in each `_alts` tuple), the writers select §9.3 columns by name, and `sites()` fails loudly on missing attrs. The structural replacement goes to the backlog.

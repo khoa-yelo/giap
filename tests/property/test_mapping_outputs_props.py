@@ -1,4 +1,4 @@
-"""Hypothesis properties of the Module 2 output writers (issue M3-16; GIAP_SPEC.md §6.5, §9.2).
+"""Hypothesis properties of the Module 2 output writers (issue M3-16; GIPPA_SPEC.md §6.5, §9.2).
 
 Checked against the independent oracle in tests/helpers/mapping_outputs_oracle.py:
 
@@ -31,9 +31,9 @@ from helpers.mapping_outputs_oracle import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.gff3 import read_gff3
-from giap.mapping.outputs import PEPTIDE_HITS_COLUMNS, PROTEIN_HITS_COLUMNS, write_mapping_outputs
-from giap.model import Replicon
+from gippa.io.gff3 import read_gff3
+from gippa.mapping.outputs import PEPTIDE_HITS_COLUMNS, PROTEIN_HITS_COLUMNS, write_mapping_outputs
+from gippa.model import Replicon
 
 PROPS = settings(max_examples=60, deadline=None)
 SHA = "0f" * 32
@@ -274,7 +274,7 @@ def test_gff3_round_trip(ds: dict[str, Any]) -> None:
         assert got == want
         ids = [f.attributes["ID"] for f in feats]
         assert len(ids) == len(set(ids))
-        assert all(f.source == "GIAP" for f in feats)
+        assert all(f.source == "GIPPA" for f in feats)
 
 
 @PROPS

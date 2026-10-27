@@ -1,4 +1,4 @@
-"""M4-18 example 8 and the step-level checks of ``giap.steps.context_stats.run_context_stats``,
+"""M4-18 example 8 and the step-level checks of ``gippa.steps.context_stats.run_context_stats``,
 plus ADR-0019's ``stratum0_classes`` optional input (M3-25 decisions 2 and 3: the ADR-0019 class
 table reaches the summary the way M4-15's ``detectability_summary`` does, and its QC rows sit
 beside ``genome_inconsistent_rate`` instead of replacing it).
@@ -9,7 +9,7 @@ docs/specs/M4-18-regions-stats-table.md: "fixture end to end through ``run_conte
 and lead decision 7 (adding a plasmid leaves every M4-17 row unchanged).
 
 Work directory (test-author reading; M4-15 is not merged): the M4-06 contract tables C1-C13 directly
-under ``work_dir`` (``giap.io.work_tables.default_paths``, written by the M4-16 fixture
+under ``work_dir`` (``gippa.io.work_tables.default_paths``, written by the M4-16 fixture
 ``detection_summary_fixture.sim_fixture``), the gene table at ``work_dir/genetable/genes.parquet``
 (M4-15 ``run_detectability`` output; built here from the M4-07 layout and M4-08 truth with the §9.3
 columns, ``abundance_imputed`` false) and outputs under ``work_dir/tables/``. The depth TSV
@@ -37,21 +37,21 @@ import detection_summary_fixture as fx
 import region_tests_data as rd
 import regions_stats_data as sd
 
-TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 SEED = 7
 N_GENES = 300
 COPY_20 = math.log2(20.0)
 
 
 def _cfg() -> Any:
-    from giap.config.model import GiapConfig
+    from gippa.config.model import GippaConfig
 
-    return GiapConfig.model_validate({"stats": {"bootstrap": 50}, "seed": 11})
+    return GippaConfig.model_validate({"stats": {"bootstrap": 50}, "seed": 11})
 
 
 def _gene_table(inputs: Any, copy_log2: float) -> pd.DataFrame:
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     lay = simulate_layout(
         LayoutConfig(n_genes_chromosome=N_GENES, plasmids=(25,), linear_contigs=(15,)),
@@ -73,7 +73,7 @@ def _gene_table(inputs: Any, copy_log2: float) -> pd.DataFrame:
 def _drop_plasmid_regions(work: Path, genes: pd.DataFrame) -> pd.DataFrame:
     """Remove every ``plasmid_*`` region from C7, C8, C6 ``region_ids`` and the gene table,
     keeping each Parquet file's Arrow schema."""
-    from giap.io.work_tables import default_paths
+    from gippa.io.work_tables import default_paths
 
     paths = default_paths(work)
     for key in ("regions", "region_genes"):
@@ -122,7 +122,7 @@ def _write_depth(dpath: Path, depth: dict[str, float] | str) -> None:
 def _build(work: Path, *, copy_log2: float = 0.0, plasmid: bool = True,
            depth: dict[str, float] | None = None) -> Path:  # fmt: skip
     """Write the fixture to ``work``, run the step, return ``tables/regions_stats.tsv``."""
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     dpath = _prepare(work, copy_log2=copy_log2, plasmid=plasmid, depth=depth)
     run_context_stats(work, _cfg(), dpath)
@@ -132,7 +132,7 @@ def _build(work: Path, *, copy_log2: float = 0.0, plasmid: bool = True,
 
 
 def _read(path: Path) -> pd.DataFrame:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     header, rows = read_tsv(path)
     return pd.DataFrame(rows, columns=header, dtype=object)
@@ -170,7 +170,7 @@ def test_example_8_validates_against_schema(runs: dict[str, Path], name: str) ->
 
 
 def test_example_8_header_and_content(runs: dict[str, Path]) -> None:
-    from giap.context.regions_table import REGIONS_STATS_COLUMNS
+    from gippa.context.regions_table import REGIONS_STATS_COLUMNS
 
     df = _read(runs["plain"])
     assert tuple(df.columns) == tuple(REGIONS_STATS_COLUMNS) == sd.REGIONS_STATS_COLUMNS
@@ -180,11 +180,11 @@ def test_example_8_header_and_content(runs: dict[str, Path]) -> None:
     assert set(pl["stat"]) == {"o_minus_e", "hl_shift"} and len(pl) == 2
     assert (pl["label"] == sd.PLASMID_LABEL).all()
     assert (df.loc[df["subset"] != "all", "region_type"] == "prophage").all()
-    assert (df["subset"] != "all").any()  # giapsim draws §7.1.7 subsets for prophage members
+    assert (df["subset"] != "all").any()  # gippasim draws §7.1.7 subsets for prophage members
 
 
 def test_detection_summary_written(runs: dict[str, Path]) -> None:
-    from giap.context.summary import SUMMARY_COLUMNS
+    from gippa.context.summary import SUMMARY_COLUMNS
 
     out = runs["plain"].parent / "detection_summary.tsv"
     assert out.exists()
@@ -260,7 +260,7 @@ def test_step_inputs_left_untouched(tmp_path: Path) -> None:
     same table."""
     out = _build(tmp_path / "w")
     first = out.read_bytes()
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     run_context_stats(tmp_path / "w", _cfg(), None)
     assert out.read_bytes() == first
@@ -300,7 +300,7 @@ def test_registry_path_carries_detectability_summary(prepared: Path, tmp_path: P
     ``detectability_summary`` (one parquet file) reaches ``detection_summary.tsv``."""
     import layers_chain as lc
 
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
 
     work = _copy(prepared, tmp_path)
     part = _detectability_part()
@@ -328,7 +328,7 @@ def test_registry_path_carries_detectability_summary(prepared: Path, tmp_path: P
 def test_registry_path_without_detectability_summary(prepared: Path, tmp_path: Path) -> None:
     import layers_chain as lc
 
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
 
     work = _copy(prepared, tmp_path)
     inputs: dict[str, Any] = {k: p for k, p in default_paths(work).items()
@@ -344,7 +344,7 @@ def test_registry_path_without_detectability_summary(prepared: Path, tmp_path: P
 def test_local_layout_carries_detectability_part(prepared: Path, tmp_path: Path) -> None:
     """``run_context_stats`` maps ``genetable/detection_summary_parts/detectability.parquet``
     (M4-15 local layout) into the summary."""
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     work = _copy(prepared, tmp_path)
     parts = work / "genetable" / "detection_summary_parts"
@@ -364,7 +364,7 @@ def test_local_layout_carries_detectability_part(prepared: Path, tmp_path: Path)
 )  # fmt: skip
 def test_step_raises_on_bad_depth_file(prepared: Path, tmp_path: Path, text: str) -> None:
     """Decision 21: a depth file with an error issue stops the step."""
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     work = _copy(prepared, tmp_path)
     dpath = tmp_path / "depth.tsv"
@@ -380,7 +380,7 @@ def _depth_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
 
 def test_depth_gap_warns_when_plasmids_on(prepared: Path, tmp_path: Path,
                                           caplog: pytest.LogCaptureFixture) -> None:  # fmt: skip
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     work = _copy(prepared, tmp_path)
     dpath = tmp_path / "depth.tsv"
@@ -395,13 +395,13 @@ def test_depth_gap_silent_when_plasmid_regions_off(
 ) -> None:
     """Decision 22: with ``plasmid`` not in ``context.region_types`` there are no plasmid rows
     and no depth-gap warning."""
-    from giap.config.model import GiapConfig
-    from giap.steps.context_stats import run_context_stats
+    from gippa.config.model import GippaConfig
+    from gippa.steps.context_stats import run_context_stats
 
     work = _copy(prepared, tmp_path)
     dpath = tmp_path / "depth.tsv"
     _write_depth(dpath, {"chr1": 50.0, "ctg1": 50.0})
-    cfg = GiapConfig.model_validate({"stats": {"bootstrap": 50}, "seed": 11, "context": {
+    cfg = GippaConfig.model_validate({"stats": {"bootstrap": 50}, "seed": 11, "context": {
         "region_types": ["prophage", "bgc", "crispr", "amr"]}})  # fmt: skip
     with caplog.at_level(logging.WARNING):
         run_context_stats(work, cfg, dpath)
@@ -440,7 +440,7 @@ def test_registry_path_carries_stratum0_classes(prepared: Path, tmp_path: Path) 
     QC rows (decision 2: value k/n, ``n`` = n, overall and per class) reach the summary."""
     import layers_chain as lc
 
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
 
     work = _copy(prepared, tmp_path)
     part = _stratum0_part()
@@ -474,7 +474,7 @@ def test_stratum0_rows_do_not_replace_genome_inconsistent_rate(
     leaves every M4-16 QC row byte-identical."""
     import layers_chain as lc
 
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
 
     work = _copy(prepared, tmp_path)
     spath = tmp_path / "stratum0_classes"
@@ -498,7 +498,7 @@ def test_stratum0_rows_do_not_replace_genome_inconsistent_rate(
 def test_local_layout_carries_stratum0_classes(prepared: Path, tmp_path: Path) -> None:
     """``run_context_stats`` maps ``mapping/stratum0_classes.parquet`` (M3-25 decision 3) into
     the summary."""
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     work = _copy(prepared, tmp_path)
     mapping = work / "mapping"

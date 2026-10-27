@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe the FarmShare environment and write .giap/capabilities.json (GIAP_SPEC.md §3.6).
+"""Probe the FarmShare environment and write .gippa/capabilities.json (GIPPA_SPEC.md §3.6).
 
 Standard library only, so it runs before the project environment exists.
 """
@@ -20,8 +20,8 @@ import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO = Path(os.environ.get("GIAP_REPO", Path(__file__).resolve().parents[1]))
-ROOT = Path(os.environ.get("GIAP_ROOT", REPO / "local"))
+REPO = Path(os.environ.get("GIPPA_REPO", Path(__file__).resolve().parents[1]))
+ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
 DISK_BUDGET_GB = 400
 
 # §3.2: one URL per pinned download source
@@ -73,7 +73,7 @@ def first_version_line(text: str) -> str:
 
 
 def reachable(url: str, timeout: float = 5) -> dict[str, object]:
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "giap-probe"})
+    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "gippa-probe"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return {"ok": True, "status": r.status}
@@ -121,7 +121,11 @@ def slurm() -> dict[str, object]:
         ["sbatch", "--test-only", "--qos=dev", "-p", "normal", "-t", "1", "--wrap", "true"]
     )
     _, queue = run(["squeue", "--me", "-h", "-o", "%i %j %T %M %l"])
-    giap_jobs = [line for line in queue.splitlines() if " giap-" in f" {line.split(' ', 1)[-1]}"]
+    gippa_jobs = [  # ADR-0064: R14 counts the old job prefix too until none is left
+        line
+        for line in queue.splitlines()
+        if any(p in f" {line.split(' ', 1)[-1]}" for p in (" giap-", " gippa-"))
+    ]
     _, parts = run(["sinfo", "-h", "-o", "%P"])
     _, qos = run(["sacctmgr", "-nP", "show", "qos", "format=name,maxwall,maxtrespu,maxjobspu"])
     qos_limits = {}
@@ -131,14 +135,14 @@ def slurm() -> dict[str, object]:
     return {
         "sbatch_ok": code == 0,
         "gpu_partition": "gpu" in parts.replace("*", "").split(),
-        "giap_jobs": giap_jobs,
+        "gippa_jobs": gippa_jobs,
         "qos_limits": qos_limits,
     }
 
 
 def databases() -> dict[str, object]:
-    db = Path(os.environ.get("GIAP_DB_DIR", ROOT / "db"))
-    tools = Path(os.environ.get("GIAP_TOOLS_DIR", ROOT / "tools"))
+    db = Path(os.environ.get("GIPPA_DB_DIR", ROOT / "db"))
+    tools = Path(os.environ.get("GIPPA_TOOLS_DIR", ROOT / "tools"))
     manifest = db / "db_manifest.json"
     out: dict[str, object] = {
         "db_dir": str(db),
@@ -174,11 +178,11 @@ def probe(check_net: bool) -> dict[str, object]:
         "host": socket.gethostname(),
         "os": platform.platform(),
         "allocation": allocation(),
-        "giap_root": str(ROOT),
-        "giap_root_used_gb": used,
-        "giap_root_usage_gb": root_usage,
-        "giap_root_over_budget": used > DISK_BUDGET_GB,
-        "giap_root_free_gb": round(shutil.disk_usage(ROOT if ROOT.exists() else REPO).free / 1e9),
+        "gippa_root": str(ROOT),
+        "gippa_root_used_gb": used,
+        "gippa_root_usage_gb": root_usage,
+        "gippa_root_over_budget": used > DISK_BUDGET_GB,
+        "gippa_root_free_gb": round(shutil.disk_usage(ROOT if ROOT.exists() else REPO).free / 1e9),
         "tmp_free_gb": round(shutil.disk_usage("/tmp").free / 1e9),
         "tools": tools,
         "slurm": slurm(),
@@ -193,15 +197,15 @@ def summary(caps: dict[str, object]) -> str:
     a = caps["allocation"]
     s = caps["slurm"]
     lines = [
-        f"GIAP probe on {caps['host']} at {caps['probed_at']}",
+        f"GIPPA probe on {caps['host']} at {caps['probed_at']}",
         f"  allocation: job={a.get('slurm_job_id')} cpus={a.get('cpus')} "  # type: ignore[union-attr]
         f"mem={a.get('mem_gb')}GB time_left={a.get('time_left')}",  # type: ignore[union-attr]
-        f"  local/: used={caps['giap_root_used_gb']} GB (budget {DISK_BUDGET_GB}) "
-        f"free={caps['giap_root_free_gb']} GB; /tmp free={caps['tmp_free_gb']} GB",
+        f"  local/: used={caps['gippa_root_used_gb']} GB (budget {DISK_BUDGET_GB}) "
+        f"free={caps['gippa_root_free_gb']} GB; /tmp free={caps['tmp_free_gb']} GB",
         "  tools: "
         + ", ".join(f"{k}={'yes' if v else 'MISSING'}" for k, v in caps["tools"].items()),  # type: ignore[union-attr]
         f"  slurm: sbatch={s['sbatch_ok']} gpu_partition={s['gpu_partition']} "  # type: ignore[index]
-        f"giap_jobs={len(s['giap_jobs'])}",  # type: ignore[index]
+        f"gippa_jobs={len(s['gippa_jobs'])}",  # type: ignore[index]
         "  databases: "
         + ", ".join(f"{k}={v}" for k, v in caps["databases"].items() if k != "db_dir"),  # type: ignore[union-attr]
     ]
@@ -210,14 +214,14 @@ def summary(caps: dict[str, object]) -> str:
         lines.append("  sources: all reachable" if not bad else f"  sources UNREACHABLE: {bad}")
     if not a.get("slurm_job_id"):  # type: ignore[union-attr]
         lines.append("  WARNING: not inside a Slurm allocation (R14)")
-    if caps["giap_root_over_budget"]:
+    if caps["gippa_root_over_budget"]:
         lines.append("  WARNING: local/ is over the disk budget (§3.9)")
     return "\n".join(lines)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=Path, default=REPO / ".giap" / "capabilities.json")
+    ap.add_argument("--out", type=Path, default=REPO / ".gippa" / "capabilities.json")
     ap.add_argument("--quiet", action="store_true", help="skip network checks; one-screen summary")
     ap.add_argument("--json", action="store_true", help="print JSON instead of the summary")
     args = ap.parse_args()

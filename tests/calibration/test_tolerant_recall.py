@@ -1,8 +1,8 @@
-"""Recall of planted peptides with 1-2 differences, tolerant route (M3-07; GIAP_SPEC.md §7.2.4).
+"""Recall of planted peptides with 1-2 differences, tolerant route (M3-07; GIPPA_SPEC.md §7.2.4).
 
 Claim (§7.2.4 "Seed and verify", "Completeness requirement"): the q-gram threshold
 ``t = (L - q + 1) - k (q + 1)`` is lossless, so a peptide within ``k`` differences of a genome
-window is never missed. giapsim genomes (circular, 50 kb and 100 kb; seeds
+window is never missed. gippasim genomes (circular, 50 kb and 100 kb; seeds
 ``seeds.calibration_base`` + i); every annotated protein is digested with trypsin (no missed
 cleavages) and peptides of 10-30 aa get 1..k planted differences (k = 1 at 10-11 aa, 2 at >= 12),
 each drawn from substitution, adjacent swap, mass-equivalent block and near-equal block (both
@@ -39,15 +39,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "property"))
 from brute_tolerant import INF, semi_global_costs
 from oracle_tolerant import align_window
 
-from giap.config.model import TolerantConfig
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import build_decoys
-from giap.mapping.sixframe import build_sixframe, decode, encode_query, translate11
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
-from giap.rng import for_step
-from giapsim.simulate import SimConfig, simulate
+from gippa.config.model import TolerantConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.sixframe import build_sixframe, decode, encode_query, translate11
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Interval, Replicon
+from gippa.model.genes import gene_model_from_bakta_json
+from gippa.rng import for_step
+from gippasim.simulate import SimConfig, simulate
 
 pytestmark = pytest.mark.calibration
 

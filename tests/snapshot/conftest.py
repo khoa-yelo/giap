@@ -5,7 +5,7 @@
   session shares (the parent of the workers' base temp dirs; the base temp dir without xdist):
   the report pages' plot files are rendered once per session and the raw plot results once per
   process.
-* ``$GIAP_SNAPSHOT_CASES`` (the same directory) holds the case lists, so the subprocesses of
+* ``$GIPPA_SNAPSHOT_CASES`` (the same directory) holds the case lists, so the subprocesses of
   ``test_plots_sensitivity.py`` read them instead of rendering both fixtures, and draw only the
   plots they save (still in their own interpreter, with their own ``style`` module).
 * In a snapshot-only xdist session the long tests run first, longest first.
@@ -27,7 +27,7 @@ def pytest_configure(config: pytest.Config) -> None:
         return
     base = factory.getbasetemp()
     root = base.parent if hasattr(config, "workerinput") else base
-    sf.SESSION_CACHE = root / "giap-snapshot-cache"
+    sf.SESSION_CACHE = root / "gippa-snapshot-cache"
     os.environ[sf.CASES_ENV] = str(sf.SESSION_CACHE)
     # xdist controller: hand out one test at a time per worker (plus the one it holds next), so
     # the long tests that pytest_collection_modifyitems puts first go out longest first

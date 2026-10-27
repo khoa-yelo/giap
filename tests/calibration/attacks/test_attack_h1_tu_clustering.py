@@ -1,8 +1,8 @@
-"""Attack (GIAP_SPEC.md §8.5, statistician): TU-clustered discordance for the M10-05 H1 rule
+"""Attack (GIPPA_SPEC.md §8.5, statistician): TU-clustered discordance for the M10-05 H1 rule
 (docs/specs/M10-05-pilot-metrics.md "Hypotheses 1 and 3", review S2; §8.2 "resample TUs, not
 genes").
 
-Null world (giapsim ``simulate_layout``, one layout per scenario): about 4,000 genes (3,700 on
+Null world (gippasim ``simulate_layout``, one layout per scenario): about 4,000 genes (3,700 on
 ``chr1``, plasmids of 120 and 180 genes, four 80-gene prophages and two 40-gene BGCs) in TUs of
 geometric size with mean 2.5, so about 1,600 TUs. Half of the singleton TUs get an empty
 ``tu_id`` (the "a gene is its own unit" path). Per replicate, ``N_DISCORDANT`` TUs are discordant.
@@ -34,7 +34,7 @@ honest: in the ``uniform`` scenario ``p_gene`` at 0.05 must exceed ``level_bound
 did not, the null would not be clustered enough to tell a TU-level test from a gene-level one.
 
 Calls the implementation, ``validation.pilot.metrics.hypothesis1``, unchanged. Randomness only
-through ``giap.rng.for_step`` seeded from ``tolerances.yaml`` (``_criteria.suite_seed``).
+through ``gippa.rng.for_step`` seeded from ``tolerances.yaml`` (``_criteria.suite_seed``).
 """
 
 from __future__ import annotations
@@ -51,8 +51,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.rng import for_step
-from giapsim import layout as la
+from gippa.rng import for_step
+from gippasim import layout as la
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from helpers.pilot_metrics_m10 import load_metrics
@@ -79,7 +79,7 @@ NOT_DETECTED = np.array(["not_detected", "single_peptide_unestimated"], dtype=ob
 
 @dataclass(frozen=True)
 class World:
-    """One giapsim layout as the H1 inputs need it."""
+    """One gippasim layout as the H1 inputs need it."""
 
     tags: np.ndarray  # locus tags, layout order
     feature_type: np.ndarray

@@ -3,7 +3,7 @@
 Milestone M4 · track S · depends on: M4-01 (`monotone_q`) · estimate ≈ 140 code lines (+ ≈ 220 test
 lines) · **can start now**
 
-`poisson_binomial_sf` (§8.3) is **not** in this issue: M3-09 creates it in `src/giap/stats/poisson_binomial.py`
+`poisson_binomial_sf` (§8.3) is **not** in this issue: M3-09 creates it in `src/gippa/stats/poisson_binomial.py`
 (it needs it first, for E_i in §7.2.5). M4 does not use it.
 
 ## Spec sections implemented
@@ -23,7 +23,7 @@ lines) · **can start now**
 
 ## Public interface
 
-`src/giap/stats/mayu.py`
+`src/gippa/stats/mayu.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class MayuResult:

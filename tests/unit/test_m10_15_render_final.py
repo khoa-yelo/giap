@@ -8,7 +8,7 @@ cases" and "Lead decisions after the 15a code review" (binding: ``--runbook`` is
 time from the final runbook). Inputs are hand-made (``tests/helpers/pilot_gate_m10_15.py``: a
 small final-mode template passed with ``--template``, a minimal ``metrics.json`` and a runbook in
 M10-14's format); the interface pinned beyond the spec is listed in that module's docstring.
-Nothing comes from ``$GIAP_ROOT``.
+Nothing comes from ``$GIPPA_ROOT``.
 """
 
 from __future__ import annotations
@@ -256,32 +256,32 @@ def _te_placeholder_shape(doc: dict[str, Any]) -> dict[str, Any]:
     diagnosis rule ignores them, so only ``final_problems`` can refuse (S9(b))."""
     p = {"status": "pending (M10-06)"}
     doc["te_real"] = {k: dict(p) for k in ("te2", "te3", "te4", "te5")}
-    doc["te7"] = {"giap": dict(p), "diann": dict(p), "end_to_end": None}
+    doc["te7"] = {"gippa": dict(p), "diann": dict(p), "end_to_end": None}
     return doc
 
 
 def test_s9b_te_placeholders_are_refused_by_final_problems(tmp_path: Path) -> None:
     res, out = _final(tmp_path, _te_placeholder_shape(final_metrics()))
-    _refused(res, out, 1, "te_real.te2.status", "te7.giap.status")
+    _refused(res, out, 1, "te_real.te2.status", "te7.gippa.status")
 
 
 def test_s9b_te7_placeholder_alone_is_refused(tmp_path: Path) -> None:
     """Mutant "TE7 not checked in final_problems": TE2-TE5 pass, only TE7 is pending."""
     doc = final_metrics()
-    doc["te7"] = {"giap": {"status": "pending (M10-06)"}, "diann": {"status": "pending (M10-06)"}}
+    doc["te7"] = {"gippa": {"status": "pending (M10-06)"}, "diann": {"status": "pending (M10-06)"}}
     res, out = _final(tmp_path, doc)
-    _refused(res, out, 1, "te7.giap.status")
+    _refused(res, out, 1, "te7.gippa.status")
 
 
 @pytest.mark.parametrize(
-    ("key", "path"), [("te5", "te_real.te5.status"), ("te7", "te7.giap.status")]
+    ("key", "path"), [("te5", "te_real.te5.status"), ("te7", "te7.gippa.status")]
 )
 def test_s9b_absent_te_status_is_refused(tmp_path: Path, key: str, path: str) -> None:
     """Mutant "absent TE status accepted": the status key is gone, the template does not name
     it and the notes hold the diagnosis, so only ``final_problems`` sees it."""
     doc = final_metrics()
     if key == "te7":
-        doc["te7"] = {"giap": {}, "diann": {"status": "pass"}}
+        doc["te7"] = {"gippa": {}, "diann": {"status": "pass"}}
     else:
         doc["te_real"][key] = {}
     notes = NOTES_OK + "\n" + diagnosis(key.upper())
@@ -481,7 +481,7 @@ def test_s1_a3_not_run_is_a_finding_listed_under_not_evaluated(tmp_path: Path) -
 def test_metrics_without_checklist_is_a_precondition_exit_2(tmp_path: Path) -> None:
     doc = final_metrics()
     del doc["checklist"]
-    template = FIXTURE_TEMPLATE.split("## 1. Status")[0] + "Commit {{giap_commit}}.\n"
+    template = FIXTURE_TEMPLATE.split("## 1. Status")[0] + "Commit {{gippa_commit}}.\n"
     res, out = _final(tmp_path, doc, template=template)
     _refused(res, out, 2)
 

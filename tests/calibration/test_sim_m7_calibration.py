@@ -1,16 +1,16 @@
-"""Calibration sanity of the M7-12 generators (issue M7-12 acceptance; GIAP_SPEC.md §7.6.6, §8.4).
+"""Calibration sanity of the M7-12 generators (issue M7-12 acceptance; GIPPA_SPEC.md §7.6.6, §8.4).
 
-The M7-13 gate G3 must test GIAP, not the simulator, so the planted novel ORFs must be callable:
+The M7-13 gate G3 must test GIPPA, not the simulator, so the planted novel ORFs must be callable:
 
 * **RBS support** (spec acceptance): over the planted starts (``rbs_planted = true`` rows of
   ``truth/novel_orfs.tsv``: intergenic starts and N-terminal true starts), the ``tir_ostir`` of
   ``precomputed/rbs_novel.tsv`` at ``(contig, strand, true_start)`` is ≥ the 10 % quantile
   (``numpy.quantile``, linear; M7-09 rule 2, ``novel_orfs.rbs_min_quantile`` default 0.10) of the
   first-round ``tir_ostir`` of detected genes in ≥ 90 % of planted starts, pooled over replicates.
-  The detected-gene distribution is built as GIAP builds it: ``precomputed/rbs.tsv`` with the
-  last row per ``locus_tag`` (``giap.annotate.layers._by_tag``), restricted to annotated non-pseudo
+  The detected-gene distribution is built as GIPPA builds it: ``precomputed/rbs.tsv`` with the
+  last row per ``locus_tag`` (``gippa.annotate.layers._by_tag``), restricted to annotated non-pseudo
   CDS/sORFs that are not origin-crossing and have ≥ 1 correct peptide in ``truth/peptides.tsv``
-  (the simulator's ground truth stands in for GIAP's ``detected``). Each replicate needs ≥ 20 such
+  (the simulator's ground truth stands in for GIPPA's ``detected``). Each replicate needs ≥ 20 such
   genes (M7-09 decision 1), else the threshold is unestimated and the test fails.
 * **Peptide support** (example 2 "``n_true_peptides ≥ 2`` for most"): pooled over replicates and
   the four classes, more than half of the planted ORFs have ≥ 2 true peptides.
@@ -32,7 +32,7 @@ import numpy as np
 import pytest
 from helpers import m7_sim_oracle as O
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
@@ -43,10 +43,10 @@ N_FAST = 4
 
 
 def _sim(d: Path, seed: int, size: str) -> Path:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     cfg = dataclasses.replace(sc.novel_orf_power(seed, size), planted_tir=(9.0, 0.5))
-    giapsim.simulate(cfg, seed, d)  # the decision 8 sanity arm (decision 14; lead edit)
+    gippasim.simulate(cfg, seed, d)  # the decision 8 sanity arm (decision 14; lead edit)
     return d
 
 

@@ -4,7 +4,7 @@ docs/specs/M2-04-parse-bakta-step.md: genes/features ordered by FASTA replicon o
 "Putative 30S ribosomal protein" is not ribosomal (product match anchored at the start); a tRNA
 without anticodon writes no anticodon row; ``nearest_genes`` ties keep input order; Parquet columns
 carry no statistics; the 16S tail is upper-cased. Each test targets a mutant that survived review.
-Item 2 (the writer moves to ``giap.io``) names no public function, so it is not pinned here.
+Item 2 (the writer moves to ``gippa.io``) names no public function, so it is not pinned here.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
-from giap.config import GiapConfig
-from giap.model import Interval
-from giap.model.coords import Replicon
-from giap.model.genes import Gene, NcFeature
+from gippa.config import GippaConfig
+from gippa.model import Interval
+from gippa.model.coords import Replicon
+from gippa.model.genes import Gene, NcFeature
 
 OUT_FILES = {
     "genes": "genes.parquet",
@@ -42,9 +42,9 @@ APL = "".join(_rng.choice(list("ACGT"), 1_000))
 
 @pytest.fixture
 def reg() -> Any:
-    from giap.steps import registry
+    from gippa.steps import registry
 
-    mod = importlib.import_module("giap.steps.annotation")
+    mod = importlib.import_module("gippa.steps.annotation")
     if "parse_bakta" not in registry._REGISTRY:
         importlib.reload(mod)
     return registry
@@ -98,7 +98,7 @@ def _run(reg: Any, tmp: Path, data: dict[str, Any], genome: str | None = None) -
     js.write_text(json.dumps(data))
     fa.write_text(genome or f">zchr\n{ZCHR}\n>apl\n{APL}\n")
     outs = {k: tmp / "work" / v for k, v in OUT_FILES.items()}
-    reg.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
+    reg.run_step("parse_bakta", GippaConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
     return outs
 
 
@@ -150,7 +150,7 @@ def test_genes_and_features_follow_fasta_then_start(reg: Any, tmp_path: Path) ->
     ],
 )
 def test_putative_ribosomal_product_is_not_ribosomal(product: str, bare: str) -> None:
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     assert is_ribosomal_protein(_gene("g1", 0, 300, product=product)) is False
     assert is_ribosomal_protein(_gene("g2", 0, 300, product=bare)) is True
@@ -173,8 +173,8 @@ def test_putative_ribosomal_not_flagged_in_genes_parquet(reg: Any, tmp_path: Pat
 
 
 def test_trna_without_anticodon_writes_no_count_row(reg: Any, tmp_path: Path) -> None:
-    from giap.annotate.bakta_layers import trna_counts
-    from giap.io.tsv import read_tsv
+    from gippa.annotate.bakta_layers import trna_counts
+    from gippa.io.tsv import read_tsv
 
     feats = [
         _trna("t1", "zchr", 101, "CAG"),
@@ -199,7 +199,7 @@ def test_trna_without_anticodon_writes_no_count_row(reg: Any, tmp_path: Path) ->
 
 
 def test_nearest_genes_ties_keep_input_order() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     rep = Replicon("chr1", 10_000, "circular", "chromosome")
     feat = NcFeature(id="ori", type="oric", interval=Interval("chr1", 5_000, 5_100, "+"))
@@ -237,7 +237,7 @@ def test_parquet_columns_carry_no_statistics(reg: Any, tmp_path: Path) -> None:
 
 
 def test_anti_sd_upper_cases_lower_case_tail() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd(["acgt" * 20 + "gatcacctcctta"]) == ("ACCTCCTTA", ())
     assert anti_sd(

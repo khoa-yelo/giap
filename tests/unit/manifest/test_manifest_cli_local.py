@@ -1,25 +1,25 @@
-"""MVP-03a ``giap run --executor local`` run order, events rotation, exit codes and the manifest
+"""MVP-03a ``gippa run --executor local`` run order, events rotation, exit codes and the manifest
 (docs/specs/MVP-03-manifest-finalize.md D-A, D-B, D-C, D-D; edge cases "A failed run", "Preflight
 error", "The tail fails after a successful graph", "Re-run of the local executor"; lead decisions
-2, 5, 6 and 12; "Test ideas": ``giap _step manifest`` on its own).
+2, 5, 6 and 12; "Test ideas": ``gippa _step manifest`` on its own).
 
 Interface assumed:
 
-* ``giap.steps.manifest`` registers the py step ``manifest`` (module ``core``): required input
+* ``gippa.steps.manifest`` registers the py step ``manifest`` (module ``core``): required input
   ``preflight``; optional ``provenance``, ``events``, ``trace``, ``annotation_meta``,
   ``sensitivity``, ``island_diagnostics``; output ``run_manifest``.
-* ``giap.runner.local.TAIL_STEPS == ("manifest",)``; ``plan_local`` never plans a tail step.
-* ``giap run`` writes ``OUT/run_manifest.json`` and, before the graph, ``OUT/work/provenance.json``
+* ``gippa.runner.local.TAIL_STEPS == ("manifest",)``; ``plan_local`` never plans a tail step.
+* ``gippa run`` writes ``OUT/run_manifest.json`` and, before the graph, ``OUT/work/provenance.json``
   (= ``canonical_json(provenance_core(manifest))``, so ``provenance_digest`` = its SHA-256).
 * A tail failure after a successful graph prints ``step manifest failed; log:
   OUT/logs/manifest.log`` and exits 4; ``logs/manifest.log`` holds the traceback.
 
 The graph is a toy registry (``tests/unit/conftest.py::registry`` plus a reload of
-``giap.steps.manifest``): ``x`` (core, emits the ``c_assumed`` run flag as a WARNING event) →
+``gippa.steps.manifest``): ``x`` (core, emits the ``c_assumed`` run flag as a WARNING event) →
 ``y``; ``mob`` (module mobile); ``bactermfinder`` (opt-in); ``term_tool`` (ext, replaced by
 ``annotation.precomputed.terminators``); ``never`` (needs a root nobody stages). Preflight and the
 CLI are real; the database directory is ``helpers.mapping_steps.write_test_db`` (never the real
-``$GIAP_DB_DIR``).
+``$GIPPA_DB_DIR``).
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from click.testing import CliRunner
 from helpers.manifest_data import validate
 from helpers.mapping_steps import write_test_db
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FLAG_EVENT = {"event": "x.run_flag", "data": {"flag": "c_assumed"}}
 
@@ -48,7 +48,7 @@ FLAG_EVENT = {"event": "x.run_flag", "data": {"flag": "c_assumed"}}
 
 
 def _with_manifest_step(reg: ModuleType) -> None:
-    importlib.reload(importlib.import_module("giap.steps.manifest"))
+    importlib.reload(importlib.import_module("gippa.steps.manifest"))
     assert "manifest" in {s.name for s in reg.all_steps()}
 
 
@@ -96,7 +96,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
     layer = tmp_path / "in" / "terminators.tsv"
     layer.write_text("contig\tstart\tend\n")
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path / "test_db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path / "test_db")))
     return {"genome": genome, "peptides": pep, "layer": layer}
 
 
@@ -110,7 +110,7 @@ def _argv(env: dict[str, Path], out: Path, *, peptides: bool = True) -> list[str
 
 
 def _invoke(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, argv)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -153,12 +153,12 @@ def test_manifest_step_is_registered(registry: ModuleType) -> None:
 
 
 def test_tail_steps_are_left_out_of_the_plan(registry: ModuleType) -> None:
-    from giap.config import GiapConfig
-    from giap.runner import local
+    from gippa.config import GippaConfig
+    from gippa.runner import local
 
     assert local.TAIL_STEPS == ("manifest",)
     _toy(registry)
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 5, "modules": ["core"], "annotation": {"precomputed": {"terminators": "/t.tsv"}}}
     )
     plan = local.plan_local(cfg, [s.name for s in registry.all_steps()], {"preflight"})
@@ -237,7 +237,7 @@ def test_success_databases_from_the_test_db(ok_run: Path) -> None:
 
 
 def test_provenance_core_written_and_digest_matches(ok_run: Path) -> None:
-    from giap.manifest import canonical_json, provenance_core
+    from gippa.manifest import canonical_json, provenance_core
 
     m = _manifest(ok_run)
     path = ok_run / "work" / "provenance.json"
@@ -247,7 +247,7 @@ def test_provenance_core_written_and_digest_matches(ok_run: Path) -> None:
 
 
 def test_manifest_file_is_canonical_json(ok_run: Path) -> None:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     text = (ok_run / "run_manifest.json").read_text(encoding="utf-8")
     assert text == canonical_json(json.loads(text))
@@ -256,7 +256,7 @@ def test_manifest_file_is_canonical_json(ok_run: Path) -> None:
 def test_two_fresh_runs_have_equal_stable_views(
     registry: ModuleType, env: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     _toy(registry)
     a, b = tmp_path / "A" / "OUT", tmp_path / "B" / "OUT"
@@ -365,7 +365,7 @@ def test_tail_failure_never_hides_the_graph_failure(
 def test_step_manifest_runs_on_its_own(
     ok_run: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The registry path (``giap _step manifest``) works with only the required input."""
+    """The registry path (``gippa _step manifest``) works with only the required input."""
     task = tmp_path / "task"
     task.mkdir()
     monkeypatch.chdir(task)

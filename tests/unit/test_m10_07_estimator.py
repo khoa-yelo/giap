@@ -35,7 +35,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy.stats import binom
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 ALPHA = Fraction(1, 100)
 SEED = 20261014 + 707  # seeds.calibration_base + 707 (the attack's offset), read-only here

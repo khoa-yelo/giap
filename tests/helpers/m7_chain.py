@@ -2,11 +2,11 @@
 
 **The 50-kb M7 fixture (lead decision 1, 2026-10-22).** A second golden directory,
 ``tests/data/golden/sim50k_m7/``; the sim50k goldens (``build_m4_fixture``) are not touched. The
-fixture is a giapsim nucleotide genome of 50 kb with the M7-12 settings at that size:
+fixture is a gippasim nucleotide genome of 50 kb with the M7-12 settings at that size:
 
 * simulator-v2 signals at strength 0.8 and every precomputed layer (``write_precomputed``), so
-  ``giap run`` runs no tool under either executor (the M7-08 integration pattern);
-* a strain difference: ``StrainConfig(snv_rate_per_kb=1.0, indel_rate_per_kb=0.0)``. GIAP is given
+  ``gippa run`` runs no tool under either executor (the M7-08 integration pattern);
+* a strain difference: ``StrainConfig(snv_rate_per_kb=1.0, indel_rate_per_kb=0.0)``. GIPPA is given
   the related **reference** genome (``reference.fasta`` / ``reference_bakta_like.json``, M7-12 rule
   1) and the sample's peptides, with ``--genome-relation related``. Indels are left out (M7-12's
   ``variant_f1`` uses 0.2 / kb): the precomputed layers are written on the sample's coordinates,
@@ -14,7 +14,7 @@ fixture is a giapsim nucleotide genome of 50 kb with the M7-12 settings at that 
 * de novo peptides (``DenovoConfig()``, every error type) as ``--peptides`` and their paired
   ``reference_peptides.tsv`` as ``--reference-peptides`` (M7-10);
 * planted novel ORFs of the three classes and N-terminal extensions; with the M7-12 knobs
-  (``novel_orf_len_aa = (30, 80)``, ``plant_novel_rbs``) when giapsim has them. The golden test
+  (``novel_orf_len_aa = (30, 80)``, ``plant_novel_rbs``) when gippasim has them. The golden test
   requires them (``has_m7_12``); the other M7-15 tests run with or without them.
 * **class-FDR power (M7-11b).** The class q is computed per class, and its floor is c / T in the
   de novo regime (T = target peptides of the class), so a class with fewer than about c / alpha
@@ -29,7 +29,7 @@ pointed at the reference JSON (``run_config``); locus tags are the same on both 
 
 **Golden comparison.** Byte for byte (gzip compared decompressed, as M5-11), except:
 
-* the VCF ``##source=giap-<version>`` line is compared with the version masked (``mask_version``),
+* the VCF ``##source=gippa-<version>`` line is compared with the version masked (``mask_version``),
   so a version bump alone does not regenerate the golden;
 * BLAS-dependent numeric columns follow the M5-11 decision 44 pattern (``math.isclose``, rel and
   abs 1e-3) through ``BLAS_NUMERIC``. It is empty: no column of the five files comes from a
@@ -39,8 +39,8 @@ pointed at the reference JSON (``run_config``); locus tags are the same on both 
 
 **In-pipeline contract hooks (M7-15 item 2, example 4).** The steps write through module-level
 names, which the tests wrap to corrupt the written file after the real writer ran:
-``giap.steps.variants.{write_pileup, write_variants, write_vcf}`` and
-``giap.steps.novel.{write_novel_orfs, write_novel_gff3, write_annotation_patch}``. The step's
+``gippa.steps.variants.{write_pileup, write_variants, write_vcf}`` and
+``gippa.steps.novel.{write_novel_orfs, write_novel_gff3, write_annotation_patch}``. The step's
 own check must then fail the step with a message naming the output.
 """
 
@@ -62,7 +62,7 @@ import m5_chain as m5
 
 REPO = Path(__file__).resolve().parents[2]
 GOLDEN_DIR = REPO / "tests" / "data" / "golden" / "sim50k_m7"
-SCHEMA_DIR = REPO / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = REPO / "src" / "gippa" / "schemas" / "tables"
 GENOME_LENGTH = 50_000
 #: 28 antisense ORFs give one class enough target peptides to pass the M7-11b class q floor
 #: (module doc, "class-FDR power"); the other classes keep 3
@@ -99,18 +99,18 @@ MAX_GOLDEN_BYTES = m5.MAX_GOLDEN_BYTES
 
 
 def has_m7_12() -> bool:
-    """giapsim has the M7-12 knobs (``novel_orf_len_aa``, ``plant_novel_rbs``)."""
-    from giapsim.simulate import SimConfig
+    """gippasim has the M7-12 knobs (``novel_orf_len_aa``, ``plant_novel_rbs``)."""
+    from gippasim.simulate import SimConfig
 
     names = {f.name for f in fields(SimConfig)}
     return all(k in names for k in M7_12_KNOBS)
 
 
 def sim_config() -> Any:
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig
-    from giapsim.strain import StrainConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig
+    from gippasim.strain import StrainConfig
 
     kw: dict[str, Any] = {
         "genome_length": GENOME_LENGTH,
@@ -130,9 +130,9 @@ def sim_config() -> Any:
 
 
 def simulate(out: Path, seed: int) -> Any:
-    import giapsim
+    import gippasim
 
-    sim = giapsim.simulate(sim_config(), seed, out)
+    sim = gippasim.simulate(sim_config(), seed, out)
     assert sim.reference_fasta is not None and sim.reference_json is not None
     assert sim.config_yaml is not None
     return sim
@@ -140,13 +140,13 @@ def simulate(out: Path, seed: int) -> Any:
 
 def denovo(sim: Any) -> Path:
     p = Path(sim.outdir) / "peptides_denovo.tsv"
-    assert p.is_file(), "giapsim writes peptides_denovo.tsv with SimConfig.denovo"
+    assert p.is_file(), "gippasim writes peptides_denovo.tsv with SimConfig.denovo"
     return p
 
 
 def reference_peptides(sim: Any) -> Path:
     p = Path(sim.outdir) / "reference_peptides.tsv"
-    assert p.is_file(), "giapsim writes reference_peptides.tsv with SimConfig.denovo"
+    assert p.is_file(), "gippasim writes reference_peptides.tsv with SimConfig.denovo"
     return p
 
 
@@ -161,7 +161,7 @@ def run_config(sim: Any, dest: Path) -> Path:
 
 
 def argv(sim: Any, out: Path, seed: int, *extra: str, config: Path | None = None) -> list[str]:
-    """``giap run`` on the reference genome with the sample's de novo peptides."""
+    """``gippa run`` on the reference genome with the sample's de novo peptides."""
     cfg = config if config is not None else run_config(sim, out.parent / "run_config.yaml")
     args = ["run", "--genome", str(sim.reference_fasta), "--peptides", str(denovo(sim)),
             "--reference-peptides", str(reference_peptides(sim)),
@@ -172,10 +172,10 @@ def argv(sim: Any, out: Path, seed: int, *extra: str, config: Path | None = None
 
 
 def invoke(args: Sequence[str]) -> tuple[int, str]:
-    """``giap run`` through the click runner: (exit code, stdout + stderr)."""
+    """``gippa run`` through the click runner: (exit code, stdout + stderr)."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, list(args))
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -186,19 +186,19 @@ def invoke(args: Sequence[str]) -> tuple[int, str]:
 
 @contextmanager
 def db_env(root: Path) -> Iterator[Path]:
-    """A test ``$GIAP_DB_DIR`` (never the real one)."""
+    """A test ``$GIPPA_DB_DIR`` (never the real one)."""
     from helpers.mapping_steps import write_test_db
 
-    old = os.environ.get("GIAP_DB_DIR")
+    old = os.environ.get("GIPPA_DB_DIR")
     db = write_test_db(root / "test_db")
-    os.environ["GIAP_DB_DIR"] = str(db)
+    os.environ["GIPPA_DB_DIR"] = str(db)
     try:
         yield db
     finally:
         if old is None:
-            os.environ.pop("GIAP_DB_DIR", None)
+            os.environ.pop("GIPPA_DB_DIR", None)
         else:
-            os.environ["GIAP_DB_DIR"] = old
+            os.environ["GIPPA_DB_DIR"] = old
 
 
 def run_local(sim: Any, out: Path, seed: int, *extra: str) -> Path:
@@ -218,21 +218,21 @@ def files(out: Path, names: Sequence[str] = SEVEN) -> dict[str, bytes]:
 
 def resolved_config(out: Path) -> Any:
     """The run's resolved config (``run_manifest.json`` > ``config``)."""
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     data = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-    return GiapConfig.model_validate(data["config"])
+    return GippaConfig.model_validate(data["config"])
 
 
 # --------------------------------------------------------------------------- golden
 
 
 def mask_version(data: bytes) -> bytes:
-    """``##source=giap-<version>`` -> ``##source=giap-VERSION`` (VCF header only)."""
+    """``##source=gippa-<version>`` -> ``##source=gippa-VERSION`` (VCF header only)."""
     out = []
     for ln in data.split(b"\n"):
-        if ln.startswith(b"##source=giap-"):
-            ln = b"##source=giap-VERSION"
+        if ln.startswith(b"##source=gippa-"):
+            ln = b"##source=gippa-VERSION"
         out.append(ln)
     return b"\n".join(out)
 
@@ -371,7 +371,7 @@ def corrupt_tsv(path: Path, column: str, value: str = "x") -> None:
 
 
 BAD_VCF_RECORD = "chr1\tnot_a_position\t.\tA\n"
-BAD_GFF3_LINE = "chr1\tGIAP\tCDS\t200\t100\t.\t+\t0\tID=corrupt\n"
+BAD_GFF3_LINE = "chr1\tGIPPA\tCDS\t200\t100\t.\t+\t0\tID=corrupt\n"
 
 
 def append_line(path: Path, line: str) -> None:

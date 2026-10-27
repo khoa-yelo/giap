@@ -66,7 +66,7 @@ def _args(selection: str) -> list[str]:
 def _env(log: Path) -> dict[str, str]:
     drop = (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV, "PYTEST_XDIST_WORKER")
     keep = {k: v for k, v in os.environ.items() if k not in drop}
-    return {**keep, C.LOG_DIR_ENV: str(log), "GIAP_SHARD_FIXTURE": "1"}
+    return {**keep, C.LOG_DIR_ENV: str(log), "GIPPA_SHARD_FIXTURE": "1"}
 
 
 def _unsharded(log: Path, selection: str) -> int:
@@ -164,7 +164,7 @@ def test_nothing_selected_is_a_merge_error(tmp_path: Path, monkeypatch: pytest.M
 def test_collection_error_is_a_merge_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bad = tmp_path / "suite" / "test_broken_import.py"
     bad.parent.mkdir()
-    bad.write_text("import giap_no_such_module_xyz  # noqa: F401\n\n\ndef test_x() -> None:\n"
+    bad.write_text("import gippa_no_such_module_xyz  # noqa: F401\n\n\ndef test_x() -> None:\n"
                    "    pass\n")  # fmt: skip
     for k, v in _env(tmp_path / "log").items():
         monkeypatch.setenv(k, v)

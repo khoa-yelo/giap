@@ -1,5 +1,5 @@
 """M8-16 item 2: the ``determinants`` sensitivity family (docs/specs/M8-16-sensitivity-function-
-determinants.md, examples 3-4, degenerate rows, lead decision 2; GIAP_SPEC.md §8.6 "the
+determinants.md, examples 3-4, degenerate rows, lead decision 2; GIPPA_SPEC.md §8.6 "the
 determinants CV R² (without its permutation null)", "plus ``agreement`` for the dominant
 determinant block").
 
@@ -24,13 +24,13 @@ from hypothesis import strategies as st
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(f"sensitivity/{sf.DET}", sf.SEED)
 
@@ -43,14 +43,14 @@ def world() -> tuple[pd.DataFrame, pd.DataFrame]:
 @pytest.fixture
 def no_null(monkeypatch: pytest.MonkeyPatch) -> None:
     """§8.6 "without its permutation null": the null is never computed."""
-    import giap.determinants.null as N
+    import gippa.determinants.null as N
 
     def boom(*_a: Any, **_k: Any) -> Any:
         raise AssertionError("the sensitivity rerun computed the permutation null")
 
     for name in ("null_p", "permute_response"):
         monkeypatch.setattr(N, name, boom)
-    import giap.determinants.sensitivity as DS
+    import gippa.determinants.sensitivity as DS
 
     for name in ("null_p", "permute_response"):
         monkeypatch.setattr(DS, name, boom, raising=False)
@@ -60,7 +60,7 @@ def no_null(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_registered_in_families() -> None:
-    from giap.determinants.sensitivity import determinants_family
+    from gippa.determinants.sensitivity import determinants_family
 
     assert _S().FAMILIES[sf.DET] is determinants_family
 
@@ -175,7 +175,7 @@ def test_example_3_agreement_two_thirds(tmp_path: Any) -> None:
     """Example 3: dominant blocks (codon, codon, transcription) vs ``exclude`` (codon, protein,
     transcription) on the same 3 top-decile genes -> agreement 2/3; n_* / jaccard on the
     ``abundance_not_explained_by_sequence`` sets (lead decision 2), written to 6 digits."""
-    from giap.io.sensitivity_tsv import write_sensitivity_tsv
+    from gippa.io.sensitivity_tsv import write_sensitivity_tsv
 
     S = _S()
     prim = sf.det_sens(["a", "b"], {"g1": "codon", "g2": "codon", "g3": "transcription"}, 0.41)

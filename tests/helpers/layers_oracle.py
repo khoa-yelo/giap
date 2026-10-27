@@ -2,7 +2,7 @@
 
 Two kinds:
 
-* **Independent** (no ``giap.annotate.layers``): TU position / size, ``uniop_p_prev`` /
+* **Independent** (no ``gippa.annotate.layers``): TU position / size, ``uniop_p_prev`` /
   ``uniop_p_next`` in transcription order straight from ``pairs_raw`` (spec column definitions),
   ``region_ids`` from ``region_genes``, the gene ``flags`` set.
 * **Merged producers** (the functions M2-12/13/14/15/17/19 already ship): the per-gene promoter
@@ -19,11 +19,11 @@ from typing import Any
 
 import pandas as pd
 
-from giap.annotate.operons import Tu
-from giap.annotate.terminators import Terminator
-from giap.annotate.uniop_adapter import PairProb
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import Tu
+from gippa.annotate.terminators import Terminator
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 # ----------------------------------------------------------------------------- frame -> objects
 
@@ -85,7 +85,7 @@ def terminators(df: pd.DataFrame) -> list[Terminator]:
 
 
 def regions(df: pd.DataFrame) -> list[Any]:
-    from giap.annotate.regions import Region
+    from gippa.annotate.regions import Region
 
     out = []
     for r in df.itertuples(index=False):
@@ -170,7 +170,7 @@ def gc_local_dev(
     seqs: Mapping[str, str],
     window: int = 10_000,
 ) -> list[float]:
-    """Brute-force ``gc_local_dev`` (GIAP_SPEC §7.8.1 / §9.3: 10-kb window GC - genome GC), one
+    """Brute-force ``gc_local_dev`` (GIPPA_SPEC §7.8.1 / §9.3: 10-kb window GC - genome GC), one
     value per ``genes_df`` row (NaN = NA). Pinned by the test author (lead decision 4):
 
     * GC fraction = (G + C) / (A + C + G + T), case-insensitive; every other letter (N, IUPAC
@@ -214,7 +214,7 @@ def gc_local_dev(
 
 
 def promoter_features(frames: Mapping[str, pd.DataFrame | None], yes: float = 0.5) -> pd.DataFrame:
-    from giap.annotate.promoters import gene_promoter_features
+    from gippa.annotate.promoters import gene_promoter_features
 
     reps = replicons(frames["replicons"])  # type: ignore[arg-type]
     return gene_promoter_features(
@@ -224,7 +224,7 @@ def promoter_features(frames: Mapping[str, pd.DataFrame | None], yes: float = 0.
 
 
 def tx_features(frames: Mapping[str, pd.DataFrame | None]) -> pd.DataFrame:
-    from giap.annotate.promoter_calculator import tu_tx_features
+    from gippa.annotate.promoter_calculator import tu_tx_features
 
     reps = replicons(frames["replicons"])  # type: ignore[arg-type]
     return tu_tx_features(tus(frames["tus"]), frames["tx_rates"], reps).set_index("tu_id")  # type: ignore[arg-type]
@@ -236,7 +236,7 @@ def terminator_downstream_with_partner(
     """``terminator_conf_downstream`` for genes whose next gene in transcription order is a
     same-strand adjacent gene (a pair partner): then "the next same-strand gene" is unambiguous.
     NaN = NA."""
-    from giap.annotate.terminators import terminator_conf_downstream
+    from gippa.annotate.terminators import terminator_conf_downstream
 
     gs = {g.locus_tag: g for g in genes(frames["genes"])}  # type: ignore[arg-type]
     reps = replicons(frames["replicons"])  # type: ignore[arg-type]
@@ -254,11 +254,11 @@ def expected_annotation_files(
     chain_inputs: Mapping[str, Path], out: Path, yes: float = 0.5
 ) -> dict[str, Path]:
     """The §9.3 TSVs and the three BEDs written by the merged writers from the producer files."""
-    from giap.annotate.operons import write_operon_pairs_tsv, write_tus_tsv
-    from giap.annotate.promoters import promoters_bed
-    from giap.annotate.regions import regions_bed, write_regions_tsv
-    from giap.annotate.terminators import terminators_bed
-    from giap.io.bed import write_bed
+    from gippa.annotate.operons import write_operon_pairs_tsv, write_tus_tsv
+    from gippa.annotate.promoters import promoters_bed
+    from gippa.annotate.regions import regions_bed, write_regions_tsv
+    from gippa.annotate.terminators import terminators_bed
+    from gippa.io.bed import write_bed
 
     out.mkdir(parents=True, exist_ok=True)
     reps = replicons(pd.read_parquet(chain_inputs["replicons"]))
@@ -281,7 +281,7 @@ def promoter_record_scores(
 ) -> dict[str, float]:
     """BED name -> the tool's own score of a merged ``promoters.bed`` record: the maximum
     Promotech score of the windows (>= ``yes``, 40 nt, M2-13 window placement) inside it."""
-    from giap.annotate.promoters import WINDOW_NT
+    from gippa.annotate.promoters import WINDOW_NT
 
     out = {}
     for r in records:

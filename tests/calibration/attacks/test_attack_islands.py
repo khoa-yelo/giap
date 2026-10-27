@@ -1,4 +1,4 @@
-"""Attack nulls for the M5-06 island block bootstrap (GIAP_SPEC.md §8.5; statistician-owned).
+"""Attack nulls for the M5-06 island block bootstrap (GIPPA_SPEC.md §8.5; statistician-owned).
 
 Each generator stays inside the null the step claims (no island planted) and tries to push the
 genome-wide FWER above level. Arms A-E are the statistician's proposal
@@ -7,10 +7,10 @@ and many-replicon arms are the rest of the §8.5 list. Criterion: ``fwer`` throu
 ``_gate.calibrate_levels`` (ADR-0015 two-block confirmation), R = ``replicates_fast/full.islands``,
 B = 199 bootstrap replicates and 199 block-length permutations.
 
-Amplitudes are quoted in **background SD** as well as log2 (decision 49): giapsim's AR(1)
-innovation SD is 2 log2, the hand-built ``sim_contig`` background is 1, so a 2-log2 giapsim
+Amplitudes are quoted in **background SD** as well as log2 (decision 49): gippasim's AR(1)
+innovation SD is 2 log2, the hand-built ``sim_contig`` background is 1, so a 2-log2 gippasim
 gradient is 0.87 background SD peak to trough and the hand-built ``gradient=2.0`` is the same
-point as a 4-log2 giapsim gradient (1.73 SD).
+point as a 4-log2 gippasim gradient (1.73 SD).
 
 Rates measured by the statistician with this branch's oracle at R = 1,000, B = PERM = 199,
 ``level_bound(0.05, 1000) = 0.0638`` (levels [0.01, 0.05, 0.10]):
@@ -85,7 +85,7 @@ def _warn_above_bound(name: str, rate: np.ndarray, r: int, note: str) -> None:
 
 def _abundance(pair: Any) -> Any:
     """The scenario with detection driven by abundance (``scenarios.ABUNDANCE_BETA``)."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     lcfg, ecfg = pair
     return lcfg, dataclasses.replace(ecfg, detection="abundance", beta=sc.ABUNDANCE_BETA)
@@ -103,7 +103,7 @@ def test_attack_oriter_gradient_scenario(full: bool) -> None:
     while the high half spreads into the upper tail, so the detrended series is heteroscedastic
     along the replicon and the stationary block bootstrap is slightly too narrow (decision 49).
     """
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     def rep(rng: np.random.Generator) -> np.ndarray:
         contigs = idat.scenario_contigs(rng, sc.oriter_gradient(1800, 0.5, 2.0))
@@ -124,7 +124,7 @@ def test_attack_oriter_gradient_detection_abundance(full: bool) -> None:
     terminus, the realistic worst case for a rank score. Measured more conservative than
     covariates-only detection, because detection carries the TU structure, Moran's I sees it
     (l-hat 3) and the block grows to 7."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     def rep(rng: np.random.Generator) -> np.ndarray:
         contigs = idat.scenario_contigs(rng, _abundance(sc.oriter_gradient(1800, 0.5, 2.0)))
@@ -145,7 +145,7 @@ def test_recorded_oriter_gradient_extreme() -> None:
     the hand-built equivalent (``sim_contig(gradient=2.0)``, whose background SD is 1): the same
     point, both within the bound at alpha 0.05 and above it at alpha 0.10 (decision 49).
     Recorded with the mechanism, not gated."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     r = C.replicates(SUITE, full=False)
     rate = _record(
@@ -192,10 +192,10 @@ def test_recorded_detrending_removes_the_gradient() -> None:
 @pytest.mark.calibration
 @pytest.mark.parametrize("n_genes", [1000, 1800, 4500])
 def test_recorded_autocorrelation_rho09_sizes(n_genes: int) -> None:
-    """ADR-0021 Amendment 1: the failure is the dependence, not the TU count. giapsim
+    """ADR-0021 Amendment 1: the failure is the dependence, not the TU count. gippasim
     ``ar1_background`` at rho 0.9 breaches at 557 and 1,001 scored TUs but not at 2,501, where
     l-hat ~ 8 makes l' = 17 span the 20-TU windows; at rho 0.5 every size is calibrated."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     r = C.replicates(SUITE, full=False)
     rate = _record(
@@ -220,7 +220,7 @@ def test_low_direction_ceiling(silenced: int) -> None:
     genome-wide critical value of about 4.3. Silence *every* gene of ``silenced`` consecutive TUs
     of an rho = 0.5 null: no low island is reported even at infinite effect. The ceiling and the
     95th percentile of M_b are printed so M5-07's low-power row can be read as structural."""
-    from giap.stats.scan import scan_max
+    from gippa.stats.scan import scan_max
 
     rng = C.replicate_rng(f"{SUITE}.attack.low_ceiling.{silenced}", 0)
     c = idat.sim_contig(rng, "chr1", 1800, rho=0.5)  # one gene per TU
@@ -274,7 +274,7 @@ def test_attack_large_tus(full: bool) -> None:
 def test_attack_draft_assembly(full: bool) -> None:
     """``scenarios.draft_ar1(0.5)``: a 500-gene circular chromosome and 133 linear 30-gene
     contigs (ADR-0021 measured 0.003)."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     def rep(rng: np.random.Generator) -> np.ndarray:
         return idat.any_island(
@@ -292,7 +292,7 @@ def test_attack_draft_assembly(full: bool) -> None:
 def test_draft_contigs_are_never_scanned() -> None:
     """Decisions 40/41: the 30-gene linear contigs give a span of k < 4, so they are flagged
     ``few_values``, contribute nothing to M_b and never carry an island."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     rng = C.replicate_rng(f"{SUITE}.attack.draft_assembly.structure", 0)
     cfg = idat.config(bootstrap=B, permutations=PERM, alpha=0.10)

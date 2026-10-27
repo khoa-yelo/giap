@@ -1,12 +1,12 @@
 """MVP-03a examples 11 and 12: the manifest after the M2-21 Promotech fault and after ``--resume``
 (docs/specs/MVP-03-manifest-finalize.md "Examples" 11-12, edge case "-resume", D-B step 1, lead
-decision 5; GIAP_SPEC.md §3.8 "Resume", §6.3 exit 4, §6.7).
+decision 5; GIPPA_SPEC.md §3.8 "Resume", §6.3 exit 4, §6.7).
 
 Stub variants of tests/integration/test_m2_21_resume_failure.py (its wrapper and fault are copied:
 test modules are not importable). A ``nextflow`` wrapper first on ``PATH`` swaps the profile for
 ``test,stub``, adds ``-stub-run`` and appends ``-c $M2_21_EXTRA_CONFIG`` when set. The fault is
 ``beforeScript = 'exit 137'`` on ``PROMOTECH`` (base.config retries 137 twice; every retry is killed
-too). ``$GIAP_ROOT`` and ``$GIAP_DB_DIR`` are fakes from ``helpers.fake_env``.
+too). ``$GIPPA_ROOT`` and ``$GIPPA_DB_DIR`` are fakes from ``helpers.fake_env``.
 
 * 11: exit 4; manifest written and valid; ``status failed``, ``exit_code 4``, ``failed_step
   "promotech"``, ``failed_log`` ends in ``.command.log``; ``steps[promotech].status ==
@@ -33,7 +33,7 @@ import pytest
 from click.testing import CliRunner
 from helpers.manifest_data import validate
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -57,22 +57,22 @@ LONG_PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPD
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
+    import gippasim
 
-    return giapsim.simulate(
-        giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
+    return gippasim.simulate(
+        gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
     )
 
 
 @pytest.fixture
 def stub_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     real = shutil.which("nextflow")
@@ -104,7 +104,7 @@ def _argv(sim: Any, tmp_path: Path, out: Path, *extra: str) -> list[str]:
 
 
 def _invoke(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, argv)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -126,7 +126,7 @@ def _trace(out: Path) -> list[dict[str, str]]:
 
 
 def _step(name: str) -> str:
-    from giap.runner.nextflow import _step_name
+    from gippa.runner.nextflow import _step_name
 
     return _step_name(name)
 
@@ -160,7 +160,7 @@ def test_example_11_failed_run_manifest(
 def test_example_12_resume_after_the_fault(
     sim: Any, stub_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     out = _example_11(sim, tmp_path, monkeypatch)
     first = _trace(out)

@@ -1,4 +1,4 @@
-"""``giap makedb`` must take the genome (M3-24 lead decision 8; §15.2 step 2).
+"""``gippa makedb`` must take the genome (M3-24 lead decision 8; §15.2 step 2).
 
 ``build_strain_db`` called ``parse_bakta_json(opts.annotation)`` without ``opts.genome``, so the
 recorded Bakta JSON of §15.2 step 1 - whose ``sequences`` carry no ``nt`` (R11: the nucleotides
@@ -32,7 +32,7 @@ from typing import Any
 import pytest
 from helpers.pilot_kit import ID_MAP, MANIFEST, NISSLE_GENOME, RECORDED_NISSLE, STRAIN_DB
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 
@@ -48,7 +48,7 @@ OUTPUTS = ("strain_db.faa", "db_id_map.tsv")
 
 
 def _build(annotation: Path, outdir: Path, **kw: Any) -> Path:
-    from giap.makedb.build import MakedbOptions, build_strain_db
+    from gippa.makedb.build import MakedbOptions, build_strain_db
 
     genome = kw.pop("genome", None)
     build_strain_db(MakedbOptions(annotation=annotation, genome=genome, outdir=outdir, **kw))
@@ -56,7 +56,7 @@ def _build(annotation: Path, outdir: Path, **kw: Any) -> Path:
 
 
 def _cli(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -131,7 +131,7 @@ def test_the_cli_reports_it_as_invalid_input(
     argv = ["makedb", "--annotation", str(stripped_json), "--outdir", str(tmp_path / "DB"),
             "--no-contaminants"]  # fmt: skip
     assert _cli(argv) == ExitCode.INVALID_INPUT
-    assert "giap makedb:" in capsys.readouterr().err
+    assert "gippa makedb:" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("six_frame_orfs", [False, True], ids=["proteins", "six-frame"])
@@ -326,7 +326,7 @@ def test_the_cli_builds_the_db_a2_command_of_step_2(
 
 @pytest.mark.slow
 def test_the_committed_db_a2_comes_from_the_recorded_nissle_json(tmp_path: Path) -> None:
-    """Acceptance criterion: ``strain_db.faa.gz`` was produced by ``giap makedb`` from that JSON."""
+    """Acceptance criterion: ``strain_db.faa.gz`` was produced by ``gippa makedb`` from that JSON."""
     if not NISSLE_GENOME.is_file():
         pytest.skip(f"{NISSLE_GENOME} is not present (uncommitted, R11)")
     out = _build(RECORDED_NISSLE, tmp_path / "db_a2", genome=NISSLE_GENOME)
@@ -338,7 +338,7 @@ def test_the_committed_db_a2_comes_from_the_recorded_nissle_json(tmp_path: Path)
     with gzip.open(STRAIN_DB, "rb") as fh:
         committed = fh.read()
     assert rebuilt == committed, (
-        "validation/pilot/db_a2/strain_db.faa.gz differs from a fresh `giap makedb` on "
+        "validation/pilot/db_a2/strain_db.faa.gz differs from a fresh `gippa makedb` on "
         f"{RECORDED_NISSLE.name} + {NISSLE_GENOME.name}"
     )
     assert (out / "db_id_map.tsv").read_bytes() == ID_MAP.read_bytes()

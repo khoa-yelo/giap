@@ -1,4 +1,4 @@
-"""Fast level calibration of Wallenius ORA under its own model (M8-01; GIAP_SPEC.md §7.7.3, §8.4).
+"""Fast level calibration of Wallenius ORA under its own model (M8-01; GIPPA_SPEC.md §7.7.3, §8.4).
 
 Generator with known truth: a universe of M = 400 genes, a category C of n = 40, p_detect = 0.6
 inside C and 0.3 outside (so the true odds are ω = 2 and the mean-odds approximation is exact).
@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.wallenius import wallenius_ora
+from gippa.stats.wallenius import wallenius_ora
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("ora")]
 

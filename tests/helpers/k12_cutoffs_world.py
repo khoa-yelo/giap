@@ -1,19 +1,19 @@
 """Toy K-12-shaped input worlds for the M6-12 driver ``validation/calibrate_cutoffs.py``.
 
 Every file the driver reads is written here under ``tmp_path`` (never RegulonDB bytes, never
-``$GIAP_ROOT/recordings`` or ``$GIAP_DB_DIR``):
+``$GIPPA_ROOT/recordings`` or ``$GIPPA_DB_DIR``):
 
 - ``regulondb/``: a release directory as ``validation/fetch_regulondb.py`` writes it (three
   RegulonDB-*shaped* tables + ``provenance.json``) and ``truth/`` as M6-11 writes it
   (``pair_truth.tsv``, ``terminator_truth.tsv``, ``truth_summary.json``);
-- ``bakta.json`` (no ``nt``) and ``genome.fa`` (written with ``giap.io.fasta.write_fasta``, so its
+- ``bakta.json`` (no ``nt``) and ``genome.fa`` (written with ``gippa.io.fasta.write_fasta``, so its
   bytes are already the normalised genome);
-- ``uniop/``: ``uniop_cds.gff`` (``giap.annotate.uniop_adapter.write_prodigal_gff``),
+- ``uniop/``: ``uniop_cds.gff`` (``gippa.annotate.uniop_adapter.write_prodigal_gff``),
   ``uniop.pred`` and a deliberately **shifted** ``uniop_map.tsv`` that the driver must ignore;
 - ``terminatornet/terms.tsv.gz`` (TerminatorNet ``-s`` rows, 1-based closed) and its
   ``PROVENANCE.md`` carrying ``tool commit `<sha>```.
 
-Coordinates in the specs below are 0-based half-open, as everywhere inside GIAP.
+Coordinates in the specs below are 0-based half-open, as everywhere inside GIPPA.
 """
 
 from __future__ import annotations
@@ -27,11 +27,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from giap.annotate.operons import adjacent_pairs
-from giap.annotate.uniop_adapter import uniop_gene_order, write_prodigal_gff
-from giap.io.fasta import write_fasta
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import adjacent_pairs
+from gippa.annotate.uniop_adapter import uniop_gene_order, write_prodigal_gff
+from gippa.io.fasta import write_fasta
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 CONTIG = "U00096.3"
 TN_COMMIT = "72180309545988dba63b8bd5db5d0b09bf4dba70"  # ADR-0008 pin

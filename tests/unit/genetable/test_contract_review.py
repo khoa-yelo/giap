@@ -3,7 +3,7 @@ docs/specs/M4-06-input-contract.md "Lead decisions after code review".
 
 1. C10 follows merged M1-12: ``abundance.norm.parquet`` has ``protein_id``, ``raw_id`` (optional)
    and ``value``; the scale comes from ``preflight.json`` (``routing.abundance_scale``) into
-   ``M4Inputs.abundance_scale``. Pinned against the real output of ``giap preflight``.
+   ``M4Inputs.abundance_scale``. Pinned against the real output of ``gippa preflight``.
 2. ``cterm_extension`` (ADR-0013) is a locus class that assigns its gene.
 3. The four mutants that survived review: layers rows for unknown genes; an AMR region with
    exactly one NA coordinate; ``1.5`` in an object-dtype int column; TSV bools other than
@@ -24,7 +24,7 @@ import pytest
 from click.testing import CliRunner
 from m4_contract_fixture import _hit, _hits_frame, build_frames, make_inputs, tag, write_work
 
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 LOW = ["--set", "preflight.min_n50_warn=1", "--set", "preflight.min_largest_contig_warn=1"]
 
@@ -42,7 +42,7 @@ def with_code(issues: list[Issue], code: str) -> list[Issue]:
 
 
 def _contract() -> Any:
-    from giap.genetable import contract
+    from gippa.genetable import contract
 
     return contract
 
@@ -52,13 +52,13 @@ def _contract() -> Any:
 
 @pytest.fixture
 def preflight_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Run merged M1-12 ``giap preflight`` on a small genome with peptides and abundance."""
-    from giap.cli import cli
+    """Run merged M1-12 ``gippa preflight`` on a small genome with peptides and abundance."""
+    from gippa.cli import cli
 
     for d in ("db_empty", "repo_empty"):
         (tmp_path / d).mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_REPO", str(tmp_path / "repo_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_REPO", str(tmp_path / "repo_empty"))
     rng = np.random.default_rng(7)
     seq = "".join(np.array(list("ACGT"))[rng.integers(0, 4, 120_000)])
     genome = tmp_path / "g.fa"
@@ -112,7 +112,7 @@ def test_real_preflight_abundance_passes_contract(preflight_out: Path) -> None:
 
 
 def test_loader_takes_scale_from_preflight_json(preflight_out: Path, tmp_path: Path) -> None:
-    from giap.io.work_tables import M4Inputs, default_paths, load_m4_inputs
+    from gippa.io.work_tables import M4Inputs, default_paths, load_m4_inputs
 
     report = json.loads((preflight_out / "preflight" / "preflight.json").read_text("utf-8"))
     scale = report["routing"]["abundance_scale"]
@@ -130,7 +130,7 @@ def test_loader_takes_scale_from_preflight_json(preflight_out: Path, tmp_path: P
 
 @pytest.mark.parametrize("scale", ["log2", "linear"])
 def test_loader_scale_from_fixture_preflight_json(tmp_path: Path, scale: str) -> None:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     f = build_frames(20)
     f["abundance_scale"] = scale
@@ -234,7 +234,7 @@ def _rewrite_tsv_cell(path: Path, column: str, row: int, value: str) -> None:
 
 @pytest.mark.parametrize("bad", ["TRUE", "1", "True", "0", "FALSE"])
 def test_tsv_bool_accepts_only_lowercase_true_false(tmp_path: Path, bad: str) -> None:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     paths = default_paths(tmp_path / "work")
     write_work(build_frames(20), paths)
@@ -247,7 +247,7 @@ def test_tsv_bool_accepts_only_lowercase_true_false(tmp_path: Path, bad: str) ->
 
 
 def test_tsv_bool_lowercase_is_valid(tmp_path: Path) -> None:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     paths = default_paths(tmp_path / "work")
     write_work(build_frames(20), paths)

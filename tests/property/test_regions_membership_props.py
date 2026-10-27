@@ -14,12 +14,12 @@ from helpers.regions_oracle import brute_members, brute_overlap_frac, oracle_sub
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.genomad import GenomadResult, Provirus
-from giap.config import resolve_config
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.genomad import GenomadResult, Provirus
+from gippa.config import resolve_config
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
-regions = importlib.import_module("giap.annotate.regions")  # M2-19
+regions = importlib.import_module("gippa.annotate.regions")  # M2-19
 
 SETTINGS = settings(max_examples=150, deadline=None)
 

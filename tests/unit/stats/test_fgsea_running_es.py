@@ -3,7 +3,7 @@ and the definition "``running_es`` is fgsea's running sum for that set, computed
 function the ``es`` came from; the max-deviation of ``running_es`` equals the row's ``es`` to
 1e-9").
 
-Interface assumed (test author): ``giap.stats.fgsea.running_es(stats, members) -> F64`` takes
+Interface assumed (test author): ``gippa.stats.fgsea.running_es(stats, members) -> F64`` takes
 what ``gsea_es`` takes (``Prepared.stats``: |stats| in rank order; ``members``: distinct 1-based
 ranks) and returns the running sum after each of the n ranked positions (scoreType std,
 gseaParam 1): a hit at rank i adds |stat_i| / N_R, a miss subtracts 1 / (n - m).
@@ -20,7 +20,7 @@ TOL = 1e-9
 
 
 def _running(stats: np.ndarray, members: np.ndarray) -> np.ndarray:
-    from giap.stats.fgsea import running_es
+    from gippa.stats.fgsea import running_es
 
     out = np.asarray(running_es(np.asarray(stats, float), np.asarray(members, np.int64)))
     assert out.dtype == np.float64
@@ -50,7 +50,7 @@ def _max_dev(r: np.ndarray) -> float:
 def test_example_1_six_tus_set_tu1_tu3() -> None:
     """Centred scores 2, 1, 0.5, -0.5, -1, -2 (already in rank order); set {TU_1, TU_3} = ranks
     {1, 3}. N_R = 2.5, n - m = 4: 0.8, 0.55, 0.75, 0.5, 0.25, 0. ES = 0.8."""
-    from giap.stats.fgsea import gsea_es, prepare
+    from gippa.stats.fgsea import gsea_es, prepare
 
     scores = np.array([2.0, 1.0, 0.5, -0.5, -1.0, -2.0])
     labels = [f"TU_{i}" for i in range(1, 7)]
@@ -65,7 +65,7 @@ def test_example_1_six_tus_set_tu1_tu3() -> None:
 
 def test_negative_set_runs_below_zero() -> None:
     """Set {TU_5, TU_6} at the bottom: the walk dips to -1 before the hits, ES = -1."""
-    from giap.stats.fgsea import gsea_es
+    from gippa.stats.fgsea import gsea_es
 
     stats = np.array([2.0, 1.0, 0.5, 0.5, 1.0, 2.0])  # |scores| in rank order
     members = np.array([5, 6])
@@ -77,7 +77,7 @@ def test_negative_set_runs_below_zero() -> None:
 
 
 def test_rejects_what_gsea_es_rejects() -> None:
-    from giap.stats.fgsea import running_es
+    from gippa.stats.fgsea import running_es
 
     stats = np.array([3.0, 2.0, 1.0])
     for bad in ([], [0], [4], [2, 2], [1, 2, 3]):
@@ -101,7 +101,7 @@ def _case(draw: st.DrawFn) -> tuple[np.ndarray, np.ndarray]:
 def test_property_running_sum_matches_oracle_and_es(case: tuple[np.ndarray, np.ndarray]) -> None:
     """For any ranking and set: n values, the oracle's walk, ends at 0, and its max deviation is
     ``gsea_es``'s ES (fgsea's ``maxP == -minP`` tie gives ES 0, so it is skipped)."""
-    from giap.stats.fgsea import gsea_es
+    from gippa.stats.fgsea import gsea_es
 
     stats, members = case
     r = _running(stats, members)

@@ -1,7 +1,7 @@
 """Genome-wide Promotech: valid config, rejected at run time (M2-13 Q2, revised lead decision 4).
 
-``annotation.promoters.mode: genome`` (GIAP_SPEC.md §5.2; ``giap run --promoters``) loads and passes
-``giap preflight`` (resource checks: tests/unit/preflight/test_run_review.py). ``giap run``
+``annotation.promoters.mode: genome`` (GIPPA_SPEC.md §5.2; ``gippa run --promoters``) loads and passes
+``gippa preflight`` (resource checks: tests/unit/preflight/test_run_review.py). ``gippa run``
 exits 1 before launching anything with "annotation.promoters.mode: genome is not implemented", and
 the ``promoter_windows`` step raises the same error if it is ever reached.
 """
@@ -22,7 +22,7 @@ GENOME_SET = ["--set", "annotation.promoters.mode=genome"]
 
 
 def _cfg(tmp_path: Path) -> Path:
-    p = tmp_path / "giap.yaml"
+    p = tmp_path / "gippa.yaml"
     p.write_text("annotation:\n  promoters:\n    mode: genome\n")
     return p
 
@@ -41,7 +41,7 @@ def _text(r: Result) -> str:
 
 
 def _says_genome_not_implemented(text: str) -> bool:
-    """One line naming the mode (not the generic ``giap run: not implemented`` stub)."""
+    """One line naming the mode (not the generic ``gippa run: not implemented`` stub)."""
     return any("genome" in ln and "not implemented" in ln for ln in text.splitlines())
 
 
@@ -49,21 +49,21 @@ def _says_genome_not_implemented(text: str) -> bool:
 
 
 def test_model_accepts_genome_mode() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    cfg = GiapConfig.model_validate({"annotation": {"promoters": {"mode": "genome"}}})
+    cfg = GippaConfig.model_validate({"annotation": {"promoters": {"mode": "genome"}}})
     assert cfg.annotation.promoters.mode == "genome"
 
 
 def test_resolve_config_accepts_genome_mode_from_file_and_set(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config(_cfg(tmp_path)).annotation.promoters.mode == "genome"
     assert resolve_config(None, GENOME_SET[1:]).annotation.promoters.mode == "genome"
 
 
 def test_preflight_treats_genome_mode_like_targeted(tmp_path: Path) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     g = _fasta(tmp_path)
     base = CliRunner().invoke(cli, ["preflight", "--genome", str(g)])
@@ -73,12 +73,12 @@ def test_preflight_treats_genome_mode_like_targeted(tmp_path: Path) -> None:
     assert "invalid configuration" not in _text(gm)
 
 
-# ------------------------------------------------------------------------------ giap run
+# ------------------------------------------------------------------------------ gippa run
 
 
 @pytest.fixture
 def launches(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Record (and block) every way ``giap run`` could start work."""
+    """Record (and block) every way ``gippa run`` could start work."""
     calls: list[str] = []
 
     def _stub(name: str) -> Any:
@@ -88,8 +88,8 @@ def launches(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
         return f
 
-    from giap.runner import local, nextflow
-    from giap.steps import registry
+    from gippa.runner import local, nextflow
+    from gippa.steps import registry
 
     monkeypatch.setattr(local, "plan_local", _stub("plan_local"))
     monkeypatch.setattr(local, "run_local", _stub("run_local"))
@@ -107,7 +107,7 @@ def launches(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 def test_run_genome_mode_exits_1_before_launching(
     tmp_path: Path, launches: list[str], executor: str, how: str
 ) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     mode = {
         "flag": ["--promoters", "genome"],
@@ -128,15 +128,15 @@ def test_run_genome_mode_exits_1_before_launching(
 def test_promoter_windows_step_rejects_genome_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.config import GiapConfig
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import GippaConfig
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     monkeypatch.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     spec = reg.get("promoter_windows")
     assert spec.func is not None
     inputs: dict[str, Any] = {}
@@ -146,7 +146,7 @@ def test_promoter_windows_step_rejects_genome_mode(
         p.write_bytes(b"")
         inputs[k] = p
     outputs = {k: tmp_path / "out" / k for k in spec.outputs}
-    cfg = GiapConfig.model_validate({"annotation": {"promoters": {"mode": "genome"}}})
+    cfg = GippaConfig.model_validate({"annotation": {"promoters": {"mode": "genome"}}})
     ctx = reg.StepContext(cfg, inputs, outputs, np.random.default_rng(0), logging.getLogger("test"))
     with pytest.raises(ValueError, match=r"annotation\.promoters\.mode: genome is not implemented"):
         spec.func(ctx)

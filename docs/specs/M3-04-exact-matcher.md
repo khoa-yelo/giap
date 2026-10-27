@@ -1,7 +1,7 @@
 # M3-04: Route 1, exact peptide matching (Aho–Corasick)
 
-Milestone M3 · depends on: M3-02, M3-03 · creates `src/giap/mapping/exact.py`,
-`src/giap/mapping/hits.py` (shared hit schema) · pure Python (`pyahocorasick`, already a
+Milestone M3 · depends on: M3-02, M3-03 · creates `src/gippa/mapping/exact.py`,
+`src/gippa/mapping/hits.py` (shared hit schema) · pure Python (`pyahocorasick`, already a
 dependency) · estimate ≈ 260 code lines
 
 ## Spec sections implemented
@@ -11,13 +11,13 @@ dependency) · estimate ≈ 260 code lines
   in preflight: a 6-mer has about one chance hit in a 5-Mb genome."
 - §7.2 "Each sequence takes the cheapest route that can place it; only failures move on to the
   next step."
-- Decision 5: "GIAP's own exact six-frame index for 7–40 aa." Config `mapping.exact: {min_len: 7,
+- Decision 5: "GIPPA's own exact six-frame index for 7–40 aa." Config `mapping.exact: {min_len: 7,
   max_len: 40}`. §7.2.9 unit: "I = L; origin-spanning peptides on circular contigs; no wrap on
   linear contigs; Aho–Corasick multi-locus".
 
 ## Public interface
 
-`src/giap/mapping/hits.py` — the hit table shared by M3-04, M3-07, M3-08 (work file
+`src/gippa/mapping/hits.py` — the hit table shared by M3-04, M3-07, M3-08 (work file
 `hits_exact.parquet` / `hits_tolerant.parquet`, one row per peptide × locus × search):
 
 | column | type | meaning |

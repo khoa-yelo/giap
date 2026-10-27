@@ -1,9 +1,9 @@
 // M11-09: Docker-profile smoke (docs/specs/M11-09-platforms-docker-smoke.md, definition 2).
 // The real MINIPROT and TBLASTN processes run in their pinned images (workflow/conf/containers.config,
-// by digest) on the giapsim SIM100K genome (tests/data/genomes/sim100k.fna.gz) with the protein
+// by digest) on the gippasim SIM100K genome (tests/data/genomes/sim100k.fna.gz) with the protein
 // sets and options of the recorded Apptainer runs (tests/data/recorded/{miniprot/0.18,blast/2.16.0}/sim100k).
-// The test asserts each output is in the format the giap parsers read (GFF3 header and 9 columns;
-// the 15-column outfmt 6 of giap.mapping.tblastn.OUTFMT) and has as many records as the recorded run.
+// The test asserts each output is in the format the gippa parsers read (GFF3 header and 9 columns;
+// the 15-column outfmt 6 of gippa.mapping.tblastn.OUTFMT) and has as many records as the recorded run.
 //
 // nf-test runs one suite per file (the last nextflow_process block), so TBLASTN runs as a setup
 // dependency of the MINIPROT suite; its output is read from the test's work directory.

@@ -1,7 +1,7 @@
 """M9-26 work item 1 and acceptance "Benchmarks recorded": ``benchmarks/test_plots_bench.py`` times
-the ``plots`` and ``report`` steps on a 5-Mb giapsim run (≈ 4,500 genes, ≈ 50,000 placements) and
+the ``plots`` and ``report`` steps on a 5-Mb gippasim run (≈ 4,500 genes, ≈ 50,000 placements) and
 ``benchmarks/baseline.json`` holds its wall time and peak RSS (docs/specs/M9-26-scale-and-
-determinism.md; GIAP_SPEC.md §11.2, §12 "benchmarks against baseline.json on one node class").
+determinism.md; GIPPA_SPEC.md §11.2, §12 "benchmarks against baseline.json on one node class").
 
 Interface choices (M9-26 test author; lead decision 4, review nits N1-N4):
 

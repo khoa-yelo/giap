@@ -1,9 +1,9 @@
 """M7-05 variant flags (docs/specs/M7-05-variant-flags.md rules 1-7, examples 1-13, every
-degenerate row; GIAP_SPEC.md §7.5.1, §7.5.3, §9.4, Appendix B.5).
+degenerate row; GIPPA_SPEC.md §7.5.1, §7.5.3, §9.4, Appendix B.5).
 
 Interface pinned here (test-author reading of the spec's "Public interface"):
 
-* ``giap.variants.flags`` (pure):
+* ``gippa.variants.flags`` (pure):
 
   - ``mass_equivalent(ref, alt, tol_da) -> bool``: ``ref``/``alt`` are residue strings (one
     residue for a substitution, one or two for a block or near-block; ``J`` weighs as I/L).
@@ -11,7 +11,7 @@ Interface pinned here (test-author reading of the spec's "Public interface"):
     modification deltas (negative deltas such as Amidated included).
   - ``nt_class(ref_codon, alt_aa) -> "snv" | "multi_nt"``.
   - ``site_flags(site, gm, cfg, alt_sources) -> list[str]``: ``site`` is one row of
-    ``giap.variants.pileup.sites`` (the ``SITE_COLUMNS`` keys, 0-based ``codon_start``);
+    ``gippa.variants.pileup.sites`` (the ``SITE_COLUMNS`` keys, 0-based ``codon_start``);
     ``alt_sources`` is the ``(source, search_db)`` of each peptide supporting the site's ALT. The
     list holds the M7-05 flags only (never ``vcf_unrepresentable``, which M7-03 adds), each once,
     in the §9.4 order ``mass_equivalent, snv, multi_nt, strain_difference, database_derived,
@@ -31,7 +31,7 @@ Choices the test author made where the spec is ambiguous (reported to the lead):
 3. Degenerate row ``tol = 0``: with the B.5 masses N - GG and Q - AG are 0.00001 Da, not 0, so the
    formula of rule 1 does not flag them at tolerance 0. These tests pin only the unambiguous part:
    the exact equalities (GT = AS, AV = GL, AN = GQ, G + Methyl = A, S + Methyl = T; float noise
-   below 1e-6 counts as 0, as ``giap.mapping.masses`` rounds to 6 decimals) flag at 0 and K/Q does
+   below 1e-6 counts as 0, as ``gippa.mapping.masses`` rounds to 6 decimals) flag at 0 and K/Q does
    not. GG -> N at tolerance 0 is left unpinned.
 4. ``nt_class``: ``snv`` when the minimal-change codon (G14, M7-03 ``nt_changes``) is at most one
    base away. It differs from a literal "exactly one" only where the codon already encodes the
@@ -55,10 +55,10 @@ import pytest
 from helpers.align_oracle import place
 from helpers.pileup_oracle import G1, SEQ, gene_ops, make_hit
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 ORDER = (
     "mass_equivalent", "snv", "multi_nt", "strain_difference", "database_derived",
@@ -91,22 +91,22 @@ RESIDUES21 = "ACDEFGHIKLMNPQRSTVWY" + "J"
 
 def fl() -> ModuleType:
     """The module under test (imported per test, so each test fails on its own)."""
-    return importlib.import_module("giap.variants.flags")
+    return importlib.import_module("gippa.variants.flags")
 
 
 def pl() -> ModuleType:
-    return importlib.import_module("giap.variants.pileup")
+    return importlib.import_module("gippa.variants.pileup")
 
 
 def al() -> ModuleType:
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
-def cfg(relation: str = "related", tol: float | None = None) -> GiapConfig:
+def cfg(relation: str = "related", tol: float | None = None) -> GippaConfig:
     over: dict[str, Any] = {"genome_relation": relation}
     if tol is not None:
         over["variants"] = {"mass_equivalent_tol_da": tol}
-    return GiapConfig.model_validate(over)
+    return GippaConfig.model_validate(over)
 
 
 # --------------------------------------------------------------------------- gene model
@@ -157,7 +157,7 @@ def site(
     }  # fmt: skip
 
 
-def flags_of(s: dict[str, Any], config: GiapConfig | None = None,
+def flags_of(s: dict[str, Any], config: GippaConfig | None = None,
              sources: frozenset[tuple[str, str]] = DENOVO) -> list[str]:  # fmt: skip
     out = fl().site_flags(s, GM, cfg() if config is None else config, sources)
     assert isinstance(out, list)
@@ -284,7 +284,7 @@ def test_tol_zero_flags_exact_equalities_only() -> None:
 def test_configured_tolerance_is_recomputed_in_process() -> None:
     """Degenerate row ``tol != 0.05`` / lead decision 2: the configured tolerance is honoured,
     not the default-tolerance list."""
-    from giap.mapping.masses import mass_equivalents
+    from gippa.mapping.masses import mass_equivalents
 
     tight = cfg(tol=0.02)
     assert "mass_equivalent" not in flags_of(site("AAA", "Q"), tight)  # Δ 0.0364
@@ -490,7 +490,7 @@ def test_mass_equivalent_matches_a_brute_force_oracle(tol: float) -> None:
 def test_mass_equivalent_agrees_with_the_generated_list(tol: float) -> None:
     """Rule 1 / decision 2: the flag is computed from ``mass_equivalents(tol)``: a substitution
     r -> a flags exactly when (r, a) is a composition entry or ``r+<mod>`` vs ``a`` is listed."""
-    from giap.mapping.masses import mass_equivalents
+    from gippa.mapping.masses import mass_equivalents
 
     entries = mass_equivalents(tol)
     pairs: set[tuple[str, str]] = set()

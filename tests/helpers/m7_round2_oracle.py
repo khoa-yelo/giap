@@ -1,7 +1,7 @@
 """Independent oracle for M7-12 round 2 (lead decisions 11-16 of
 docs/specs/M7-12-sim-variant-novel-scenarios.md, after the statistician's block on PR #225).
 
-Like tests/helpers/m7_sim_oracle.py this imports nothing from giapsim: every expectation is
+Like tests/helpers/m7_sim_oracle.py this imports nothing from gippasim: every expectation is
 recomputed from the written FASTA/JSON/TSV files.
 
 * ``sample_frame_alt_sites`` recomputes ``truth/alt_sites.tsv`` the way decision 11 says: the SNV

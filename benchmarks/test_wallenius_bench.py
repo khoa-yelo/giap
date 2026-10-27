@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from giap.stats.wallenius import wallenius_tails
+from gippa.stats.wallenius import wallenius_tails
 
 from ._unit_helpers import timed
 

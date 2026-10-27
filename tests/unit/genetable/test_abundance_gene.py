@@ -1,6 +1,6 @@
 """M4-14 gene-level abundance (docs/specs/M4-14-abundance.md): examples 1-10, edge cases, routes.
 
-Spec: GIAP_SPEC.md §2.1 decisions 2-3, §7.3.4 (iBAQ, Top3, protein-level route, transform, missing
+Spec: GIPPA_SPEC.md §2.1 decisions 2-3, §7.3.4 (iBAQ, Top3, protein-level route, transform, missing
 values), §7.2.6 (two proteins on one gene, cross-strain proteins), §9.3 abundance columns, §9.4
 flags, §5.2 ``abundance`` config. M4-11 lead decisions: only ``abundance_eligible`` accepted rows
 (unique, not an N/C-terminal extension, exact or tolerant under ``related``) are quantified.
@@ -61,16 +61,16 @@ TOL = 1e-6
 
 
 def _ab() -> Any:
-    from giap.genetable import abundance
+    from gippa.genetable import abundance
 
     return abundance
 
 
 def cfg(**abundance: Any) -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     relation = abundance.pop("relation", "related")
-    return GiapConfig(genome_relation=relation, abundance=abundance)
+    return GippaConfig(genome_relation=relation, abundance=abundance)
 
 
 def genes_frame(tags: list[str] = TAGS, partial: tuple[str, ...] = ()) -> pd.DataFrame:
@@ -252,7 +252,7 @@ def test_extension_placements_not_abundance_eligible(cls: str) -> None:
 
 
 def _ex4(relation: str) -> Any:
-    from giap.genetable import evidence
+    from gippa.genetable import evidence
 
     hits = eo.hits_frame(
         [

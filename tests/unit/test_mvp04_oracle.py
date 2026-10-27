@@ -1,11 +1,11 @@
 """The MVP-04 gene-level oracle (tests/helpers/mvp04_decoys.py ``gene_evidence`` /
 ``gene_competition``) on a hand-built view (MVP-04 lead decision 11; statistician review of PR
-#247, B3(b)): the ``GIAPORF_nterm_extension_*`` channel and ``multi_identical`` acceptance.
+#247, B3(b)): the ``GIPPAORF_nterm_extension_*`` channel and ``multi_identical`` acceptance.
 
-Rules (as ``giap.genetable.detection`` and M7-12 decision 28):
+Rules (as ``gippa.genetable.detection`` and M7-12 decision 28):
 
 * a six-frame null on an ``nterm_extension`` entry gives target evidence to the one eligible gene
-  the entry overlaps on its strand; its ``rev_GIAPORF_nterm_extension_*`` decoy pairs with that
+  the entry overlaps on its strand; its ``rev_GIPPAORF_nterm_extension_*`` decoy pairs with that
   gene only when the entry was voted (the peptide has an accepted target row);
 * a protein-entry null found (I = L) in several loci gives evidence to all of them when their
   proteins are identical (``multi_identical``) and to none when they differ (``shared``);
@@ -22,9 +22,9 @@ from helpers import mvp04_data as M
 from helpers import mvp04_decoys as D
 
 C_ = M.CONTIG
-NT_E = f"GIAPORF_nterm_extension_{C_}_4901_5300_p"  # overlaps gene E (+, [5000, 5600))
-NT_F = f"GIAPORF_nterm_extension_{C_}_6901_7300_p"  # overlaps gene F (+, [7000, 7600))
-AS = f"GIAPORF_antisense_{C_}_9001_9150_m"
+NT_E = f"GIPPAORF_nterm_extension_{C_}_4901_5300_p"  # overlaps gene E (+, [5000, 5600))
+NT_F = f"GIPPAORF_nterm_extension_{C_}_6901_7300_p"  # overlaps gene F (+, [7000, 7600))
+AS = f"GIPPAORF_antisense_{C_}_9001_9150_m"
 
 PARALOG = "MSTLKWEEPLQGNAVRDDLK"
 GENES = [
@@ -100,8 +100,8 @@ def _by_gene() -> dict[str, set[tuple[bool, str, str]]]:
 
 def test_nterm_gene_is_the_one_overlapping_eligible_gene_on_the_strand() -> None:
     assert D.nterm_gene(NT_E, GENES) == "E"
-    assert D.nterm_gene(f"GIAPORF_nterm_extension_{C_}_4901_5300_m", GENES) is None
-    assert D.nterm_gene(f"GIAPORF_nterm_extension_{C_}_7901_8100_p", GENES) is None  # T only
+    assert D.nterm_gene(f"GIPPAORF_nterm_extension_{C_}_4901_5300_m", GENES) is None
+    assert D.nterm_gene(f"GIPPAORF_nterm_extension_{C_}_7901_8100_p", GENES) is None  # T only
 
 
 def test_nterm_null_target_and_voted_decoy_reach_the_gene() -> None:

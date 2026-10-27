@@ -1,8 +1,8 @@
 """``scripts/slurm/nightly.sbatch`` run for real in a sandbox (M2-21 lead decisions 14 and 15).
 
 The script runs under bash with fake ``sbatch``/``sacct``/``gh``/``hostname`` and a fake
-``python -m pytest`` first on ``PATH`` (``tests/helpers/slurm_sandbox.py``); its ``GIAP_REPO`` is a
-sandbox git repository with a local bare ``origin``, its ``GIAP_ROOT`` a temporary directory.
+``python -m pytest`` first on ``PATH`` (``tests/helpers/slurm_sandbox.py``); its ``GIPPA_REPO`` is a
+sandbox git repository with a local bare ``origin``, its ``GIPPA_ROOT`` a temporary directory.
 ``NIGHTLY_POST=dry`` keeps ``post_summary.py`` offline. Nothing is submitted.
 
 * Decision 14: every task reports. A task killed by Slurm (``SIGTERM`` to the job's processes at
@@ -26,7 +26,7 @@ import pytest
 from helpers.slurm_sandbox import (
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     export_pairs,
     make_sandbox,  # fmt: skip
     option,
@@ -38,7 +38,7 @@ JOB = "4242"
 
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     return make_sandbox(tmp_path)
 
 
@@ -49,7 +49,7 @@ def _nightly(sb: Sandbox, task: int, **env: str):  # type: ignore[no-untyped-def
         "SLURM_JOB_ID": str(5000 + task),
         "SLURM_ARRAY_TASK_COUNT": "4",
         "SLURM_CPUS_PER_TASK": "2",
-        "SLURM_JOB_NAME": "giap-nightly",
+        "SLURM_JOB_NAME": "gippa-nightly",
         "NIGHTLY_POST": "dry",
     }
     return sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly.sbatch")],
@@ -189,7 +189,7 @@ def test_slurm_executor_profile_is_refused(sb: Sandbox, profile: str) -> None:
     out = res.stdout + res.stderr
     assert res.returncode == 2, out
     assert re.search(r"R14|farmshare_local", out), f"no clear refusal message:\n{out}"
-    assert not [c for c in sb.calls_log() if c.startswith("giap ")], sb.calls_log()
+    assert not [c for c in sb.calls_log() if c.startswith("gippa ")], sb.calls_log()
     rows = _rows(sb, 3)
     assert len(rows) == 1 and rows[0][3] == "2", rows
 
@@ -203,7 +203,7 @@ def _squeue_calls(sb: Sandbox) -> list[str]:
 
 def test_resubmission_looks_only_at_pending_summary_jobs(sb: Sandbox) -> None:
     """Decision 26 (``-t PENDING``): a running summary job can no longer wait for anything."""
-    sb.set_squeue("giap-nightly-summary", [f"{SID} nightly:{JOB}"])
+    sb.set_squeue("gippa-nightly-summary", [f"{SID} nightly:{JOB}"])
     res = _nightly(sb, 1, FAKE_HOSTNAME="barley-01")
     assert res.returncode == 0, res.stderr
     calls = _squeue_calls(sb)
@@ -216,7 +216,7 @@ def test_resubmission_works_without_user(sb: Sandbox) -> None:
     """Decision 24: under scrontab USER may be unset; ``set -u`` must not abort task 1."""
     import subprocess
 
-    sb.set_squeue("giap-nightly-summary", [f"{SID} nightly:{JOB}"])
+    sb.set_squeue("gippa-nightly-summary", [f"{SID} nightly:{JOB}"])
     res = sb.run(
         ["bash", str(sb.repo / "scripts" / "slurm" / "nightly.sbatch")],
         env={"SLURM_ARRAY_TASK_ID": "1", "SLURM_ARRAY_JOB_ID": JOB, "SLURM_JOB_ID": "5001",

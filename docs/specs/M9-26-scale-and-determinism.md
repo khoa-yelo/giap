@@ -13,17 +13,17 @@ not statistical
 ## Work
 
 1. **5-Mb render.** `benchmarks/test_plots_bench.py`: the `plots` and `report` steps on a 5-Mb
-   giapsim run (≈ 4,500 genes, ≈ 50,000 placements): wall time and peak RSS recorded in
+   gippasim run (≈ 4,500 genes, ≈ 50,000 placements): wall time and peak RSS recorded in
    `benchmarks/baseline.json`; every track ≤ 20,000 elements (M9-24 item).
 2. **A 20-Mb stress fixture** (synthetic `RunView` frames only, not a pipeline run): 25,000 genes on
    one contig → the gene tracks of V1 and V2's points bin; a test asserts the binned rows.
-3. **K-12 report.** One `sbatch scripts/slurm/giap_run.sbatch` on the K-12 full-DB Bakta recording
+3. **K-12 report.** One `sbatch scripts/slurm/gippa_run.sbatch` on the K-12 full-DB Bakta recording
    (`tests/data/recorded/bakta/1.12.2-full/k12`) with M3-22 in-silico peptides and a simulated
    abundance column (the M8-06 hardening run): `report.html` size recorded (< 25 MB), the plots go
    into the M9-25 approval packet. Job ID in PROGRESS.md.
 4. **Byte-identical images.** A test renders every plot twice on the snapshot fixture and compares
    `.svg`, `.pdf`, `.png` bytes (M9-01 item 7); plus `report.html` byte identity across two
-   `giap report` calls.
+   `gippa report` calls.
 5. **`-resume`.** An nf-test (stub) shows `PLOTS` and `REPORT_HTML` are cached on `-resume` when no
    table changed, and rerun when one table changed.
 

@@ -1,4 +1,4 @@
-"""Conda env files and container pins (M2-01; GIAP_SPEC.md §3.2, §4, §6.3, §7.1.1)."""
+"""Conda env files and container pins (M2-01; GIPPA_SPEC.md §3.2, §4, §6.3, §7.1.1)."""
 
 from __future__ import annotations
 
@@ -55,42 +55,42 @@ def _write(tmp_path: Path, stem: str, body: str) -> Path:
 
 
 def test_example1_bakta_env() -> None:
-    from giap.annotate.tools import EnvFile, env_problems, read_env_file
+    from gippa.annotate.tools import EnvFile, env_problems, read_env_file
 
     env = read_env_file(ENVS / "bakta.yml")
-    assert env == EnvFile("giap-bakta", ("conda-forge", "bioconda"), ("bakta=1.12.2",), ())
+    assert env == EnvFile("gippa-bakta", ("conda-forge", "bioconda"), ("bakta=1.12.2",), ())
     assert env_problems(env) == []
 
 
 def test_example2_unpinned_conda(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [conda-forge, bioconda]\ndependencies:\n  - pandas\n",
+        "name: gippa-x\nchannels: [conda-forge, bioconda]\ndependencies:\n  - pandas\n",
     )
     assert env_problems(read_env_file(path)) == ["pandas: conda dependency without exact version"]
 
 
 def test_example3_defaults_channel(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [defaults, bioconda]\ndependencies:\n  - samtools=1.21\n",
+        "name: gippa-x\nchannels: [defaults, bioconda]\ndependencies:\n  - samtools=1.21\n",
     )
     assert "channel 'defaults' is not allowed" in env_problems(read_env_file(path))
 
 
 def test_example4_pip_range(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
+        "name: gippa-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
         "  - python=3.11.9\n  - pip=24.2\n  - pip:\n    - ostir>=1.1\n",
     )
     env = read_env_file(path)
@@ -99,12 +99,12 @@ def test_example4_pip_range(tmp_path: Path) -> None:
 
 
 def test_pip_section_parsed(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [bioconda, conda-forge]\ndependencies:\n"
+        "name: gippa-x\nchannels: [bioconda, conda-forge]\ndependencies:\n"
         "  - python=3.11.9\n  - pip=24.2\n  - pip:\n    - ostir==1.1.3\n",
     )
     env = read_env_file(path)
@@ -114,12 +114,12 @@ def test_pip_section_parsed(tmp_path: Path) -> None:
 
 
 def test_build_string_pin_allowed(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
+        "name: gippa-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
         "  - python=3.6.10=h0371630_0\n",
     )
     assert env_problems(read_env_file(path)) == []
@@ -129,35 +129,35 @@ def test_build_string_pin_allowed(tmp_path: Path) -> None:
     "channels", ["[conda-forge, bioconda, r]", "[conda-forge]", "[conda-forge, bioconda, defaults]"]
 )
 def test_channel_set_must_be_exact(tmp_path: Path, channels: str) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        f"name: giap-x\nchannels: {channels}\ndependencies:\n  - samtools=1.21\n",
+        f"name: gippa-x\nchannels: {channels}\ndependencies:\n  - samtools=1.21\n",
     )
     assert env_problems(read_env_file(path))
 
 
 def test_unpinned_pip_rejected(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
+        "name: gippa-x\nchannels: [conda-forge, bioconda]\ndependencies:\n"
         "  - python=3.11.9\n  - pip:\n    - pandas\n",
     )
     assert env_problems(read_env_file(path))
 
 
 def test_env_name_must_match_stem(tmp_path: Path) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     path = _write(
         tmp_path,
         "x",
-        "name: giap-y\nchannels: [conda-forge, bioconda]\ndependencies:\n  - samtools=1.21\n",
+        "name: gippa-y\nchannels: [conda-forge, bioconda]\ndependencies:\n  - samtools=1.21\n",
     )
     assert env_problems(read_env_file(path))
 
@@ -165,7 +165,7 @@ def test_env_name_must_match_stem(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the committed env files
 
 
-# M10-08: pilot-only envs (giap.annotate.tools.PILOT_TOOLS), not pipeline tools; their own
+# M10-08: pilot-only envs (gippa.annotate.tools.PILOT_TOOLS), not pipeline tools; their own
 # rules (conda-forge only, version ranges) are tested in tests/unit/test_m10_08_registry.py.
 PILOT_ENVS = {"cascadia", "timsconvert"}
 
@@ -178,20 +178,20 @@ def test_all_env_files_present() -> None:
 def test_env_file_static(stem: str) -> None:
     path = ENVS / f"{stem}.yml"
     data = yaml.safe_load(path.read_text())
-    assert data["name"] == f"giap-{stem}"
+    assert data["name"] == f"gippa-{stem}"
     assert sorted(data["channels"]) == ["bioconda", "conda-forge"]
     assert "defaults" not in path.read_text().split("dependencies:")[0]
 
 
 @pytest.mark.parametrize("stem", sorted(EXPECTED_ENVS))
 def test_env_file_passes_env_problems(stem: str) -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     assert env_problems(read_env_file(ENVS / f"{stem}.yml")) == []
 
 
 def _deps(stem: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    from giap.annotate.tools import read_env_file
+    from gippa.annotate.tools import read_env_file
 
     env = read_env_file(ENVS / f"{stem}.yml")
     return env.conda, env.pip
@@ -209,7 +209,7 @@ def _deps(stem: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
     ],
 )
 def test_conda_pin_matches_registry(stem: str, package: str) -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     conda, _ = _deps(stem)
     assert f"{package}={TOOLS[stem].version}" in {"=".join(d.split("=")[:2]) for d in conda}
@@ -219,7 +219,7 @@ def test_conda_pin_matches_registry(stem: str, package: str) -> None:
     ("stem", "package"), [("ostir", "ostir"), ("promoter_calculator", "promotercalculator")]
 )
 def test_pip_pin_matches_registry(stem: str, package: str) -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     _, pip = _deps(stem)
     assert f"{package}=={TOOLS[stem].version}" in pip
@@ -260,7 +260,7 @@ def test_terminatornet_sklearn_pin_documented() -> None:
 
 
 def test_example8_read_containers_config(tmp_path: Path) -> None:
-    from giap.annotate.tools import read_containers_config
+    from gippa.annotate.tools import read_containers_config
 
     path = tmp_path / "containers.config"
     ref = f"docker://oschwengers/bakta@sha256:{HEX64}"
@@ -269,7 +269,7 @@ def test_example8_read_containers_config(tmp_path: Path) -> None:
 
 
 def test_containers_config_digests_only() -> None:
-    from giap.annotate.tools import read_containers_config
+    from gippa.annotate.tools import read_containers_config
 
     pins = read_containers_config(CONTAINERS)
     assert pins
@@ -282,7 +282,7 @@ def test_containers_config_digests_only() -> None:
 
 
 def test_containers_config_named_images() -> None:
-    from giap.annotate.tools import read_containers_config
+    from gippa.annotate.tools import read_containers_config
 
     refs = list(read_containers_config(CONTAINERS).values())
     assert any(r.startswith("oschwengers/bakta@") for r in refs)
@@ -294,7 +294,7 @@ def _norm(s: str) -> str:
 
 
 def test_conda_only_tools_have_no_container_and_are_listed() -> None:
-    from giap.annotate.tools import read_containers_config
+    from gippa.annotate.tools import read_containers_config
 
     keys = [_norm(k) for k in read_containers_config(CONTAINERS)]
     text = CONTAINERS.read_text()
@@ -304,7 +304,7 @@ def test_conda_only_tools_have_no_container_and_are_listed() -> None:
 
 
 def test_every_tool_is_containerised_or_conda_only() -> None:
-    from giap.annotate.tools import TOOLS, read_containers_config
+    from gippa.annotate.tools import TOOLS, read_containers_config
 
     keys = [_norm(k) for k in read_containers_config(CONTAINERS)]
     alias = {"transtermhp": "TRANSTERM"}

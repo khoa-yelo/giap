@@ -3,7 +3,7 @@
 side-table column (name, dtype, position, null without ``peptides``), the
 ``novel_orfs.denovo_support`` INFO event with its exact ``data`` and message, and no new WARNING.
 
-Inputs: the giapsim SIM100K local run of ``helpers.novel_steps_fixture`` (as
+Inputs: the gippasim SIM100K local run of ``helpers.novel_steps_fixture`` (as
 tests/unit/steps/test_novel_class_fdr_step.py), its step rerun on hand-built ``peptides``: each
 candidate ORF's own peptides as ``database`` or ``denovo`` C9 rows.
 
@@ -51,21 +51,21 @@ def run1(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path, Path]:
     sim = nf.simulate(root / "sim")
     out = root / "OUT"
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, out)
+        code, log = nf.run_gippa(sim, out)
     assert code == 0, log
     return sim, out, out / "work"
 
 
 @pytest.fixture(scope="module")
 def cfg1(run1: tuple[Any, Path, Path]) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(Path(run1[0].config_yaml), [f"seed={nf.SEED}"])
 
 
 @pytest.fixture(scope="module")
 def orfs(run1: tuple[Any, Path, Path]) -> list[Any]:
-    from giap.steps.novel import read_candidates
+    from gippa.steps.novel import read_candidates
 
     got, _ = read_candidates(run1[2] / "novel_candidates")
     assert len(got) >= 4, got
@@ -99,7 +99,7 @@ class _Rec(logging.Handler):
 
 def _run(cfg: Any, ins: Mapping[str, Any], out: Path) -> tuple[dict, list[logging.LogRecord]]:
     rec = _Rec()
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -298,8 +298,8 @@ def test_example_13_mixed_run_flag_side_cell_and_event(
 def test_no_candidate_orf_event_counts_zero(
     run1: tuple[Any, Path, Path], cfg1: Any, tmp_path: Path
 ) -> None:
-    from giap.io.parquet import write_parquet_deterministic
-    from giap.steps.novel import _CAND_COLS
+    from gippa.io.parquet import write_parquet_deterministic
+    from gippa.steps.novel import _CAND_COLS
 
     _, _, work = run1
     empty = tmp_path / "novel_candidates.parquet"

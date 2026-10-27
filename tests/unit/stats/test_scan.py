@@ -1,6 +1,6 @@
 """Window scan, maximum-statistic null, FWER p-values and window merging (issue M5-03).
 
-GIAP_SPEC.md §7.3.5(d) steps 4-6, §7.3.6 ("scan window enumeration with wrap-around"), §8.1, §8.3;
+GIPPA_SPEC.md §7.3.5(d) steps 4-6, §7.3.6 ("scan window enumeration with wrap-around"), §8.1, §8.3;
 lead decisions 9-10 (2026-10-20): circular windows are capped at n - 1 TUs; windows merge only on
 >= 1 shared TU (touching windows stay separate).
 
@@ -30,9 +30,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import giap
-from giap.stats.permutation import perm_p
-from giap.stats.scan import (
+import gippa
+from gippa.stats.permutation import perm_p
+from gippa.stats.scan import (
     Cluster,
     ScanResult,
     fwer_p,
@@ -42,7 +42,7 @@ from giap.stats.scan import (
     scan_null_max,
 )
 
-SRC = Path(giap.__file__).resolve().parents[1]  # the giap under test (src/ in a checkout)
+SRC = Path(gippa.__file__).resolve().parents[1]  # the gippa under test (src/ in a checkout)
 R2, R3 = math.sqrt(2.0), math.sqrt(3.0)
 
 
@@ -454,7 +454,7 @@ def test_planted_island_detected() -> None:
 _SCRIPT = """
 import json, sys
 import numpy as np
-from giap.stats.scan import scan_max, scan_null_max
+from gippa.stats.scan import scan_max, scan_null_max
 rng = np.random.default_rng(5)
 out = []
 for circular in (False, True):

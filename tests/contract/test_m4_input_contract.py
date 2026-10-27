@@ -2,8 +2,8 @@
 
 Acceptance: "``tests/contract/test_m4_input_contract.py`` validates the M4-07 simulator output
 (example 1) and, once M2/M3 merge, their real outputs" (M4-21 unmarked ``pending_sample``), and
-"``TABLES`` is the single source of the column names; a test asserts [giapsim's] column lists equal
-``TABLES``". The giapsim parts skip until M4-07 adds ``giapsim.layout``/``giapsim.contract_tables``.
+"``TABLES`` is the single source of the column names; a test asserts [gippasim's] column lists equal
+``TABLES``". The gippasim parts skip until M4-07 adds ``gippasim.layout``/``gippasim.contract_tables``.
 """
 
 from __future__ import annotations
@@ -26,17 +26,17 @@ REAL_KEYS = ("replicons", "genes", "xrefs", "annotation_meta", "tus", "layers", 
 
 
 def _sim() -> tuple[object, object]:
-    layout = pytest.importorskip("giapsim.layout", reason="M4-07 not merged yet")
-    tables = pytest.importorskip("giapsim.contract_tables", reason="M4-07 not merged yet")
+    layout = pytest.importorskip("gippasim.layout", reason="M4-07 not merged yet")
+    tables = pytest.importorskip("gippasim.contract_tables", reason="M4-07 not merged yet")
     return layout, tables
 
 
 def test_sim_example1_200_genes_valid(tmp_path: Path) -> None:
-    """Example 1: ``giapsim.write_contract_tables`` for a 200-gene layout loads with no errors."""
+    """Example 1: ``gippasim.write_contract_tables`` for a 200-gene layout loads with no errors."""
     import numpy as np
 
     layout_mod, tables_mod = _sim()
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     work = tmp_path / "work"
     layout = layout_mod.simulate_layout(  # type: ignore[attr-defined]
@@ -55,9 +55,9 @@ def test_sim_example1_200_genes_valid(tmp_path: Path) -> None:
 
 
 def test_sim_columns_equal_tables() -> None:
-    """Drift check both ways: giapsim's literal ``CONTRACT_COLUMNS`` equal ``TABLES``."""
+    """Drift check both ways: gippasim's literal ``CONTRACT_COLUMNS`` equal ``TABLES``."""
     _, tables_mod = _sim()
-    from giap.genetable.contract import TABLES
+    from gippa.genetable.contract import TABLES
 
     sim_cols = tables_mod.CONTRACT_COLUMNS  # type: ignore[attr-defined]
     assert set(sim_cols) <= set(TABLES)
@@ -68,9 +68,9 @@ def test_sim_columns_equal_tables() -> None:
 def test_m1_12_peptides_conform_to_c9(tmp_path: Path) -> None:
     """C9 against the merged M1-12 producer: ``aggregate_peptides`` writes ``protein_ids`` as a
     native list (lead decision 1); its ``peptides.norm.parquet`` loads with no peptides error."""
-    from giap.config.model import InputConfig
-    from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.config.model import InputConfig
+    from gippa.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     tsv = tmp_path / "peptides.tsv"
     tsv.write_text(
@@ -86,7 +86,7 @@ def test_m1_12_peptides_conform_to_c9(tmp_path: Path) -> None:
     agg, _ = aggregate_peptides(df)
     paths = default_paths(tmp_path / "work")
     write_work(build_frames(20), paths)
-    agg.to_parquet(paths["peptides"], engine="pyarrow", index=False)  # as giap.preflight.run
+    agg.to_parquet(paths["peptides"], engine="pyarrow", index=False)  # as gippa.preflight.run
     inputs, issues = load_m4_inputs(paths)
     bad = [i for i in issues if i.severity == "error" and i.code.startswith("contract.peptides.")]
     assert bad == []
@@ -98,7 +98,7 @@ def test_m1_12_peptides_conform_to_c9(tmp_path: Path) -> None:
 
 # --------------------------------------------------------------------------- M4-21 real path
 # Examples 1-3 of docs/specs/M4-21-m2-m3-conformance.md on the outputs of the merged M2 and M3
-# steps (``giap run --executor local`` on giapsim SIM100K with its precomputed layers,
+# steps (``gippa run --executor local`` on gippasim SIM100K with its precomputed layers,
 # tests/helpers/m4_real.py). The M4-06 contract is the arbiter (M4-21 lead decision 1): a failure
 # here is a producer deviation unless the lead rules the contract wrong.
 
@@ -110,13 +110,13 @@ def real(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path]:
 
     root = tmp_path_factory.mktemp("m4_real")
     sim = mr.sim100k(root / "sim")
-    return sim, mr.giap_run(sim, root / "OUT", mc.test_db(root / "db"), SEED)
+    return sim, mr.gippa_run(sim, root / "OUT", mc.test_db(root / "db"), SEED)
 
 
 def _load(work: Path) -> tuple[Any, list[Any]]:
     import m4_real as mr
 
-    from giap.io.work_tables import load_m4_inputs
+    from gippa.io.work_tables import load_m4_inputs
 
     return load_m4_inputs(mr.real_paths(work))
 
@@ -143,7 +143,7 @@ def test_example_1_real_genes_validate(real: tuple[Any, Path]) -> None:
     """Example 1: ``validate_table("genes", ...)`` on M2's ``genes`` returns no errors."""
     import pandas as pd
 
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     genes = pd.read_parquet(real[1] / "genes")
     assert [i.code for i in validate_table("genes", genes) if i.severity == "error"] == []
@@ -172,8 +172,8 @@ def test_example_3_real_peptide_hits_assign_and_are_accepted(real: tuple[Any, Pa
     tests/helpers/placement_sims.py): the others are shared or unplaceable by design."""
     import pandas as pd
 
-    from giap.config import resolve_config
-    from giap.genetable.evidence import accepted_peptides
+    from gippa.config import resolve_config
+    from gippa.genetable.evidence import accepted_peptides
 
     sim, work = real
     inputs, issues = _load(work)

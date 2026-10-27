@@ -17,7 +17,7 @@ round 1: TE7 lives in ``validation/pilot/te7.py``, the CLI ``te_real.py te7`` is
   column names; ``producers`` maps a path to ``{"producer": step, "cpu_classes": {label: [class,
   ...]}}`` (a path absent from it has ``producer = "unknown"``); ``labels`` names the two runs
   (the spec's signature has no labels, example 8 needs ``only_in:rep1``). Returns te7.json's
-  ``giap`` object: ``status``, ``n_gate``, ``n_external``, ``n_figures``, ``n_excluded``,
+  ``gippa`` object: ``status``, ``n_gate``, ``n_external``, ``n_figures``, ``n_excluded``,
   ``differing`` (dicts with ``path``, ``class``, ``sub_class``, ``columns``, ``n_cells``,
   ``max_abs``, ``max_rel``, ``producer``, ``cpu_classes``, in sorted path order),
   ``external_differing`` and ``figures_differing`` (paths, or dicts with ``path``). Classes:
@@ -31,7 +31,7 @@ round 1: TE7 lives in ``validation/pilot/te7.py``, the CLI ``te_real.py te7`` is
   {``files_equal``, ``files_differ``: sorted names}, ``l3`` (None, or {``only_a``, ``only_b``,
   ``both``, ``jaccard_precursors``, ``jaccard_peptides``, ``q_value_differs``,
   ``acceptance_flips``, ``intensity_differs``, ``max_abs_log2_intensity_ratio``});
-* ``te_real.py te7`` writes ``te7.json`` (schema ``giap-pilot-te7/1``) and ``te7_files.tsv``
+* ``te_real.py te7`` writes ``te7.json`` (schema ``gippa-pilot-te7/1``) and ``te7_files.tsv``
   (``path``, ``class``, ``sha256_a``, ``sha256_b``, ``equal``). Run labels: the ``rep\\d+`` of
   each run directory's name, else ``ref`` for the reference and ``rep1`` for the replicate (N3).
   The producing step of a gate file and its CPU classes come from ``logs/trace.tsv``'s ``name``
@@ -105,8 +105,8 @@ def _paths(xs: Any) -> list[str]:
     return [x if isinstance(x, str) else x["path"] for x in xs]
 
 
-def _by_path(giap: Any) -> dict[str, Any]:
-    return {d["path"]: d for d in giap["differing"]}
+def _by_path(gippa: Any) -> dict[str, Any]:
+    return {d["path"]: d for d in gippa["differing"]}
 
 
 # ------------------------------------------------------------------ criterion 6: example 7
@@ -512,10 +512,10 @@ def test_te7_cli_pass_and_layout(tmp_path: Path, repo: Any) -> None:
     raw = (out / "te7.json").read_text(encoding="utf-8")
     doc = json.loads(raw)
     assert raw == json.dumps(doc, sort_keys=True, indent=2) + "\n"
-    assert doc["schema"] == "giap-pilot-te7/1"
-    assert doc["giap"]["status"] == "pass"
-    assert _paths(doc["giap"]["external_differing"]) == ["annotation/tools/promotech/promotech.csv"]
-    assert set(doc) >= {"pair", "giap", "diann", "end_to_end"}
+    assert doc["schema"] == "gippa-pilot-te7/1"
+    assert doc["gippa"]["status"] == "pass"
+    assert _paths(doc["gippa"]["external_differing"]) == ["annotation/tools/promotech/promotech.csv"]
+    assert set(doc) >= {"pair", "gippa", "diann", "end_to_end"}
     with (out / "te7_files.tsv").open(newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))
     assert rows and set(rows[0]) == {"path", "class", "sha256_a", "sha256_b", "equal"}
@@ -531,7 +531,7 @@ def test_te7_cli_fail_is_exit_0_numeric_only(tmp_path: Path, repo: Any) -> None:
     ref, rep = _pair(tmp_path, repo, rep_files)
     out = tmp_path / "metrics"
     _ok(_te7(ref, rep, repo, out))
-    g = _doc(out)["giap"]
+    g = _doc(out)["gippa"]
     assert g["status"] == "fail"
     d = _by_path(g)["tables/genes.tsv"]
     assert d["class"] == "numeric_only" and d["columns"] == ["abundance_log2"]
@@ -651,7 +651,7 @@ def test_te7_different_hosts_no_difference_pass_hosts_recorded(tmp_path: Path, r
     out = tmp_path / "metrics"
     _ok(_te7(ref, rep, repo, out))
     doc = _doc(out)
-    assert doc["giap"]["status"] == "pass"
+    assert doc["gippa"]["status"] == "pass"
     text = json.dumps(doc)
     assert "rye" in text and "wheat" in text  # CPU classes / hosts recorded
 
@@ -666,7 +666,7 @@ def _diann_dirs(
     pair: tuple[Path, Path] | None = None,
 ) -> list[str]:
     """The four DIA-NN flags. With ``pair``, both manifests' ``peptides`` input gets the sha256 of
-    ``--peptides-a`` (the GIAP pair ran on the first search's converted table; S2)."""
+    ``--peptides-a`` (the GIPPA pair ran on the first search's converted table; S2)."""
     da, db = tmp / "diann_a" / "A2", tmp / "diann_b" / "A2"
     for d, rep, node in (
         (da, H["rep"], "rye-02"),
@@ -714,12 +714,12 @@ def test_te7_cli_example_10_nondeterministic_is_not_the_verdict(tmp_path: Path, 
     doc = _doc(out)
     assert doc["diann"]["status"] == "nondeterministic"
     assert doc["diann"]["l3"]["only_a"] == 12 and doc["diann"]["l3"]["only_b"] == 9
-    assert doc["giap"]["status"] == "pass"  # never folded into the verdict
+    assert doc["gippa"]["status"] == "pass"  # never folded into the verdict
     assert doc["end_to_end"] is False
     assert "PEPTIDE" not in json.dumps(doc)  # aggregates only
 
 
-def test_te7_end_to_end_false_when_giap_fails(tmp_path: Path, repo: Any) -> None:
+def test_te7_end_to_end_false_when_gippa_fails(tmp_path: Path, repo: Any) -> None:
     rep_files = ex7_replicate()
     rep_files["tables/islands.tsv"] = ex8_replicate()["tables/islands.tsv"]
     ref, rep = _pair(tmp_path, repo, rep_files)
@@ -727,11 +727,11 @@ def test_te7_end_to_end_false_when_giap_fails(tmp_path: Path, repo: Any) -> None
     _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, True, True, (ref, rep))))
     doc = _doc(out)
     assert doc["diann"]["status"] == "identical_report"
-    assert doc["giap"]["status"] == "fail" and doc["end_to_end"] is False
+    assert doc["gippa"]["status"] == "fail" and doc["end_to_end"] is False
 
 
 def test_te7_peptides_a_not_the_pairs_input_exit_2(tmp_path: Path, repo: Any) -> None:
-    """S2: ``end_to_end`` rests on ``--peptides-a`` being the table the GIAP pair read; a
+    """S2: ``end_to_end`` rests on ``--peptides-a`` being the table the GIPPA pair read; a
     ``--peptides-a`` whose sha256 differs from the manifests' ``peptides`` input is exit 2."""
     ref, rep = _pair(tmp_path, repo)
     out = tmp_path / "metrics"
@@ -769,7 +769,7 @@ def test_te7_two_fresh_replicates_are_labelled_rep1_and_rep2(tmp_path: Path, rep
     _ok(_te7(ref, rep, repo, out))
     doc = _doc(out)
     assert set(doc["pair"]) == {"rep1", "rep2"}
-    assert _by_path(doc["giap"])["tables/extra_first.tsv"]["class"] == "only_in:rep1"
+    assert _by_path(doc["gippa"])["tables/extra_first.tsv"]["class"] == "only_in:rep1"
 
 
 def test_te7_reference_without_rep_number_is_ref(tmp_path: Path, repo: Any) -> None:
@@ -783,13 +783,13 @@ def test_te7_reference_without_rep_number_is_ref(tmp_path: Path, repo: Any) -> N
 
 #: real trace ``name`` values: the Nextflow alias after the last ``:`` (S3)
 TRACE_NAMES = (
-    "GIAP:CONTEXT:CONTEXT_STATS (chr1)",
-    "GIAP:VARIANTS:VARIANTS_STEP (chr1)",
-    "GIAP:FUNCTION:FUNCTION_STEP",
-    "GIAP:OPERONS:OPERONS_STEP",
-    "GIAP:DETERMINANTS:DETERMINANTS_STEP",
-    "GIAP:REPORT:PLOTS",
-    "GIAP:REPORT:REPORT_HTML",
+    "GIPPA:CONTEXT:CONTEXT_STATS (chr1)",
+    "GIPPA:VARIANTS:VARIANTS_STEP (chr1)",
+    "GIPPA:FUNCTION:FUNCTION_STEP",
+    "GIPPA:OPERONS:OPERONS_STEP",
+    "GIPPA:DETERMINANTS:DETERMINANTS_STEP",
+    "GIPPA:REPORT:PLOTS",
+    "GIPPA:REPORT:REPORT_HTML",
 )
 REGIONS_A = (
     b"region_id\tmetric\tn_genes\thl_shift_log2\teffect\tci_low\tci_high\tp_value\n"
@@ -838,7 +838,7 @@ def _producer_pair(
         write_named_trace(rep, [(n, "wheat-03") for n in rep_trace])
     out = tmp / "metrics"
     _ok(_te7(ref, rep, repo, out))
-    return _by_path(_doc(out)["giap"])
+    return _by_path(_doc(out)["gippa"])
 
 
 def test_producers_from_real_trace_names_and_aliases(tmp_path: Path, repo: Any) -> None:
@@ -912,7 +912,7 @@ def test_known_columns_file_lists_numeric_schema_columns() -> None:
     assert "regions_stats.tsv" in tables
     for r in rows:
         stem = Path(r["table"]).name.removesuffix(".tsv")
-        schema = REPO / "src" / "giap" / "schemas" / "tables" / f"{stem}.schema.json"
+        schema = REPO / "src" / "gippa" / "schemas" / "tables" / f"{stem}.schema.json"
         assert schema.is_file(), r
         types = {
             f["name"]: f.get("type")

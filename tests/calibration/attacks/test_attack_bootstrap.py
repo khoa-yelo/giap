@@ -1,4 +1,4 @@
-"""Attack nulls for the M4-04 TU-block bootstrap (GIAP_SPEC.md §8.2, §8.5; statistician-owned).
+"""Attack nulls for the M4-04 TU-block bootstrap (GIPPA_SPEC.md §8.2, §8.5; statistician-owned).
 
 Each generator stresses the TU-block percentile CI (docs/methods/bootstrap.md) while staying inside
 its assumptions (TUs independent, exchangeable within a stratum):
@@ -40,9 +40,9 @@ import pytest
 from _gate import NOT_FAILED
 from scipy.stats import t as student_t
 
-from giap.rng import for_step
-from giap.stats.bootstrap import BootCI, tu_block_bootstrap
-from giap.stats.robust import hodges_lehmann
+from gippa.rng import for_step
+from gippa.stats.bootstrap import BootCI, tu_block_bootstrap
+from gippa.stats.robust import hodges_lehmann
 
 LEVEL = 0.95
 B = 1000

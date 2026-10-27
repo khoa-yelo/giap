@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "giap"
+name = "gippa"
 dynamic = ["version"]
-description = "GIAP: genome-integrated analysis of proteomics data for bacterial genomes"
+description = "GIPPA: genome integrated prokaryotic proteomics analysis"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -59,19 +59,19 @@ dev = [
 docs = ["mkdocs-material"]
 
 [project.scripts]
-giap = "giap.cli:main"
+gippa = "gippa.cli:main"
 
 [tool.hatch.version]
-path = "src/giap/__init__.py"
+path = "src/gippa/__init__.py"
 
-# The wheel carries workflow/ as giap/workflow/ (workflow_main(), spec §6.3); hatch keeps file modes.
+# The wheel carries workflow/ as gippa/workflow/ (workflow_main(), spec §6.3); hatch keeps file modes.
 [tool.hatch.build.targets.wheel]
-only-include = ["src/giap", "workflow"]
+only-include = ["src/gippa", "workflow"]
 exclude = ["workflow/tests", "workflow/work", "workflow/.nf-test*", "workflow/.nextflow*"]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = ""
-"workflow" = "giap/workflow"
+"workflow" = "gippa/workflow"
 
 # sdist: Q-L1 default (M11-01 item 3); README, LICENSE and pyproject are also added by hatch.
 [tool.hatch.build.targets.sdist]
@@ -103,14 +103,14 @@ markers = [
   "needs_bakta_full: Bakta full DB",
   "needs_genomad_db: geNOMAD DB v1.9",
   "needs_promotech_models: RF-HOT.model present",
-  "needs_diann: the DIA-NN 2.3.1 image ($DIANN_SIF) or DIA-NN 2.7.0 under GIAP_TOOLS_DIR",
+  "needs_diann: the DIA-NN 2.3.1 image ($DIANN_SIF) or DIA-NN 2.7.0 under GIPPA_TOOLS_DIR",
   "needs_net(host): the named host is reachable",
   "slow: longer than 60 s",
   "calibration: fast calibration subset",
   "calibration_full: full calibration suite",
   "calsuite(name): tolerances.yaml suite (array task) of a calibration test (also registered in tests/calibration/conftest.py)",
   "e2e: end-to-end runs on real genomes",
-  "requires_r: runs R fgsea in the giap-fgsea env (Slurm only, never in CI)",
+  "requires_r: runs R fgsea in the gippa-fgsea env (Slurm only, never in CI)",
   "gnu_userland: runs FarmShare scripts that need sha256sum, flock, GNU realpath/stat (skipped elsewhere; Sandbox.run skips too)",
   "x87_longdouble: needs the 80-bit x87 np.longdouble (skipped on arm64)",
   "pending_sample: contract test waiting for a recorded tool output sample (§5.4)",
@@ -128,12 +128,12 @@ extend-exclude = ["*.md", ".claude/"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["giap", "giapsim"]
+known-first-party = ["gippa", "gippasim"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/giap"]
+files = ["src/gippa"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
@@ -141,17 +141,17 @@ module = ["ahocorasick", "numba.*", "scipy.*", "sklearn.*", "statsmodels.*", "li
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["giap"]
+source = ["gippa"]
 branch = true
 
 [tool.towncrier]
 directory = "changelog.d"
 filename = "CHANGELOG.md"
-package = "giap"
+package = "gippa"
 package_dir = "src"
-name = "GIAP"
-title_format = "## GIAP {version} ({project_date})"
-issue_format = "[#{issue}](https://github.com/khoa-yelo/giap/pull/{issue})"
+name = "GIPPA"
+title_format = "## GIPPA {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/khoa-yelo/gippa/pull/{issue})"
 
 [[tool.towncrier.type]]
 directory = "feature"

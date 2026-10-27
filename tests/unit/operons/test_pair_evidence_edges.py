@@ -13,11 +13,11 @@ import pandas as pd
 import pytest
 from helpers.pairs_data import evidence, frame, genes_of, reps, rna_frame, row
 
-from giap.annotate.operons import adjacent_pairs
-from giap.annotate.promoter_calculator import tx_rate_between
-from giap.annotate.promoters import promoter_between
-from giap.annotate.terminators import Terminator
-from giap.model.coords import Interval
+from gippa.annotate.operons import adjacent_pairs
+from gippa.annotate.promoter_calculator import tx_rate_between
+from gippa.annotate.promoters import promoter_between
+from gippa.annotate.terminators import Terminator
+from gippa.model.coords import Interval
 
 RING = reps(("c1", 1000, "circular"))
 LINE = reps(("c1", 5000, "linear"))

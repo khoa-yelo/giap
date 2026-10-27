@@ -18,7 +18,7 @@ counted) · capabilities: none (fixtures from M2-10; live runs in M2-21 need `ne
 
 ## Public interface
 
-`src/giap/annotate/genomad.py`, `genomad_cmd.py`, `antismash.py`, `antismash_cmd.py`.
+`src/gippa/annotate/genomad.py`, `genomad_cmd.py`, `antismash.py`, `antismash_cmd.py`.
 ```python
 def genomad_command(genome: Path, outdir: Path, db: Path, threads: int) -> list[str]
 @dataclass(frozen=True, slots=True)
@@ -93,7 +93,7 @@ core genes = CDS features in the area whose qualifier `gene_kind` contains `bios
    locations parse; `start > end` on a linear contig and unknown contigs raise; `;`-split lists, `NA` →
    `()`; parsers read `genomad/genome_summary/` and `antismash/<name>.json`).
 2. The ANTISMASH process and `antismash_cmd` pass `--databases <db_dir>/antismash` (the databases
-   `giap setup` installed and verified; the DB directory is bound read-only since #78), as the recorded
+   `gippa setup` installed and verified; the DB directory is bound read-only since #78), as the recorded
    real runs did. The cmd-sync pair covers it.
 3. No py step in M2-18; M2-19's `region_layer` registers the parsing step and must match annotate.nf's
    `stepIn('region_layer', …)` keys.

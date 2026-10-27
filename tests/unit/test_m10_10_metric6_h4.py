@@ -4,7 +4,7 @@ statistician review S1-S6 and the lead decisions).
 
 Frames are written under their schemas and read back with the reader ``metrics.py`` uses
 (``helpers.a3_metrics_m10_10b.frame``); Wilson intervals are checked against an independent
-textbook implementation (``helpers.a3_metrics_m10_10b.wilson``), never ``giap``'s ``wilson_ci``.
+textbook implementation (``helpers.a3_metrics_m10_10b.wilson``), never ``gippa``'s ``wilson_ci``.
 
 Interface fixed here (test-author choices where the spec names a function but not its layout;
 each is reversible):
@@ -736,7 +736,7 @@ def _tied_bins() -> tuple[pd.DataFrame, set[str], list[int], dict[int, int]]:
     ties, every other bin 20). Every peptide is confirmed (k_b = n_b)."""
     import numpy as np
 
-    from giap.mapping.denovo_precision import score_bins
+    from gippa.mapping.denovo_precision import score_bins
 
     scores = [
         *(0.80 + 0.05 * i / 61 for i in range(1, 61)),
@@ -1013,15 +1013,15 @@ def test_verdict_never_supported_and_follows_rule(
 
 
 def _cfg() -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(seed=7)
+    return GippaConfig(seed=7)
 
 
 def test_denovo_queries_use_the_maximum_score(M: Any, tmp_path: Path) -> None:
     """S1: one peptide on three rows with scores 0.85, 0.99, 0.90 (first row lowest) is one
     query with score 0.99 (``aggregate_peptides`` before ``select_queries``)."""
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     others = synthetic_peptides(12)
     rows = [
@@ -1041,8 +1041,8 @@ def test_denovo_queries_use_the_maximum_score(M: Any, tmp_path: Path) -> None:
 
 def test_multi_row_peptide_lands_in_the_bin_of_its_maximum(M: Any, tmp_path: Path) -> None:
     """S1 end to end: with the first-row score (0.80) the peptide would sit in bin 0; it must
-    be counted in the top bin, whose score labels GIAP's mapping step wrote."""
-    from giap.io.peptides import read_peptide_table
+    be counted in the top bin, whose score labels GIPPA's mapping step wrote."""
+    from gippa.io.peptides import read_peptide_table
 
     others = synthetic_peptides(39)
     rows = [dn_row("GHWNQSTAK", 0.80, scan=1), dn_row("GHWNQSTAK", 0.999, run="WT_2", scan=2)]

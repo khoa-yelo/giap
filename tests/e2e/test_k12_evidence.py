@@ -1,9 +1,9 @@
 """The MVP-04 K-12 evidence run: every acceptance gate (docs/specs/MVP-04-ecoli-evidence-run.md,
 "Acceptance criteria and expected numbers", Q9, Q10, lead decisions 1 and 3).
 
-Reads ``$GIAP_MVP04_OUT/evidence_summary.json``, written by ``scripts/dev/mvp04_summary.py`` from
-the run's published outputs, the giapsim inputs and the second giapsim call (gate 9). Skips when
-``$GIAP_MVP04_OUT`` is unset; fails when it is set but the summary is missing. Runs weekly (Q9)
+Reads ``$GIPPA_MVP04_OUT/evidence_summary.json``, written by ``scripts/dev/mvp04_summary.py`` from
+the run's published outputs, the gippasim inputs and the second gippasim call (gate 9). Skips when
+``$GIPPA_MVP04_OUT`` is unset; fails when it is set but the summary is missing. Runs weekly (Q9)
 and once for the acceptance run, never in CI or in the session allocation.
 
 The gates are constants **here**, checked against the raw values in the summary, independently of
@@ -26,7 +26,7 @@ import pytest
 
 pytestmark = [pytest.mark.e2e, pytest.mark.slow]
 
-ENV = "GIAP_MVP04_OUT"
+ENV = "GIPPA_MVP04_OUT"
 GATES = [str(n) for n in range(1, 17)]
 FORBIDDEN = ("decoy_unscored", "decoy_pairing_low", "q_floor_above_alpha", "no_eligible_genes")
 

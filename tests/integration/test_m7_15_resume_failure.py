@@ -1,7 +1,7 @@
 """Resume and failure paths of VARIANTS and NOVEL under Nextflow (docs/specs/M7-15-integration-
-hardening.md item 3, examples 2 and 3; GIAP_SPEC.md §3.8 "Resume", §6.3 exit 4, §11.2).
+hardening.md item 3, examples 2 and 3; GIPPA_SPEC.md §3.8 "Resume", §6.3 exit 4, §11.2).
 
-``giap run`` through the CLI on the 50-kb M7 fixture's reference genome and de novo peptides,
+``gippa run`` through the CLI on the 50-kb M7 fixture's reference genome and de novo peptides,
 in stub mode: the M2-21 ``nextflow`` wrapper (tests/integration/test_m2_21_resume_failure.py)
 swaps the profile for ``test,stub`` and adds ``-stub-run``; ``M7_15_EXTRA_CONFIG`` appends an
 injected fault with ``-c``. No ``--config`` is given, so no layer is precomputed and NOVEL runs
@@ -11,14 +11,14 @@ its tool tasks (PROMOTECH_NOVEL, OSTIR_NOVEL; ``params.stub.novel_windows_chunks
   ``CACHED`` (and there is at least one of each). Observed before M7-15 (Slurm 1869582): the
   unchanged resume re-executes 8 of 39 tasks -- GENETABLE:GENE_TABLE, DETECTABILITY,
   CONTEXT_STATS, SENSITIVITY, OPERONS_STEP, NOVEL:NOVEL_ORFS, ... -- so some GENETABLE input
-  changes between two identical ``giap run`` calls;
+  changes between two identical ``gippa run`` calls;
 * item 3: ``--resume`` with ``--set variants.high_min_peptides=3`` re-runs exactly the
   ``variants`` step task; every other task is ``CACHED``. (Today the resolved config is read by
   path, not hashed, so a config change re-runs nothing: the step's config must enter its task
   hash, e.g. as the slice of the config the step reads.)
-* example 3: OSTIR_NOVEL forced to exit 1 (``beforeScript = 'exit 1'``) -> ``giap run`` exits 4,
+* example 3: OSTIR_NOVEL forced to exit 1 (``beforeScript = 'exit 1'``) -> ``gippa run`` exits 4,
   its message names ``ostir_novel`` (any case) and an existing ``.command.log`` of the failed
-  task (the M2-21 example 6 contract of ``giap.runner.nextflow``), and the trace's only FAILED
+  task (the M2-21 example 6 contract of ``gippa.runner.nextflow``), and the trace's only FAILED
   task is OSTIR_NOVEL.
 """
 
@@ -65,16 +65,16 @@ def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 @pytest.fixture
 def stub_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
     real = shutil.which("nextflow")
     if real is None:
         pytest.skip("nextflow not on PATH")
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "bin"
@@ -153,7 +153,7 @@ def test_item_3_changed_high_min_peptides_reruns_only_variants(
 def test_example_3_failed_ostir_novel_exits_4_naming_it_and_its_log(
     sim: Any, stub_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.exitcodes import ExitCode
+    from gippa.exitcodes import ExitCode
 
     fault = tmp_path / "fault.config"
     fault.write_text(OSTIR_FAIL)

@@ -18,7 +18,7 @@ estimate ≈ 260 code lines (+ ≈ 350 test lines) · **statistical** (label `st
 
 ## Public interface
 
-`src/giap/function/gsea.py` (pure)
+`src/gippa/function/gsea.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class TuRanking:
@@ -195,7 +195,7 @@ TU order. Rows with δ ≥ τ carry no level claim under positional autocorrelat
 **TU order.** Take the ranked TUs (`TuRanking.tu_ids`) and split them by replicon (`contig` of
 their scoring genes; all the genes of a TU share one contig). Within a replicon r, keep the
 natural TU-ID order and index the TUs i = 0 … n_r − 1. Let n = Σ_r n_r be the number of ranked TUs.
-- *Do TU IDs follow genome order?* Yes. `giap.annotate.operons.build_tus` numbers `TU_<n>` by
+- *Do TU IDs follow genome order?* Yes. `gippa.annotate.operons.build_tus` numbers `TU_<n>` by
   contig (FASTA order), then start, then strand (+ before −). Natural sort of the IDs is therefore
   genome order within each contig. A TU that crosses the origin starts at its first gene, near the
   end of the ring, so it gets the last number on that replicon. It is still adjacent to TU 0
@@ -229,7 +229,7 @@ counts gaps: every-other-TU sets have δ ≈ 0.4, which a "runs of ≥ m adjacen
 **Inputs.** `TuRanking` (tu_ids, tu_genes), the gene frame's `contig` column, the C1 replicons
 (`contig`, `topology`), and the per-set TU membership from `tu_sets`. `gsea_table` gains one
 argument, `replicons` (a `contig → topology` mapping or the C1 frame). Any topology other than
-`"circular"` is linear, as in `giap.context.autocorrelation`. Cost is O(Σ_S k·10) after sorting:
+`"circular"` is linear, as in `gippa.context.autocorrelation`. Cost is O(Σ_S k·10) after sorting:
 a member only needs its next ≤ 10 members on the same replicon. The circular seam needs care.
 
 #### 9b. `detection_confounded`: the detection difference that can produce the observed direction
@@ -446,7 +446,7 @@ Positions are indices in the ranked order of one replicon unless stated.
    Both flag claims are per-row level, not FDR among unflagged rows.
 7. **Unflagged ≠ calibrated beyond these worlds.** Both flags are tuned on the probe's AR(1) and
    logistic-detection worlds. Real sets can combine both structures; a row can carry both flags.
-8. **Realistic-set check.** RegulonDB operons stand in for GIAP TUs, and gene-name and keyword
+8. **Realistic-set check.** RegulonDB operons stand in for GIPPA TUs, and gene-name and keyword
    families stand in for COG/GO sets, because no COG/GO gene mapping for K-12 is on disk. Flag
    rates on real collections should be recorded by M8-15 on the first real E. coli run.
 10. **After the code and statistician reviews (PR #171):**

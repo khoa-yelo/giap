@@ -1,14 +1,14 @@
-"""``giap run --executor local`` through the mapping steps (issue M3-17 examples 2, 3, 5;
-GIAP_SPEC.md §6.3, §6.4, §7.2.9).
+"""``gippa run --executor local`` through the mapping steps (issue M3-17 examples 2, 3, 5;
+GIPPA_SPEC.md §6.3, §6.4, §7.2.9).
 
-Inputs: a 50-kb giapsim genome with M3-19 proteomics and every precomputed layer
+Inputs: a 50-kb gippasim genome with M3-19 proteomics and every precomputed layer
 (``config.yaml``, §6.4), ``--modules core``. Ambiguities resolved here:
 
 * Example 2: the seven §7.2.9 files exist in one directory under ``OUT`` (``OUT/mapping`` per
   §9.1 is expected; any directory holding all seven is accepted); ``protein_hits.tsv`` is exactly
-  its header line (``giap.mapping.outputs.PROTEIN_HITS_COLUMNS``).
+  its header line (``gippa.mapping.outputs.PROTEIN_HITS_COLUMNS``).
 * Example 3: with ``--proteins`` the local executor cannot run miniprot (no precomputed protein
-  layer exists, §6.4): exit 4 (§6.3 "giap run exits 4 naming the failed step") and a message
+  layer exists, §6.4): exit 4 (§6.3 "gippa run exits 4 naming the failed step") and a message
   naming ``miniprot``; nothing is written to the mapping tables.
 * Example 5: ``--executor nextflow --profile farmshare_local`` on the same inputs and seed gives
   byte-identical ``mapping/*.tsv`` (needs Nextflow; slow).
@@ -23,21 +23,21 @@ import pytest
 from click.testing import CliRunner
 from helpers.mapping_steps import MAPPING_TSVS, MODULE2_FILES, module2_files, write_test_db
 
-from giap.mapping.outputs import PROTEIN_HITS_COLUMNS
+from gippa.mapping.outputs import PROTEIN_HITS_COLUMNS
 
 SEED = 7
 
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``giap run`` runs preflight: a test ``$GIAP_DB_DIR``, never the real one (M3-17 rev. 12)."""
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
+    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     out = tmp_path_factory.mktemp("sim50k")
     cfg = SimConfig(proteomics=ProteomicsConfig(), write_precomputed=True)
@@ -52,7 +52,7 @@ def _args(sim: Any, out: Path, *extra: str) -> list[str]:
 
 
 def _run(args: list[str]) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, args)
 

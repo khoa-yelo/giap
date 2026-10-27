@@ -1,4 +1,4 @@
-"""Hypothesis properties of the M5-11 extension of ``giapsim.fixtures.build_m4_fixture``.
+"""Hypothesis properties of the M5-11 extension of ``gippasim.fixtures.build_m4_fixture``.
 
 Spec "Interface": ``build_m4_fixture(..., oric_frac: float | None = 0.8, islands:
 Sequence[IslandSpec] = ())`` -- the builder writes C15 ``features.parquet`` and can plant
@@ -39,7 +39,7 @@ ORIC_LEN = 232
 
 
 def _build(work: Path, seed: int, **kw: Any) -> Path:
-    from giapsim.fixtures import build_m4_fixture
+    from gippasim.fixtures import build_m4_fixture
 
     work.mkdir(parents=True, exist_ok=True)
     build_m4_fixture(work, seed=seed, size="sim1000", **kw)
@@ -101,7 +101,7 @@ def test_default_oric_frac_is_0_8(tmp_path: Path) -> None:
 def test_islands_change_the_expression_not_the_layout(
     tmp_path_factory: pytest.TempPathFactory, seed: int, first: int, n_tus: int, effect: float
 ) -> None:
-    from giapsim.expression import IslandSpec
+    from gippasim.expression import IslandSpec
 
     root = tmp_path_factory.mktemp("isl")
     plain = _build(root / "plain", seed)
@@ -124,7 +124,7 @@ def _has_peptides(work: Path, first: int, n_tus: int) -> bool:
 
 
 def test_an_island_outside_its_replicon_raises(tmp_path: Path) -> None:
-    from giapsim.expression import IslandSpec
+    from gippasim.expression import IslandSpec
 
     with pytest.raises(ValueError, match="island"):
         _build(tmp_path / "w", 1, islands=(IslandSpec("chr1", 10_000, 5, 3.0),))

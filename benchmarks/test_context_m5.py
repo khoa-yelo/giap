@@ -39,8 +39,8 @@ CASE = m5.IslandCase("sim4500_bench", "sim4500", 4500, 20, 3.0, m5.ISLAND.detect
 
 @pytest.fixture(scope="module")
 def work(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, Any]:
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
 
     root = tmp_path_factory.mktemp("m5_bench")
     w = m5.build_island(root / "work", SEED, CASE)
@@ -52,7 +52,7 @@ def work(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, Any]:
 
 
 def test_context_stats_m5_budget_sim4500(benchmark: Any, work: tuple[Path, Path, Any]) -> None:
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     w, db, cfg = work
 

@@ -26,14 +26,14 @@ Trigger: `workflow_dispatch` only, inputs:
 Top-level `permissions: contents: read`. Jobs:
 
 1. **`verify`** (any actor): checkout with `fetch-depth: 0` at `github.sha`; refuse unless
-   `github.ref == 'refs/heads/main'`; `giap.__version__ == inputs.version`; tag `v<version>` absent
+   `github.ref == 'refs/heads/main'`; `gippa.__version__ == inputs.version`; tag `v<version>` absent
    (`git ls-remote --tags origin`); `readiness.py verify validation/release/<version>/readiness.json`
    exits 0 **and** its `overall` is `pass` — for `dry_run: true` a `pending`/`fail` overall is
    printed as a warning and the job continues (so pass 1 can rehearse); for `dry_run: false, target: pypi` it is
    fatal. For `target: testpypi` (the rehearsal) a missing or non-pass readiness is a warning, and
    an `rc` version reads the base version's file (`1.0.0rc1` → `validation/release/1.0.0/`).
 2. **`build`** (`needs: verify`): `uv build`; `check_dist.py dist --version <version>`; the M11-01
-   clean-venv smoke; `scripts/release/notes.py <version>` extracts the `## GIAP <version> (…)`
+   clean-venv smoke; `scripts/release/notes.py <version>` extracts the `## GIPPA <version> (…)`
    section of `CHANGELOG.md` into `notes.md` (exit 1 if absent, except with `--draft`, which `dry_run: true` passes: then the towncrier draft for the version is used, headed `DRAFT`; for `rc` versions the base version's
    section, prefixed "Release candidate"); upload `dist/` and `notes.md` as artefacts.
 3. **`publish`** (`needs: build`, `if: !inputs.dry_run && github.actor == 'khoa-yelo'`):
@@ -42,7 +42,7 @@ Top-level `permissions: contents: read`. Jobs:
    set for TestPyPI. Uploads exactly the artefacts `build` produced.
 4. **`github-release`** (`needs: publish`, same `if`, and `inputs.target == 'pypi'`):
    `permissions: contents: write`; `gh release create v<version> dist/* --target <github.sha>
-   --title "GIAP <version>" --notes-file notes.md` (`--prerelease` for `rc`). This is the only place
+   --title "GIPPA <version>" --notes-file notes.md` (`--prerelease` for `rc`). This is the only place
    a tag is created. Zenodo archives it through its webhook (Q-K3).
 5. **summary**: a step summary table: version, sha, readiness overall, artefact names + sha256,
    what was (not) published.
@@ -53,9 +53,9 @@ Third-party actions pinned by commit SHA with the tag in a comment (Q-L5). No se
 
 | # | Dispatch | Expected |
 |---|---|---|
-| 1 | lead: `version=0.0.1 dry_run=true` on main after M11-01–03 (no readiness file, `CHANGELOG.md` unbuilt) | verify warns `readiness missing: validation/release/0.0.1/readiness.json` and continues; build passes; `notes.py --draft` finds no `## GIAP 0.0.1` section and uses the `towncrier build --draft --version 0.0.1` text, headed `DRAFT`; run green; summary `dry run: nothing published` |
+| 1 | lead: `version=0.0.1 dry_run=true` on main after M11-01–03 (no readiness file, `CHANGELOG.md` unbuilt) | verify warns `readiness missing: validation/release/0.0.1/readiness.json` and continues; build passes; `notes.py --draft` finds no `## GIPPA 0.0.1` section and uses the `towncrier build --draft --version 0.0.1` text, headed `DRAFT`; run green; summary `dry run: nothing published` |
 | 2 | `version=0.0.1 dry_run=false target=pypi` by Khoa, same state | verify fails: `readiness missing` is fatal for a PyPI publish |
-| 3 | `version=1.0.0 dry_run=true` while `__version__ = "0.0.1"` | verify fails: `version input 1.0.0 != giap 0.0.1` |
+| 3 | `version=1.0.0 dry_run=true` while `__version__ = "0.0.1"` | verify fails: `version input 1.0.0 != gippa 0.0.1` |
 | 4 | `version=1.0.0 dry_run=false target=pypi` by an actor other than `khoa-yelo` | verify and build run; publish and github-release are **skipped**; summary: `publish skipped: actor <x> is not khoa-yelo` |
 | 5 | Khoa: `version=1.0.0rc1 dry_run=false target=testpypi` | environment approval prompt; upload to TestPyPI; no tag, no GitHub release |
 | 6 | Khoa: `version=1.0.0 dry_run=false target=pypi`, readiness `pass` | upload to PyPI; tag `v1.0.0` on `github.sha`; GitHub release with `notes.md` and both artefacts |
@@ -67,7 +67,7 @@ Third-party actions pinned by commit SHA with the tag in a comment (Q-L5). No se
 
 - **Re-run after a failed publish** (PyPI accepted the wheel, the release step failed): PyPI rejects
   re-uploads; `publish` sets `skip-existing: true` only when the existing file's sha256 equals the
-  built one (checked against `https://pypi.org/pypi/giap/<v>/json` before upload); otherwise fail.
+  built one (checked against `https://pypi.org/pypi/gippa/<v>/json` before upload); otherwise fail.
 - **Readiness for a different commit**: handled by `verify`'s commit rule (M11-03).
 - **`rc` versions**: PEP 440 `1.0.0rc1`; tag `v1.0.0rc1` only if Khoa ever targets PyPI with an rc
   (not the default).

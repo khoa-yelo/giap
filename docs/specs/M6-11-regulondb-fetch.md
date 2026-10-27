@@ -13,7 +13,7 @@ lines) · not statistical (M6-12 is)
 | 2026-10-21 (this issue) | TLS handshake + `GET /` with the official GlobalSign intermediate added to the CA bundle | **HTTP 200**; the server certificate was issued 2026-10-14 by "GlobalSign GCC R46 OV TLS CA 2025" and the deployment **does not send the intermediate**, so a normal client fails with `unable to get local issuer certificate`. The matching root (`GlobalSign_Root_R46.pem`) is already in FarmShare's trust store. |
 
 So the likely cause is a server-side incomplete certificate chain introduced on 2026-10-14, not a
-block or an outage. **This needs Khoa, not the lead:** may GIAP fetch the intermediate from
+block or an outage. **This needs Khoa, not the lead:** may GIPPA fetch the intermediate from
 GlobalSign's own CA endpoint (`http://secure.globalsign.com/cacert/gsgccr46ovtlsca2025.crt`) and
 pin it for this download, or must we wait for RegulonDB to publish a complete chain? R6 is not at
 issue (the data would come from RegulonDB itself; no mirror, no unofficial copy), but trusting a
@@ -25,7 +25,7 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 ## Spec sections implemented (when unblocked)
 
 - §15.3 table row (quoted verbatim; the release of record is **14.5.0**, decision 8): "RegulonDB v12 | transcription units and terminators | §15.4. Not committed;
-  downloaded to `$GIAP_DATA_DIR` by `validation/fetch_regulondb.py`".
+  downloaded to `$GIPPA_DATA_DIR` by `validation/fetch_regulondb.py`".
 - §15.4 steps 1–2: "Inputs. The K-12 Bakta JSON (recorded), UniOP and TerminatorNet run on the K-12
   genome"; "Pair truth. A same-strand adjacent pair is positive when both genes lie in one
   RegulonDB transcription unit. It is negative when they lie in different TUs and no TU contains
@@ -36,7 +36,7 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 ## Scope
 
 1. `validation/fetch_regulondb.py`: download the 14.5.0 TU and terminator datasets to
-   `$GIAP_DATA_DIR/regulondb/<version>/`, record URL, date, bytes and SHA-256 in a provenance JSON
+   `$GIPPA_DATA_DIR/regulondb/<version>/`, record URL, date, bytes and SHA-256 in a provenance JSON
    beside them, verify before use, never commit the data. Same shape as
    `validation/fetch_uniprot_k12.py` (merged).
 2. `validation/regulondb_truth.py`: parse TUs and terminators; map RegulonDB gene identifiers to
@@ -89,10 +89,10 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 1. **Verify before use (blocking).** `build` loads `provenance.json`, checks bytes and SHA-256 of every
    file it reads, and fails on a mismatch or a missing sidecar (ADR-0017). `truth_summary.json` carries
    the release and the three hashes. Tests: a tampered file, a missing sidecar.
-2. **Adjacency is the pipeline's (blocking).** Pairs come from `giap.annotate.operons.adjacent_pairs`
+2. **Adjacency is the pipeline's (blocking).** Pairs come from `gippa.annotate.operons.adjacent_pairs`
    (M2-12, the definition `pairs_raw` and UniOP use), filtered to the contig and same strand, so the
    circular wrap pair is included; the RegulonDB-only gap check is circular-aware. Test: a wrap pair.
-3. **Labels follow GIAP_SPEC §15.4.** One RegulonDB TU containing both genes → **positive**, even when
+3. **Labels follow GIPPA_SPEC §15.4.** One RegulonDB TU containing both genes → **positive**, even when
    an unmapped RegulonDB gene lies between them (the real data blocked dnaK–dnaJ, ftsA–ftsZ, pdhR–aceE).
    The RegulonDB-only-gene exclusion is kept **only for the negative case** (an unmapped gene between two
    genes of different TUs makes the negative ambiguous). This supersedes the degenerate row's wording.

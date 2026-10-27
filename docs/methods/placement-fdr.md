@@ -1,6 +1,6 @@
 # Placement FDR: genome decoys, chance hits and per-stratum q-values
 
-Implements the genome side of GIAP_SPEC.md §7.2.1 (decoy translations), §7.2.5 (placement FDR, G3),
+Implements the genome side of GIPPA_SPEC.md §7.2.1 (decoy translations), §7.2.5 (placement FDR, G3),
 §8.1 rows "Peptide placed at a locus", §8.2 "decoys mimic targets", §8.5 attack 5 and Appendix
 B.2/B.6. Issues: M3-03 (decoys, this section), M3-09 (chance hits), M3-10 (strata and q-values),
 M3-21 (genome-level calibration). Engine for the q-values: `docs/methods/target-decoy.md`.
@@ -63,7 +63,7 @@ circular replicon (≈ 2 × 10⁻⁵ of a 5-Mb space, conservative, negligible).
   reverse of the m-neighbourhood of w for substitutions; adjacent swaps and the mass-equivalence
   operations are closed under reversal because the operation tables list both orders). Positional
   laws that are not reversal-symmetric (tryptic C-terminal K/R) still agree in expectation when the
-  genome's L-mers are reversal-exchangeable; the attack suite confirms it on giapsim genomes.
+  genome's L-mers are reversal-exchangeable; the attack suite confirms it on gippasim genomes.
 - **It keeps everything structural.** Composition per window, repeats, low-complexity runs and the
   stop geometry are kept, so the decoy reproduces the de-duplication that repeats impose on the
   target (see the low-complexity results below: shuffle over-counts by 40–70 % there, reverse is
@@ -103,7 +103,7 @@ proteins (see "Limitations").
 
 ### Evidence
 
-**Implementation review (M3-03, `src/giap/mapping/decoys.py`).**
+**Implementation review (M3-03, `src/gippa/mapping/decoys.py`).**
 
 - The shuffle swaps slot l of a window with a uniform slot in [0, l] in increasing l (Durstenfeld's
   forward variant of Fisher–Yates), which is uniform over the l! orders by induction; swaps never
@@ -117,7 +117,7 @@ proteins (see "Limitations").
   tables, §6.6).
 
 **Attack suite (`tests/calibration/attacks/test_attack_genome_decoys.py`).** Fast suite: R = 50
-giapsim genomes of 100 kb (seeds 20261014 + i); full suite R = 300. For each genome the *exact*
+gippasim genomes of 100 kb (seeds 20261014 + i); full suite R = 300. For each genome the *exact*
 expected hit probability of an i.i.d. peptide drawn from the genome's six-frame residue
 frequencies is computed on the distinct L-mers of the target and of each decoy (no peptide sampling
 noise), and three sampled peptide sets are searched.
@@ -253,11 +253,11 @@ total = observed / E = stop × cond. Mean over replicates, m = 0 / 1 / 2:
 | | 12 | 0.562 | 0.988 / 0.991 / 0.994 | 0.555 / 0.557 / 0.559 |
 | i.i.d. nucleotides, GC 75 % (s ≈ 0.10) | 8 | 0.895 | 0.993 / 0.995 / 0.997 | 0.889 / 0.891 / 0.893 |
 | | 12 | 0.847 | 0.989 / 0.992 / 0.994 | 0.838 / 0.840 / 0.842 |
-| giapsim (genes, codon structure, AT-rich intergenic) | 7 | 0.748 | 1.019 / 1.012 / 1.006 | 0.762 / 0.757 / 0.752 |
+| gippasim (genes, codon structure, AT-rich intergenic) | 7 | 0.748 | 1.019 / 1.012 / 1.006 | 0.762 / 0.757 / 0.752 |
 | | 8 | 0.719 | 1.027 / 1.018 / 1.011 | 0.739 / 0.732 / 0.727 |
 | | 10 | 0.666 | 1.047 / 1.036 / 1.025 | 0.697 / 0.690 / 0.683 |
 | | 12 | 0.618 | 1.068 / 1.055 / 1.043 | 0.660 / 0.652 / 0.644 |
-| giapsim + 24 simple-sequence repeats of 360 nt (≈ 9 %) | 7 | 0.766 | 1.82 / 1.42 / 1.21 | 1.39 / 1.09 / 0.93 |
+| gippasim + 24 simple-sequence repeats of 360 nt (≈ 9 %) | 7 | 0.766 | 1.82 / 1.42 / 1.21 | 1.39 / 1.09 / 0.93 |
 | | 8 | 0.740 | 2.54 / 1.80 / 1.41 | 1.88 / 1.33 / 1.04 |
 | | 10 | 0.691 | 6.7 / 3.9 / 2.5 | 4.6 / 2.7 / 1.7 |
 | | 12 | 0.647 | 22.6 / 11.7 / 6.4 | 14.6 / 7.6 / 4.1 |
@@ -299,7 +299,7 @@ ever reported as an absolute expectation, use W_L instead of N and flag low-comp
 
 ### Numerical accuracy of the Poisson-binomial
 
-`giap.stats.poisson_binomial` (shared with M4-02) computes the pmf by the standard DP
+`gippa.stats.poisson_binomial` (shared with M4-02) computes the pmf by the standard DP
 \(\mathrm{pmf}_{i+1}[j] = \mathrm{pmf}_i[j](1 - p_i) + \mathrm{pmf}_i[j - 1]\, p_i\), O(n²) time, O(n) memory. Every step is a
 convex combination of non-negative numbers, so there is no cancellation: each entry has relative
 error ≤ ≈ 2n·u (u = 1.1 × 10⁻¹⁶) whatever its size, and tiny tails stay exact to relative precision
@@ -319,7 +319,7 @@ at p = 0.05 for P(X = n)); `expected_hits_uniform` uses exact integer binomial c
 raises `OverflowError` for L ≳ 1,000 with m ≈ L/2. The vectorised in-place update reads its
 right-hand side before assigning, so there is no aliasing.
 
-### Review findings (M3-09, `src/giap/mapping/chance.py`, `src/giap/stats/poisson_binomial.py`)
+### Review findings (M3-09, `src/gippa/mapping/chance.py`, `src/gippa/stats/poisson_binomial.py`)
 
 - B.2: all 21 cells exact to 1.3 × 10⁻¹⁵; examples 1–8 of the issue pass; Poisson-binomial correct
   against brute force and exact arithmetic (above). Edge cases: m ∉ [0, L] and p ∉ [0, 1] or NaN
@@ -338,7 +338,7 @@ right-hand side before assigning, so there is no aliasing.
 ### Sign-off (Chance hits)
 
 Statistician (M3-09 review, 2026-10-14): **approved** for `expected_hits_uniform`,
-`expected_hits`, `residue_freqs` and `giap.stats.poisson_binomial` as implemented on
+`expected_hits`, `residue_freqs` and `gippa.stats.poisson_binomial` as implemented on
 `m3/chance-hits`, with the origin off-by-two to be fixed (non-blocking: no effect on any statistical
 output). Forwarded to M3-10: E is a ranking score only (never report it as an absolute expectation
 without the W_L correction); low-complexity peptides are ranked too optimistically by E, which
@@ -708,7 +708,7 @@ two_bins_small 0.0063 / 0.045 / 0.095; ten_bins_over 0.0066 / 0.036 / 0.072; con
 0.048 / 0.095 (SE ≤ 0.0017 at 0.01). The rejected rules still fail (power check passes). Same-strain
 attack: see the table above (failed at 9ec53d1, passes at 031378c).
 
-**Genome level, exact route** (`tests/calibration/test_placement_fdr_genome.py`): 100-kb giapsim
+**Genome level, exact route** (`tests/calibration/test_placement_fdr_genome.py`): 100-kb gippasim
 genomes, tryptic peptides of annotated genes as correct, 20,000 i.i.d. 7–8-mers from the genome's
 own f as wrong, database input, reverse decoys, PEP = the known wrong share. R = 50: 0.0102 ± 0.0007
 / 0.0236 ± 0.0009 / 0.0236 ± 0.0009, 592 accepted at 0.01; 719 chance target hits of wrong
@@ -718,7 +718,7 @@ expected: with constant π̂ and an exact reverse decoy the estimator is unbiase
 Tolerant strata, de novo errors with shuffle decoys, attack 5 (reversed stretches), 1-Mb genomes
 and real-protein wrong peptides (TE8 proxy) are M3-21.
 
-## Implementation review (M3-10, `src/giap/mapping/placement_fdr.py`, 9ec53d1)
+## Implementation review (M3-10, `src/gippa/mapping/placement_fdr.py`, 9ec53d1)
 
 Checked against ADR-0010, the final section of `docs/specs/M3-10-placement-fdr.md` and this note:
 
@@ -812,7 +812,7 @@ de novo reversed stretches searched with reverse decoys inflate the m = 0 decoy 
 
 ## Annotated-stop read-through (M7-16a, ADR-0058)
 
-Code: `src/giap/mapping/readthrough.py` (sites, cells, mirrored cells), `tolerant_dp._verify_core`
+Code: `src/gippa/mapping/readthrough.py` (sites, cells, mirrored cells), `tolerant_dp._verify_core`
 (the consumable-stop case), `tolerant.Search(marked)`, `frameshift._FSearch(marked)` and
 `nonfs_overlap`, `steps.mapping.sixframe_index` (index format 2, event `mapping.stop_sites`).
 Spec: `docs/specs/M7-16-stop-codon-readthrough.md`; review: statistician, 2026-10-24
@@ -840,10 +840,10 @@ randomness, and the decoy frames are byte-identical to index format 1 for the sa
 is exact (read-through D_rt/T_rt = 1 to 1e-16). The local context is mirrored, not kept:
 gene | `*` | 3′ flank becomes reversed flank | `*` | reversed gene. Under a law that is not
 reversal-symmetric (tryptic, C-terminal K/R) the per-genome read-through D_rt/T_rt was 0.52–1.89
-(reverse) and 0.58–1.74 (shuffle) on three giapsim 1-Mb genomes, and 0.81–1.15 (reverse) and
+(reverse) and 0.58–1.74 (shuffle) on three gippasim 1-Mb genomes, and 0.81–1.15 (reverse) and
 1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at worst
-−9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle): exact expected chance mass, Slurm jobs 1889319
-(Nissle) and 1889320 (giapsim), script `local/stat/m7-16/rt_mass.py`. Job 1889319 used a local
+−9.4 × 10⁻⁴ (gippasim) and −1.3 × 10⁻⁴ (Nissle): exact expected chance mass, Slurm jobs 1889319
+(Nissle) and 1889320 (gippasim), script `local/stat/m7-16/rt_mass.py`. Job 1889319 used a local
 Bakta run with all four replicons linear (4,686 sites). On the committed recording
 `tests/data/recorded/bakta/1.12.2-full/nissle` (all circular; 4,689 sites, 3 `not_a_stop`) job
 1889965 reproduces them: reverse tryptic 0.81–1.14, shuffle tryptic 1.16–1.39, shuffle i.i.d.
@@ -855,7 +855,7 @@ it contains it, with the other L − 1 residues within m − 1 differences. Rela
 §7.2.5 the added chance mass is approximately G/(N(1 − s)) at m = 1 and 2G/(N(1 − s)) at m = 2
 (G consumable cells, N six-frame positions, s the residue-match probability), independent of L
 and scaling with the gene density G/N. Measured realised shares of the target chance mass:
-0.04–0.08 % on Nissle and 0.05–0.20 % on giapsim 1 Mb (i.i.d. and tryptic laws; the top of the
+0.04–0.08 % on Nissle and 0.05–0.20 % on gippasim 1 Mb (i.i.d. and tryptic laws; the top of the
 range is tryptic at m = 2). On another genome the share is approximately, not at most, the
 formula's value for its G/N.
 
@@ -918,7 +918,7 @@ by design. This is a statement, not a change.
 - *Statistician's attack* (`attacks/test_attack_readthrough_decoys.py`, Slurm 1889956, fast and
   full pass): exact expected chance mass on the cells `sixframe_index` writes, L 10, 11, 12, 16.
   Reverse i.i.d. D_rt = T_rt to rtol 1e-9 in every replicate. Shuffle i.i.d. mean D_rt/T_rt on
-  giapsim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
+  gippasim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
   shift is −2.2 × 10⁻⁴ against the one-sided margin (≥ −0.01). Cell counts and consumable windows are equal in
   target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
   reused for the reverse decoy, a reverse mirror off by one.
@@ -936,7 +936,7 @@ by design. This is a statement, not a change.
   dense build: conservative in the direction the check guards (cause: the next gene's start `M`, explained
   under the table above). As item 5 says, neither ratio is a
   subset FDR.
-- *Decoy-balance check* (`test_readthrough_decoy_balance.py`, giapsim 1 Mb null genomes, one-sided,
+- *Decoy-balance check* (`test_readthrough_decoy_balance.py`, gippasim 1 Mb null genomes, one-sided,
   may be vacuous): fast tier (R = 50, job 1889791) **vacuous** for both decoy types, as expected:
   T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
   shuffle; about 905 cells per genome).
@@ -949,7 +949,7 @@ TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_c
 
 - **Counts.** Nissle has 3 recoded sites (fdnG JMJJOG_02511 and JMJJOG_04733, fdhF JMJJOG_04490).
   K-12 MG1655 also has 3 (KOIAIB_01574, KOIAIB_04147, KOIAIB_04360). All are `U` over TGA, and
-  none is near an origin, so each has one cell. giapsim has none by default, and no genome has a
+  none is near an origin, so each has one cell. gippasim has none by default, and no genome has a
   Pyl site.
 - **Symmetry.** Each decoy type gets the same 3 cells, each holding `*`, and the consumable
   windows are equal in all spaces (3·L).
@@ -964,10 +964,10 @@ TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_c
 - **Consequences.** The list FDR, strata, π̂ and E are unaffected. True Sec peptides are ordinary
   cost-1 placements (item 7). The `sec_site`/`pyl_site` rows are, like `readthrough`, a subset of
   a list accepted at q, and that subset is not FDR-controlled (items 5–6).
-- **Evidence.** The M3-21 giapsim suites cannot see these cells (no U unless `n_selenoproteins`
+- **Evidence.** The M3-21 gippasim suites cannot see these cells (no U unless `n_selenoproteins`
   > 0), so in 16c they are regression evidence only. The evidence is attack (d) in
   `attacks/test_attack_readthrough_recoded.py` (next to the 16a attack, whose helpers it reuses):
-  - **d1** giapsim, `n_selenoproteins = 60` (60 recoded and ~117 terminal target cells per
+  - **d1** gippasim, `n_selenoproteins = 60` (60 recoded and ~117 terminal target cells per
     replicate), masses split into recoded and terminal-only windows. Full tier, R = 300: reverse
     i.i.d. exact on both parts in every replicate; shuffle i.i.d. mean D_rec/T_rec 1.036–1.080
     per L (95% CI lower ends 0.993–1.025; bound 1 − EQUIV − 2 SE ≈ 0.93–0.95); tryptic net
@@ -980,7 +980,7 @@ TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_c
   - **d3** Nissle and K-12: 3 recoded cells plus 4,689 / 4,369 terminal cells in every space,
     all on `*`, equal consumable windows per kind (30/33/36/48 recoded at L 10/11/12/16);
     reverse i.i.d. exact; recoded-part net shifts between −6.8 × 10⁻⁷ and +2.0 × 10⁻⁶.
-  - **d4** the variants chain's `site_keys` equal the index's sites (30 giapsim worlds and both
+  - **d4** the variants chain's `site_keys` equal the index's sites (30 gippasim worlds and both
     recordings).
 
   Slurm 1893261 (fast, R = 50) and 1893260 (full, R = 300), both on 8ca2739b, all pass. Session

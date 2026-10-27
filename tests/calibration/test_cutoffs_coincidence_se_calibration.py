@@ -25,10 +25,10 @@ import math
 import numpy as np
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import coincidence_rate, downstream_windows
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import coincidence_rate, downstream_windows
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("regions")]
 

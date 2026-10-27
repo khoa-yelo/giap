@@ -1,4 +1,4 @@
-"""Calibration of giapsim's proteomics claims (issue M3-19; GIAP_SPEC.md §11.3, §8.4).
+"""Calibration of gippasim's proteomics claims (issue M3-19; GIPPA_SPEC.md §11.3, §8.4).
 
 Claims checked over ``N_SEEDS`` = 20 replicate 100-kb genomes (seeds ``seeds.calibration_base + r``,
 tests/calibration/tolerances.yaml):
@@ -26,7 +26,7 @@ import pytest
 from helpers.peptide_oracle import Run, fnum, rows, truthy, trypsin_p
 from scipy import stats
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calibration
 
@@ -38,14 +38,14 @@ FEATURES: dict[str, Any] = {"genome_length": 100_000, "n_sorfs": 3, "n_nterm_ext
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory: pytest.TempPathFactory, tolerances: dict[str, Any]) -> list[Run]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     base = int(tolerances["seeds"]["calibration_base"])
-    cfg = giapsim.SimConfig(proteomics=ProteomicsConfig(pi_wrong=PI), **FEATURES)
+    cfg = gippasim.SimConfig(proteomics=ProteomicsConfig(pi_wrong=PI), **FEATURES)
     out = []
     for r in range(N_SEEDS):
         d = tmp_path_factory.mktemp(f"cal{r}")
-        giapsim.simulate(cfg, base + r, d)
+        gippasim.simulate(cfg, base + r, d)
         out.append(Run(d))
     return out
 

@@ -56,13 +56,13 @@ def test_the_entrapment_script_and_sbatch_are_tracked() -> None:
 
 
 def test_sbatch_request() -> None:
-    """Criterion 12's request: dev, 4 CPUs, 16 GB, 1 h, job name giap-entrapment (R14)."""
+    """Criterion 12's request: dev, 4 CPUs, 16 GB, 1 h, job name gippa-entrapment (R14)."""
     text = (REPO / "scripts" / "slurm" / "entrapment.sbatch").read_text(encoding="utf-8")
-    assert "--job-name=giap-entrapment" in text
+    assert "--job-name=gippa-entrapment" in text
     assert "--cpus-per-task=4" in text
     assert "--mem=16G" in text
     assert any(t in text for t in ("--time=01:00:00", "--time=1:00:00", "--time=60"))
-    assert "--qos=dev" in text  # FarmShare: dev is a QOS, not a partition (GIAP_SPEC §3)
+    assert "--qos=dev" in text  # FarmShare: dev is a QOS, not a partition (GIPPA_SPEC §3)
 
 
 def test_methods_note_exists_and_cites_the_doi() -> None:

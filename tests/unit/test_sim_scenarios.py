@@ -1,4 +1,4 @@
-"""giapsim null and power scenarios (issue M5-04; GIAP_SPEC.md §8.4, §8.5 attack 1, §11.3).
+"""gippasim null and power scenarios (issue M5-04; GIPPA_SPEC.md §8.4, §8.5 attack 1, §11.3).
 
 Examples 8 and 9 and the scenario definitions of docs/specs/M5-04-sim-oric-gradient.md (the spec's
 ``tests/sim/test_scenarios.py``; lives in tests/unit like the M4-07/M4-08 tests), plus the
@@ -34,14 +34,14 @@ SCENARIO_NAMES = ("label_null", "tu_null", "ar1_background", "island_power", "or
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def run(cfgs: tuple[Any, Any], seed: int) -> tuple[Any, Any]:
-    from giapsim.expression import simulate_expression
-    from giapsim.layout import simulate_layout
+    from gippasim.expression import simulate_expression
+    from gippasim.layout import simulate_layout
 
     lcfg, ecfg = cfgs
     lay = simulate_layout(lcfg, np.random.default_rng(seed))
@@ -96,8 +96,8 @@ def test_every_scenario_exists() -> None:
     ids=["label_null", "tu_null", "tu_null_cov", "ar1", "island", "oriter", "draft"],
 )
 def test_scenarios_return_config_pairs_that_run(call: Any) -> None:
-    from giapsim.expression import ExpressionConfig
-    from giapsim.layout import LayoutConfig
+    from gippasim.expression import ExpressionConfig
+    from gippasim.layout import LayoutConfig
 
     cfgs = call(_sc())
     assert isinstance(cfgs, tuple) and len(cfgs) == 2
@@ -131,7 +131,7 @@ def test_label_null_definition() -> None:
 def test_abundance_beta_is_pinned() -> None:
     """Review B2: ``ABUNDANCE_BETA`` is ``DEFAULT_BETA`` with slope 0.5 on log2 abundance and the
     intercept offset ``-0.5 * mu_log2`` (so the detected share stays near the default)."""
-    from giapsim.expression import DEFAULT_BETA, ExpressionConfig
+    from gippasim.expression import DEFAULT_BETA, ExpressionConfig
 
     beta = dict(_sc().ABUNDANCE_BETA)
     mu = ExpressionConfig().mu_log2
@@ -168,7 +168,7 @@ def test_tu_null_definition(detection: str) -> None:
     if detection == "abundance":
         assert dict(ecfg.beta) == dict(_sc().ABUNDANCE_BETA)  # review B2
     else:
-        from giapsim.expression import DEFAULT_BETA
+        from gippasim.expression import DEFAULT_BETA
 
         assert dict(ecfg.beta) == dict(DEFAULT_BETA)
 
@@ -190,7 +190,7 @@ def test_tu_null_detection_inherits_tu_structure() -> None:
 
 @pytest.mark.parametrize("rho", [0.0, 0.5, 0.9])
 def test_ar1_background_definition(rho: float) -> None:
-    from giapsim.expression import ExpressionConfig
+    from gippasim.expression import ExpressionConfig
 
     lcfg, ecfg = _sc().ar1_background(1000, rho)
     _common(lcfg, ecfg, 1000)

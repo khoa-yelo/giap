@@ -1,6 +1,6 @@
 """M6-13 power of the abundance-dependent discordance scale (docs/specs/M6-13-discordance-abundance-
 sigma.md "Calibration and the gate" rows "power non-inferiority" and "power, BH recall"; the
-statistician's decision S-8; GIAP_SPEC.md §8.4 suite ``discordance``). The level arms are in
+statistician's decision S-8; GIPPA_SPEC.md §8.4 suite ``discordance``). The level arms are in
 attacks/test_attack_operons_sigma.py.
 
 - ``test_power_non_inferior`` (gated): ``discordance_power(1800, 40, 2.0)``, both models on the

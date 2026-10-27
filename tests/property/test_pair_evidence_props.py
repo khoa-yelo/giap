@@ -1,5 +1,5 @@
 """Hypothesis property guarding the M6-04 speed-up (PR #143; docs/specs/M6-04-pair-table.md
-decision 5, GIAP_SPEC.md §7.4.1).
+decision 5, GIPPA_SPEC.md §7.4.1).
 
 ``pair_frame`` indexes the layers once (``promoter_tracks``, per-strand Tx arrays, a terminator
 pre-filter around each gap). On small linear and circular contigs with dense layers anchored at the
@@ -19,12 +19,12 @@ from helpers.pairs_data import evidence, frame, gene, rna_frame
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.operons import adjacent_pairs, intergenic_distance
-from giap.annotate.promoter_calculator import tx_rate_between
-from giap.annotate.promoters import promoter_between
-from giap.annotate.terminators import Terminator, terminator_between
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import adjacent_pairs, intergenic_distance
+from gippa.annotate.promoter_calculator import tx_rate_between
+from gippa.annotate.promoters import promoter_between
+from gippa.annotate.terminators import Terminator, terminator_between
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 SOURCES = ("TerminatorNet", "TerminatorNet", "TransTermHP", "BacTermFinder")
 
@@ -89,7 +89,7 @@ def _same(got: float, want: float | None) -> bool:
 @settings(max_examples=150, deadline=None)
 @given(worlds())
 def test_pair_frame_evidence_equals_the_per_pair_helpers(world: tuple) -> None:
-    from giap.operons.pairs import adjacent_chain, sandwich_pairs
+    from gippa.operons.pairs import adjacent_chain, sandwich_pairs
 
     genes, rep, windows, terms, tx, rna = world
     replicons = {"c1": rep}

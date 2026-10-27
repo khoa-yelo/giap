@@ -1,4 +1,4 @@
-"""Attack null: contaminant peptides in the stratum-0 database list (GIAP_SPEC.md §8.5;
+"""Attack null: contaminant peptides in the stratum-0 database list (GIPPA_SPEC.md §8.5;
 ADR-0019 decision 1, M3-25 lead decision 7; statistician review of PR #124).
 
 ADR-0019 estimates π̂_l over the population P, and M3-25 decision 7 takes the contaminants out of
@@ -141,7 +141,7 @@ def _pi_adr0019(costs: pd.DataFrame) -> tuple[np.ndarray, float]:
 
 
 def _q_stratum0(costs: pd.DataFrame, pi: np.ndarray, c: float) -> np.ndarray:
-    from giap.mapping.placement_fdr import stratum_qvalues
+    from gippa.mapping.placement_fdr import stratum_qvalues
 
     m_t, m_d = costs["m_target"].to_numpy(), costs["m_decoy"].to_numpy()
     is_t, is_d = m_t == 0, m_d == 0
@@ -161,10 +161,10 @@ def _q_reference(costs: pd.DataFrame) -> np.ndarray:
 
 
 def _q_placement(costs: pd.DataFrame) -> np.ndarray:
-    from giap.config import GiapConfig
-    from giap.mapping.placement_fdr import placement
+    from gippa.config import GippaConfig
+    from gippa.mapping.placement_fdr import placement
 
-    per, _ = placement(costs, GiapConfig())
+    per, _ = placement(costs, GippaConfig())
     q = per.set_index("peptide")["placement_q"].astype(float)
     return np.asarray(q.reindex(costs["peptide"]).to_numpy(), dtype=float)
 

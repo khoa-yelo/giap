@@ -25,7 +25,7 @@ from helpers.m10_14_kit import (
     commit_runbook,
     sha256_file,
 )
-from helpers.slurm_sandbox import assert_honours_giap_repo, write_exe
+from helpers.slurm_sandbox import assert_honours_gippa_repo, write_exe
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="bash script")
 
@@ -40,7 +40,7 @@ VALID_VERIFY = {
 @pytest.fixture
 def cs(tmp_path: Path) -> CleanupSandbox:
     assert CLEANUP.is_file(), "scripts/slurm/pilot_cleanup.sbatch does not exist (M10-14)"
-    assert_honours_giap_repo(CLEANUP.read_text(), "pilot_cleanup.sbatch")
+    assert_honours_gippa_repo(CLEANUP.read_text(), "pilot_cleanup.sbatch")
     return cleanup_sandbox(tmp_path)
 
 
@@ -61,7 +61,7 @@ def _without(key: str) -> dict[str, object]:
 
 
 def _refuses(cs: CleanupSandbox, **env: str) -> subprocess.CompletedProcess[str]:
-    """Exit 2, no file under $GIAP_ROOT or outside it removed, no rm, no `nextflow clean -f`."""
+    """Exit 2, no file under $GIPPA_ROOT or outside it removed, no rm, no `nextflow clean -f`."""
     before = cs.snapshot()
     res = cs.run(CLEAN="1", **env)
     assert res.returncode == 2, _out(res)
@@ -98,40 +98,40 @@ VARIANTS = ["trailing_slash", "dot", "double_slash", "dotdot", "symlink_alias"]
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_b1_protected_input_survives_a_non_canonical_giap_root(
+def test_b1_protected_input_survives_a_non_canonical_gippa_root(
     cs: CleanupSandbox, variant: str
 ) -> None:
-    """Reproduced in the review: GIAP_ROOT=<root>/ made GIAP_DATA_DIR=<root>//data, the plan
+    """Reproduced in the review: GIPPA_ROOT=<root>/ made GIPPA_DATA_DIR=<root>//data, the plan
     target <root>//data/.../mzml no longer matched the Inputs row, and the mzML was deleted."""
     mz = next(f for f in cs.delete_files if f.suffix == ".mzML")
     row = (
-        f"| wt1_mzml | $GIAP_DATA_DIR/{mz.relative_to(cs.root / 'data')} | {sha256_file(mz)} | "
-        "$GIAP_ROOT/pilot/A1/provenance.json |"
+        f"| wt1_mzml | $GIPPA_DATA_DIR/{mz.relative_to(cs.root / 'data')} | {sha256_file(mz)} | "
+        "$GIPPA_ROOT/pilot/A1/provenance.json |"
     )
     commit_runbook(cs, cleanup_runbook(extra_inputs=[row]))
-    giap_root = _root_variants(cs)[variant]
-    _refuses(cs, GIAP_ROOT=giap_root)
-    assert mz.is_file(), f"protected Input deleted with GIAP_ROOT={giap_root!r}"
+    gippa_root = _root_variants(cs)[variant]
+    _refuses(cs, GIPPA_ROOT=gippa_root)
+    assert mz.is_file(), f"protected Input deleted with GIPPA_ROOT={gippa_root!r}"
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_b1_kept_output_survives_a_non_canonical_giap_root(
+def test_b1_kept_output_survives_a_non_canonical_gippa_root(
     cs: CleanupSandbox, variant: str
 ) -> None:
     work = cs.work_dirs[2]
-    row = f"| pass1_work | $GIAP_ROOT/{work.relative_to(cs.root)} | {'a' * 64} | - | yes |"
+    row = f"| pass1_work | $GIPPA_ROOT/{work.relative_to(cs.root)} | {'a' * 64} | - | yes |"
     commit_runbook(cs, cleanup_runbook(extra_outputs=[row]))
-    giap_root = _root_variants(cs)[variant]
-    _refuses(cs, GIAP_ROOT=giap_root)
-    assert work.is_dir(), f"kept Output deleted with GIAP_ROOT={giap_root!r}"
+    gippa_root = _root_variants(cs)[variant]
+    _refuses(cs, GIPPA_ROOT=gippa_root)
+    assert work.is_dir(), f"kept Output deleted with GIPPA_ROOT={gippa_root!r}"
 
 
 @pytest.mark.parametrize("variant", ["trailing_slash", "dot", "double_slash"])
-def test_b1_non_canonical_giap_root_still_cleans(cs: CleanupSandbox, variant: str) -> None:
+def test_b1_non_canonical_gippa_root_still_cleans(cs: CleanupSandbox, variant: str) -> None:
     """Canonicalising must not break the ordinary run: the same targets go, the rest stays."""
-    giap_root = _root_variants(cs)[variant]
+    gippa_root = _root_variants(cs)[variant]
     before = cs.snapshot()
-    res = cs.run(CLEAN="1", GIAP_ROOT=giap_root)
+    res = cs.run(CLEAN="1", GIPPA_ROOT=gippa_root)
     assert res.returncode == 0, _out(res)
     gone = set(before) - set(cs.snapshot())
     assert gone == {str(p) for p in cs.delete_files}, sorted(gone)
@@ -221,7 +221,7 @@ _NEXTFLOW_LEDGER = r"""#!{python}
 $FAKE_NEXTFLOW_RC (default 0). Deletes nothing.'''
 import json, os, sys
 cwd = os.path.realpath(os.getcwd())
-led = os.path.join(os.environ["GIAP_ROOT"], "pilot", "cleanup", "DELETED.tsv")
+led = os.path.join(os.environ["GIPPA_ROOT"], "pilot", "cleanup", "DELETED.tsv")
 rows = []
 if os.path.isfile(led):
     for ln in open(led).read().splitlines()[1:]:
@@ -276,12 +276,12 @@ def test_s3_run_dir_name_with_tab_or_newline_refuses(cs: CleanupSandbox, sep: st
     assert (run / "work" / "ab" / "task.out").is_file()
 
 
-def test_s3_giap_root_itself_is_never_a_target(tmp_path: Path) -> None:
-    """Plan step 4's ``$GIAP_DATA_DIR/pxd078459/mzml`` reached through an ancestor link whose
+def test_s3_gippa_root_itself_is_never_a_target(tmp_path: Path) -> None:
+    """Plan step 4's ``$GIPPA_DATA_DIR/pxd078459/mzml`` reached through an ancestor link whose
     realpath *is* $ROOT: the old ``case "$real/" in "$ROOT"/*`` accepts it (``*`` matches empty)
-    and ``rm -rf`` removes the whole of $GIAP_ROOT."""
+    and ``rm -rf`` removes the whole of $GIPPA_ROOT."""
     cs = cleanup_sandbox(tmp_path)
-    real = cs.sb.tmp / "x" / "mzml"  # the real $GIAP_ROOT; $GIAP_ROOT stays the old path
+    real = cs.sb.tmp / "x" / "mzml"  # the real $GIPPA_ROOT; $GIPPA_ROOT stays the old path
     real.parent.mkdir()
     cs.root.rename(real)
     cs.root.symlink_to(real)
@@ -292,7 +292,7 @@ def test_s3_giap_root_itself_is_never_a_target(tmp_path: Path) -> None:
     assert keep.is_file()
     res = cs.run(CLEAN="1")
     assert res.returncode == 2, _out(res)
-    assert real.is_dir() and keep.is_file(), "$GIAP_ROOT itself was deleted"
+    assert real.is_dir() and keep.is_file(), "$GIPPA_ROOT itself was deleted"
     assert all(w.is_dir() for w in cs.work_dirs), "deleted despite exit 2"
 
 
@@ -303,7 +303,7 @@ def test_s4_gate_digest_row_naming_the_digest_file_does_not_block(cs: CleanupSan
     run = cs.run_dirs[0]  # $R/out_a2
     digest = run / "run_manifest.json"
     row = (
-        f"| a2_gate | $GIAP_ROOT/{digest.relative_to(cs.root)} | {sha256_file(digest)} | - | yes |"
+        f"| a2_gate | $GIPPA_ROOT/{digest.relative_to(cs.root)} | {sha256_file(digest)} | - | yes |"
     )
     commit_runbook(cs, cleanup_runbook(extra_outputs=[row]))
     res = cs.run(CLEAN="1")
@@ -314,7 +314,7 @@ def test_s4_gate_digest_row_naming_the_digest_file_does_not_block(cs: CleanupSan
 def test_s4_kept_directory_holding_a_target_refuses(cs: CleanupSandbox) -> None:
     """Mutant M9b: a ``kept = yes`` row naming the run directory holds ``$R/out_a2/work``."""
     run = cs.run_dirs[0]
-    row = f"| a2_run | $GIAP_ROOT/{run.relative_to(cs.root)} | {'b' * 64} | - | yes |"
+    row = f"| a2_run | $GIPPA_ROOT/{run.relative_to(cs.root)} | {'b' * 64} | - | yes |"
     commit_runbook(cs, cleanup_runbook(extra_outputs=[row]))
     _refuses(cs)
     assert (run / "work").is_dir()
@@ -366,7 +366,7 @@ exit 0
 
 
 def test_m10_symlinked_run_dir_is_skipped(cs: CleanupSandbox) -> None:
-    """A run directory that is a link (to a run outside $GIAP_ROOT) is not a run of the plan:
+    """A run directory that is a link (to a run outside $GIPPA_ROOT) is not a run of the plan:
     no `nextflow clean` there, its work/ untouched, and the rest of the plan runs (exit 0)."""
     far = cs.outside / "far_run"
     (far / ".nextflow").mkdir(parents=True)
@@ -383,7 +383,7 @@ def test_m10_symlinked_run_dir_is_skipped(cs: CleanupSandbox) -> None:
 
 
 def test_m15_step4_symlink_is_planned_as_skipped(cs: CleanupSandbox) -> None:
-    """An mzml/ that links elsewhere inside $GIAP_ROOT is ``skipped_symlink`` in plan.tsv itself."""
+    """An mzml/ that links elsewhere inside $GIPPA_ROOT is ``skipped_symlink`` in plan.tsv itself."""
     store = cs.root / "data" / "mzml_store"
     subprocess.run(["/bin/mv", str(cs.mzml_dir), str(store)], check=True)
     cs.mzml_dir.symlink_to(store)

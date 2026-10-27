@@ -1,8 +1,8 @@
 """M2-20 after the code review of PR #104: lead decisions 9 and 11
-(docs/specs/M2-20-context-layers.md; GIAP_SPEC.md §6.7, §9.3, §9.4).
+(docs/specs/M2-20-context-layers.md; GIPPA_SPEC.md §6.7, §9.3, §9.4).
 
 * Decision 9: ``layer_missing:<layer>`` is a structured event (``extra={"event": ...}``) that
-  reaches ``OUT/logs/events.jsonl`` through the run's ``giap.steps`` events handler, not only a
+  reaches ``OUT/logs/events.jsonl`` through the run's ``gippa.steps`` events handler, not only a
   log line. Accepted shapes: the event name is the flag, or the flag (or ``layer=<layer>`` with an
   event name ending in ``layer_missing``) is in the event's ``data``.
 * Decision 11: tests that kill the review's surviving mutants — the ``crosses_origin`` flag, the
@@ -10,7 +10,7 @@
   ``assign_tus``, both ``tu_sources`` rules, the precomputed ``tx_rates`` exemption of
   ``layer_flags`` (pseudogene phase: ``test_layers_gff3.py``).
 
-Inputs: the merged producers on giapsim SIM100K (``helpers.layers_chain``) and the simulator's
+Inputs: the merged producers on gippasim SIM100K (``helpers.layers_chain``) and the simulator's
 precomputed layers (M2-02 TSVs).
 """
 
@@ -32,7 +32,7 @@ from helpers.layers_chain import (
     read_layers_frames,
 )
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 ALL_KEYS = {
     "genes", "features", "replicons", "pairs_raw", "tus", "promoter_windows", "tx_rates",
@@ -67,9 +67,9 @@ def _matches(ev: dict[str, Any], flag: str) -> bool:
 def test_layer_missing_events_reach_events_jsonl(chain: Chain, tmp_path: Path) -> None:
     """``--modules core`` with Promoter Calculator off: layer_missing:genomad / antismash /
     tx_rates are WARNING events of step context_layers in logs/events.jsonl."""
-    from giap.cli import _record_step_events
+    from gippa.cli import _record_step_events
 
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "modules": ["core"],
          "annotation": {"promoter_calculator": {"enabled": False}}}
     )  # fmt: skip
@@ -116,7 +116,7 @@ def test_terminator_downstream_wraps_to_the_first_gene_on_circular(chain: Chain)
     """On a circular replicon the last ``+`` gene's next same-strand gene is the first ``+``
     gene (across the origin): a terminator just before that gene counts, although it lies
     beyond the 300-bp no-next-gene window."""
-    from giap.annotate.terminators import terminator_conf_downstream
+    from gippa.annotate.terminators import terminator_conf_downstream
 
     frames = read_layers_frames(chain)
     genes, terms = frames["genes"], frames["terminators"]
@@ -148,8 +148,8 @@ def test_terminator_downstream_wraps_to_the_first_gene_on_circular(chain: Chain)
 def test_assign_tus_wraps_upstream_regions_across_the_origin(chain: Chain) -> None:
     """Precomputed TSSs (no tu_id) go to every same-strand TU whose upstream region holds them,
     modulo the length on circular replicons (an upstream region crossing the origin)."""
-    from giap.annotate.layers import assign_tus, tus_of
-    from giap.annotate.precomputed import load_precomputed
+    from gippa.annotate.layers import assign_tus, tus_of
+    from gippa.annotate.precomputed import load_precomputed
 
     reps = orc.replicons(chain.frame("replicons"))
     tus = chain.frame("tus")
@@ -180,7 +180,7 @@ def test_assign_tus_wraps_upstream_regions_across_the_origin(chain: Chain) -> No
 
 
 def _pairs(chain: Chain, source: Any) -> list[Any]:
-    from giap.annotate.uniop_adapter import PairProb
+    from gippa.annotate.uniop_adapter import PairProb
 
     p = chain.frame("pairs_raw")
     return [PairProb(str(a), str(b), float(x), source(str(a), str(b)))
@@ -197,7 +197,7 @@ def _tu_pairs(tu: Any) -> list[tuple[str, str]]:
 def test_tu_sources_any_distance_model_link_marks_the_tu(chain: Chain, strand: str) -> None:
     """A multi-gene TU with one distance-model link among UniOP links is ``distance_model``;
     pairs_raw keys are in genome order, a ``-`` TU lists its genes in transcription order."""
-    from giap.annotate.layers import tu_sources, tus_of
+    from gippa.annotate.layers import tu_sources, tus_of
 
     tus = tus_of(chain.frame("tus"))
     big = next(t for t in tus if len(t.genes) >= 3 and t.strand == strand)
@@ -213,7 +213,7 @@ def test_tu_sources_any_distance_model_link_marks_the_tu(chain: Chain, strand: s
 def test_tu_sources_singletons_follow_the_run(chain: Chain) -> None:
     """A singleton TU has no link: ``distance_model`` when every pair of the run comes from the
     distance model (UniOP absent), ``UniOP`` otherwise."""
-    from giap.annotate.layers import tu_sources, tus_of
+    from gippa.annotate.layers import tu_sources, tus_of
 
     tus = tus_of(chain.frame("tus"))
     singles = [t.tu_id for t in tus if len(t.genes) == 1]
@@ -232,7 +232,7 @@ def test_tu_sources_singletons_follow_the_run(chain: Chain) -> None:
 def test_tu_sources_all_distance_model_run(chain: Chain, strand: str) -> None:
     """Every pair from the distance model (UniOP absent): every TU of either strand is
     ``distance_model``."""
-    from giap.annotate.layers import tu_sources, tus_of
+    from gippa.annotate.layers import tu_sources, tus_of
 
     tus = tus_of(chain.frame("tus"))
     multi = [t.tu_id for t in tus if len(t.genes) > 1 and t.strand == strand]
@@ -244,14 +244,14 @@ def test_tu_sources_all_distance_model_run(chain: Chain, strand: str) -> None:
 def test_layer_flags_precomputed_tx_rates_with_promoter_calculator_off(chain: Chain) -> None:
     """``promoter_calculator.enabled=false`` with ``annotation.precomputed.tx_rates`` set: the
     layer is present (precomputed), so no ``layer_missing:tx_rates``."""
-    from giap.annotate.layers import layer_flags
+    from gippa.annotate.layers import layer_flags
 
     pre = {"tx_rates": str(chain.sim.precomputed["tx_rates"])}
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"promoter_calculator": {"enabled": False}, "precomputed": pre}}
     )
     assert "layer_missing:tx_rates" not in layer_flags(cfg, set(ALL_KEYS))
-    off = GiapConfig.model_validate(
+    off = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"promoter_calculator": {"enabled": False}}}
     )
     assert "layer_missing:tx_rates" in layer_flags(off, set(ALL_KEYS))

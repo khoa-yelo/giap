@@ -1,4 +1,4 @@
-// OSTIR 1.1.3 RBS strength (GIAP_SPEC.md §7.1.1; M2-16); input from the ostir_input step.
+// OSTIR 1.1.3 RBS strength (GIPPA_SPEC.md §7.1.1; M2-16); input from the ostir_input step.
 process OSTIR {
     tag "${meta_id}"
     label 'process_medium'

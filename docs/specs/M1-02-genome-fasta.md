@@ -16,12 +16,12 @@ Milestone M1 · depends on: M1-01 · estimate ≈ 320 changed lines (≈ 140 cod
 
 ## Public interface
 
-`src/giap/io/_open.py`
+`src/gippa/io/_open.py`
 ```python
 def open_text(path: Path) -> TextIO: ...      # gzip detected by magic bytes 1f 8b, not by suffix; UTF-8
 ```
 
-`src/giap/io/fasta.py`
+`src/gippa/io/fasta.py`
 ```python
 IUPAC_DNA: frozenset[str]   # ACGT N RYSWKMBDHV (upper case; input is upper-cased first)
 SAFE_ID = re.compile(r"[A-Za-z0-9._-]")
@@ -78,7 +78,7 @@ The reader does not reject duplicates or invalid letters; it reports facts and M
 - [ ] `tests/unit/test_fasta_genome.py`: examples 1–9, one test each; example 5 builds the gzip at
   test time (no committed binary).
 - [ ] Reading `write_fasta` output gives back the same `(id, sequence)` pairs (round trip test).
-- [ ] The sim genome (`giapsim`, header `[topology=circular]`) reads as one circular record.
+- [ ] The sim genome (`gippasim`, header `[topology=circular]`) reads as one circular record.
 - [ ] Only `io/` touches files; `mypy --strict` clean.
 
 ## Questions for the lead

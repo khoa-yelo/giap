@@ -1,7 +1,7 @@
 """Independent oracles for M3-15 (contaminants and the unmapped bucket).
 
 Brute force on purpose: no automaton, no pandas tricks; used by the unit, property and TE5-proxy
-tests to check ``giap.mapping.contaminants`` without sharing its code.
+tests to check ``gippa.mapping.contaminants`` without sharing its code.
 """
 
 from __future__ import annotations

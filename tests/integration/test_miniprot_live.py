@@ -17,12 +17,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import ProteinsConfig
+from gippa.config.model import ProteinsConfig
 
 REPO = Path(__file__).resolve().parents[2]
 RECORDED = REPO / "tests" / "data" / "recorded" / "miniprot" / "0.18" / "sim100k"
-_GIAP_REPO = Path(os.environ.get("GIAP_REPO", REPO))
-_ROOT = Path(os.environ.get("GIAP_ROOT", _GIAP_REPO / "local"))
+_GIPPA_REPO = Path(os.environ.get("GIPPA_REPO", REPO))
+_ROOT = Path(os.environ.get("GIPPA_ROOT", _GIPPA_REPO / "local"))
 PREFIX = Path(os.environ.get("MAMBA_ROOT_PREFIX", _ROOT / "micromamba"))
 
 pytestmark = [
@@ -51,12 +51,12 @@ def _run(env: str, argv: list[str], stdout: Path | None = None) -> None:
 
 
 def test_live_equals_recorded(tmp_path: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.tools import TOOLS
-    from giap.io.protein_fasta import read_protein_fasta
-    from giap.mapping.miniprot import miniprot_align_cmd, miniprot_index_cmd, parse_miniprot_gff
-    from giap.mapping.protein_assign import assign_alignments
-    from giapsim import SIM100K, SIM100K_SEED, simulate
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.tools import TOOLS
+    from gippa.io.protein_fasta import read_protein_fasta
+    from gippa.mapping.miniprot import miniprot_align_cmd, miniprot_index_cmd, parse_miniprot_gff
+    from gippa.mapping.protein_assign import assign_alignments
+    from gippasim import SIM100K, SIM100K_SEED, simulate
 
     env = TOOLS["miniprot"].env_name
     if not (PREFIX / "envs" / env).is_dir():

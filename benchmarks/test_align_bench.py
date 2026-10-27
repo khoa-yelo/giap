@@ -1,4 +1,4 @@
-"""Performance budget for the residue aligner (issue M7-01 acceptance; GIAP_SPEC.md §7.5.2).
+"""Performance budget for the residue aligner (issue M7-01 acceptance; GIPPA_SPEC.md §7.5.2).
 
 100,000 tolerant hits (7-30 aa, both strands, one substitution, two separated substitutions or
 one adjacent swap planted in a random 200-kb circular genome) aligned by ``align_hits`` in < 30 s
@@ -22,8 +22,8 @@ SCRIPT = textwrap.dedent(
     import json, time
     import numpy as np
     import pandas as pd
-    from giap.model import Replicon
-    from giap.variants.align import align_hits, translate_locus
+    from gippa.model import Replicon
+    from gippa.variants.align import align_hits, translate_locus
 
     rng = np.random.default_rng(0)
     n = 200_000

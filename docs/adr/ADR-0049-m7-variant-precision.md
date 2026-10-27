@@ -15,7 +15,7 @@ current call rule:
 - **A6b:** at random adjacent swaps the share of replicates with a `high` call is 0.95. Two
   overlapping true peptides that carry the same swap give two distinct peptides.
 - **A6c:** systematic swaps are expected to fail (M7-13 risk 1).
-- **Rows outside G1 (statistician, #255).** Besides the 669 gated substitution predictions, GIAP
+- **Rows outside G1 (statistician, #255).** Besides the 669 gated substitution predictions, GIPPA
   emits 277 `high` rows that are not substitutions (block 218, swap 49, frameshift 10). §7.5.6
   speaks of "high ALT calls", so if these are false, precision over all `high` rows is 0.549
   (F1 0.685). Whether G1 covers them (M7-13 Q2 scopes G1 to substitutions) is part of the choice.
@@ -57,7 +57,7 @@ current call rule:
 | (c) unflagged vs identifiable truth | 0.933 [0.916, 0.950] | 0.927 | 0.932 [0.924, 0.941] |
 | (d) (c) + decided flags | 0.934 [0.917, 0.950] | 0.927 [0.905, 0.949] | 0.933 |
 - Identifiable-truth rule: a truth row leaves the recall denominator when
-  `giap.variants.flags.mass_equivalent(ref_aa, alt_aa, variants.mass_equivalent_tol_da)` is true
+  `gippa.variants.flags.mass_equivalent(ref_aa, alt_aa, variants.mass_equivalent_tol_da)` is true
   (the same test, including the B.5 modification deltas, that sets the call flag). It removes 26 %
   of recall-eligible truth at 100k (800 → 593) and 24 % at 1M, mostly residue-plus-modification
   matches (V>L, N>K, D>E, S>T, G>A …), not plain isobaric residues.
@@ -70,7 +70,7 @@ current call rule:
   `ref[p-1:p+1] → alt` with its prefix shifted by one (q = 0, or `P[:q] == ref[p-1-q:p-1]`).
   This fixes 24 of 24 unflagged isobaric rows. No right-hand or looser form (they flag true
   positives by chance).
-- A6b: `flags_for` (src/giap/variants/flags.py) flags every `swap` row `mass_equivalent`
+- A6b: `flags_for` (src/gippa/variants/flags.py) flags every `swap` row `mass_equivalent`
   (75 of 75).
 
 "Identifiable" (Khoa, 2026-10-23): it uses the modification-inclusive `mass_equivalent` test above,

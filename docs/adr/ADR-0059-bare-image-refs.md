@@ -5,7 +5,7 @@
 - Needs Khoa: no (default of M11-09b Q5: the change makes the config match §6.3's own form and repairs the `docker` profile; Apptainer behaviour and cache names are unchanged)
 
 ## Context
-GIAP_SPEC.md §3 says images are "referenced by digest and run as `docker://…@sha256:…` through
+GIPPA_SPEC.md §3 says images are "referenced by digest and run as `docker://…@sha256:…` through
 Apptainer". The `apptainer` profile bullet says "images `docker://…@sha256:…` cached in
 `$NXF_APPTAINER_CACHEDIR`". ADR-0008 records the pins as "`docker://…@sha256:…`" in
 `workflow/conf/containers.config`. That is how M2-01 wrote them.
@@ -16,7 +16,7 @@ M11-09's `docker-smoke` job use it. Under that profile Nextflow passes the conta
 fails. The M11-09 implementer's logging fake `docker` received
 `docker run … docker://quay.io/biocontainers/miniprot@sha256:…`.
 
-§6.3 already writes the container field bare (`ghcr.io/<owner>/giap-<tool>@sha256:…`). The bare
+§6.3 already writes the container field bare (`ghcr.io/<owner>/gippa-<tool>@sha256:…`). The bare
 form is also the nf-core convention.
 
 ## Decision
@@ -24,7 +24,7 @@ form is also the nf-core convention.
    fully matches `^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$`, with no scheme and no tag. The
    seven digests and the tags they were resolved from stay as ADR-0008 records them.
 2. Code that writes a reference for that file emits the bare form: `scripts/release/update_digests.py`
-   and `scripts/resolve_digest.py`. Code that reads one accepts an optional `docker://`: `giap setup`'s
+   and `scripts/resolve_digest.py`. Code that reads one accepts an optional `docker://`: `gippa setup`'s
    `ToolRunner` and the Slurm scripts. `build_envs.sbatch` adds `docker://` itself when it calls
    `apptainer pull`.
 3. Readiness check H4 rejects a `docker://` prefix (`docker:// prefix: <process>`), so the
@@ -39,7 +39,7 @@ form is also the nf-core convention.
 
 ## Evidence (before → after: metrics, tests, simulations)
 Nextflow 26.10.0 is the version pinned by `scripts/bootstrap_farmshare.sh` and ADR-0002, and
-`nextflow -version` in `giap-wf` prints `26.10.0 build 14055`. The sources below were read at tag
+`nextflow -version` in `gippa-wf` prints `26.10.0 build 14055`. The sources below were read at tag
 `v26.10.0` of https://github.com/nextflow-io/nextflow (official, R6) on 2026-10-25:
 
 - `docs/container/apptainer.mdx`, line 71: "You do not need to specify `docker://` to pull from a
@@ -63,7 +63,7 @@ Nextflow 26.10.0 is the version pinned by `scripts/bootstrap_farmshare.sh` and A
 Before the change:
 
 - `-profile docker` fails on every pinned process.
-- `-profile apptainer` uses `$GIAP_ROOT/containers/<simpleName>.img`. Six such files are
+- `-profile apptainer` uses `$GIPPA_ROOT/containers/<simpleName>.img`. Six such files are
   present on FarmShare on 2026-10-25, for example `quay.io-biocontainers-miniprot@sha256-2eb5…f.img`.
 
 After the change:

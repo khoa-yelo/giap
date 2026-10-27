@@ -1,9 +1,9 @@
 # Function collections (M8-03)
 
-Gene sets for ORA (§7.7.3) and GSEA (§7.7.4) are built by `giap.function.collections.build_collections`. The installed resources are read by `giap.io.function_resources.read_resources`.
+Gene sets for ORA (§7.7.3) and GSEA (§7.7.4) are built by `gippa.function.collections.build_collections`. The installed resources are read by `gippa.io.function_resources.read_resources`.
 
 ## Members
-- **Who can be a member:** only genes eligible for detection-aware testing (`giap.genetable.eligible`: not partial, and a finite `p_detect`). Empty sets are left out.
+- **Who can be a member:** only genes eligible for detection-aware testing (`gippa.genetable.eligible`: not partial, and a finite `p_detect`). Empty sets are left out.
 - **Coverage:** the share of eligible genes in at least one set. It is NaN when no gene is eligible.
 
 ## GO (go_bp, go_mf, go_cc)

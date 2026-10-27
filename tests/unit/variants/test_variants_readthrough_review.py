@@ -23,10 +23,10 @@ import pandas as pd
 import pytest
 from helpers.readthrough_toys import back_translate, gene, model, rc
 
-from giap.config import GiapConfig
-from giap.model import Replicon
-from giap.variants.align import align_hit
-from giap.variants.error_rates import site_class
+from gippa.config import GippaConfig
+from gippa.model import Replicon
+from gippa.variants.align import align_hit
+from gippa.variants.error_rates import site_class
 
 BODY, FLANK = "MSDKPLTEAGRWQLNEF", "VPAGHTLDMRK"
 P = len(BODY)  # 17, the cell
@@ -133,7 +133,7 @@ def test_swap_right_after_the_cell_is_allowed() -> None:
 
 
 def _run_sites(alt: str, stop: str) -> pd.DataFrame:
-    from giap.steps.variants import run_variants
+    from gippa.steps.variants import run_variants
 
     s, e = _window()
     pep = "WQLNEF" + alt + "VPAGHTL"
@@ -157,7 +157,7 @@ def _run_sites(alt: str, stop: str) -> pd.DataFrame:
     reps = {"c1": Replicon("c1", N, "linear")}
     gm = model(reps, [gene("G1", "c1", 0, 54, "+")])
     peptides = pd.DataFrame({"peptide": [pep], "search_db": "same"})
-    cfg = GiapConfig.model_validate({"genome_relation": "same", "sample_name": "S1"})
+    cfg = GippaConfig.model_validate({"genome_relation": "same", "sample_name": "S1"})
     _pile, table, _records = run_variants(hits, None, peptides, gm, {"c1": _nt(stop)}, cfg)
     return table
 

@@ -1,4 +1,4 @@
-"""Calibration of the M8-08 drop-one-block ΔR² (GIAP_SPEC.md §7.8.2 step 5, §8.4; suite
+"""Calibration of the M8-08 drop-one-block ΔR² (GIPPA_SPEC.md §7.8.2 step 5, §8.4; suite
 ``determinants``; docs/specs/M8-08-determinants-models.md example 1 over R replicates).
 
 Replicate ``i`` of stream ``determinants.m808.<name>`` draws the spec's example-1 world from

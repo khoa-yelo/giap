@@ -7,7 +7,7 @@
 ## Context
 §7.1.1 fixes release versions for most tools but says only "pinned commit" for the four
 source-only tools, and "pin by digest" for images. M2-01 needs exact values for the registry
-(`src/giap/annotate/tools.py`), the env files (`workflow/envs/*.yml`), `workflow/conf/containers.config`
+(`src/gippa/annotate/tools.py`), the env files (`workflow/envs/*.yml`), `workflow/conf/containers.config`
 and the Dockerfiles. All values below were resolved on 2026-10-14 with read-only queries against the
 §3.2/§18 sources (`git ls-remote` and the GitHub API, `micromamba search` on conda-forge + bioconda,
 the PyPI JSON API, and registry v2 manifests via `scripts/resolve_digest.py`).
@@ -35,7 +35,7 @@ separate processes (design rule 4), whatever their licence.
 | Promoter Calculator | 1.2.4 | pip `promotercalculator==1.2.4` | GPL-3.0-or-later (wheel classifier) |
 | TransTermHP | 2.09 | `transtermhp=2.09` (bioconda, `h9948957_2`) | GPL-3.0-or-later (bioconda recipe) |
 | OSTIR | 1.1.3 | pip `ostir==1.1.3` + `viennarna=2.6.4` | GPL-3.0 (GitHub) |
-| codon-bias | 0.5.0 | main GIAP env (in-process) | MIT (PyPI, GitHub) |
+| codon-bias | 0.5.0 | main GIPPA env (in-process) | MIT (PyPI, GitHub) |
 | geNOMAD | 1.12.0 | `genomad=1.12.0` (bioconda, `pyhdfd78af_0`) | non-commercial (§7.1.1; GitHub reports NOASSERTION) |
 | antiSMASH | 8.0.4 | `antismash=8.0.4` (bioconda) | AGPL-3.0 (GitHub) |
 | miniprot | 0.18 | `miniprot=0.18` (bioconda, `h577a1d6_0`) | MIT (GitHub) |
@@ -73,7 +73,7 @@ BLAST+ 2.16.0 rather than the newer 2.17.0 so the env matches FarmShare's `blast
 
 UniOP, Promotech, Promoter Calculator, TerminatorNet, BacTermFinder and OSTIR have no upstream image:
 they keep their conda env under `-profile apptainer` until `containers.yml` (M2-21) publishes
-`ghcr.io/<owner>/giap-<tool>` from `workflow/containers/<tool>/Dockerfile`. The Dockerfiles fetch
+`ghcr.io/<owner>/gippa-<tool>` from `workflow/containers/<tool>/Dockerfile`. The Dockerfiles fetch
 the pinned commit's GitHub archive at build time (never vendored, R5). The UniOP image has no
 licence to redistribute and must not be pushed to a public registry without the authors' consent.
 

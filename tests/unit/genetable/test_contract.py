@@ -1,4 +1,4 @@
-"""M4-06 input contract: ``giap.genetable.contract`` (docs/specs/M4-06-input-contract.md).
+"""M4-06 input contract: ``gippa.genetable.contract`` (docs/specs/M4-06-input-contract.md).
 
 Examples 1-10 one test each, a parametrised missing-column test over every ``Column`` in ``TABLES``,
 dtype/enum/NA rules, cross-table invariants and the edge cases of the spec. C15 ``features``
@@ -33,10 +33,10 @@ from m4_contract_fixture import (
     tag,
 )
 
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 REPO = Path(__file__).resolve().parents[3]
-CONTRACT_PY = REPO / "src" / "giap" / "genetable" / "contract.py"
+CONTRACT_PY = REPO / "src" / "gippa" / "genetable" / "contract.py"
 
 TABLE_KEYS = (
     "replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes", "peptides",
@@ -191,7 +191,7 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
 
 
 def _contract() -> Any:
-    from giap.genetable import contract
+    from gippa.genetable import contract
 
     return contract
 
@@ -199,7 +199,7 @@ def _contract() -> Any:
 def _all_columns() -> list[tuple[str, str]]:
     """Every (table, column) of ``TABLES`` (spec list until the module exists)."""
     try:
-        from giap.genetable.contract import TABLES
+        from gippa.genetable.contract import TABLES
 
         return [(t, c.name) for t, cols in TABLES.items() for c in cols]
     except Exception:
@@ -342,10 +342,10 @@ def test_issue_codes_are_namespaced(frames: dict[str, Any]) -> None:
 
 
 def test_example1_200_gene_layout_loads_without_errors(tmp_path: Path) -> None:
-    """Example 1 on a hand-built 200-gene layout (the giapsim variant is in tests/contract)."""
+    """Example 1 on a hand-built 200-gene layout (the gippasim variant is in tests/contract)."""
     from m4_contract_fixture import write_work
 
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     f = build_frames(200)
     paths = default_paths(tmp_path / "work")
@@ -935,7 +935,7 @@ def test_contract_module_does_no_io() -> None:
     src = CONTRACT_PY.read_text(encoding="utf-8")
     tree = ast.parse(src)
     banned_mods = ("pyarrow", "pathlib", "json", "io", "os", "shutil", "csv", "gzip")
-    banned_giap = ("giap.io.tsv", "giap.io.parquet", "giap.io._open", "giap.io.work_tables")
+    banned_gippa = ("gippa.io.tsv", "gippa.io.parquet", "gippa.io._open", "gippa.io.work_tables")
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names = [a.name for a in node.names]
@@ -945,8 +945,8 @@ def test_contract_module_does_no_io() -> None:
             continue
         for n in names:
             assert n.split(".")[0] not in banned_mods, n
-            assert not any(n == b or n.startswith(b + ".") for b in banned_giap), n
-        if isinstance(node, ast.ImportFrom) and node.module == "giap.io":
+            assert not any(n == b or n.startswith(b + ".") for b in banned_gippa), n
+        if isinstance(node, ast.ImportFrom) and node.module == "gippa.io":
             assert {a.name for a in node.names} <= {"issues"}
     calls = {
         n.func.attr if isinstance(n.func, ast.Attribute) else getattr(n.func, "id", "")
@@ -959,7 +959,7 @@ def test_contract_module_does_no_io() -> None:
 def test_contract_uses_shared_issue_type() -> None:
     """``Issue`` is M1-04's shared type, not a local copy."""
     src = CONTRACT_PY.read_text(encoding="utf-8")
-    assert "giap.io.issues" in src
+    assert "gippa.io.issues" in src
 
 
 # --------------------------------------------------------------------------- C15 features (M5-04)
@@ -974,9 +974,9 @@ def _inputs_with(frames: dict[str, Any], features: pd.DataFrame | None) -> Any:
 
 
 def test_c15_columns_follow_parse_bakta() -> None:
-    """C15 is exactly the columns ``parse_bakta`` writes (``giap.steps.annotation._FEATURE_COLS``),
+    """C15 is exactly the columns ``parse_bakta`` writes (``gippa.steps.annotation._FEATURE_COLS``),
     in that order, all required (the table itself is optional)."""
-    from giap.steps.annotation import _FEATURE_COLS
+    from gippa.steps.annotation import _FEATURE_COLS
 
     cols = _contract().TABLES["features"]
     assert tuple(c.name for c in cols) == FEATURE_COLUMNS
@@ -988,7 +988,7 @@ def test_c15_columns_follow_parse_bakta() -> None:
 def test_c15_type_enum_is_nctype() -> None:
     from typing import get_args
 
-    from giap.model.genes import NcType
+    from gippa.model.genes import NcType
 
     col = next(c for c in _contract().TABLES["features"] if c.name == "type")
     assert col.enum is not None and set(col.enum) == set(get_args(NcType))
@@ -1217,10 +1217,10 @@ def test_c15_parse_bakta_output_conforms(tmp_path: Path) -> None:
     its ``features.parquet`` passes C15 (table and cross-table with its ``replicons.parquet``)."""
     import importlib
 
-    from giap.config import GiapConfig
-    from giap.steps import registry
+    from gippa.config import GippaConfig
+    from gippa.steps import registry
 
-    mod = importlib.import_module("giap.steps.annotation")
+    mod = importlib.import_module("gippa.steps.annotation")
     if "parse_bakta" not in registry._REGISTRY:
         importlib.reload(mod)
     js, fa = _bakta_with_oric(tmp_path / "in")
@@ -1231,7 +1231,7 @@ def test_c15_parse_bakta_output_conforms(tmp_path: Path) -> None:
         "annotation_meta": "annotation_meta.json",
     }  # fmt: skip
     outs = {k: tmp_path / "work" / v for k, v in names.items()}
-    registry.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
+    registry.run_step("parse_bakta", GippaConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
     feats = pd.read_parquet(outs["features"])
     oric = feats[feats["type"] == "oric"]
     assert len(oric) == 1
@@ -1244,9 +1244,9 @@ def test_c15_parse_bakta_output_conforms(tmp_path: Path) -> None:
     assert _features_issues(issues) == []
 
 
-def test_c15_giapsim_literal_copy_equals_tables() -> None:
-    """Acceptance: giapsim's literal C15 column list equals ``TABLES`` (drift check)."""
-    from giapsim.contract_tables import CONTRACT_COLUMNS
+def test_c15_gippasim_literal_copy_equals_tables() -> None:
+    """Acceptance: gippasim's literal C15 column list equals ``TABLES`` (drift check)."""
+    from gippasim.contract_tables import CONTRACT_COLUMNS
 
     assert "features" in CONTRACT_COLUMNS
     assert tuple(CONTRACT_COLUMNS["features"]) == tuple(

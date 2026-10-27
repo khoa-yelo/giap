@@ -1,5 +1,5 @@
 # ruff: noqa: F811  (pytest fixtures imported from test_cli_run_wiring)
-"""``giap run --annotation bakta.json`` is the precomputed Bakta layer (GIAP_SPEC.md §5.3: "Bakta
+"""``gippa run --annotation bakta.json`` is the precomputed Bakta layer (GIPPA_SPEC.md §5.3: "Bakta
 JSON: used as is, and Bakta is not run"). The MVP real-tool runs (Slurm 1864792, 1865149) re-ran
 Bakta because the flag reached only preflight, so locus tags differed from the peptides' IDs."""
 
@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
-    _fake_giap_root,
+    _fake_gippa_root,
     _run,
     db,
     fake_nf,
@@ -17,7 +17,7 @@ from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
     proteins,
 )
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 
 def _precomputed(out: Path) -> dict[str, object]:

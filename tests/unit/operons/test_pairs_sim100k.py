@@ -13,8 +13,8 @@ import pandas as pd
 import pytest
 from helpers.layers_chain import Chain, build_chain
 
-from giap.annotate.layers import genes_of, replicons_of, terminators_of
-from giap.config import GiapConfig
+from gippa.annotate.layers import genes_of, replicons_of, terminators_of
+from gippa.config import GippaConfig
 
 RNA_TYPES = ("rrna", "trna", "ncrna", "tmrna")
 
@@ -26,7 +26,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 
 @pytest.fixture(scope="module")
 def pairs(chain: Chain) -> pd.DataFrame:
-    from giap.operons.pairs import Evidence, pair_frame
+    from gippa.operons.pairs import Evidence, pair_frame
 
     gdf = chain.frame("genes")
     feats = chain.frame("features")
@@ -42,7 +42,7 @@ def pairs(chain: Chain) -> pd.DataFrame:
     )  # fmt: skip
     return pair_frame(
         tbl, genes_of(gdf), replicons_of(chain.frame("replicons")), chain.frame("pairs_raw"),
-        ev, GiapConfig(seed=1),
+        ev, GippaConfig(seed=1),
     )  # fmt: skip
 
 

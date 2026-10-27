@@ -23,7 +23,7 @@ estimate ≈ 170 code lines (+ ≈ 250 test lines) · not statistical (a zero-co
 def te2_result(sites: pd.DataFrame) -> ProxyResult: ...
 def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as TE1
 ```
-`src/giap/variants/qc.py`: `id_mixups(sites: pd.DataFrame, support: pd.DataFrame) -> tuple[int, int]`
+`src/gippa/variants/qc.py`: `id_mixups(sites: pd.DataFrame, support: pd.DataFrame) -> tuple[int, int]`
 (count, n same-db ALT sites). The `variants` step gains the output `variants_qc`
 (`work/variants_qc.parquet`); `context_stats` gains the optional input `variants_qc`.
 
@@ -89,7 +89,7 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
 ## Lead decisions (2026-10-23)
 1. **Question 1 accepted:** `id_mixups` counts contradicting sites of any confidence. It is a QC
    count, and TE2 is the `high`-only test.
-2. The weekly Slurm TE2 proxy follows R14: jobs named `giap-*`, with the CPU total checked before
+2. The weekly Slurm TE2 proxy follows R14: jobs named `gippa-*`, with the CPU total checked before
    submitting. A change to the weekly scrontab, if one is needed, is pending Khoa and not blocking,
    as in MVP-04 decision 3. Until then the job is a one-off sbatch.
 3. **Test-author (cbea786c), gaps 1–9: the test-author's readings are accepted.**
@@ -112,7 +112,7 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
      value 0 / n 0.
    - The GTG TE2 test runs at 400 kb: placing N-terminal peptides needs at least 100 in the
      tolerant stratum, and 100 kb gave 44.
-   - Accepted: GIAP_STEP publishDir and the local `publish()` skip `work/...` outputs. Work
+   - Accepted: GIPPA_STEP publishDir and the local `publish()` skip `work/...` outputs. Work
      intermediates are never published, and no other step had a `work/` output.
    - Accepted: the regenerated step_registry.json mirror.
 5. **Code review (#248): CHANGES REQUESTED.**

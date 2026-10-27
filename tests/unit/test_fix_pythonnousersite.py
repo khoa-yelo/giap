@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from giap.setupdb import run as sr
+from gippa.setupdb import run as sr
 
 ROOT = Path(__file__).resolve().parents[2]
 NF_CONFIG = ROOT / "workflow" / "nextflow.config"
@@ -117,12 +117,12 @@ def test_tool_runner_sets_pythonnousersite(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_tool_runner_env_inherits_os_environ(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GIAP_TEST_SENTINEL", "keep-me")
+    monkeypatch.setenv("GIPPA_TEST_SENTINEL", "keep-me")
     calls = _capture(monkeypatch)
     sr.ToolRunner().run("ostir", [])
     env = calls[0].get("env")
     assert env is not None
-    assert env["GIAP_TEST_SENTINEL"] == "keep-me"
+    assert env["GIPPA_TEST_SENTINEL"] == "keep-me"
     assert env.get("PATH") == os.environ.get("PATH")
     assert {k: v for k, v in env.items() if k != "PYTHONNOUSERSITE"} == {
         k: v for k, v in os.environ.items() if k != "PYTHONNOUSERSITE"
@@ -152,8 +152,8 @@ def test_sourcing_farmshare_env_exports_pythonnousersite(tmp_path: Path) -> None
     env = {
         "HOME": str(tmp_path),
         "PATH": "/usr/bin:/bin",
-        "USER": "giap-test",
-        "GIAP_ROOT": str(tmp_path / "local"),
+        "USER": "gippa-test",
+        "GIPPA_ROOT": str(tmp_path / "local"),
         "PYTHONNOUSERSITE": "0",
     }
     out = subprocess.run(

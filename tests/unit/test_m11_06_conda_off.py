@@ -30,7 +30,7 @@ SELECTOR = re.compile(r"^\s*withName: '(?P<names>[A-Z0-9_|]+)' \{ conda = '' \}$
 
 
 def _ref(tool: str, hexd: str) -> str:
-    return f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{hexd}"
+    return f"ghcr.io/khoa-yelo/gippa-{tool}@sha256:{hexd}"
 
 
 def _run(
@@ -180,6 +180,6 @@ def test_tag_lines_follow_tool_order_after_existing_ones(tmp_path: Path) -> None
         if not ln.startswith("//   "):
             break
         block.append(ln)
-    ours = [ln for ln in block if "giap-promotech:" in ln or "giap-ostir:" in ln]
+    ours = [ln for ln in block if "gippa-promotech:" in ln or "gippa-ostir:" in ln]
     assert [("promotech" in ln) for ln in ours] == [True, False]
     assert block[-2:] == ours

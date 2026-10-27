@@ -3,7 +3,7 @@
 Marked ``pending_sample`` until ``tests/data/recorded/miniprot/0.18/sim100k/`` exists. The
 directory holds the native miniprot ``--gff`` output (``*.gff``, optionally gzipped), the query
 ``proteins.faa`` and ``PROVENANCE.md`` (command, env lock or image digest, date, host). The gene
-model is the giapsim 100-kb genome (``SIM100K``, ``SIM100K_SEED``), regenerated here; a Bakta-like
+model is the gippasim 100-kb genome (``SIM100K``, ``SIM100K_SEED``), regenerated here; a Bakta-like
 ``*.json`` in the directory is used instead when present. Protein IDs are the locus tags.
 
 Example 10: the output parses and >= 99 % of the simulated proteins > 40 aa are assigned
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.config.model import ProteinsConfig
+from gippa.config.model import ProteinsConfig
 
 RECORDED = (
     Path(__file__).resolve().parents[1] / "data" / "recorded" / "miniprot" / "0.18" / "sim100k"
@@ -47,8 +47,8 @@ def _plain(path: Path, tmp: Path) -> Path:
 
 @pytest.fixture(scope="module")
 def recorded(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.io.protein_fasta import read_protein_fasta
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.io.protein_fasta import read_protein_fasta
 
     tmp = tmp_path_factory.mktemp("miniprot_contract")
     gff = _one("*.gff", "*.gff.gz", "*.gff3", "*.gff3.gz")
@@ -56,7 +56,7 @@ def recorded(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyp
     assert gff and faa, f"{RECORDED}: need the miniprot GFF and proteins.faa"
     js = _one("*.json", "*.json.gz")
     if js is None:
-        from giapsim import SIM100K, SIM100K_SEED, simulate
+        from gippasim import SIM100K, SIM100K_SEED, simulate
 
         js = simulate(SIM100K, SIM100K_SEED, tmp / "sim").bakta_json
     model = parse_bakta_json(_plain(js, tmp)).model
@@ -75,7 +75,7 @@ def test_provenance_recorded() -> None:
 
 
 def test_recorded_output_parses(recorded) -> None:  # type: ignore[no-untyped-def]
-    from giap.mapping.miniprot import parse_miniprot_gff
+    from gippa.mapping.miniprot import parse_miniprot_gff
 
     gff, model, proteins = recorded
     lens = {k: len(v) for k, v in proteins.items()}
@@ -97,8 +97,8 @@ def test_recorded_output_parses(recorded) -> None:  # type: ignore[no-untyped-de
 
 
 def test_example10_own_gene_identical(recorded) -> None:  # type: ignore[no-untyped-def]
-    from giap.mapping.miniprot import parse_miniprot_gff
-    from giap.mapping.protein_assign import assign_alignments
+    from gippa.mapping.miniprot import parse_miniprot_gff
+    from gippa.mapping.protein_assign import assign_alignments
 
     gff, model, proteins = recorded
     lens = {k: len(v) for k, v in proteins.items()}

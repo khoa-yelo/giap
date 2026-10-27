@@ -1,6 +1,6 @@
 """Inputs of ``workflow/tests/annotate.nf.test`` stay valid (M2-07; M2-02 precomputed formats).
 
-``annotation.json`` must equal the default ``annotation`` section that ``giap run`` writes into
+``annotation.json`` must equal the default ``annotation`` section that ``gippa run`` writes into
 ``params.json`` (runner.write_params), so the nf-test exercises the real parameter shape; the
 precomputed TSVs must load with ``load_precomputed``.
 """
@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.precomputed import load_precomputed
-from giap.config import GiapConfig
-from giap.model.coords import Replicon
+from gippa.annotate.precomputed import load_precomputed
+from gippa.config import GippaConfig
+from gippa.model.coords import Replicon
 
 DATA = Path(__file__).resolve().parents[2] / "workflow" / "tests" / "data" / "annotate"
 
 
 def test_annotation_json_equals_the_default_annotation_section() -> None:
-    want = GiapConfig().model_dump(mode="json")["annotation"]
+    want = GippaConfig().model_dump(mode="json")["annotation"]
     got = json.loads((DATA / "annotation.json").read_text(encoding="utf-8"))
     assert got == want, "regenerate workflow/tests/data/annotate/annotation.json from the defaults"
 

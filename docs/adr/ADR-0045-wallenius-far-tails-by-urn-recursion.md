@@ -7,7 +7,7 @@
   accurate). The lead approves it.
 
 ## Context
-`giap.stats.wallenius.wallenius_tails` sums scipy's `nchypergeom_wallenius.pmf`, which uses
+`gippa.stats.wallenius.wallenius_tails` sums scipy's `nchypergeom_wallenius.pmf`, which uses
 Fog's precision constants. On the M8-13 golden data it is within 7.1e-12 of the exact
 distribution on all 300 tails, including 6e-46 (ADR-0044). Elsewhere it is not.
 
@@ -30,7 +30,7 @@ The worst case is (M, n, N, ω) = (902, 151, 115, 1.98), lower tail. Its absolut
 near-constant ~8e-15, so scipy's pmf has an absolute floor rather than relative accuracy. This
 matches the M8-01 measurement in docs/methods/function.md.
 
-So GIAP reports p with relative error above 1e-6 below about 1e-8, and p = 0 for true values
+So GIPPA reports p with relative error above 1e-6 below about 1e-8, and p = 0 for true values
 near 1e-15. BH and elim decisions are unaffected (function.md "BH" and "elim"). But:
 - the reported `p_classic` and `p_value` are wrong in the last decades;
 - an exact-reference golden test (ADR-0044) passes only because the golden tails happen to be
@@ -54,7 +54,7 @@ near 1e-15. BH and elim decisions are unaffected (function.md "BH" and "elim"). 
 4. **Odds range.** The recursion has no odds limit. `ODDS_RANGE` stays as it is for the scipy
    path. A later ADR may drop it once the recursion is the sole path.
 5. **Cost.** The recursion is O(N · min(n, N)) per category, about 36 ms at N = 1,456 against
-   1 ms for scipy. On the golden data it runs for 5 of 150 categories (+0.2 s). GIAP universes
+   1 ms for scipy. On the golden data it runs for 5 of 150 categories (+0.2 s). GIPPA universes
    are a few thousand genes, so a GO run with ~5 % deep-tail categories adds seconds.
 
 ## Evidence required before acceptance (test-author, then implementer)

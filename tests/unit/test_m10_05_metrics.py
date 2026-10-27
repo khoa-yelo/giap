@@ -1,7 +1,7 @@
 """Pure functions of ``validation/pilot/metrics.py`` (M10-05 acceptance criteria 1-4).
 
 Spec: docs/specs/M10-05-pilot-metrics.md ("Metric definitions", "TE1 on real data", "Hypotheses
-1 and 3", examples 1-14, edge cases). Every CI is compared with ``giap.stats.cutoffs.wilson_ci``
+1 and 3", examples 1-14, edge cases). Every CI is compared with ``gippa.stats.cutoffs.wilson_ci``
 to 1e-12 and with the digits printed in the spec; the H1 p-values with ``scipy.stats.binomtest``
 to 1e-12.
 
@@ -53,7 +53,7 @@ and their arguments, these tests fix the returned keys):
 * ``render(template, metrics, notes) -> str`` (an unresolved path renders ``**missing: <path>**``;
   a rejected notes text raises ``Inconsistent``, review B1: exit 1 means only that);
 * review S2: ``mapping_shares``, ``te1_real`` and ``te1_diagnostic`` take the raw
-  ``read_peptide_table`` frame and build **U** as GIAP's mapping step does,
+  ``read_peptide_table`` frame and build **U** as GIPPA's mapping step does,
   ``select_queries(validate_peptides(P, cfg.input)[0], cfg)``; ``identifications`` (metric 1)
   keeps the raw rows (its cross-check is against the converter's count on the same file);
 * review S6: a missing compare row is ``reason = "missing_row"`` with ``flags`` None (no
@@ -77,11 +77,11 @@ from helpers.compare_data import DETECTION_COLUMNS, gene, genes_frame
 from helpers.pilot_metrics_m10 import GIB, load_metrics, load_te_proxies
 from scipy.stats import binomtest
 
-from giap.config import resolve_config
-from giap.model.coords import Interval
-from giap.model.genes import Gene
-from giap.stats.cutoffs import wilson_ci
-from giap.steps.mapping import select_queries
+from gippa.config import resolve_config
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene
+from gippa.stats.cutoffs import wilson_ci
+from gippa.steps.mapping import select_queries
 
 PREFIXES = ("Cont_", "CON__", "CONT_", "cRAP")
 TOL = 1e-12
@@ -544,7 +544,7 @@ def test_runtime_local_executor_and_sacct(m: Any) -> None:
     out = m.runtime(manifest, [], [])
     assert out["hosts"] == [] and out["runtime_complete"] is True
     assert out["max_step_peak_rss_bytes"] is None
-    sacct = [{"JobID": "123", "JobName": "giap-run-a2", "State": "COMPLETED",
+    sacct = [{"JobID": "123", "JobName": "gippa-run-a2", "State": "COMPLETED",
               "Elapsed": "00:42:30", "MaxRSS": "2048K", "NodeList": "sh04-01n01",
               "AllocCPUS": "8"}]  # fmt: skip
     got = m.runtime(manifest, [], sacct)["sacct"]
@@ -1061,7 +1061,7 @@ def test_s1_unknown_source_zero_on_example_12(m: Any, cfg: Any) -> None:
 
 
 def test_s2_universe_goes_through_validate_peptides(m: Any, cfg: Any) -> None:
-    from giap.io.peptides import validate_peptides
+    from gippa.io.peptides import validate_peptides
 
     P = _peptides([
         _p("PEPTIDEK", "G1"),
@@ -1070,7 +1070,7 @@ def test_s2_universe_goes_through_validate_peptides(m: Any, cfg: Any) -> None:
         _p("WWWGGGWWK", " Cont_P00761 ; Cont_P02769"),  # whitespace normalised: contaminant-only
     ])  # fmt: skip
     valid, _ = validate_peptides(P, cfg.input)
-    oracle = set(select_queries(valid, cfg)["peptide"].astype(str))  # GIAP's mapping front end
+    oracle = set(select_queries(valid, cfg)["peptide"].astype(str))  # GIPPA's mapping front end
     assert oracle == {"PEPTIDEK", "WWWGGGWWK"}
     hits = _hits([("PEPTIDEK", "exact", "cds_inframe", "G1", "chr", 1, 24, "+")])
     out = m.mapping_shares(P, hits, _unmapped([]), cfg)
@@ -1247,7 +1247,7 @@ def test_s10_runtime_max_rss_sacct_head_and_trace_hosts(m: Any) -> None:  # muta
     }  # fmt: skip
     trace = [{"hostname": "-"}, {"hostname": ""}, {"hostname": "n1"}, {"hostname": "None"}]
     sacct = [{"JobID": "123.batch", "State": "COMPLETED", "Elapsed": "00:59:00"},
-             {"JobID": "123", "JobName": "giap-run-a2", "State": "COMPLETED",
+             {"JobID": "123", "JobName": "gippa-run-a2", "State": "COMPLETED",
               "Elapsed": "01:00:00", "NodeList": "sh04-01n01"},
              {"JobID": "123.extern", "State": "COMPLETED", "Elapsed": "01:00:01"}]  # fmt: skip
     out = m.runtime(manifest, trace, sacct)

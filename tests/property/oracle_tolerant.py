@@ -1,6 +1,6 @@
-"""Independent brute-force oracle for the tolerant verifier (issue M3-06; GIAP_SPEC.md §7.2.4).
+"""Independent brute-force oracle for the tolerant verifier (issue M3-06; GIPPA_SPEC.md §7.2.4).
 
-Written by the test author from the spec text only (it does not import ``giap.mapping.diffops``):
+Written by the test author from the spec text only (it does not import ``gippa.mapping.diffops``):
 the operation set, the block lists and the tie-break order are copied from §7.2.4 and the M3-06
 semantics table. It works on *letters* (``decode`` output: residues with I folded into L, ``*``
 for a stop, ``X`` for an ambiguous codon, ``#`` for a query NOMATCH).

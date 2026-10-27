@@ -1,4 +1,4 @@
-"""Permutation p-values, circular shifts and Besag-Clifford (issue M4-03; GIAP_SPEC.md §7.3.5(b),
+"""Permutation p-values, circular shifts and Besag-Clifford (issue M4-03; GIPPA_SPEC.md §7.3.5(b),
 §8.2, §8.3, decision 14, Appendix B.4).
 
 Conventions pinned here: the +1 rule p = (1 + b)/(1 + B); NaN nulls are dropped; two-sided p is
@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from giap.rng import for_step
-from giap.stats.permutation import (
+from gippa.rng import for_step
+from gippa.stats.permutation import (
     apply_shift,
     besag_clifford,
     choose_shifts,
@@ -27,7 +27,7 @@ from giap.stats.permutation import (
 )
 
 NAN = float("nan")
-STATS_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "stats"
+STATS_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "stats"
 
 
 def close(actual: object, expected: object, atol: float = 1e-12) -> None:

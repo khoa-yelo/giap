@@ -59,9 +59,9 @@ def test_triggers(wf: dict[str, Any]) -> None:
     expected = {
         "docs/**",
         "mkdocs.yml",
-        "src/giap/cli.py",
-        "src/giap/config/**",
-        "src/giap/schemas/**",
+        "src/gippa/cli.py",
+        "src/gippa/config/**",
+        "src/gippa/schemas/**",
         "CHANGELOG.md",
     }
     assert expected <= set(push["paths"])

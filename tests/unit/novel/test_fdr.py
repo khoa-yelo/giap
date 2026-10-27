@@ -1,5 +1,5 @@
 """M7-11 class FDR for novel ORFs: examples 1-6 and every degenerate row of
-docs/specs/M7-11-novel-class-fdr.md (GIAP_SPEC.md §7.6.4, §8.1; ADR-0009, ADR-0010).
+docs/specs/M7-11-novel-class-fdr.md (GIPPA_SPEC.md §7.6.4, §8.1; ADR-0009, ADR-0010).
 
 Lead decisions (2026-10-22) pinned here: per-ORF regime by peptide source, database first (1);
 untagged classes ``pseudogene``/``sorf``/``cterm_extension`` are unestimated (2); de novo ORF q is
@@ -13,7 +13,7 @@ Test-author resolutions of open points:
   class. ADR-0009 rescaling as in M4-12: FDR(t) = (D(t)/f + 1)/T(t), f = paired share; unpaired
   decoys never enter the picked list.
 * ``id_map=None``: entries are read from the class-tagged IDs themselves
-  (``GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}``).
+  (``GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}``).
 * ``c`` (ADR-0010) is the largest π̂ over every searched de novo peptide (target or decoy rows),
   a missing π̂ counting as 1.
 * ``regime(peptides, [orf])`` is the regime of that ORF (decision 1); ``regime`` on a whole run
@@ -40,13 +40,13 @@ from helpers.novel_fdr_fixture import (
     q_of,
 )
 
-from giap.mapping.loci import LocusClassifier
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.mapping.loci import LocusClassifier
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 
 def _fdr():  # type: ignore[no-untyped-def]
-    import giap.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
+    import gippa.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
 
     return m
 
@@ -147,11 +147,11 @@ def test_small_class_cannot_pass_alpha() -> None:
 def test_example3_decoy_outscores_target_counts_as_decoy_win() -> None:
     w = PickedWorld()
     entry = w.entry("cds_outframe", "c1", "+", start0=100, length=300)
-    assert entry == ("GIAPORF_cds_outframe_c1_101_400_p", 400)
+    assert entry == ("GIPPAORF_cds_outframe_c1_101_400_p", 400)
     x, did = w.target("cds_outframe", "c1", 50, entry=entry)
     assert x.stop == 400
-    assert w.decoy(did, 10)  # rev_GIAPORF_cds_outframe_c1_101_400_p scores higher
-    assert w.pep_rows[-1]["protein_ids"] == ["rev_GIAPORF_cds_outframe_c1_101_400_p"]
+    assert w.decoy(did, 10)  # rev_GIPPAORF_cds_outframe_c1_101_400_p scores higher
+    assert w.pep_rows[-1]["protein_ids"] == ["rev_GIPPAORF_cds_outframe_c1_101_400_p"]
     others = _class_block(w, "cds_outframe", "c1", 10, first_rank=100)
     qs = picked_class_q(w.orfs, w.peptides, w.id_map)
     assert not callable_at(qs, x.orf_id, 1.0)

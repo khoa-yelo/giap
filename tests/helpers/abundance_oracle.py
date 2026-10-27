@@ -1,7 +1,7 @@
 """Independent oracle and builders for M4-14 gene-level abundance (docs/specs/M4-14-abundance.md).
 
-Written from the spec text only (GIAP_SPEC.md §7.3.4, §7.2.6, §9.3), with plain Python loops so it
-shares no code with ``giap.genetable.abundance``:
+Written from the spec text only (GIPPA_SPEC.md §7.3.4, §7.2.6, §9.3), with plain Python loops so it
+shares no code with ``gippa.genetable.abundance``:
 
 - peptide route: accepted rows with ``abundance_eligible`` and a finite intensity > 0;
   iBAQ = sum / max(1, n_observable); Top3 = arithmetic mean of the (up to) 3 largest linear values;
@@ -11,7 +11,7 @@ shares no code with ``giap.genetable.abundance``:
   (median, mean, min, zero = min - 1, exclude = none), filled for every detected gene with a
   missing value, partial included (PR #82 lead decision 5).
 
-Also a small peptide-level simulator on top of giapsim layouts/expression (M4-07/M4-08), since the
+Also a small peptide-level simulator on top of gippasim layouts/expression (M4-07/M4-08), since the
 M4-09 evidence simulator is not merged: each detected gene's observable tryptic peptides (0 missed
 cleavages, length 7-30) are quantified independently with probability ``p_obs`` and intensity
 ``ln I = abundance_log2_true * ln 2 + N(0, sd^2)`` (the M4-09 intensity model).

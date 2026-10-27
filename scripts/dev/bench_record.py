@@ -2,7 +2,7 @@
 
 Pure functions (``parse_sacct``, ``trace_stats``, ``invalid_reasons``, ``run_status``) that never
 raise on malformed input, and a thin ``main`` called by ``scripts/slurm/benchmark_standard.sbatch``
-from the submitting checkout (``$GIAP_REPO``), so an older ``BENCH_COMMIT`` is still recorded:
+from the submitting checkout (``$GIPPA_REPO``), so an older ``BENCH_COMMIT`` is still recorded:
 
     bench_record.py RUN_DIR GENOME VARIANT ORDER STEP RC T0 T1 FORCED SACCT_ROW BENCH_ID COMMIT
                     REPEAT ATTEMPT JOB_ID TASK NODE SKU CMD...
@@ -25,7 +25,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from measure_runtimes import parse_trace, process_name, rss_bytes
 
-SCHEMA = "giap-bench-run/1"
+SCHEMA = "gippa-bench-run/1"
 SKU = "CPU_SKU:6148"
 CPUS = 16
 SACCT_KEYS = ("elapsed_s", "max_rss_bytes", "total_cpu_s", "alloc_cpus", "state", "exit")
@@ -107,7 +107,7 @@ def _short(host: str) -> str:
 
 def invalid_reasons(*, variant: str, commit: str, node: str, sku: str,
                     trace_rows: Sequence[Mapping[str, str]], manifest: Mapping[str, Any] | None,
-                    sacct: Mapping[str, Any] | None, giap_other: Iterable[Mapping[str, Any]],
+                    sacct: Mapping[str, Any] | None, gippa_other: Iterable[Mapping[str, Any]],
                     caches_before: Iterable[str], caches_after: Iterable[str],
                     ) -> tuple[list[str], list[str]]:  # fmt: skip
     """The run's invalid reasons (all of them) and its warnings (``contended_other_nodes``)."""
@@ -139,9 +139,9 @@ def invalid_reasons(*, variant: str, commit: str, node: str, sku: str,
     procs = {process_name(str(r.get("name") or "")) for r in trace_rows}
     if variant == "core" and "bakta" in procs:
         reasons.append("bakta_ran_in_core")
-    for o in giap_other:
+    for o in gippa_other:
         if _short(str(o.get("node") or "")) == _short(node):
-            reasons.append(f"same_node_giap:{o.get('job')}")
+            reasons.append(f"same_node_gippa:{o.get('job')}")
         elif int(o.get("cpus") or 0) >= 8 and "contended_other_nodes" not in warnings:
             warnings.append("contended_other_nodes")
     if set(caches_after) - set(caches_before) - {""}:
@@ -171,7 +171,7 @@ def main(argv: list[str]) -> int:
     (rd_s, genome, variant, order, step, rc_s, t0, t1, forced, row, bench_id, commit, repeat,
      attempt, job_id, task, node, sku, *cmd) = argv  # fmt: skip
     rd, rc = Path(rd_s), int(rc_s)
-    gargv = cmd[cmd.index("giap") :] if "giap" in cmd else cmd
+    gargv = cmd[cmd.index("gippa") :] if "gippa" in cmd else cmd
     out = rd / "out"
     tp = out / "logs" / "trace.tsv"
     rows = list(csv.DictReader(tp.open(), delimiter="\t")) if tp.is_file() else []
@@ -191,7 +191,7 @@ def main(argv: list[str]) -> int:
     reasons, warnings = invalid_reasons(
         variant=variant, commit=commit, node=node, sku=sku, trace_rows=rows,
         manifest=manifest if isinstance(manifest, dict) else None, sacct=sa,
-        giap_other=list(others.values()), caches_before=_lines(rd / "caches.before"),
+        gippa_other=list(others.values()), caches_before=_lines(rd / "caches.before"),
         caches_after=_lines(rd / "caches.after"))  # fmt: skip
     script_wall = round(float(t1) - float(t0), 3)
     wall: float = script_wall if sa is None else sa["elapsed_s"]
@@ -213,7 +213,7 @@ def main(argv: list[str]) -> int:
            "sacct": sa or dict.fromkeys(SACCT_KEYS),
            "script_wall_s": script_wall, "wall_s": wall, "exit_code": rc, "status": status,
            "invalid_reasons": reasons, "warnings": warnings, **ts,
-           "cotenancy": {"samples": len(samples), "giap_other": list(others.values()),
+           "cotenancy": {"samples": len(samples), "gippa_other": list(others.values()),
                          "node_cpualloc_median": statistics.median_low(allocs) if allocs else None,
                          "node_cpualloc_max": max(allocs) if allocs else None}}  # fmt: skip
     (rd / "bench_run.json").write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n")

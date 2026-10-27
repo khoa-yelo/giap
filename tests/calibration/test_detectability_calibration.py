@@ -1,4 +1,4 @@
-"""Calibration of the M4-13 detectability model (docs/specs/M4-13-detectability.md; GIAP_SPEC.md
+"""Calibration of the M4-13 detectability model (docs/specs/M4-13-detectability.md; GIPPA_SPEC.md
 §7.3.3, §8.4 row "Detectability | logistic truth on physicochemical covariates | calibration slope
 1 ± 0.2 | 20 | 100"; M4-index lead decision 6: the gate is the MEAN slope).
 
@@ -10,7 +10,7 @@ Claims (each named so the statistician can review it):
 D1  Cross-fitted slope (the §8.4 gate). Data: M4-07 layout (2,000 chromosome genes fast, 4,500
     full, default regions) + M4-08 ``detection = "covariates_only"`` (logistic truth in log length,
     log1p n_obs, GRAVY); eligible = non-partial cds/sORF; covariates from M4-10. Fit
-    ``fit_detectability`` (rng ``giap.rng.for_step("detectability", seed_i)``) and take the
+    ``fit_detectability`` (rng ``gippa.rng.for_step("detectability", seed_i)``) and take the
     ``calibration_slope`` from its diagnostics (checked per replicate against the oracle's
     unpenalised recalibration of the returned ``p_detect``). Criterion: mean over the R replicates
     ∈ ``tolerances.detectability_slope`` = [0.8, 1.2]. Per-replicate slopes, intercepts and Brier
@@ -51,8 +51,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import detectability_data as dd
 import detectability_oracle as O
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 SUITE = "detectability"
 MODES = [
@@ -64,7 +64,7 @@ _MEMO: dict[tuple[str, int], Any] = {}
 
 
 def _mod() -> Any:
-    from giap.genetable import detectability
+    from gippa.genetable import detectability
 
     return detectability
 

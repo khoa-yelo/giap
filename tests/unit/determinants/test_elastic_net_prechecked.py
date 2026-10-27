@@ -8,7 +8,7 @@ sklearn release that breaks the contract fails here: either loudly (a Cython lay
 or as a changed path.
 
 Both branches run: n > p (``precompute="auto"`` builds the Gram matrix) and n <= p (no Gram).
-The keyword arguments are those of ``giap.determinants.models._fit_predict``.
+The keyword arguments are those of ``gippa.determinants.models._fit_predict``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import pytest
 from sklearn.linear_model import ElasticNetCV
 from sklearn.model_selection import GroupKFold
 
-from giap.determinants.models import _ElasticNetCV
+from gippa.determinants.models import _ElasticNetCV
 
 
 def _kw(cv: list[tuple[np.ndarray, np.ndarray]]) -> dict[str, object]:

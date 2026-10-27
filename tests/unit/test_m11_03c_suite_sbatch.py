@@ -12,7 +12,7 @@ tests/unit/test_m11_03b_sbatch.py). Nothing is submitted: ``sbatch``, ``srun``, 
 
 The sandbox:
 
-- ``GIAP_REPO`` = ``GIAP_WORKTREE`` = a git checkout in a temporary directory holding a stub
+- ``GIPPA_REPO`` = ``GIPPA_WORKTREE`` = a git checkout in a temporary directory holding a stub
   ``scripts/farmshare_env.sh``, a copy of ``scripts/ci/calibration_lanes.py`` (PR 1a/1b), a plan
   ``scripts/slurm/calibration_plan.tsv`` (the committed one unless a test edits a row), a
   durations file ``scripts/slurm/calibration_durations.tsv`` written by the test,
@@ -35,7 +35,7 @@ The sandbox:
   name of its JUnit: ``shard<k>``, ``group<g>``, ``lane<k>`` (a block-2 pytest of ``--merge``).
   Per role: ``STUB_RC_<role>`` exit, ``STUB_SLEEP_<role>`` seconds, ``STUB_FAIL_<role>`` a nodeid
   that fails, ``STUB_DROP_<role>`` one testcase fewer, ``STUB_NO_JUNIT_<role>`` no JUnit.
-- The stub ``--merge`` (PR 2 behaviour): with ``GIAP_CALIBRATION_CONFIRM_LANES=L`` it writes
+- The stub ``--merge`` (PR 2 behaviour): with ``GIPPA_CALIBRATION_CONFIRM_LANES=L`` it writes
   ``<log>/<suite>.confirm_parts.json`` (unless ``STUB_NO_CONFIRM_PARTS``) and, with
   ``STUB_PENDING``, starts ``L`` block-2 pytests with
   ``--junitxml=<CONFIRM_JUNIT>.lane<k>.junit.xml`` on their command line; their names are the
@@ -53,11 +53,11 @@ The sandbox:
 Conventions settled by the test author where the spec leaves them open (the implementer must
 follow them or say why not):
 
-- Test seams of the job: ``GIAP_CALIBRATION_CPUSET`` (a Linux CPU list, e.g. ``0-3,8-11``)
-  replaces the job's ``sched_getaffinity`` set, and ``GIAP_CALIBRATION_SYSFS`` replaces
-  ``/sys/devices/system/cpu`` (``cpu<n>/topology/thread_siblings_list``). ``GIAP_CALIBRATION_GRACE``
-  is the spec's grace in seconds. The job reads ``GIAP_SUITE``, ``GIAP_WORKTREE``,
-  ``GIAP_CALIBRATION_LOG_DIR`` and ``SLURM_JOB_ID``; there is no ``SLURM_ARRAY_*``.
+- Test seams of the job: ``GIPPA_CALIBRATION_CPUSET`` (a Linux CPU list, e.g. ``0-3,8-11``)
+  replaces the job's ``sched_getaffinity`` set, and ``GIPPA_CALIBRATION_SYSFS`` replaces
+  ``/sys/devices/system/cpu`` (``cpu<n>/topology/thread_siblings_list``). ``GIPPA_CALIBRATION_GRACE``
+  is the spec's grace in seconds. The job reads ``GIPPA_SUITE``, ``GIPPA_WORKTREE``,
+  ``GIPPA_CALIBRATION_LOG_DIR`` and ``SLURM_JOB_ID``; there is no ``SLURM_ARRAY_*``.
 - A lane is pinned to ``cpus_per_lane / 2`` whole cores: its ``taskset`` list holds both siblings
   of each of its cores, all inside the job's set, disjoint from the other lanes'. Too few whole
   cores for the plan row's ``shards + groups`` lanes ends the job with exit 2 and a record before
@@ -102,7 +102,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-from helpers.slurm_sandbox import assert_honours_giap_repo
+from helpers.slurm_sandbox import assert_honours_gippa_repo
 
 REPO = Path(__file__).resolve().parents[2]
 SBATCH = REPO / "scripts" / "slurm" / "calibration_suite.sbatch"
@@ -115,8 +115,8 @@ SUITES = ["placement", "gene_fdr", "detectability", "regions", "autocorrelation"
 JOB = "1900100"
 THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS",
                "SLURM_CPUS_PER_TASK")  # fmt: skip
-CONFIRM_VARS = ("GIAP_CALIBRATION_CONFIRM_LANES", "GIAP_CALIBRATION_CONFIRM_JUNIT",
-                "GIAP_CALIBRATION_CONFIRM")  # fmt: skip
+CONFIRM_VARS = ("GIPPA_CALIBRATION_CONFIRM_LANES", "GIPPA_CALIBRATION_CONFIRM_JUNIT",
+                "GIPPA_CALIBRATION_CONFIRM")  # fmt: skip
 
 DET = "tests/calibration/attacks/test_attack_determinants_null.py::test_null_level_under_attack"
 ATTACK5 = ("tests/calibration/attacks/test_attack5_reversed_stretches.py::"
@@ -149,10 +149,10 @@ if mode is None:
     os.execv(REAL, [REAL, *argv])
 
 ENV_KEYS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS",
-            "SLURM_CPUS_PER_TASK", "STUB_TASKSET", "GIAP_CALIBRATION_LOG_DIR",
-            "GIAP_CALIBRATION_CONFIRM_LANES", "GIAP_CALIBRATION_CONFIRM_JUNIT",
-            "GIAP_CALIBRATION_CONFIRM", "GIAP_CALIBRATION_REPLICATES", "PYTEST_ADDOPTS",
-            "GIAP_CALIBRATION_CONFIRM_SLICE")
+            "SLURM_CPUS_PER_TASK", "STUB_TASKSET", "GIPPA_CALIBRATION_LOG_DIR",
+            "GIPPA_CALIBRATION_CONFIRM_LANES", "GIPPA_CALIBRATION_CONFIRM_JUNIT",
+            "GIPPA_CALIBRATION_CONFIRM", "GIPPA_CALIBRATION_REPLICATES", "PYTEST_ADDOPTS",
+            "GIPPA_CALIBRATION_CONFIRM_SLICE")
 addopts = shlex.split(os.environ.get("PYTEST_ADDOPTS", ""))
 opts = addopts + rest
 
@@ -266,14 +266,14 @@ def child(extra):
 
 def merge_main():
     log(event="start", proc="criteria")
-    lanes = os.environ.get("GIAP_CALIBRATION_CONFIRM_LANES")
+    lanes = os.environ.get("GIPPA_CALIBRATION_CONFIRM_LANES")
     procs = []
     if lanes is not None:
-        stem = os.environ["GIAP_CALIBRATION_CONFIRM_JUNIT"]
+        stem = os.environ["GIPPA_CALIBRATION_CONFIRM_JUNIT"]
         paths = [f"{stem}.lane{k}.junit.xml" for k in range(int(lanes))]
         if not os.environ.get("STUB_PENDING"):
             paths = []
-        logdir = Path(os.environ["GIAP_CALIBRATION_LOG_DIR"])
+        logdir = Path(os.environ["GIPPA_CALIBRATION_LOG_DIR"])
         if not os.environ.get("STUB_NO_CONFIRM_PARTS"):
             logdir.mkdir(parents=True, exist_ok=True)
             (logdir / f"{os.environ['STUB_SUITE']}.confirm_parts.json").write_text(
@@ -348,12 +348,12 @@ def _load(path: Path, name: str) -> ModuleType:
 
 @pytest.fixture(scope="module")
 def lanes_mod() -> ModuleType:
-    return _load(LANES_PY, "giap_calibration_lanes_pr3")
+    return _load(LANES_PY, "gippa_calibration_lanes_pr3")
 
 
 @pytest.fixture(scope="module")
 def rows_mod() -> ModuleType:
-    return _load(ROWS_PY, "giap_calibration_rows_pr3")
+    return _load(ROWS_PY, "gippa_calibration_rows_pr3")
 
 
 def _code() -> str:
@@ -440,17 +440,17 @@ class Box:
         return {
             "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
             "HOME": str(self.base),
-            "GIAP_REPO": str(self.repo),
-            "GIAP_WORKTREE": str(self.repo),
-            "GIAP_ROOT": str(self.base),
-            "GIAP_SUITE": suite,
-            "GIAP_CALIBRATION_LOG_DIR": str(self.log),
-            "GIAP_CALIBRATION_CPUSET": cpuset,
-            "GIAP_CALIBRATION_SYSFS": str(self.sysfs),
-            "GIAP_CALIBRATION_GRACE": "3",
+            "GIPPA_REPO": str(self.repo),
+            "GIPPA_WORKTREE": str(self.repo),
+            "GIPPA_ROOT": str(self.base),
+            "GIPPA_SUITE": suite,
+            "GIPPA_CALIBRATION_LOG_DIR": str(self.log),
+            "GIPPA_CALIBRATION_CPUSET": cpuset,
+            "GIPPA_CALIBRATION_SYSFS": str(self.sysfs),
+            "GIPPA_CALIBRATION_GRACE": "3",
             "UV_PROJECT_ENVIRONMENT": str(self.venv),
             "SLURM_JOB_ID": JOB,
-            "SLURM_JOB_NAME": f"giap-cal-{suite}",
+            "SLURM_JOB_NAME": f"gippa-cal-{suite}",
             "SLURM_CPUS_PER_TASK": str(len(_cpulist(cpuset))),
             "STUB_LOG": str(self.stub_log),
             "STUB_COLLECTION": str(self.collection),
@@ -557,7 +557,7 @@ def _kill_stubs(box: Box) -> None:
 @pytest.fixture
 def box() -> Iterator[Box]:
     # not tmp_path: its path contains "pytest", which would make every stub look like pytest
-    base = Path(tempfile.mkdtemp(prefix="giap-m1103c-"))
+    base = Path(tempfile.mkdtemp(prefix="gippa-m1103c-"))
     b = _make_box(base)
     try:
         yield b
@@ -655,7 +655,7 @@ def test_signal_directive_and_no_array() -> None:
     assert re.findall(r"^#SBATCH\s+--signal=(\S+)\s*$", text, re.M) == ["B:USR1@600"]
     assert not re.search(r"^#SBATCH\s+--array", text, re.M)
     names = re.findall(r"^#SBATCH\s+--job-name=(\S+)", text, re.M)
-    assert all(n.startswith("giap-") for n in names), names
+    assert all(n.startswith("gippa-") for n in names), names
 
 
 def test_venv_interpreter_never_uv_run() -> None:
@@ -682,8 +682,8 @@ def test_signals_only_its_own_tree() -> None:
     assert "/proc/" in code or "pgrep -P" in code, "walk the batch shell's descendants"
 
 
-def test_honours_giap_repo_and_bash32() -> None:
-    assert_honours_giap_repo(SBATCH.read_text(), "calibration_suite.sbatch")
+def test_honours_gippa_repo_and_bash32() -> None:
+    assert_honours_gippa_repo(SBATCH.read_text(), "calibration_suite.sbatch")
     res = subprocess.run([sys.executable, str(REPO / "scripts" / "ci" / "check_bash32.py"),
                           str(SBATCH)], capture_output=True, text=True, check=False)  # fmt: skip
     assert res.returncode == 0, res.stdout + res.stderr
@@ -731,7 +731,7 @@ def test_example_2_determinants_group_lanes(box: Box, lanes_mod: ModuleType,
         assert w["junit"] == f"{log}/task-10.group{ln.index}.junit.xml", w
         assert set(w["deselect"]) == set(ln.deselect)
         assert not {"--shard", "--merge"} & {a.split("=")[0] for a in w["argv"]}, w["argv"]
-        assert w["env"]["GIAP_CALIBRATION_LOG_DIR"] == f"{log}/lanes/determinants-group{ln.index}"
+        assert w["env"]["GIPPA_CALIBRATION_LOG_DIR"] == f"{log}/lanes/determinants-group{ln.index}"
         (inner,) = run.of(proc="pytest", role=f"group{ln.index}")
         assert inner["ppid"] == w["pid"]
         for e in (w, inner):
@@ -842,12 +842,12 @@ def test_example_3_placement_shards_groups_and_merge(box: Box, lanes_mod: Module
         assert set(w["deselect"]) == direct
         args = " ".join(w["argv"])
         assert re.search(rf"--shard[= ]{k}/2\b", args), w["argv"]
-        assert w["env"]["GIAP_CALIBRATION_LOG_DIR"] == str(log)
+        assert w["env"]["GIPPA_CALIBRATION_LOG_DIR"] == str(log)
         assert junit_count(log / f"task-0.shard{k}.junit.xml") == 30
     for ln in [ln for ln in want if ln.kind == "group"]:
         (w,) = [w for w in wrappers if w["role"] == f"group{ln.index}"]
         assert set(w["deselect"]) == set(ln.deselect)
-        assert w["env"]["GIAP_CALIBRATION_LOG_DIR"] == f"{log}/lanes/placement-group{ln.index}"
+        assert w["env"]["GIPPA_CALIBRATION_LOG_DIR"] == f"{log}/lanes/placement-group{ln.index}"
     cores = [_cpulist(w["env"]["STUB_TASKSET"] or "") for w in wrappers]
     assert all(len(c) == 2 for c in cores)
     assert len(set().union(*cores)) == 20, "10 lanes on 10 disjoint whole cores"
@@ -858,9 +858,9 @@ def test_example_3_placement_shards_groups_and_merge(box: Box, lanes_mod: Module
     assert len(lane_ends) == 10 and merge["t"] >= max(lane_ends), "merge after every lane"
     assert "--merge" in merge["argv"]
     assert set(merge["deselect"]) == direct
-    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_LANES"] == "2"
-    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_JUNIT"] == f"{log}/task-0.merge"
-    assert merge["env"]["GIAP_CALIBRATION_LOG_DIR"] == str(log)
+    assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_LANES"] == "2"
+    assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_JUNIT"] == f"{log}/task-0.merge"
+    assert merge["env"]["GIPPA_CALIBRATION_LOG_DIR"] == str(log)
     # step 4: the merge runs on the shard lanes' cores with the lanes' thread limits
     shard_cpus = set().union(*(_cpulist(w["env"]["STUB_TASKSET"] or "") for w in wrappers
                                if w["role"].startswith("shard")))  # fmt: skip
@@ -973,7 +973,7 @@ def test_confirm_parts_empty_list_adds_no_parts(box: Box, lanes_mod: ModuleType)
     run = box.run("variants", var_report(), "0-19")
     assert run.rc == 0, run.stderr
     (merge,) = run.of(proc="criteria", role="merge")
-    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_LANES"] == "2"
+    assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_LANES"] == "2"
     rec = record(run.log, 13)
     assert rec["parts"] == lanes_mod.record_parts(want, [])
     assert rec["parts"] == ["task-13.shard0.junit.xml", "task-13.shard1.junit.xml",
@@ -1152,7 +1152,7 @@ def test_pytest_ignoring_sigint_still_gets_a_record_after_the_grace(box: Box) ->
     report, durations = det_report()
     box.durations(durations)
     roles = {f"group{g}" for g in range(5)}
-    extra = {"STUB_IGNORE_INT": "1", "GIAP_CALIBRATION_GRACE": "2",
+    extra = {"STUB_IGNORE_INT": "1", "GIPPA_CALIBRATION_GRACE": "2",
              **{f"STUB_SLEEP_{r}": "120" for r in roles}}  # fmt: skip
     run, _sent = _signal_run(box, "determinants", report, extra, _inner_started(roles),
                              timeout=30)  # fmt: skip
@@ -1187,20 +1187,20 @@ def test_stale_confirm_parts_is_removed_before_the_merge(box: Box) -> None:
 
 
 def test_leaked_confirm_and_replicate_variables_are_unset(box: Box) -> None:
-    leak = {"GIAP_CALIBRATION_CONFIRM": '[["x", "c", 0.05, 10]]',
-            "GIAP_CALIBRATION_CONFIRM_LANES": "5", "GIAP_CALIBRATION_CONFIRM_JUNIT": "/nowhere",
-            "GIAP_CALIBRATION_CONFIRM_SLICE": "0/2",
-            "GIAP_CALIBRATION_REPLICATES": "0:1"}  # fmt: skip
+    leak = {"GIPPA_CALIBRATION_CONFIRM": '[["x", "c", 0.05, 10]]',
+            "GIPPA_CALIBRATION_CONFIRM_LANES": "5", "GIPPA_CALIBRATION_CONFIRM_JUNIT": "/nowhere",
+            "GIPPA_CALIBRATION_CONFIRM_SLICE": "0/2",
+            "GIPPA_CALIBRATION_REPLICATES": "0:1"}  # fmt: skip
     run = box.run("variants", var_report(), "0-19", leak)
     assert run.rc == 0, run.stderr
     for e in run.lane_wrappers() + [e for e in run.of(proc="pytest") if e["role"] != "collect"
                                     and not e["role"].startswith("lane")]:  # fmt: skip
         assert not any(e["env"].get(k) for k in leak), (e["role"], e["env"])
     (merge,) = run.of(proc="criteria", role="merge")
-    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_LANES"] == "2"
-    assert merge["env"]["GIAP_CALIBRATION_CONFIRM_JUNIT"] == f"{run.log}/task-13.merge"
-    for k in ("GIAP_CALIBRATION_CONFIRM", "GIAP_CALIBRATION_CONFIRM_SLICE",
-              "GIAP_CALIBRATION_REPLICATES"):  # fmt: skip
+    assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_LANES"] == "2"
+    assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_JUNIT"] == f"{run.log}/task-13.merge"
+    for k in ("GIPPA_CALIBRATION_CONFIRM", "GIPPA_CALIBRATION_CONFIRM_SLICE",
+              "GIPPA_CALIBRATION_REPLICATES"):  # fmt: skip
         assert not merge["env"].get(k), (k, merge["env"])
 
 
@@ -1308,7 +1308,7 @@ def test_usr1_keeps_the_grace_then_kills_survivors_in_its_tree(
     box.durations(durations)
     roles = {f"group{g}" for g in range(5)}
     grace = 4
-    extra = {"STUB_IGNORE_INT": "1", "GIAP_CALIBRATION_GRACE": str(grace),
+    extra = {"STUB_IGNORE_INT": "1", "GIPPA_CALIBRATION_GRACE": str(grace),
              **{f"STUB_SLEEP_{r}": "120" for r in roles}}  # fmt: skip
     run, sent = _signal_run(box, "determinants", report, extra, _inner_started(roles),
                             timeout=60)  # fmt: skip
@@ -1329,7 +1329,7 @@ def test_sigterm_writes_the_record_without_waiting_the_grace(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)
     roles = {f"group{g}" for g in range(5)}
-    extra = {"STUB_IGNORE_INT": "1", "GIAP_CALIBRATION_GRACE": "60",
+    extra = {"STUB_IGNORE_INT": "1", "GIPPA_CALIBRATION_GRACE": "60",
              **{f"STUB_SLEEP_{r}": "120" for r in roles}}  # fmt: skip
     proc, _out, err = box.start(box.env("determinants", report, "0-19", extra))
     _wait_for(box, _inner_started(roles))
@@ -1350,7 +1350,7 @@ def test_interrupt_rescans_for_pytests_started_after_usr1(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)
     early = {f"group{g}" for g in range(4)}
-    extra = {"GIAP_CALIBRATION_GRACE": "15", "STUB_SPAWN_DELAY_group4": "2.5",
+    extra = {"GIPPA_CALIBRATION_GRACE": "15", "STUB_SPAWN_DELAY_group4": "2.5",
              **{f"STUB_SLEEP_group{g}": "120" for g in range(5)}}  # fmt: skip
 
     def ready(ev: list[dict[str, Any]]) -> bool:

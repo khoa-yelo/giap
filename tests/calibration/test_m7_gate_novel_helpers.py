@@ -6,7 +6,7 @@ Unmarked: runs on every commit.
 Interface pinned here (pure functions, pandas in, ints out). ``novel_orfs`` is ``novel_orfs.tsv``
 as written (all strings, ``keep_default_na=False``); ``side`` is ``novel/novel_class_fdr.parquet``
 as read (``q`` float64 with NaN, ``class_rule_met`` / ``called`` bool, ``reason`` str or None);
-``truth`` is ``giapsim.truth.read_novel_orfs`` (``stop`` 1-based lowest base of the stop codon,
+``truth`` is ``gippasim.truth.read_novel_orfs`` (``stop`` 1-based lowest base of the stop codon,
 ``true_start`` int, ``n_true_peptides`` int, ``rbs_planted`` bool).
 
 * ``NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")``;
@@ -53,7 +53,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.novel.outputs import NOVEL_ORFS_COLUMNS
+from gippa.novel.outputs import NOVEL_ORFS_COLUMNS
 
 TRUTH_COLS = ["orf_id", "class", "contig", "start", "end", "strand", "aa", "stop", "true_start",
               "n_true_peptides", "rbs_planted"]  # fmt: skip

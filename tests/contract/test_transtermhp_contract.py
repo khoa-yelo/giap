@@ -1,10 +1,10 @@
 """Contract test: TransTermHP 2.09 ``.tt`` parser and ``.coords`` writer on recorded runs
-(M2-15; GIAP_SPEC.md §5.4, §7.1.1, §7.1.5).
+(M2-15; GIPPA_SPEC.md §5.4, §7.1.1, §7.1.5).
 
 sim100k is committed in ``tests/data/recorded/terminators/transtermhp/sim100k/``; K-12 MG1655 and
-Nissle 1917 are read from ``$GIAP_ROOT/recordings/transtermhp/<sample>/`` (``transtermhp.tt``,
+Nissle 1917 are read from ``$GIPPA_ROOT/recordings/transtermhp/<sample>/`` (``transtermhp.tt``,
 ``genes.coords``, ``genome.fa``) with the Bakta JSON of
-``$GIAP_ROOT/recordings/bakta_full/<sample>/``, skipped when missing (CI).
+``$GIPPA_ROOT/recordings/bakta_full/<sample>/``, skipped when missing (CI).
 
 Contract: one ``Terminator`` per ``  TERM`` line, contig from the preceding ``SEQUENCE`` line,
 interval ``[min(a, b) - 1, max(a, b))``, strand from the line, confidence = CONF / 100; and
@@ -19,13 +19,13 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.terminators import parse_transterm_tt, write_transterm_coords
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Replicon, check_interval
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.terminators import parse_transterm_tt, write_transterm_coords
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Replicon, check_interval
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded" / "terminators" / "transtermhp"
-REC = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings"
+REC = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings"
 SAMPLES = {"k12_mg1655": 1847, "nissle1917": 1815}
 
 
@@ -67,12 +67,12 @@ def test_sim100k_committed_recording() -> None:
 def _sample(sample: str) -> Path:
     d = REC / "transtermhp" / sample
     if not (d / "transtermhp.tt").exists():
-        pytest.skip(f"no recording at {d} ($GIAP_ROOT/recordings missing)")
+        pytest.skip(f"no recording at {d} ($GIPPA_ROOT/recordings missing)")
     return d
 
 
 @pytest.mark.parametrize("sample", sorted(SAMPLES))
-def test_full_tt_recordings_under_giap_root(sample: str) -> None:
+def test_full_tt_recordings_under_gippa_root(sample: str) -> None:
     d = _sample(sample)
     reps = {
         r.id: Replicon(r.id, len(r.sequence), "circular")

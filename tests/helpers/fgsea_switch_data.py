@@ -5,7 +5,7 @@
   each sent set gets ``EngineRow(size = #members, es 0.5, nes 1.5, p 0.01, log2err 0.25,
   leading_edge = first two members)``; ``rows[(job_id, term)]`` overrides single fields and
   ``drop`` removes rows. It never draws from any generator.
-- :class:`ReplayEngine` (T7): serves recorded ``giap_fgsea.R`` calls from
+- :class:`ReplayEngine` (T7): serves recorded ``gippa_fgsea.R`` calls from
   ``tests/data/recorded/fgsea/1.36.2/<input>/``. It asserts that ``write_call(call)`` equals the
   recorded input TSVs byte for byte and that the call's options equal ``command.txt`` (so the
   recorded ``n_perm_simple`` 200 is passed, lead note 3), then returns ``read_results`` of the
@@ -60,7 +60,7 @@ class RecordingEngine:
     provenance: Any = None
 
     def __call__(self, call: Any) -> Any:
-        from giap.function.gsea import EngineRow
+        from gippa.function.gsea import EngineRow
 
         self.calls.append(call)
         out: dict[str, tuple[Any, ...]] = {}
@@ -113,7 +113,7 @@ class ReplayEngine:
     provenance: Any = None
 
     def __call__(self, call: Any) -> Any:
-        from giap.io.fgsea_r import command, read_results, read_versions, write_call
+        from gippa.io.fgsea_r import command, read_results, read_versions, write_call
 
         i = len(self.calls)
         self.calls.append(call)
@@ -155,9 +155,9 @@ class SimWorld:
 
 
 def sim_cfg() -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig.model_validate(
+    return GippaConfig.model_validate(
         {
             "seed": SIM_SEED,
             "stats": {"bootstrap": 100},
@@ -168,12 +168,12 @@ def sim_cfg() -> Any:
 
 def sim_world(root: Path) -> SimWorld:
     """``record_fgsea.py``'s ``_world`` and its collections, restricted to SIM_COLLECTIONS."""
-    from giap.function.collections import build_collections
-    from giap.genetable.eligibility import eligible
-    from giap.io.function_resources import read_resources
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.function.collections import build_collections
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.function_resources import read_resources
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
     from helpers.function_db import write_function_db
     from helpers.function_step_data import world_pre, write_gene_table, write_replicons
 
@@ -199,8 +199,8 @@ def sim_world(root: Path) -> SimWorld:
 
 
 def run_sim_gsea(w: SimWorld, engine: Any) -> pd.DataFrame:
-    from giap.function.gsea import gsea_table
-    from giap.rng import for_step
+    from gippa.function.gsea import gsea_table
+    from gippa.rng import for_step
 
     fn = w.cfg.function
     return gsea_table(
@@ -238,8 +238,8 @@ def expected_sim_main(w: SimWorld) -> pd.DataFrame:
 
     No GO term of sim_main reaches q <= alpha (recordings README), so there is no re-test call,
     ``redundant`` is False and ``parent_group`` NA on every row."""
-    from giap.function import gsea as g
-    from giap.stats.multitest import bh
+    from gippa.function import gsea as g
+    from gippa.stats.multitest import bh
 
     rank = g.tu_ranking(w.genes)
     det = g._Detection.of(w.genes)
@@ -321,7 +321,7 @@ def expected_sim_main(w: SimWorld) -> pd.DataFrame:
 
 
 def write_expected(path: Path = EXPECTED_SIM_MAIN) -> Path:
-    from giap.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
 
     with tempfile.TemporaryDirectory() as tmp:
         w = sim_world(Path(tmp))
@@ -331,7 +331,7 @@ def write_expected(path: Path = EXPECTED_SIM_MAIN) -> Path:
     return path
 
 
-SCHEMA = REPO / "src" / "giap" / "schemas" / "tables" / "enrichment_gsea.schema.json"
+SCHEMA = REPO / "src" / "gippa" / "schemas" / "tables" / "enrichment_gsea.schema.json"
 
 
 def validate_gsea(path: Path) -> None:

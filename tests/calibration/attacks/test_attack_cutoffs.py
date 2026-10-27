@@ -1,4 +1,4 @@
-"""Attack nulls for the M6-12 cut-off statistics (GIAP_SPEC.md §8.5; methods
+"""Attack nulls for the M6-12 cut-off statistics (GIPPA_SPEC.md §8.5; methods
 docs/methods/operons.md "K-12 cut-off calibration (M6-12)" > "Attack nulls owed"; spec lead
 decision 6).
 
@@ -23,10 +23,10 @@ from fractions import Fraction
 import numpy as np
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     DEFAULT_SEED,
     STEP,
     auroc_ci,

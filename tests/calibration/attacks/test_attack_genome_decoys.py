@@ -1,11 +1,11 @@
-"""Attack nulls for the M3-03 genome decoys (GIAP_SPEC.md §7.2.1, §8.2, §8.5; statistician).
+"""Attack nulls for the M3-03 genome decoys (GIPPA_SPEC.md §7.2.1, §8.2, §8.5; statistician).
 
 Placement FDR (M3-10) estimates the chance target hits of wrong peptides by their decoy hits, so for
 a wrong peptide that is unrelated to the genome, P(hit target) must equal P(hit decoy). These
 attacks check that on the search spaces built by ``build_sixframe`` + ``build_decoys``
 (docs/methods/placement-fdr.md, "Genome decoys"):
 
-- ``composition null``: giapsim genomes (100 kb, one per replicate); wrong peptides drawn i.i.d.
+- ``composition null``: gippasim genomes (100 kb, one per replicate); wrong peptides drawn i.i.d.
   from the genome's six-frame residue frequencies (the null behind E_i, M3-09). The exact expected
   hit probability per peptide, sum over the *distinct* stop- and X-free L-mers w of prod f(w_j), is
   computed for targets and both decoys (no peptide sampling noise); reverse must equal target
@@ -34,11 +34,11 @@ import numpy as np
 import pytest
 from scipy.stats import binomtest, chi2, chisquare
 
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import build_decoys, shuffle_frame
-from giap.mapping.sixframe import AMBIG, STOP, Frame, build_sixframe, encode_target
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import build_decoys, shuffle_frame
+from gippa.mapping.sixframe import AMBIG, STOP, Frame, build_sixframe, encode_target
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 GENOME_NT = 100_000
 EQUIV = 0.01  # equivalence margin on the decoy/target ratio of expected hits
@@ -54,10 +54,10 @@ SUITES = [
 # --- genomes ---------------------------------------------------------------------------------
 
 
-def _giapsim_genome(seed: int, outdir: Path) -> str:
-    import giapsim
+def _gippasim_genome(seed: int, outdir: Path) -> str:
+    import gippasim
 
-    res = giapsim.simulate(giapsim.SimConfig(genome_length=GENOME_NT), seed=seed, outdir=outdir)
+    res = gippasim.simulate(gippasim.SimConfig(genome_length=GENOME_NT), seed=seed, outdir=outdir)
     (rec,) = read_genome_fasta(res.genome_fasta)
     return rec.sequence
 
@@ -176,7 +176,7 @@ def _run(
     hits_t: dict[str, int] = {}
     for i in range(r):
         rng = np.random.default_rng([base, i, int(low_complexity)])
-        seq = _giapsim_genome(base + i, tmp / f"g{i}")
+        seq = _gippasim_genome(base + i, tmp / f"g{i}")
         if low_complexity:
             seq = _low_complexity(seq, rng)
         spaces = _spaces(seq, base + i)

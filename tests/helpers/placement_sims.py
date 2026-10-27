@@ -1,8 +1,8 @@
 """One genome-level placement replicate through the registered mapping steps (issue M3-21).
 
-``run_replicate(kind, seed, tmp, ...)`` simulates a giapsim genome with M3-19 proteomics (and M3-18
-strain / M3-20 de novo reads when the suite needs them), runs ``giap preflight`` and the mapping
-chain (``helpers.mapping_steps.drive``, test ``$GIAP_DB_DIR``, no tools), and scores it with
+``run_replicate(kind, seed, tmp, ...)`` simulates a gippasim genome with M3-19 proteomics (and M3-18
+strain / M3-20 de novo reads when the suite needs them), runs ``gippa preflight`` and the mapping
+chain (``helpers.mapping_steps.drive``, test ``$GIPPA_DB_DIR``, no tools), and scores it with
 ``helpers.placement_truth.evaluate``. Kinds:
 
 * ``database``: M3-19 database errors (``wrong_source``), ``search_db = other``.
@@ -26,7 +26,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import resolve_config
+from gippa.config import resolve_config
 from helpers.mapping_steps import (
     drive,
     fresh_steps,
@@ -144,7 +144,7 @@ def inject_short_wrong(
 def prefilter_to_genome(res: Any, out: Path, pep: float) -> Path:
     """ADR-0019 decision 4 (``input_prefiltered``): the input as an upstream pipeline that kept only
     genome-matching peptides would hand it over: every target row of a wrong identification
-    (giapsim truth ``is_wrong``) is dropped, and every target row claims PEP = ``pep`` (giapsim's
+    (gippasim truth ``is_wrong``) is dropped, and every target row claims PEP = ``pep`` (gippasim's
     own PEP is ~0.01 at any pi_wrong after the q filter, too small for the warning to have power
     at 50 kb)."""
     with Path(res.peptides).open(newline="") as fh:
@@ -264,7 +264,7 @@ def run_chain(
     inject_short: int = 0,
     prefilter: float | None = None,
 ) -> Chain:
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.simulate import SimConfig, simulate
 
     cfg_sim = SimConfig(
         genome_length=length,
@@ -314,8 +314,8 @@ def null_share_stratum0(ch: Chain) -> tuple[float, float, pd.DataFrame]:
     ``length_class``, ``n`` (of the π̂ population), ``n_null`` (queries of that class seen here),
     ``pi_hat`` and ``null_share`` (NaN when the class has no query).
     """
-    from giap.mapping.placement_fdr import length_class_labels
-    from giap.steps.mapping import select_queries
+    from gippa.mapping.placement_fdr import length_class_labels
+    from gippa.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
     q = q[q["source"] == "database"]

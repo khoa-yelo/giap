@@ -1,4 +1,4 @@
-"""``giap makedb --patch`` ``cterm_extension`` rows: the review-335 guards and error cases (M7-16b
+"""``gippa makedb --patch`` ``cterm_extension`` rows: the review-335 guards and error cases (M7-16b
 rule 13; code review of PR #335, must-fix items 2 and 3 and the ``d < 3`` nit).
 
 * The residue that becomes ``X`` must be a stop: a ``cterm_extension`` patch whose gene ends on a
@@ -30,7 +30,7 @@ from makedb_checks import by_id
 from makedb_genomes import Contig, feature, write_bakta_json
 from readthrough_toys import rc, toy_c1
 
-from giap.makedb.build import MakedbOptions, build_strain_db
+from gippa.makedb.build import MakedbOptions, build_strain_db
 
 G1_AA = "MSDKPLTEAGRWQLNEFK"
 PATCHED = "MSDKPLTEAGRWQLNEFKXVPAGHTLDMRK"
@@ -69,7 +69,7 @@ def _build(
 
 def _cds(start1: int, end: int, strand: str = "+", tag: str = "G1", pid: str | None = None) -> str:
     attrs = f"ID={pid or tag};locus_tag={tag};Note=cterm_extension"
-    return f"c1\tGIAP\tCDS\t{start1}\t{end}\t.\t{strand}\t0\t{attrs}"
+    return f"c1\tGIPPA\tCDS\t{start1}\t{end}\t.\t{strand}\t0\t{attrs}"
 
 
 # ---------------------------------------------------------------- must-fix 2: the residue guard

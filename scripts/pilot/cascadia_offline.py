@@ -3,9 +3,9 @@
 Cascadia 0.0.7 reaches ``http://www.unimod.org`` twice per run; R6 forbids both:
 at the start, ``PeptideTokenizer.from_massivekb()`` -> ``pyteomics.proforma`` -> psims
 ``obo_cache.resolve(UNIMOD_OBO_URL)`` -> ``Unimod()`` -> ``lxml.etree.parse(<http URL>)``; at the
-end, pyteomics ``mass.unimod.Unimod()`` with no path. Inside ``giap-cascadia``:
+end, pyteomics ``mass.unimod.Unimod()`` with no path. Inside ``gippa-cascadia``:
 
-    micromamba run -n giap-cascadia python -I scripts/pilot/cascadia_offline.py \\
+    micromamba run -n gippa-cascadia python -I scripts/pilot/cascadia_offline.py \\
         UNIMOD_XML sequence MZML MODEL -o OUTPREFIX -b 32
 
 (a) refuses a ``UNIMOD_XML`` that is not an existing local file (exit 2, Cascadia not imported);
@@ -14,7 +14,7 @@ end, pyteomics ``mass.unimod.Unimod()`` with no path. Inside ``giap-cascadia``:
 (c) registers a psims resolver for the Unimod OBO URL that reads the local table;
 (d) sets ``pyteomics.mass.unimod._unimod_xml_download_url`` to its absolute path;
 (e) hands the rest of ``argv`` unchanged to ``cascadia.cascadia.main()``.
-The only GIAP file that imports Cascadia (Apache-2.0); never imported from ``src/`` or
+The only GIPPA file that imports Cascadia (Apache-2.0); never imported from ``src/`` or
 ``validation/``.
 """
 

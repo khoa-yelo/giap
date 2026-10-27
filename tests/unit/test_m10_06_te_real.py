@@ -2,7 +2,7 @@
 
 Spec: docs/specs/M10-06-te-real-and-te7.md ("Definitions" TE2-TE5, examples 1-6, edge cases
 "Empty input", "Circular and linear contigs", "Minus strand", "Ties and boundaries", "Duplicate
-names"). Every share is compared with ``giap.stats.cutoffs.wilson_ci`` to 1e-12 and with the digits
+names"). Every share is compared with ``gippa.stats.cutoffs.wilson_ci`` to 1e-12 and with the digits
 the spec prints. Inputs are hand-made frames, the committed public Nissle Bakta annotation
 (criterion 2) and ``tests/data/contaminants_mini.faa`` (criterion 5).
 
@@ -28,7 +28,7 @@ and their arguments, these tests fix the returned keys):
   ``high``, ``log2_ratio``, ``top3_log2_ratio``}; ``abundance_type``; ``secondary``
   {``genes``: {name: {``n_peptides_unique``, ``n_observable_peptides``}}};
 * ``contaminant_families(headers)``: header lines without ``>``; returns family -> set of IDs
-  (``giap.io.protein_fasta.resolve_protein_id`` of the first token);
+  (``gippa.io.protein_fasta.resolve_protein_id`` of the first token);
 * ``te5_arm(P, peptide_hits, unmapped, families, cfg)``: ``n_s``, ``families`` {family: n},
   ``counts`` {``genome_exact``, ``bucket``, ``match_other_entry``, ``placed_tolerant``,
   ``labelled_unmapped``, ``absent``}, ``share_bucket`` (a share), ``secondary``
@@ -73,8 +73,8 @@ from helpers.te_real_m10 import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import resolve_config
-from giap.stats.cutoffs import wilson_ci
+from gippa.config import resolve_config
+from gippa.stats.cutoffs import wilson_ci
 
 TOL = 1e-12
 
@@ -318,7 +318,7 @@ def _str_or_none(v: object) -> str | None:
 def test_ribosomal_set_on_nissle_is_53_and_section_7_1_2_is_59(tr: Any) -> None:
     from types import SimpleNamespace
 
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     genes = _nissle_genes()
     assert len(tag_set(tr.ribosomal_set(genes))) == 53
@@ -331,7 +331,7 @@ def test_ribosomal_set_on_nissle_is_53_and_section_7_1_2_is_59(tr: Any) -> None:
 
 def test_ribosomal_set_reuses_the_section_7_1_2_gene_rule(tr: Any) -> None:
     """``RIBOSOMAL_GENE`` is reused, not copied: patching it changes the set."""
-    import giap.annotate.bakta_layers as bl
+    import gippa.annotate.bakta_layers as bl
 
     genes = gframe([grow("X_1", gene="rpmH", product="weird")])
     assert tag_set(tr.ribosomal_set(genes)) == {"X_1"}
@@ -669,7 +669,7 @@ def test_te5_decoy_row_with_a_family_id_does_not_put_a_target_peptide_in_s(
 ) -> None:
     """Surviving mutant 9: S takes family IDs from accepted *target* rows only. The peptide is in
     **U** through its target row (a genome protein); its accepted decoy row names trypsin."""
-    from giap.steps.mapping import select_queries
+    from gippa.steps.mapping import select_queries
 
     P, hits, unm = ex6_inputs(with_tolerant=False)
     mixed = "MIXEDPEPTK"

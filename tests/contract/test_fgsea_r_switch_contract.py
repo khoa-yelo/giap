@@ -1,7 +1,7 @@
 """M8-17b on real R (docs/specs/M8-17-r-fgsea-engine.md §9, §11 T7, A2, A6).
 
 Slow and ``requires_r``: runs only on Slurm (``sbatch scripts/slurm/test_branch.sbatch <worktree>
--m requires_r``, at most 2 CPUs) where the ``giap-fgsea`` env is built.
+-m requires_r``, at most 2 CPUs) where the ``gippa-fgsea`` env is built.
 
 - ``gsea_table`` on the M8-06 step fixture (four recorded collections, seed 7, ``n_perm_simple``
   200) with the real ``RFgseaEngine`` writes exactly the committed replay table
@@ -31,18 +31,18 @@ pytestmark = [
     pytest.mark.requires_r,
     pytest.mark.skipif(
         PREFIX is None,
-        reason="the giap-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
+        reason="the gippa-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
         "run on Slurm with scripts/slurm/test_branch.sbatch -m requires_r",
     ),
 ]
 
 
 def test_live_engine_reproduces_the_replay_table(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
-    from giap.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
 
     assert PREFIX is not None
-    eng = r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    eng = r_fgsea_engine(resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
     w = sim_world(tmp_path / "world")
     df = run_sim_gsea(w, eng)
     out = tmp_path / "enrichment_gsea.tsv"
@@ -54,11 +54,11 @@ def test_live_engine_reproduces_the_replay_table(tmp_path: Path) -> None:
 def test_function_step_on_real_r_is_byte_identical(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     assert PREFIX is not None
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(PREFIX))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(PREFIX))
     monkeypatch.chdir(tmp_path)
     load_step_modules()
     w = sim_world(tmp_path / "world")
@@ -77,4 +77,4 @@ def test_function_step_on_real_r_is_byte_identical(
         assert len(df) > 0
         assert set(df["method"]) == {"fgsea_multilevel"}
     assert texts[0] == texts[1]
-    assert not list(Path(os.getcwd()).glob("giap-fgsea-*"))
+    assert not list(Path(os.getcwd()).glob("gippa-fgsea-*"))

@@ -48,7 +48,7 @@ from helpers.pairs_data import BASE, frame, genes_of, ring
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.operons.missed import MIN_NO_PAIRS, MissedOperons, missed_operons
+from gippa.operons.missed import MIN_NO_PAIRS, MissedOperons, missed_operons
 
 FAST = settings(max_examples=30, deadline=None)
 TEST = "missed_operon_decoy"

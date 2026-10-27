@@ -15,8 +15,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.io.issues import Issue
-from giap.io.peptides import PEPTIDE_RUN_COLUMNS, aggregate_peptides
+from gippa.io.issues import Issue
+from gippa.io.peptides import PEPTIDE_RUN_COLUMNS, aggregate_peptides
 
 
 def _errors(issues: list[Issue]) -> list[Issue]:
@@ -35,7 +35,7 @@ def _runs() -> pd.DataFrame:
 
 
 def test_tables_has_c16_with_the_m1_06_columns() -> None:
-    from giap.genetable.contract import CONTRACT_COLUMNS, TABLES
+    from gippa.genetable.contract import CONTRACT_COLUMNS, TABLES
 
     assert "peptide_runs" in TABLES
     assert CONTRACT_COLUMNS["peptide_runs"] == tuple(PEPTIDE_RUN_COLUMNS)
@@ -47,7 +47,7 @@ def test_tables_has_c16_with_the_m1_06_columns() -> None:
 
 
 def test_valid_frame_has_no_issues() -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     assert validate_table("peptide_runs", _runs()) == []
 
@@ -55,9 +55,9 @@ def test_valid_frame_has_no_issues() -> None:
 def test_m1_06_output_validates(tmp_path: Path) -> None:
     """The real producer's frame (M1-06 read -> validate -> ``aggregate_peptides``) passes C16,
     including the missing-run convention (run ``""``)."""
-    from giap.config.model import InputConfig
-    from giap.genetable.contract import validate_table
-    from giap.io.peptides import read_peptide_table, validate_peptides
+    from gippa.config.model import InputConfig
+    from gippa.genetable.contract import validate_table
+    from gippa.io.peptides import read_peptide_table, validate_peptides
 
     path = tmp_path / "peptides.tsv"
     lines = [
@@ -84,7 +84,7 @@ def test_m1_06_output_validates(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("drop", PEPTIDE_RUN_COLUMNS)
 def test_missing_column_is_error(drop: str) -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     issues = validate_table("peptide_runs", _runs().drop(columns=[drop]))
     assert any(
@@ -93,7 +93,7 @@ def test_missing_column_is_error(drop: str) -> None:
 
 
 def test_bad_dtype_and_na_are_errors() -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     bad = _runs().assign(n_rows=["one", "two", "three"])
     assert any(
@@ -110,7 +110,7 @@ def test_bad_dtype_and_na_are_errors() -> None:
 
 def test_duplicate_peptide_run_is_error() -> None:
     """M1-06 aggregates per (peptide, run): a repeated pair is a malformed C16."""
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     dup = pd.concat([_runs(), _runs().iloc[[0]]], ignore_index=True)
     errs = _errors(validate_table("peptide_runs", dup))
@@ -119,7 +119,7 @@ def test_duplicate_peptide_run_is_error() -> None:
 
 
 def test_load_tables_reads_c16(tmp_path: Path) -> None:
-    from giap.io.work_tables import load_tables
+    from gippa.io.work_tables import load_tables
 
     path = tmp_path / "peptide_runs.parquet"
     _runs().to_parquet(path, engine="pyarrow", index=False)
@@ -131,7 +131,7 @@ def test_load_tables_reads_c16(tmp_path: Path) -> None:
 
 
 def test_missing_c16_is_a_warning_not_an_error(tmp_path: Path) -> None:
-    from giap.io.work_tables import load_tables
+    from gippa.io.work_tables import load_tables
 
     frames, issues = load_tables({"peptide_runs": tmp_path / "absent.parquet"}, ["peptide_runs"])
     assert _errors(issues) == []

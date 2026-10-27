@@ -1,4 +1,4 @@
-# M8-10: The `determinants` step, its three tables, and wiring them into `giap run`
+# M8-10: The `determinants` step, its three tables, and wiring them into `gippa run`
 
 Milestone M8 · track T (tables and integration) · **pass 1 — the Module 8 integration milestone** ·
 depends on: M8-07, M8-08, M8-09 (and merged MVP-01 wiring) · estimate ≈ 300 code lines
@@ -11,14 +11,14 @@ depends on: M8-07, M8-08, M8-09 (and merged MVP-01 wiring) · estimate ≈ 300 c
   metric: CV R² mean and SD, null p, n_perm, block ΔR² with CI, univariate rows;
   `determinants_attribution.tsv`: per-gene SHAP by block, dominant block, residual, flags."
 - §7.8.2 "Caveats (printed in the report)" — this issue stores them as constant text in
-  `giap.determinants.CAVEATS` for M9's report; it does not render them.
+  `gippa.determinants.CAVEATS` for M9's report; it does not render them.
 - §9.1, §9.2, §9.3 (`determinants_model.tsv`, `determinants_attribution.tsv`), §9.4
   (`abundance_not_explained_by_sequence`, `cai_reference`), §9.5; §6.3 process conventions
   (labels), §6.4 executor equality, §6.6 (LightGBM determinism, fixed `num_threads`).
 
 ## Public interface
 
-`src/giap/steps/determinants.py`
+`src/gippa/steps/determinants.py`
 ```python
 @step("determinants",
       inputs=["gene_table", "genes", "tus", "layers", "replicons"],
@@ -26,8 +26,8 @@ depends on: M8-07, M8-08, M8-09 (and merged MVP-01 wiring) · estimate ≈ 300 c
       outputs=["determinants_features", "determinants_model", "determinants_attribution"])
 def determinants_step(ctx: StepContext) -> None: ...
 ```
-`src/giap/io/determinants_tables.py` — three writers; three Frictionless resources in
-`src/giap/schemas/tables/`.
+`src/gippa/io/determinants_tables.py` — three writers; three Frictionless resources in
+`src/gippa/schemas/tables/`.
 
 1. **Inputs.** `gene_table` (detectability output), C2 `genes` (`aa`, `ribosomal_protein`), C5
    `tus`, C6 `layers` (`n_promoter_windows_tu`), C1 `replicons`; optional C7/C8 and M5-09's
@@ -48,9 +48,9 @@ def determinants_step(ctx: StepContext) -> None: ...
 5. **No abundance** → features written; model table = univariate `auroc` rows only;
    attribution header-only; run flag `layer_missing:abundance`. Module 8 is core (§6.2), so it is
    never switched off by `modules`.
-6. **Nextflow.** `workflow/subworkflows/local/determinants.nf` (`GIAP_STEP` alias `DETERMINANTS`,
+6. **Nextflow.** `workflow/subworkflows/local/determinants.nf` (`GIPPA_STEP` alias `DETERMINANTS`,
    `stepIn`, `kv`, `pick`), called from `main.nf` after `CONTEXT` (it takes
-   `CONTEXT.out`'s gene context). `GIAP_STEP` is `process_single`; `workflow/conf/base.config`
+   `CONTEXT.out`'s gene context). `GIPPA_STEP` is `process_single`; `workflow/conf/base.config`
    gains `withName: 'DETERMINANTS' { label … }`-equivalent resources (`process_high`: 16 CPU,
    48 GB) so the null's permutations run in parallel, and `params.threads` reaches the step.
 7. **publishDir / local publish**: `tables/determinants_*.tsv` only (M6-08 decision 7).
@@ -71,21 +71,21 @@ def determinants_step(ctx: StepContext) -> None: ...
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local` on sim100k | three files under `tables/`; `determinants_model.tsv` has univariate rows and `too_few_rows` rows; exit 0 |
+| 1 | `gippa run --executor local` on sim100k | three files under `tables/`; `determinants_model.tsv` has univariate rows and `too_few_rows` rows; exit 0 |
 | 2 | the same through Nextflow (`-profile test`) | byte-identical tables |
 | 3 | a 1,000-gene simulated genome (M4-07 layout, M4-08 expression) through `--executor local` | CV, null (B from config), ΔR² and SHAP rows present; same seed → identical tables |
 | 4 | the same with `threads` 1 vs 8 | identical tables |
 | 5 | run without `--abundance` | features + AUROC rows; attribution header-only |
 | 6 | `frictionless validate` | valid; `model` enum {lightgbm, elastic_net, univariate}; `metric` enum as §9.3 |
 | 7 | nf-test stub of `DETERMINANTS` | three keys emitted, §9.1 names |
-| 8 | `sbatch scripts/slurm/giap_run.sbatch` on sim100k | completes; three tables exist |
+| 8 | `sbatch scripts/slurm/gippa_run.sbatch` on sim100k | completes; three tables exist |
 
 ## Acceptance criteria
 
 - [ ] `tests/unit/steps/test_determinants_step.py`: examples 1, 3 (with B = 49 to stay in the unit
   budget), 4, 5, 6; `tests/integration` adds example 2.
 - [ ] `workflow/tests/determinants.nf.test` (stub) + the registry key test.
-- [ ] **Evidence that counts:** one real `sbatch scripts/slurm/giap_run.sbatch` on sim100k reaching
+- [ ] **Evidence that counts:** one real `sbatch scripts/slurm/gippa_run.sbatch` on sim100k reaching
   the end with all six M8 tables (after M8-06) — job ID in PROGRESS.md; plus the measured runtime
   of the step on the 4,500-gene simulated genome (`benchmarks/baseline.json`).
 
@@ -103,7 +103,7 @@ def determinants_step(ctx: StepContext) -> None: ...
    `determinants_attribution.tsv` now; a backlog line adds it to `genes.tsv` when the §6.2
    `finalize` step is built (M9/M11). Alternative: `determinants` rewrites `genes.tsv` (two writers
    of one file — rejected).
-2. Resources: `withName: 'DETERMINANTS'` at `process_high` (proposed), or a second `GIAP_STEP_HIGH`
+2. Resources: `withName: 'DETERMINANTS'` at `process_high` (proposed), or a second `GIPPA_STEP_HIGH`
    module with `label 'process_high'`?
 3. `--publication` multiplies the null's cost by 10 (B = 10,000, §8.2) — roughly 5–7 CPU-hours per
    model on a 4,500-gene genome if M8-09's estimate holds. **Proposed default:** honour §8.2 as
@@ -120,4 +120,4 @@ def determinants_step(ctx: StepContext) -> None: ...
    - `n_perm` counts the non-NaN null values, as `perm_p` does.
 
    The univariate rows keep `ci_unestimated` (ADR-0032).
-5. **Branch:** m8/determinants-step is stacked on m8/attribution (#173). MVP: wire the step end to end through `giap run` before any polish.
+5. **Branch:** m8/determinants-step is stacked on m8/attribution (#173). MVP: wire the step end to end through `gippa run` before any polish.

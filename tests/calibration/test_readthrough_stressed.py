@@ -4,7 +4,7 @@ plan "Stressed arm"). Suite ``placement``: ``replicates_fast.placement`` /
 
 A sampled arm in which the read-through mass is not vacuous, through the real chain:
 ``sixframe_index`` (with ``genes``) -> ``map_exact`` -> ``map_tolerant`` -> ``placement``
-(``best_costs`` + placement q-values), via ``giap.steps.registry.run_step``.
+(``best_costs`` + placement q-values), via ``gippa.steps.registry.run_step``.
 
 **Build** (one linear contig of ``LENGTH`` nt per replicate):
 
@@ -115,7 +115,7 @@ def _codons(aa: str, rng: np.random.Generator) -> str:
 
 def build_genome(seed: int, length: int = LENGTH):  # type: ignore[no-untyped-def]
     """(sequence, genes [(tag, start, end, strand)], protein per gene) of one replicate."""
-    from giap.model import Replicon
+    from gippa.model import Replicon
 
     rng = np.random.default_rng([seed, 1616])
     parts: list[str] = []
@@ -202,12 +202,12 @@ def _peptides(seed: int, genes, prot, source: str):  # type: ignore[no-untyped-d
 
 
 def run_replicate(seed: int, kind: str, tmp: Path) -> Rep:
-    from giap.config import resolve_config
-    from giap.mapping.sixframe import load_index, load_stop_cells
-    from giap.mapping.tolerant import match_tolerant
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
-    from giap.steps.mapping import decoy_types, select_queries
+    from gippa.config import resolve_config
+    from gippa.mapping.sixframe import load_index, load_stop_cells
+    from gippa.mapping.tolerant import match_tolerant
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
+    from gippa.steps.mapping import decoy_types, select_queries
 
     t0 = time.perf_counter()
     load_step_modules()
@@ -241,7 +241,7 @@ def run_replicate(seed: int, kind: str, tmp: Path) -> Rep:
     dec = best[(best["search"] == "decoy") & is_wrong & (best["decoy_type"] == kind)]
     # negative control: the same decoy search with the decoy cells removed
     index, decoys = load_index(files["sixframe"])
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     none = tuple(np.zeros(0, dtype=np.int64) for _ in index.frames)
     broken = rt.StopCells(

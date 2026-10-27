@@ -1,9 +1,9 @@
 """``workflow/main.nf`` resolves installed database items at the paths Python resolves (MVP-01).
 
-``main.nf`` cannot import ``giap.setupdb``: it re-reads ``<db_dir>/db_manifest.json`` and builds
-the path of the two items ``giap run`` passes to the workflow (the M3-15 contaminant library and
+``main.nf`` cannot import ``gippa.setupdb``: it re-reads ``<db_dir>/db_manifest.json`` and builds
+the path of the two items ``gippa run`` passes to the workflow (the M3-15 contaminant library and
 the M4-15 COG 2020 table) from a literal. These checks keep the literals equal to
-``giap/data/db_sources.yaml``, so a moved file cannot silently drop ``cog_category`` from the gene
+``gippa/data/db_sources.yaml``, so a moved file cannot silently drop ``cog_category`` from the gene
 table. No Nextflow needed.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.setupdb.items import SOURCES
+from gippa.setupdb.items import SOURCES
 
 MAIN_NF = Path(__file__).resolve().parents[2] / "workflow" / "main.nf"
 

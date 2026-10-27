@@ -4,7 +4,7 @@ empty tables with the M1-12 (`peptides.norm.parquet`) and M2-04 (`genes`, `featu
 `replicons`) columns.
 contaminants.fasta (first record of tests/data/contaminants_mini.faa) and reference_peptides.tsv
 (one peptide) only show the optional inputs are wired (M3-17 decision 5); never read in stub mode.
-step_registry.json = the giap.steps.mapping py steps (kept equal by
+step_registry.json = the gippa.steps.mapping py steps (kept equal by
 tests/unit/test_mapping_nf_registry.py).
-db/ is a test $GIAP_DB_DIR whose manifest lists the contaminant library (M3-15 layout), for
+db/ is a test $GIPPA_DB_DIR whose manifest lists the contaminant library (M3-15 layout), for
 mapping_nf_main.nf.test.

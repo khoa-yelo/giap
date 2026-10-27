@@ -62,7 +62,7 @@ converted on read. "opt" = file or column may be absent; "NA" = nullable.
 - §9.3 `genes.tsv` columns with **no producer** in the M2 drafts: `gc_local_dev` (context) and
   `cog_category` (needs the COG 2020 `cog-20.def.tab` resource from M2-09 to map `COG####` → letters).
   M4 writes `NA` for `gc_local_dev`; `cog_category` is filled by M4-15 from the COG table when
-  `giap setup --cog` has run, else `NA` (see Q6).
+  `gippa setup --cog` has run, else `NA` (see Q6).
 - Pseudogene peptide assignment: M3-14 Q3 proposes **no** assignment; this contract's Q3 proposes
   yes. The lead must pick one; M4 code handles both (it trusts C11 `gene`).
 
@@ -70,7 +70,7 @@ Optional input: `--replicon-depth` TSV (`contig`, `mean_depth`, §5.3), read in 
 
 ## Public interface
 
-`src/giap/genetable/contract.py` (pure)
+`src/gippa/genetable/contract.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class Column:
@@ -83,7 +83,7 @@ TABLES: Mapping[str, tuple[Column, ...]]          # keys "replicons", "genes", "
 def validate_table(name: str, df: pd.DataFrame) -> list[Issue]: ...      # columns, dtypes, enums, NA
 def validate_inputs(t: M4Inputs) -> list[Issue]: ...                      # cross-table invariants
 ```
-`src/giap/io/work_tables.py` (the only file I/O)
+`src/gippa/io/work_tables.py` (the only file I/O)
 ```python
 @dataclass(frozen=True, slots=True)
 class M4Inputs:
@@ -97,7 +97,7 @@ M4_INPUT_KEYS: tuple[str, ...]     # registry keys: "replicons", "genes", "xrefs
 def load_m4_inputs(paths: Mapping[str, Path]) -> tuple[M4Inputs, list[Issue]]: ...
 def default_paths(work_dir: Path) -> dict[str, Path]: ...    # fixture / local-executor layout
 ```
-`Issue` is M1's shared type (`src/giap/io/issues.py`); codes are `contract.<table>.<rule>`.
+`Issue` is M1's shared type (`src/gippa/io/issues.py`); codes are `contract.<table>.<rule>`.
 Errors: missing required file or column, wrong dtype, bad enum, invariant broken. Warnings:
 extra columns (ignored), missing optional file. `load_m4_inputs` never raises on content; it returns
 issues, and the `gene_table` step (M4-15) stops on any error.
@@ -106,7 +106,7 @@ issues, and the `gene_table` step (M4-15) stops on any error.
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | valid fixture written by `giapsim.write_contract_tables` (M4-07) for a 200-gene layout | `load_m4_inputs` → no `error` issues; `len(genes) == 200` |
+| 1 | valid fixture written by `gippasim.write_contract_tables` (M4-07) for a 200-gene layout | `load_m4_inputs` → no `error` issues; `len(genes) == 200` |
 | 2 | C2 with two rows `locus_tag = GSIM_00005` | error `contract.genes.locus_tag_unique`, value lists `GSIM_00005` |
 | 3 | C2 row `feature_type = "CDS"` (upper case) | error `contract.genes.enum`, column `feature_type` |
 | 4 | gene `GSIM_00010` absent from every C5 `genes` list | error `contract.tus.gene_coverage` naming `GSIM_00010` |
@@ -133,7 +133,7 @@ issues, and the `gene_table` step (M4-15) stops on any error.
 - [ ] `tests/contract/test_m4_input_contract.py` validates the M4-07 simulator output (example 1) and,
   once M2/M3 merge, their real outputs (marked `pending_sample` until then; M4-21 unmarks it).
 - [ ] `TABLES` is the single source of the column names; M4-07 (simulator) imports nothing from
-  `giap` and a test asserts its column lists equal `TABLES` (catches drift both ways).
+  `gippa` and a test asserts its column lists equal `TABLES` (catches drift both ways).
 - [ ] File I/O only in `io/work_tables.py`; `contract.py` imports no I/O.
 
 ## Methods note
@@ -175,7 +175,7 @@ None (no statistics). The contract is documented in the module docstring and cop
 4. `default_paths` keeps the flat fixture layout (every file directly in the work dir); M4-21 maps the real
    M2/M3 step outputs onto these keys.
 5. Size (ci/gates.yaml: warn 400, fail 800 code lines): bring the PR under 800 by removing the unspecced
-   checks and duplicated helpers; if that is not enough, split the loader (`giap.io.work_tables`) into a
+   checks and duplicated helpers; if that is not enough, split the loader (`gippa.io.work_tables`) into a
    follow-up PR stacked on the contract.
 
 ## Lead decisions after code review (PR #51, changes requested)

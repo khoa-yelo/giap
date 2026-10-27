@@ -1,7 +1,7 @@
 """The local executor publishes the three Module 5 files under the Nextflow names
-(docs/specs/M7-04-variants-step-and-run.md rule 3, lead decision 3; GIAP_SPEC.md §6.4, §9.1).
+(docs/specs/M7-04-variants-step-and-run.md rule 3, lead decision 3; GIPPA_SPEC.md §6.4, §9.1).
 
-``giap.runner.local.PUBLISHED_FILES`` maps a work key to its ``OUT`` path
+``gippa.runner.local.PUBLISHED_FILES`` maps a work key to its ``OUT`` path
 (tests/unit/test_local_publish_names.py on main pins it against every ``'key=path'`` of
 workflow/). Here the three variants keys must be in it. Their names must equal those in
 variants.nf, and ``publish`` must copy ``work/<key>`` byte for byte. ``work/pileup`` is already
@@ -24,7 +24,7 @@ NAMES = {
 
 
 def test_published_files_name_the_three_variants_tables() -> None:
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     assert {k: PUBLISHED_FILES.get(k) for k in NAMES} == NAMES
 
@@ -38,7 +38,7 @@ def test_variants_nf_uses_the_same_names() -> None:
 
 
 def test_publish_copies_the_three_files(tmp_path: Path) -> None:
-    from giap.runner.local import publish
+    from gippa.runner.local import publish
 
     work, out = tmp_path / "work", tmp_path / "OUT"
     work.mkdir()
@@ -56,7 +56,7 @@ def test_publish_copies_the_three_files(tmp_path: Path) -> None:
 
 def test_publish_skips_absent_variants_files(tmp_path: Path) -> None:
     """No peptides: the step never ran, nothing is published under those names."""
-    from giap.runner.local import publish
+    from gippa.runner.local import publish
 
     work, out = tmp_path / "work", tmp_path / "OUT"
     work.mkdir()

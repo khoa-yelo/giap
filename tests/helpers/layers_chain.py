@@ -1,7 +1,7 @@
 """M2-20 test inputs: every ``context_layers`` input produced by the merged steps (test author).
 
 REAL-CONTRACT RULE: nothing here invents a table shape. ``build_chain`` runs the merged producer
-steps through ``giap.steps.registry.run_step`` on giapsim ``SIM100K`` (the genome of every
+steps through ``gippa.steps.registry.run_step`` on gippasim ``SIM100K`` (the genome of every
 sim100k recording):
 
 * ``parse_bakta`` (M2-04) on the simulator's Bakta JSON + genome;
@@ -100,15 +100,15 @@ ANNOTATION_FILES = (
 
 
 def fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    """A clean registry with every ``giap.steps`` module (re)registered."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    """A clean registry with every ``gippa.steps`` module (re)registered."""
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -222,7 +222,7 @@ def pc_csvs(root: Path, tus: pd.DataFrame) -> list[Path]:
 
 def ostir_csv(root: Path, ostir_input: Path) -> Path:
     """``ostir.csv`` (recorded header) for every gene except every ``NO_RBS_EVERY``-th one."""
-    from giap.annotate.ostir import read_ostir_input
+    from gippa.annotate.ostir import read_ostir_input
 
     rows = read_ostir_input(ostir_input)
     path = root / "ostir.csv"
@@ -262,14 +262,14 @@ def bakta_json_variant(src: Path, dst: Path) -> Path:
 
 def build_chain(root: Path) -> Chain:
     """Run every producer on SIM100K into ``root``; returns the context_layers inputs."""
-    import giapsim
-    from giap.config import GiapConfig
+    import gippasim
+    from gippa.config import GippaConfig
 
-    sim = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, root / "sim")
+    sim = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, root / "sim")
     w = root / "work"
     w.mkdir(parents=True)
     bakta = bakta_json_variant(sim.bakta_json, root / "bakta.json")
-    cfg = GiapConfig(seed=1)
+    cfg = GippaConfig(seed=1)
     with registry() as reg:
         _run(reg, "parse_bakta", cfg, {"bakta_json": bakta, "genome": sim.genome_fasta},
              {k: w / v for k, v in PARSE_OUT.items()})  # fmt: skip
@@ -320,7 +320,7 @@ def build_chain(root: Path) -> Chain:
 
 def genome_seqs(chain: Chain) -> dict[str, str]:
     """contig -> sequence of the chain's genome FASTA (the ``genome`` input)."""
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     return {r.id: r.sequence for r in read_genome_fasta(chain.inputs[GENOME_KEY])}
 
@@ -331,8 +331,8 @@ def precomputed_operon_pairs(
     """Rerun ``operon_pairs`` with the chain's pairs as an ``annotation.precomputed.operon_pairs``
     TSV (M2-02 format), ``overrides`` replacing p of given (gene_a, gene_b) pairs. Returns the new
     (pairs_raw, tus) parquet paths."""
-    from giap.config import GiapConfig
-    from giap.io.tsv import write_tsv
+    from gippa.config import GippaConfig
+    from gippa.io.tsv import write_tsv
 
     pairs = chain.frame("pairs_raw")
     rows = [
@@ -344,7 +344,7 @@ def precomputed_operon_pairs(
     out.mkdir(parents=True, exist_ok=True)
     tsv = out / "operon_pairs.tsv"
     write_tsv(tsv, ["gene_a", "gene_b", "uniop_p", "source"], rows)
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"precomputed": {"operon_pairs": str(tsv)}}}
     )
     w = chain.inputs["genes"].parent
@@ -373,7 +373,7 @@ def call_gene_layers(
 ) -> pd.DataFrame:
     """``gene_layers`` with the spec's positional order (M2-20 public interface) and the
     keyword ``genome`` (contig -> sequence; lead decision 4, ``gc_local_dev``)."""
-    from giap.annotate.layers import gene_layers
+    from gippa.annotate.layers import gene_layers
 
     return gene_layers(
         frames["genes"], frames["tus"], frames["pairs_raw"], frames["promoter_windows"],

@@ -1,4 +1,4 @@
-"""Calibration of the giapsim function and determinants generators (issue M8-14; GIAP_SPEC.md
+"""Calibration of the gippasim function and determinants generators (issue M8-14; GIPPA_SPEC.md
 §8.4 rows ORA, GSEA, Determinants null; §8.5 attack 2; docs/specs/M8-14-sim-function-
 determinants.md examples 1, 2, 3 and 6; interface as assumed in tests/unit/test_sim_function.py).
 
@@ -52,15 +52,15 @@ STREAM_DET_POOLED = "sim_function.determinants_null.pooled"
 
 
 def _draw(pair: Any, rng: np.random.Generator) -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs.draw(pair, rng)
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def _members(world: Any) -> dict[str, set[str]]:

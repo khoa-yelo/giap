@@ -16,9 +16,9 @@ import warnings
 
 import pytest
 
-from giap.io.gff3 import GffFeature, read_gff3, write_gff3
-from giap.io.vcf import VcfHeaderField, VcfRecord, write_vcf
-from giap.model import Interval, Replicon
+from gippa.io.gff3 import GffFeature, read_gff3, write_gff3
+from gippa.io.vcf import VcfHeaderField, VcfRecord, write_vcf
+from gippa.model import Interval, Replicon
 
 C = Replicon("chr", 2000, "circular")
 L = Replicon("lin", 900, "linear")
@@ -77,7 +77,7 @@ def _b7(**kw) -> VcfRecord:
 
 def _vcf(path, records, replicons=(C,), **kw):
     args = dict(
-        giap_version="0.1.0",
+        gippa_version="0.1.0",
         genome_sha256=SHA,
         sample="pilot_A3",
         info_fields=INFO_FIELDS,
@@ -128,16 +128,16 @@ def _gff_text(tmp_path, body: str):
 
 
 def test_gff3_cds_without_phase_raises_on_write(tmp_path) -> None:
-    f = GffFeature(Interval("chr", 0, 9, "+"), "giap", "CDS", attributes={"ID": "x"})
+    f = GffFeature(Interval("chr", 0, 9, "+"), "gippa", "CDS", attributes={"ID": "x"})
     with pytest.raises(ValueError):
         write_gff3(tmp_path / "a.gff3", [f], [C])
 
 
 def test_gff3_non_cds_without_phase_still_written_dot(tmp_path) -> None:
-    f = GffFeature(Interval("chr", 0, 9, "+"), "giap", "gene", attributes={"ID": "x"})
+    f = GffFeature(Interval("chr", 0, 9, "+"), "gippa", "gene", attributes={"ID": "x"})
     p = tmp_path / "a.gff3"
     write_gff3(p, [f], [C])
-    assert "chr\tgiap\tgene\t1\t9\t.\t+\t.\tID=x" in p.read_text().splitlines()
+    assert "chr\tgippa\tgene\t1\t9\t.\t+\t.\tID=x" in p.read_text().splitlines()
 
 
 def test_gff3_reader_reads_strand_question_mark_as_unknown(tmp_path) -> None:
@@ -197,7 +197,7 @@ def test_gff3_reader_rejects_non_plain_digit_coordinates(tmp_path, bad: str, col
 def test_gff3_unsafe_seqid_raises_on_write(tmp_path, seqid: str) -> None:
     with pytest.raises(ValueError):
         rep = Replicon(seqid, 100, "linear")
-        f = GffFeature(Interval(seqid, 0, 9, "+"), "giap", "gene", attributes={"ID": "x"})
+        f = GffFeature(Interval(seqid, 0, 9, "+"), "gippa", "gene", attributes={"ID": "x"})
         write_gff3(tmp_path / "a.gff3", [f], [rep])
 
 
@@ -226,7 +226,7 @@ ATTR_CASES = [
 def test_gff3_attribute_round_trip_non_ascii_and_lists(tmp_path, extra, ftype: str) -> None:
     attrs = {"ID": "f1", **extra}
     phase = 0 if ftype == "CDS" else None
-    f = GffFeature(Interval("chr", 1950, 2050, "-"), "giap", ftype, phase=phase, attributes=attrs)
+    f = GffFeature(Interval("chr", 1950, 2050, "-"), "gippa", ftype, phase=phase, attributes=attrs)
     p = tmp_path / "a.gff3"
     write_gff3(p, [f], [C])
     raw = p.read_bytes()
@@ -381,9 +381,9 @@ def test_vcf_gt_in_range_ok(tmp_path, capfd, gt: str) -> None:
 
 
 @pytest.mark.parametrize("bad", ["0.1\n", "0.1\r", "0.1\t", "0.1\x00", "0.1\x1b", "0.1\x7f"])
-def test_vcf_control_chars_in_giap_version_raise(tmp_path, bad: str) -> None:
+def test_vcf_control_chars_in_gippa_version_raise(tmp_path, bad: str) -> None:
     with pytest.raises(ValueError):
-        _vcf(tmp_path / "v.vcf", [], giap_version=bad)
+        _vcf(tmp_path / "v.vcf", [], gippa_version=bad)
 
 
 @pytest.mark.parametrize("bad", ["a\nb", "a\rb", "a\tb", "a\x00b", "a\x1bb", "a\x7fb"])

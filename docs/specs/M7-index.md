@@ -1,6 +1,6 @@
 # M7 "Variants and novel ORFs": issue index
 
-Spec: GIAP_SPEC.md §13 row M7. Deliverables: "Modules 5 and 6, VCF, patch GFF3, second-round
+Spec: GIPPA_SPEC.md §13 row M7. Deliverables: "Modules 5 and 6, VCF, patch GFF3, second-round
 Promotech and OSTIR". **Gate:** "F1 ≥ 0.9 on simulated variants and novel ORFs; TE2 proxy passes",
 i.e. §7.5.6 ("simulated F1 ≥ 0.9 for `high` ALT calls; no `high` ALT calls on in-silico same-strain
 peptides except at `start_codon` or `stop_codon` sites"), §7.6.6 ("F1 ≥ 0.9 for planted novel ORFs
@@ -40,14 +40,14 @@ and the simulations before the code (§14.1).
 after." This index carries the **whole** of M7 — every table, file, test, calibration and attack
 the spec owes — split into two passes:
 
-- **Pass 1 (integration):** two tracks, each wired into `giap run` **as soon as its minimal
+- **Pass 1 (integration):** two tracks, each wired into `gippa run` **as soon as its minimal
   producers exist**, and completed inside the already-wired step afterwards.
   - Variants: 01 alignment → 02 pileup and calls → 03 tables and VCF → **04 wiring + real run** →
     05 flags (fills columns of the wired step).
   - Novel ORFs: 06 candidates and ORFs (with the minimal ≥ 2-peptide call) → 07 the four files →
     **08 steps, second-round Promotech and OSTIR, wiring + real run** → 09 class evidence, RBS
     support, ADR-0012 columns and ranking (fills columns of the wired step).
-  - End state: `giap run` on sim100k (both executors) writes `tables/pileup.tsv.gz`,
+  - End state: `gippa run` on sim100k (both executors) writes `tables/pileup.tsv.gz`,
     `tables/variants.tsv`, `tables/variants.vcf`, `tables/novel_orfs.tsv`, `tables/novel_orfs.gff3`,
     `tables/novel_orfs.faa`, `tables/annotation_patch.gff3`, with ALT error rates and novel-ORF
     class FDR in their spec-sanctioned `unestimated` states.
@@ -59,7 +59,7 @@ the spec owes — split into two passes:
   16a matcher + decoys, 16b M7 calls + `makedb` `X` + simulator, 16c recoded Sec/Pyl (gated).
 
 Nothing is dropped; it is scheduled. Each producer issue states how its output reaches
-`giap run`: 04 for the three Module 5 files, 08 for the four Module 6 files.
+`gippa run`: 04 for the three Module 5 files, 08 for the four Module 6 files.
 
 ## How this design lands (docs only, one branch `m7/design`, three commits)
 
@@ -87,7 +87,7 @@ commit (the M6 pattern) after deciding the questions below.
 | 9 | [M7-09](M7-09-novel-evidence-and-ranking.md) | N | 1 | §7.6.3 class rules, RBS quantile, ADR-0012 promoter/terminator, ADR-0013 label, G13 rank | 06–08 | 300 | light (Q) |
 | 10 | [M7-10](M7-10-class-error-rates.md) | S | 2 | §7.5.4 paired-spectrum class error rates | 02, 04, 05 | 180 | yes |
 | 11 | [M7-11](M7-11-novel-class-fdr.md) | S | 2 | §7.6.4 picked class FDR (makedb IDs) and de novo subgroup FDR | 06, 09 | 300 | yes |
-| 12 | [M7-12](M7-12-sim-variant-novel-scenarios.md) | F | 2 | giapsim: `variant_f1`, `novel_orf_power`, `same_strain_insilico`, `isobaric_attack`, truth tables | 08 (layer) | 40 (+320 sim) | light |
+| 12 | [M7-12](M7-12-sim-variant-novel-scenarios.md) | F | 2 | gippasim: `variant_f1`, `novel_orf_power`, `same_strain_insilico`, `isobaric_attack`, truth tables | 08 (layer) | 40 (+320 sim) | light |
 | 13 | [M7-13](M7-13-calibration-gate.md) | C | 2 | **the gate**: variant F1, same-strain check, novel F1, class-FDR suite, attack 6 (3 PRs: 13a variants, 13b novel, 13c evidence) | 05, 09–12, 11b | 60 harness (+≈ 750 tests) | yes |
 | 14 | [M7-14](M7-14-te2-proxy-and-id-mixups.md) | V | 2 | **TE2 proxy** (Nissle, weekly Slurm) and the `id_mixups` QC row | 04, 05 | 170 | no |
 | 15 | [M7-15](M7-15-integration-hardening.md) | T | 2 | goldens, in-pipeline contracts, resume/failure, real-tool arm, VCF FILTER, `novel_candidate_id` | 04, 08, 09 | 200 | no |
@@ -101,8 +101,8 @@ M7-12 is written while pass 1 finishes.
 ## Dependency DAG
 
 ```text
-Pass 1  V: 01 ─► 02 ─► 03 ─► 04 (giap run: 3 Module 5 files) ─► 05
-        N: 06 ─► 07 ─► 08 (giap run: 4 Module 6 files, second round) ─► 09
+Pass 1  V: 01 ─► 02 ─► 03 ─► 04 (gippa run: 3 Module 5 files) ─► 05
+        N: 06 ─► 07 ─► 08 (gippa run: 4 Module 6 files, second round) ─► 09
 Pass 2  02,04,05 ─► 10 ┐
         06,09 ──► 11 ──┤
         08 ─────► 12 ──┴─► 13 (the gate)        04,05 ─► 14 (TE2)      04,08,09 ─► 15
@@ -120,7 +120,7 @@ the largest), so N is the critical path.
 | A (now) | 01, 06 | independent tracks |
 | B | 02, 07 | |
 | C | 03, 08 | 08 includes the OSTIR range recording (one small `sbatch`) |
-| D | 04, 09, 05 | 04 is the Module 5 integration milestone (real `giap_run.sbatch`); 08's real run ends wave C |
+| D | 04, 09, 05 | 04 is the Module 5 integration milestone (real `gippa_run.sbatch`); 08's real run ends wave C |
 | E (hardening) | 10, 11, 12 in parallel; then 13, 14, 15 | 13 submits `calibration_full.sbatch` tasks `variants`, `novel_orfs` (≤ 2 jobs, ≤ 32 CPUs); 14 adds a weekly entry |
 | F | 16a, then 16b (and 16c if Khoa accepts item 6) | option B accepted; statistician reviews M7-16 before 16a code; 16a re-runs the M3-21 placement suites fast + full on Slurm |
 
@@ -135,25 +135,25 @@ the largest), so N is the critical path.
 | C4 | `annotation_meta.json` | M2-04 (merged) | `anti_sd` for the second-round OSTIR rows |
 | G | `genetable/genes.parquet` | M4-15 + M4-13 (merged; wired by MVP-01) | `detected`, `partial`, `tir_ostir` for the RBS quantile |
 | L | `promoter_windows.parquet`, `terminators.parquet` | M2-13, M2-15 (merged) | first-round scores by position; terminators for ADR-0012. `annotate.nf` must **emit** them — M6-08 does that (lead decision 3 of M6); if M6-08 has not merged, M7-08 adds the emission |
-| M | `giap.mapping.masses` | M3-05 (merged) | `mass_equivalents(tol)`, B.5 masses (no `build_mass_equivalents.py` or `mass_equivalents.tsv` yet: M7-05) |
-| V | `giap.io.vcf.write_vcf`, `giap.io.gff3`, `giap.io.protein_fasta` | M1-03/M1-05 (merged) | strict VCF 4.3 writer (equal-length alleles, origin-crossing REF raises), GFF3 with `Is_circular` |
-| D | `giap makedb --patch`, class-tagged six-frame ORFs, `db_id_map.tsv` | M3-23 (merged) | the round trip; **a patch CDS with an internal stop raises** (M7-07 Q4, M7-16) |
+| M | `gippa.mapping.masses` | M3-05 (merged) | `mass_equivalents(tol)`, B.5 masses (no `build_mass_equivalents.py` or `mass_equivalents.tsv` yet: M7-05) |
+| V | `gippa.io.vcf.write_vcf`, `gippa.io.gff3`, `gippa.io.protein_fasta` | M1-03/M1-05 (merged) | strict VCF 4.3 writer (equal-length alleles, origin-crossing REF raises), GFF3 with `Is_circular` |
+| D | `gippa makedb --patch`, class-tagged six-frame ORFs, `db_id_map.tsv` | M3-23 (merged) | the round trip; **a patch CDS with an internal stop raises** (M7-07 Q4, M7-16) |
 | T | `validation/proxies/te_proxies.py` | M3-22 (merged) | `run_chain`, the Nissle digest, the TE1 exception lists (431 non-ATG N-termini; 4 Sec misses) |
-| S | `giap.stats.tda.picked_fdr`, `monotone_q`; `giap.mapping.placement_fdr.stratum_qvalues` | merged | M7-11 |
+| S | `gippa.stats.tda.picked_fdr`, `monotone_q`; `gippa.mapping.placement_fdr.stratum_qvalues` | merged | M7-11 |
 | H | calibration harness | M4-05 (merged) | `calibrate`, `check_fdr`; `tolerances.yaml` has `f1_min` and `replicates_*.novel_orfs`, **no `variants` replicate key** (Khoa Q1) |
 | K | config | merged `VariantsConfig`, `NovelOrfsConfig`, `stats.alpha.{variants,novel_orfs}`, `annotation.start_codons`, `annotation.ostir.*`, `annotation.promoters.*`, `sample_name` | `sample_name: auto` is resolved nowhere (M7-04); `annotation.precomputed` has no second-round OSTIR key (M7-08 Q1) |
-| Sim | giapsim | M3-18/19/20, M2-05 (merged) | strain differences with truth, planted novel ORFs and N-terminal extensions with truth, de novo errors with `spectrum_id` pairing; no RBS before planted ORFs, no read-through (M7-12) |
+| Sim | gippasim | M3-18/19/20, M2-05 (merged) | strain differences with truth, planted novel ORFs and N-terminal extensions with truth, de novo errors with `spectrum_id` pairing; no RBS before planted ORFs, no read-through (M7-12) |
 | W | `workflow/subworkflows/local/*.nf`, `PROMOTECH`, `OSTIR` modules | MVP-01, M2-13, M2-16 (merged) | the CONTEXT pattern; `PROMOTECH`/`OSTIR` reused by alias; `mapping.nf` must emit `hits_tolerant` (M7-04) |
-| R | `giap.runner.local.PUBLISHED` | merged | publishes only `annotation/` and `mapping/` on c4d8841; M7-04/08 add the `tables/` keys unless the table-publishing change has landed first |
+| R | `gippa.runner.local.PUBLISHED` | merged | publishes only `annotation/` and `mapping/` on c4d8841; M7-04/08 add the `tables/` keys unless the table-publishing change has landed first |
 
 ## External tools (no new tool, env or image)
 
 | Tool | Pin | Licence | Env / container | Used by | Slurm? |
 |---|---|---|---|---|---|
-| Promotech RF-HOT | commit `56251ad9b883ef831b4753fc623d5ec970fe65e0` (ADR-0008) | GPL-3.0 — separate process, never imported (`check_imports.py`) | `workflow/envs/promotech.yml` (Python 3.6.10, TF 2.1.0 wheel; lock in `workflow/envs/locks/`); RF-HOT model from `$GIAP_DB_DIR/promotech` (installed, PROGRESS.md); no upstream image, conda under `-profile apptainer` | M7-08 `PROMOTECH_NOVEL` | under Nextflow `farmshare` profile each chunk is a Slurm task; sim100k second round ≤ 2 chunks |
+| Promotech RF-HOT | commit `56251ad9b883ef831b4753fc623d5ec970fe65e0` (ADR-0008) | GPL-3.0 — separate process, never imported (`check_imports.py`) | `workflow/envs/promotech.yml` (Python 3.6.10, TF 2.1.0 wheel; lock in `workflow/envs/locks/`); RF-HOT model from `$GIPPA_DB_DIR/promotech` (installed, PROGRESS.md); no upstream image, conda under `-profile apptainer` | M7-08 `PROMOTECH_NOVEL` | under Nextflow `farmshare` profile each chunk is a Slurm task; sim100k second round ≤ 2 chunks |
 | OSTIR | 1.1.3 + ViennaRNA 2.6.4 (ADR-0008) | GPL-3.0 — separate process | `workflow/envs/ostir.yml` (lock present); no upstream image | M7-08 `OSTIR_NOVEL`; the range recording | one task per run; the recording is a minutes-long `sbatch` |
 | VCF validation | `pysam` (already a test dependency, MIT) | MIT | main env | M7-03 round trip | no |
-| GFF3 validation | GIAP's M1-05 reader | MIT | main env | M7-07 | no |
+| GFF3 validation | GIPPA's M1-05 reader | MIT | main env | M7-07 | no |
 
 No `bcftools`, `vcf-validator` or other new binary is introduced. The TE2 proxy (M7-14) and the
 full calibration tier (M7-13) are Slurm jobs; the per-PR fast tier fits the 8-CPU session and the
@@ -225,13 +225,13 @@ ADR-0012 evidence and what a missing promoter or terminator does *not* prove). U
 
 | Backlog line | Where it lands |
 |---|---|
-| "M7 variants and novel ORFs (declare GIAP's VCF FILTER values with descriptions; M1-05 writes generic ones)" | M7-03 decision 6 (PASS only) + M7-15 item 5; the checkbox closes when 13 and 14 are green |
+| "M7 variants and novel ORFs (declare GIPPA's VCF FILTER values with descriptions; M1-05 writes generic ones)" | M7-03 decision 6 (PASS only) + M7-15 item 5; the checkbox closes when 13 and 14 are green |
 | "M7: compute the M4-16 QC metric id_mixups …" | M7-14 rule 3 (line deleted there) |
 | "M6: the simulator plants stop-codon readthrough (C-terminal extensions, ADR-0013) for cterm_extension calibration" (re-filed to M7 by M6 lead decision 7) | M7-16 (and M7-12 Q1): useless until the matcher can place stop-spanning peptides |
-| "M3-17/M4: resolve makedb protein IDs (GIAPORF_, NOVEL_, *_patch) through db_id_map.tsv in annotate_protein_hits" | **related, not M7 scope**: it matters for second-pass searches with protein-level input; M7-11 needs the peptide-level decoy pairing only. Stays in the backlog |
-| "M2: move the step helpers (_genes, _path, _replicons) from giap.steps.operons to a public shared module" | done by M6-08 if merged first; otherwise M7-04 does the move (both import them) |
+| "M3-17/M4: resolve makedb protein IDs (GIPPAORF_, NOVEL_, *_patch) through db_id_map.tsv in annotate_protein_hits" | **related, not M7 scope**: it matters for second-pass searches with protein-level input; M7-11 needs the peptide-level decoy pairing only. Stays in the backlog |
+| "M2: move the step helpers (_genes, _path, _replicons) from gippa.steps.operons to a public shared module" | done by M6-08 if merged first; otherwise M7-04 does the move (both import them) |
 | "M2: one shared IUPAC-aware reverse complement" | M7-01/06 call the existing `translate11_text`/reverse-complement helpers and add no new copy; the line stays |
-| "giap run --annotation <bakta.json> does not stop BAKTA from running under Nextflow" | not touched |
+| "gippa run --annotation <bakta.json> does not stop BAKTA from running under Nextflow" | not touched |
 
 ## Risks
 
@@ -254,7 +254,7 @@ ADR-0012 evidence and what a missing promoter or terminator does *not* prove). U
 ## Feasibility on FarmShare
 
 Pure Python except the second round, which reuses two built conda envs. Memory < 4 GB for a 5-Mb
-genome. Slurm is needed for: the two real `giap_run.sbatch` runs (04, 08), the OSTIR range recording
+genome. Slurm is needed for: the two real `gippa_run.sbatch` runs (04, 08), the OSTIR range recording
 (08), the full calibration tier (13; one array, ≤ 2 tasks), the TE2 proxy (14, weekly) and the
 real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 
@@ -267,7 +267,7 @@ real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 4. VCF: lexicographic G14 tie-break; substitutions and equal-length two-codon events only;
    origin-crossing codons omitted and flagged `vcf_unrepresentable`; FILTER always `PASS`
    (M7-03 Q1–Q6).
-5. `sample_name: auto` is resolved by `giap run` (M7-04 Q1).
+5. `sample_name: auto` is resolved by `gippa run` (M7-04 Q1).
 6. Swaps never carry `mass_equivalent`; the mass list is recomputed at run time and the committed
    TSV is pinned to it by a test (M7-05 Q1–Q2).
 7. Novel-ORF identity = `(contig, strand, stop)`; class = highest-priority peptide class; ID from

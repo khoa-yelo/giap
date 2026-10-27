@@ -25,7 +25,7 @@ estimate ≈ 300 code lines (+ ≈ 300 test lines) · **can start now**
 
 ## Public interface
 
-`src/giap/genetable/detectability.py`
+`src/gippa/genetable/detectability.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class DetectabilityResult:
@@ -46,7 +46,7 @@ def calibration_diagnostics(d: ArrayLike, p: ArrayLike, n_bins: int = 10) -> pd.
   knots="quantile", extrapolation="linear")` per covariate → `LogisticRegression(penalty="l2",
   C=…, solver="lbfgs", max_iter=2000)`. Integer covariate `tm_segments` with fewer distinct values
   than knots: its spline is replaced by the raw value (prevents duplicate quantile knots).
-- `tu_folds`: sort unique TU IDs, permute with `rng` (`giap.rng.for_step("detectability", seed)`),
+- `tu_folds`: sort unique TU IDs, permute with `rng` (`gippa.rng.for_step("detectability", seed)`),
   fold = position mod k. Outer folds use these; the inner 3-fold C search applies the same rule
   to the training TUs with the same stream. C selection metric: mean held-out log loss; ties → the
   smaller C.

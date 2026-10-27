@@ -1,7 +1,7 @@
-# M8-14: giapsim — function annotations, ORA and GSEA nulls and attacks, planted determinants
+# M8-14: gippasim — function annotations, ORA and GSEA nulls and attacks, planted determinants
 
 Milestone M8 · track F (simulator; tooling written by the implementer, tested by the test-author) ·
-**pass 2** · depends on: nothing (merged giapsim M4-07/08/09, M5-04) · estimate 0 code lines in
+**pass 2** · depends on: nothing (merged gippasim M4-07/08/09, M5-04) · estimate 0 code lines in
 `src/` + ≈ 330 lines in `tests/sim/` (+ ≈ 250 test lines) · statistical (light): the statistician
 signs off the generators M8-15 gates on
 
@@ -20,7 +20,7 @@ signs off the generators M8-15 gates on
 
 ## What the simulator must add
 
-`tests/sim/giapsim/function_sim.py` and `tests/sim/giapsim/scenarios.py`
+`tests/sim/gippasim/function_sim.py` and `tests/sim/gippasim/scenarios.py`
 ```python
 def synthetic_ontology(n_terms: int, depth: int, rng) -> tuple[str, pd.DataFrame]: ...
         # an OBO text (GO-shaped IDs in a reserved range GO:9xxxxxx, is_a + part_of, 3 namespaces)
@@ -148,7 +148,7 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
      `<name>_true`.
    - Reading 4: one new pre-declared stream for the pooled check, which is not seed shopping.
    - **Reading 3: the covariate must be visible in the sequences.** M8-15 refits p_detect from
-     GIAP's gene table, which computes GRAVY and observability from the proteins. So the
+     GIPPA's gene table, which computes GRAVY and observability from the proteins. So the
      members' recorded `<cov>_true` must equal the value recomputed from their `aa`. The
      implementer edits the members' sequences, e.g. hydrophobic substitutions for GRAVY or K/R
      changes for `n_obs`, rather than shifting the column alone.
@@ -192,7 +192,7 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    - GRAVY is unchanged exactly, so the K/R edits preserve composition (position moves that make
      peptides fall outside 7–30 aa); no separate length assertion.
    - There is no per-member optimality check; the mean band and the logit identity carry it.
-   - Pseudogenes without `aa`: giapsim records `n_obs` = 0 and GRAVY NaN, while GIAP translates
+   - Pseudogenes without `aa`: gippasim records `n_obs` = 0 and GRAVY NaN, while GIPPA translates
      them from `nt`. Pre-existing; backlog for M8-15's p_detect refit.
    - Next: the implementer.
 8. **Implementer (aa8bd884): B1 done.**

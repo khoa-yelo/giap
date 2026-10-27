@@ -1,4 +1,4 @@
-"""Performance budget for tolerant matching (issue M3-07 acceptance; GIAP_SPEC.md §7.2.4).
+"""Performance budget for tolerant matching (issue M3-07 acceptance; GIPPA_SPEC.md §7.2.4).
 
 - 10,000 leftover peptides (10-30 aa) on a 5-Mb random circular genome, target + one decoy type
   (reverse): <= 5 min on 8 CPUs and <= 2 GB peak memory;
@@ -28,12 +28,12 @@ SCRIPT = textwrap.dedent(
     """
     import json, resource, sys, time
     import numpy as np
-    from giap.config.model import TolerantConfig
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.sixframe import build_sixframe, decode
-    from giap.mapping.tolerant import match_tolerant
-    from giap.model import Replicon
-    from giap.rng import for_step
+    from gippa.config.model import TolerantConfig
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.sixframe import build_sixframe, decode
+    from gippa.mapping.tolerant import match_tolerant
+    from gippa.model import Replicon
+    from gippa.rng import for_step
 
     L, N = int(sys.argv[1]), int(sys.argv[2])
     cfg = TolerantConfig()

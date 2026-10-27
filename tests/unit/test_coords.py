@@ -1,4 +1,4 @@
-"""Coordinates, Interval and Replicon (issue M1-01; GIAP_SPEC.md §2.1 decision 16, §6.5).
+"""Coordinates, Interval and Replicon (issue M1-01; GIPPA_SPEC.md §2.1 decision 16, §6.5).
 
 Internal coordinates are 0-based half-open; TSV/GFF3/VCF use 1-based closed. On a circular
 replicon an origin-crossing interval is stored unwrapped (``end > length``); linear contigs never
@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-import giap.model
-from giap.model import (
+import gippa.model
+from gippa.model import (
     Interval,
     Replicon,
     check_interval,
@@ -120,7 +120,7 @@ def test_replicon_length_one_is_valid() -> None:
 
 
 def test_coords_module_matches_package_reexport() -> None:
-    from giap.model import coords
+    from gippa.model import coords
 
     for name in (
         "Interval",
@@ -132,7 +132,7 @@ def test_coords_module_matches_package_reexport() -> None:
         "wrap_position",
         "interval_sort_key",
     ):
-        assert getattr(giap.model, name) is getattr(coords, name)
+        assert getattr(gippa.model, name) is getattr(coords, name)
 
 
 # --- Edge cases -------------------------------------------------------------------------------
@@ -233,13 +233,13 @@ def test_sort_by_start_then_end_then_id() -> None:
     assert sorted(range(4), key=lambda i: keys[i]) == [3, 2, 1, 0]
 
 
-# --- Acceptance: no file I/O in giap.model ------------------------------------------------------
+# --- Acceptance: no file I/O in gippa.model ------------------------------------------------------
 
 _IO_MODULES = {"io", "os", "pathlib", "shutil", "gzip", "bz2", "lzma", "tempfile"}
 
 
 def test_model_package_does_no_file_io() -> None:
-    model_dir = Path(giap.model.__file__).parent
+    model_dir = Path(gippa.model.__file__).parent
     for path in sorted(model_dir.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

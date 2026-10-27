@@ -1,13 +1,13 @@
-// DETERMINANTS subworkflow (GIAP_SPEC.md §6.2, §7.8.3, §9.1; M8-10): the final gene table plus
+// DETERMINANTS subworkflow (GIPPA_SPEC.md §6.2, §7.8.3, §9.1; M8-10): the final gene table plus
 // C1/C2/C5/C6, and optionally C7/C8 and context_stats' gene context, ->
 // tables/determinants_{features,model,attribution}.tsv and, only when cross-validation ran, the
-// optional plot support determinants_support (M9-17; published under plots/support/). The py step runs through the GIAP_STEP
+// optional plot support determinants_support (M9-17; published under plots/support/). The py step runs through the GIPPA_STEP
 // alias DETERMINANTS_STEP (an alias cannot be the subworkflow's own name); base.config gives it
 // process_high resources so the permutation null runs in parallel (lead decision 2).
 // Without a gene table the step does not run; without C7/C8 or the gene context (CONTEXT
 // skipped) it runs on the required inputs.
-include { GIAP_STEP as DETERMINANTS_STEP } from '../../modules/local/giap_step/main'
-include { supportDir } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as DETERMINANTS_STEP } from '../../modules/local/gippa_step/main'
+include { supportDir } from '../../modules/local/gippa_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 workflow DETERMINANTS {

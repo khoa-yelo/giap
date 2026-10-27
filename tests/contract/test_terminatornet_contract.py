@@ -1,8 +1,8 @@
-"""Contract test: TerminatorNet parser on recorded runs (M2-15; GIAP_SPEC.md §5.4, §7.1.1, G12).
+"""Contract test: TerminatorNet parser on recorded runs (M2-15; GIPPA_SPEC.md §5.4, §7.1.1, G12).
 
 Recorded with the M2-10 harness (commit 72180309, ``-s``; PROVENANCE in
 ``tests/data/recorded/terminators/``): sim100k is committed whole; K-12 MG1655 and Nissle 1917
-are read from ``$GIAP_ROOT/recordings/terminatornet/<sample>/`` (``terminatornet.tsv`` +
+are read from ``$GIPPA_ROOT/recordings/terminatornet/<sample>/`` (``terminatornet.tsv`` +
 ``genome.fa``) and skipped when that directory is missing (CI).
 
 Contract: every 11-column line becomes one ``Terminator``; ``NO TERMINATORS FOUND`` lines are
@@ -18,12 +18,12 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.terminators import parse_terminatornet
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Replicon, check_interval
+from gippa.annotate.terminators import parse_terminatornet
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Replicon, check_interval
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded" / "terminators" / "terminatornet"
-ROOT = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings" / "terminatornet"
+ROOT = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings" / "terminatornet"
 COMP = str.maketrans("ACGTN", "TGCAN")
 SAMPLES = {"k12_mg1655": 8294, "nissle1917": 8644, "sim100k": 133}
 
@@ -64,10 +64,10 @@ def test_sim100k_committed_recording() -> None:
 
 
 @pytest.mark.parametrize("sample", ["k12_mg1655", "nissle1917"])
-def test_full_recordings_under_giap_root(sample: str) -> None:
+def test_full_recordings_under_gippa_root(sample: str) -> None:
     tsv = ROOT / sample / "terminatornet.tsv"
     genome = _genome(sample)
     if not tsv.exists() or genome is None:
-        pytest.skip(f"no recording at {ROOT / sample} ($GIAP_ROOT/recordings missing)")
+        pytest.skip(f"no recording at {ROOT / sample} ($GIPPA_ROOT/recordings missing)")
     reps = {c: Replicon(c, len(s), "circular") for c, s in genome.items()}
     _check(tsv, genome, reps, SAMPLES[sample])

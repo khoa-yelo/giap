@@ -1,7 +1,7 @@
 # TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
 
-Implements `giap.stats.bootstrap` (`tu_block_bootstrap`, `percentile_ci`,
-`circular_block_bootstrap`) and `giap.stats.robust.hodges_lehmann` (GIAP_SPEC.md §7.3.5(a)–(b),
+Implements `gippa.stats.bootstrap` (`tu_block_bootstrap`, `percentile_ci`,
+`circular_block_bootstrap`) and `gippa.stats.robust.hodges_lehmann` (GIPPA_SPEC.md §7.3.5(a)–(b),
 §8.2, §8.3, decision 14; issue M4-04). Statistician sign-off: see the end of this note.
 
 ## Why the resampling unit is the TU
@@ -28,7 +28,7 @@ genes, are the units that are (approximately) independent, so §8.2 rules "resam
 - NaN replicate statistics are dropped; with fewer than B/2 valid replicates the CI is (NaN, NaN)
   and `n_valid` says why. `stat_fn` errors propagate.
 
-Randomness: the caller passes the `Generator` from `giap.rng.for_step` (§6.6); draws are made per
+Randomness: the caller passes the `Generator` from `gippa.rng.for_step` (§6.6); draws are made per
 stratum in sorted stratum order, each a (B × n_s) block, so results are reproducible given the seed.
 
 Assumption: TUs are independent (or weakly dependent). Long-range dependence along the replicon
@@ -87,7 +87,7 @@ O(ℓ/n) and is accepted (spec uses the same function for both).
 The caller chooses the block length; this function does not. The island circular block bootstrap
 (§7.3.5(d) step 5) and the ori–ter slope CI (§7.3.5(e)) use the same rule, from ADR-0021:
 
-1. **ℓ̂** = `giap.stats.autocorr.choose_block_len(z, circular, B, rng)`: the smallest lag at which
+1. **ℓ̂** = `gippa.stats.autocorr.choose_block_len(z, circular, B, rng)`: the smallest lag at which
    the TU-level Moran's I is not significant (raw two-sided p > 0.05 under the gene-label null,
    bounded to [1, 20]). See docs/methods/autocorrelation.md "Block length".
 2. **ℓ'** = `block_len_prime(ℓ̂, T)` = min(20, 2ℓ̂ + 1, T), where T is the number of scored TUs.

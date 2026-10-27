@@ -3,7 +3,7 @@
 Milestone M11 · **pass 2** · blocks: M11-09 (`docker-smoke`, draft PR #352) and the README
 quickstart's `--profile docker` · depends on: M11-06 (merged; `update_digests.py`), M11-03 (merged;
 readiness H4) · estimate ≈ 40 code lines + ≈ 15 lines of lead edits to existing tests + ≈ 150 new
-test lines + ADR · not `stats` · roles: implementer (config, scripts, `src/giap/setupdb/run.py`,
+test lines + ADR · not `stats` · roles: implementer (config, scripts, `src/gippa/setupdb/run.py`,
 changelog fragment), lead (edits to existing tests, ADR acceptance), test-author (new tests
 `tests/unit/test_m11_09b_*.py`, `tests/integration/test_m11_09b_container_resolution.py`), docs
 (one sentence in `docs/get-started/install.md`) · ADR: [ADR-0059](../adr/ADR-0059-bare-image-refs.md)
@@ -20,7 +20,7 @@ with a logging fake `docker`, which received
 ## Evidence (official Nextflow docs and source only, R6)
 
 The pinned Nextflow is **26.10.0**: `scripts/bootstrap_farmshare.sh` (`nextflow=${NEXTFLOW_VERSION:-26.10.0}`),
-ADR-0002, GIAP_SPEC.md §3.4. `nextflow -version` in `giap-wf` prints `version 26.10.0 build 14055`.
+ADR-0002, GIPPA_SPEC.md §3.4. `nextflow -version` in `gippa-wf` prints `version 26.10.0 build 14055`.
 Sources were read at tag `v26.10.0` of https://github.com/nextflow-io/nextflow on 2026-10-25.
 
 1. **Docs.** `docs/container/apptainer.mdx`, line 71: "You do not need to specify `docker://` to
@@ -30,7 +30,7 @@ Sources were read at tag `v26.10.0` of https://github.com/nextflow-io/nextflow o
    `normalizeDockerImageName` (`modules/nextflow/src/main/groovy/nextflow/container/ContainerHandler.groovy`,
    lines 99–100). With no `docker.registry` set, that function returns the name unchanged
    (lines 151–159). `DockerBuilder` then appends the image verbatim to the `docker run` line
-   (`DockerBuilder.groovy`, lines 185–186). GIAP sets no `docker.registry`
+   (`DockerBuilder.groovy`, lines 185–186). GIPPA sets no `docker.registry`
    (`workflow/nextflow.config`).
 3. **Apptainer adds the prefix.** `normalizeApptainerImageName` (`ContainerHandler.groovy`,
    lines 229–256) treats its input in this order:
@@ -50,12 +50,12 @@ Sources were read at tag `v26.10.0` of https://github.com/nextflow-io/nextflow o
    is `<cacheDir>/<simpleName>` (`localCachePath`, lines 201–203). The bare reference and the
    `docker://` reference therefore name the **same** file. For example, both give
    `quay.io-biocontainers-miniprot@sha256-<d>.img`. The six images already in
-   `$NXF_APPTAINER_CACHEDIR` (`$GIAP_ROOT/containers`, listed 2026-10-25) are not pulled again.
+   `$NXF_APPTAINER_CACHEDIR` (`$GIPPA_ROOT/containers`, listed 2026-10-25) are not pulled again.
 5. **Floor version.** `normalizeApptainerImageName`, `IMAGE_URL_PREFIX` and `simpleName` are the
-   same at tag `v25.04.8`. GIAP_SPEC.md §3.4 allows 25.04 or newer.
+   same at tag `v25.04.8`. GIPPA_SPEC.md §3.4 allows 25.04 or newer.
 
-The bare form is also what GIAP_SPEC.md §6.3 already writes for the container field
-(`ghcr.io/<owner>/giap-<tool>@sha256:…`), and it is the nf-core convention.
+The bare form is also what GIPPA_SPEC.md §6.3 already writes for the container field
+(`ghcr.io/<owner>/gippa-<tool>@sha256:…`), and it is the nf-core convention.
 
 ## Definition
 
@@ -77,22 +77,22 @@ The rules:
 2. **Writers emit the bare form.**
    - `scripts/release/update_digests.py` `pin_line()` →
      `  withName: '<P>' { container = '<ref>' }`. Its module docstring changes to match. Its input
-     contract does not change: `digests.json` values are `ghcr.io/khoa-yelo/giap-<tool>@sha256:…`,
+     contract does not change: `digests.json` values are `ghcr.io/khoa-yelo/gippa-<tool>@sha256:…`,
      and a `docker://`-prefixed value is still rejected as the wrong image.
    - `scripts/resolve_digest.py` prints `<image>@sha256:<64 hex>`. Its docstring changes to match.
      It still accepts a `docker://` prefix on its input (`split_ref` strips it).
 3. **Readers accept an optional prefix** (Q3). These readers match `container = '(?:docker://)?<ref>'`,
    so an older or user-supplied config with the prefix keeps working:
-   - `src/giap/setupdb/run.py` `ToolRunner.command`;
+   - `src/gippa/setupdb/run.py` `ToolRunner.command`;
    - `scripts/slurm/record_tools.sbatch` `image()`;
    - `scripts/slurm/fetch_bakta_db.sbatch`;
    - `scripts/slurm/record_bakta_full.sbatch`;
    - `scripts/slurm/build_envs.sbatch`.
 
    The cache-name derivation does not change: drop a `docker://` prefix if present, map `/` and `:`
-   to `-`, append `.img`. This is `simpleName`. `giap.preflight.environment._image_file_name` and
+   to `-`, append `.img`. This is `simpleName`. `gippa.preflight.environment._image_file_name` and
    `tests/helpers/fake_env.image_file_name` already behave this way and only their docstrings change.
-   `giap.annotate.tools.read_containers_config` and `giap.io.manifest_sources` (`sha256[:-]` in the
+   `gippa.annotate.tools.read_containers_config` and `gippa.io.manifest_sources` (`sha256[:-]` in the
    trace `container` column) do not need to change.
 4. **`build_envs.sbatch` pulls with the scheme Apptainer needs.** It selects every pinned
    reference (bare or prefixed, `@sha256:` required) and removes duplicates (BLAST and TBLASTN
@@ -106,7 +106,7 @@ The rules:
      `container =`).
    - Any value without a digest, prefixed or not, keeps the reason `tag, not digest: …`.
    - The row's `expected` text becomes `<image>@sha256:<64 hex>, no docker:// prefix`.
-6. **Spec amendment.** GIAP_SPEC.md is read-only. ADR-0059 amends the reference *form* in §3
+6. **Spec amendment.** GIPPA_SPEC.md is read-only. ADR-0059 amends the reference *form* in §3
    (Containers row) and §6.x (the `apptainer` profile bullet). It also supersedes ADR-0008's
    "`docker://…@sha256:…`" wording for `containers.config`. The digests, tags and pinned set stay
    as ADR-0008 records them.
@@ -121,15 +121,15 @@ Found with `grep -rIn 'docker://'` over the repository, excluding `local/`, `.ve
 | File | Class | Change |
 |---|---|---|
 | `workflow/conf/containers.config` | runtime | 7 pins and the line-2 comment drop the prefix (rule 1) |
-| `src/giap/setupdb/run.py:99` | runtime | regex takes an optional prefix (rule 3). **Breaks without the change**: `ToolUnavailable` for bakta, genomad and antismash downloads |
-| `src/giap/preflight/environment.py:156` | runtime | docstring only. `removeprefix` is already a no-op on bare refs |
+| `src/gippa/setupdb/run.py:99` | runtime | regex takes an optional prefix (rule 3). **Breaks without the change**: `ToolUnavailable` for bakta, genomad and antismash downloads |
+| `src/gippa/preflight/environment.py:156` | runtime | docstring only. `removeprefix` is already a no-op on bare refs |
 | `scripts/slurm/build_envs.sbatch:22,25` | runtime (Slurm) | rule 4. **Breaks without the change**: its `grep` finds no refs, so nothing is pulled and the job still exits 0 |
 | `scripts/slurm/record_tools.sbatch:42` | runtime (Slurm) | rule 3. **Breaks without the change**: the image path becomes `…/containers/.img` |
 | `scripts/slurm/fetch_bakta_db.sbatch:29`, `record_bakta_full.sbatch:27` | runtime (Slurm) | rule 3. **Breaks without the change**: empty `DIGEST`, "missing …img" |
 | `scripts/resolve_digest.py:5,76` | tooling | writer (rule 2). Line 32 (`removeprefix` on input) stays |
 | `scripts/release/update_digests.py:10,84` | CI (`containers.yml` digest PR) | writer (rule 2) |
 | `scripts/release/readiness.py:44,469` | CI / release | H4 (rule 5). **Breaks without the change**: H4 fails on all 7 bare pins |
-| `GIAP_SPEC.md:271,922` | spec | read-only; amended by ADR-0059 |
+| `GIPPA_SPEC.md:271,922` | spec | read-only; amended by ADR-0059 |
 | `docs/adr/ADR-0008-tool-pins.md:62` | ADR | stays; ADR-0059 supersedes that wording. On acceptance the lead appends to its Status line: "; reference form superseded by ADR-0059" |
 | `docs/get-started/install.md:97` | user docs (current) | one sentence (docs role): "named after the reference in `containers.config`, with `/` and `:` replaced by `-` and `.img` appended (a `docker://` prefix, if present, is dropped first)" |
 | `docs/specs/M2-01-…`, `M2-06-…`, `M8-17-…`, `M11-03-…`, `M11-06-…` | old specs (historical) | leave. M8-17's future `FGSEA_IMAGE` pin must use the bare form when it lands (note for the lead) |
@@ -154,7 +154,7 @@ Files that do not contain `docker://` but are affected or were checked:
 | 2 | `-profile docker`, a MINIPROT task (logging fake `docker` on PATH) | the logged `docker run` argv contains the word `quay.io/biocontainers/miniprot@sha256:<d>` and no word starting with `docker://` |
 | 3 | `-profile apptainer`, `apptainer.cacheDir = $C` holding `$C/quay.io-biocontainers-miniprot@sha256-<d>.img`, logging fake `apptainer` | no `apptainer pull` call. The task's `.command.run` runs `apptainer exec … $C/quay.io-biocontainers-miniprot@sha256-<d>.img` |
 | 4 | `_image_file_name("oschwengers/bakta@sha256:<d>")` and `_image_file_name("docker://oschwengers/bakta@sha256:<d>")` | both give `oschwengers-bakta@sha256-<d>.img` |
-| 5 | `update_digests.py --digests {"OSTIR": "ghcr.io/khoa-yelo/giap-ostir@sha256:<e>"}` on today's config | one new line `  withName: 'OSTIR' { container = 'ghcr.io/khoa-yelo/giap-ostir@sha256:<e>' }`; the rest as M11-06 specifies |
+| 5 | `update_digests.py --digests {"OSTIR": "ghcr.io/khoa-yelo/gippa-ostir@sha256:<e>"}` on today's config | one new line `  withName: 'OSTIR' { container = 'ghcr.io/khoa-yelo/gippa-ostir@sha256:<e>' }`; the rest as M11-06 specifies |
 | 6 | `resolve_digest.py quay.io/biocontainers/blast:2.16.0--h66d330f_5` (registry HEAD answers `Docker-Content-Digest: sha256:9dfc…959c`) | prints `quay.io/biocontainers/blast@sha256:9dfc…959c`. The same input with a `docker://` prefix gives the same output |
 | 7 | readiness H4 on the new config | `pass`, value `7 digests; …` |
 | 8 | H4 after BAKTA's value is changed to `docker://oschwengers/bakta@sha256:<d>` | `fail`, value contains `docker:// prefix: BAKTA` |
@@ -268,12 +268,12 @@ These tests pass unchanged and are left as they are:
     `Docker-Content-Digest` header, imported by path with `-I` semantics;
   - a prefixed input to `split_ref`.
 - Examples 7–9 through the `tests/helpers/release_readiness.py` fixture.
-- AC 7: `ToolRunner.command` with a bare config and with a prefixed config, through `GIAP_REPO`
+- AC 7: `ToolRunner.command` with a bare config and with a prefixed config, through `GIPPA_REPO`
   pointing at a temporary repository.
 - One trace row with a bare `container` value gives the same `container_digest`.
 
 `tests/unit/test_m11_09b_build_envs_pull.py`: example 10. Run `build_envs.sbatch` with bash
-(not sbatch) in a sandbox like `annotate/test_build_envs_review.py`: a throw-away `GIAP_REPO`,
+(not sbatch) in a sandbox like `annotate/test_build_envs_review.py`: a throw-away `GIPPA_REPO`,
 stub `scripts/build_envs.sh` that exits 0, and a fake `apptainer` that logs its argv and touches
 the target. Assert six distinct `pull <C>/<simpleName>.img docker://<bare ref>` lines, then
 `present:` lines on the second run. Also run it against a prefixed config to check the

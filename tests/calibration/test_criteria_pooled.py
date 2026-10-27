@@ -1,4 +1,4 @@
-"""Pooled level criterion ``m=`` of ``_criteria`` (PR #69 lead decision 1; GIAP_SPEC.md §8.4).
+"""Pooled level criterion ``m=`` of ``_criteria`` (PR #69 lead decision 1; GIPPA_SPEC.md §8.4).
 
 A replicate that pools ``m`` independent p-values (a draft genome of ``m`` contigs) reports its
 rejection share ``s_i = #{p <= alpha} / m``. With ``m=`` the level criterion is

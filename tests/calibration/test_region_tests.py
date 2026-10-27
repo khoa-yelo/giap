@@ -1,4 +1,4 @@
-"""Calibration of the M4-17 region tests (suite ``regions``; GIAP_SPEC.md §8.4, §7.3.6, §8.1).
+"""Calibration of the M4-17 region tests (suite ``regions``; GIPPA_SPEC.md §8.4, §7.3.6, §8.1).
 
 Claims (each gated by ``_criteria.calibrate`` through ``_gate.calibrate_levels``, ADR-0015 two-block
 confirmation; R = ``replicates_fast.regions`` / ``replicates_full.regions``):
@@ -91,7 +91,7 @@ def test_full_checks_follow_lead_decision_7() -> None:
 
 
 def _many_regions() -> tuple[Any, ...]:
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     spec = la.RegionSpec
     return (
@@ -135,7 +135,7 @@ def test_c2_fdr_within_type_and_stat(full: bool) -> None:
 
 def test_fdr_layout_fits_and_numbers_regions() -> None:
     """The C2 genome has the 14 planted regions, numbered ``<type>_<n>`` (M4-07 §6.5)."""
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     lay = la.simulate_layout(
         la.LayoutConfig(n_genes_chromosome=1000, regions=_many_regions()),
@@ -165,10 +165,10 @@ def _logit_shift(p0: np.ndarray, rel: float) -> float:
 
 
 def _power_replicate(rng: np.random.Generator) -> dict[float, float]:
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giap.context import regions as R
-    from giap.rng import for_step
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippa.context import regions as R
+    from gippa.rng import for_step
 
     lay = la.simulate_layout(rd.calibration_layout_config(1000), rng)
     state = rng.bit_generator.state

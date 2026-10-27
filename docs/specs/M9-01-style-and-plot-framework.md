@@ -13,7 +13,7 @@ Every later plot issue is "a pure function from frames to a figure and a data fr
 ## Spec sections implemented
 
 - §10.1 (files `plots/Vnn_<name>.{svg,png,pdf}` + `plots/data/Vnn_<name>.tsv`; multi-instance
-  suffix `V03_locus_<id>`; "One style module, `giap.viz.style` … for the CLI and the report alike";
+  suffix `V03_locus_<id>`; "One style module, `gippa.viz.style` … for the CLI and the report alike";
   widths 3.5 in / 7.2 in; Okabe–Ito categories, viridis/cividis continuous; the colour table; COG
   super-categories with letter labels; "Titles state the finding … generated from the tables";
   "Plots aggregate into bins when a track would draw more than 20,000 elements").
@@ -23,7 +23,7 @@ Every later plot issue is "a pure function from frames to a figure and a data fr
 
 ## Public interface
 
-`src/giap/viz/style.py` (pure constants and functions; no I/O)
+`src/gippa/viz/style.py` (pure constants and functions; no I/O)
 ```python
 SINGLE_IN: float = 3.5
 DOUBLE_IN: float = 7.2
@@ -40,7 +40,7 @@ def new_figure(width: Literal["single", "double"], height_in: float, **kw) -> Fi
 def cog_colour(letter: str) -> str
 ```
 
-`src/giap/viz/base.py` (registry and result types; pure)
+`src/gippa/viz/base.py` (registry and result types; pure)
 ```python
 @dataclass(frozen=True)
 class Instance:                    # one output file set
@@ -53,7 +53,7 @@ class Instance:                    # one output file set
 class Skip:
     reason: str                    # "module_off:<m>" | "layer_missing:<l>" | "input_absent:<file>"
 
-PlotFn = Callable[[RunView, GiapConfig], list[Instance] | Skip]
+PlotFn = Callable[[RunView, GippaConfig], list[Instance] | Skip]
 
 def plot(pid: str, name: str, *, needs: Sequence[str], optional: Sequence[str] = (),
          module: str = "core", layers: Sequence[str] = ()) -> Callable[[PlotFn], PlotFn]
@@ -64,7 +64,7 @@ def binned(starts: np.ndarray, ends: np.ndarray, length: int, max_elements: int 
 def title_pct(n: int, d: int) -> str              # "12 %"; d == 0 -> "NA"
 ```
 
-`src/giap/io/run_view.py` (all file reads)
+`src/gippa/io/run_view.py` (all file reads)
 ```python
 class RunView:
     @classmethod
@@ -78,7 +78,7 @@ class RunView:
     def modules_off(self) -> frozenset[str]             # from resolved_config.yaml when readable
 ```
 
-`src/giap/io/plot_files.py`
+`src/gippa/io/plot_files.py`
 ```python
 def write_instance(inst: Instance, pid: str, name: str, plots_dir: Path,
                    formats: Sequence[str], dpi: int) -> list[Path]
@@ -90,13 +90,13 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
 1. **Style.** `apply()` sets `backend Agg`, `font.family = DejaVu Sans` (bundled with matplotlib),
    base 7 pt, titles 8 pt, tick labels 6 pt, `axes.prop_cycle` = the Okabe–Ito order, `svg.fonttype
    = none` (text stays text in the SVG, so the report can be searched), `svg.hashsalt =
-   "giap"`, `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
+   "gippa"`, `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
 2. **Colours.** Exactly the §10.1 table. COG letters map to four super-categories (index decision
    8); a gene with several letters (e.g. `KL`) is drawn in each letter, the convention of
-   `giap.context.summary._cog_letters` (M4-16). Letter descriptions come from the bundled
-   `src/giap/data/cog_categories.tsv` (26 letters; NCBI COG, public domain).
+   `gippa.context.summary._cog_letters` (M4-16). Letter descriptions come from the bundled
+   `src/gippa/data/cog_categories.tsv` (26 letters; NCBI COG, public domain).
 3. **RunView keys.** One table maps a key to its `OUT/` relative path, built from
-   `giap.runner.local.PUBLISHED` and `PUBLISHED_FILES` plus the entries that module does not list
+   `gippa.runner.local.PUBLISHED` and `PUBLISHED_FILES` plus the entries that module does not list
    yet (`preflight/preflight.json`, `mapping/*.tsv`, `annotation/*.{tsv,bed}`, `plots/support/*`,
    `logs/events.jsonl`, `logs/steps/*.events.jsonl`, `resolved_config.yaml` or
    `work/resolved_config.yaml`). `from_outdir` and `from_inputs` therefore see the same keys, and
@@ -115,7 +115,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
    `None` and the plot omits that panel or track, noting it in the data TSV (`panel` column) and
    in the figure as a small grey "not available" text.
 7. **Writing.** `write_instance` writes `Vnn_<name>[_<suffix>].<fmt>` for each configured format
-   and `data/Vnn_<name>[_<suffix>].tsv` through `giap.io.tsv` (§9.2: `%.6g`, `NA`, `true`/`false`,
+   and `data/Vnn_<name>[_<suffix>].tsv` through `gippa.io.tsv` (§9.2: `%.6g`, `NA`, `true`/`false`,
    lists `;`-joined), sorted as the plot spec says. Suffixes are sanitised to `[A-Za-z0-9._-]`.
    PNG at `report.dpi`. Metadata: SVG `{"Date": None}`, PDF `{"CreationDate": None, "ModDate":
    None}`, PNG `{"Software": None}`, so two renders of the same data are byte-identical on one
@@ -132,7 +132,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
 
 | Situation | Behaviour |
 |---|---|
-| `OUT/` has no `tables/` and no `preflight/` | `RunView.from_outdir` raises `NotAGiapRun` (the CLI maps it to exit 1, M9-02) |
+| `OUT/` has no `tables/` and no `preflight/` | `RunView.from_outdir` raises `NotAGippaRun` (the CLI maps it to exit 1, M9-02) |
 | a table header-only | zero-row frame; plots draw their empty state |
 | a table missing a schema column | `ValueError` naming table and column |
 | events files absent (a hand-built `OUT/`) | `run_flags()` = ∅ |
@@ -169,7 +169,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
   formats honoured, data TSV encoding (ADR-0006).
 - [ ] `tests/unit/viz/test_binning.py`: examples 5, 6; property test: bins ≤ 20,000 and cover
   `[0, length)`.
-- [ ] `src/giap/data/cog_categories.tsv` with provenance line; `mypy --strict` clean.
+- [ ] `src/gippa/data/cog_categories.tsv` with provenance line; `mypy --strict` clean.
 
 ## Test ideas
 
@@ -184,7 +184,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
 ## Questions for the lead
 
 1. File I/O placement: the convention says I/O only in `io/` and `steps/`. **Proposed default:**
-   `RunView` and the writers live in `giap/io/`; `giap/viz/` holds pure figure code.
+   `RunView` and the writers live in `gippa/io/`; `gippa/viz/` holds pure figure code.
 2. A plot that raises: fail the step (exit 4) or skip it with `reason = error`? **Proposed
    default:** fail (no silent fallback, the M4-17 rule); declared skips cover the expected cases.
 3. Font: DejaVu Sans is the only font guaranteed on every CI leg and on FarmShare without a system

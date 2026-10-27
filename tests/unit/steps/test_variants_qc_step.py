@@ -1,7 +1,7 @@
 """M7-14 rules 3-4 at step level: the ``variants`` step's ``variants_qc`` output and the
 ``id_mixups`` row ``context_stats`` writes from it (docs/specs/M7-14-te2-proxy-and-id-mixups.md
 examples 1 and 5, the degenerate rows, acceptance "the M4-16 ``requires_variants`` path is still
-covered for runs without peptides"; GIAP_SPEC.md §7.5.1 row 1, §9.3 QC rows).
+covered for runs without peptides"; GIPPA_SPEC.md §7.5.1 row 1, §9.3 QC rows).
 
 Interface pinned here (test-author reading):
 
@@ -13,15 +13,15 @@ Interface pinned here (test-author reading):
   whose ``value`` is the count and ``n`` the number of same-db ALT sites (rule 3), with no
   ``requires_variants`` flag; without it the M4-16 row stays (``NA``, flag
   ``requires_variants``).
-* Oracle on the fixture: every peptide is ``database``, ``search_db = same`` (giapsim's default),
+* Oracle on the fixture: every peptide is ``database``, ``search_db = same`` (gippasim's default),
   so every ``variants.tsv`` row is a same-db ALT site: ``n`` = rows, count = rows flagged neither
   ``start_codon`` nor ``stop_codon``.
 
-Fixtures: the 50-kb giapsim producer chain of tests/unit/steps/test_variants_step.py (strain
+Fixtures: the 50-kb gippasim producer chain of tests/unit/steps/test_variants_step.py (strain
 layer: sample-strain peptides on the reference genome under the default ``genome_relation:
 related``, so strain differences are same-db ALT sites that ``id_mixups`` must count, degenerate
 row "related | still counted"); and the M4-20 ``sim1000`` contract-table fixture for
-``context_stats``. A test ``$GIAP_DB_DIR`` only. Example 5 on a real ``giap run`` of sim100k is in
+``context_stats``. A test ``$GIPPA_DB_DIR`` only. Example 5 on a real ``gippa run`` of sim100k is in
 tests/integration/test_id_mixups_sim100k.py.
 """
 
@@ -38,7 +38,7 @@ import pandas as pd
 import pytest
 from helpers.mapping_steps import drive, fresh_steps, preflight, roots_of
 
-from giap.config import GiapConfig, resolve_config
+from gippa.config import GippaConfig, resolve_config
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import m4_chain as mc
@@ -51,14 +51,14 @@ OUTPUTS = ("pileup", "variants", "variants_vcf", "variants_qc")
 EXEMPT = {"start_codon", "stop_codon"}
 
 
-def _cfg(**over: Any) -> GiapConfig:
-    return GiapConfig.model_validate({"seed": SEED, "sample_name": "S1", **over})
+def _cfg(**over: Any) -> GippaConfig:
+    return GippaConfig.model_validate({"seed": SEED, "sample_name": "S1", **over})
 
 
 def _chain(root: Path, *, strain: bool) -> dict[str, Path]:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
-    from giapsim.strain import StrainConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
+    from gippasim.strain import StrainConfig
 
     st = StrainConfig(snv_rate_per_kb=5.0, indel_rate_per_kb=0.5, indel_len=(1, 1))
     cfg_sim = SimConfig(genome_length=50_000, proteomics=ProteomicsConfig(),
@@ -76,9 +76,9 @@ def _chain(root: Path, *, strain: bool) -> dict[str, Path]:
     return {k: avail[k] for k in STEP_KEYS}
 
 
-def _run_variants(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+def _run_variants(inputs: Mapping[str, Path], out: Path, cfg: GippaConfig) -> dict[str, Path]:
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     out.mkdir(parents=True, exist_ok=True)
@@ -88,7 +88,7 @@ def _run_variants(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> dic
 
 
 def _variants(path: Path) -> pd.DataFrame:
-    from giap.io.variant_tables import read_variants
+    from gippa.io.variant_tables import read_variants
 
     return read_variants(path)
 
@@ -132,8 +132,8 @@ def other_run(strain_chain: dict[str, Path], tmp_path_factory: pytest.TempPathFa
 @pytest.fixture(scope="module")
 def m4_work(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
     """M4-20 ``sim1000`` contract tables with the gene table and detectability parts written."""
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
 
     root = Path(tmp_path_factory.mktemp("qc_m4"))
     db = mc.test_db(root / "db")
@@ -150,8 +150,8 @@ def _m4_cfg() -> Any:
 
 def _context_inputs(work: Path) -> dict[str, Path]:
     """The step inputs ``run_context_stats`` would build on ``work`` (M4 half only)."""
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
-    from giap.steps.gene_table import contract_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.steps.gene_table import contract_paths
 
     inputs = dict(contract_paths(work))
     inputs |= {k: p for k, p in default_paths(work).items()
@@ -165,8 +165,8 @@ def _context_inputs(work: Path) -> dict[str, Path]:
 
 
 def _context_stats(m4: tuple[Path, Path], out: Path, variants_qc: Path | None) -> pd.DataFrame:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     work, db = m4
     load_step_modules()
@@ -195,8 +195,8 @@ def _flag_set(v: object) -> set[str]:
 
 
 def test_variants_step_gains_the_variants_qc_output() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("variants")
@@ -205,8 +205,8 @@ def test_variants_step_gains_the_variants_qc_output() -> None:
 
 
 def test_context_stats_takes_variants_qc_as_an_optional_input() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("context_stats")
@@ -216,8 +216,8 @@ def test_context_stats_takes_variants_qc_as_an_optional_input() -> None:
 
 def test_context_stats_now_runs_after_variants() -> None:
     """Rule 4 / lead decision 2: CONTEXT waits for VARIANTS."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     order = reg.topo_order([s.name for s in reg.all_steps()])
@@ -247,7 +247,7 @@ def test_variants_qc_leaves_the_other_outputs_unchanged(
     strain_chain: dict[str, Path], strain_run: dict[str, Path], tmp_path: Path
 ) -> None:
     """The extra output adds no row and no flag to ``variants.tsv``."""
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     paths = {k: tmp_path / k for k in OUTPUTS}
     reg.run_step("variants", _cfg(), dict(strain_chain), paths)

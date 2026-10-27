@@ -9,7 +9,7 @@ other budgets); the budgets below are deliberately generous first numbers for th
 should be tightened to about 3 x the measured time once recorded.
 
 Run with ``pytest benchmarks/test_m4_chain_bench.py --benchmark-only`` (needs ``tests/sim`` on
-PYTHONPATH for giapsim).
+PYTHONPATH for gippasim).
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ def work(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, Any]:
 
 @pytest.mark.parametrize("step", sorted(BUDGETS_S))
 def test_m4_step_budget_sim4500(benchmark: Any, work: tuple[Path, Path, Any], step: str) -> None:
-    from giap.steps.context_stats import run_context_stats
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
+    from gippa.steps.context_stats import run_context_stats
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
 
     w, db, cfg = work
 

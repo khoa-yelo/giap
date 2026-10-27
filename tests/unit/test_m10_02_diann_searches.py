@@ -148,7 +148,7 @@ def test_the_repository_stays_clean(m10: M10Sandbox) -> None:
 # ------------------------------------------------------------ rule 1: only the verified copy
 
 
-def test_the_default_image_is_the_copy_under_giap_root(m10: M10Sandbox) -> None:
+def test_the_default_image_is_the_copy_under_gippa_root(m10: M10Sandbox) -> None:
     copy = m10.root / COPY_REL
     copy.parent.mkdir(parents=True)
     copy.write_bytes(STAND_IN)
@@ -211,8 +211,8 @@ def test_the_script_never_reads_the_shared_image() -> None:
     assert "validation/pilot/diann_image.sha256" in code
     m = re.search(r"DIANN_SIF:-([^}]+)\}", code)
     assert m and m.group(1).strip("\"'") in {
-        "$GIAP_ROOT/images/diann_2.3.1.sif",
-        "${GIAP_ROOT}/images/diann_2.3.1.sif",
+        "$GIPPA_ROOT/images/diann_2.3.1.sif",
+        "${GIPPA_ROOT}/images/diann_2.3.1.sif",
     }, m and m.group(1)
 
 
@@ -439,13 +439,13 @@ def _check_schema(prov: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_provenance_of_a_successful_search(m10: M10Sandbox, arm: str) -> None:
-    _ok(_run(m10, arm, SLURM_MEM_PER_NODE="65536", SLURM_JOB_NAME=f"giap-diann-{arm}",
+    _ok(_run(m10, arm, SLURM_MEM_PER_NODE="65536", SLURM_JOB_NAME=f"gippa-diann-{arm}",
              SLURM_JOB_PARTITION="normal"))  # fmt: skip
     prov = m10.provenance(arm)
     _check_schema(prov)
     job = prov["job"]
     assert str(job["id"]) == "4242" and str(job["cpus"]) == "16"
-    assert str(job["mem"]) == "65536" and job["name"] == f"giap-diann-{arm}"
+    assert str(job["mem"]) == "65536" and job["name"] == f"gippa-diann-{arm}"
     assert job["node"] == "barley-01", "the hostname"
     assert float(job["elapsed_s"]) >= 0
     img = prov["image"]
@@ -456,7 +456,7 @@ def test_provenance_of_a_successful_search(m10: M10Sandbox, arm: str) -> None:
     cfg = m10.repo / "validation" / "pilot" / f"diann_{arm}.cfg"
     assert prov["cfg"]["sha256"] == sha256(cfg)
     repo_strings = strings(prov["repo"])
-    assert m10.sb.head in repo_strings, "git rev-parse HEAD of GIAP_REPO"
+    assert m10.sb.head in repo_strings, "git rev-parse HEAD of GIPPA_REPO"
     assert any(isinstance(v, bool) for v in prov["repo"].values()), "the dirty flag"
     assert prov["outputs"] and str(prov["outputs"]).endswith("outputs.sha256")
 
@@ -520,7 +520,7 @@ def _directive(key: str) -> str | None:
 
 
 def test_the_jobs_table_resources() -> None:
-    assert (_directive("job-name") or "").startswith("giap-diann")
+    assert (_directive("job-name") or "").startswith("gippa-diann")
     assert _directive("partition") == "normal" and _directive("qos") == "normal"
     assert _directive("cpus-per-task") == "16"
     # 16 x MaxMemPerCPU (4000 MB on FarmShare): 64G would make Slurm allocate 17-18 CPUs (S1)

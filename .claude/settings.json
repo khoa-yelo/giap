@@ -5,7 +5,7 @@
   },
   "permissions": {
     "deny": [
-      "Edit(/GIAP_SPEC.md)",
+      "Edit(/GIPPA_SPEC.md)",
       "Edit(/ci/gates.yaml)",
       "Edit(/ci/protected.txt)",
       "Edit(/tests/calibration/tolerances.yaml)"

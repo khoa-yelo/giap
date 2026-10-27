@@ -1,21 +1,21 @@
 """M7-15 integration hardening on the 50-kb M7 fixture (docs/specs/M7-15-integration-hardening.md
-items 2, 5, 6 and 7; examples 4; GIAP_SPEC.md §6.3, §9.5, §11.2, §11.6 TE7).
+items 2, 5, 6 and 7; examples 4; GIPPA_SPEC.md §6.3, §9.5, §11.2, §11.6 TE7).
 
 Inputs: tests/helpers/m7_chain.py (the sim50k_m7 golden fixture, any seed), a test
-``$GIAP_DB_DIR``, ``giap run --executor local`` unless stated.
+``$GIPPA_DB_DIR``, ``gippa run --executor local`` unless stated.
 
 * **Item 2 / example 4 -- in-pipeline contract checks.** The ``variants`` and ``novel_orfs`` steps
   validate what they wrote before returning: the TSVs against their Frictionless resources, the VCF
   and the GFF3s with the format readers. The test hook wraps the step module's writer
   (``m7_chain.after``) so the file is damaged after a correct write; the step must then fail with
-  a message naming the output (in-process ``run_step``), and ``giap run`` must exit 4 naming the
+  a message naming the output (in-process ``run_step``), and ``gippa run`` must exit 4 naming the
   step itself (``step 'variants' failed``, not a downstream reader such as ``plots``, which is
   what happens today) and ``logs/<step>.log``. Damage: an integer column set to ``x`` in
   ``pileup.tsv.gz`` (gzip kept), ``variants.tsv`` and ``novel_orfs.tsv``; a record with a
   non-numeric POS and too few columns appended to ``variants.vcf``; a CDS with start > end
   appended to ``novel_orfs.gff3`` and ``annotation_patch.gff3``.
 * **Item 5 -- VCF FILTER** (M7-03 decision 6): every record ``PASS``; no generic
-  ``##FILTER=<...Description="GIAP filter ...">`` line; any ``##FILTER`` line declares ``PASS``.
+  ``##FILTER=<...Description="GIPPA filter ...">`` line; any ``##FILTER`` line declares ``PASS``.
 * **Item 6 -- ``novel_candidate_id``** (M7-06 lead decision 1, question 6: the proposed default,
   back-filled in M7-15). The published ``mapping/peptide_hits.tsv`` carries, for every peptide an
   ORF of ``novel_orfs.tsv`` lists, that ORF's ``orf_id`` on a row inside the ORF's span (I = L
@@ -87,7 +87,7 @@ DAMAGE: dict[str, tuple[str, str, str, Callable[[Path], None]]] = {
     "annotation_patch": ("novel_orfs", "write_annotation_patch", "annotation_patch",
                          lambda p: m7.append_line(p, m7.BAD_GFF3_LINE)),
 }  # fmt: skip
-_MODULES = {"variants": "giap.steps.variants", "novel_orfs": "giap.steps.novel"}
+_MODULES = {"variants": "gippa.steps.variants", "novel_orfs": "gippa.steps.novel"}
 
 
 def test_clean_steps_pass_their_own_checks(local: Path, tmp_path: Path) -> None:
@@ -111,11 +111,11 @@ def test_example_4_damaged_output_fails_its_step(
     assert key in str(exc.value), f"the failure does not name {key}: {exc.value!r}"
 
 
-def test_example_4_damaged_variants_tsv_makes_giap_run_exit_4(
+def test_example_4_damaged_variants_tsv_makes_gippa_run_exit_4(
     sim: Any, root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.steps.variants as sv
-    from giap.exitcodes import ExitCode
+    import gippa.steps.variants as sv
+    from gippa.exitcodes import ExitCode
 
     monkeypatch.setattr(sv, "write_variants",
                         m7.after(sv.write_variants, _tsv_damage("codon_start")))  # fmt: skip
@@ -128,11 +128,11 @@ def test_example_4_damaged_variants_tsv_makes_giap_run_exit_4(
     assert (out / "logs" / "variants.log").is_file()
 
 
-def test_example_4_damaged_annotation_patch_makes_giap_run_exit_4(
+def test_example_4_damaged_annotation_patch_makes_gippa_run_exit_4(
     sim: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.steps.novel as sn
-    from giap.exitcodes import ExitCode
+    import gippa.steps.novel as sn
+    from gippa.exitcodes import ExitCode
 
     monkeypatch.setattr(sn, "write_annotation_patch",
                         m7.after(sn.write_annotation_patch,
@@ -156,8 +156,8 @@ def test_published_tsvs_validate(local: Path) -> None:
 
 
 def test_published_vcf_and_gff3_read_back(local: Path) -> None:
-    from giap.io.gff3 import read_gff3
-    from giap.steps.common import read_replicons
+    from gippa.io.gff3 import read_gff3
+    from gippa.steps.common import read_replicons
 
     reps = read_replicons(local / "work" / "replicons")
     for name in ("novel_orfs.gff3", "annotation_patch.gff3"):
@@ -177,7 +177,7 @@ def test_item_5_vcf_filter_is_pass_only(local: Path) -> None:
     assert recs
     assert {r[6] for r in recs} == {"PASS"}
     filters = [ln for ln in lines if ln.startswith("##FILTER=")]
-    assert not any('Description="GIAP filter ' in ln for ln in filters), filters
+    assert not any('Description="GIPPA filter ' in ln for ln in filters), filters
     assert all(ln.startswith("##FILTER=<ID=PASS,") for ln in filters), filters
 
 

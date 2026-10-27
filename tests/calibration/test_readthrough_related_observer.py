@@ -15,7 +15,7 @@ seeds, same ``run_chain`` arguments) and, per replicate:
   origin locus and the rest;
 - **asserts** that every origin row's site (the annotated stop codon in its window, rule 15
   geometry) reads a stop in the sample and a different, sense codon in the reference at the same
-  coordinates: a strain stop-loss. The giapsim strain model is SNV-only, so the coordinates
+  coordinates: a strain stop-loss. The gippasim strain model is SNV-only, so the coordinates
   agree, and this is implied by the model (rule 20), so it is asserted without a tolerance;
 - **reports** the off-origin rows (chance read-through placements, already false placements in
   the FDP; expected about alpha x T_acc(m >= 1) x rho) to
@@ -87,7 +87,7 @@ def _sites_in(row: Any, sites: list[Any], n: int, circular: bool) -> list[Any]:
 
 
 def observe(ch: Any, q_max: float) -> dict[str, Any]:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     cells = load_stop_cells(ch.avail["sixframe"])
     hits = best_cost_rows(hits_of(ch.avail))
@@ -125,8 +125,8 @@ def observe(ch: Any, q_max: float) -> dict[str, Any]:
 
 
 def run_observer(tmp: Path) -> dict[str, Any]:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.strain import StrainConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.strain import StrainConfig
 
     levels = C.load_tolerances().levels
     q_max = float(max(levels))

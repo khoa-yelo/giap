@@ -1,4 +1,4 @@
-"""V7 ``obs_vs_exp``: the O - E forest (M9-06; GIAP_SPEC.md §10.2 V7, §7.3.5(a)(b), ADR-0018).
+"""V7 ``obs_vs_exp``: the O - E forest (M9-06; GIPPA_SPEC.md §10.2 V7, §7.3.5(a)(b), ADR-0018).
 
 Tests the plotted data (``Instance.data`` = ``plots/data/V07_obs_vs_exp.tsv``), the row labels
 and their top-to-bottom order, the right-hand labels, marker fill and colour, the title and the
@@ -6,7 +6,7 @@ degenerate cases. No ``--mpl`` baselines (M9-25 owns those).
 
 Interface assumed where the spec leaves it open:
 
-- The plots live in ``giap.viz.detection``; importing it registers ``V07`` (name
+- The plots live in ``gippa.viz.detection``; importing it registers ``V07`` (name
   ``obs_vs_exp``, ``needs=("detection_summary",)``, ``"regions_stats"`` in ``optional``,
   ``module="core"``, no ``layers``: ``layer_missing:cog`` drops the COG block, it does not skip).
   The tests call ``registered()["V07"].fn(view, cfg)``: a list of one ``Instance``,
@@ -40,15 +40,15 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from matplotlib.axes import Axes
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k" / "m4"
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = [
     "block",
     "group",
@@ -73,7 +73,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -91,7 +91,7 @@ def basic(
     ci: tuple[float | None, float | None] = (None, None),
     flags: str | None = None,
 ) -> list[dict[str, object]]:
-    """The seven ``basic`` rows of one group, as ``giap.context.summary.basic_rows`` writes them."""
+    """The seven ``basic`` rows of one group, as ``gippa.context.summary.basic_rows`` writes them."""
     value = n_detected - expected if ome is None else ome
 
     def row(metric: str, v: object, lo: object = None, hi: object = None, f: object = None) -> dict:
@@ -224,12 +224,12 @@ def _out(
 
 
 def _v07() -> base.PlotSpec:
-    import giap.viz.detection  # noqa: F401  (registers V07 and V08)
+    import gippa.viz.detection  # noqa: F401  (registers V07 and V08)
 
     return base.registered()["V07"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v07().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -276,7 +276,7 @@ def test_v07_is_registered_as_obs_vs_exp() -> None:
     assert spec.layers == ()
 
 
-def test_no_detection_summary_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_detection_summary_is_skipped(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path, summary=None)
     assert _v07().fn(RunView.from_outdir(out), cfg) == Skip("input_absent:detection_summary")
 
@@ -284,13 +284,13 @@ def test_no_detection_summary_is_skipped(tmp_path: Path, cfg: GiapConfig) -> Non
 # --- data TSV: examples 1-3, blocks and order -------------------------------------------------
 
 
-def test_columns_and_one_instance(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_columns_and_one_instance(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     assert inst.suffix is None
     assert list(inst.data.columns) == COLUMNS
 
 
-def test_blocks_in_order_and_region_rows_filtered(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_blocks_in_order_and_region_rows_filtered(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     assert _keys(inst) == [
         ("replicon", "chr1"),
@@ -303,7 +303,7 @@ def test_blocks_in_order_and_region_rows_filtered(tmp_path: Path, cfg: GiapConfi
     ]
 
 
-def test_example3_basic_replicon_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_basic_replicon_row(tmp_path: Path, cfg: GippaConfig) -> None:
     row = _row(_render(_out(tmp_path), cfg), "replicon", "chr1")
     assert _num(row["o_minus_e"]) == pytest.approx(2.1)
     assert _num(row["ci_low"]) == pytest.approx(-1.0)
@@ -315,7 +315,7 @@ def test_example3_basic_replicon_row(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _isna(row["q_value"])
 
 
-def test_example1_region_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_region_row(tmp_path: Path, cfg: GippaConfig) -> None:
     row = _row(_render(_out(tmp_path), cfg), "region", "prophage_1")
     assert str(row["region_type"]) == "prophage"
     assert _num(row["n"]) == 25
@@ -326,20 +326,20 @@ def test_example1_region_row(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _num(row["q_value"]) == pytest.approx(0.003)
 
 
-def test_region_flags_are_carried(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_flags_are_carried(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [region("prophage_1", "prophage", flags="small_region;few_shifts", q=0.2)]
     row = _row(_render(_out(tmp_path, regions=regions), cfg), "region", "prophage_1")
     assert "small_region" in str(row["flags"]).split(";")
 
 
-def test_basic_ci_few_units_flag_is_carried(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_basic_ci_few_units_flag_is_carried(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = basic("replicon", "chr1", n_genes=8, n_detected=2, expected=3.0,
                     ci=(-2.0, 1.0), flags="ci_few_units")  # fmt: skip
     row = _row(_render(_out(tmp_path, summary=summary), cfg), "replicon", "chr1")
     assert "ci_few_units" in str(row["flags"]).split(";")
 
 
-def test_region_order_type_then_q_na_last_then_id(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_order_type_then_q_na_last_then_id(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [
         region("bgc_2", "bgc", q=None, p=None),
         region("amr_1", "amr", q=0.01),
@@ -368,7 +368,7 @@ def test_region_type_order_follows_context_region_types(tmp_path: Path) -> None:
     assert [g for b, g in _keys(inst) if b == "region"] == ["amr_1", "prophage_1"]
 
 
-def test_layer_missing_cog_drops_the_cog_block(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_layer_missing_cog_drops_the_cog_block(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [
         *basic("cog_category", "none", n_genes=40, n_detected=20, expected=18.0, ci=(-1.0, 5.0)),
         *basic("replicon", "chr1", n_genes=40, n_detected=20, expected=18.0, ci=(-1.0, 5.0)),
@@ -379,7 +379,7 @@ def test_layer_missing_cog_drops_the_cog_block(tmp_path: Path, cfg: GiapConfig) 
     assert ("replicon", "chr1") in _keys(inst)
 
 
-def test_regions_stats_absent_draws_basic_blocks_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_regions_stats_absent_draws_basic_blocks_only(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, regions=None), cfg)
     assert [b for b, _ in _keys(inst)] == ["replicon", "feature_class", "cog_category"]
 
@@ -387,7 +387,7 @@ def test_regions_stats_absent_draws_basic_blocks_only(tmp_path: Path, cfg: GiapC
 # --- drawing ----------------------------------------------------------------------------------
 
 
-def test_row_labels_top_to_bottom(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_row_labels_top_to_bottom(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     assert texts_top_to_bottom(inst.figure, "(n = ") == [
         "chr1 (n = 40)",
@@ -399,7 +399,7 @@ def test_row_labels_top_to_bottom(tmp_path: Path, cfg: GiapConfig) -> None:
     ]
 
 
-def test_vertical_line_at_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_vertical_line_at_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _forest(_render(_out(tmp_path), cfg))
     zero = [
         line
@@ -409,14 +409,14 @@ def test_vertical_line_at_zero(tmp_path: Path, cfg: GiapConfig) -> None:
     assert zero, "no vertical line at x = 0"
 
 
-def test_one_point_per_row_at_its_estimate(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_point_per_row_at_its_estimate(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     ax = _forest(inst)
     xs = sorted(round(m.x, 9) for m in markers(ax))
     assert xs == sorted(round(_num(v), 9) for v in inst.data["o_minus_e"])
 
 
-def test_ci_bars_span_the_interval(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_ci_bars_span_the_interval(tmp_path: Path, cfg: GippaConfig) -> None:
     """Every drawn CI end (any line or collection vertex) is at a table CI bound."""
     inst = _render(_out(tmp_path), cfg)
     ax = _forest(inst)
@@ -430,19 +430,19 @@ def test_ci_bars_span_the_interval(tmp_path: Path, cfg: GiapConfig) -> None:
         assert round(_num(lo), 9) in xs and round(_num(hi), 9) in xs, (lo, hi)
 
 
-def test_example1_q_labels_and_example2_untested_label(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_q_labels_and_example2_untested_label(tmp_path: Path, cfg: GippaConfig) -> None:
     found = texts(_render(_out(tmp_path), cfg).figure)
     assert "q = 0.003" in found
     assert "q = 0.4" in found
     assert "dosage_plus_regulation (untested)" in found
 
 
-def test_q_label_uses_two_significant_digits(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_q_label_uses_two_significant_digits(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [region("prophage_1", "prophage", q=0.012345, p=0.01)]
     assert "q = 0.012" in texts(_render(_out(tmp_path, regions=regions), cfg).figure)
 
 
-def test_na_ci_is_labelled_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_ci_is_labelled_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [
         *basic("feature_class", "cds", n_genes=5, n_detected=1, expected=2.0, flags="ci_few_units"),
         *basic("replicon", "chr1", n_genes=5, n_detected=1, expected=2.0, flags="ci_unestimated"),
@@ -452,7 +452,7 @@ def test_na_ci_is_labelled_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
     assert found.count("CI unestimated") == 2
 
 
-def test_small_region_is_hollow_and_others_filled(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_small_region_is_hollow_and_others_filled(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [
         region("prophage_1", "prophage", effect=-3.5, q=0.1, flags="small_region"),
         region("prophage_2", "prophage", effect=2.5, q=0.2),
@@ -463,7 +463,7 @@ def test_small_region_is_hollow_and_others_filled(tmp_path: Path, cfg: GiapConfi
     assert big and not any(m.hollow for m in big)
 
 
-def test_region_rows_coloured_by_type_basic_rows_black(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_rows_coloured_by_type_basic_rows_black(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _forest(_render(_out(tmp_path), cfg))
     assert {style.REGION["prophage"]} <= markers_at_x(ax, -4.75)[0].colours()
     assert {style.REGION["plasmid"]} <= markers_at_x(ax, 0.8)[0].colours()
@@ -473,12 +473,12 @@ def test_region_rows_coloured_by_type_basic_rows_black(tmp_path: Path, cfg: Giap
 # --- titles -----------------------------------------------------------------------------------
 
 
-def test_example1_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     assert inst.title == "prophage_1 (prophage): 12 % detected vs 31 % expected (q = 0.003)"
 
 
-def test_title_when_no_region_passes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_when_no_region_passes(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [
         region("prophage_1", "prophage", q=0.2),
         region("prophage_2", "prophage", q=0.4),
@@ -504,7 +504,7 @@ def test_title_alpha_from_stats_alpha_context(tmp_path: Path) -> None:
     )
 
 
-def test_title_picks_the_smallest_q_across_types(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_picks_the_smallest_q_across_types(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [
         region("prophage_1", "prophage", n_eligible=10, observed=1.0, expected=4.0, q=0.04),
         region("bgc_1", "bgc", n_eligible=10, observed=9.0, expected=5.0, q=0.01),
@@ -514,7 +514,7 @@ def test_title_picks_the_smallest_q_across_types(tmp_path: Path, cfg: GiapConfig
 
 
 def test_basic_only_title_names_the_largest_ci_excluding_zero(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     # cds has the largest |O - E| (5.0) but its CI covers 0; J (-3.4) is the one that counts
     inst = _render(_out(tmp_path, regions=None), cfg)
@@ -522,7 +522,7 @@ def test_basic_only_title_names_the_largest_ci_excluding_zero(
     assert "(95 % CI" in inst.title
 
 
-def test_basic_only_title_when_every_ci_covers_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_basic_only_title_when_every_ci_covers_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [
         *basic("feature_class", "cds", n_genes=40, n_detected=24, expected=19.0, ci=(-1.0, 9.0)),
         *basic("replicon", "chr1", n_genes=40, n_detected=20, expected=17.9, ci=(-1.0, 5.2)),
@@ -534,7 +534,7 @@ def test_basic_only_title_when_every_ci_covers_zero(tmp_path: Path, cfg: GiapCon
 
 
 def test_validation_like_run_rows_unestimated_and_no_region_title(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """Every basic row has ``n_detected = 0`` and no CI; regions untested (spec degenerate row)."""
     summary = [
@@ -557,19 +557,19 @@ def test_validation_like_run_rows_unestimated_and_no_region_title(
 # --- empty state and files --------------------------------------------------------------------
 
 
-def test_no_rows_at_all_is_an_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_rows_at_all_is_an_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, summary=[], regions=None), cfg)
     assert list(inst.data.columns) == COLUMNS
     assert len(inst.data) == 0
     assert all(not ax.axison for ax in inst.figure.axes)
 
 
-def test_header_only_summary_with_regions_draws_regions(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_summary_with_regions_draws_regions(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, summary=[]), cfg)
     assert [b for b, _ in _keys(inst)] == ["region"] * 3
 
 
-def test_data_tsv_written_in_drawing_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_written_in_drawing_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path / "run"), cfg)
     paths = write_instance(inst, "V07", "obs_vs_exp", tmp_path / "plots", ["svg"], 100)
     tsv = tmp_path / "plots" / "data" / "V07_obs_vs_exp.tsv"
@@ -581,7 +581,7 @@ def test_data_tsv_written_in_drawing_order(tmp_path: Path, cfg: GiapConfig) -> N
     ]  # fmt: skip
 
 
-def test_render_is_deterministic(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_is_deterministic(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path / "run")
     blobs = []
     for name in ("x", "y"):
@@ -646,7 +646,7 @@ def _copy_tables(src: Path, tmp: Path, names: Sequence[str]) -> Path:
     return out
 
 
-def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _copy_tables(GOLDEN, tmp_path, ["detection_summary.tsv", "regions_stats.tsv"])
     inst = _render(out, cfg)
     assert _keys(inst) == [
@@ -663,7 +663,7 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) ->
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     """2026-10-22 validation run: 49 ``basic`` summary rows (all O - E 0), regions all NA. Basic
     rows come first, then the two regions (lead fix: the summary is not header-only)."""
     inst = _render(VAL_OUT, cfg)
@@ -678,7 +678,7 @@ def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
 
 @pytest.mark.parametrize("flags", ["", "ci_unestimated"])
 def test_basic_only_title_never_headlines_an_unestimated_ci(
-    tmp_path: Path, cfg: GiapConfig, flags: str
+    tmp_path: Path, cfg: GippaConfig, flags: str
 ) -> None:
     """Review B1 (#202): a zero-width CI (one TU) or a flagged CI reads "CI unestimated" on the
     plot, so the title must not quote it."""

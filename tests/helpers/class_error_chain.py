@@ -1,17 +1,17 @@
-"""giapsim chains and a brute-force oracle for the M7-10 class error rates
+"""gippasim chains and a brute-force oracle for the M7-10 class error rates
 (docs/specs/M7-10-class-error-rates.md; used by tests/unit/steps/test_variants_step_class_error.py
 and tests/calibration/test_variant_class_error.py).
 
 ``build_chain`` simulates a genome with M3-19 proteomics and M3-20 de novo reads (optionally an
 M3-18 strain: the sample's peptides on the reference genome, as tests/unit/steps/
 test_variants_step.py does), runs preflight **through the library** with the de novo reads as
-``--peptides`` and giapsim's ``reference_peptides.tsv`` as ``reference_peptides`` (lead
+``--peptides`` and gippasim's ``reference_peptides.tsv`` as ``reference_peptides`` (lead
 decision 1: preflight writes ``peptide_spectra.parquet``), then the mapping chain through
-``helpers.mapping_steps.drive`` with a test ``$GIAP_DB_DIR``.
+``helpers.mapping_steps.drive`` with a test ``$GIPPA_DB_DIR``.
 
 ``oracle_sites`` rebuilds the M7-04 ``run_variants`` chain from merged public pieces (M7-01/02/05)
 to get each site's supporting peptides and class; ``oracle_rates`` counts rule 1-3 by brute force
-from the *raw* giapsim tables (never from GIAP's C17), so it is independent of the code under test.
+from the *raw* gippasim tables (never from GIPPA's C17), so it is independent of the code under test.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import resolve_config
+from gippa.config import resolve_config
 from helpers.mapping_steps import drive, fresh_steps, read_tsv_df, write_test_db
 
 Class = tuple[str, bool]
@@ -34,7 +34,7 @@ REF_MAX_Q = 0.01
 
 @dataclasses.dataclass
 class ClassErrorChain:
-    res: Any  # giapsim SimResult (genome/bakta replaced by the reference strain's when strain)
+    res: Any  # gippasim SimResult (genome/bakta replaced by the reference strain's when strain)
     cfg: Any
     avail: dict[str, Path]
     preflight_work: Path
@@ -59,14 +59,14 @@ def library_preflight(
     config_yaml: Path | None,
 ) -> tuple[Any, Path]:  # fmt: skip
     """``run_preflight`` + ``write_outputs`` with ``reference_peptides`` (mode ``preflight``)."""
-    from giap.exitcodes import ExitCode
-    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    from gippa.exitcodes import ExitCode
+    from gippa.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
     cfg = resolve_config(config_yaml) if config_yaml is not None else resolve_config()
     inp = PreflightInputs(genome, None, peptides, None, annotation, reference_peptides=reference)
     db = write_test_db(out.with_name(out.name + "_db"))
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         report, norm = run_preflight(inp, cfg, None, "preflight", out)
     errs = [(c.rule_id, c.message) for c in report.checks if c.level == "error"]
     assert exit_code(report, False) == ExitCode.SUCCESS, errs
@@ -84,10 +84,10 @@ def build_chain(
     denovo: Any = None,
     reference: Path | None = None,
 ) -> ClassErrorChain:
-    """The chain above; ``reference`` replaces giapsim's ``reference_peptides.tsv``."""
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    """The chain above; ``reference`` replaces gippasim's ``reference_peptides.tsv``."""
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     cfg_sim = SimConfig(genome_length=length, proteomics=ProteomicsConfig(pi_wrong=pi_wrong),
                         strain=strain, denovo=denovo or DenovoConfig(),
@@ -115,13 +115,13 @@ def build_chain(
 
 def oracle_sites(avail: Mapping[str, Path], cfg: Any) -> tuple[pd.DataFrame, list[frozenset]]:
     """M7-04 ``run_variants``'s ``sites`` (with M7-05 flags) and each row's ALT peptides."""
-    from giap.io.fasta import read_genome_fasta
-    from giap.io.work_tables import load_tables
-    from giap.steps.mapping import read_gene_model
-    from giap.steps.variants import support_of
-    from giap.variants.align import align_hits
-    from giap.variants.flags import flags_for, left_block_site, start_codons
-    from giap.variants.pileup import eligible, pileup, sites
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.io.work_tables import load_tables
+    from gippa.steps.mapping import read_gene_model
+    from gippa.steps.variants import support_of
+    from gippa.variants.align import align_hits
+    from gippa.variants.flags import flags_for, left_block_site, start_codons
+    from gippa.variants.pileup import eligible, pileup, sites
 
     mapping = Path(avail["mapping"])
     frames, _ = load_tables({"peptide_hits": mapping / "peptide_hits.tsv"}, ["peptide_hits"])
@@ -197,7 +197,7 @@ def oracle_rates(
 def truth_rates(
     classes: Mapping[str, set[Class]], denovo_truth: Path, *, paired: set | None = None
 ) -> dict[Class, tuple[int, int]]:
-    """True per-class error counts from giapsim's ``truth/denovo.tsv``: every ALT-supporting de
+    """True per-class error counts from gippasim's ``truth/denovo.tsv``: every ALT-supporting de
     novo read, an error when it differs from its spectrum's true peptide after I/L folding.
     ``paired`` restricts to those ``(run, spectrum_id)``."""
     tr = read_tsv_df(denovo_truth)
@@ -226,8 +226,8 @@ def run_step(inputs: Mapping[str, Path], out: Path, cfg: Any) -> tuple[dict[str,
     """The registered ``variants`` step through ``run_step``; returns (outputs, log records)."""
     import logging
 
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     paths = {"pileup": out / "tables/pileup.tsv.gz", "variants": out / "tables/variants.tsv",
@@ -240,7 +240,7 @@ def run_step(inputs: Mapping[str, Path], out: Path, cfg: Any) -> tuple[dict[str,
             records.append(record)
 
     h = _H(level=logging.DEBUG)
-    log = logging.getLogger("giap.steps.variants")
+    log = logging.getLogger("gippa.steps.variants")
     old = log.level
     log.addHandler(h)
     log.setLevel(logging.DEBUG)

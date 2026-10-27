@@ -1,5 +1,5 @@
-"""M5-07 attack 1 (GIAP_SPEC.md §8.5 "Autocorrelated abundance with no islands -> islands,
-autocorrelation") on the giapsim scenarios; spec docs/specs/M5-07-island-calibration-power.md
+"""M5-07 attack 1 (GIPPA_SPEC.md §8.5 "Autocorrelated abundance with no islands -> islands,
+autocorrelation") on the gippasim scenarios; spec docs/specs/M5-07-island-calibration-power.md
 (Examples 3, lead decisions 28-30, lead note 2026-10-21).
 
 Every arm stays inside the island null (no island planted) and is gated with ``fwer`` through
@@ -39,14 +39,14 @@ pytestmark = [pytest.mark.calsuite(SUITE), pytest.mark.calibration_full]
 
 
 def _abundance_detection(pair: Any) -> Any:
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     lcfg, ecfg = pair
     return lcfg, dataclasses.replace(ecfg, detection="abundance", beta=sc.ABUNDANCE_BETA)
 
 
 def _arms() -> dict[str, Any]:
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     tu3_l, tu3_e = sc.tu_null(4500)
     return {

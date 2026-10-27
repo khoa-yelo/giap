@@ -11,7 +11,7 @@ M9-23. §10.1 colours apply to the twins (the style module exports a Plotly temp
 
 ## Behaviour
 
-1. `giap.viz.style.plotly_template()` returns a `plotly.graph_objects.layout.Template` with the
+1. `gippa.viz.style.plotly_template()` returns a `plotly.graph_objects.layout.Template` with the
    §10.1 colours, DejaVu Sans (falls back to sans-serif in the browser), the same font sizes, white
    background; every twin uses it.
 2. Each twin reads only its data TSV frame (M9-14 item 1). Hover text shows the IDs and the
@@ -55,7 +55,7 @@ M9-23. §10.1 colours apply to the twins (the style module exports a Plotly temp
 - [ ] `tests/unit/viz/test_twins.py`: per twin, trace values equal the data TSV columns; examples
   1–4; the template's colour set.
 - [ ] Every plot marked "Plotly" in §10.2 (except V14, V15, V16) has a registered twin (a test
-  reads a list derived from §10.2 kept in `giap.viz.interactive`).
+  reads a list derived from §10.2 kept in `gippa.viz.interactive`).
 
 ## Questions for the lead
 

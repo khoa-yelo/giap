@@ -1,12 +1,12 @@
-"""Resume and failure paths of ``giap run`` on sim100k (M2-21 examples 5 and 6; GIAP_SPEC.md §11.2
+"""Resume and failure paths of ``gippa run`` on sim100k (M2-21 examples 5 and 6; GIPPA_SPEC.md §11.2
 "resume and failure paths", §3.8 "Resume", §6.3 exit 4).
 
-* 5: ``giap run`` on sim100k, then kill one Promotech task and ``-resume`` → completes; finished
+* 5: ``gippa run`` on sim100k, then kill one Promotech task and ``-resume`` → completes; finished
   tasks cached (trace shows ``CACHED``).
-* 6: a tool exits 1 (simulated with a broken env var) → ``giap run`` exits 4 naming the step and
+* 6: a tool exits 1 (simulated with a broken env var) → ``gippa run`` exits 4 naming the step and
   its ``.command.log``.
 
-``giap run`` is invoked through the CLI. A ``nextflow`` wrapper first on ``PATH`` forwards the
+``gippa run`` is invoked through the CLI. A ``nextflow`` wrapper first on ``PATH`` forwards the
 runner's exact command line to the real Nextflow and appends ``-c $M2_21_EXTRA_CONFIG`` when set
 (the injected fault); with ``M2_21_STUB=1`` it also swaps the profile for ``test,stub`` and adds
 ``-stub-run`` (no tool, container or database is touched, as
@@ -38,7 +38,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -71,10 +71,10 @@ LONG_PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPD
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
+    import gippasim
 
-    return giapsim.simulate(
-        giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
+    return gippasim.simulate(
+        gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
     )
 
 
@@ -94,13 +94,13 @@ def _wrap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stub: bool) -> None:
 
 @pytest.fixture
 def stub_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     _wrap(tmp_path, monkeypatch, stub=True)
@@ -108,7 +108,7 @@ def stub_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def real_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Real ``$GIAP_ROOT`` / ``$GIAP_DB_DIR`` (prebuilt envs, RF-HOT model); farmshare_local."""
+    """Real ``$GIPPA_ROOT`` / ``$GIPPA_DB_DIR`` (prebuilt envs, RF-HOT model); farmshare_local."""
     _wrap(tmp_path, monkeypatch, stub=False)
 
 
@@ -133,7 +133,7 @@ def _argv(sim: Any, tmp_path: Path, out: Path, real: bool) -> list[str]:
 
 
 def _invoke(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, argv)
     if res.exception is not None and not isinstance(res.exception, SystemExit):

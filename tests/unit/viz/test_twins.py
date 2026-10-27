@@ -1,7 +1,7 @@
-"""Plotly twins of the static plots (M9-15; GIAP_SPEC.md §10.1 colours and fonts, §10.2 column
+"""Plotly twins of the static plots (M9-15; GIPPA_SPEC.md §10.1 colours and fonts, §10.2 column
 "Interactive in report"; M9-14 behaviour 1: a twin is built from the plot's data TSV only).
 
-This file: the registered-twin list, ``giap.viz.style.plotly_template()``, examples 1-4, the
+This file: the registered-twin list, ``gippa.viz.style.plotly_template()``, examples 1-4, the
 degenerate rows (header-only TSV -> no twin; NA hover fields -> "NA"), determinism, and the V5
 (Sankey) and V7 (forest) twins. The other twins are in ``test_twins_panels.py``; the report-level
 checks (``--no-interactive``, skipped plots, size budget)
@@ -11,12 +11,12 @@ Frames are the data TSVs exactly as the ``report`` step reads them (``helpers.tw
 written with the TSV cell formatter, read with ``na_values=["NA"], keep_default_na=False``).
 
 Interface assumed beyond the spec text (M9-15 test author):
-1. ``giap.viz.interactive.INTERACTIVE_PLOTS`` is the tuple of §10.2 plot IDs whose "Interactive
-   in report" column is Plotly (``Vnn`` form, V16 included); after every ``giap.viz`` module is
+1. ``gippa.viz.interactive.INTERACTIVE_PLOTS`` is the tuple of §10.2 plot IDs whose "Interactive
+   in report" column is Plotly (``Vnn`` form, V16 included); after every ``gippa.viz`` module is
    imported, each of them except V14, V15, V16 has a twin (``has_twin``), and V01, V03, V12, V13
    have none.
 2. ``figure_json(pid, data, title)`` returns ``None`` for a header-only data TSV (the empty state:
-   no twin; ``giap.steps.plots.twins`` already skips ``None``).
+   no twin; ``gippa.steps.plots.twins`` already skips ``None``).
 3. Hover text is fully formatted per point in the trace's ``hovertext`` (or ``text``); numbers
    appear as the TSV writes them (``%.6g``); a Unicode minus and thin spaces are allowed (the
    tests compare on ASCII ``-`` and plain spaces). An NA field shows ``NA``; an NA CI shows
@@ -51,7 +51,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 REPO = Path(__file__).resolve().parents[3]
-SPEC = REPO / "GIAP_SPEC.md"
+SPEC = REPO / "GIPPA_SPEC.md"
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
@@ -98,7 +98,7 @@ def test_static_only_plots_have_no_twin(pid: str) -> None:
 
 
 def _template() -> Any:
-    from giap.viz.style import plotly_template
+    from gippa.viz.style import plotly_template
 
     return plotly_template()
 
@@ -111,7 +111,7 @@ def test_plotly_template_type_fonts_and_background() -> None:
     lay = t.layout
     family = [f.strip().strip("'\"") for f in str(lay.font.family).split(",")]
     assert family[0] == "DejaVu Sans" and family[-1] == "sans-serif", lay.font.family
-    from giap.viz.style import RC
+    from gippa.viz.style import RC
 
     assert lay.font.size == RC["font.size"] == 7
     assert lay.title.font.size == RC["axes.titlesize"] == 8
@@ -122,7 +122,7 @@ def test_plotly_template_type_fonts_and_background() -> None:
 
 
 def test_plotly_template_colorway_is_the_static_category_cycle() -> None:
-    from giap.viz.style import OKABE_ITO
+    from gippa.viz.style import OKABE_ITO
 
     cycle = [v.upper() for k, v in OKABE_ITO.items() if k not in ("black", "grey")]
     assert [tw.to_hex(str(c)) for c in _template().layout.colorway] == cycle
@@ -287,7 +287,7 @@ def test_sankey_link_values_equal_the_tsv_n_column() -> None:
 
 
 def test_sankey_node_and_link_colours_are_m9_05s() -> None:
-    from giap.viz.mapping_sankey import NODE_GREY, OUTCOME_COLOUR
+    from gippa.viz.mapping_sankey import NODE_GREY, OUTCOME_COLOUR
 
     t = _sankey(tw.v05())
     names = _node_names(t)
@@ -363,7 +363,7 @@ def test_v7_rows_in_drawing_order_and_axis_title() -> None:
 
 
 def test_v7_region_colour_by_type_and_black_basic_rows() -> None:
-    from giap.viz.style import REGION
+    from gippa.viz.style import REGION
 
     s = tw.spec("V07", tw.v07())
     ts = tw.traces(s, "scatter", "scattergl")

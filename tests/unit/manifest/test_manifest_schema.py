@@ -1,5 +1,5 @@
 """MVP-03a ``run_manifest.schema.json`` extension (docs/specs/MVP-03-manifest-finalize.md
-acceptance item 1, lead decisions 13 and 14; GIAP_SPEC.md §6.7, §9.5).
+acceptance item 1, lead decisions 13 and 14; GIPPA_SPEC.md §6.7, §9.5).
 
 Pinned: every D-C field of 03a is a declared property; ``additionalProperties: false`` at the top
 level; ``flags`` items match ``^[a-z0-9_]+(:[a-z0-9_.-]+)?$``; the existing ``sensitivity``
@@ -18,7 +18,7 @@ from helpers.manifest_data import build, schema, schema_errors
 
 REPO = Path(__file__).resolve().parents[3]
 FIELDS_03A = [
-    "schema_version", "giap_version", "git_commit", "git_dirty", "command_line", "executor",
+    "schema_version", "gippa_version", "git_commit", "git_dirty", "command_line", "executor",
     "profile", "resume", "outdir", "started_at", "finished_at", "status", "exit_code",
     "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
     "databases", "annotation", "detection_tier", "seeds", "steps", "skipped", "modules_off",

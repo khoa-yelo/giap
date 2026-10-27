@@ -1,4 +1,4 @@
-// M7-08: stub runs of the NOVEL subworkflow (workflow/subworkflows/local/novel.nf; GIAP_SPEC.md
+// M7-08: stub runs of the NOVEL subworkflow (workflow/subworkflows/local/novel.nf; GIPPA_SPEC.md
 // §6.2, §6.3, §7.6.2, §9.1; docs/specs/M7-08-novel-steps-and-second-round.md rules 3, 5, 7).
 // ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here as well.
 //
@@ -20,8 +20,8 @@
 //         NOVEL_PROMOTER_LAYER / OSTIR_NOVEL + NOVEL_RBS_LAYER are replaced by the layer, which
 //         novel_orfs receives as novel_promoter_windows / rbs_novel (§6.4, as annotate.nf does).
 //   emit: novel_orfs, novel_orfs_gff3, novel_orfs_faa, annotation_patch (the step's output keys).
-// Every GIAP_STEP task's --in keys follow the registry (data/annotate/step_registry.json, kept
-// equal to giap.steps by tests/unit/test_nf_annotate_registry.py).
+// Every GIPPA_STEP task's --in keys follow the registry (data/annotate/step_registry.json, kept
+// equal to gippa.steps by tests/unit/test_nf_annotate_registry.py).
 
 nextflow_workflow {
 
@@ -69,12 +69,12 @@ nextflow_workflow {
 
             ['novel_candidates', 'novel_promoter_layer', 'novel_rbs_layer', 'novel_orfs'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${ran()}"
-                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+                assert new File(H.stepDirs(work, s)[0], '.gippa_inputs').isFile() : "${s} did not run through GIPPA_STEP"
             }
             assert H.count(workflow.trace, 'PROMOTECH_NOVEL') == 2 : "one Promotech task per chunk: ${ran()}"
             assert H.count(workflow.trace, 'OSTIR_NOVEL') == 1 : "one OSTIR task: ${ran()}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def cin = H.stepInputs(H.stepDirs(work, 'novel_candidates')[0])
             def ckeys = cin.collect { it[0] }
@@ -233,7 +233,7 @@ nextflow_workflow {
                 assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
             def oin = H.stepInputs(H.stepDirs(work, 'novel_orfs')[0])
             assert oin.any { it[0] == 'novel_promoter_windows' && it[1].endsWith('promoters.tsv') } : "the precomputed promoters layer serves the second round: ${oin}"
             assert oin.any { it[0] == 'rbs_novel' && it[1].endsWith('rbs_novel.tsv') } : "the precomputed rbs_novel layer is not staged: ${oin}"

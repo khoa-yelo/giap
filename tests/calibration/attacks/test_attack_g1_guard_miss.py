@@ -6,7 +6,7 @@ in any replicate (``n_pred = 0``). Rule 7 calls this a broken scenario, not a ga
 
 The gate test runs in a pytest subprocess with the statistician's stub plugin: ``g1_record`` is
 replaced by empty-prediction counts (20 truth rows per replicate, so only the ``n_pred`` guard
-misses); the real ``calibrate_pooled`` runs on them (no GIAP run). Unmarked: every commit.
+misses); the real ``calibrate_pooled`` runs on them (no GIPPA run). Unmarked: every commit.
 """
 
 from __future__ import annotations

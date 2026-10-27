@@ -18,11 +18,11 @@ for placement FDR (§7.2.5); M3-10 currently plans its own `stratum_qvalues` —
 
 ## Public interface
 
-`src/giap/stats/multitest.py`
+`src/gippa/stats/multitest.py`
 ```python
 def bh(p: ArrayLike) -> npt.NDArray[np.float64]: ...
 ```
-`src/giap/stats/tda.py`
+`src/gippa/stats/tda.py`
 ```python
 def monotone_q(fdr_at_sorted: ArrayLike) -> npt.NDArray[np.float64]: ...
     # input: FDR at thresholds sorted from strictest to loosest; output: running min from the loose end, clipped to [0, 1]

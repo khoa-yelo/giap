@@ -1,4 +1,4 @@
-"""giapsim real-genome truth: sample SNVs inside planted novel ORFs (MVP-04 gate 11, bug 3).
+"""gippasim real-genome truth: sample SNVs inside planted novel ORFs (MVP-04 gate 11, bug 3).
 
 ``truth/alt_sites.tsv`` covers annotated genes only, yet the sample strain's SNVs also fall in
 the planted ``intergenic`` / ``cds_outframe`` / ``antisense`` ORFs, whose peptides then carry
@@ -7,7 +7,7 @@ real, gene-less ALTs (5 ``high`` rows on the K-12 run). Design (fewest consumers
 a separate table ``truth/novel_alt_sites.tsv``, columns ``contig, codon_start, strand, orf_id,
 ref_aa, alt_aa, n_true_peptides``, read by the gate 11 scorer next to ``alt_sites.tsv``.
 
-Pinned for the three found classes (the oracle below, independent of giapsim):
+Pinned for the three found classes (the oracle below, independent of gippasim):
 
 * one row per codon of a planted ORF, in the ORF's frame, holding >= 1 sample SNV, except its
   start and stop codons (intact on both sides by the novel-ORF rule; the initiator reads M);
@@ -30,7 +30,7 @@ from typing import Any
 import pytest
 from helpers import mvp04_data as M
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 SEED = 20261023
 N_NOVEL = 60
@@ -39,7 +39,7 @@ FOUND = ("intergenic", "cds_outframe", "antisense")
 
 
 def _cfg() -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     # 10x the K-12 SNV rate so the 200-kb excerpt's ~180 novel ORFs hold enough SNVs
     strain = replace(base.strain, snv_rate_per_kb=5.0)
     expr = replace(base.expression, islands=(IslandSpec(M.CONTIG, 2, 8, 3.0),))  # excerpt TUs
@@ -50,7 +50,7 @@ def _cfg() -> Any:
 def run(tmp_path_factory: pytest.TempPathFactory) -> tuple[M.Excerpt, Path, Any]:
     ex = M.make_excerpt(tmp_path_factory.mktemp("k12_excerpt_nas"))
     out = tmp_path_factory.mktemp("mvp04_nas")
-    rg = importlib.import_module("giapsim.real_genome")
+    rg = importlib.import_module("gippasim.real_genome")
     with M.capture_warnings():
         res = rg.simulate_on_genome(_cfg(), SEED, out, genome_fasta=ex.fasta,
                                     bakta_json=ex.bakta_json, tu_set=None,
@@ -143,7 +143,7 @@ def _nrow(cls: str) -> list[Any]:
 
 
 def _nas(cls: str, peps: dict[str, list[tuple[str, int, int, str]]] | None = None) -> list[Any]:
-    rg = importlib.import_module("giapsim.real_genome")
+    rg = importlib.import_module("gippasim.real_genome")
     rows: list[Any] = rg.novel_alt_site_rows([_nrow(cls)], _REF, _SAMPLE, peps or {})
     return rows
 

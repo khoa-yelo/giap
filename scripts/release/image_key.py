@@ -9,7 +9,7 @@ Usage:
 ``TOOL ...`` prints ``<tool>\\t<key>\\t<tag>`` per tool. ``--plan`` prints the GHCR tools whose key
 differs from ``images.json`` (``will rebuild: …``). ``--check`` exits 1 with
 ``stale image: <tool> (inputs changed since <key>)`` for every ``images.json`` entry whose inputs
-changed. The key itself lives in ``giap.io.image_key``.
+changed. The key itself lives in ``gippa.io.image_key``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from giap.io.image_key import key, tag  # noqa: E402
+from gippa.io.image_key import key, tag  # noqa: E402
 
 UNPUBLISHED = {"uniop"}  # unlicensed, never published (R5)
 
@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     root: Path = args.root
     images_path: Path = args.images or root / "workflow" / "conf" / "images.json"
     if args.tools:
-        from giap.annotate.tools import TOOLS
+        from gippa.annotate.tools import TOOLS
 
         for tool in args.tools:
             if tool not in TOOLS:

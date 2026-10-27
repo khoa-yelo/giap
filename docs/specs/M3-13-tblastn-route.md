@@ -1,7 +1,7 @@
 # M3-13: Route 2b, tblastn for protein leftovers (HSP merging)
 
 Milestone M3 · depends on: M3-12 (`ProteinAlignment`, `assign_alignments`) · creates
-`src/giap/mapping/tblastn.py`; reuses `workflow/envs/blast.yml` from M2-01 (creates it if M2-01 has not merged),
+`src/gippa/mapping/tblastn.py`; reuses `workflow/envs/blast.yml` from M2-01 (creates it if M2-01 has not merged),
 `workflow/modules/local/tblastn/main.nf` · **external tool: BLAST+ `tblastn`, `makeblastdb`**
 (conda `blast` pinned, or Apptainer by digest) · estimate ≈ 260 code lines
 
@@ -54,7 +54,7 @@ def merge_hsps(hsps: Sequence[Hsp], replicons: Mapping[str, Replicon],
 
 ## Edge cases
 
-- `qseqid` containing `|` (UniProt headers): proteins are written with GIAP's resolved IDs before
+- `qseqid` containing `|` (UniProt headers): proteins are written with GIPPA's resolved IDs before
   the search (M1-03), so tabular IDs match.
 - No hits file (empty): every leftover → unmapped.
 - Two chains on different CDSs of one protein: both rows kept (multi-locus), ranks 1 and 2.
@@ -90,7 +90,7 @@ the chaining function), documented with their rationale in the methods note; no 
 
 ## Lead decisions after code review (PR #53, changes requested)
 1. `makeblastdb` runs WITHOUT `-parse_seqids` (interface amended): with it, BLAST reports accession-style IDs
-   as `gb|U00096.3|` / `ref|NC_000913.3|`, which never match GIAP's contig IDs. Without it BLAST reports the
+   as `gb|U00096.3|` / `ref|NC_000913.3|`, which never match GIPPA's contig IDs. Without it BLAST reports the
    first header token unchanged. Builder, main.nf and tests drop the flag. A recorded fixture with an
    accession-style contig ID (e.g. a K-12 excerpt named `NC_000913.3`, pinned BLAST image) guards it.
 2. Chaining picks the BEST chain, not the nearest extension: per protein × contig × strand, a dynamic program

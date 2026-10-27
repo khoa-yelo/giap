@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--docs", type=Path, default=ROOT / "docs" / "methods")
-    ap.add_argument("--out", type=Path, default=ROOT / "src" / "giap" / "report" / "snippets")
+    ap.add_argument("--out", type=Path, default=ROOT / "src" / "gippa" / "report" / "snippets")
     args = ap.parse_args(argv)
     want = expected(args.docs)
     have = {p.stem: p for p in sorted(args.out.glob("*.html"))} if args.out.is_dir() else {}

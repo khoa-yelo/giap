@@ -1,4 +1,4 @@
-"""T2: ``giap.io.fgsea_r`` file I/O and the recorded-output parse (M8-17a §3, §4, §6; A4).
+"""T2: ``gippa.io.fgsea_r`` file I/O and the recorded-output parse (M8-17a §3, §4, §6; A4).
 
 - ``write_call`` writes ``stats.tsv``, ``jobs.tsv`` and ``sets.tsv`` byte for byte (UTF-8, tab,
   header, ``\\n``; scores with ``repr(float)``; jobs and sets in call order, members long form).
@@ -40,8 +40,8 @@ def _call(
     jobs: list[tuple[str, dict[str, tuple[str, ...]], int, int]],
     seed: int = 12345,
 ):
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     return EngineCall(
         tu_ids=tu_ids,
@@ -67,7 +67,7 @@ def _small_call():
 
 
 def test_write_call_byte_exact(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     write_call(_small_call(), tmp_path)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["jobs.tsv", "sets.tsv", "stats.tsv"]
@@ -103,7 +103,7 @@ def test_write_call_scores_round_trip(
     tmp_path_factory: pytest.TempPathFactory, scores: list[float]
 ) -> None:
     """Every finite double (incl. -0.0 and subnormals) is read back bit for bit, in call order."""
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     d = tmp_path_factory.mktemp("rt")
     ids = tuple(f"TU_{i:04d}" for i in reversed(range(len(scores))))
@@ -118,7 +118,7 @@ def test_write_call_scores_round_trip(
 
 def test_write_call_rejects_non_finite_scores(tmp_path: Path) -> None:
     """NA scores never reach R (spec §8 edge cases): ValueError before any file or process."""
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     with pytest.raises(ValueError):
         call = _call(("A", "B"), [1.0, math.nan], [("main:x", {"S": ("A",)}, 1, 2)])
@@ -130,7 +130,7 @@ def test_write_call_rejects_non_finite_scores(tmp_path: Path) -> None:
 
 
 def test_read_results_by_hand_values() -> None:
-    from giap.io.fgsea_r import read_results
+    from gippa.io.fgsea_r import read_results
 
     result = read_results(BY_HAND / "results.tsv", load_call(BY_HAND))
     assert set(result) == {"main:cog", "main:kegg"}
@@ -161,7 +161,7 @@ def test_read_results_by_hand_values() -> None:
 
 
 def test_read_versions_by_hand() -> None:
-    from giap.io.fgsea_r import read_versions
+    from gippa.io.fgsea_r import read_versions
 
     prov = read_versions(BY_HAND / "versions.txt")
     assert prov.fgsea == "1.36.2"
@@ -175,7 +175,7 @@ def test_read_versions_by_hand() -> None:
 
 @pytest.mark.parametrize("version", ["1.38.0", "1.36.1", ""])
 def test_read_versions_rejects_other_fgsea(tmp_path: Path, version: str) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_versions
+    from gippa.io.fgsea_r import FgseaEngineError, read_versions
 
     text = (BY_HAND / "versions.txt").read_text(encoding="utf-8")
     path = tmp_path / "versions.txt"
@@ -185,7 +185,7 @@ def test_read_versions_rejects_other_fgsea(tmp_path: Path, version: str) -> None
 
 
 def test_read_versions_rejects_missing_fgsea_line(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_versions
+    from gippa.io.fgsea_r import FgseaEngineError, read_versions
 
     text = (BY_HAND / "versions.txt").read_text(encoding="utf-8")
     path = tmp_path / "versions.txt"
@@ -233,7 +233,7 @@ MUTATIONS = {
 
 @pytest.mark.parametrize("name", sorted(MUTATIONS))
 def test_read_results_rejects_mutation(tmp_path: Path, name: str) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     old, new = MUTATIONS[name]
     path = _mutate(tmp_path, old, new)
@@ -242,7 +242,7 @@ def test_read_results_rejects_mutation(tmp_path: Path, name: str) -> None:
 
 
 def test_read_results_rejects_missing_file(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     with pytest.raises(FgseaEngineError):
         read_results(tmp_path / "results.tsv", load_call(BY_HAND))
@@ -267,7 +267,7 @@ _num = st.one_of(st.just(math.nan), st.floats(allow_nan=False, allow_infinity=Fa
 def test_read_results_round_trip(
     tmp_path_factory: pytest.TempPathFactory, rows: list, data: st.DataObject
 ) -> None:
-    from giap.io.fgsea_r import read_results
+    from gippa.io.fgsea_r import read_results
 
     ids = tuple(f"TU_{i}" for i in range(8))
     sets = {f"S{k}": ids[k : k + 4] for k in range(len(rows))}
@@ -323,13 +323,13 @@ def test_required_recording_present(name: str) -> None:
     prov = (d / "PROVENANCE.md").read_text(encoding="utf-8")
     assert "recorded-by-hand" not in prov
     assert "sha256" in prov
-    assert "giap_fgsea.R" in (d / "command.txt").read_text(encoding="utf-8")
+    assert "gippa_fgsea.R" in (d / "command.txt").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("d", _recorded_dirs(), ids=lambda p: p.name)
 def test_recorded_dir_parses_and_round_trips(tmp_path: Path, d: Path) -> None:
     """T7 precondition: ``write_call(load_call(d))`` gives the recorded inputs byte for byte."""
-    from giap.io.fgsea_r import FGSEA_VERSION, read_results, read_versions, write_call
+    from gippa.io.fgsea_r import FGSEA_VERSION, read_results, read_versions, write_call
 
     call = load_call(d)
     write_call(call, tmp_path)
@@ -341,7 +341,7 @@ def test_recorded_dir_parses_and_round_trips(tmp_path: Path, d: Path) -> None:
 
 
 def _rows_of(name: str):
-    from giap.io.fgsea_r import read_results
+    from gippa.io.fgsea_r import read_results
 
     d = RECORDED / name
     result = read_results(d / "results.tsv", load_call(d))

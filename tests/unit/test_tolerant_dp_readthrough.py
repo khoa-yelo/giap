@@ -21,9 +21,9 @@ import numpy as np
 import pytest
 from helpers.readthrough_toys import C1_AA
 
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import STOP, decode, encode_query, encode_target
-from giap.mapping.tolerant_dp import Alignment, exchange_lookup, verify, verify_batch
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import STOP, decode, encode_query, encode_target
+from gippa.mapping.tolerant_dp import Alignment, exchange_lookup, verify, verify_batch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "property"))
 from oracle_tolerant import oracle_verify
@@ -33,7 +33,7 @@ SRC = Path(__file__).resolve().parents[2] / "src"
 
 
 def _rt_code() -> int:
-    from giap.mapping.sixframe import READTHROUGH
+    from gippa.mapping.sixframe import READTHROUGH
 
     return int(READTHROUGH)
 
@@ -154,9 +154,9 @@ def test_verify_batch_rows_equal_verify_with_marked_cells() -> None:
 
 _SCRIPT = """
 import json, sys
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import READTHROUGH, encode_query, encode_target
-from giap.mapping.tolerant_dp import verify
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import READTHROUGH, encode_query, encode_target
+from gippa.mapping.tolerant_dp import verify
 tables = block_tables()
 out = []
 for q, f, marked, d0, k in json.load(sys.stdin):

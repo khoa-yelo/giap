@@ -226,7 +226,7 @@ def test_conda_profile_alone_keeps_conda_for_pinned_tools() -> None:
 
 
 def _ref(tool: str, hexd: str) -> str:
-    return f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{hexd}"
+    return f"ghcr.io/khoa-yelo/gippa-{tool}@sha256:{hexd}"
 
 
 def test_update_digests_edits_the_shared_selector(tmp_path: Path) -> None:

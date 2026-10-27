@@ -3,7 +3,7 @@ subcommand, the TE7 half of the ``metrics.py`` hook; docs/specs/M10-06-te-real-a
 
 Hand-made run trees, ``logs/trace.tsv`` files with real Nextflow process names,
 ``outputs.sha256`` lists, converted peptide tables and a temporary git repository for the
-code-equivalence check. No network, nothing from ``$GIAP_ROOT``, nothing derived from a DIA-NN
+code-equivalence check. No network, nothing from ``$GIPPA_ROOT``, nothing derived from a DIA-NN
 report.
 """
 
@@ -159,12 +159,12 @@ def make_repo(root: Path) -> dict[str, str]:
     root.mkdir(parents=True, exist_ok=True)
     git(root, "init", "-q")
     for rel, text in (
-        ("src/giap/a.py", "x = 1\n"),
+        ("src/gippa/a.py", "x = 1\n"),
         ("docs/notes.md", "a\n"),
         ("workflow/main.nf", "// nf\n"),
         ("pyproject.toml", "[project]\n"),
         ("uv.lock", "lock\n"),
-        ("scripts/slurm/giap_run.sbatch", "#!/bin/bash\n"),
+        ("scripts/slurm/gippa_run.sbatch", "#!/bin/bash\n"),
     ):
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -175,7 +175,7 @@ def make_repo(root: Path) -> dict[str, str]:
     (root / "docs" / "notes.md").write_text("b\n", encoding="utf-8")
     git(root, "commit", "-q", "-am", "docs only")
     shas["docs"] = git(root, "rev-parse", "HEAD")
-    (root / "src" / "giap" / "a.py").write_text("x = 2\n", encoding="utf-8")
+    (root / "src" / "gippa" / "a.py").write_text("x = 2\n", encoding="utf-8")
     git(root, "commit", "-q", "-am", "code")
     shas["src"] = git(root, "rev-parse", "HEAD")
     return shas
@@ -228,7 +228,7 @@ def write_run(
             "git_dirty": False,
             "resume": False,
             "outdir": f"/runs/{outdir_label}",
-            "command_line": ["giap", "run", "--outdir", f"/runs/{outdir_label}"],
+            "command_line": ["gippa", "run", "--outdir", f"/runs/{outdir_label}"],
         }
     )
     man.update(manifest_over)
@@ -279,7 +279,7 @@ def sums_text(sums: Mapping[str, str]) -> str:
 
 def write_conv(path: Path, frame: pd.DataFrame) -> Path:
     """The converted table as gzip TSV with a fixed mtime (M10-03 layout)."""
-    from giap.io.tsv import format_value
+    from gippa.io.tsv import format_value
 
     lines = ["\t".join(frame.columns)]
     lines += ["\t".join(format_value(v) for v in row) for row in frame.itertuples(index=False)]
@@ -293,7 +293,7 @@ def write_conv(path: Path, frame: pd.DataFrame) -> Path:
 
 def write_named_trace(out: Path, rows: Sequence[tuple[str, str]]) -> Path:
     """``OUT/logs/trace.tsv`` with one task per ``(Nextflow name, hostname)``, for example
-    ``("GIAP:VARIANTS:VARIANTS_STEP (chr1)", "rye-02")`` (the real trace's ``name`` column)."""
+    ``("GIPPA:VARIANTS:VARIANTS_STEP (chr1)", "rye-02")`` (the real trace's ``name`` column)."""
     from helpers.manifest_data import trace_row
 
     recs = [trace_row(n, hostname=h, task_id=str(i + 1)) for i, (n, h) in enumerate(rows)]

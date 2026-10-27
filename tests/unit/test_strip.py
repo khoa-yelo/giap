@@ -1,4 +1,4 @@
-"""Modification stripping for converters (issue M1-07; GIAP_SPEC.md §5.4)."""
+"""Modification stripping for converters (issue M1-07; GIPPA_SPEC.md §5.4)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from giap.io.converters.strip import strip_modifications
+from gippa.io.converters.strip import strip_modifications
 
 UPPER = re.compile(r"^[A-Z]*$")
 

@@ -20,7 +20,7 @@ Milestone M4 · track G (gene features) · depends on: none (reads C2 columns `a
 
 ## Public interface
 
-`src/giap/genetable/covariates.py` (pure)
+`src/gippa/genetable/covariates.py` (pure)
 ```python
 Enzyme = Literal["trypsin_p", "trypsin"]
 
@@ -32,7 +32,7 @@ def protein_sequence(aa: str | None, nt: str, feature_type: str) -> str: ...   #
 class Covariates:
     length_aa: int; n_observable_peptides: int; gravy: float; pi: float; mw_da: float; tm_segments: int
 def covariates(aa: str, enzyme: Enzyme, length: tuple[int, int]) -> Covariates: ...
-def covariate_table(genes: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...   # locus_tag + the six columns
+def covariate_table(genes: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame: ...   # locus_tag + the six columns
 ```
 - `digest`: cleave after K or R (`trypsin_p`), and not before P for `trypsin`; `missed > 0` adds
   concatenations of up to `missed + 1` consecutive fragments.

@@ -22,7 +22,7 @@ PLUGIN = """
 import os, socket
 
 def _blocked(address, *args, **kwargs):
-    with open(os.environ["GIAP_PROBE_LOG"], "a") as fh:
+    with open(os.environ["GIPPA_PROBE_LOG"], "a") as fh:
         fh.write(f"{address[0]}\\n")
     raise OSError("network blocked by test")
 
@@ -42,17 +42,17 @@ def test_toy():
 def _run(tmp_path: Path, marker_expr: str) -> tuple[subprocess.CompletedProcess[str], str]:
     plugdir = tmp_path / "plug"
     plugdir.mkdir(exist_ok=True)
-    (plugdir / "giap_block_net.py").write_text(PLUGIN)
+    (plugdir / "gippa_block_net.py").write_text(PLUGIN)
     toy_dir = REPO / "tests" / "unit"
     toy = toy_dir / f"test_zz_probe_toy_{os.getpid()}_{tmp_path.name}.py"
     log = tmp_path / f"probe_{marker_expr.replace(' ', '_')}.log"
-    env = dict(os.environ, GIAP_PROBE_LOG=str(log))
+    env = dict(os.environ, GIPPA_PROBE_LOG=str(log))
     env["PYTHONPATH"] = os.pathsep.join([str(plugdir), env.get("PYTHONPATH", "")])
     toy.write_text(TOY)
     try:
         run = subprocess.run(
             [sys.executable, "-m", "pytest", str(toy), "-m", marker_expr, "-q",
-             "-p", "giap_block_net", "-p", "no:cacheprovider", "-p", "no:xdist", "-rs"],
+             "-p", "gippa_block_net", "-p", "no:cacheprovider", "-p", "no:xdist", "-rs"],
             cwd=REPO, env=env, capture_output=True, text=True, timeout=300,
         )  # fmt: skip
     finally:

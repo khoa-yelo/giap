@@ -1,6 +1,6 @@
-"""M9-22 ``giap.compare.abundance.abundance_pairs``: pairwise Spearman rho with a TU-block
+"""M9-22 ``gippa.compare.abundance.abundance_pairs``: pairwise Spearman rho with a TU-block
 bootstrap CI and Bland-Altman bias and limits (docs/specs/M9-22-compare-tables.md "Tables",
-"Degenerate cases", examples 2 and 7, acceptance "ties in Spearman; ddof"; GIAP_SPEC.md §7.9.3,
+"Degenerate cases", examples 2 and 7, acceptance "ties in Spearman; ddof"; GIPPA_SPEC.md §7.9.3,
 §8.2, §8.3).
 
 File named ``test_compare_abundance.py``: ``tests/unit/test_abundance.py`` exists and tests/ has
@@ -13,7 +13,7 @@ Interface assumed (test-author reading of the spec):
   ``helpers.compare_data.tus_of``); returns one row per unordered pair in label order with the
   ``compare_abundance`` columns. Abundance is ``abundance_log2``.
 - Shared genes = ``detected`` in both and ``abundance_imputed`` false in both.
-- The CI is ``giap.stats.bootstrap.tu_block_bootstrap`` over the shared genes (genes-table row
+- The CI is ``gippa.stats.bootstrap.tu_block_bootstrap`` over the shared genes (genes-table row
   order, ``tus`` as the TU column) with the Spearman statistic, drawing from ``rng`` (one pair:
   the oracle test below reproduces it exactly).
 - ``flags`` is a ``;``-joined string (NA or empty when none); ``n_boot`` = ``B``.
@@ -31,7 +31,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from scipy import stats as sps
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 FAST = settings(max_examples=40, deadline=None)
 B_SMALL = 50
@@ -56,7 +56,7 @@ def _pair(
 
 
 def _run(runs: dict[str, pd.DataFrame], B: int = B_SMALL, seed: int = 7) -> pd.DataFrame:
-    from giap.compare.abundance import abundance_pairs
+    from gippa.compare.abundance import abundance_pairs
 
     first = next(iter(runs.values()))
     return abundance_pairs(runs, tus_of(first), B, for_step("compare", seed))
@@ -220,7 +220,7 @@ def test_example6_same_seed_same_rows() -> None:
 def test_ci_is_the_tu_block_bootstrap_of_spearman() -> None:
     """Genes are carried with their TU: the CI equals ``tu_block_bootstrap`` on the shared genes
     with the first run's TUs and the same generator."""
-    from giap.stats.bootstrap import tu_block_bootstrap
+    from gippa.stats.bootstrap import tu_block_bootstrap
 
     gen = np.random.default_rng(3)
     n = 30

@@ -1,6 +1,6 @@
 """M4-16 QC rows and the ``detection_summary`` assembler (spec examples 6-7, sorting, validation).
 
-Spec: GIAP_SPEC.md §9.3 (QC rows ``id_mixups``, ``genome_inconsistent_rate``, contaminant counts),
+Spec: GIPPA_SPEC.md §9.3 (QC rows ``id_mixups``, ``genome_inconsistent_rate``, contaminant counts),
 §7.2.7 (genome relation table), docs/specs/M4-16-detection-summary.md (``qc_rows``,
 ``detection_summary``; lead question 1 default for ``genome_inconsistent_rate``).
 
@@ -42,7 +42,7 @@ QC_METRICS = ("id_mixups", "engine_protein_mismatch_rate", "genome_inconsistent_
 
 
 def _summary() -> Any:
-    from giap.context import summary
+    from gippa.context import summary
 
     return summary
 
@@ -156,7 +156,7 @@ def test_empty_hits_ok() -> None:
 
 def _parts() -> list[pd.DataFrame]:
     s = _summary()
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rows = [gene(f"G{i}", f"T{i // 2}", i % 2 == 0, 0.4, cog_category=["K", None][i % 2])
             for i in range(12)]  # fmt: skip

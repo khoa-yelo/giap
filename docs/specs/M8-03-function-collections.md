@@ -19,7 +19,7 @@ gene-table function columns) · estimate ≈ 300 code lines (+ ≈ 380 test line
 
 ## Public interface
 
-`src/giap/function/collections.py` (pure; readers in `src/giap/io/function_resources.py`)
+`src/gippa/function/collections.py` (pure; readers in `src/gippa/io/function_resources.py`)
 ```python
 Collection = Literal["cog", "kegg", "go_bp", "go_mf", "go_cc", "go_slim"]
 
@@ -65,7 +65,7 @@ def build_collections(genes: pd.DataFrame, eligible: B8, res: Resources
    category letters "R" (general function) and "S" (unknown) are kept (they are real categories).
 6. **Eligibility.** Sets contain eligible genes only (§7.3: non-partial rows with finite
    `p_detect`; the same rule as `regions_table._eligible`, which this issue moves to a shared
-   `giap.genetable.eligible()` helper). Coverage = (# eligible genes with ≥ 1 term in the
+   `gippa.genetable.eligible()` helper). Coverage = (# eligible genes with ≥ 1 term in the
    collection) / (# eligible genes).
 7. **Run flags.** A resource that is absent gives `layer_missing:go`, `layer_missing:kegg` or
    `layer_missing:cog` and no collection; `annotation_source = bakta_light` gives the §9.4 run flag

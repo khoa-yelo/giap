@@ -2,7 +2,7 @@
 
 Milestone M3 · depends on: M3-17 (mapping chain), M3-01; recorded Nissle and K-12 Bakta 1.12.2
 full-DB JSON and the committed genomes in `tests/data/genomes/` (both M2-10, G17, §15.2 step 1) ·
-creates `src/giap/mapping/digest.py`, `validation/proxies/te_proxies.py`,
+creates `src/gippa/mapping/digest.py`, `validation/proxies/te_proxies.py`,
 `validation/fetch_uniprot_k12.py`, an entry in `scripts/slurm/weekly.sbatch` · pure Python
 (network for UniProt on FarmShare) · estimate ≈ 260 code lines
 
@@ -16,7 +16,7 @@ creates `src/giap/mapping/digest.py`, `validation/proxies/te_proxies.py`,
   tolerant plus unmapped shares are reported | FarmShare (needs `rest.uniprot.org`)".
 - §13 Gate M3 "TE1 and TE8 proxies pass". §12 weekly suite "in-silico peptide sets; TE6–TE8
   proxies". §11.4 "UniProt bulk downloads (> 5 MB) … Scripts download them into
-  `$GIAP_DATA_DIR`." §15.3 UP000000625.
+  `$GIPPA_DATA_DIR`." §15.3 UP000000625.
 - `abundance.enzyme: trypsin_p` (the digest is reused by M4 for `n_observable_peptides` and
   `abundance.observable_len`).
 
@@ -61,7 +61,7 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
   proxy runs when the recorded full-DB JSON is present (otherwise `pending_sample`), and passes.
 - [ ] TE8 proxy runs in `weekly.sbatch` on FarmShare (needs `rest.uniprot.org`); its result JSON is
   linked from `PROGRESS.md` as gate evidence.
-- [ ] `validation/fetch_uniprot_k12.py` downloads UP000000625 into `$GIAP_DATA_DIR/uniprot/` with a
+- [ ] `validation/fetch_uniprot_k12.py` downloads UP000000625 into `$GIPPA_DATA_DIR/uniprot/` with a
   SHA-256 and retrieval date; never committed (R11).
 
 ## Questions for the lead

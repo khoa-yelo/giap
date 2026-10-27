@@ -3,7 +3,7 @@
 Usage: python scripts/release/notes.py VERSION [--draft]
 
 Run from the repository root: reads ``./CHANGELOG.md`` and writes ``./notes.md`` with the body of
-the ``## GIAP <version> (...)`` section. An ``rc`` version reads its base version's section,
+the ``## GIPPA <version> (...)`` section. An ``rc`` version reads its base version's section,
 prefixed "Release candidate". With ``--draft`` a missing section falls back to
 ``towncrier build --draft`` (nothing is written but notes.md), headed ``DRAFT``. Exit 0 on
 success, 1 when the section is missing (without ``--draft``) or empty.
@@ -28,8 +28,8 @@ def base_version(version: str) -> str:
 
 
 def extract_section(changelog: str, version: str) -> str | None:
-    """The body of ``## GIAP <version> (...)`` up to the next ``## `` heading; None if absent."""
-    head = re.compile(rf"^## GIAP {re.escape(version)} \(")
+    """The body of ``## GIPPA <version> (...)`` up to the next ``## `` heading; None if absent."""
+    head = re.compile(rf"^## GIPPA {re.escape(version)} \(")
     body: list[str] | None = None
     for line in changelog.splitlines():
         if body is None:
@@ -66,17 +66,17 @@ def main(argv: list[str] | None = None) -> int:
     header = ""
     if body is None:
         if not args.draft:
-            print(f"no '## GIAP {base} (...)' section in CHANGELOG.md", file=sys.stderr)
+            print(f"no '## GIPPA {base} (...)' section in CHANGELOG.md", file=sys.stderr)
             return 1
         body = towncrier_draft(base)
-        header = f"DRAFT: towncrier draft for GIAP {base}, not yet in CHANGELOG.md\n\n"
+        header = f"DRAFT: towncrier draft for GIPPA {base}, not yet in CHANGELOG.md\n\n"
     if not body or body == EMPTY:
-        print(f"release notes for GIAP {base} are empty", file=sys.stderr)
+        print(f"release notes for GIPPA {base} are empty", file=sys.stderr)
         return 1
     if base != version:
-        header += f"Release candidate {version} of GIAP {base}.\n\n"
+        header += f"Release candidate {version} of GIPPA {base}.\n\n"
     Path("notes.md").write_text(header + body + "\n", encoding="utf-8")
-    print(f"notes.md: GIAP {version}{' (draft)' if header.startswith('DRAFT') else ''}")
+    print(f"notes.md: GIPPA {version}{' (draft)' if header.startswith('DRAFT') else ''}")
     return 0
 
 

@@ -15,7 +15,7 @@ import pandas as pd
 
 
 def holds_cell(hits: pd.DataFrame, cells: object) -> np.ndarray:
-    """Boolean per row of ``hits`` (``giap.mapping.hits`` columns) for a ``StopCells``."""
+    """Boolean per row of ``hits`` (``gippa.mapping.hits`` columns) for a ``StopCells``."""
     out = np.zeros(len(hits), dtype=bool)
     if not len(hits):
         return out

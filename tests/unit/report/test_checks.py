@@ -1,5 +1,5 @@
-"""``giap.report.checks``: the link checker and the offline (no external load) detector on crafted
-HTML (M9-13 work item 2 and acceptance criterion 2; GIAP_SPEC.md §10.3 tests "A link checker finds
+"""``gippa.report.checks``: the link checker and the offline (no external load) detector on crafted
+HTML (M9-13 work item 2 and acceptance criterion 2; GIPPA_SPEC.md §10.3 tests "A link checker finds
 no broken relative links. A test asserts that no external URLs are loaded at view time").
 
 Interface pinned here (M9-13 test author, beyond the spec text):
@@ -35,7 +35,7 @@ from hypothesis import strategies as st
 
 
 def _checks() -> ModuleType:
-    from giap.report import checks
+    from gippa.report import checks
 
     return checks
 
@@ -172,7 +172,7 @@ def test_data_uris_relative_paths_and_fragments_are_not_loads(snippet: str) -> N
 @pytest.mark.parametrize(
     "snippet",
     [
-        '<a href="https://github.com/khoa/giap/blob/main/docs/methods/detection.md">methods</a>',
+        '<a href="https://github.com/khoa/gippa/blob/main/docs/methods/detection.md">methods</a>',
         '<a href="//example.org/x">x</a>',
         '<a href="file:///tmp/x.tsv">x</a>',
         "<p>Data from https://www.uniprot.org/ retrieved 2026-10-01.</p>",

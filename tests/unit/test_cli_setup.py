@@ -1,4 +1,4 @@
-"""`giap setup` on the command line (issue M2-08; GIAP_SPEC.md §5.1, §7.9.1).
+"""`gippa setup` on the command line (issue M2-08; GIPPA_SPEC.md §5.1, §7.9.1).
 
 Only runs that need no download are exercised: ``--check`` and adoption of already-present
 databases. Network access fails the test.
@@ -15,13 +15,13 @@ import pytest
 from click.testing import CliRunner
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
-from giap.cli import cli
+from gippa.cli import cli
 
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     def deny(*_a: Any, **_k: Any) -> None:
-        raise AssertionError("giap setup touched the network")
+        raise AssertionError("gippa setup touched the network")
 
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(socket.socket, "connect", deny)
@@ -29,7 +29,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _bakta_light(db: Path) -> None:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     d = db / SOURCES["bakta_light"].path
     d.mkdir(parents=True)

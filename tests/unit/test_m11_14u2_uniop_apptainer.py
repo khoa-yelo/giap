@@ -171,7 +171,7 @@ def test_sif_path_and_mode(archive: bytes, tmp_path: Path, monkeypatch: pytest.M
 def test_apptainer_block_names_the_absolute_sif(
     archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.preflight.environment import _local_containers
+    from gippa.preflight.environment import _local_containers
 
     db, cache = _built(tmp_path, monkeypatch)
     path = db / LOCAL_TOOLS
@@ -219,7 +219,7 @@ def test_apptainer_path_never_calls_docker_and_never_pushes(
 def test_apptainer_build_adds_its_block_and_keeps_docker(
     archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.preflight.environment import _local_containers
+    from gippa.preflight.environment import _local_containers
 
     db = tmp_path / "db"
     db.mkdir()
@@ -262,7 +262,7 @@ def test_example_20_both_builds_fail(
     assert "local_build" not in item
     lt = db / LOCAL_TOOLS
     if lt.exists():
-        from giap.preflight.environment import _local_containers
+        from gippa.preflight.environment import _local_containers
 
         assert _local_containers(lt, "apptainer") == {}
 
@@ -298,8 +298,8 @@ def test_uniop_def_has_no_chown_and_fetches_nothing() -> None:
 
 
 def _reasons(db: Path, profile: str) -> dict[str, str]:
-    from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tool_reasons
+    from gippa.annotate.tools import TOOLS
+    from gippa.preflight.environment import missing_tool_reasons
 
     return missing_tool_reasons([TOOLS["uniop"]], profile, db / "containers", None,
                                 db / LOCAL_TOOLS)  # fmt: skip

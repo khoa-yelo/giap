@@ -1,4 +1,4 @@
-"""giapsim stop-codon read-through (M7-16 rule 14; PR 16b-3, lead decision in the #335 review
+"""gippasim stop-codon read-through (M7-16 rule 14; PR 16b-3, lead decision in the #335 review
 round; ADR-0058; acceptance "16b": sim100k with ``n_readthrough = 10``).
 
 ``SimConfig.n_readthrough: int = 0``. With 0 every existing scenario and seed is byte-identical
@@ -50,11 +50,11 @@ from helpers.readthrough_sim_oracle import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giapsim
-from giapsim.codons import STOPS
-from giapsim.denovo import DenovoConfig
-from giapsim.proteomics import ProteomicsConfig
-from giapsim.simulate import SimConfig, simulate
+import gippasim
+from gippasim.codons import STOPS
+from gippasim.denovo import DenovoConfig
+from gippasim.proteomics import ProteomicsConfig
+from gippasim.simulate import SimConfig, simulate
 
 MIXED = SimConfig(
     genome_length=30_000,
@@ -71,7 +71,7 @@ MIXED_SEED = 39
 #: GSIM_00155), GSIM_00180 on the linear contig runs off its end
 MIXED_ELIGIBLE = 26
 SIM100K_DENOVO = dataclasses.replace(
-    giapsim.SIM100K, proteomics=ProteomicsConfig(), denovo=DenovoConfig(), write_precomputed=True
+    gippasim.SIM100K, proteomics=ProteomicsConfig(), denovo=DenovoConfig(), write_precomputed=True
 )
 #: float-free files of a build, pinned to main below. ``peptides.tsv``, ``abundance.tsv`` and the
 #: de novo table carry formatted floats and are not pinned: the n = 0 vs default comparison only
@@ -104,7 +104,7 @@ PINNED = {
 }
 CASES: dict[str, tuple[SimConfig, int]] = {
     "mixed": (MIXED, MIXED_SEED),
-    "sim100k_denovo": (SIM100K_DENOVO, giapsim.SIM100K_SEED),
+    "sim100k_denovo": (SIM100K_DENOVO, gippasim.SIM100K_SEED),
 }
 
 
@@ -144,7 +144,7 @@ def sim100k(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     """The e2e build (sim100k, de novo) at n = 0 and n = 10."""
     base = tmp_path_factory.mktemp("rt_100k")
     return {
-        str(n): simulate(_rt(SIM100K_DENOVO, n), giapsim.SIM100K_SEED, base / f"n{n}").outdir
+        str(n): simulate(_rt(SIM100K_DENOVO, n), gippasim.SIM100K_SEED, base / f"n{n}").outdir
         for n in (0, 10)
     }
 
@@ -154,7 +154,7 @@ def sim100k(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 
 def test_the_knob_defaults_to_zero() -> None:
     assert SimConfig().n_readthrough == 0  # type: ignore[attr-defined]
-    assert giapsim.SIM100K.n_readthrough == 0  # type: ignore[attr-defined]
+    assert gippasim.SIM100K.n_readthrough == 0  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize("case", sorted(CASES))

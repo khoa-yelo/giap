@@ -1,4 +1,4 @@
-"""Gate M3 recall (GIAP_SPEC.md §13 Gate M3 "≥ 99.9 % recall of planted peptides"; issue M3-21
+"""Gate M3 recall (GIPPA_SPEC.md §13 Gate M3 "≥ 99.9 % recall of planted peptides"; issue M3-21
 "recall gate | M3-19, pi_wrong = 0.01, 100 kb, 5 seeds | recall ≥ 0.999 (mapping_recall_min)").
 
 Definition (docs/specs/M3-21 "Recall"): among correct, planted peptides from annotated CDS/sORFs
@@ -26,7 +26,7 @@ N_SEEDS = 5
 
 
 def _recall(tmp: Path, seed: int) -> tuple[int, list[tuple[str, ...]]]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     prot = ProteomicsConfig(pi_wrong=0.01, search_db="other")
     ch = run_chain("database", seed, tmp, proteomics=prot)

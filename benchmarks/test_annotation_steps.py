@@ -1,9 +1,9 @@
-"""Runtime of the in-process annotation steps on SIM100K (M2-21; GIAP_SPEC.md §12 benchmarks).
+"""Runtime of the in-process annotation steps on SIM100K (M2-21; GIPPA_SPEC.md §12 benchmarks).
 
-Two benchmarks, both through ``giap.steps.registry.run_step`` and no external tool (the tool
+Two benchmarks, both through ``gippa.steps.registry.run_step`` and no external tool (the tool
 outputs are the recorded / recorded-format files of ``tests/helpers/layers_chain.py``):
 
-* ``producer_chain_sim100k``: ``layers_chain.build_chain`` (giapsim SIM100K, then ``parse_bakta``,
+* ``producer_chain_sim100k``: ``layers_chain.build_chain`` (gippasim SIM100K, then ``parse_bakta``,
   ``uniop_input``, ``operon_pairs``, ``codon_usage``, ``terminator_layer``, ``region_layer``,
   ``promoter_windows``, ``promoter_layer``, ``tx_layer``, ``ostir_input``, ``rbs_layer``);
 * ``context_layers_sim100k``: the ``context_layers`` step on that chain.
@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 from helpers.layers_chain import Chain, build_chain, fresh_steps  # noqa: E402
 
-from giap.config import GiapConfig  # noqa: E402
+from gippa.config import GippaConfig  # noqa: E402
 
 ROUNDS = 5
 GATE_MIN_S = 1.0  # baselines below this are recorded, not gated (lead decisions 10, 13)
@@ -98,7 +98,7 @@ def test_context_layers_sim100k(benchmark: Any, chain: Chain, tmp_path: Path) ->
         def run(i: int) -> None:
             out = tmp_path / f"r{i}"
             outs = {"annotation": out / "annotation", "layers": out / "layers.parquet"}
-            reg.run_step("context_layers", GiapConfig(seed=1), dict(chain.inputs), outs)
+            reg.run_step("context_layers", GippaConfig(seed=1), dict(chain.inputs), outs)
             assert outs["layers"].is_file()
 
         _bench(benchmark, "context_layers_sim100k", run)

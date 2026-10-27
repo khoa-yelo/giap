@@ -1,6 +1,6 @@
 # M3-08: Tolerant matching, ±1-nt frameshift splits
 
-Milestone M3 · depends on: M3-02, M3-03, M3-06, M3-07 · creates `src/giap/mapping/frameshift.py`
+Milestone M3 · depends on: M3-02, M3-03, M3-06, M3-07 · creates `src/gippa/mapping/frameshift.py`
 · pure Python + numba · estimate ≈ 260 code lines
 
 ## Spec sections implemented
@@ -51,7 +51,7 @@ Sequence `GGCCGGAACCGACCATTGATAGAAAAACTGATGAACGCGTAA` (42 nt, linear `fs1`): fra
 
 ## Edge cases
 
-- Overlapping blocks for `δ = −1` are legal in GIAP's model but BED12 forbids overlapping blocks:
+- Overlapping blocks for `δ = −1` are legal in GIPPA's model but BED12 forbids overlapping blocks:
   the writer (M3-16) shortens the first block by 1 nt and records the read-twice base in the GFF3
   attributes.
 - Split points that land on a stop in either frame are rejected (no operation consumes `*`).

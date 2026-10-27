@@ -128,6 +128,6 @@ def test_main_passes_mapping_hits_to_novel_and_publishes_the_side_table() -> Non
 
 
 def test_local_runner_publishes_the_side_table() -> None:
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     assert PUBLISHED_FILES.get("novel_class_fdr") == "novel/novel_class_fdr.parquet"

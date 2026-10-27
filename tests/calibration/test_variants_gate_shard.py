@@ -1,5 +1,5 @@
 """Shard and confirm runs of the variants gate give SKIPPED, never XPASS (docs/specs/
-M7-13-calibration-gate.md lead decision 6). Under ``--shard`` or ``GIAP_CALIBRATION_CONFIRM`` the
+M7-13-calibration-gate.md lead decision 6). Under ``--shard`` or ``GIPPA_CALIBRATION_CONFIRM`` the
 harness returns ``shard`` / ``pending`` / ``skipped`` (no verdict); the strict-xfail gate tests
 (G1, A6a, A6b, A6c) must write their record and then skip, or every task-13 shard exits 1.
 
@@ -8,7 +8,7 @@ the tests that bypass the harness (G2, A6a, the A6a / A6c vacuity paths, M7-10's
 skip, while G1, A6b and A6c still reach the harness (their block 2 is logged there).
 
 Each case runs one gate test in a pytest subprocess with a stub plugin: the harness call and the
-replicate records are replaced (no GIAP run), so only the test's own status handling is exercised.
+replicate records are replaced (no GIPPA run), so only the test's own status handling is exercised.
 Unmarked: runs on every commit.
 """
 
@@ -60,13 +60,13 @@ STUB = textwrap.dedent(
 )
 
 #: M7-10's full tests bypass the harness; under a confirm run their body must not run. The stub
-#: makes any body that gets past ``replicate_range`` fail at once (no GIAP run).
+#: makes any body that gets past ``replicate_range`` fail at once (no GIPPA run).
 M710_STUB = textwrap.dedent(
     """
     import pytest
 
     def _boom(*a, **k):
-        raise RuntimeError("M7-10 body ran under GIAP_CALIBRATION_CONFIRM")
+        raise RuntimeError("M7-10 body ran under GIPPA_CALIBRATION_CONFIRM")
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_call(item):

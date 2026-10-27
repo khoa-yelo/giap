@@ -21,16 +21,16 @@ Milestone M5 · track T (tables and step) · depends on: M5-05, M5-06, M5-08; **
 
 ## Public interface
 
-- `src/giap/io/context_tsv.py`: `write_autocorrelation(path, df)`, `write_islands(path, df)` and readers
+- `src/gippa/io/context_tsv.py`: `write_autocorrelation(path, df)`, `write_islands(path, df)` and readers
   (inverse; islands 0-based → 1-based `start + 1`, `end` unchanged, `end > length` kept for origin
   crossers; lists `;`-joined; through M1-04 `write_tsv`, `%.6g`).
-- `src/giap/schemas/tables/autocorrelation.schema.json`, `islands.schema.json` (same layout as
+- `src/gippa/schemas/tables/autocorrelation.schema.json`, `islands.schema.json` (same layout as
   `detection_summary.schema.json`: name, type, unit in the name, description, enums, `coordinates`
   `1-based-closed` for islands, none for autocorrelation).
-- `src/giap/context/vocab.py`: `CONTEXT_FLAGS` = §9.4 Region-and-context flags + M4 additions
+- `src/gippa/context/vocab.py`: `CONTEXT_FLAGS` = §9.4 Region-and-context flags + M4 additions
   (`few_shifts`, `split_contigs`, `hl_variance_nonpositive`, `no_reference_replicon`, `ci_few_units`) +
   **M5 additions `not_estimable`, `few_values`** (Q1); both schemas constrain `flags` items to it.
-- `src/giap/steps/context_stats.py` (M4-18's step) gains inputs `tus` (C5, required) and `features`
+- `src/gippa/steps/context_stats.py` (M4-18's step) gains inputs `tus` (C5, required) and `features`
   (C15, optional) and outputs `autocorrelation` → `tables/autocorrelation.tsv`, `islands` →
   `tables/islands.tsv`, `gene_context` → `work/context/gene_context.parquet` (`locus_tag`, `island_id`,
   `replichore`, `replichore_position`; one row per gene of the gene table).
@@ -100,10 +100,10 @@ in its §9.3 position, for autocorrelation) and `flags` last.
 37. Q2, Q3: accept the proposed defaults.
 
 ## Lead decisions after the test-author's report (2026-10-21)
-1. **`giap.context.diagnostics` is accepted as invented.** ADR-0021 Amendment 1 requires the per-replicon
+1. **`gippa.context.diagnostics` is accepted as invented.** ADR-0021 Amendment 1 requires the per-replicon
    ℓ̂ / ℓ' / Î₁ to be reported, but `IslandScan` dies with the step, `detection_summary.tsv` must stay
    byte-identical (example 8), `autocorrelation.tsv`'s `statistic` enum is closed, and the §9.4 run report
-   does not exist yet (`src/giap/report/` holds only `__init__.py`). So the step persists
+   does not exist yet (`src/gippa/report/` holds only `__init__.py`). So the step persists
    `work/context/island_diagnostics.parquet` with `DIAGNOSTICS_COLUMNS` and `BLOCK_RULES` as proposed.
    The semantics are the contract and survive any later renaming: ℓ̂ and ℓ' are **NA, never 0**; a fixed
    block gives `block_rule="fixed"`, ℓ̂ NA, ℓ' = the configured value, Î₁ finite; not scanned gives NA/NaN
@@ -132,7 +132,7 @@ in its §9.3 position, for autocorrelation) and `flags` last.
    `scan_s`, which both breaks the convention and duplicates a column the same row already carries. So
    **islands' `stat` becomes the string `"scan_max"`** and `scan_s` keeps the value. The M5-09
    test-author's fixtures already say `"scan_max"` — they were right and the merged producer is the slip.
-   This changes merged code (`src/giap/context/islands.py`) and one merged oracle
+   This changes merged code (`src/gippa/context/islands.py`) and one merged oracle
    (tests/unit/context/test_islands.py:134); cheap now, expensive once goldens, the M9 report and any
    generic table reader depend on three tables meaning three different things by `stat`.
 7. **The `flag_set` / `NA` contradiction is a test bug**: `test_every_row_keeps_its_own_flags` reads raw

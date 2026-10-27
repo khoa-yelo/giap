@@ -1,12 +1,12 @@
 """M7-10 lead decision 1: preflight writes ``work/peptide_spectra.parquet`` (C17) for the de novo
 and reference rows, an optional contract table the ``variants`` step reads
-(docs/specs/M7-10-class-error-rates.md "Lead decisions (2026-10-22)" 1; GIAP_SPEC.md §5.3
+(docs/specs/M7-10-class-error-rates.md "Lead decisions (2026-10-22)" 1; GIPPA_SPEC.md §5.3
 ``--reference-peptides``, G2, §7.5.4).
 
 Interface pinned here (test-author reading; see the report to the lead):
 
-* ``giap.preflight.run.PreflightInputs`` gains the keyword field ``reference_peptides: Path |
-  None = None`` (the ``--reference-peptides`` file; ``giap run`` already has the option).
+* ``gippa.preflight.run.PreflightInputs`` gains the keyword field ``reference_peptides: Path |
+  None = None`` (the ``--reference-peptides`` file; ``gippa run`` already has the option).
 * With de novo rows that carry a ``spectrum_id`` and a reference table that does too,
   ``write_outputs`` writes ``OUT/work/preflight/peptide_spectra.parquet`` (next to
   ``peptides.norm.parquet`` and ``peptide_runs.parquet``). Every de novo row of ``--peptides``
@@ -15,11 +15,11 @@ Interface pinned here (test-author reading; see the report to the lead):
   Database rows of ``--peptides`` are *not* reference rows (§7.5.4 pairs with
   ``--reference-peptides`` only). Decoy and low-confidence (q > 0.01) reference rows are dropped
   here: preflight is the only decoy filter on the pipeline path (M7-10 lead decision 5).
-* C17 is registered in ``giap.genetable.contract.TABLES["peptide_spectra"]`` with the required
+* C17 is registered in ``gippa.genetable.contract.TABLES["peptide_spectra"]`` with the required
   columns ``run``, ``spectrum_id``, ``peptide`` and ``source`` (more columns allowed), in
-  ``giap.io.work_tables.EXTRA_FILE_NAMES`` as ``peptide_spectra.parquet`` (like C16), and
+  ``gippa.io.work_tables.EXTRA_FILE_NAMES`` as ``peptide_spectra.parquet`` (like C16), and
   preflight's own output validates without errors.
-* ``giap run --executor local`` (``cli._local_roots``) stages it as the root key
+* ``gippa run --executor local`` (``cli._local_roots``) stages it as the root key
   ``peptide_spectra`` when ``--reference-peptides`` is given.
 """
 
@@ -32,8 +32,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config import resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import resolve_config
+from gippa.exitcodes import ExitCode
 
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 HEADER = ["peptide", "protein_ids", "q_value", "score", "is_decoy", "run", "charge",
@@ -52,7 +52,7 @@ REFERENCE = [("AAAAAAKR", "run1", "run1.1", "0.001", "false"),
 
 @pytest.fixture(autouse=True)
 def _isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("GIAP_DB_DIR", "GIAP_REPO", "GIAP_ROOT"):
+    for name in ("GIPPA_DB_DIR", "GIPPA_REPO", "GIPPA_ROOT"):
         d = tmp_path / f"env_{name.lower()}"
         d.mkdir()
         monkeypatch.setenv(name, str(d))
@@ -85,7 +85,7 @@ def _reference(root: Path, with_sid: bool = True) -> Path:
 
 
 def _fake_probe() -> Any:
-    from giap.preflight.environment import GIB, EnvProbe, requirements
+    from gippa.preflight.environment import GIB, EnvProbe, requirements
 
     found = {r.name: r.min_version or "1.0"
              for r in requirements(["core", "mobile", "bgc", "function"], "genome")}  # fmt: skip
@@ -93,7 +93,7 @@ def _fake_probe() -> Any:
 
 
 def run_preflight_with_reference(root: Path, *, ref_sid: bool = True) -> tuple[Any, Path]:
-    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    from gippa.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
     root.mkdir(parents=True, exist_ok=True)
     inp = PreflightInputs(_genome(root), None, _peptides(root), None, None,
@@ -111,7 +111,7 @@ def run_preflight_with_reference(root: Path, *, ref_sid: bool = True) -> tuple[A
 def test_preflight_inputs_has_reference_peptides_field() -> None:
     import dataclasses
 
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     fields = {f.name: f for f in dataclasses.fields(PreflightInputs)}
     assert "reference_peptides" in fields
@@ -142,8 +142,8 @@ def test_preflight_writes_peptide_spectra(tmp_path: Path) -> None:
 
 
 def test_peptide_spectra_is_contract_table_c17(tmp_path: Path) -> None:
-    from giap.genetable.contract import TABLES, validate_table
-    from giap.io.work_tables import EXTRA_FILE_NAMES
+    from gippa.genetable.contract import TABLES, validate_table
+    from gippa.io.work_tables import EXTRA_FILE_NAMES
 
     assert "peptide_spectra" in TABLES
     required = {c.name for c in TABLES["peptide_spectra"] if not c.optional}
@@ -159,7 +159,7 @@ def test_peptide_spectra_is_contract_table_c17(tmp_path: Path) -> None:
 
 
 def test_load_tables_reads_c17_and_a_missing_file_is_a_warning(tmp_path: Path) -> None:
-    from giap.io.work_tables import load_tables
+    from gippa.io.work_tables import load_tables
 
     _report, work = run_preflight_with_reference(tmp_path / "a")
     frames, issues = load_tables({"peptide_spectra": work / "peptide_spectra.parquet"},
@@ -187,8 +187,8 @@ def test_reference_without_spectrum_id_gives_no_reference_rows(tmp_path: Path) -
 def test_local_executor_stages_peptide_spectra(tmp_path: Path) -> None:
     from helpers.mapping_steps import write_test_db
 
-    from giap.cli import _local_roots
-    from giap.config import GiapConfig
+    from gippa.cli import _local_roots
+    from gippa.config import GippaConfig
 
     db = write_test_db(tmp_path / "db")
     root = tmp_path / "in"
@@ -198,8 +198,8 @@ def test_local_executor_stages_peptide_spectra(tmp_path: Path) -> None:
         "reference_peptides": _reference(root), "db_dir": db,
     }  # fmt: skip
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
-        cfg = GiapConfig.model_validate(
+        mp.setenv("GIPPA_DB_DIR", str(db))
+        cfg = GippaConfig.model_validate(
             {"preflight": {"min_n50_warn": 1, "min_largest_contig_warn": 1}}
         )
         roots = _local_roots(cfg, tmp_path / "OUT", _genome(root), inputs)

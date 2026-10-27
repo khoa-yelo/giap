@@ -2,7 +2,7 @@
 
 Milestone M6 · track S + R · **pass 2** (hardening; closes the discordance half of the M6 gate) ·
 depends on: M6-01, M6-05 (+05H), M6-09 (PR #310, the D-1 attack) · estimate ≈ 60–75 code lines
-(≈ 40 in `giap.stats.tdist`, ≈ 20 in `giap.operons.discordance`, ≈ 10 in `giap.steps.operons`)
+(≈ 40 in `gippa.stats.tdist`, ≈ 20 in `gippa.operons.discordance`, ≈ 10 in `gippa.steps.operons`)
 (+ ≈ 150 new test lines; ≈ 20 lines of existing-test migration owned by the lead, see "Test plan")
 · **statistical** (label `stats`): the statistician reviews the methods-note draft below **before
 code** (§14.1). Every open statistical choice is marked **[S-n]**.
@@ -51,7 +51,7 @@ pair.
    - γ ∈ [−2, 2] **[S-4]**. At γ = ±2 the σ ratio between z = −2 and z = +2 is e⁸, far
      outside any plausible proteomics noise.
    - γ = 0 is exactly the current model.
-3. **Fit procedure** (`giap.stats.tdist.fit_student_t_scaled`).
+3. **Fit procedure** (`gippa.stats.tdist.fit_student_t_scaled`).
    1. Run the constant fit `fit_student_t(Δ)` exactly as today. If it is unestimated, or
       `converged = False`, every OP pair is `too_few_op_pairs`, exactly as today, and no
       scaled fit is tried.
@@ -114,7 +114,7 @@ found mean γ̂ = −0.004, so the truncation effect in the simulator is small.
 
 ## Public interface
 
-`src/giap/stats/tdist.py` (pure; added to `__all__`):
+`src/gippa/stats/tdist.py` (pure; added to `__all__`):
 ```python
 @dataclass(frozen=True, slots=True)
 class ScaledStudentT:
@@ -137,7 +137,7 @@ def scale_at(covariate: ArrayLike, fit: ScaledStudentT) -> F64: ...   # σ̂_i, 
 - `model = "constant"` returns gamma = 0.0 and the `fit_student_t` loc, scale and df **bit for
   bit**.
 
-`src/giap/operons/discordance.py`:
+`src/gippa/operons/discordance.py`:
 - `discordance(..., *, sigma_model: Literal["loglinear", "constant"] = "loglinear")`.
   `"constant"` reproduces current main bit for bit (`reason = "disabled"`).
 - `Discordance` gains `scaled: ScaledStudentT`, the null used for every p. `fit: StudentT`
@@ -145,7 +145,7 @@ def scale_at(covariate: ArrayLike, fit: ScaledStudentT) -> F64: ...   # σ̂_i, 
 - `fit_rows` is unchanged. A new `fit_pairs(pairs) -> tuple[F64, F64]` returns (Δ, m) sorted
   lexicographically.
 
-`src/giap/steps/operons.py`:
+`src/gippa/steps/operons.py`:
 - The fit is threaded out of `run_operons`.
 - One INFO event, `operons.discordance_fit`, is emitted. A WARNING is added when `reason` is
   `not_converged`, `collapsed` or `worse_than_constant`.
@@ -162,9 +162,9 @@ def scale_at(covariate: ArrayLike, fit: ScaledStudentT) -> F64: ...   # σ̂_i, 
 - **Proposed key:** `operons.discordance_sigma`, enum {`loglinear`, `constant`}, default
   `loglinear`.
   - It is **not** a protected tolerance: `tests/calibration/tolerances.yaml` and
-    `src/giap/data/calibration.yaml` are untouched.
+    `src/gippa/data/calibration.yaml` are untouched.
   - It is a method switch, also useful as an M6-10 sensitivity variant later.
-  - **However**, `src/giap/config/defaults.yaml` is a protected file, and
+  - **However**, `src/gippa/config/defaults.yaml` is a protected file, and
     `test_model_defaults_equal_defaults_yaml` requires the key to be added there (Q2).
 - `MIN_ABUNDANCE_SD_LOG2` (0.1) and `GAMMA_BOUNDS` (−2, 2) are **module constants**, like
   `MIN_OP_PAIRS`. They are not config keys. There is no `MIN_GAMMA_PAIRS` (S-5).
@@ -456,7 +456,7 @@ lands.*
      r_j = μ̂ + (Δ_j − μ̂) · σ̂(z_v) / σ̂(z_j)", is filed in the backlog and measured by attack C.
      Reversing it means one extra `ratios` transform in `_one_detected`.
 2. **Config key in a protected file.** `operons.discordance_sigma` needs a line in
-   `src/giap/config/defaults.yaml`, which is protected (and test_config enforces equality).
+   `src/gippa/config/defaults.yaml`, which is protected (and test_config enforces equality).
    **Default:** the implementer PR ships the `sigma_model` function parameter and a module
    constant `SIGMA_MODEL = "loglinear"`, with no config key. The key lands as a lead-made,
    Khoa-approved protected-file edit (one line in `OperonsConfig` and one in `defaults.yaml`).

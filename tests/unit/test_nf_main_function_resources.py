@@ -1,10 +1,10 @@
 """``workflow/main.nf``'s ``functionResources()`` resolves the five items at Python's paths (M8-06
 item 7, 06b; the MVP-01 pattern of ``test_nf_main_installed_items.py``).
 
-``main.nf`` cannot import ``giap.setupdb``; ``functionResources()`` builds a ``[key, path]``
+``main.nf`` cannot import ``gippa.setupdb``; ``functionResources()`` builds a ``[key, path]``
 channel from ``installed(name, relative)`` calls with literal relative paths. These checks keep
-the literals equal to ``giap/data/db_sources.yaml`` and the names equal to
-``giap.setupdb.installed.FUNCTION_RESOURCES``; ``cogTable()``'s path is pinned with them. The
+the literals equal to ``gippa/data/db_sources.yaml`` and the names equal to
+``gippa.setupdb.installed.FUNCTION_RESOURCES``; ``cogTable()``'s path is pinned with them. The
 module switch (``'function' in (params.modules ?: [])``) is pinned textually here and behaviourally
 by ``workflow/tests/main_function.nf.test``. No Nextflow needed.
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.setupdb.items import SOURCES
+from gippa.setupdb.items import SOURCES
 
 ROOT = Path(__file__).resolve().parents[2]
 MAIN_NF = ROOT / "workflow" / "main.nf"
@@ -44,7 +44,7 @@ def _installed(body: str) -> dict[str, str]:
 
 
 def test_function_resources_names_equal_installed_function_resources() -> None:
-    from giap.setupdb.installed import FUNCTION_RESOURCES
+    from gippa.setupdb.installed import FUNCTION_RESOURCES
 
     assert tuple(NAMES) == FUNCTION_RESOURCES
     calls = _installed(_body(_text(MAIN_NF), "functionResources"))
@@ -84,6 +84,6 @@ def test_main_nf_calls_function_only_under_the_module_switch() -> None:
 
 def test_function_subworkflow_uses_the_function_step_alias() -> None:
     text = _text(FUNCTION_NF)
-    assert re.search(r"include\s*\{\s*GIAP_STEP\s+as\s+FUNCTION_STEP\s*\}", text), text[:400]
+    assert re.search(r"include\s*\{\s*GIPPA_STEP\s+as\s+FUNCTION_STEP\s*\}", text), text[:400]
     assert re.search(r"workflow\s+FUNCTION\s*\{", text)
     assert re.search(r"stepIn\(\s*'function'", text)

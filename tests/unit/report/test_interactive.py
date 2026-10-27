@@ -1,15 +1,15 @@
 """The interactive report (M9-14 behaviour 1-3, 6; examples 1-3; degenerate rows "no twin
 registered for any rendered plot" and "a twin raises"; acceptance "the JSON spec of the V17 twin
-equals the data TSV values"; GIAP_SPEC.md §10.2 column "Interactive in report", §10.3
+equals the data TSV values"; GIPPA_SPEC.md §10.2 column "Interactive in report", §10.3
 "Self-contained ... Plotly.js is inlined once", §5.1 ``--no-interactive``, §5.2
 ``report.interactive``).
 
-Twins are test-only (lead decision 3), registered into a swapped ``giap.viz.interactive`` registry
+Twins are test-only (lead decision 3), registered into a swapped ``gippa.viz.interactive`` registry
 over fake plots (tests/helpers/report_fixtures.py). Structure checks with html.parser only; no
-browser (lead decision 1). Never touches the real ``$GIAP_DB_DIR``; no network.
+browser (lead decision 1). Never touches the real ``$GIPPA_DB_DIR``; no network.
 
 Interface assumed beyond the spec text (M9-14 test author):
-- ``giap.viz.interactive.interactive(pid)`` returns the decorated function unchanged and raises
+- ``gippa.viz.interactive.interactive(pid)`` returns the decorated function unchanged and raises
   ``ValueError`` when ``pid`` already has a twin; ``figure_json(pid, data, title)`` is
   ``None`` for a plot without a twin, else a JSON object string with ``data`` and ``layout``,
   identical across calls;
@@ -48,7 +48,7 @@ from helpers.interactive_fixtures import (
 )
 from helpers.report_fixtures import Page, register_fake, run_out, swap_registry
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 ROOT = Path(__file__).resolve().parents[3]
 FAST = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
@@ -57,7 +57,7 @@ FAST = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -95,7 +95,7 @@ def _tsv(path: Path) -> pd.DataFrame:
 
 
 def _cli(out: Path, *args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["report", str(out), *FAST, *args])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -256,7 +256,7 @@ def test_twin_of_a_skipped_plot_means_no_plotly(twins: ModuleType, tmp_path: Pat
 
 
 def test_a_twin_that_raises_fails_the_report_step(twins: ModuleType, tmp_path: Path) -> None:
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     register_fake("V17")
     register_twin("V17", raises=True)
@@ -264,7 +264,7 @@ def test_a_twin_that_raises_fails_the_report_step(twins: ModuleType, tmp_path: P
         run_steps(tmp_path)
 
 
-def test_a_twin_that_raises_is_exit_4_in_giap_report(twins: ModuleType, tmp_path: Path) -> None:
+def test_a_twin_that_raises_is_exit_4_in_gippa_report(twins: ModuleType, tmp_path: Path) -> None:
     register_fake("V17")
     register_twin("V17", raises=True)
     out = run_out(tmp_path)
@@ -326,7 +326,7 @@ def test_cli_set_report_interactive_false_is_static_only(twins: ModuleType, tmp_
 
 
 def test_external_loads_checker_flags_loads() -> None:
-    """The local checker itself (stand-in for M9-13's ``giap.report.checks.external_loads``)."""
+    """The local checker itself (stand-in for M9-13's ``gippa.report.checks.external_loads``)."""
     bad = (
         '<html><head><script src="https://cdn.plot.ly/x.js"></script>'
         '<link rel="stylesheet" href="a.css"><style>@import "https://f/x.css";'

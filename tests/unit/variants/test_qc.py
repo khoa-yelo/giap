@@ -1,5 +1,5 @@
 """M7-14 rule 3: the ``id_mixups`` QC count (docs/specs/M7-14-te2-proxy-and-id-mixups.md examples
-3-4, every ``id_mixups`` degenerate row, lead decision 1; GIAP_SPEC.md §7.5.1 row 1, §9.3).
+3-4, every ``id_mixups`` degenerate row, lead decision 1; GIPPA_SPEC.md §7.5.1 row 1, §9.3).
 
 §7.5.1: "Search against this strain's Bakta proteins (``search_db = same``) | cannot occur, except
 at Sec sites and non-ATG starts, which appear as ALT calls | consistency check: ALT sites without
@@ -8,7 +8,7 @@ the ``start_codon`` or ``stop_codon`` flag are counted as ``id_mixups``".
 Interface pinned here (test-author reading of the spec's signature
 ``id_mixups(sites, support) -> tuple[int, int]``)::
 
-    giap.variants.qc.id_mixups(sites: pd.DataFrame, support: pd.DataFrame) -> tuple[int, int]
+    gippa.variants.qc.id_mixups(sites: pd.DataFrame, support: pd.DataFrame) -> tuple[int, int]
 
 * ``sites``: the ``variants.tsv`` frame (M7-03 ``vcf_records`` table / ``read_variants``), one row
   per ALT site (``call`` ALT or mixed), keyed by ``variant_id``; ``flags`` is a tuple (or list) of
@@ -32,7 +32,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 SUPPORT_COLUMNS = ["variant_id", "peptide", "source", "search_db"]
 FLAGS = ("mass_equivalent", "snv", "multi_nt", "strain_difference", "database_derived",
@@ -40,7 +40,7 @@ FLAGS = ("mass_equivalent", "snv", "multi_nt", "strain_difference", "database_de
 
 
 def _id_mixups(sites: pd.DataFrame, support: pd.DataFrame) -> tuple[int, int]:
-    from giap.variants.qc import id_mixups
+    from gippa.variants.qc import id_mixups
 
     return id_mixups(sites, support)
 
@@ -117,15 +117,15 @@ def test_sites_without_any_support_rows_give_zero_with_n_zero() -> None:
     assert _id_mixups(_sites(_site("VAR_1")), _support()) == (0, 0)
 
 
-def _flags(site: dict[str, Any], starts: set[tuple[str, str, int]], cfg: GiapConfig,
+def _flags(site: dict[str, Any], starts: set[tuple[str, str, int]], cfg: GippaConfig,
            sources: set[tuple[str, str]]) -> tuple[str, ...]:  # fmt: skip
-    from giap.variants.flags import flags_for
+    from gippa.variants.flags import flags_for
 
     return tuple(flags_for(site, starts, cfg, sources))
 
 
-def _cfg(relation: str = "same") -> GiapConfig:
-    return GiapConfig.model_validate({"seed": 1, "genome_relation": relation})
+def _cfg(relation: str = "same") -> GippaConfig:
+    return GippaConfig.model_validate({"seed": 1, "genome_relation": relation})
 
 
 def test_same_db_alt_m_at_a_gtg_start_is_not_a_mixup() -> None:

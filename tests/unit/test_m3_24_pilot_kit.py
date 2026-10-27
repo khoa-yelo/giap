@@ -1,4 +1,4 @@
-"""The pilot kit of GIAP_SPEC.md §15: cfg files, README, ``db_a2`` and the three sbatch scripts
+"""The pilot kit of GIPPA_SPEC.md §15: cfg files, README, ``db_a2`` and the three sbatch scripts
 (M3-24 and its lead decisions 1-6 in docs/specs/M3-24-pilot-kit.md).
 
 Static checks only: files are read, the scripts are parsed with ``bash -n``. Nothing is submitted,
@@ -10,9 +10,9 @@ Conventions settled by the test author (the cfg grammar is documented in
 
 * Each cfg holds the flags of both DIA-NN 2.x steps under ``[step1]`` and ``[step2]`` headers;
   the two arms differ only in ``--fasta`` (spec acceptance criterion 2).
-* Digest flags are compared against ``giap.mapping.digest`` itself, not against a second copy of
+* Digest flags are compared against ``gippa.mapping.digest`` itself, not against a second copy of
   the numbers: ``--cut`` is derived from ``cut_sites``, the lengths and missed cleavages from the
-  ``digest`` signature, and ``--met-excision`` must be absent because GIAP digests the protein as
+  ``digest`` signature, and ``--met-excision`` must be absent because GIPPA digests the protein as
   written (digest.py lead decision 1).
 * Every flag of the §15.2 template that the cfg files do not use must be named in the README
   (decision 5: "any flag ... that 2.3.1 does not accept is listed in the README").
@@ -47,8 +47,8 @@ from helpers.pilot_kit import (
     SCRIPTS,
     SPEC_VERSION,
     STRAIN_DB,
-    giap_digest_flags,
-    giap_excises_initiator_met,
+    gippa_digest_flags,
+    gippa_excises_initiator_met,
     names,
     read_cfg,
     spec_template_flags,
@@ -96,7 +96,7 @@ def test_deliverable_exists(path: Path) -> None:
 
 
 def test_db_a2_has_an_id_map() -> None:
-    """Decision 10: the name ``giap makedb`` writes, ``db_id_map.tsv`` (the spec's is a typo)."""
+    """Decision 10: the name ``gippa makedb`` writes, ``db_id_map.tsv`` (the spec's is a typo)."""
     assert ID_MAP.is_file(), f"{ID_MAP.relative_to(REPO)} does not exist"
     header = ID_MAP.read_text().splitlines()[0].split("\t")
     assert header == list(ID_MAP_COLUMNS), header
@@ -128,10 +128,10 @@ def test_step1_predicts_a_library_and_step2_searches(arm: str) -> None:
 
 
 @pytest.mark.parametrize("arm", ARMS)
-def test_digest_flags_match_giap_digest(arm: str) -> None:
-    """Decision 5: the DIA-NN digest is GIAP's digest (M3-22, src/giap/mapping/digest.py)."""
+def test_digest_flags_match_gippa_digest(arm: str) -> None:
+    """Decision 5: the DIA-NN digest is GIPPA's digest (M3-22, src/gippa/mapping/digest.py)."""
     cfg = read_cfg(CFG[arm])
-    expected = giap_digest_flags()
+    expected = gippa_digest_flags()
     got = {flag: vals for flag in expected if (vals := values(cfg["step1"], flag))}
     missing = sorted(set(expected) - set(got))
     assert not missing, f"{CFG[arm].name} [step1]: digest flags missing: {missing}"
@@ -145,19 +145,19 @@ def test_digest_flags_match_giap_digest(arm: str) -> None:
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_no_met_excision(arm: str) -> None:
-    """GIAP digests the protein as written (digest.py decision 1), so DIA-NN must not excise Met."""
+    """GIPPA digests the protein as written (digest.py decision 1), so DIA-NN must not excise Met."""
     cfg = read_cfg(CFG[arm])
     used = any("--met-excision" in names(section) for section in cfg.values())
-    assert used == giap_excises_initiator_met(), (
+    assert used == gippa_excises_initiator_met(), (
         f"{CFG[arm].name}: --met-excision is "
-        f"{'absent' if not used else 'used'} while giap.mapping.digest "
-        f"{'excises' if giap_excises_initiator_met() else 'keeps'} the initiator Met"
+        f"{'absent' if not used else 'used'} while gippa.mapping.digest "
+        f"{'excises' if gippa_excises_initiator_met() else 'keeps'} the initiator Met"
     )
 
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_search_step_reports_decoys_and_fixes_qvalue(arm: str) -> None:
-    """§15.2 step 5: decoy reporting, so GIAP can use the picked tier."""
+    """§15.2 step 5: decoy reporting, so GIPPA can use the picked tier."""
     step2 = read_cfg(CFG[arm])["step2"]
     assert "--report-decoys" in names(step2), sorted(names(step2))
     assert values(step2, "--qvalue") == ["0.01"], values(step2, "--qvalue")
@@ -232,8 +232,8 @@ def test_readme_gives_the_pilot_commands() -> None:
         "README must submit the work with sbatch, never a login node"
     )
     for outdir in ("out_a1", "out_a2", "out_a3"):
-        assert re.search(rf"giap run[^\n]*--outdir\s+{outdir}\b", text), (
-            f"README misses the §15.2 `giap run … --outdir {outdir}` line"
+        assert re.search(rf"gippa run[^\n]*--outdir\s+{outdir}\b", text), (
+            f"README misses the §15.2 `gippa run … --outdir {outdir}` line"
         )
     assert "--reference-peptides" in text, "the A3 run passes --reference-peptides a2.tsv.gz"
     assert "Khoa" in text, "deliverable 6: who does what"
@@ -268,7 +268,7 @@ def test_the_pinned_sha256_is_still_the_image_on_disk() -> None:
     )
 
 
-# ---------------------------------------------------------------- db_a2 (giap makedb)
+# ---------------------------------------------------------------- db_a2 (gippa makedb)
 
 
 def _recorded_counts() -> dict[str, int]:
@@ -301,7 +301,7 @@ def test_db_a2_holds_the_bakta_proteins_including_sorfs() -> None:
     manifest = json.loads(_text(MANIFEST))
     counts, options = manifest["counts"], manifest["options"]
     expected = _recorded_counts()
-    # ``giap makedb`` drops the 3 CDS Bakta marks as pseudogenes, so the count is just under the
+    # ``gippa makedb`` drops the 3 CDS Bakta marks as pseudogenes, so the count is just under the
     # annotated one; a database built from a different genome would be far off.
     assert 0.99 * expected["cds"] <= counts["cds"] <= expected["cds"], (counts, expected)
     assert counts["sorf"] == expected["sorf"], (counts, expected)
@@ -359,7 +359,7 @@ def test_no_script_copies_the_image_into_the_repository() -> None:
         for m in re.finditer(r"^\s*(cp|rsync|ln|mv|curl|wget)\b[^\n]*", code, re.M):
             line = m.group(0)
             assert ".sif" not in line, f"{name}: the image is never copied ({line.strip()})"
-        assert not re.search(r"\$\{?GIAP_REPO\}?[^\n]*>\s", code), (
+        assert not re.search(r"\$\{?GIPPA_REPO\}?[^\n]*>\s", code), (
             f"{name}: writes into the repository checkout"
         )
 
@@ -391,10 +391,10 @@ def test_script_passes_shellcheck_when_available(name: str) -> None:
 
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
 def test_sbatch_house_rules(name: str) -> None:
-    """R14 and §3.8: ``giap-*`` job name, resources, the shared environment, no login-node work."""
+    """R14 and §3.8: ``gippa-*`` job name, resources, the shared environment, no login-node work."""
     path = SCRIPTS[name]
     job = _directive(path, "job-name")
-    assert job and job.startswith("giap-"), f"{name}: job name {job!r} (R14: giap-*)"
+    assert job and job.startswith("gippa-"), f"{name}: job name {job!r} (R14: gippa-*)"
     assert _directive(path, "partition"), f"{name}: no --partition"
     assert _directive(path, "time"), f"{name}: no --time"
     cpus = _directive(path, "cpus-per-task")
@@ -406,16 +406,16 @@ def test_sbatch_house_rules(name: str) -> None:
     assert "scripts/farmshare_env.sh" in code, f"{name}: does not source scripts/farmshare_env.sh"
     assert re.search(r"^set -euo pipefail$", code, re.M), f"{name}: no `set -euo pipefail`"
     out = _directive(path, "output")
-    assert out and ("$GIAP_ROOT" in out or "/local/logs/" in out), f"{name}: --output {out}"
+    assert out and ("$GIPPA_ROOT" in out or "/local/logs/" in out), f"{name}: --output {out}"
 
 
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
 def test_outputs_live_outside_the_repository(name: str) -> None:
     code = _code(SCRIPTS[name])
-    assert re.search(r"\$\{?GIAP_(ROOT|DATA_DIR|LOG_DIR)\b", code), (
-        f"{name}: writes nothing under $GIAP_ROOT (R14: large files only there)"
+    assert re.search(r"\$\{?GIPPA_(ROOT|DATA_DIR|LOG_DIR)\b", code), (
+        f"{name}: writes nothing under $GIPPA_ROOT (R14: large files only there)"
     )
-    out_in_repo = re.compile(r"(OUT|OUTPUT|WORK|DEST)[A-Z_]*=\S*(validation/|\$\{?GIAP_REPO)")
+    out_in_repo = re.compile(r"(OUT|OUTPUT|WORK|DEST)[A-Z_]*=\S*(validation/|\$\{?GIPPA_REPO)")
     bad = [ln for ln in code.splitlines() if out_in_repo.search(ln)]
     assert not bad, f"{name}: output directory inside the repository: {bad}"
 
@@ -438,7 +438,7 @@ def test_diann_pilot_uses_the_image_from_decision_1() -> None:
     assert m, "diann_pilot.sbatch: DIANN_SIF has no ${DIANN_SIF:-…} default (decision 3)"
     # M10-02 lead decision 1: the pilot runs the verified copy; Khoa's image is the source of
     # diann_image.sbatch
-    assert m.group(1).strip("\"'") == "$GIAP_ROOT/images/diann_2.3.1.sif", m.group(1)
+    assert m.group(1).strip("\"'") == "$GIPPA_ROOT/images/diann_2.3.1.sif", m.group(1)
     image_job = _code(REPO / "scripts" / "slurm" / "diann_image.sbatch")
     shared = re.search(r"DIANN_SIF_SHARED:-(\S+?)\}", image_job)
     assert shared and shared.group(1).strip("\"'") == DIANN_SIF, image_job[:200]
@@ -468,7 +468,7 @@ def test_denovo_pilot_is_a_gpu_job_with_the_documented_fallback() -> None:
     path = SCRIPTS["denovo_pilot"]
     assert _directive(path, "partition") == "gpu", _directive(path, "partition")
     assert re.fullmatch(r"gpu(:\w+)?:1", _directive(path, "gres") or ""), _directive(path, "gres")
-    assert (_directive(path, "job-name") or "").startswith("giap-denovo")
+    assert (_directive(path, "job-name") or "").startswith("gippa-denovo")
     text = _text(path)
     assert "Cascadia" in text and "0.0.7" in text, "the pinned Cascadia version (§15.1)"
     for token in ("Casanovo", "5.2.1", "PXD053727", "UTI89"):
@@ -477,10 +477,10 @@ def test_denovo_pilot_is_a_gpu_job_with_the_documented_fallback() -> None:
 
 
 def test_fetch_script_downloads_outside_the_repository() -> None:
-    """Deliverable 5: ``$GIAP_DATA_DIR/pxd078459/`` plus ``SHA256SUMS``, never under the repo."""
+    """Deliverable 5: ``$GIPPA_DATA_DIR/pxd078459/`` plus ``SHA256SUMS``, never under the repo."""
     path = SCRIPTS["fetch_pxd078459"]
     code = _code(path)
-    assert re.search(r"\$\{?GIAP_DATA_DIR\}?/pxd078459", code, re.I), code[:400]
+    assert re.search(r"\$\{?GIPPA_DATA_DIR\}?/pxd078459", code, re.I), code[:400]
     assert "SHA256SUMS" in code
     assert re.search(r"PXD078459", code, re.I), "the accession of §15.1 is not named"
     assert re.search(r"\b(curl|wget)\b", code), (

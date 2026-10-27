@@ -1,9 +1,9 @@
-"""Mapping chain through the registered steps on giapsim: recall and placement FDR (issue M3-17;
-GIAP_SPEC.md §7.2.9 "Gate M3", §8.4 "Placement FDR" row; definitions of docs/specs/M3-21).
+"""Mapping chain through the registered steps on gippasim: recall and placement FDR (issue M3-17;
+GIPPA_SPEC.md §7.2.9 "Gate M3", §8.4 "Placement FDR" row; definitions of docs/specs/M3-21).
 
 M3-21 owns the full genome-level suites; these two tests check that the *wiring* (query
 selection, routes, decoy types, π̂, placement, loci; helpers.mapping_steps.drive with
-``giap.steps.registry.run_step``) keeps the guarantees the pure functions have:
+``gippa.steps.registry.run_step``) keeps the guarantees the pure functions have:
 
 * **Recall** (claim §13 Gate M3, threshold ``mapping_recall_min``): 100-kb genome, M3-19 database
   errors (``pi_wrong = 0.01``, ``search_db = other``), seed ``seeds.calibration_base``. Among
@@ -38,7 +38,7 @@ from helpers.mapping_steps import (
     simulate_with_proteomics,
 )
 
-from giap.config import resolve_config
+from gippa.config import resolve_config
 
 pytestmark = pytest.mark.calibration
 
@@ -46,7 +46,7 @@ SUITE = "placement"
 
 
 def _chain(tmp: Path, seed: int, length: int, pi_wrong: float) -> tuple[dict, dict, object]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     run = simulate_with_proteomics(
         tmp / "in",

@@ -27,7 +27,7 @@ MODELS = [
     f"deep-bactermfinder_3cnn_1d_1cat_reduced_10x_{e}.csv_saved_model.h5"
     for e in ("ENAC", "NCP", "PS2", "binary")
 ]
-ARGS = ["genome.fa", "3", "out", "10000"]  # README example; GIAP_SPEC.md §7.1.1 "per its README"
+ARGS = ["genome.fa", "3", "out", "10000"]  # README example; GIPPA_SPEC.md §7.1.1 "per its README"
 RESULT = "outgenome.fa_mean.csv"
 HEADER = (
     "SampleName,probability_binary,probability_ENAC,probability_PS2,probability_NCP,"
@@ -104,7 +104,7 @@ def test_script_stages_bactermfinder_home_and_never_cds_into_it() -> None:
 def test_bactermfinder_home_default_and_version_line_kept() -> None:
     s = _script()
     assert "BACTERMFINDER_HOME:-\\$CONDA_PREFIX/share/bactermfinder" in s
-    assert "GIAP_COMMIT" in s
+    assert "GIPPA_COMMIT" in s
 
 
 def test_result_table_copied_into_output_dir() -> None:
@@ -158,7 +158,7 @@ def ran(tmp_path: Path) -> dict[str, object]:
     (home / "iLearnPlus" / "util" / "FileProcessing.py").write_text("")
     for m in MODELS:
         (home / m).write_text("h5")
-    (home / "GIAP_COMMIT").write_text("024870447f6288ebc9d29b314e957a6dfdfeb5f6\n")
+    (home / "GIPPA_COMMIT").write_text("024870447f6288ebc9d29b314e957a6dfdfeb5f6\n")
     (home / "genome_scan.py").write_text(
         f"MODELS = {MODELS!r}\nHEADER = {HEADER!r}\n" + FAKE_GENOME_SCAN
     )
@@ -223,7 +223,7 @@ def test_step_reader_accepts_the_output_dir(
     ran: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``_bactermfinder`` raises on several CSVs; with one it hands that file to the parser."""
-    from giap.steps import terminators as st
+    from gippa.steps import terminators as st
 
     _ok(ran)
     seen: list[Path] = []

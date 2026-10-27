@@ -1,4 +1,4 @@
-"""Attack checks for the M9-17 plot-support nulls (GIAP_SPEC.md §8.5, §10.2 V14(a)/V18;
+"""Attack checks for the M9-17 plot-support nulls (GIPPA_SPEC.md §8.5, §10.2 V14(a)/V18;
 docs/specs/M9-17-plot-support-analysis.md). Statistician-owned.
 
 The support files draw no new replicates and report no new p, so the attacks are reproduction
@@ -6,7 +6,7 @@ attacks: under the structure the region and GSEA tests face (TU blocks, AR(1) be
 covariate detectability, split and linear replicons, discrete scores with ties), the written file
 must give back the statistic the table reports.
 
-* **R1 region nulls reproduce p** (giapsim, AR(1) rho 0.5, 600-gene chromosome + 60-gene plasmid +
+* **R1 region nulls reproduce p** (gippasim, AR(1) rho 0.5, 600-gene chromosome + 60-gene plasmid +
   80-gene linear contig; the chromosome AMR set merged with the plasmid AMR set, so the region is
   ``split_contigs``; a 10-gene BGC block on the linear contig, K < N - 1). Exhaustive and sampled
   shifts: ``perm_p(observed, null_value)`` read back from the written file equals each tested
@@ -21,7 +21,7 @@ must give back the statistic the table reports.
   engine's walk and the cumulative sum can break a ``maxP == -minP`` near-tie (|maxP + minP|
   ~ 1e-16) to opposite sides; the support check must accept the engine's ES there instead of
   raising (probe: 876 of 200,000 small discrete rankings raise at 1268c1a9). Run through
-  ``giap.function.running.gsea_running`` itself (lead decision 8's tie clause).
+  ``gippa.function.running.gsea_running`` itself (lead decision 8's tie clause).
 
 Suites (tests/calibration/conftest.py): R1-R3 ``regions``, G1 ``gsea``; none draws replicates of
 its own, so none reads ``tolerances.yaml`` (the bounds are the reproduction tolerances above).
@@ -74,10 +74,10 @@ def _split_layout(seed: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, 
 
 def _written(tmp: Path, seed: int, exhaustive: int, grid: bool, monkeypatch: pytest.MonkeyPatch
              ) -> tuple[pd.DataFrame, pd.DataFrame]:  # fmt: skip
-    import giap.steps.context_stats as cs
-    from giap.context.regions import region_tests
-    from giap.context.regions_table import plasmid_rows, regions_stats, subset_rows
-    from giap.io.regions_tsv import write_regions_stats
+    import gippa.steps.context_stats as cs
+    from gippa.context.regions import region_tests
+    from gippa.context.regions_table import plasmid_rows, regions_stats, subset_rows
+    from gippa.io.regions_tsv import write_regions_stats
 
     genes, reg, rg, reps = _split_layout(seed)
     cfg = rd.config(bootstrap=20, permutations=199, exhaustive=exhaustive)
@@ -107,7 +107,7 @@ def _null_of(nr: pd.DataFrame, row: pd.Series) -> pd.DataFrame:
 @pytest.mark.parametrize("exhaustive", [20000, 100], ids=["exhaustive", "sampled"])
 def test_r1_region_nulls_reproduce_p(tmp_path: Path, seed: int, exhaustive: int,
                                      monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
-    from giap.stats.permutation import perm_p
+    from gippa.stats.permutation import perm_p
 
     nr, rs = _written(tmp_path, seed, exhaustive, False, monkeypatch)
     tested = _tested(rs)
@@ -126,7 +126,7 @@ def test_r1_region_nulls_reproduce_p(tmp_path: Path, seed: int, exhaustive: int,
 @pytest.mark.parametrize("seed", [11, 12])
 def test_r2_percentile_grid_p_is_close(tmp_path: Path, seed: int,
                                        monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
-    from giap.stats.permutation import perm_p
+    from gippa.stats.permutation import perm_p
 
     nr, rs = _written(tmp_path, seed, 20000, True, monkeypatch)
     assert "percentile" in nr.columns and "shift_k" not in nr.columns
@@ -172,7 +172,7 @@ def test_r3_small_nulls_keep_their_values_in_grid_form(
 
 
 def _near_ties(n_trials: int) -> list[tuple[np.ndarray, np.ndarray]]:
-    from giap.stats.fgsea import gsea_es, running_es
+    from gippa.stats.fgsea import gsea_es, running_es
 
     rng = np.random.default_rng(1)
     out = []
@@ -195,8 +195,8 @@ def _step_inputs(s: np.ndarray, S: np.ndarray) -> tuple[object, list[object], pd
     table's ``es`` the engine's (``gsea_es``) on that ranking."""
     from types import SimpleNamespace
 
-    from giap.function.gsea import TuRanking
-    from giap.stats.fgsea import gsea_es
+    from gippa.function.gsea import TuRanking
+    from gippa.stats.fgsea import gsea_es
 
     ids = tuple(f"TU_{i}" for i in range(1, len(s) + 1))
     rank = TuRanking(ids, np.asarray(s, np.float64), {t: (f"g_{t[3:]}",) for t in ids})
@@ -213,8 +213,8 @@ def test_g1_gsea_running_accepts_engine_side_of_a_near_tie(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The step must not fail on a ranking whose ES the engine computed (the walk is right; only
-    the side of a 1e-16 tie differs). Fails at 1268c1a9 (giap/function/running.py:73)."""
-    from giap.function import running as R
+    the side of a 1e-16 tie differs). Fails at 1268c1a9 (gippa/function/running.py:73)."""
+    from gippa.function import running as R
 
     cases = _near_ties(20000)
     assert cases, "no near-tie found; the probe lost its teeth"

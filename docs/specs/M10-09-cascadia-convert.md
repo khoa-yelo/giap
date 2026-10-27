@@ -1,10 +1,10 @@
-# M10-09: `giap convert --from cascadia` (Cascadia 0.0.7 `.ssl`) and its contract test
+# M10-09: `gippa convert --from cascadia` (Cascadia 0.0.7 `.ssl`) and its contract test
 
 Milestone M10 · **pass 2** · depends on: M10-08 (the `.ssl` format facts below; the real 1,000-row
 sample exists only after M10-08's smoke run gives `verdict = pass`) · estimate ≈ 140 code lines
 (index: 200) + ≈ 330 test lines, one PR · **not `stats`** (no estimator, no threshold; see
 "Statistician notes") · roles: test-author (CI tests, the FarmShare contract test), implementer
-(`src/giap/io/converters/cascadia.py`, the registry, the CLI branch), lead (the
+(`src/gippa/io/converters/cascadia.py`, the registry, the CLI branch), lead (the
 `PROVENANCE.md` section after the FarmShare check) · Khoa: none needed (his 2026-10-23 data rule is
 applied as already decided for DIA-NN; question Q8).
 
@@ -26,12 +26,12 @@ moves to M10-11a/11b.
   applied column by column below.
 - §5.4 stripping: "removes bracketed or parenthesised modifications (`(UniMod:35)`, `[+15.995]`,
   `[UNIMOD:35]`, `+15.995`, `n[42]`) and lower-case residues, and keeps only uppercase letters"
-  (`giap.io.converters.strip.strip_modifications`, unchanged).
+  (`gippa.io.converters.strip.strip_modifications`, unchanged).
 - §5.3 generic peptide table: columns and types; "`score` | float | engine or de novo score;
   higher is better"; "`spectrum_id` | scan or spectrum identifier, unique within `run` (G2)";
   "`q_value` | precursor or peptide q-value"; "I/L are kept as written; equivalence is applied
   only in matching".
-- §5.1 `giap convert --from cascadia INPUT… --out peptides.tsv`.
+- §5.1 `gippa convert --from cascadia INPUT… --out peptides.tsv`.
 - §7.2.5 m = 0, de novo input: π̂_wrong is "1 − the lower 95 % bound of the de novo precision for
   the peptide's score bin"; "De novo precision … For score bin b (deciles of `score`)". §7.3.1:
   "it passes the engine threshold (`q_value ≤ input.q_value_max` **when a q-value exists**)". These
@@ -55,14 +55,14 @@ executed). Writer: `cascadia/utils.py::write_results`; vocabulary:
 
 | # | Fact (0.0.7 code) | Consequence for the converter |
 |---|---|---|
-| W1 | One header line, written literally: `file scan charge sequence score-type score retention-time start-time end-time` (tab-separated), then one line per kept prediction; `\n` line ends; no quoting | read with `giap.io.tsv.read_tsv` (UTF-8, BOM dropped, `\r` tolerated, ragged rows → `ValueError`, `NA`/empty → missing); gzip accepted by magic bytes |
-| W2 | `file` = the spectrum-file argument exactly as given on the Cascadia command line (M10-08: an absolute path, `$GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML`); one value per output file | `run` ← the file's stem (D1) |
+| W1 | One header line, written literally: `file scan charge sequence score-type score retention-time start-time end-time` (tab-separated), then one line per kept prediction; `\n` line ends; no quoting | read with `gippa.io.tsv.read_tsv` (UTF-8, BOM dropped, `\r` tolerated, ragged rows → `ValueError`, `NA`/empty → missing); gzip accepted by magic bytes |
+| W2 | `file` = the spectrum-file argument exactly as given on the Cascadia command line (M10-08: an absolute path, `$GIPPA_DATA_DIR/pxd078459/mzml/<RUN>.mzML`); one value per output file | `run` ← the file's stem (D1) |
 | W3 | `scan` = `str(idx)`, the 0-based index of the prediction in Cascadia's prediction list, **not** a scan number. Rows that fail the filters are skipped, so the values are strictly increasing with gaps; each value occurs at most once per file | `spectrum_id` ← `cascadia:<scan>` (D2) |
 | W4 | `charge` = `str(int(charge))` | `charge` (Int64), as written |
 | W5 | `sequence`: I already folded to L (`replace_isoleucine_with_leucine=True`). Modifications in ProForma-name form are converted to rounded mass shifts by `convert_mods_to_shifts` (`'+' + str(round(mass, 2))`): `M[Oxidation]` → `M[+15.99]`, `N[Deamidated]`/`Q[Deamidated]` → `N[+0.98]`/`Q[+0.98]`, `C[Carbamidomethyl]` → `C[+57.02]`, N-terminal `[Acetyl]-` → `[+42.01]-`, `[Carbamyl]-` → `[+43.01]-`, `[Ammonia-loss]-` → `[-17.03]-`; `[+25.980265]-` (carbamyl + NH₃ loss, not in Unimod) stays as is. A name Unimod cannot resolve is left as the name. A `-` anywhere but right after a leading N-terminal token makes Cascadia skip the row | `modified_peptide` ← `sequence` verbatim; `peptide` ← `strip_modifications(sequence)`; no I/L folding by the converter |
 | W6 | `score-type` = the literal `UNKNOWN` on every row | any other value is an error (D5): it is not a Cascadia 0.0.7 file |
 | W7 | `score` = `str(np.exp(log_confidence))`, so in (0, 1]; a row is written only if `score > score_threshold` (**strict**), `-t` default 0.8. NaN fails `>` and is never written | `score` ← `score` (float). No `q_value`, no `pep` (D3). Rows at or below 0.8 are kept and counted (D4) |
-| W8 | `retention-time`, `start-time`, `end-time`: minutes when the largest RT of the file exceeds 500 (in the seconds Cascadia derives), else seconds. The pilot runs are 539.9 s long, next to that limit | **never read**. §5.3 has no RT column, so the unit ambiguity cannot reach any GIAP table (D6) |
+| W8 | `retention-time`, `start-time`, `end-time`: minutes when the largest RT of the file exceeds 500 (in the seconds Cascadia derives), else seconds. The pilot runs are 539.9 s long, next to that limit | **never read**. §5.3 has no RT column, so the unit ambiguity cannot reach any GIPPA table (D6) |
 | W9 | No protein IDs, no decoys, no intensities, no q-values | those columns are absent from the output |
 
 The 0.0.7 docs (`file_formats.md`) describe the same nine columns; where docs and code differ the
@@ -85,7 +85,7 @@ code wins (M10-08).
   way, so the pilot is unaffected. A `scan` that is not a non-negative integer is an error. (Q2)
 - **D3 Score → q/confidence: `score` only; `q_value` and `pep` are not written.** Cascadia gives
   no q-value and no posterior. §7.3.1 applies the engine threshold only "when a q-value exists",
-  and §7.2.5 calibrates de novo rows from the genome by score deciles. So GIAP needs `score` as a
+  and §7.2.5 calibrates de novo rows from the genome by score deciles. So GIPPA needs `score` as a
   ranking, and nothing else. Writing `1 − score` as `pep`, or any q, would claim a calibration that
   Cascadia does not provide (see "Statistician notes"). It would also flip
   `steps.mapping.resolve_sources` to `database` on a table without a `source` column. (Q3)
@@ -118,7 +118,7 @@ code wins (M10-08).
 
   `casanovo` and `instanovo` keep their exit 5 ("not implemented"). (Q7)
 
-## The converter (`src/giap/io/converters/cascadia.py`, implementer)
+## The converter (`src/gippa/io/converters/cascadia.py`, implementer)
 
 ```python
 def convert_cascadia(
@@ -146,7 +146,7 @@ to `CONVERTERS` as `"cascadia"` and to `__all__`. The function is pure apart fro
    finite but outside [0, 1], or infinite → error `out_of_range:score`. Rows with
    `score ≤ 0.8` → info `score_at_or_below_default_cutoff` (D4). The constant
    `CASCADIA_DEFAULT_CUTOFF = 0.8` is named in the module with its source (W7). It is not a
-   config key: GIAP never filters on it.
+   config key: GIPPA never filters on it.
 7. **charge**: through the peptide-table parser (`_typed`, Int64); non-integral → error
    `bad_type:charge`. The validator adds `out_of_range:charge` for < 1.
 8. **Peptides:** `modified_peptide` ← `sequence` (string, verbatim); `peptide` ←
@@ -165,7 +165,7 @@ to `CONVERTERS` as `"cascadia"` and to `__all__`. The function is pure apart fro
     `run`, `peptide`, `modified_peptide`, `charge`; ties keep the argument order, then the file
     order. `abundance` is `None`.
 
-CLI (`src/giap/cli.py::convert`): the D7 branch, a few lines; the rest of the command is
+CLI (`src/gippa/cli.py::convert`): the D7 branch, a few lines; the rest of the command is
 unchanged. Floats are written `%.6g` by `write_tsv` (§6.6), and `.gz` outputs have a fixed gzip
 header, so the output bytes depend only on the input bytes.
 
@@ -188,7 +188,7 @@ the input tables only; outputs are shown as TSV lines. Unless stated, `file` is
 | 9 | Two inputs whose `file` values are `/a/WT_1.mzML` and `/b/WT_1.mzML`; then the same `WT_1.ssl` given twice | both: exit 1, `run_in_several_inputs` naming the two paths |
 | 10 | Empty-input cases: (a) a header-only `WT_1.ssl`; (b) (a) plus `WT_2.ssl` with one row; (c) a zero-byte file; (d) a file without the `score` column | (a) exit 1, `empty_table` (plus info `empty_input`); (b) exit 0, one `WT_2` row, info `empty_input` naming `WT_1.ssl`; (c) exit 1, `unreadable` "empty TSV (no header)"; (d) exit 1, `missing_column:score` |
 | 11 | Charge `0`; charge `2.5`; charge `2.0`; `PEPK` (4 aa, score 0.9); a 41-mer | `0` → exit 1 (`out_of_range:charge`); `2.5` → exit 1 (`bad_type:charge`). On their own, `2.0` → `2`; `PEPK` and the 41-mer → exit 0, rows written, warnings `short_peptide`/`long_peptide` (preflight drops them later) |
-| 12 | CLI: `giap convert --from cascadia WT_1.ssl --out p.tsv` with `--source database`; `--search-db same`; `--abundance-out a.tsv`; `--source denovo`; and the example 1 input as `WT_1.ssl.gz` with CRLF line ends and a BOM | exit 1 for the first three (stderr names the flag; `search_db_invalid`; `no_abundance`), nothing written; `--source denovo` → exit 0 and the example 1 table; the gzip/CRLF/BOM file → byte-identical output to example 1. A second run of any exit-0 case → byte-identical output |
+| 12 | CLI: `gippa convert --from cascadia WT_1.ssl --out p.tsv` with `--source database`; `--search-db same`; `--abundance-out a.tsv`; `--source denovo`; and the example 1 input as `WT_1.ssl.gz` with CRLF line ends and a BOM | exit 1 for the first three (stderr names the flag; `search_db_invalid`; `no_abundance`), nothing written; `--source denovo` → exit 0 and the example 1 table; the gzip/CRLF/BOM file → byte-identical output to example 1. A second run of any exit-0 case → byte-identical output |
 | 13 | A file without the three RT columns; a file with an extra column `ion-mobility` | both convert; the second gives warn `unknown_column` naming `ion-mobility`; RT values are never read, so `retention-time = abc` converts too |
 
 ## Edge cases
@@ -213,7 +213,7 @@ the input tables only; outputs are shown as TSV lines. Unless stated, `file` is
   stops first (example 9).
 - **Scores at exactly 0.8:** kept and counted (example 4). A default 0.0.7 run cannot produce one
   (strict `>`). After `%.6g`, values in (0.8, 0.8000005) read back as `0.8`. That affects only
-  readers that re-apply 0.8 to the written table; GIAP does not (D4). A count of such rows is
+  readers that re-apply 0.8 to the written table; GIPPA does not (D4). A count of such rows is
   recorded on FarmShare by the contract test (C4), not committed.
 - **NaN and non-finite scores:** errors (example 5, D5). `NA`/empty cells become missing in
   `read_tsv`, so they are `bad_type:score` too.
@@ -224,8 +224,8 @@ the input tables only; outputs are shown as TSV lines. Unless stated, `file` is
 - **RT unit:** never read (D6, example 13). The 539.9-s gradient next to the 500 heuristic (W8)
   therefore cannot change any output.
 - **Run names:** the A3 run labels are the mzML stems (D1). M10-08 names the mzML `<RUN>.mzML`,
-  so they are `WT_1`…`WT_3`. If those differ from DIA-NN's `Run` values, nothing in GIAP joins on
-  run across arms (`giap compare` joins on locus tags). M10-10 records both lists.
+  so they are `WT_1`…`WT_3`. If those differ from DIA-NN's `Run` values, nothing in GIPPA joins on
+  run across arms (`gippa compare` joins on locus tags). M10-10 records both lists.
 - **Paths with odd characters:** a `file` value with a Windows `\` separator is not split on it;
   0.0.7 runs on Linux only. A `file` with a tab cannot occur (it would be a ragged row).
 - **Large files:** a full run is ≈ 10⁴–10⁵ rows (M10-08 load estimate ≈ 143 k augmented spectra
@@ -243,27 +243,27 @@ parts:
 
 | Item | Where | Committed |
 |---|---|---|
-| The 1,000-row sample `WT_1.ssl.gz`: the header plus the first 1,000 data rows of `WT_1.ssl` in file order (index decision 6), `gzip -n` | `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/` (the `tests/data/recorded/` layout mirrored under `$GIAP_ROOT/pilot/recorded/`; M10-08 deliverable 13 writes it) | **no** |
-| `PROVENANCE.md`: Cascadia version, env lock sha256, weights sha256, route, job IDs, input archive sha256, the W1 header from the source (M10-08). **M10-09 appends a section** with the sample's sha256 and data-row count (1,000, or fewer if the run had fewer), the selection rule, the giap commit the contract test ran at, and its result (passed/skipped/failed per check C1–C8, no values) | `tests/data/recorded/cascadia/0.0.7/PROVENANCE.md` | **yes**: the only file in that directory |
+| The 1,000-row sample `WT_1.ssl.gz`: the header plus the first 1,000 data rows of `WT_1.ssl` in file order (index decision 6), `gzip -n` | `$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/` (the `tests/data/recorded/` layout mirrored under `$GIPPA_ROOT/pilot/recorded/`; M10-08 deliverable 13 writes it) | **no** |
+| `PROVENANCE.md`: Cascadia version, env lock sha256, weights sha256, route, job IDs, input archive sha256, the W1 header from the source (M10-08). **M10-09 appends a section** with the sample's sha256 and data-row count (1,000, or fewer if the run had fewer), the selection rule, the gippa commit the contract test ran at, and its result (passed/skipped/failed per check C1–C8, no values) | `tests/data/recorded/cascadia/0.0.7/PROVENANCE.md` | **yes**: the only file in that directory |
 | The converter, the CLI branch, CI tests whose `.ssl` fixtures are **written in `tmp_path` from text in the test file**, and the FarmShare contract test | `src/`, `tests/unit/`, `tests/contract/` | yes |
-| Converted A3 tables (`a3.tsv.gz`) | `$GIAP_ROOT/pilot/inputs/` (M10-10) | **no** (as M10-03 Q-K1's default for DIA-NN) |
+| Converted A3 tables (`a3.tsv.gz`) | `$GIPPA_ROOT/pilot/inputs/` (M10-10) | **no** (as M10-03 Q-K1's default for DIA-NN) |
 
 No `.ssl` file is committed anywhere, not even a synthetic one. M10-08 criterion 12 already fails
 on any tracked `.ssl`, so CI fixtures are built at test time.
 
 If M10-08 did not write the sample (for example, its 08b landed without that step), the lead
 makes it in a `dev` job (1 CPU, 2 GB, 10 min):
-`head -n 1001 "$GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl" | gzip -n > "$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz"`.
+`head -n 1001 "$GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl" | gzip -n > "$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz"`.
 The job ID goes into PROGRESS.
 
 ## The contract test (`tests/contract/test_m10_09_cascadia_contract.py`, test-author)
 
-- **Data:** `SAMPLE = $GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz`. Optional, `slow`:
-  `FULL = $GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl`.
-- **Skip, never fail, when absent:** `GIAP_ROOT` unset (CI) → skip "`GIAP_ROOT` is not set: the
+- **Data:** `SAMPLE = $GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz`. Optional, `slow`:
+  `FULL = $GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl`.
+- **Skip, never fail, when absent:** `GIPPA_ROOT` unset (CI) → skip "`GIPPA_ROOT` is not set: the
   Cascadia sample lives on FarmShare only (Khoa 2026-10-23)"; file missing → skip naming the path
   and "M10-08 smoke run not done or verdict fail". The test asserts that the sample path is
-  outside the checkout. No module-level read of `$GIAP_ROOT`. No `pending_sample` marker (the
+  outside the checkout. No module-level read of `$GIPPA_ROOT`. No `pending_sample` marker (the
   sample is not expected in the repository); the M10-03 pattern.
 - **Checks on the raw sample** (each its own test function; the raw file is read with the stdlib
   `csv` module, independently of the converter):
@@ -296,9 +296,9 @@ The job ID goes into PROGRESS.
 
 ## Acceptance criteria
 
-On CI (every commit; no Cascadia, no real data, no `$GIAP_ROOT`):
+On CI (every commit; no Cascadia, no real data, no `$GIPPA_ROOT`):
 
-1. `CONVERTERS["cascadia"] is convert_cascadia`; `giap convert --from cascadia` no longer exits 5;
+1. `CONVERTERS["cascadia"] is convert_cascadia`; `gippa convert --from cascadia` no longer exits 5;
    `--from casanovo` and `--from instanovo` still exit 5.
 2. Examples 1–13 hold exactly: the output bytes for exit-0 cases, the exit codes, and the issue
    codes with severities and 1-based row lists. Fixtures are written in `tmp_path`.
@@ -313,7 +313,7 @@ On CI (every commit; no Cascadia, no real data, no `$GIAP_ROOT`):
    passed to `steps.mapping.resolve_sources`, every row is `denovo`, even with `source` dropped
    from the frame (no q/pep present).
 6. No `spectrum_id` of the output equals its bare `scan` value; each starts with `cascadia:`.
-7. `src/giap/io/converters/cascadia.py` imports nothing from Cascadia, pyteomics or torch
+7. `src/gippa/io/converters/cascadia.py` imports nothing from Cascadia, pyteomics or torch
    (`scripts/ci/check_imports.py` passes). It reads no `retention-time`, `start-time` or
    `end-time` value (example 13 proves it).
 8. The existing tests in `tests/unit/test_cli_convert.py`, `test_convert_generic.py` and
@@ -324,11 +324,11 @@ On CI (every commit; no Cascadia, no real data, no `$GIAP_ROOT`):
 9. Guard: `git ls-files` lists no `*.ssl` or `*.ssl.gz`, and `tests/data/recorded/cascadia/` holds
    only `0.0.7/PROVENANCE.md`.
 10. The contract test collects on CI and skips with the reasons above, never errors.
-11. Lint and types: `ruff check`, `ruff format --check`, `mypy src/giap` clean.
+11. Lint and types: `ruff check`, `ruff format --check`, `mypy src/gippa` clean.
 
 On FarmShare (evidence: PR description, PROGRESS, PROVENANCE; not CI):
 
-12. With `GIAP_ROOT` set, `python -m pytest -p no:cacheprovider
+12. With `GIPPA_ROOT` set, `python -m pytest -p no:cacheprovider
     tests/contract/test_m10_09_cascadia_contract.py` (venv Python, `PYTHONPATH` on the worktree)
     passes C1–C8 on the real sample. Its output is pasted into the PR, without any row.
 13. Any failed check becomes a converter change with its own CI test on a hand-made fixture that
@@ -385,7 +385,7 @@ treated as a calibrated probability**, so no `q_value` or `pep` is derived from 
   bins with those of another engine.
 
 No `stats` label: the converter computes no statistic and sets no threshold (the 0.8 is
-Cascadia's CLI default, recorded, never applied by GIAP).
+Cascadia's CLI default, recorded, never applied by GIPPA).
 
 ## Questions for the lead (reversible defaults in use)
 
@@ -398,7 +398,7 @@ Cascadia's CLI default, recorded, never applied by GIAP).
 | Q5 | NaN, missing, non-finite or out-of-[0, 1] scores: an error (exit 1), or warn and drop the rows? | error: 0.0.7 cannot write them, so the file is not Cascadia output |
 | Q6 | `score-type` other than `UNKNOWN` (another tool's `.ssl`, e.g. a q-value where lower is better): error? | error `unsupported_score_type` |
 | Q7 | With `--from cascadia`: accept `--source denovo`, reject `--source database` and `--search-db` (exit 1)? | yes (D7); `--source denovo` was wrongly rejected for every non-generic engine |
-| Q8 | The converted A3 table is "derived" like the DIA-NN tables (M10-03 Q-K1 default): keep it under `$GIAP_ROOT/pilot/inputs/`, uncommitted? | yes; M10-10 converts and records the sha256 and row count. Not asked of Khoa separately: the answer to Q-K1 covers both |
+| Q8 | The converted A3 table is "derived" like the DIA-NN tables (M10-03 Q-K1 default): keep it under `$GIPPA_ROOT/pilot/inputs/`, uncommitted? | yes; M10-10 converts and records the sha256 and row count. Not asked of Khoa separately: the answer to Q-K1 covers both |
 | Q9 | Who writes the 1,000-row sample: M10-08 (deliverable 13), with the lead's `head \| gzip -n` dev job as the fallback? | M10-08; fallback as stated |
 | Q10 | `PROVENANCE.md` gets an M10-09 section with the sample sha256, the row count and per-check pass/fail. Is the count of `%.6g` boundary scores (C4) also allowed there, or does it stay in PROGRESS? | sha256, row count and pass/fail in PROVENANCE; the boundary count only in the PR text and PROGRESS |
 | Q11 | RT columns: ignore entirely (D6), or validate them as numeric, which would make a corrupt RT fail an otherwise good file? | ignore |

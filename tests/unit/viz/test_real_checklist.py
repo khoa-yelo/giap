@@ -1,12 +1,12 @@
-"""K-12 plot survey, batch 1 item 9: the checklist tool (``giap.viz.checklist``).
+"""K-12 plot survey, batch 1 item 9: the checklist tool (``gippa.viz.checklist``).
 
 - The neutral greys the plots draw as chart furniture (gene-arrow edges ``#333333``, V10's
   gene-label envelope ``#CCCCCC``, V01's sector and ring backgrounds ``#DDDDDD`` / ``#F4F4F4``)
   failed "palette as §10.1". They are allowed through an allow-list of neutral greys kept as
-  ``giap.viz.style`` constants (one place for the palette), not inline in the checklist.
+  ``gippa.viz.style`` constants (one place for the palette), not inline in the checklist.
 - "Moran's I" (V10) and "candidates" (V13) are unitless axis labels.
 
-Interface assumed: the allow-list is some public ``giap.viz.style`` constant (any name) whose
+Interface assumed: the allow-list is some public ``gippa.viz.style`` constant (any name) whose
 values (a mapping's values, or the members of a tuple / frozenset / set) include the four greys.
 """
 
@@ -19,10 +19,10 @@ import pandas as pd
 import pytest
 from matplotlib.figure import Figure
 
-from giap.io.plot_files import write_instance
-from giap.viz import checklist as ck
-from giap.viz import style
-from giap.viz.base import Instance
+from gippa.io.plot_files import write_instance
+from gippa.viz import checklist as ck
+from gippa.viz import style
+from gippa.viz.base import Instance
 
 GREYS = ("#333333", "#CCCCCC", "#DDDDDD", "#F4F4F4")
 PALETTE, UNITS = "palette as §10.1", "axes carry units"
@@ -53,7 +53,7 @@ def _bars(colours: list[str], edge: str | None = None) -> Figure:
 
 
 def _style_colours() -> set[str]:
-    """Every hex string held by a public ``giap.viz.style`` constant."""
+    """Every hex string held by a public ``gippa.viz.style`` constant."""
     found: set[str] = set()
     for name in dir(style):
         if name.startswith("_"):
@@ -74,7 +74,7 @@ def _style_colours() -> set[str]:
 
 def test_the_neutral_greys_are_style_constants() -> None:
     missing = [g for g in GREYS if g not in _style_colours()]
-    assert missing == [], f"{missing} not held by any giap.viz.style constant"
+    assert missing == [], f"{missing} not held by any gippa.viz.style constant"
 
 
 @pytest.mark.parametrize("grey", GREYS)

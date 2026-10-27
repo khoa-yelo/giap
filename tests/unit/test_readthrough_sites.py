@@ -4,13 +4,13 @@ of the decoy cells" = statistician review change 7).
 
 Interface pinned here (spec "Public interface")::
 
-    giap.mapping.readthrough.StopSite(contig, strand, codon_start, locus_tags, codon, kind)
-    giap.mapping.readthrough.StopCells(sites, target, decoys)
+    gippa.mapping.readthrough.StopSite(contig, strand, codon_start, locus_tags, codon, kind)
+    gippa.mapping.readthrough.StopCells(sites, target, decoys)
     annotated_stops(gm, genome) -> (sites, n_not_a_stop)
     frame_cells(index, sites) -> tuple[np.ndarray, ...]          # per frame_id, sorted int64
     mirror_cells(kind, frames, cells) -> tuple[np.ndarray, ...]   # ``frames``: that decoy's frames
     site_keys(sites) -> frozenset[(contig, strand, codon_start)]
-    giap.mapping.sixframe.READTHROUGH == 22
+    gippa.mapping.sixframe.READTHROUGH == 22
     save_index(path, index, decoys, cells=None)  -> format 2;  load_stop_cells(path) -> StopCells
 
 ``mirror_cells`` is given the decoy frames of ``kind`` (rule 3: "Every mirrored cell must hold
@@ -29,8 +29,8 @@ import pytest
 from helpers.readthrough_index import FIXTURE, SEED, world
 from helpers.readthrough_toys import gene, model, rc, toy_c1, toy_c2
 
-from giap.mapping.decoys import build_decoys
-from giap.mapping.sixframe import (
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.sixframe import (
     STOP,
     Frame,
     SixFrameIndex,
@@ -38,12 +38,12 @@ from giap.mapping.sixframe import (
     load_index,
     save_index,
 )
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 
 def _rt():  # type: ignore[no-untyped-def]
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     return rt
 
@@ -78,7 +78,7 @@ def _circular(n: int, edits: dict[int, str], seed: int = 1) -> str:
 
 
 def test_readthrough_code_is_22() -> None:
-    from giap.mapping.sixframe import AMBIG, NOMATCH, READTHROUGH
+    from gippa.mapping.sixframe import AMBIG, NOMATCH, READTHROUGH
 
     assert (STOP, AMBIG, NOMATCH, READTHROUGH) == (19, 20, 21, 22)
 
@@ -253,17 +253,17 @@ def test_mirror_cells_raises_when_a_mirrored_cell_is_not_a_stop() -> None:
 
 
 def test_mirror_cells_draws_no_randomness(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Review change 7 / §6.6: no call to ``giap.rng.for_step`` or ``numpy.random``, the legacy
+    """Review change 7 / §6.6: no call to ``gippa.rng.for_step`` or ``numpy.random``, the legacy
     global state is untouched, and the step's shuffle stream gives the same next draw with and
     without the call."""
-    import giap.rng
+    import gippa.rng
 
     genome, reps, gm = world()
     index = build_sixframe(genome, reps)
     _, _, cells = _cells_of(index, gm, genome)
     rt = _rt()
     calls: list[str] = []
-    real_for_step = giap.rng.for_step
+    real_for_step = gippa.rng.for_step
     real_default_rng = np.random.default_rng
 
     def spy_for_step(*a, **k):  # type: ignore[no-untyped-def]
@@ -276,7 +276,7 @@ def test_mirror_cells_draws_no_randomness(monkeypatch: pytest.MonkeyPatch) -> No
 
     g1 = for_step("sixframe_index", SEED)
     shf1 = build_decoys(index, "shuffle", 50, g1)
-    monkeypatch.setattr(giap.rng, "for_step", spy_for_step)
+    monkeypatch.setattr(gippa.rng, "for_step", spy_for_step)
     monkeypatch.setattr(rt, "for_step", spy_for_step, raising=False)
     monkeypatch.setattr(np.random, "default_rng", spy_default_rng)
     legacy = np.random.get_state()  # noqa: NPY002 - the legacy global state must not move
@@ -306,7 +306,7 @@ def _stop_cells(index, decoys, gm, genome):  # type: ignore[no-untyped-def]
 
 
 def test_save_index_writes_format_2_and_load_stop_cells_round_trips(tmp_path: Path) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     genome, reps, gm = world()
     index = build_sixframe(genome, reps)
@@ -337,7 +337,7 @@ def test_save_index_writes_format_2_and_load_stop_cells_round_trips(tmp_path: Pa
 
 
 def test_save_index_without_cells_writes_empty_cells(tmp_path: Path) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     genome, reps, _ = toy_c1()
     index = build_sixframe(genome, reps)
@@ -374,7 +374,7 @@ def _format1_file(path: Path) -> Path:
 
 @pytest.mark.parametrize("which", ["crafted", "fixture"])
 def test_load_stop_cells_rejects_format_1(tmp_path: Path, which: str) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     path = _format1_file(tmp_path / "old.npz") if which == "crafted" else FIXTURE
     with pytest.raises(ValueError, match="rebuild the six-frame index"):

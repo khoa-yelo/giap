@@ -4,22 +4,22 @@ is pinned in tests/unit/test_loci_engine_ids.py.
 
 Conventions pinned here where the decisions are silent:
 
-* Item 6. ``giap.steps.mapping.resolve_search_db(peptides, database_ids) -> "same" | "other"`` is
+* Item 6. ``gippa.steps.mapping.resolve_search_db(peptides, database_ids) -> "same" | "other"`` is
   the table-level resolution of ``search_db: auto``: ``same`` when at least 95 % of the target
   (``is_decoy`` false) peptides have their ``protein_ids`` (a list, contract C9) among
   ``database_ids`` (the gene model's locus tags), else ``other``. Engine decoy rows never count.
   (The tests give every peptide one ID, so "any ID" and "all IDs" agree.) Rows with an explicit
   ``same`` / ``other`` keep it. "Recorded in the run metadata" = a mapping step logs a record on
-  its ``giap.steps.<name>`` logger naming ``search_db`` and the resolved value (the CLI's sink
+  its ``gippa.steps.<name>`` logger naming ``search_db`` and the resolved value (the CLI's sink
   writes it to ``logs/<step>.log`` and ``events.jsonl``).
-* Item 7. ``giap run --executor local`` (documented codes, §5.1 / §6.3 / §6.4): no evidence → exit 1
+* Item 7. ``gippa run --executor local`` (documented codes, §5.1 / §6.3 / §6.4): no evidence → exit 1
   with the preflight message ``no evidence``; proteins only (miniprot cannot run locally) → exit 4
   naming ``miniprot`` (example 3); a GFF3 ``--annotation`` without
   ``annotation.precomputed.bakta_json`` → exit 1 naming ``bakta_json`` (§6.4 "a missing layer is an
   error naming the key"). Never exit 0 without the Module 2 outputs.
 * Item 8. A leftover ``OUT/work/<key>`` from an earlier run (``proteins_long``, ``contaminants``)
   never enters a rerun: the rerun's mapping TSVs equal the first run's.
-* Item 9. The contaminant library is ``$GIAP_DB_DIR/contaminants/contaminants.fasta`` with a
+* Item 9. The contaminant library is ``$GIPPA_DB_DIR/contaminants/contaminants.fasta`` with a
   ``contaminants`` manifest entry (M3-15); a confident query peptide that lands nowhere and lies in
   a library entry is labelled ``contaminant`` in ``unmapped.tsv`` with that entry in
   ``contaminant_match``.
@@ -28,7 +28,7 @@ Conventions pinned here where the decisions are silent:
   M05 tolerant decoys per query, M06 frameshift wiring, M07 best-cost filter, M08 de novo π̂,
   M14 tolerant ``min_len`` boundary, M15 reference peptides, M16 leftover assignment, M17 tblastn
   leftover filter, M18 ``protein_ids`` separator, M23 genome SHA-256). M05, M06 and M14 use a
-  hand-built genome; M07 calls ``giap.steps.mapping._peptide_rows`` (rows, placement, queries,
+  hand-built genome; M07 calls ``gippa.steps.mapping._peptide_rows`` (rows, placement, queries,
   config) directly.
 * Re-review decisions 13-15. 13: probe E (``--peptides``, no ``--annotation``, no
   ``annotation.precomputed.bakta_json``) → exit 1 naming ``bakta_json``; missing optional roots
@@ -37,7 +37,7 @@ Conventions pinned here where the decisions are silent:
   N10 (``loci`` uses the resolved queries) and M10 (contaminant matching of every non-accepted
   query, incl. ``rejected_placement_fdr``) of local/scratch/review-m3-17/r2/mutants2.py.
 
-Every preflight here uses a temporary ``$GIAP_DB_DIR`` with a test manifest
+Every preflight here uses a temporary ``$GIPPA_DB_DIR`` with a test manifest
 (``helpers.mapping_steps.write_test_db``).
 """
 
@@ -72,14 +72,14 @@ from helpers.mapping_steps import (
 )
 from test_mapping_steps import norm_table  # type: ignore[import-not-found]
 
-from giap.config import GiapConfig, resolve_config
-from giap.mapping.chance import residue_freqs
-from giap.mapping.decoys import build_decoys
-from giap.mapping.hits import hits_frame
-from giap.mapping.placement_fdr import best_costs, placement
-from giap.mapping.sixframe import build_sixframe, load_index, save_index
-from giap.model.coords import Replicon
-from giap.rng import for_step
+from gippa.config import GippaConfig, resolve_config
+from gippa.mapping.chance import residue_freqs
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.hits import hits_frame
+from gippa.mapping.placement_fdr import best_costs, placement
+from gippa.mapping.sixframe import build_sixframe, load_index, save_index
+from gippa.model.coords import Replicon
+from gippa.rng import for_step
 
 SEED = 21
 
@@ -100,11 +100,11 @@ class _ListHandler(logging.Handler):
 
 
 def _drive_logged(
-    cfg: GiapConfig, work: Path, roots: dict[str, Path], **kw: Any
+    cfg: GippaConfig, work: Path, roots: dict[str, Path], **kw: Any
 ) -> tuple[dict[str, Path], list[logging.LogRecord]]:
     records: list[logging.LogRecord] = []
     handler = _ListHandler(records)
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(handler)
     log.setLevel(logging.INFO)
@@ -183,8 +183,8 @@ def test_item6_protein_ids_may_be_arrays() -> None:
 
 
 def _sim(tmp: Path, seed: int, **prot: Any) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     cfg = SimConfig(proteomics=ProteomicsConfig(**prot), write_precomputed=True)
     return simulate(cfg, seed, tmp / "sim")
@@ -245,7 +245,7 @@ def test_item6_resolution_is_recorded(same_chain: dict[str, Any]) -> None:
     recs = [
         r.getMessage()
         for r in same_chain["records"]
-        if r.name.startswith("giap.steps.") and r.levelno >= logging.INFO
+        if r.name.startswith("gippa.steps.") and r.levelno >= logging.INFO
     ]
     assert any("search_db" in m and "same" in m for m in recs), recs
 
@@ -273,7 +273,7 @@ def test_item6_auto_resolves_to_other_below_95_percent(other_chain: dict[str, An
     per = _auto_exact(other_chain)
     assert len(per) > 100
     assert not per["flags"].map(lambda f: "same_db" in _flags(f)).any()
-    msgs = [r.getMessage() for r in other_chain["records"] if r.name.startswith("giap.steps.")]
+    msgs = [r.getMessage() for r in other_chain["records"] if r.name.startswith("gippa.steps.")]
     assert any("search_db" in m and "other" in m for m in msgs), msgs
 
 
@@ -297,7 +297,7 @@ def test_item10_ids_join_workaround_is_removed() -> None:
 
 def test_m23_probed_records_carry_the_genome_sha256(same_chain: dict[str, Any]) -> None:
     """proBed ``genomeReferenceVersion`` = ``sha256:<hex>`` of ``genome.norm.fa``, every record."""
-    from giap.io.probed import PROBED_EXTRA
+    from gippa.io.probed import PROBED_EXTRA
 
     sha = hashlib.sha256(same_chain["run"].genome.read_bytes()).hexdigest()
     col = 12 + PROBED_EXTRA.index("genomeReferenceVersion")
@@ -346,7 +346,7 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     seq += "A" * (-len(seq) % 3)
     reps = {"chr1": Replicon("chr1", len(seq), "linear", "chromosome")}
     index = build_sixframe({"chr1": seq}, reps)
-    cfg = GiapConfig(seed=3)
+    cfg = GippaConfig(seed=3)
     decoys = {"reverse": build_decoys(index, "reverse", 50, for_step("sixframe_index", 3))}
     six = tmp / "sixframe"
     save_index(six, index, decoys)
@@ -427,7 +427,7 @@ def test_m07_peptide_rows_keep_only_the_best_cost_hits() -> None:
         }
     )  # fmt: skip
     queries = norm_table([{"peptide": pep, "q_value": 0.002, "pep": 0.003}])
-    rows = mapping_module()._peptide_rows(hits, per, queries, GiapConfig())
+    rows = mapping_module()._peptide_rows(hits, per, queries, GippaConfig())
     assert sorted(rows["start"].astype(int)) == [300, 1500]
     assert set(rows["n_diff"].astype(int)) == {1}
     assert set(rows["search"]) == {"target"}
@@ -438,11 +438,11 @@ def test_m07_peptide_rows_keep_only_the_best_cost_hits() -> None:
 
 @pytest.fixture(scope="module")
 def denovo_scored(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    """giapsim de novo reads (with scores) as the peptide input; placement with and without the
+    """gippasim de novo reads (with scores) as the peptide input; placement with and without the
     simulator's ``reference_peptides.tsv``."""
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     tmp = tmp_path_factory.mktemp("denovo_scored")
     sim = simulate(
@@ -504,8 +504,8 @@ def test_m08_denovo_pi_lowers_the_placement_q(denovo_scored: dict[str, Any]) -> 
 def protein_full(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     """SIM100K with the recorded miniprot GFF and the *full* recorded tblastn table injected
     (tblastn hits exist for proteins miniprot already assigned)."""
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SIM100K, SIM100K_SEED, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SIM100K, SIM100K_SEED, simulate
 
     tmp = tmp_path_factory.mktemp("protein_full")
     cfg_sim = dataclasses.replace(SIM100K, proteomics=ProteomicsConfig())
@@ -566,13 +566,13 @@ def test_m16_aligned_but_unassigned_proteins_go_to_tblastn(
     assert left == {victim}
 
 
-# ================================================================ items 7, 8, 9, 11: giap run
+# ================================================================ items 7, 8, 9, 11: gippa run
 
 
 @pytest.fixture(scope="module")
 def sim50(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     out = tmp_path_factory.mktemp("sim50_review")
     return simulate(
@@ -580,14 +580,14 @@ def sim50(tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
 
 
-def _giap_run(sim: Any, out: Path, db: Path, *extra: str, config: Path | None = None) -> Any:
+def _gippa_run(sim: Any, out: Path, db: Path, *extra: str, config: Path | None = None) -> Any:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--config", str(config or sim.config_yaml)]
     args += ["--outdir", str(out), "--modules", "core", "--seed", "7", "--executor", "local"]
-    return CliRunner().invoke(cli, [*args, *extra], env={"GIAP_DB_DIR": str(db)})
+    return CliRunner().invoke(cli, [*args, *extra], env={"GIPPA_DB_DIR": str(db)})
 
 
 def _no_module2(out: Path) -> bool:
@@ -596,7 +596,7 @@ def _no_module2(out: Path) -> bool:
 
 def test_item7_no_evidence_exits_1(sim50: Any, tmp_path: Path) -> None:
     out = tmp_path / "OUT"
-    r = _giap_run(sim50, out, write_test_db(tmp_path / "db"), "--annotation", str(sim50.bakta_json))
+    r = _gippa_run(sim50, out, write_test_db(tmp_path / "db"), "--annotation", str(sim50.bakta_json))
     assert r.exit_code == 1, r.output
     assert "no evidence" in r.output
     assert _no_module2(out)
@@ -604,7 +604,7 @@ def test_item7_no_evidence_exits_1(sim50: Any, tmp_path: Path) -> None:
 
 def test_item7_proteins_only_exits_4_naming_miniprot(sim50: Any, tmp_path: Path) -> None:
     out = tmp_path / "OUT"
-    r = _giap_run(
+    r = _gippa_run(
         sim50, out, write_test_db(tmp_path / "db"),
         "--proteins", str(sim50.proteins_faa), "--annotation", str(sim50.bakta_json),
     )  # fmt: skip
@@ -619,7 +619,7 @@ def test_item7_gff3_annotation_without_bakta_json_layer_exits_1(sim50: Any, tmp_
     cfg = tmp_path / "no_bakta_layer.yaml"
     cfg.write_text("\n".join(ln for ln in lines if "bakta_json" not in ln) + "\n")
     out = tmp_path / "OUT"
-    r = _giap_run(
+    r = _gippa_run(
         sim50, out, write_test_db(tmp_path / "db"),
         "--peptides", str(sim50.peptides), "--annotation", str(sim50.annotation_gff3), config=cfg,
     )  # fmt: skip
@@ -629,7 +629,7 @@ def test_item7_gff3_annotation_without_bakta_json_layer_exits_1(sim50: Any, tmp_
 
 
 def _peptide_run(sim: Any, out: Path, db: Path, peptides: Path | None = None) -> Any:
-    return _giap_run(
+    return _gippa_run(
         sim, out, db, "--peptides", str(peptides or sim.peptides),
         "--annotation", str(sim.bakta_json),
     )  # fmt: skip
@@ -710,7 +710,7 @@ def test_d13_peptides_without_bakta_json_exits_1_naming_the_key(sim50: Any, tmp_
     ``annotation.precomputed.bakta_json``: the mapping targets are pruned only because the
     REQUIRED root ``bakta_json`` is missing → exit 1 naming it, never a silent exit 0."""
     out = tmp_path / "OUT"
-    r = _giap_run(
+    r = _gippa_run(
         sim50, out, write_test_db(tmp_path / "db"), "--peptides", str(sim50.peptides),
         config=_no_bakta_layer(sim50, tmp_path),
     )  # fmt: skip
@@ -720,7 +720,7 @@ def test_d13_peptides_without_bakta_json_exits_1_naming_the_key(sim50: Any, tmp_
 
 
 def test_d13_missing_optional_roots_are_still_pruned_silently(sim50: Any, tmp_path: Path) -> None:
-    """No ``--proteins`` (``proteins_long``), no contaminant library in ``$GIAP_DB_DIR``
+    """No ``--proteins`` (``proteins_long``), no contaminant library in ``$GIPPA_DB_DIR``
     (``contaminants``), no reference peptides: exit 0 with the Module 2 files, nothing named."""
     out = tmp_path / "OUT"
     r = _peptide_run(sim50, out, write_test_db(tmp_path / "db"))

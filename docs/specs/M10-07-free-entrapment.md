@@ -91,11 +91,11 @@ would come from `rest.uniprot.org`.
 | Piece | State | Used for |
 |---|---|---|
 | A1 search (M10-02) | DIA-NN 2.3.1 Academia, two-step library-free, job 1879955. `diann_A1.cfg`: `--cut K*,R*`, `--missed-cleavages 1`, `--min-pep-len 7`, `--max-pep-len 30`, `--unimod4` (fixed carbamidomethyl C), `--var-mods 1`, `--var-mod UniMod:35,15.994915,M`, `--min-pr-charge 1`, `--max-pr-charge 4`, `--min-pr-mz 300`, `--max-pr-mz 1800`, `--min-fr-mz 200`, `--max-fr-mz 1800`, `--peptidoforms`, `--qvalue 0.01`, `--report-decoys`; **no** `--met-excision`, **no** MBR (`--reanalyse` was left out for this metric: README) | the searchable space (below) |
-| `giap.mapping.digest.digest(protein, enzyme, missed, min_len, max_len)` | `trypsin_p` = DIA-NN's `K*,R*`; keeps the initiator M; 0-based half-open products | the in-silico digest of K-12 and contaminants |
-| `giap.mapping.sixframe.build_sixframe`, `giap.mapping.exact.match_exact` | table-11 six-frame index, I → L, 120-nt origin overlap on circular replicons, `X` never matches; Aho–Corasick, every locus | "present" (exact rule) |
-| `giap.mapping.tolerant.match_tolerant` | ≥ 10 aa; budget 1 (10–11 aa) or 2 (≥ 12 aa); rows carry `diff_types` (`substitution`, `swap`, `block`, `near_block`, `frameshift`) | "present" (mass-equivalent rule) |
-| `giap.mapping.masses` | residue masses (Appendix B.5; `RESIDUE_MASS`, `MOD_DELTA` with `Oxidation` 15.994915 and `Carbamidomethyl` 57.021464) | precursor m/z |
-| M10-05 `metrics.py` | `metrics.json` (`schema giap-pilot-metrics/1`), `render`, the template with metric 8 under "Pending in pass 2", the accepted-row rule (target, `q_value ≤ 0.01`, NA not accepted), `metrics.json` `m2` genome-inconsistent count | the A1 accepted set; the hook for `m8`; the cross-check |
+| `gippa.mapping.digest.digest(protein, enzyme, missed, min_len, max_len)` | `trypsin_p` = DIA-NN's `K*,R*`; keeps the initiator M; 0-based half-open products | the in-silico digest of K-12 and contaminants |
+| `gippa.mapping.sixframe.build_sixframe`, `gippa.mapping.exact.match_exact` | table-11 six-frame index, I → L, 120-nt origin overlap on circular replicons, `X` never matches; Aho–Corasick, every locus | "present" (exact rule) |
+| `gippa.mapping.tolerant.match_tolerant` | ≥ 10 aa; budget 1 (10–11 aa) or 2 (≥ 12 aa); rows carry `diff_types` (`substitution`, `swap`, `block`, `near_block`, `frameshift`) | "present" (mass-equivalent rule) |
+| `gippa.mapping.masses` | residue masses (Appendix B.5; `RESIDUE_MASS`, `MOD_DELTA` with `Oxidation` 15.994915 and `Carbamidomethyl` 57.021464) | precursor m/z |
+| M10-05 `metrics.py` | `metrics.json` (`schema gippa-pilot-metrics/1`), `render`, the template with metric 8 under "Pending in pass 2", the accepted-row rule (target, `q_value ≤ 0.01`, NA not accepted), `metrics.json` `m2` genome-inconsistent count | the A1 accepted set; the hook for `m8`; the cross-check |
 | `validation/pilot/inputs/pxd078459_files.tsv` (committed) | the `run` column `WT_1`–`WT_3`, the three selected untreated wild-type runs | the "only wild-type runs" check |
 | `validation/pilot/db_a2/strain_db.faa.gz` (committed) | Nissle's Bakta CDS + sORF proteins, initiator M as Bakta writes it | the non-ATG N-terminal rule (L2) |
 | `tests/data/genomes/nissle1917.fna.gz` (committed, circular-tagged) | the Nissle genome | the six-frame translation |
@@ -119,14 +119,14 @@ decide how many charge states each peptide has (examples 1, 2).
 
 | Name | Default | Role |
 |---|---|---|
-| `PEP_A1` | `$GIAP_ROOT/pilot/inputs/a1.tsv.gz` (M10-03) | A1 discoveries |
-| `K12_FASTA` | `$GIAP_DATA_DIR/proteomes/UP000000625.fasta` | the target + entrapment database |
-| `CONTAMINANTS` | `$GIAP_DB_DIR/contaminants/contaminants.fasta` (the file A1 searched; its path is in `command_step1.txt`) | exclusions |
+| `PEP_A1` | `$GIPPA_ROOT/pilot/inputs/a1.tsv.gz` (M10-03) | A1 discoveries |
+| `K12_FASTA` | `$GIPPA_DATA_DIR/proteomes/UP000000625.fasta` | the target + entrapment database |
+| `CONTAMINANTS` | `$GIPPA_DB_DIR/contaminants/contaminants.fasta` (the file A1 searched; its path is in `command_step1.txt`) | exclusions |
 | `GENOME` | `tests/data/genomes/nissle1917.fna.gz` | Nissle's translation |
 | `STRAIN_DB` | `validation/pilot/db_a2/strain_db.faa.gz` | the N-terminal rule (L2) |
 | `RUNS_MANIFEST` | `validation/pilot/inputs/pxd078459_files.tsv` | wild-type runs |
 | `OUT_A1` (optional) | the M10-04 A1 run directory (as M10-05 resolves it) | cross-checks (exact route, genome-inconsistent count) |
-| `DIANN_CMD` (optional) | `$GIAP_ROOT/pilot/A1/command_step1.txt` | asserts the digest and precursor settings equal the defaults below (exit 2 otherwise) |
+| `DIANN_CMD` (optional) | `$GIPPA_ROOT/pilot/A1/command_step1.txt` | asserts the digest and precursor settings equal the defaults below (exit 2 otherwise) |
 
 Before computing, `entrapment.py` checks three things:
 
@@ -158,7 +158,7 @@ unchanged to the in-silico universe and to the discoveries. `p` is present when 
    frame, both strands, origin wrap on circular replicons); or `p` is a substring of a
    `STRAIN_DB` protein after I → L (L2: this catches N-terminal products of non-ATG starts, where
    the genome reads V/L/I but the protein, and DIA-NN, read M); or
-2. **mass-equivalent:** `match_tolerant`, run with the GIAP defaults (`mapping.tolerant`, ≥ 10 aa),
+2. **mass-equivalent:** `match_tolerant`, run with the GIPPA defaults (`mapping.tolerant`, ≥ 10 aa),
    returns a target row whose `diff_types` is non-empty and contains only `block`. Those are the
    exact-composition exchanges of §7.2.4, such as N ↔ GG and Q ↔ AG. `near_block`, `swap`,
    `substitution` and `frameshift` rows do **not** make a peptide present (question S2).
@@ -172,7 +172,7 @@ search them. The asymmetry is the same on both sides, since `present` is one fun
 At precursor level (secondary, S1), `r_prec = Σ_{k12_only} n_prec(p) / Σ_shared n_prec(p)`.
 Here `n_prec(p)` counts the precursors of p in the searchable space: for each form (unmodified,
 plus one form per M position oxidised), the charges z ∈ {1..4} with 300 ≤ m/z ≤ 1800. Masses
-come from `giap.mapping.masses`, with carbamidomethyl added to every C. A literal I or L in the
+come from `gippa.mapping.masses`, with carbamidomethyl added to every C. A literal I or L in the
 DIA-NN sequence does not change the mass.
 
 **Discoveries.** These are the A1 accepted target rows, using M10-05's rule: `is_decoy` false and
@@ -213,11 +213,11 @@ per-run numbers (descriptive): discoveries are the accepted rows of the run, and
 
 ## Outputs
 
-All under `METRICS_DIR` (default `$GIAP_ROOT/pilot/metrics/`). `--out` inside the checkout exits 2.
+All under `METRICS_DIR` (default `$GIPPA_ROOT/pilot/metrics/`). `--out` inside the checkout exits 2.
 
 | File | Content | Row-level DIA-NN data? |
 |---|---|---|
-| `entrapment.json` | `{"schema": "giap-pilot-entrapment/1", "spec": <SHA>, "inputs": {name: {path, sha256}}, "settings": {enzyme, missed, min_len, max_len, charges, mz, var_mods, tolerant}, "universe": {"k12_peptides", "excluded_contaminant", "non_standard", "shared", "shared_exact", "shared_mass_equivalent", "shared_strain_db_only", "k12_only", "r", "shared_precursors", "k12_only_precursors", "r_prec"}, "peptide": {N_T, N_E, excluded_contaminant, not_in_universe, fdp_combined, fdp_lower, assessment, ci}, "precursor": {…same…}, "per_run": {run: {…peptide fields…}}, "cross_checks": {…}, "caveats": […], "warnings": […]}` | no (counts and ratios) |
+| `entrapment.json` | `{"schema": "gippa-pilot-entrapment/1", "spec": <SHA>, "inputs": {name: {path, sha256}}, "settings": {enzyme, missed, min_len, max_len, charges, mz, var_mods, tolerant}, "universe": {"k12_peptides", "excluded_contaminant", "non_standard", "shared", "shared_exact", "shared_mass_equivalent", "shared_strain_db_only", "k12_only", "r", "shared_precursors", "k12_only_precursors", "r_prec"}, "peptide": {N_T, N_E, excluded_contaminant, not_in_universe, fdp_combined, fdp_lower, assessment, ci}, "precursor": {…same…}, "per_run": {run: {…peptide fields…}}, "cross_checks": {…}, "caveats": […], "warnings": […]}` | no (counts and ratios) |
 | `entrapment_discoveries.tsv` | one row per discovered peptide: `peptide`, `bucket`, `present_rule` (`exact`, `strain_db`, `mass_equivalent`, or empty) | **yes**: never committed |
 
 JSON follows M10-05's byte rules: sorted keys, two-space indent, `repr` floats, final newline, no
@@ -242,8 +242,8 @@ no verdict (L4).
    violation is a `warnings` entry. The difference is reported in two parts: the peptides that
    rule 1's `STRAIN_DB` clause or rule 2 made present, and the placements that are exact but
    rejected.
-3. **Digest agreement.** `not_in_universe = 0` is expected, because DIA-NN and GIAP use the same
-   digest (M10-02 README "Digest flags = GIAP's digest"). If it is not 0, `warnings` gets
+3. **Digest agreement.** `not_in_universe = 0` is expected, because DIA-NN and GIPPA use the same
+   digest (M10-02 README "Digest flags = GIPPA's digest"). If it is not 0, `warnings` gets
    `digest_mismatch` with the count.
 4. **Settings (when `DIANN_CMD` is given).** The flags in the table above equal `settings`.
    Otherwise exit 2.
@@ -292,7 +292,7 @@ Hand-made sequences and counts. None comes from the real reports.
 | 5 | **Failure.** N_T = 900, N_E = 100, r = 1 | `fdp_combined` 0.2; `fdp_lower` 0.1 > 0.01; `evidence_of_failure` |
 | 6 | **Boundary.** N_T = 2,990, N_E = 10, k12_only 1, shared 2 (r = 0.5) | `fdp_combined` = 10 · 3 / (1 · 3,000) = 0.01 exactly (rational arithmetic); `consistent_with_control` (≤ is inclusive). With N_T = 2,989: 30/2,999 = 0.0100033, `inconclusive` |
 | 7 | **No entrapment discoveries.** N_T = 5,000, N_E = 0, r = 0.4 | `fdp_combined` 0.0, `fdp_lower` 0.0, `consistent_with_control`, `warnings` `n_entrapment_zero` (the report says "no K-12-only peptide was accepted"; R4: an FDP estimate of 0 with no interval) |
-| 8 | **Digest mismatch.** As example 2, plus an accepted target row `SAGLLKVEPTIDEK` (a Met-excised N-terminal product that GIAP's digest never makes) | `not_in_universe` 1, `warnings` `digest_mismatch`; N_T and N_E unchanged |
+| 8 | **Digest mismatch.** As example 2, plus an accepted target row `SAGLLKVEPTIDEK` (a Met-excised N-terminal product that GIPPA's digest never makes) | `not_in_universe` 1, `warnings` `digest_mismatch`; N_T and N_E unchanged |
 | 9 | **Non-ATG start (L2).** As example 1, plus K-12 protein P4 `MTEKLLAGGPR` (digest: `MTEKLLAGGPR` 11 aa; `MTEK` and `LLAGGPR` → only `LLAGGPR`, 7 aa, is ≥ 7). The genome reads `VTEKLLAGGPR` (GTG start), and `STRAIN_DB` has `MTEKLLAGGPR…` | `LLAGGPR`: exact, `shared`. `MTEKLLAGGPR`: not exact in the six-frame translation, but a substring of a `STRAIN_DB` protein, so `shared` (`present_rule = strain_db`, counted in `shared_strain_db_only`). Without `STRAIN_DB` (L2 answered "no") it is `k12_only`, because rule 2 sees M ↔ V as a substitution |
 | 10 | **Wild type only.** `PEP_A1` has a row with run `WT_ROS_1` | exit 2 naming the run; nothing written |
 
@@ -373,7 +373,7 @@ On CI (synthetic inputs only, built in `tmp_path`; no DIA-NN data, no network):
 On FarmShare (evidence, not CI):
 
 12. `entrapment.py compute` on the real inputs runs in `scripts/slurm/entrapment.sbatch` and exits
-    0. The sbatch request is `dev`, 4 CPUs, 16 GB, 1 h, job name `giap-entrapment`; the expected
+    0. The sbatch request is `dev`, 4 CPUs, 16 GB, 1 h, job name `gippa-entrapment`; the expected
     run is minutes, dominated by the tolerant search of the K-12-only peptides of ≥ 10 aa. The job
     ID, r, `fdp_combined`, `fdp_lower`, the assessment and the warnings go to PROGRESS › Measured
     numbers as aggregates (under the M10-05 Q-K1 default, not committed elsewhere). A
@@ -390,7 +390,7 @@ The test-author writes the tests first (R2), in new files only:
 
 The tests use small synthetic genomes and FASTAs built in `tmp_path`. Local runs are targeted
 (venv Python, `PYTHONPATH=$PWD/src:$PWD/tests/sim:$PWD`). No integration test is needed, because
-every piece of GIAP that `entrapment.py` calls is already integration-tested.
+every piece of GIPPA that `entrapment.py` calls is already integration-tested.
 
 **Attack (statistician, optional; S4).** A simulation of the combined estimator under the free-
 entrapment structure:
@@ -467,8 +467,8 @@ replaces. The test-author writes tests against the body as amended here.
   statements quoted from the main text.
 - **Algebra.** `1 + 1/r = (k + s)/k` with k = |k12_only| and s = |shared|. The rational form is
   therefore exact.
-- **Examples 1–9 and the `MMGGGGGK` edge case** were recomputed with `giap.mapping.digest` and
-  `giap.mapping.masses`. Every digest product, bucket, r, r_prec, precursor count, m/z value
+- **Examples 1–9 and the `MMGGGGGK` edge case** were recomputed with `gippa.mapping.digest` and
+  `gippa.mapping.masses`. Every digest product, bucket, r, r_prec, precursor count, m/z value
   (719.41201, 360.20964, 735.40693, 368.20710, VEPTLDEK z1 930.47783) and FDP is correct.
   Examples 3–7 are also correct: 0.0201207 and 0.0040241; 0.0030272 and 0.0010091; 0.2 and 0.1;
   exactly 0.01; 0.0100033.

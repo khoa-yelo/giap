@@ -65,9 +65,9 @@ def test_clean_venv_outside_checkout() -> None:
 @pytest.mark.parametrize(
     "cmd",
     [
-        "giap --version",
-        "giap version --json",
-        "giap preflight",
+        "gippa --version",
+        "gippa version --json",
+        "gippa preflight",
         "workflow_main()",
         "nextflow config",
         "-profile test,stub",
@@ -87,7 +87,7 @@ def test_preflight_uses_tiny_test_genome() -> None:
 def test_workflow_main_asserted_under_site_packages() -> None:
     job = _job()
     s = _script(job)
-    assert "site-packages" in s and "giap/workflow" in s
+    assert "site-packages" in s and "gippa/workflow" in s
 
 
 def test_smoke_runs_outside_the_checkout() -> None:
@@ -96,7 +96,7 @@ def test_smoke_runs_outside_the_checkout() -> None:
     smoke = [
         st
         for st in job.get("steps", [])
-        if "giap --version" in str(st.get("run", "")) or "workflow_main()" in str(st.get("run", ""))
+        if "gippa --version" in str(st.get("run", "")) or "workflow_main()" in str(st.get("run", ""))
     ]
     assert smoke
     defaults = str(job.get("defaults", {}).get("run", {}).get("working-directory", ""))

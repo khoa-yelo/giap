@@ -1,12 +1,12 @@
-// SENSITIVITY_RERUNS (GIAP_SPEC.md §6.2 "sensitivity" row, §8.6; M4-19, M6-10, M8-16): the gene
+// SENSITIVITY_RERUNS (GIPPA_SPEC.md §6.2 "sensitivity" row, §8.6; M4-19, M6-10, M8-16): the gene
 // table plus C1/C5/C7/C8 -> tables/sensitivity.tsv. Out of CONTEXT since M8-16 (lead decision 4,
 // gap 12): main.nf calls it after DETERMINANTS (which needs CONTEXT's gene context) and beside
 // FUNCTION, so the determinants family gets DETERMINANTS' features table and the enriched
 // categories family the function resources and GENETABLE's TU folds. The operon_flags family
 // (M6-10) takes ANNOTATE's layers_for_pairs and, only beside pairs_raw, the C2 genes / C3
 // features. Every M8-16 input is optional (the step skips a family without its inputs). Without
-// C7/C8 the step does not run. The py step keeps the GIAP_STEP alias SENSITIVITY.
-include { GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
+// C7/C8 the step does not run. The py step keeps the GIPPA_STEP alias SENSITIVITY.
+include { GIPPA_STEP as SENSITIVITY } from '../../modules/local/gippa_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 workflow SENSITIVITY_RERUNS {

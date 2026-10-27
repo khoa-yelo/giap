@@ -1,4 +1,4 @@
-"""V1 ``circos``: where in the genome is the proteome? (M9-08; GIAP_SPEC.md §10.2 V1, §6.5).
+"""V1 ``circos``: where in the genome is the proteome? (M9-08; GIPPA_SPEC.md §10.2 V1, §6.5).
 
 Tests the data TSV as written (``plots/data/V01_circos.tsv``, 1-based closed), the drawn elements
 per track, colours, the title, the degenerate cases, binning, determinism and purity. No ``--mpl``
@@ -7,7 +7,7 @@ baselines (M9-25). The oriC/ter and GC-skew tracks are tested only through their
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.circos``; importing it registers ``V01`` (name ``circos``,
+- The plot lives in ``gippa.viz.circos``; importing it registers ``V01`` (name ``circos``,
   ``needs`` = {``preflight``, ``genes_tsv``}, module ``core``, no ``layers``; ``optional`` ⊇ the
   other inputs). Called through ``registered()["V01"].fn(view, cfg)``, it returns exactly one
   ``Instance`` with ``suffix=None``.
@@ -50,15 +50,15 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.io.tsv import write_tsv
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.io.tsv import write_tsv
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = ["track", "contig", "start", "end", "value", "category", "binned"]
 TRACKS = [
     "sector", "region", "gene_plus", "gene_minus", "abundance", "peptide_density", "tu_start",
@@ -80,7 +80,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -321,12 +321,12 @@ def full_run(tmp: Path, name: str = "OUT", **over: Any) -> Path:
 
 
 def _v01() -> base.PlotSpec:
-    import giap.viz.circos  # noqa: F401  (registers V01)
+    import gippa.viz.circos  # noqa: F401  (registers V01)
 
     return base.registered()["V01"]
 
 
-def render(out: Path, cfg: GiapConfig) -> Instance:
+def render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v01().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -382,13 +382,13 @@ def test_v01_is_registered_as_circos() -> None:
     }  # fmt: skip
 
 
-def test_no_genes_tsv_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_genes_tsv_is_skipped(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _preflight(out, TWO)
     assert _v01().fn(RunView.from_outdir(out), cfg) == Skip("input_absent:genes_tsv")
 
 
-def test_layer_flags_do_not_skip_the_plot(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_layer_flags_do_not_skip_the_plot(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(tmp_path, flags=["layer_missing:genomad", "layer_missing:antismash"])
     render(out, cfg)
 
@@ -396,7 +396,7 @@ def test_layer_flags_do_not_skip_the_plot(tmp_path: Path, cfg: GiapConfig) -> No
 # --- data TSV: shape, order, examples -------------------------------------------------------
 
 
-def test_data_tsv_columns_and_enum_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_columns_and_enum_order(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     assert list(data.columns) == COLUMNS
     assert set(data["track"]) <= set(TRACKS)
@@ -411,18 +411,18 @@ def test_data_tsv_columns_and_enum_order(tmp_path: Path, cfg: GiapConfig) -> Non
     assert keys == sorted(keys)
 
 
-def test_example1_one_sector_row_per_replicon(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_one_sector_row_per_replicon(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(make_run(tmp_path), cfg), tmp_path)
     assert spans(data, "sector") == [("chr1", 1, 100_000), ("plasmid_1", 1, 8_000)]
 
 
-def test_sectors_follow_fasta_order_not_names(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_sectors_follow_fasta_order_not_names(tmp_path: Path, cfg: GippaConfig) -> None:
     reps = [("plasmid_1", 8_000, "circular"), ("chr1", 100_000, "circular")]
     data = tsv(render(make_run(tmp_path, replicons=reps), cfg), tmp_path)
     assert spans(data, "sector") == [("plasmid_1", 1, 8_000), ("chr1", 1, 100_000)]
 
 
-def test_example2_origin_crossing_gene_one_row_two_pieces(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_origin_crossing_gene_one_row_two_pieces(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [gene("g1", "chr1", 99_801, 100_300, "+", "detected")]
     inst = render(make_run(tmp_path, genes=genes), cfg)
     assert rows(tsv(inst, tmp_path), "gene_plus") == [("chr1", 99_801, 100_300, "detected")]
@@ -430,7 +430,7 @@ def test_example2_origin_crossing_gene_one_row_two_pieces(tmp_path: Path, cfg: G
     assert elements(inst.figure, "gene_minus") == []
 
 
-def test_gene_rows_by_strand_with_detection_status(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_gene_rows_by_strand_with_detection_status(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     assert rows(data, "gene_plus") == [
         ("chr1", 1_001, 2_000, "not_detected"),
@@ -443,7 +443,7 @@ def test_gene_rows_by_strand_with_detection_status(tmp_path: Path, cfg: GiapConf
     ]
 
 
-def test_example3_peptide_density_10kb_bins_by_start(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_peptide_density_10kb_bins_by_start(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     d = data[data["track"] == "peptide_density"]
     assert set(d["category"]) == {"placements"}
@@ -459,7 +459,7 @@ def test_example3_peptide_density_10kb_bins_by_start(tmp_path: Path, cfg: GiapCo
     }
 
 
-def test_peptide_density_last_bin_stops_at_the_sector_end(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_peptide_density_last_bin_stops_at_the_sector_end(tmp_path: Path, cfg: GippaConfig) -> None:
     peps = [pep("plasmid_1", 7_990, 8_013), pep("chr1", 99_999, 100_022)]
     data = tsv(render(make_run(tmp_path, peptides=peps), cfg), tmp_path)
     d = data[(data["track"] == "peptide_density") & (data["value"].astype(float) > 0)]
@@ -470,7 +470,7 @@ def test_peptide_density_last_bin_stops_at_the_sector_end(tmp_path: Path, cfg: G
 
 
 def test_peptide_density_counts_rows_of_a_multi_locus_peptide(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     peps = [pep("chr1", 101), pep("chr1", 5_001), pep("chr1", 15_001)]  # one peptide, 3 loci
     data = tsv(render(make_run(tmp_path, peptides=peps), cfg), tmp_path)
@@ -478,14 +478,14 @@ def test_peptide_density_counts_rows_of_a_multi_locus_peptide(
     assert d["value"].astype(float).sum() == 3.0
 
 
-def test_example4_only_claimed_islands(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_only_claimed_islands(tmp_path: Path, cfg: GippaConfig) -> None:
     isl = FULL_ISLANDS[:2]
     data = tsv(render(make_run(tmp_path, islands=isl), cfg), tmp_path)
     assert rows(data, "island") == [("chr1", 1_001, 6_000, "high")]
 
 
 def test_islands_at_alpha_included_origin_crossing_keeps_end(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = render(full_run(tmp_path), cfg)
     assert rows(tsv(inst, tmp_path), "island") == [
@@ -502,18 +502,18 @@ def test_island_alpha_comes_from_config(tmp_path: Path) -> None:
     assert "3 islands at FWER ≤ 0.25" in inst.title
 
 
-def test_example5_alt_sites(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_alt_sites(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     got = [(c, s, cat) for c, s, _, cat in rows(data, "alt_site")]
     assert got == [("chr1", 1_501, "high"), ("chr1", 5_101, "candidate")]
 
 
-def test_novel_orfs_called_only_lowest_to_highest(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_novel_orfs_called_only_lowest_to_highest(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     assert spans(data, "novel_orf") == [("chr1", 80_001, 80_300), ("chr1", 84_001, 84_300)]
 
 
-def test_regions_all_five_types(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_regions_all_five_types(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     assert rows(data, "region") == [
         ("chr1", 10_001, 20_000, "prophage"),
@@ -524,14 +524,14 @@ def test_regions_all_five_types(tmp_path: Path, cfg: GiapConfig) -> None:
     ]
 
 
-def test_tu_promoter_terminator_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_tu_promoter_terminator_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     assert ("chr1", 1_001) in [(c, s) for c, s, _ in spans(data, "tu_start")]
     assert spans(data, "promoter") == [("chr1", 901, 950)]  # BED 900-950 -> 1-based 901-950
     assert spans(data, "terminator") == [("chr1", 2_001, 2_030)]
 
 
-def test_abundance_values_of_measured_genes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_abundance_values_of_measured_genes(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     d = data[(data["track"] == "abundance") & (data["value"] != "NA")]
     got = {(c, int(s)): float(v) for c, s, v in zip(d.contig, d.start, d.value, strict=True)}
@@ -541,7 +541,7 @@ def test_abundance_values_of_measured_genes(tmp_path: Path, cfg: GiapConfig) -> 
 # --- drawn elements and colours -------------------------------------------------------------
 
 
-def test_gene_colours_by_detection_status(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_gene_colours_by_detection_status(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     det, nd, un = (style.STATUS_COLOUR[k].upper() for k in
                    ("detected", "not_detected", "single_peptide_unestimated"))  # fmt: skip
@@ -549,20 +549,20 @@ def test_gene_colours_by_detection_status(tmp_path: Path, cfg: GiapConfig) -> No
     assert face_hexes(elements(fig, "gene_minus")) == sorted([un, det])
 
 
-def test_partial_gene_is_grey_and_hatched(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_partial_gene_is_grey_and_hatched(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [gene("gp", "chr1", 1_001, 2_000, "+", "partial_excluded")]
     (el,) = elements(render(make_run(tmp_path, genes=genes), cfg).figure, "gene_plus")
     assert el.face_hex == style.STATUS_COLOUR["partial_excluded"].upper()
     assert el.hatch
 
 
-def test_region_colours(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_colours(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     got = Counter(e.face_hex for e in elements(fig, "region"))
     assert got == Counter(v.upper() for v in style.REGION.values())
 
 
-def test_island_colours_and_hatches(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_island_colours_and_hatches(tmp_path: Path, cfg: GippaConfig) -> None:
     els = elements(render(full_run(tmp_path), cfg).figure, "island")
     by_hatch = Counter(e.hatch for e in els)
     assert by_hatch == Counter({style.ISLAND["high"][1]: 1, style.ISLAND["low"][1]: 2})
@@ -571,7 +571,7 @@ def test_island_colours_and_hatches(tmp_path: Path, cfg: GiapConfig) -> None:
         assert style.ISLAND[direction][0].upper() in e.colours()
 
 
-def test_tick_colours(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_tick_colours(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     for track, colour in (("tu_start", BLACK), ("promoter", "#009E73"), ("terminator", "#D55E00")):
         els = elements(fig, track)
@@ -579,7 +579,7 @@ def test_tick_colours(tmp_path: Path, cfg: GiapConfig) -> None:
         assert all(colour in e.colours() for e in els), track
 
 
-def test_marker_styles(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_marker_styles(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     alt = elements(fig, "alt_site")
     assert len(alt) == 2
@@ -593,7 +593,7 @@ def test_marker_styles(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_abundance_viridis_2nd_to_98th_percentile_na_and_imputed_white(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     genes = [gene(f"m{v}", "chr1", 1 + 900 * v, 500 + 900 * v, "+", "detected", float(v))
              for v in range(101)]  # fmt: skip
@@ -611,7 +611,7 @@ def test_abundance_viridis_2nd_to_98th_percentile_na_and_imputed_white(
     assert faces[viridis(0.5)] >= 1  # 50 is the midpoint of [2, 98]
 
 
-def test_track_patch_counts_match_features(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_track_patch_counts_match_features(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     assert len(elements(fig, "region")) == 5
     assert len(elements(fig, "gene_plus")) == 4
@@ -623,13 +623,13 @@ def test_track_patch_counts_match_features(tmp_path: Path, cfg: GiapConfig) -> N
 # --- title ----------------------------------------------------------------------------------
 
 
-def test_title_full(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_full(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path), cfg)
     assert inst.title == FULL_TITLE
     assert FULL_TITLE in texts(inst.figure)
 
 
-def test_title_without_marker_tables(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_without_marker_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path, variants=None, novel_orfs=None), cfg)
     assert inst.title == "3 of 5 genes detected (60 %); 2 islands at FWER ≤ 0.05"
 
@@ -637,7 +637,7 @@ def test_title_without_marker_tables(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- degenerate cases -----------------------------------------------------------------------
 
 
-def test_one_linear_contig_does_not_wrap(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_linear_contig_does_not_wrap(tmp_path: Path, cfg: GippaConfig) -> None:
     reps = [("chr1", 100_000, "linear")]
     genes = [gene("g1", "chr1", 99_501, 100_000, "+", "detected")]
     inst = render(make_run(tmp_path, replicons=reps, genes=genes), cfg)
@@ -647,7 +647,7 @@ def test_one_linear_contig_does_not_wrap(tmp_path: Path, cfg: GiapConfig) -> Non
     assert len(elements(inst.figure, "gene_plus")) == 1
 
 
-def test_contig_without_genes_keeps_its_sector(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_contig_without_genes_keeps_its_sector(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [gene("g1", "chr1", 1_001, 2_000)]
     data = tsv(render(make_run(tmp_path, genes=genes), cfg), tmp_path)
     assert [c for c, _, _ in spans(data, "sector")] == ["chr1", "plasmid_1"]
@@ -655,7 +655,7 @@ def test_contig_without_genes_keeps_its_sector(tmp_path: Path, cfg: GiapConfig) 
     assert "plasmid_1" not in set(gene_rows["contig"])
 
 
-def test_no_peptide_hits_omits_density_and_notes_it(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_peptide_hits_omits_density_and_notes_it(tmp_path: Path, cfg: GippaConfig) -> None:
     with_hits = render(full_run(tmp_path, name="A"), cfg)
     without = render(full_run(tmp_path, name="B", peptides=None), cfg)
     assert (tsv(without, tmp_path)["track"] == "peptide_density").sum() == 0
@@ -664,20 +664,20 @@ def test_no_peptide_hits_omits_density_and_notes_it(tmp_path: Path, cfg: GiapCon
     assert any("peptide" in t.lower() for t in extra), extra
 
 
-def test_marker_tables_absent_omit_markers(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_marker_tables_absent_omit_markers(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path, variants=None, novel_orfs=None), cfg)
     data = tsv(inst, tmp_path)
     assert not data["track"].isin(["alt_site", "novel_orf"]).any()
     assert elements(inst.figure, "alt_site") == elements(inst.figure, "novel_orf") == []
 
 
-def test_only_variants_absent_keeps_novel_orfs(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_only_variants_absent_keeps_novel_orfs(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path, variants=None), cfg), tmp_path)
     assert (data["track"] == "alt_site").sum() == 0
     assert (data["track"] == "novel_orf").sum() == 2
 
 
-def test_no_support_files_omit_gc_skew_and_landmarks_noted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_support_files_omit_gc_skew_and_landmarks_noted(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path), cfg)
     data = tsv(inst, tmp_path)
     assert not data["track"].isin(["gc_skew", "oric", "ter"]).any()
@@ -687,7 +687,7 @@ def test_no_support_files_omit_gc_skew_and_landmarks_noted(tmp_path: Path, cfg: 
     assert mentions(inst.figure, "oriC")
 
 
-def test_missing_layers_bakta_arcs_still_drawn_and_noted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_missing_layers_bakta_arcs_still_drawn_and_noted(tmp_path: Path, cfg: GippaConfig) -> None:
     regs = [FULL_REGIONS[1], FULL_REGIONS[3]]  # plasmid and CRISPR (Bakta)
     out = full_run(
         tmp_path, regions=regs, flags=["layer_missing:genomad", "layer_missing:antismash"]
@@ -699,20 +699,20 @@ def test_missing_layers_bakta_arcs_still_drawn_and_noted(tmp_path: Path, cfg: Gi
     assert mentions(inst.figure, "antismash")
 
 
-def test_optional_annotation_files_absent_render(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_optional_annotation_files_absent_render(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(tmp_path, regions=None, tus=None, promoters=None, terminators=None, islands=None)
     data = tsv(render(out, cfg), tmp_path)
     absent = ["region", "tu_start", "promoter", "terminator", "island"]
     assert not data["track"].isin(absent).any()
 
 
-def test_amr_gene_set_without_coordinates_renders(tmp_path: Path, cfg: GiapConfig) -> None:
-    # annotation/regions.tsv writes AMR gene sets with NA start/end (giap.annotate.regions)
+def test_amr_gene_set_without_coordinates_renders(tmp_path: Path, cfg: GippaConfig) -> None:
+    # annotation/regions.tsv writes AMR gene sets with NA start/end (gippa.annotate.regions)
     regs = [*FULL_REGIONS[:4], region("amr_1", "amr", "chr1", None, None)]
     render(full_run(tmp_path, regions=regs), cfg)
 
 
-def test_small_replicon_among_large_ones_keeps_its_sector(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_small_replicon_among_large_ones_keeps_its_sector(tmp_path: Path, cfg: GippaConfig) -> None:
     reps = [("chr1", 5_000_000, "circular"), ("chr2", 5_000_000, "circular"),
             ("plasmid_1", 20_000, "circular")]  # fmt: skip
     inst = render(make_run(tmp_path, replicons=reps), cfg)
@@ -721,7 +721,7 @@ def test_small_replicon_among_large_ones_keeps_its_sector(tmp_path: Path, cfg: G
     assert any(re.search(r"\dMb|\d Mb", t) for t in texts(inst.figure))
 
 
-def test_kb_tick_labels_on_a_100kb_genome(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_kb_tick_labels_on_a_100kb_genome(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(make_run(tmp_path), cfg)
     assert any(re.search(r"\d ?kb", t) for t in texts(inst.figure))
 
@@ -729,7 +729,7 @@ def test_kb_tick_labels_on_a_100kb_genome(tmp_path: Path, cfg: GiapConfig) -> No
 # --- binning (example 6) --------------------------------------------------------------------
 
 
-def test_example6_25000_genes_are_binned(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_25000_genes_are_binned(tmp_path: Path, cfg: GippaConfig) -> None:
     length = 5_000_000
     genes = [
         gene(f"g{i}", "chr1", 1 + 200 * i, 150 + 200 * i, "+", "detected", 20.0, length=length)
@@ -754,7 +754,7 @@ def test_example6_25000_genes_are_binned(tmp_path: Path, cfg: GiapConfig) -> Non
 # --- figure conventions, determinism, purity ------------------------------------------------
 
 
-def test_double_width_and_minimum_font_size(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_double_width_and_minimum_font_size(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = render(full_run(tmp_path), cfg).figure
     assert isinstance(fig, Figure)
     assert round(float(fig.get_size_inches()[0]), 6) == style.DOUBLE_IN
@@ -763,21 +763,21 @@ def test_double_width_and_minimum_font_size(tmp_path: Path, cfg: GiapConfig) -> 
     assert sizes and min(sizes) >= 6
 
 
-def test_no_pyplot_figure_is_created(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_pyplot_figure_is_created(tmp_path: Path, cfg: GippaConfig) -> None:
     before = Gcf.get_num_fig_managers()
     render(full_run(tmp_path), cfg)
     assert Gcf.get_num_fig_managers() == before
 
 
 def test_viz_module_is_pure() -> None:
-    import giap.viz.circos as mod
+    import gippa.viz.circos as mod
 
     src = inspect.getsource(mod)
     for banned in ("pyplot", "open(", "read_text", "read_csv", "to_csv", "savefig"):
         assert banned not in src, banned
 
 
-def test_rerenders_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rerenders_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(tmp_path)
     written = []
     for name in ("r1", "r2"):
@@ -790,7 +790,7 @@ def test_rerenders_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
         assert written[0][key] == written[1][key], key
 
 
-def test_run_view_from_inputs_gives_the_same_data(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_run_view_from_inputs_gives_the_same_data(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(tmp_path)
     inputs = {
         "preflight": out / "preflight" / "preflight.json",
@@ -855,7 +855,7 @@ def test_gene_pieces_two_iff_crossing_origin(
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason="validation run OUT/ not present")
-def test_example8_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example8_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(VAL_OUT, cfg)
     assert inst.title == "0 of 87 genes detected (0 %); 0 islands at FWER ≤ 0.05"
     data = tsv(inst, tmp_path)

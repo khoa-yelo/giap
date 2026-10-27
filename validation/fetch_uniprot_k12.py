@@ -1,8 +1,8 @@
-"""Download the UniProt E. coli K-12 proteome UP000000625 (GIAP_SPEC.md §11.4, §11.6, §15.3).
+"""Download the UniProt E. coli K-12 proteome UP000000625 (GIPPA_SPEC.md §11.4, §11.6, §15.3).
 
 Usage: ``python validation/fetch_uniprot_k12.py`` (no arguments; network, weekly job only).
 
-Writes ``$GIAP_DATA_DIR/uniprot/UP000000625.fasta`` from the official UniProt REST stream (R6)
+Writes ``$GIPPA_DATA_DIR/uniprot/UP000000625.fasta`` from the official UniProt REST stream (R6)
 and ``UP000000625.provenance.json`` next to it with the URL, UniProt release, entry count,
 SHA-256 and retrieval date (YYYY-MM-DD). Never committed (R11). Exit 1 when the download is
 incomplete (entry count differs from ``X-Total-Results``) or the source is unreachable.
@@ -27,7 +27,7 @@ TIMEOUT_S = 600
 
 def _download(url: str, dst: Path) -> dict[str, str]:
     """Stream ``url`` into ``dst``; returns the response headers (lower-case keys)."""
-    req = urllib.request.Request(url, headers={"User-Agent": "giap-validation (FarmShare)"})
+    req = urllib.request.Request(url, headers={"User-Agent": "gippa-validation (FarmShare)"})
     with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp, dst.open("wb") as fh:
         while chunk := resp.read(1 << 20):
             fh.write(chunk)
@@ -35,9 +35,9 @@ def _download(url: str, dst: Path) -> dict[str, str]:
 
 
 def main() -> int:
-    data = os.environ.get("GIAP_DATA_DIR")
+    data = os.environ.get("GIPPA_DATA_DIR")
     if not data:
-        print("fetch_uniprot_k12: GIAP_DATA_DIR is not set", file=sys.stderr)
+        print("fetch_uniprot_k12: GIPPA_DATA_DIR is not set", file=sys.stderr)
         return 1
     out = Path(data) / "uniprot"
     out.mkdir(parents=True, exist_ok=True)

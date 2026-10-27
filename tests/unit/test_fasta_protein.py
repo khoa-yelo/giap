@@ -1,4 +1,4 @@
-"""Protein FASTA reader (issue M1-03; GIAP_SPEC.md §5.3, §7.0; ADR-0005 item 1)."""
+"""Protein FASTA reader (issue M1-03; GIPPA_SPEC.md §5.3, §7.0; ADR-0005 item 1)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.fasta import FastaFormatError
-from giap.io.protein_fasta import (
+from gippa.io.fasta import FastaFormatError
+from gippa.io.protein_fasta import (
     COUNTED_AA,
     STANDARD_AA,
     ProteinRecord,

@@ -256,7 +256,7 @@
     }
   ],
   "evidence_tier": "decoy_picked",
-  "giap_version": "0.0.1",
+  "gippa_version": "0.0.1",
   "inputs": [
     {
       "file": "genome.fasta",

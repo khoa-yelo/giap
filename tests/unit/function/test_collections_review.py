@@ -6,7 +6,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from giap.function.collections import kegg_pathways
+from gippa.function.collections import kegg_pathways
 
 
 @pytest.mark.parametrize("overview", ["map01100", "map01250", "map01310", "map01320"])

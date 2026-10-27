@@ -1,5 +1,5 @@
 """Properties of M7-12 round 2 (lead decisions 11, 12, 15 and 16; issue M7-12, PR #225) over
-random seeds at 100 kb (GIAP_SPEC.md §11.3).
+random seeds at 100 kb (GIPPA_SPEC.md §11.3).
 
 For any seed: ``variant_f1``'s ``alt_sites.tsv`` equals the sample-frame lift of every
 non-synonymous SNV (ambiguous codons near indels / at first codons excluded) and its
@@ -20,7 +20,7 @@ from helpers import m7_sim_oracle as O
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giapsim
+import gippasim
 
 seeds = st.integers(min_value=0, max_value=2**31 - 1)
 _SETTINGS = settings(max_examples=3, deadline=None,
@@ -28,9 +28,9 @@ _SETTINGS = settings(max_examples=3, deadline=None,
 
 
 def _sim(name: str, seed: int, d: Path) -> Path:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
-    giapsim.simulate(getattr(sc, name)(seed), seed, d)
+    gippasim.simulate(getattr(sc, name)(seed), seed, d)
     return d
 
 

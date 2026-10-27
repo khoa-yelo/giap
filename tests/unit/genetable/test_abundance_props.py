@@ -35,7 +35,7 @@ INTENSITY = st.one_of(
 
 
 def _ab() -> Any:
-    from giap.genetable import abundance
+    from gippa.genetable import abundance
 
     return abundance
 

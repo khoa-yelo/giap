@@ -1,12 +1,12 @@
 #!/bin/bash
-# Build the pinned micromamba env of each named tool (GIAP_SPEC.md §3.2, §3.9, §7.1.1; ADR-0008).
+# Build the pinned micromamba env of each named tool (GIPPA_SPEC.md §3.2, §3.9, §7.1.1; ADR-0008).
 #   bash scripts/build_envs.sh <tool> [...]
 #   bash scripts/build_envs.sh all   (conda envs only for tools without a pinned container in
 #                                     workflow/conf/containers.config, opt-in tools skipped; §3.9)
 # A named tool is always built (conda profile on demand).
-# Pilot-only envs (giap.annotate.tools.PILOT_TOOLS, M10-08) build by name with conda-forge only.
+# Pilot-only envs (gippa.annotate.tools.PILOT_TOOLS, M10-08) build by name with conda-forge only.
 # Per tool (M2-01 review decisions 1-3):
-#   - $prefix/.giap-built holds the sha256 of workflow/envs/<tool>.yml after a successful build;
+#   - $prefix/.gippa-built holds the sha256 of workflow/envs/<tool>.yml after a successful build;
 #     a missing or different marker removes the env and rebuilds it (half-built envs, changed ymls).
 #   - git-pinned tools: source cloned at the pinned commit into $prefix/share/<tool>/.
 #   - the version command must succeed and print the registry version (commit SHA for git tools);
@@ -19,8 +19,8 @@
 # Run it through `sbatch scripts/slurm/build_envs.sbatch`, never on a login node.
 set -euo pipefail
 
-GIAP_REPO="${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
-ENV_DIR="$GIAP_REPO/workflow/envs"
+GIPPA_REPO="${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}"
+ENV_DIR="$GIPPA_REPO/workflow/envs"
 # Portable to bash 3.2 (macOS CI): no mapfile, associative arrays or GNU-only find/sha256sum.
 VALID=""
 for f in "$ENV_DIR"/*.yml; do
@@ -41,21 +41,21 @@ for tool in "$@"; do
 done
 
 # shellcheck source=/dev/null
-source "$GIAP_REPO/scripts/farmshare_env.sh"
+source "$GIPPA_REPO/scripts/farmshare_env.sh"
 # The env's Python must never see ~/.local: a user-site package would leak into the version step
 # and into `pip freeze`, so the pip lock would pin it (M11-14b; e.g. ViennaRNA 2.7.1 over conda's).
 export PYTHONNOUSERSITE=1
-PY="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
-LOCKS="$GIAP_REPO/workflow/envs/locks"
+PY="${GIPPA_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
+LOCKS="$GIPPA_REPO/workflow/envs/locks"
 mkdir -p "$LOCKS"
 
 # `all`: conda tools that have no pinned container and are not opt-in (decision 4).
 if [ "$1" = "all" ]; then
   all_tools() {
-    PYTHONPATH="$GIAP_REPO/src" "$PY" - "$GIAP_REPO" <<'PYEOF'
+    PYTHONPATH="$GIPPA_REPO/src" "$PY" - "$GIPPA_REPO" <<'PYEOF'
 import sys
 from pathlib import Path
-from giap.annotate.tools import TOOLS, read_containers_config
+from gippa.annotate.tools import TOOLS, read_containers_config
 pinned = {k.lower() for k in read_containers_config(Path(sys.argv[1]) / "workflow/conf/containers.config")}
 for name, t in sorted(TOOLS.items()):
     if not t.in_process and t.module != "opt_in" and name not in pinned:
@@ -68,13 +68,13 @@ PYEOF
   echo "all: $*"
 fi
 
-# Registry fields (single source of truth: src/giap/annotate/tools.py), one per line.
+# Registry fields (single source of truth: src/gippa/annotate/tools.py), one per line.
 registry() {
-  PYTHONPATH="$GIAP_REPO/src" "$PY" - "$1" "$ENV_DIR" <<'PYEOF'
+  PYTHONPATH="$GIPPA_REPO/src" "$PY" - "$1" "$ENV_DIR" <<'PYEOF'
 import hashlib, shlex, sys
 from pathlib import Path
-from giap.annotate.tools import PILOT_TOOLS, TOOLS
-from giap.io.fgsea_r import FGSEA_TOOL
+from gippa.annotate.tools import PILOT_TOOLS, TOOLS
+from gippa.io.fgsea_r import FGSEA_TOOL
 frozen = {FGSEA_TOOL.name: FGSEA_TOOL}  # joins TOOLS in M8-17b
 t = {**frozen, **PILOT_TOOLS, **TOOLS}[sys.argv[1]]  # PILOT_TOOLS: M10-08, never in `all`
 print(t.env_name)
@@ -96,7 +96,7 @@ build_one() {
     IFS= read -r version_cmd; IFS= read -r want; IFS= read -r chans; } <<< "$reg"
   mode=solve; if frozen "$tool"; then mode=frozen; fi
   prefix="$MAMBA_ROOT_PREFIX/envs/$env_name"
-  marker="$prefix/.giap-built"
+  marker="$prefix/.gippa-built"
   if [ "$mode" = "frozen" ]; then
     [ -s "$LOCKS/$tool.explicit.txt" ] || { echo "$tool: no committed lock" >&2; return 1; }
   else
@@ -125,11 +125,11 @@ build_one() {
   if [ -n "$repo" ]; then
     sha="${version#git:}"
     src="$prefix/share/$tool"
-    if [ "$(cat "$src/GIAP_COMMIT" 2>/dev/null || true)" != "$sha" ]; then
+    if [ "$(cat "$src/GIPPA_COMMIT" 2>/dev/null || true)" != "$sha" ]; then
       rm -rf "$src"
       git clone --quiet "$repo" "$src" || return 1
       git -C "$src" checkout --quiet "$sha" || return 1
-      echo "$sha" > "$src/GIAP_COMMIT"
+      echo "$sha" > "$src/GIPPA_COMMIT"
     fi
   fi
 

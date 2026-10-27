@@ -1,15 +1,15 @@
 """Data-TSV frames and figure-JSON readers for the M9-15 twin tests (interactive Plotly twins of
-V2, V5, V6, V7, V8, V10, V11, V17, V18; GIAP_SPEC.md §10.1, §10.2 "Interactive in report").
+V2, V5, V6, V7, V8, V10, V11, V17, V18; GIPPA_SPEC.md §10.1, §10.2 "Interactive in report").
 
-A twin sees only its plot's data TSV, read back the way ``giap.steps.plots.twins`` reads it
+A twin sees only its plot's data TSV, read back the way ``gippa.steps.plots.twins`` reads it
 (``read_csv(sep="\\t", na_values=["NA"], keep_default_na=False)``). ``frame`` therefore writes
-the rows with the TSV writer's own cell formatter (``giap.io.tsv.format_value``) and reads them
+the rows with the TSV writer's own cell formatter (``gippa.io.tsv.format_value``) and reads them
 back with those flags, so a frame here is byte-for-byte what a twin gets from a file. Coordinates
 in these frames are the TSV's 1-based closed ones.
 
 ``spec`` parses ``figure_json``; ``values`` decodes Plotly's typed arrays (``{"dtype", "bdata"}``)
 so tests do not depend on whether a twin passes lists or numpy arrays. Nothing here touches the
-network or ``$GIAP_DB_DIR``.
+network or ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ Row = Sequence[object]
 
 
 def tsv_text(columns: Sequence[str], rows: Iterable[Row]) -> str:
-    from giap.io.tsv import format_value
+    from gippa.io.tsv import format_value
 
     lines = ["\t".join(columns)]
     for r in rows:
@@ -64,8 +64,8 @@ def tsv_text(columns: Sequence[str], rows: Iterable[Row]) -> str:
 
 
 def read(text: str) -> pd.DataFrame:
-    """A data TSV's text as ``giap.steps.plots.twins`` reads the file."""
-    from giap.steps.plots import TWIN_ID_DTYPES
+    """A data TSV's text as ``gippa.steps.plots.twins`` reads the file."""
+    from gippa.steps.plots import TWIN_ID_DTYPES
 
     return pd.read_csv(io.StringIO(text), sep="\t", na_values=["NA"], keep_default_na=False,
                        dtype=TWIN_ID_DTYPES)  # fmt: skip
@@ -337,12 +337,12 @@ HEADERS: Mapping[str, Sequence[str]] = {
 
 
 def load() -> Any:
-    """``giap.viz.interactive`` after every ``giap.viz`` module is imported (the ``report`` step
+    """``gippa.viz.interactive`` after every ``gippa.viz`` module is imported (the ``report`` step
     discovers plots and twins the same way)."""
-    from giap.steps.plots import load_plot_modules
+    from gippa.steps.plots import load_plot_modules
 
     load_plot_modules()
-    import giap.viz.interactive as interactive
+    import gippa.viz.interactive as interactive
 
     return interactive
 
@@ -505,7 +505,7 @@ def allowed_colours() -> set[str]:
     neutrals (black, white, greys: text, rules, the null bands)."""
     import matplotlib
 
-    from giap.viz import style
+    from gippa.viz import style
 
     out = {c.upper() for c in style.OKABE_ITO.values()}
     out |= {c.upper() for c in style.DETECTION.values()}

@@ -1,4 +1,5 @@
 /local/
+.gippa/
 .giap/
 __pycache__/
 *.pyc

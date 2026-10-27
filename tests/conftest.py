@@ -1,4 +1,4 @@
-"""Capability markers, seeds and shared fixtures (GIAP_SPEC.md §3.6, §11).
+"""Capability markers, seeds and shared fixtures (GIPPA_SPEC.md §3.6, §11).
 
 A test that needs a capability carries a marker (see pyproject.toml). When the capability is
 missing the test is skipped with an explicit reason, unless ``--require-capabilities`` names it,
@@ -19,16 +19,16 @@ import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-ROOT = Path(os.environ.get("GIAP_ROOT", REPO / "local"))
-DB = Path(os.environ.get("GIAP_DB_DIR", ROOT / "db"))
-TOOLS = Path(os.environ.get("GIAP_TOOLS_DIR", ROOT / "tools"))
+ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
+DB = Path(os.environ.get("GIPPA_DB_DIR", ROOT / "db"))
+TOOLS = Path(os.environ.get("GIPPA_TOOLS_DIR", ROOT / "tools"))
 TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 
 
 def _probe_timeout() -> float:
-    """Seconds per capability probe: ``GIAP_PROBE_TIMEOUT`` (the nightly sets 180), default 30."""
+    """Seconds per capability probe: ``GIPPA_PROBE_TIMEOUT`` (the nightly sets 180), default 30."""
     try:
-        return float(os.environ.get("GIAP_PROBE_TIMEOUT") or 30)  # GIAP_PROBE_TIMEOUT default 30
+        return float(os.environ.get("GIPPA_PROBE_TIMEOUT") or 30)  # GIPPA_PROBE_TIMEOUT default 30
     except ValueError:
         return 30.0
 
@@ -60,7 +60,7 @@ DIANN_SIF_DEFAULT = "/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif"
 
 def _have_diann() -> bool:
     """DIA-NN: the Apptainer image of ``$DIANN_SIF`` (M3-24 decision 12, default above) or an
-    unpacked 2.7.0 build under ``$GIAP_TOOLS_DIR`` (GIAP_SPEC.md §15.2 step 3)."""
+    unpacked 2.7.0 build under ``$GIPPA_TOOLS_DIR`` (GIPPA_SPEC.md §15.2 step 3)."""
     sif = Path(os.environ.get("DIANN_SIF") or DIANN_SIF_DEFAULT)
     return sif.is_file() or any(TOOLS.glob("diann-2.7.0*/**/diann*"))
 
@@ -167,7 +167,7 @@ def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
         if "missing capability" in reason:
             lines.append(f"{rep.nodeid}: {reason.removeprefix('Skipped: ')}")
     if lines:
-        terminalreporter.section("skipped for missing capabilities (GIAP_SPEC §3.6)")
+        terminalreporter.section("skipped for missing capabilities (GIPPA_SPEC §3.6)")
         for line in sorted(lines):
             terminalreporter.write_line(line)
 
@@ -193,6 +193,6 @@ def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
     ``real_uniop_probe``: it would otherwise run the session's real UniOP env or image."""
     if request.node.get_closest_marker("real_uniop_probe"):
         return
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)

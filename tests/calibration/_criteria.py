@@ -1,4 +1,4 @@
-"""Shared calibration harness (issue M4-05; GIAP_SPEC.md §8.4, §11.2, §12).
+"""Shared calibration harness (issue M4-05; GIPPA_SPEC.md §8.4, §11.2, §12).
 
 Every constant comes from the protected ``tests/calibration/tolerances.yaml``; this module only
 reads it. Criteria, with k = ``se_multiplier`` and R the number of independent null replicates:
@@ -19,7 +19,7 @@ reads it. Criteria, with k = ``se_multiplier`` and R the number of independent n
 Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite, rep))`` with
 ``suite_seed = SeedSequence([calibration_base, crc32(suite), rep])`` as one uint64, so any shard
 reproduces a replicate alone. Results are appended as JSON lines to
-``local/logs/calibration/<suite>.jsonl`` (``GIAP_CALIBRATION_LOG_DIR`` overrides the directory).
+``local/logs/calibration/<suite>.jsonl`` (``GIPPA_CALIBRATION_LOG_DIR`` overrides the directory).
 
 Fail closed (PR #54 lead decision 1): ``check_level`` / ``check_uniform`` / ``check_fdr`` refuse
 non-finite values or values outside [0, 1], ``check_fwer`` refuses anything but 0/1 indicators and
@@ -28,14 +28,14 @@ non-finite values or values outside [0, 1], ``check_fwer`` refuses anything but 
 ``calibrate`` is the gate (ADR-0015, two-block confirmation): replicates 0..R-1 are block 1; if the
 criterion fails there, replicates R..2R-1 (same seed formula) are block 2 and the gate fails only if
 both blocks fail. Records carry ``block`` (1 | 2), ``status`` (pass | unconfirmed | fail) and the
-per-replicate ``values``. Under ``GIAP_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard
+per-replicate ``values``. Under ``GIPPA_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard
 K/N``) ``calibrate`` runs only ``shard_replicates(R, N, K)`` of the check's own R (any R; an empty
-shard logs nothing) of block ``GIAP_CALIBRATION_BLOCK`` (default 1, ``--block``) and logs a
+shard logs nothing) of block ``GIPPA_CALIBRATION_BLOCK`` (default 1, ``--block``) and logs a
 ``shard`` record (a bare ``start:stop`` is that range of the given R); ``merge_shards``
 evaluates the criterion on the full R. A merged check
 whose block 1 fails and whose block 2 was not logged is ``pending`` (no verdict; never ``fail``
 from block 1 alone). ``--merge`` (PR #54 lead decision 5) then runs block 2 itself: it reruns the
-suite's pytest command (``pytest_args``) with ``GIAP_CALIBRATION_CONFIRM`` listing the pending
+suite's pytest command (``pytest_args``) with ``GIPPA_CALIBRATION_CONFIRM`` listing the pending
 checks, so ``calibrate`` runs replicates R..2R-1 of exactly those checks (same seeds as unsharded
 ``calibrate``) and skips every other check, then merges again. Exit codes of ``--merge``: 0 every
 check pass or unconfirmed, 1 a confirmed fail (both blocks), 2 merge error (missing or malformed
@@ -80,14 +80,14 @@ from scipy import stats as sps
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 TOLERANCES_PATH = HERE / "tolerances.yaml"
-LOG_DIR_ENV = "GIAP_CALIBRATION_LOG_DIR"
-SHARD_ENV = "GIAP_CALIBRATION_REPLICATES"
-BLOCK_ENV = "GIAP_CALIBRATION_BLOCK"
-CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R], ...]: block 2 only
+LOG_DIR_ENV = "GIPPA_CALIBRATION_LOG_DIR"
+SHARD_ENV = "GIPPA_CALIBRATION_REPLICATES"
+BLOCK_ENV = "GIPPA_CALIBRATION_BLOCK"
+CONFIRM_ENV = "GIPPA_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R], ...]: block 2 only
 #: ``k/L``: a block-2 lane runs ``shard_replicates(R, L, k)`` of block 2 (read only under CONFIRM)
-CONFIRM_SLICE_ENV = "GIAP_CALIBRATION_CONFIRM_SLICE"
-CONFIRM_LANES_ENV = "GIAP_CALIBRATION_CONFIRM_LANES"  # L: --merge runs block 2 on L pytests
-CONFIRM_JUNIT_ENV = "GIAP_CALIBRATION_CONFIRM_JUNIT"  # lane k's JUnit: <value>.lane<k>.junit.xml
+CONFIRM_SLICE_ENV = "GIPPA_CALIBRATION_CONFIRM_SLICE"
+CONFIRM_LANES_ENV = "GIPPA_CALIBRATION_CONFIRM_LANES"  # L: --merge runs block 2 on L pytests
+CONFIRM_JUNIT_ENV = "GIPPA_CALIBRATION_CONFIRM_JUNIT"  # lane k's JUnit: <value>.lane<k>.junit.xml
 CRITERIA = ("level", "uniform", "fdr", "fwer")
 POOLED_F1 = "pooled_f1"  # criterion of ``calibrate_pooled`` (count records, not scalars)
 F1_COUNTS = ("tp_p", "n_pred", "tp_r", "n_truth")
@@ -97,7 +97,7 @@ VACUOUS_STATUS = "vacuous"  # pooled check whose block-1 mean of a count is belo
 STATUSES = ("pass", "unconfirmed", "fail")
 SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
 PENDING_STATUS = "pending"  # merged check whose block 1 fails and whose block 2 is not logged yet
-SKIPPED_STATUS = "skipped"  # check not listed in GIAP_CALIBRATION_CONFIRM (not run, not logged)
+SKIPPED_STATUS = "skipped"  # check not listed in GIPPA_CALIBRATION_CONFIRM (not run, not logged)
 #: records without a verdict: a shard's range, a merged check awaiting block 2, an unlisted check
 NO_VERDICT_STATUSES = frozenset({SHARD_STATUS, PENDING_STATUS, SKIPPED_STATUS})
 SHARD_SKIP = "shard or confirm run: the verdict comes from --merge"
@@ -336,7 +336,7 @@ def _default_log_dir() -> Path:
 
 
 def log_dir() -> Path:
-    """``$GIAP_CALIBRATION_LOG_DIR`` or ``<repo>/local/logs/calibration``."""
+    """``$GIPPA_CALIBRATION_LOG_DIR`` or ``<repo>/local/logs/calibration``."""
     return _default_log_dir()
 
 
@@ -425,7 +425,7 @@ def _split_shard(raw: str) -> tuple[str, tuple[int, int] | None]:
 
 
 def shard_spec() -> tuple[int, int] | None:
-    """``(K, N)`` of ``--shard K/N`` (the ``@K/N`` suffix of ``GIAP_CALIBRATION_REPLICATES``)."""
+    """``(K, N)`` of ``--shard K/N`` (the ``@K/N`` suffix of ``GIPPA_CALIBRATION_REPLICATES``)."""
     raw = os.environ.get(SHARD_ENV)
     return None if raw is None else _split_shard(raw)[1]
 
@@ -433,7 +433,7 @@ def shard_spec() -> tuple[int, int] | None:
 def replicate_range(R: int) -> range:
     """Replicates of a check with ``R`` replicates that this process runs.
 
-    ``GIAP_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard K/N``): ``shard_replicates(R,
+    ``GIPPA_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard K/N``): ``shard_replicates(R,
     N, K)`` for every R, so a check whose R is not the suite's R is sharded too (empty when
     R < N for some K). ``start:stop`` without the suffix: ``range(start, stop)``, requiring
     ``0 <= start < stop <= R``. Unset: ``range(R)``. Anything else raises ValueError (fail closed).
@@ -461,7 +461,7 @@ def replicate_range(R: int) -> range:
 
 
 def replicate_block() -> int:
-    """Block of a sharded run: ``GIAP_CALIBRATION_BLOCK`` (1 or 2), default 1."""
+    """Block of a sharded run: ``GIPPA_CALIBRATION_BLOCK`` (1 or 2), default 1."""
     raw = os.environ.get(BLOCK_ENV, "1")
     if raw not in ("1", "2"):
         raise ValueError(f"{BLOCK_ENV}={raw!r}: must be 1 or 2")
@@ -641,7 +641,7 @@ def _parse_check_key(item: Sequence[Any]) -> CheckKey:
 
 
 def confirm_checks() -> frozenset[CheckKey] | None:
-    """Checks listed in ``GIAP_CALIBRATION_CONFIRM`` (block-2 run of ``--merge``), else None."""
+    """Checks listed in ``GIPPA_CALIBRATION_CONFIRM`` (block-2 run of ``--merge``), else None."""
     raw = os.environ.get(CONFIRM_ENV)
     if raw is None:
         return None
@@ -654,7 +654,7 @@ def confirm_checks() -> frozenset[CheckKey] | None:
 
 def confirm_slice(R: int) -> range:
     """Block-2 replicates (local, 0..R-1) of this confirm run: all of them, or under
-    ``GIAP_CALIBRATION_CONFIRM_SLICE=k/L`` (one of ``--merge``'s L block-2 lanes)
+    ``GIPPA_CALIBRATION_CONFIRM_SLICE=k/L`` (one of ``--merge``'s L block-2 lanes)
     ``shard_replicates(R, L, k)``. Called only in the confirm branches of the harness."""
     raw = os.environ.get(CONFIRM_SLICE_ENV)
     if raw is None:
@@ -683,9 +683,9 @@ def calibrate(
     replicates 0..R-1; if ``criterion`` fails there, block 2 (R..2R-1) is run and the check fails
     only if both blocks fail. Both block records are appended to ``<log_dir>/<suite>.jsonl`` with
     the final ``status``; the final record (last block run) is returned. Sharded
-    (``GIAP_CALIBRATION_REPLICATES`` set): only that range of block ``GIAP_CALIBRATION_BLOCK`` is
+    (``GIPPA_CALIBRATION_REPLICATES`` set): only that range of block ``GIPPA_CALIBRATION_BLOCK`` is
     run and logged as a ``shard`` record (no verdict; see ``merge_shards``). Under
-    ``GIAP_CALIBRATION_CONFIRM`` (set by ``--merge``) a listed check runs all of block 2 as a
+    ``GIPPA_CALIBRATION_CONFIRM`` (set by ``--merge``) a listed check runs all of block 2 as a
     ``shard`` record and any other check is ``skipped`` (nothing run or logged). With ``m``
     (level only) each replicate value is the rejection share of ``m`` pooled p-values and the
     criterion is ``check_level_pooled`` (bound ``level_bound(level, R m)``); records carry ``m``.
@@ -1129,7 +1129,7 @@ def calibrate_pooled(
     of block 1 is >= ``bound`` and the ``guard`` sums are met; else block 2 decides (``fail``
     only if both blocks fail). ``vacuous`` (``{count: floor}``) makes block 1 ``vacuous`` (no
     block 2, not a pass) when a block mean is below its floor. Sharding and
-    ``GIAP_CALIBRATION_CONFIRM`` behave as in ``calibrate``; the confirm key is
+    ``GIPPA_CALIBRATION_CONFIRM`` behave as in ``calibrate``; the confirm key is
     ``_check_key(record)`` (it includes ``key``).
     """
     return _calibrate_counts(
@@ -1286,8 +1286,8 @@ def _check_key(r: Mapping[str, Any]) -> list[Any]:
 
 
 def confirm_lanes() -> int | None:
-    """``GIAP_CALIBRATION_CONFIRM_LANES`` as L >= 1, or None when unset; ValueError for a
-    non-integer, L < 1, or L set without ``GIAP_CALIBRATION_CONFIRM_JUNIT`` (no silent fallback)."""
+    """``GIPPA_CALIBRATION_CONFIRM_LANES`` as L >= 1, or None when unset; ValueError for a
+    non-integer, L < 1, or L set without ``GIPPA_CALIBRATION_CONFIRM_JUNIT`` (no silent fallback)."""
     raw = os.environ.get(CONFIRM_LANES_ENV)
     if raw is None:
         return None
@@ -1421,31 +1421,31 @@ def _merge_main(suite: str, full: bool) -> int:
     return 0
 
 
-WORKTREE_ENV = "GIAP_WORKTREE"
+WORKTREE_ENV = "GIPPA_WORKTREE"
 
 
-def worktree_giap_error() -> str | None:
-    """Under ``GIAP_WORKTREE``: None when ``giap`` imports from ``$GIAP_WORKTREE/src``, else the
-    reason. Without it (the main checkout) None. Prints ``giap.__file__`` to stderr (Slurm 1885838
+def worktree_gippa_error() -> str | None:
+    """Under ``GIPPA_WORKTREE``: None when ``gippa`` imports from ``$GIPPA_WORKTREE/src``, else the
+    reason. Without it (the main checkout) None. Prints ``gippa.__file__`` to stderr (Slurm 1885838
     ran a worktree's tests against the main checkout's src)."""
     wt = os.environ.get(WORKTREE_ENV)
     if not wt:
         return None
     import importlib.util
 
-    spec = importlib.util.find_spec("giap")
+    spec = importlib.util.find_spec("gippa")
     origin = None if spec is None or spec.origin is None else Path(spec.origin).resolve()
-    print(f"giap.__file__={origin}", file=sys.stderr)
+    print(f"gippa.__file__={origin}", file=sys.stderr)
     src = (Path(wt) / "src").resolve()
     if origin is None or not origin.is_relative_to(src):
-        return f"giap.__file__={origin} is not under {WORKTREE_ENV}/src = {src}"
+        return f"gippa.__file__={origin} is not under {WORKTREE_ENV}/src = {src}"
     return None
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run (or with ``--dry-run`` print) the pytest command of one suite; ``--merge`` merges."""
     ns = parse_args(argv)
-    bad = worktree_giap_error()
+    bad = worktree_gippa_error()
     if bad is not None:
         print(f"main: {bad}; set PYTHONPATH to the worktree (calibration_full.sbatch does)",
               file=sys.stderr)  # fmt: skip
@@ -1461,7 +1461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(" ".join([*(f"{k}={v}" for k, v in env.items()), shlex.join(cmd)]))
     if ns.dry_run:
         return 0
-    # a leaked GIAP_CALIBRATION_CONFIRM would make every gate test skip (statistician note 4)
+    # a leaked GIPPA_CALIBRATION_CONFIRM would make every gate test skip (statistician note 4)
     base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
     if CONFIRM_ENV in os.environ:
         print(f"main: ignoring {CONFIRM_ENV} (set only by --merge's block-2 run)", file=sys.stderr)

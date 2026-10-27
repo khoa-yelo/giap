@@ -1,4 +1,4 @@
-"""Attack nulls for the MAYU closed-form gene FDR (M4-02; GIAP_SPEC.md §7.3.2, §8.5; statistician).
+"""Attack nulls for the MAYU closed-form gene FDR (M4-02; GIPPA_SPEC.md §7.3.2, §8.5; statistician).
 
 Generator (one replicate): G = 3,000 eligible genes with protein lengths log-normal (median
 300 aa, log-SD ``sd``) and ``n_observable_peptides`` a_g = round(length / 25) floored at 1. A gene
@@ -40,7 +40,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.mayu import mayu_gene_fdr
+from gippa.stats.mayu import mayu_gene_fdr
 
 G = 3000
 N_BINS = 10

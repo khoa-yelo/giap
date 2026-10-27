@@ -1,5 +1,5 @@
 """Preflight rules part B: inputs, proteins, peptides, abundance, evidence tier (issue M1-10;
-GIAP_SPEC.md §1.1, §7.0, §7.3.2, §2.1 decision 3; ADR-0005 items 2-3).
+GIPPA_SPEC.md §1.1, §7.0, §7.3.2, §2.1 decision 3; ADR-0005 items 2-3).
 
 T-PRE-11 … T-PRE-22 each have a passing and a failing example. All inputs are in-memory literals
 (records, DataFrames, Issues); the rules are pure functions.
@@ -20,19 +20,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.abundance import AbundanceTable
-from giap.io.issues import Issue
-from giap.io.peptides import validate_peptides
-from giap.io.protein_fasta import (
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.abundance import AbundanceTable
+from gippa.io.issues import Issue
+from gippa.io.peptides import validate_peptides
+from gippa.io.protein_fasta import (
     COUNTED_AA,
     STANDARD_AA,
     LetterCounts,
     ProteinRecord,
     resolve_protein_id,
 )
-from giap.preflight.checks import Check
-from giap.preflight.evidence import (
+from gippa.preflight.checks import Check
+from gippa.preflight.evidence import (
     abundance_checks,
     candidate_tier,
     inputs_checks,
@@ -48,7 +48,7 @@ DEFERRED = "deferred: no proteins.faa; IDs are matched to locus tags after annot
 # ---------------------------------------------------------------- helpers
 
 
-def cfg(*overrides: str) -> GiapConfig:
+def cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
@@ -113,11 +113,11 @@ def raw_peptides(**cols: Sequence[object]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-def validated(config: GiapConfig, **cols: Sequence[object]) -> tuple[pd.DataFrame, list[Issue]]:
+def validated(config: GippaConfig, **cols: Sequence[object]) -> tuple[pd.DataFrame, list[Issue]]:
     return validate_peptides(raw_peptides(**cols), config.input)
 
 
-def pepchecks(config: GiapConfig, **cols: Sequence[object]) -> dict[str, Check]:
+def pepchecks(config: GippaConfig, **cols: Sequence[object]) -> dict[str, Check]:
     df, issues = validated(config, **cols)
     return _sane(peptide_checks(issues, df, config.input), "peptides")
 
@@ -147,7 +147,7 @@ def achecks(
     scale: str = "linear",
     requested: str = "auto",
     pep_intensity: bool = False,
-    config: GiapConfig | None = None,
+    config: GippaConfig | None = None,
 ) -> dict[str, Check]:
     config = config if config is not None else cfg()
     out = abundance_checks(

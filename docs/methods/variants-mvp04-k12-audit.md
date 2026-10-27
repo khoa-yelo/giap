@@ -1,16 +1,16 @@
 # Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
 
-Run `local/runs/mvp04/20261023_a1` (read-only), inputs `local/mvp04/20261023` (giapsim
+Run `local/runs/mvp04/20261023_a1` (read-only), inputs `local/mvp04/20261023` (gippasim
 `real_genome`, seed 20261023). Aggregates only.
 
 ## Inputs are not "K-12 against K-12"
-`provenance.json`: giapsim derives a *sample* strain from MG1655 with 2,332 planted SNVs
+`provenance.json`: gippasim derives a *sample* strain from MG1655 with 2,332 planted SNVs
 (1,488 non-synonymous gene codons in `truth/alt_sites.tsv`) and 1,200 planted novel ORFs. The
 peptides are a simulated database search against the sample's proteome: all 52,278 rows have
 `source = database`, `search_db = other`; the config sets `genome_relation: related`.
 
 ## Flags: expected, not a bug
-`flags_for` (src/giap/variants/flags.py:189-191) implements §7.5.3 literally: `strain_difference`
+`flags_for` (src/gippa/variants/flags.py:189-191) implements §7.5.3 literally: `strain_difference`
 = any ALT under `related`; `database_derived` = an ALT supported by a `(database, other)` peptide.
 Both are therefore true for every ALT of this run, and MVP-04 gate 11 requires exactly that
 (`n_rows_missing_flags = 0`). Flags are not uniform: 128/428 `mass_equivalent`, 35 `start_codon`,
@@ -35,7 +35,7 @@ ALT token (M7-02 rule 5, M7-18), not a residue error; 29 of 30 are truth codons.
 `scripts/dev/mvp04_summary.py` `gate11` now gives precision 40/70 = 0.571 [0.455, 0.681] and
 recall 40/60 = 0.667 [0.541, 0.773]: fail. The causes are in the scorer and the truth table:
 1. ALT `J` vs truth `I`/`L` is compared literally (10 `high` rows). Folded: 50/70.
-2. Initiator M at annotated or novel non-ATG starts counted as false (15 `high`); giapsim itself
+2. Initiator M at annotated or novel non-ATG starts counted as false (15 `high`); gippasim itself
    drops initiator codons from truth. Excluding them: 50/55 = 0.909 [0.804, 0.961].
 3. Truth covers annotated genes only; 5 `high` rows are real SNVs in novel ORFs. Adding them:
    55/55 = 1.0 [0.935, 1.0].
@@ -43,5 +43,5 @@ recall 40/60 = 0.667 [0.541, 0.773]: fail. The causes are in the scorer and the 
    which can never support an ALT. With folding and length >= 10: 50/53 = 0.943 [0.846, 0.981].
 
 ## Display
-V12 panel (b) `_header` (src/giap/viz/variants.py:244) formats `gene` and `aa_pos` without an NA
+V12 panel (b) `_header` (src/gippa/viz/variants.py:244) formats `gene` and `aa_pos` without an NA
 case, so no-gene sites print "None aa None". Spec M9-18 decision 11 covers only the peptide line.

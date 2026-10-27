@@ -1,6 +1,6 @@
 """Static packaging config (issue M11-01 items 1-3, acceptance criteria 1 and 4).
 
-Reads ``pyproject.toml``, ``.gitignore`` and ``src/giap/__init__.py``; never builds (building needs
+Reads ``pyproject.toml``, ``.gitignore`` and ``src/gippa/__init__.py``; never builds (building needs
 hatchling from PyPI, so the real build runs in the CI ``package`` job only).
 """
 
@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-import giap
+import gippa
 
 REPO = Path(__file__).resolve().parents[2]
 PYPROJECT: dict[str, Any] = tomllib.loads((REPO / "pyproject.toml").read_text())
@@ -72,11 +72,11 @@ def _excluded(target: dict[str, Any], rel: str, *, gitignore: bool = True) -> bo
 
 
 def _workflow_mapped(target: dict[str, Any]) -> bool:
-    """``workflow`` lands at ``giap/workflow`` through force-include or sources."""
+    """``workflow`` lands at ``gippa/workflow`` through force-include or sources."""
     fi = {_norm(k): _norm(v) for k, v in target.get("force-include", {}).items()}
     src = target.get("sources", {})
     src = {_norm(k): _norm(v) for k, v in src.items()} if isinstance(src, dict) else {}
-    return fi.get("workflow") == "giap/workflow" or src.get("workflow") == "giap/workflow"
+    return fi.get("workflow") == "gippa/workflow" or src.get("workflow") == "gippa/workflow"
 
 
 # --- item 1: single-source version ------------------------------------------------------------
@@ -91,26 +91,26 @@ def test_version_is_dynamic() -> None:
 
 
 def test_hatch_version_path_is_init() -> None:
-    assert HATCH.get("version", {}).get("path") == "src/giap/__init__.py"
+    assert HATCH.get("version", {}).get("path") == "src/gippa/__init__.py"
 
 
 def test_init_holds_the_only_literal() -> None:
-    text = (REPO / "src/giap/__init__.py").read_text()
+    text = (REPO / "src/gippa/__init__.py").read_text()
     found = re.findall(r'^__version__\s*=\s*"([^"]+)"\s*$', text, flags=re.M)
-    assert found == [giap.__version__]
+    assert found == [gippa.__version__]
     others = [
         p
-        for p in (REPO / "src/giap").rglob("*.py")
-        if p.name != "__init__.py" or p.parent != REPO / "src/giap"
+        for p in (REPO / "src/gippa").rglob("*.py")
+        if p.name != "__init__.py" or p.parent != REPO / "src/gippa"
         if re.search(r'^__version__\s*=\s*["\']', p.read_text(), flags=re.M)
     ]
     assert others == []
 
 
-# --- item 2: the wheel carries workflow/ as giap/workflow -------------------------------------
+# --- item 2: the wheel carries workflow/ as gippa/workflow -------------------------------------
 
 
-def test_wheel_maps_workflow_to_giap_workflow() -> None:
+def test_wheel_maps_workflow_to_gippa_workflow() -> None:
     assert _workflow_mapped(WHEEL), WHEEL
 
 
@@ -119,7 +119,7 @@ def test_wheel_still_ships_the_python_package() -> None:
     srcs = WHEEL.get("sources", {})
     stripped = isinstance(srcs, dict) and _norm(srcs.get("src", "x")) == ""
     stripped = stripped or (isinstance(srcs, list) and "src" in [_norm(x) for x in srcs])
-    assert "src/giap" in pkgs or stripped, WHEEL
+    assert "src/gippa" in pkgs or stripped, WHEEL
 
 
 @pytest.mark.parametrize(
@@ -146,7 +146,7 @@ def test_wheel_excludes_workflow_tests_in_hatch_config_itself() -> None:
 @pytest.mark.parametrize(
     "rel",
     [
-        "workflow/bin/giap_fgsea.R",
+        "workflow/bin/gippa_fgsea.R",
         "workflow/assets/ps/ps",
         "workflow/main.nf",
         "workflow/nextflow.config",

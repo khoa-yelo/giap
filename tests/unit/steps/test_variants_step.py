@@ -1,6 +1,6 @@
-"""M7-04 the ``variants`` step on a giapsim producer chain
+"""M7-04 the ``variants`` step on a gippasim producer chain
 (docs/specs/M7-04-variants-step-and-run.md: rules 1-4 and 7, examples 1, 3, 4, 5 and 7 at step
-level, every degenerate row; lead decisions 1-3; GIAP_SPEC.md §6.2 step row, §6.5, §6.7, §7.5.5,
+level, every degenerate row; lead decisions 1-3; GIPPA_SPEC.md §6.2 step row, §6.5, §6.7, §7.5.5,
 §9.1).
 
 Interface pinned here (test-author reading of the spec):
@@ -16,10 +16,10 @@ Interface pinned here (test-author reading of the spec):
   ``peptide_hits`` row (``source``, ``placement_q``, ``uniqueness``) and ``search_db`` from C9.
   Under the default ``genome_relation: related`` the oracle's ``search_db`` choice cannot change
   the result. The step's three files must equal the oracle's byte for byte.
-* VCF header: ``giap_version = giap.__version__``; ``genome_sha256`` is the SHA-256 of the
+* VCF header: ``gippa_version = gippa.__version__``; ``genome_sha256`` is the SHA-256 of the
   ``genome`` input file's bytes (as ``loci`` computes it for ``mappings.probed``); the contigs
   follow the ``replicons`` table order; the sample is ``cfg.sample_name``. The step never
-  resolves ``auto``: ``giap run`` does that (lead decision 1).
+  resolves ``auto``: ``gippa run`` does that (lead decision 1).
 * ``pileup.tsv.gz`` is gzip whatever the output path is called. The local executor's output path
   is ``work/pileup`` with no ``.gz``, and the publisher copies its bytes to
   ``tables/pileup.tsv.gz``.
@@ -30,11 +30,11 @@ Interface pinned here (test-author reading of the spec):
   ``covered_codons`` (pileup rows), ``sites_by_call`` and ``sites_by_confidence`` (value ->
   number of ``variants.tsv`` rows; values with no rows may be absent or 0).
 
-The fixture is a 50-kb giapsim genome with a strain layer (SNVs and 1-nt indels, M3-18). As in
+The fixture is a 50-kb gippasim genome with a strain layer (SNVs and 1-nt indels, M3-18). As in
 tests/integration/test_align_sim100k.py, the peptides come from the sample strain and are mapped
 to the reference genome, so the tolerant route gives substitution and frameshift rows. Preflight
 and the mapping chain run through ``run_step`` (``helpers.mapping_steps.drive``) with a test
-``$GIAP_DB_DIR``, never the real one.
+``$GIPPA_DB_DIR``, never the real one.
 """
 
 from __future__ import annotations
@@ -54,13 +54,13 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.mapping_steps import drive, fresh_steps, preflight, roots_of
 
-import giap
-from giap.config import GiapConfig, resolve_config
-from giap.variants.pileup import PILEUP_COLUMNS
-from giap.variants.vcf_records import VARIANTS_COLUMNS
+import gippa
+from gippa.config import GippaConfig, resolve_config
+from gippa.variants.pileup import PILEUP_COLUMNS
+from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
 SEED = 11
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 REQUIRED = {"mapping", "genome", "genes", "replicons", "peptides"}
 OPTIONAL = {"hits_tolerant", "reference_peptides", "peptide_spectra"}  # M7-10 C17
 OUTPUTS = {
@@ -73,17 +73,17 @@ STEP_KEYS = ("mapping", "genome", "genes", "replicons", "peptides", "hits_tolera
 EVENT = "variants.summary"
 
 
-def _cfg(**over: Any) -> GiapConfig:
-    return GiapConfig.model_validate({"seed": SEED, "sample_name": "S1", **over})
+def _cfg(**over: Any) -> GippaConfig:
+    return GippaConfig.model_validate({"seed": SEED, "sample_name": "S1", **over})
 
 
 # ----------------------------------------------------------------------------- fixtures
 
 
 def _chain(root: Path, *, strain: bool) -> dict[str, Path]:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
-    from giapsim.strain import StrainConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
+    from gippasim.strain import StrainConfig
 
     st = StrainConfig(snv_rate_per_kb=5.0, indel_rate_per_kb=0.5, indel_len=(1, 1))
     cfg_sim = SimConfig(genome_length=50_000, proteomics=ProteomicsConfig(),
@@ -146,16 +146,16 @@ class Run:
 def run_variants_step(
     inputs: Mapping[str, Path],
     out: Path,
-    cfg: GiapConfig,
+    cfg: GippaConfig,
     outputs: Mapping[str, Path] | None = None,
 ) -> Run:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     paths = dict(outputs) if outputs is not None else {k: out / v for k, v in OUTPUTS.items()}
     rec = _Recorder()
-    log = logging.getLogger("giap.steps.variants")
+    log = logging.getLogger("gippa.steps.variants")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -185,15 +185,15 @@ def _is_fs(v: object) -> bool:
 
 
 def _replicons(path: Path) -> dict[str, Any]:
-    from giap.model import Replicon
+    from gippa.model import Replicon
 
     rows = pq.read_table(path).to_pylist()
     return {r["contig"]: Replicon(r["contig"], r["length"], r["topology"], r["kind"]) for r in rows}
 
 
 def _gene_model(genes: Path, reps: Mapping[str, Any]) -> Any:
-    from giap.model.coords import Interval
-    from giap.model.genes import Gene, GeneModel
+    from gippa.model.coords import Interval
+    from gippa.model.genes import Gene, GeneModel
 
     gs = tuple(
         Gene(r["locus_tag"], r["feature_type"],
@@ -206,18 +206,18 @@ def _gene_model(genes: Path, reps: Mapping[str, Any]) -> Any:
 
 
 def _genome(path: Path) -> dict[str, str]:
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     return {r.id: r.sequence for r in read_genome_fasta(path)}
 
 
-def oracle(inputs: Mapping[str, Path], cfg: GiapConfig, out: Path) -> dict[str, Any]:
+def oracle(inputs: Mapping[str, Path], cfg: GippaConfig, out: Path) -> dict[str, Any]:
     """Rule 2's chain on the step's own inputs, written with the M7-03 writers."""
-    from giap.io.variant_tables import write_pileup, write_variants
-    from giap.io.vcf import write_vcf
-    from giap.variants.align import align_hits
-    from giap.variants.pileup import Support, eligible, pileup, sites
-    from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
+    from gippa.io.variant_tables import write_pileup, write_variants
+    from gippa.io.vcf import write_vcf
+    from gippa.variants.align import align_hits
+    from gippa.variants.pileup import Support, eligible, pileup, sites
+    from gippa.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
 
     ph = _hits(inputs["mapping"])
     ht = pd.read_parquet(inputs["hits_tolerant"]) if "hits_tolerant" in inputs else None
@@ -244,7 +244,7 @@ def oracle(inputs: Mapping[str, Path], cfg: GiapConfig, out: Path) -> dict[str, 
     write_pileup(paths["pileup"], pile)
     write_variants(paths["variants"], table)
     sha = hashlib.sha256(Path(inputs["genome"]).read_bytes()).hexdigest()
-    write_vcf(paths["variants_vcf"], recs, list(reps.values()), giap_version=giap.__version__,
+    write_vcf(paths["variants_vcf"], recs, list(reps.values()), gippa_version=gippa.__version__,
               genome_sha256=sha, sample=cfg.sample_name, info_fields=INFO_FIELDS,
               format_fields=FORMAT_FIELDS, sequences=genome)  # fmt: skip
     return {"paths": paths, "aligns": aligns, "pile": pile, "table": table, "records": recs}
@@ -304,8 +304,8 @@ def full_oracle(full: Run, tmp_path_factory: pytest.TempPathFactory) -> dict[str
 
 
 def test_variants_step_is_registered_with_the_spec_keys() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("variants")
@@ -319,8 +319,8 @@ def test_variants_step_is_registered_with_the_spec_keys() -> None:
 
 
 def test_variants_runs_after_its_producers() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     order = reg.topo_order([s.name for s in reg.all_steps()])
@@ -329,8 +329,8 @@ def test_variants_runs_after_its_producers() -> None:
 
 
 def test_local_plan_runs_variants_after_loci_with_peptides() -> None:
-    from giap.runner.local import plan_local
-    from giap.steps import load_step_modules
+    from gippa.runner.local import plan_local
+    from gippa.steps import load_step_modules
 
     load_step_modules()
     order = plan_local(_cfg(), ["variants"], {"genome", "peptides", "bakta_json"})
@@ -341,9 +341,9 @@ def test_local_plan_runs_variants_after_loci_with_peptides() -> None:
 
 def test_local_plan_leaves_variants_out_without_peptides() -> None:
     """Degenerate row "no --peptides": no Module 5 step, and no error (as MAPPING today)."""
-    from giap.runner.local import plan_local
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.runner.local import plan_local
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     reg.get("variants")  # registered, so its absence below is the skip, not a missing step
@@ -364,7 +364,7 @@ def test_example_1_three_files_written_with_their_headers(full: Run) -> None:
     assert var[0].split("\t") == list(VARIANTS_COLUMNS)
     head, _ = _vcf_lines(full.paths["variants_vcf"])
     assert head[0] == "##fileformat=VCFv4.3"
-    assert f"##source=giap-{giap.__version__}" in head
+    assert f"##source=gippa-{gippa.__version__}" in head
 
 
 def _tables(paths: dict[str, Path]) -> dict[str, Path]:
@@ -483,7 +483,7 @@ def test_example_4_vcf_sample_column_is_the_config_sample_name(
 def test_example_5_resolved_sample_name_with_spaces_reaches_the_vcf(
     chain: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.config import resolve_sample_name
+    from gippa.config import resolve_sample_name
 
     cfg = _cfg(sample_name="my sample")
     name = resolve_sample_name(cfg, None, None)
@@ -495,9 +495,9 @@ def test_example_5_resolved_sample_name_with_spaces_reaches_the_vcf(
 
 
 def test_unresolved_auto_never_reaches_the_vcf(chain: dict[str, Path], tmp_path: Path) -> None:
-    """Lead decision 1: ``giap run`` resolves ``auto`` before any step runs; a step that is handed
+    """Lead decision 1: ``gippa run`` resolves ``auto`` before any step runs; a step that is handed
     ``auto`` anyway fails instead of writing a VCF sample called ``auto``."""
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     with pytest.raises(StepError):
         run_variants_step(step_inputs(chain), tmp_path, _cfg(sample_name="auto"))
@@ -589,8 +589,8 @@ def test_without_hits_tolerant_frameshift_rows_are_skipped_with_a_run_flag(
 def test_hits_that_disagree_with_the_genome_fail_the_step(
     chain: dict[str, Path], tmp_path: Path
 ) -> None:
-    """M7-01 raises; the step fails (``giap run`` then exits 4 naming ``variants``)."""
-    from giap.steps.registry import StepError
+    """M7-01 raises; the step fails (``gippa run`` then exits 4 naming ``variants``)."""
+    from gippa.steps.registry import StepError
 
     comp = str.maketrans("ACGT", "TGCA")
     fa = tmp_path / "genome.fa"

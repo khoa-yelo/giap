@@ -1,8 +1,8 @@
 """Inputs and an independent oracle for the M4-16 detection-summary tests.
 
-Gene frames carry only ``genes.tsv`` columns (GIAP_SPEC.md §9.3) that the merged producers write:
+Gene frames carry only ``genes.tsv`` columns (GIPPA_SPEC.md §9.3) that the merged producers write:
 ``locus_tag``, ``contig``, ``feature_type``, ``hypothetical``, ``partial`` (C2, M4-06/M4-07),
-``tu_id`` (C6, giapsim ``layers_frame``), ``detected`` / ``detection_status`` (M4-12 two-peptide
+``tu_id`` (C6, gippasim ``layers_frame``), ``detected`` / ``detection_status`` (M4-12 two-peptide
 rule applied to M4-11 ``gene_evidence``), ``p_detect`` and ``cog_category``.
 
 Stand-ins for producers that are not on main yet (documented, interface-faithful):
@@ -293,16 +293,16 @@ def two_peptide_status(evidence: pd.DataFrame, partial: pd.Series) -> tuple[pd.S
 
 @dataclass(frozen=True)
 class SimFixture:
-    inputs: Any  # giap.io.work_tables.M4Inputs (loaded through load_m4_inputs)
+    inputs: Any  # gippa.io.work_tables.M4Inputs (loaded through load_m4_inputs)
     genes: pd.DataFrame  # genes.tsv summary columns
     detectability: pd.DataFrame
     tier: pd.DataFrame
 
 
 def _cfg() -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(genome_relation="same", input={"q_value_max": 0.01},
+    return GippaConfig(genome_relation="same", input={"q_value_max": 0.01},
                       stats={"alpha": {"placement": 0.01}})  # fmt: skip
 
 
@@ -311,11 +311,11 @@ def sim_fixture(work: Path, seed: int = 7, n_genes: int = 300) -> SimFixture:
     M4-06 ``load_m4_inputs``; M4-11 evidence gives the two-peptide detection columns."""
     import evidence_oracle as eo
 
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
-    from giap.io.work_tables import default_paths, load_m4_inputs
-    from giapsim.contract_tables import layers_frame, write_contract_tables
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.io.work_tables import default_paths, load_m4_inputs
+    from gippasim.contract_tables import layers_frame, write_contract_tables
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit" / "genetable"))
     import m4_contract_fixture as mf

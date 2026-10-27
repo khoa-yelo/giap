@@ -1,4 +1,4 @@
-"""Calibration of the giapsim operon generators (issue M6-03; GIAP_SPEC.md §8.4 ``discordance``
+"""Calibration of the gippasim operon generators (issue M6-03; GIPPA_SPEC.md §8.4 ``discordance``
 and ``missed_operons``, §7.4.7 "Calibration"; docs/specs/M6-03-sim-operon-scenarios.md acceptance).
 
 The generators must do what M6-09 assumes of them, pooled over R replicate 1,800-gene genomes
@@ -47,9 +47,9 @@ def _R(suite: str, full: bool) -> int:
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 @cache

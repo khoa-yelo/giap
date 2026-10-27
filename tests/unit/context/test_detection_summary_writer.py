@@ -1,7 +1,7 @@
 """M4-16 ``write_detection_summary`` and the ``detection_summary`` table schema (§9.2, §9.3, §9.5).
 
 Resolved ambiguities (pinned here):
-- The schema file is ``src/giap/schemas/tables/detection_summary.json`` (spec name); the M3-16
+- The schema file is ``src/gippa/schemas/tables/detection_summary.json`` (spec name); the M3-16
   naming ``detection_summary.schema.json`` is accepted too (exactly one must exist).
 - Missing values are written as ``NA``; ``flags`` is ``;``-joined (empty when none).
 """
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import detection_summary_fixture as fx
 from detection_summary_fixture import gene, qc_hit, qc_peptide
 
-TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 
 
 def schema_path() -> Path:
@@ -37,8 +37,8 @@ def _descriptor() -> dict[str, Any]:
 
 
 def _table() -> pd.DataFrame:
-    from giap.context import summary
-    from giap.rng import for_step
+    from gippa.context import summary
+    from gippa.rng import for_step
 
     rows = [gene(f"G{i}", f"T{i // 2}", i % 3 != 0, 0.1 + 0.05 * i,
                  cog_category=["KT", None, "J"][i % 3]) for i in range(14)]  # fmt: skip
@@ -50,7 +50,7 @@ def _table() -> pd.DataFrame:
 
 
 def _write(tmp_path: Path, df: pd.DataFrame) -> Path:
-    from giap.io.summary_tsv import write_detection_summary
+    from gippa.io.summary_tsv import write_detection_summary
 
     path = tmp_path / "detection_summary.tsv"
     write_detection_summary(path, df)
@@ -71,7 +71,7 @@ def test_schema_is_valid_frictionless() -> None:
 
 
 def test_written_table_header_and_na(tmp_path: Path) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     df = _table()
     path = _write(tmp_path, df)
@@ -88,7 +88,7 @@ def test_written_table_header_and_na(tmp_path: Path) -> None:
 
 
 def test_written_values_round_trip(tmp_path: Path) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     df = _table()
     _, rows = read_tsv(_write(tmp_path, df))

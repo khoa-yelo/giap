@@ -1,7 +1,7 @@
 # Fix: BacTermFinder parser reads the real output table
 
 ## Problem
-`giap.annotate.terminators.parse_bactermfinder` (M2-15, provisional) expects a header that names
+`gippa.annotate.terminators.parse_bactermfinder` (M2-15, provisional) expects a header that names
 contig, 1-based start/end, strand and probability columns. At the pinned commit `024870447f62`
 (ADR-0008), `genome_scan.py` writes `<prefix><genome>_mean.csv` with the header
 `SampleName,probability_binary,probability_ENAC,probability_PS2,probability_NCP,probability_mean`,
@@ -11,7 +11,7 @@ so every real run fails in the parser (backlog M2-15).
 - `SampleName` = `<u_id>_<seq_id>_<start>_<end>_<strand>` (genome_scan.py lines 81-83). `u_id` is an
   integer that restarts for each FASTA record. `seq_id` is the FASTA record id and may contain `_`.
 - `start = i`, `end = i + 101` for the slice `seq[i:i + 101]` (lines 44-53). These are **0-based
-  half-open** coordinates, as in GIAP (§6.5). No shift is applied.
+  half-open** coordinates, as in GIPPA (§6.5). No shift is applied.
 - Each window has a `+` row and a `-` row with the same coordinates. Every window is reported.
 
 ## Required behaviour

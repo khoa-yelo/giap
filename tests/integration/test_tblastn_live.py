@@ -1,7 +1,7 @@
 """Live makeblastdb + tblastn (BLAST+ 2.16.0) equal the recorded fixtures (issue M3-13).
 
-Runs the commands built by ``giap.mapping.tblastn`` inside the pinned BLAST image
-(``workflow/conf/containers.config``, pulled to ``$GIAP_ROOT/containers/``; ``needs_apptainer``):
+Runs the commands built by ``gippa.mapping.tblastn`` inside the pinned BLAST image
+(``workflow/conf/containers.config``, pulled to ``$GIPPA_ROOT/containers/``; ``needs_apptainer``):
 - on the tiny fixture ``tests/data/tblastn/mini/`` (seconds): the raw tabular output equals the
   recorded ``tblastn.tsv`` line for line;
 - on the 100-kb sim genome (``pending_sample`` until ``tests/data/recorded/blast/2.16.0/sim100k/``
@@ -19,13 +19,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import ProteinsConfig
+from gippa.config.model import ProteinsConfig
 
 REPO = Path(__file__).resolve().parents[2]
 MINI = REPO / "tests" / "data" / "tblastn" / "mini"
 RECORDED = REPO / "tests" / "data" / "recorded" / "blast" / "2.16.0" / "sim100k"
-_GIAP_REPO = Path(os.environ.get("GIAP_REPO", REPO))
-_ROOT = Path(os.environ.get("GIAP_ROOT", _GIAP_REPO / "local"))
+_GIPPA_REPO = Path(os.environ.get("GIPPA_REPO", REPO))
+_ROOT = Path(os.environ.get("GIPPA_ROOT", _GIPPA_REPO / "local"))
 
 pytestmark = [pytest.mark.needs_apptainer, pytest.mark.slow]
 
@@ -52,7 +52,7 @@ def _run(img: Path, argv: list[str], cwd: Path, stdout: Path | None = None) -> N
 
 
 def _search(img: Path, genome: Path, faa: Path, tmp: Path) -> Path:
-    from giap.mapping.tblastn import makeblastdb_cmd, tblastn_cmd
+    from gippa.mapping.tblastn import makeblastdb_cmd, tblastn_cmd
 
     db = tmp / "db" / "genome"
     _run(img, makeblastdb_cmd(genome, db), tmp)
@@ -82,10 +82,10 @@ def _plain(path: Path, tmp: Path) -> Path:
 @pytest.mark.pending_sample
 @pytest.mark.skipif(not RECORDED.is_dir(), reason=f"pending_sample: no recording in {RECORDED}")
 def test_live_sim100k_equals_recorded(tmp_path: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.mapping.protein_assign import assign_alignments
-    from giap.mapping.tblastn import merge_hsps, parse_tblastn
-    from giapsim import SIM100K, SIM100K_SEED, simulate
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.mapping.protein_assign import assign_alignments
+    from gippa.mapping.tblastn import merge_hsps, parse_tblastn
+    from gippasim import SIM100K, SIM100K_SEED, simulate
 
     img = _image()
     sim = simulate(SIM100K, SIM100K_SEED, tmp_path / "sim")

@@ -1,8 +1,8 @@
 """Tool inputs for scripts/slurm/record_tools.sbatch, built from a recorded Bakta JSON.
 
-Stand-ins for the GIAP steps that do not exist yet (``transterm_input`` M2-15, ``ostir_input``
+Stand-ins for the GIPPA steps that do not exist yet (``transterm_input`` M2-15, ``ostir_input``
 M2-16, TU upstream regions M2-14), following the spec definitions so the recorded tool outputs have
-the real formats. Stdlib only, except the two subcommands that run the merged GIAP steps.
+the real formats. Stdlib only, except the two subcommands that run the merged GIPPA steps.
 
     record_tools_inputs.py coords  BAKTA_JSON OUT.coords            # TransTermHP genes.coords
     record_tools_inputs.py ostir   BAKTA_JSON OUT.csv               # OSTIR input (spec §7.1.6)
@@ -11,9 +11,9 @@ the real formats. Stdlib only, except the two subcommands that run the merged GI
     record_tools_inputs.py uniop   BAKTA_JSON GENOME OUTDIR         # uniop_cds.gff, uniop_map.tsv
 
 ``promotech-windows`` and ``uniop`` run the pipeline's own steps with the default config through
-``giap.steps.registry.run_step``, as ``giap _step`` does in workflow/subworkflows/local/annotate.nf:
+``gippa.steps.registry.run_step``, as ``gippa _step`` does in workflow/subworkflows/local/annotate.nf:
 ``parse_bakta`` (BAKTA_JSON + the preflight GENOME -> OUTDIR/parse_bakta/), then
-``promoter_windows`` (M2-13) or ``uniop_input`` (M2-12). They need ``giap`` importable
+``promoter_windows`` (M2-13) or ``uniop_input`` (M2-12). They need ``gippa`` importable
 (PYTHONPATH=<checkout>/src).
 
 TUs use the distance-model fallback with its default parameters (spec §7.1.3: p = 1 / (1 +
@@ -134,9 +134,9 @@ def write_regions(js: Path, outdir: Path, up: int = 300, down: int = 50, d_max: 
 
 def _parse_bakta(js: Path, genome: Path, outdir: Path) -> dict[str, Path | list[Path]]:
     """Run the ``parse_bakta`` step into OUTDIR/parse_bakta; returns ``genes`` and ``replicons``."""
-    from giap.config import resolve_config
-    from giap.steps import load_step_modules
-    from giap.steps.registry import run_step
+    from gippa.config import resolve_config
+    from gippa.steps import load_step_modules
+    from gippa.steps.registry import run_step
 
     load_step_modules()
     names = {
@@ -152,8 +152,8 @@ def _parse_bakta(js: Path, genome: Path, outdir: Path) -> dict[str, Path | list[
 
 def write_promotech_windows(js: Path, genome: Path, outdir: Path) -> None:
     """``promoter_windows`` step: OUTDIR/windows/windows_NNN.fa and OUTDIR/windows_map.parquet."""
-    from giap.config import resolve_config
-    from giap.steps.registry import run_step
+    from gippa.config import resolve_config
+    from gippa.steps.registry import run_step
 
     ins = {**_parse_bakta(js, genome, outdir), "genome": genome}
     outs = {"windows": outdir / "windows", "windows_map": outdir / "windows_map.parquet"}
@@ -162,8 +162,8 @@ def write_promotech_windows(js: Path, genome: Path, outdir: Path) -> None:
 
 def write_uniop(js: Path, genome: Path, outdir: Path) -> None:
     """``uniop_input`` step: OUTDIR/uniop_cds.gff and OUTDIR/uniop_map.tsv."""
-    from giap.config import resolve_config
-    from giap.steps.registry import run_step
+    from gippa.config import resolve_config
+    from gippa.steps.registry import run_step
 
     outs = {"uniop_cds": outdir / "uniop_cds.gff", "uniop_map": outdir / "uniop_map.tsv"}
     run_step("uniop_input", resolve_config(), _parse_bakta(js, genome, outdir), outs)

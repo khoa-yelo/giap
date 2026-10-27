@@ -22,8 +22,8 @@ from typing import Any, get_args
 
 import pytest
 
-from giap.model import Interval, Replicon
-from giap.model.genes import Gene, GeneModel, NcFeature, NcType, gene_model_from_bakta_json
+from gippa.model import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel, NcFeature, NcType, gene_model_from_bakta_json
 
 CIRC = {"chr1": Replicon("chr1", 50_000, "circular", "chromosome")}
 

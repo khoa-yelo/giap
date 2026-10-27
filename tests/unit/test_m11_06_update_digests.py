@@ -50,7 +50,7 @@ TAGS_HEADER = "// Tags the digests were resolved from"
 
 
 def _ref(tool: str, hexd: str) -> str:
-    return f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{hexd}"
+    return f"ghcr.io/khoa-yelo/gippa-{tool}@sha256:{hexd}"
 
 
 def _pin_line(process: str, ref: str) -> str:
@@ -173,7 +173,7 @@ def test_example1_records_build_date_and_source_commit_under_tags_comment(tmp_pa
     blob = "\n".join(ln for _, ln in new_comments)
     assert DATE in blob
     assert SHA7 in blob
-    assert "giap-ostir" in blob
+    assert "gippa-ostir" in blob
 
 
 # --- example 2 ------------------------------------------------------------------------------
@@ -217,7 +217,7 @@ def test_example3_older_digest_is_replaced_in_place(tmp_path: Path) -> None:
 
 
 def test_example4_bad_digest_exits_1_and_leaves_config(tmp_path: Path) -> None:
-    proc, cfg = _run(tmp_path, {"OSTIR": "ghcr.io/khoa-yelo/giap-ostir@sha256:abc"})
+    proc, cfg = _run(tmp_path, {"OSTIR": "ghcr.io/khoa-yelo/gippa-ostir@sha256:abc"})
     assert proc.returncode == 1
     assert "bad digest for OSTIR" in proc.stderr
     assert cfg.read_text() == ORIGINAL
@@ -238,14 +238,14 @@ _bad_hex = st.one_of(
 @given(bad=_bad_hex)
 def test_property_any_non_64_lowercase_hex_digest_is_rejected(bad: str) -> None:
     with tempfile.TemporaryDirectory() as d:
-        proc, cfg = _run(Path(d), {"OSTIR": f"ghcr.io/khoa-yelo/giap-ostir@sha256:{bad}"})
+        proc, cfg = _run(Path(d), {"OSTIR": f"ghcr.io/khoa-yelo/gippa-ostir@sha256:{bad}"})
         assert proc.returncode == 1
         assert "bad digest for OSTIR" in proc.stderr
         assert cfg.read_text() == ORIGINAL
 
 
 def test_tag_instead_of_digest_is_rejected(tmp_path: Path) -> None:
-    proc, cfg = _run(tmp_path, {"OSTIR": "ghcr.io/khoa-yelo/giap-ostir:1.1.3"})
+    proc, cfg = _run(tmp_path, {"OSTIR": "ghcr.io/khoa-yelo/gippa-ostir:1.1.3"})
     assert proc.returncode == 1
     assert "bad digest for OSTIR" in proc.stderr
     assert cfg.read_text() == ORIGINAL
@@ -256,7 +256,7 @@ def test_one_bad_entry_rejects_the_whole_batch(tmp_path: Path) -> None:
         tmp_path,
         {
             "PROMOTECH": _ref("promotech", "c" * 64),
-            "OSTIR": "ghcr.io/khoa-yelo/giap-ostir@sha256:abc",
+            "OSTIR": "ghcr.io/khoa-yelo/gippa-ostir@sha256:abc",
         },
     )
     assert proc.returncode == 1
@@ -286,9 +286,9 @@ def test_unknown_process_is_rejected(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "ref",
     [
-        "ghcr.io/khoa-yelo/giap-promotech@sha256:" + "f" * 64,  # another tool's image
-        "docker.io/khoa-yelo/giap-ostir@sha256:" + "f" * 64,  # not GHCR
-        "ghcr.io/someone-else/giap-ostir@sha256:" + "f" * 64,  # not the project's owner
+        "ghcr.io/khoa-yelo/gippa-promotech@sha256:" + "f" * 64,  # another tool's image
+        "docker.io/khoa-yelo/gippa-ostir@sha256:" + "f" * 64,  # not GHCR
+        "ghcr.io/someone-else/gippa-ostir@sha256:" + "f" * 64,  # not the project's owner
     ],
 )
 def test_image_must_be_the_process_own_ghcr_image(tmp_path: Path, ref: str) -> None:

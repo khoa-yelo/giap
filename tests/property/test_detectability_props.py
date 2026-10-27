@@ -25,12 +25,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import detectability_data as dd
 import detectability_oracle as O
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 
 def _mod() -> Any:
-    from giap.genetable import detectability
+    from gippa.genetable import detectability
 
     return detectability
 

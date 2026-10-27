@@ -1,8 +1,8 @@
-"""antiSMASH command builder and JSON parser (M2-18 examples 6-8; GIAP_SPEC.md §7.1.1, §6.5).
+"""antiSMASH command builder and JSON parser (M2-18 examples 6-8; GIPPA_SPEC.md §7.1.1, §6.5).
 
 Rules (spec M2-18): ``records[].id`` = contig; ``records[].areas[]`` ``start``/``end`` are 0-based,
 end exclusive; ``start > end`` on a circular record → origin-crossing, stored unwrapped
-(``end + length``, ``giap.model.coords``); ``products`` in antiSMASH order with duplicates
+(``end + length``, ``gippa.model.coords``); ``products`` in antiSMASH order with duplicates
 collapsed; core genes = ``locus_tag`` of CDS features in the area whose ``gene_kind`` qualifier
 contains ``biosynthetic``.
 
@@ -14,7 +14,7 @@ Ambiguities resolved here (test author):
   the origin); core genes are listed in genome (feature) order, without duplicates.
 * CDS locations are antiSMASH/Biopython strings ``[a:b](±)``, possibly fuzzy (``[<a:b]``,
   ``[a:>b]``, seen in the Nissle recording) or ``join{…}`` across the origin.
-* Topology is taken from ``replicons`` (the GIAP replicon table); ``start > end`` on a linear
+* Topology is taken from ``replicons`` (the GIPPA replicon table); ``start > end`` on a linear
   replicon is corrupt input → ``ValueError``.
 * A record id absent from ``replicons`` → ``ValueError`` naming it, even when it has no areas.
 """
@@ -31,7 +31,7 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon, check_interval, split_at_origin
+from gippa.model.coords import Interval, Replicon, check_interval, split_at_origin
 
 REPS = {
     "chr1": Replicon("chr1", 100_000, "circular", "chromosome"),
@@ -40,7 +40,7 @@ REPS = {
 
 
 def _a() -> ModuleType:
-    from giap.annotate import antismash
+    from gippa.annotate import antismash
 
     return antismash
 
@@ -89,7 +89,7 @@ def _write(tmp: Path, records: list[dict[str, Any]]) -> Path:
 
 
 def test_example_6_command() -> None:
-    from giap.annotate.antismash_cmd import antismash_command
+    from gippa.annotate.antismash_cmd import antismash_command
 
     got = antismash_command(Path("bakta.gbff"), Path("out"), 8, Path("/db/antismash"))
     assert got == [
@@ -110,7 +110,7 @@ def test_example_6_command() -> None:
 
 @pytest.mark.parametrize("threads", [1, 17])
 def test_command_threads(threads: int) -> None:
-    from giap.annotate.antismash_cmd import antismash_command
+    from gippa.annotate.antismash_cmd import antismash_command
 
     got = antismash_command(Path("x/in.gbff"), Path("o"), threads, Path("d/antismash"))
     assert got[got.index("--cpus") + 1] == str(threads)

@@ -1,4 +1,4 @@
-"""Attack nulls for stratum-0 pi_wrong with cross-strain database input (ADR-0019; GIAP_SPEC.md
+"""Attack nulls for stratum-0 pi_wrong with cross-strain database input (ADR-0019; GIPPA_SPEC.md
 §7.2.5 step 4, §8.5; statistician). Methods: docs/methods/placement-fdr.md, "Cross-strain input".
 
 Status: committed with M3-21 (PR #113); the ``placement`` test's strict xfail was removed with the
@@ -146,7 +146,7 @@ def _pi_adr0019(costs: pd.DataFrame) -> tuple[np.ndarray, float]:
 
 
 def _q_stratum0(costs: pd.DataFrame, pi: np.ndarray, c: float) -> np.ndarray:
-    from giap.mapping.placement_fdr import stratum_qvalues
+    from gippa.mapping.placement_fdr import stratum_qvalues
 
     m_t, m_d = costs["m_target"].to_numpy(), costs["m_decoy"].to_numpy()
     is_t, is_d = m_t == 0, m_d == 0
@@ -158,10 +158,10 @@ def _q_stratum0(costs: pd.DataFrame, pi: np.ndarray, c: float) -> np.ndarray:
 
 
 def _q_placement(costs: pd.DataFrame) -> np.ndarray:
-    from giap.config import GiapConfig
-    from giap.mapping.placement_fdr import placement
+    from gippa.config import GippaConfig
+    from gippa.mapping.placement_fdr import placement
 
-    per, _ = placement(costs, GiapConfig())
+    per, _ = placement(costs, GippaConfig())
     q = per.set_index("peptide")["placement_q"].astype(float)
     return np.asarray(q.reindex(costs["peptide"]).to_numpy(), dtype=float)
 

@@ -1,10 +1,10 @@
 """``scripts/slurm/build_envs.sbatch`` pull loop on bare refs (M11-09b rule 4, example 10, AC 8).
 
-The script runs with ``bash`` (never ``sbatch``) against a throw-away ``GIAP_REPO``: its own copies
+The script runs with ``bash`` (never ``sbatch``) against a throw-away ``GIPPA_REPO``: its own copies
 of ``scripts/farmshare_env.sh`` and ``scripts/slurm/build_envs.sbatch``, a stub
 ``scripts/build_envs.sh`` that exits 0, and a ``containers.config`` written by the test.
-``GIAP_ROOT`` is ``tmp_path/root``, so ``farmshare_env.sh`` puts the fake ``apptainer`` in
-``$GIAP_ROOT/bin`` first on PATH and ``NXF_APPTAINER_CACHEDIR`` is ``$GIAP_ROOT/containers``. The
+``GIPPA_ROOT`` is ``tmp_path/root``, so ``farmshare_env.sh`` puts the fake ``apptainer`` in
+``$GIPPA_ROOT/bin`` first on PATH and ``NXF_APPTAINER_CACHEDIR`` is ``$GIPPA_ROOT/containers``. The
 fake logs its argv and writes a non-empty target (the loop's presence test is ``[ -s ]``).
 
 A config without pins must pull nothing and still exit 0 (spec edge case "Empty or absent pins":
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.tools import read_containers_config
+from gippa.annotate.tools import read_containers_config
 
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = REPO / "workflow" / "conf" / "containers.config"
@@ -76,8 +76,8 @@ class Box:
     def run(self) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG"}}
         env.update(
-            GIAP_REPO=str(self.repo),
-            GIAP_ROOT=str(self.root),
+            GIPPA_REPO=str(self.repo),
+            GIPPA_ROOT=str(self.root),
             FAKE_LOG=str(self.log),
             HOME=str(self.root / "home"),
         )

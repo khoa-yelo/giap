@@ -5,7 +5,7 @@ median CAI of the ribosomal-protein genes exceeds the median of all genes. On si
 Nissle 1917 every gene's features equal the independent oracle (tests/helpers/codon_oracle.py;
 ENC and CPB from codon-bias called directly). ``pending_sample`` until M2-10 commits the trimmed
 recordings under ``tests/data/recorded/bakta/1.12.2-full/``; until then the run-time recordings
-in ``$GIAP_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json`` are used (skip if absent).
+in ``$GIPPA_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json`` are used (skip if absent).
 In K-12's Bakta 1.12.2 annotation ``tufA`` carries the AMRFinder name ``tufA_E379K``.
 """
 
@@ -20,10 +20,10 @@ from pathlib import Path
 import pytest
 from helpers import codon_oracle as O
 
-from giap.annotate.bakta_layers import is_ribosomal_protein, trna_counts
+from gippa.annotate.bakta_layers import is_ribosomal_protein, trna_counts
 
 REPO = Path(__file__).resolve().parents[2]
-ROOT = Path(os.environ.get("GIAP_ROOT", REPO / "local"))
+ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
 COMMITTED = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full"
 GENOMES = ("sim100k", "k12_mg1655", "nissle1917")
 
@@ -42,12 +42,12 @@ def _json(name: str) -> Path:
 
 
 def _run(name: str) -> tuple[list, dict[str, int], dict, tuple[str, ...]]:  # type: ignore[type-arg]
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     ann = parse_bakta_json(_json(name))
     genes = list(ann.model.genes)
     trna = trna_counts(ann.model.features)
-    cu = importlib.import_module("giap.annotate.codon_usage")
+    cu = importlib.import_module("gippa.annotate.codon_usage")
     feats, flags = cu.codon_usage(genes, trna)
     return genes, trna, feats, flags
 
@@ -84,7 +84,7 @@ def test_k12_ribosomal_median_cai_above_genome_median(k12: tuple) -> None:  # ty
 def test_k12_rare_codons(k12: tuple) -> None:  # type: ignore[type-arg]
     """K-12 genome-wide rare codons (< 10 % of their family; codons 2..n-1 of eligible genes)."""
     genes, _, _, _ = k12
-    cu = importlib.import_module("giap.annotate.codon_usage")
+    cu = importlib.import_module("gippa.annotate.codon_usage")
     seqs = [s for g in genes if (s := cu.scored_sequence(g)) is not None]
     rare = cu.rare_codons(cu.synonymous_shares(seqs))
     assert rare == frozenset({"AGA", "AGG", "ATA", "CGA", "CGG", "CTA"})

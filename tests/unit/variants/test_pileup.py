@@ -1,4 +1,4 @@
-"""M7-02 pileup, calls and confidence (docs/specs/M7-02-pileup-and-calls.md; GIAP_SPEC.md §7.5.1,
+"""M7-02 pileup, calls and confidence (docs/specs/M7-02-pileup-and-calls.md; GIPPA_SPEC.md §7.5.1,
 §7.5.2 steps 2-4, §6.5, §9.3).
 
 Examples 1-12 and every degenerate row of the spec, on the hand-built genome of
@@ -50,10 +50,10 @@ from helpers.pileup_oracle import (
     nt,
 )
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 PILEUP_COLUMNS = [
     "contig", "codon_start", "strand", "gene", "aa_pos", "ref_aa", "n_ref", "n_il",
@@ -69,11 +69,11 @@ REP = Replicon("c1", L, "circular")
 
 def pl() -> ModuleType:
     """The module under test (imported per test, so each test fails on its own)."""
-    return importlib.import_module("giap.variants.pileup")
+    return importlib.import_module("gippa.variants.pileup")
 
 
 def al() -> ModuleType:
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
 def gene(spec: GeneSpec, ftype: str = "cds", start_codon: str | None = "ATG") -> Gene:
@@ -87,8 +87,8 @@ GM = GeneModel({"c1": REP}, (gene(G1, start_codon="GTG"), gene(G2), gene(G3)), (
 GENOME = {"c1": SEQ}
 
 
-def cfg(**over: Any) -> GiapConfig:
-    return GiapConfig.model_validate(over)
+def cfg(**over: Any) -> GippaConfig:
+    return GippaConfig.model_validate(over)
 
 
 CFG = cfg()
@@ -111,7 +111,7 @@ def support_of(aligns: Sequence[Any], **kw: Any) -> dict[str, Any]:
 def run(
     aligns: Sequence[Any],
     support: Mapping[str, Any] | None = None,
-    config: GiapConfig = CFG,
+    config: GippaConfig = CFG,
     gm: GeneModel = GM,
     genome: Mapping[str, str] = GENOME,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:

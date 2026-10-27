@@ -13,8 +13,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.steps import load_step_modules
-from giap.steps.registry import all_steps
+from gippa.steps import load_step_modules
+from gippa.steps.registry import all_steps
 
 REPO = Path(__file__).resolve().parents[2]
 MAIN = REPO / "workflow" / "main.nf"

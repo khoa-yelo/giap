@@ -1,4 +1,4 @@
-"""giapsim review decisions for M3-18 (docs/specs/M3-18-sim-genome-features.md, "Lead decisions
+"""gippasim review decisions for M3-18 (docs/specs/M3-18-sim-genome-features.md, "Lead decisions
 after code review (PR #25)", items 1-7).
 
 Every property is checked on ``N_SEEDS`` simulations of a 50-kb chromosome with every option on
@@ -373,11 +373,11 @@ def test_gff3_sorfs_are_cds_with_sorf_attribute(runs: list[StrainRun]) -> None:
 
 
 def test_simconfig_hashable() -> None:
-    import giapsim
+    import gippasim
 
-    assert hash(giapsim.SimConfig()) == hash(giapsim.SimConfig())
+    assert hash(gippasim.SimConfig()) == hash(gippasim.SimConfig())
     opts = all_options(50_000)
-    a, b = giapsim.SimConfig(**opts), giapsim.SimConfig(**opts)
+    a, b = gippasim.SimConfig(**opts), gippasim.SimConfig(**opts)
     assert a == b and hash(a) == hash(b)
     assert {a: 1}[b] == 1
     assert dict(a.n_novel_orfs) == {"intergenic": 2, "cds_outframe": 2, "antisense": 2}

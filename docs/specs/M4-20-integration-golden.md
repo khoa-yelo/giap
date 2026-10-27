@@ -16,7 +16,7 @@ script) (+ ≈ 250 test lines + committed golden TSVs) · **can start before M2/
 
 ## Interface
 
-`tests/sim/giapsim/fixtures.py` (tooling): `build_m4_fixture(work_dir, seed, size: Literal["sim50k",
+`tests/sim/gippasim/fixtures.py` (tooling): `build_m4_fixture(work_dir, seed, size: Literal["sim50k",
 "sim1000", "sim4500"], evidence: EvidenceConfig) -> None` runs M4-07 → 08 → 09 and writes the contract
 tables (C1–C14) into `work_dir`. `sim50k` uses `layout_from_simulation(simulate(SimConfig(), GOLDEN_SEED))`
 plus synthetic regions (one prophage block, one AMR set) so every M4 output is non-empty.
@@ -50,7 +50,7 @@ M4 end-to-end call order (as the future step runner will do): `run_gene_table` �
 - [ ] Gate evidence collected in `PROGRESS.md`: calibration logs for `gene_fdr` (picked; MAYU with and
   without PEP) and `regions` (both stats, each type, α ∈ {0.01, 0.05, 0.10}) from the nightly full
   suite (R = 300 / 1,000), plus the fast-suite runs on the PR.
-- [ ] Coverage of `src/giap/stats`, `genetable`, `context` ≥ 90 %.
+- [ ] Coverage of `src/gippa/stats`, `genetable`, `context` ≥ 90 %.
 - [ ] Methods notes signed off: `multiple-testing`, `target-decoy`, `mayu-gene-fdr`,
   `permutation-and-shifts`, `bootstrap`, `calibration`, `detection-tiers`, `detectability`,
   `abundance`, `detection-summary`, `region-tests`, `sensitivity`.
@@ -90,13 +90,13 @@ None new (collects the sign-offs above).
    level/FDR streams. Generating the PROGRESS.md evidence block from it is **deferred** to the hardening
    pass — useful, not integration.
 7. **`sensitivity = off` stays pinned in M4-19's own tests**, not here; M4-20 keeps its scope.
-8. The test-author was right not to write `tests/sim/giapsim/fixtures.py`: giapsim is implementer-owned
+8. The test-author was right not to write `tests/sim/gippasim/fixtures.py`: gippasim is implementer-owned
    tooling (AGENTS.md), and writing it there would have made the tests pass before the implementation.
    The implementer writes it to the interface `tests/helpers/m4_chain.build` and the property tests pin.
 
 ## Lead decisions after the implementer's report (2026-10-21)
 9. **The golden `regions_stats.tsv` float columns are compared numerically, not byte for byte.**
-   `giap.context.regions.residualise` (ADR-0018 decision 1) uses `np.linalg.lstsq`, i.e. a LAPACK SVD,
+   `gippa.context.regions.residualise` (ADR-0018 decision 1) uses `np.linalg.lstsq`, i.e. a LAPACK SVD,
    which is not bit-portable: one fixed 51×4 design gives `beta[0] = 0x1.85e19f7a40364p-6` on iron and
    `…377p-6` on wheat, and the three CI legs disagree with each other, so **no recording machine can make
    the matrix green**. Thread pinning does not help (probe 1863133). The other three golden tables, and
@@ -112,7 +112,7 @@ None new (collects the sign-offs above).
     `outputs=` dicts in tests/integration/test_context_stats_step.py — several of which pass partial gene
     tables `write_genes_tsv` cannot serialise — and `main_genetable_context.nf.test`'s
     `!tables/ published without C7/C8`. Those are **test-side** blockers, so the test-author fixes them in
-    this round. Until it is a declared output, `giap run` still does not publish the pipeline's headline
+    this round. Until it is a declared output, `gippa run` still does not publish the pipeline's headline
     table, which is exactly the end-to-end hole MVP-01 set out to close.
 12. **`test_m4_gate_evidence_is_recorded` needs a guard.** The fast calibration suite creates
     `local/logs/calibration/`, so the test stops skipping and then demands nightly full-R records that a

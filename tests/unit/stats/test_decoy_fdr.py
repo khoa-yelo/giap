@@ -2,7 +2,7 @@
 
 Spec examples 4-10 of docs/specs/M6-01-stats-tdist-decoy-fdr.md, hand-computed, plus every row of
 its "Degenerate cases" table that concerns the decoy FDR. Scores are ``s = -|Delta|`` (higher is
-better, as everywhere in ``giap.stats``), bins come from ``bin_index`` and
+better, as everywhere in ``gippa.stats``), bins come from ``bin_index`` and
 
     FDR(t) = pi0 * sum_b N_NO,b * (#{decoy_b : s >= t} + 1) / (N_decoy,b + 1) / #{target : s >= t}
 
@@ -11,7 +11,7 @@ this file pins, all three the spec's own "proposed default" (questions 1-3):
 
 - ``q`` is the running minimum of the element-wise maximum FDR **from the loose end**, i.e.
   ``q_i = min over t <= s_i of max_d FDR_d(t)``, clipped to [0, 1]: the only direction that makes q
-  an upper bound on the FDP of the list it selects (``giap.stats.tda.monotone_q`` already does this
+  an upper bound on the FDP of the list it selects (``gippa.stats.tda.monotone_q`` already does this
   for the separate-search q, and the two must agree);
 - the maximum is taken **first** and monotonised after (step 5), so q is >= the element-wise maximum
   of the per-decoy monotone curves; both orders are computed here so the order is pinned;
@@ -33,7 +33,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy import stats as sps
 
-from giap.stats.decoy_fdr import (
+from gippa.stats.decoy_fdr import (
     DecoyFdr,
     _lfdr_densities,
     _reflected_density,
@@ -42,7 +42,7 @@ from giap.stats.decoy_fdr import (
     max_decoy_fdr,
     reweighted_fdr,
 )
-from giap.stats.tda import monotone_q
+from gippa.stats.tda import monotone_q
 
 FAST = settings(max_examples=40, deadline=None)
 NAN = float("nan")

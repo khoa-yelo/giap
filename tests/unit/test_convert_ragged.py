@@ -1,4 +1,4 @@
-"""Ragged rows in a DIA-NN ``report.tsv`` are errors (GIAP_SPEC.md §5.4; lead decision).
+"""Ragged rows in a DIA-NN ``report.tsv`` are errors (GIPPA_SPEC.md §5.4; lead decision).
 
 A data row with fewer fields than the header (truncated file, corrupt row) is rejected exactly like
 a row with too many fields: it is never padded with missing values, because a padded row would
@@ -15,10 +15,10 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from giap.cli import cli
-from giap.config.model import InputConfig
-from giap.exitcodes import ExitCode
-from giap.io.converters.diann import convert_diann
+from gippa.cli import cli
+from gippa.config.model import InputConfig
+from gippa.exitcodes import ExitCode
+from gippa.io.converters.diann import convert_diann
 
 HEADER = [
     "Run",

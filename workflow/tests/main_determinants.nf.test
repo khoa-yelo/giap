@@ -1,4 +1,4 @@
-// M8-10: main.nf runs DETERMINANTS after CONTEXT in one stub run (GIAP_SPEC.md §6.2, §6.3,
+// M8-10: main.nf runs DETERMINANTS after CONTEXT in one stub run (GIPPA_SPEC.md §6.2, §6.3,
 // §7.8.3, §9.1; docs/specs/M8-10-determinants-step-and-run.md step 6). Stub runs only; ci.yml
 // runs: nf-test test workflow/tests --profile test,stub.
 //
@@ -32,7 +32,7 @@ nextflow_pipeline {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->
@@ -49,7 +49,7 @@ nextflow_pipeline {
 
             assert ranTagged('determinants') == 1 : "determinants ran ${ranTagged('determinants')}x; tasks: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def dd = dirsTagged(work, 'determinants')[0]
             def din = H.stepInputs(dd)
@@ -92,7 +92,7 @@ nextflow_pipeline {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->

@@ -9,7 +9,7 @@ module collects without them.
 One record per replicate (stream ``novel_orfs.g4k3.flag``): replicate i simulates
 ``novel_orf_power`` with the gate seed, injects the G4-k3 false ORFs with the G4-k3 stream
 (``replicate_rng("novel_orfs.g4k3", i)``, so the injected reads are those of G4-k3 replicate i)
-and runs GIAP through ``novel_orfs`` on the injected de novo file and on the database file.
+and runs GIPPA through ``novel_orfs`` on the injected de novo file and on the database file.
 
 * *Asserted, every replicate:* each injected false ORF (a row of ``novel_orfs.tsv`` at an
   ``inject_false_orfs`` key; its peptides are all de novo, so ``has_denovo and not db_support``)
@@ -17,7 +17,7 @@ and runs GIAP through ``novel_orfs`` on the injected de novo file and on the dat
   ``flags``) unless its TSV class is ``cds_outframe``/``antisense`` with ``rbs_supported`` true;
   such an exempt row does **not** carry it (rule 4 both ways). ``intergenic`` rows are never
   exempt. A violation is an ``AssertionError``. Zero injected rows reaching ``q <= 0.05`` with
-  the class rule in a class over the block, or the injection not reaching GIAP
+  the class rule in a class over the block, or the injection not reaching GIPPA
   (``check_reach``), is a ``RuntimeError``.
 * *Recorded* (``novel_orfs_gate_diagnostics.jsonl``): per class the reached rows, the flagged
   share and the escape share (exempt rows / reached rows). Lead decision 1: an escape share above
@@ -150,8 +150,8 @@ def flag_record(i: int, size: str = "1M") -> dict[str, Any]:
         res = M.simulate(i, size, root)
         seed, lengths, truth = M.sim_seed(i), M._lengths(res), M._truth(res)
         path, info = M.inject_false_orfs(res, C.replicate_rng(M.K3_BASE, i))
-        dn = M.run_giap(res, path, root / "k3" / "OUT", seed)
-        db = M.run_giap(res, Path(res.outdir) / "peptides.tsv", root / "db" / "OUT", seed)
+        dn = M.run_gippa(res, path, root / "k3" / "OUT", seed)
+        db = M.run_gippa(res, Path(res.outdir) / "peptides.tsv", root / "db" / "OUT", seed)
         rows = injected_rows(dn, info["keys"], lengths)
         rec = {"stream": STREAM, "replicate": i, "seed": seed, "size": size,
                "injected": {c: len(v) for c, v in info["keys"].items()},

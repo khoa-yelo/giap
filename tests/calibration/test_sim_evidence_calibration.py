@@ -1,4 +1,4 @@
-"""Calibration of giapsim evidence (issue M4-09; GIAP_SPEC.md §11.3, §8.4, §8.7).
+"""Calibration of gippasim evidence (issue M4-09; GIPPA_SPEC.md §11.3, §8.4, §8.7).
 
 Suite ``gene_fdr`` (SUITE_REGISTRY file entry): this generator is the gene-FDR null of M4-12.
 Every statistical claim of docs/specs/M4-09-sim-evidence.md becomes a per-replicate value gated
@@ -56,9 +56,9 @@ def _binom_p(k: int, n: int, p: float) -> float:
 
 
 def _replicate(rng: np.random.Generator, pi: float) -> tuple[Any, Any, Any]:
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=2000), rng)
     expr = ex.simulate_expression(lay, ex.ExpressionConfig(), rng)

@@ -1,5 +1,5 @@
 """Residue masses, the generated mass-equivalence list and the difference-operation tables
-(issue M3-05; GIAP_SPEC.md Appendix B.5, §7.2.4, §7.5.3).
+(issue M3-05; GIPPA_SPEC.md Appendix B.5, §7.2.4, §7.5.3).
 
 Contract choices made by the test author where the issue spec is silent (see the PR body):
 
@@ -23,9 +23,9 @@ from importlib.resources import files
 import numpy as np
 import pytest
 
-from giap.mapping import diffops, masses
-from giap.mapping.diffops import BLOCKS, DIFF_TYPES, NEAR_BLOCKS, block_tables
-from giap.mapping.masses import MOD_DELTA, RESIDUE_MASS, MassEquivalence, mass_equivalents
+from gippa.mapping import diffops, masses
+from gippa.mapping.diffops import BLOCKS, DIFF_TYPES, NEAR_BLOCKS, block_tables
+from gippa.mapping.masses import MOD_DELTA, RESIDUE_MASS, MassEquivalence, mass_equivalents
 
 # Appendix B.5, verbatim.
 B5_RESIDUES: dict[str, float] = {
@@ -129,7 +129,7 @@ def test_modification_deltas_match_b5_exactly() -> None:
 def test_data_tsv_has_source_header_and_b5_values(
     name: str, source: str, values: dict[str, float]
 ) -> None:
-    text = files("giap.data").joinpath(name).read_text(encoding="utf-8")
+    text = files("gippa.data").joinpath(name).read_text(encoding="utf-8")
     lines = text.splitlines()
     comments = [ln for ln in lines if ln.startswith("#")]
     assert comments, f"{name} must start with a header comment naming its source"
@@ -281,7 +281,7 @@ def test_deterministic_within_process() -> None:
 
 def test_deterministic_across_hash_seeds() -> None:
     code = (
-        "from giap.mapping.masses import mass_equivalents as m;"
+        "from gippa.mapping.masses import mass_equivalents as m;"
         "print(repr([(e.left, e.right, e.delta_da, e.kind) for e in m()]))"
     )
     outs = []

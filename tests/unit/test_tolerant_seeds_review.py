@@ -17,17 +17,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config.model import TolerantConfig
-from giap.mapping import sixframe
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.diffops import block_tables
-from giap.mapping.qgram import MAX_QUERY, build_qgram_index, candidate_diagonals
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, encode_query, encode_target
-from giap.mapping.tolerant import match_tolerant
-from giap.mapping.tolerant_dp import BAND, exchange_lookup, verify_batch
-from giap.model import Interval, Replicon
-from giap.rng import for_step
-from giapsim.codons import CODE_11
+from gippa.config.model import TolerantConfig
+from gippa.mapping import sixframe
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.qgram import MAX_QUERY, build_qgram_index, candidate_diagonals
+from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, encode_query, encode_target
+from gippa.mapping.tolerant import match_tolerant
+from gippa.mapping.tolerant_dp import BAND, exchange_lookup, verify_batch
+from gippa.model import Interval, Replicon
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
 
 SENSE = sorted(c for c, a in CODE_11.items() if a != "*")
 BACK = {a: next(c for c in SENSE if CODE_11[c] == a) for a in set(CODE_11.values()) - {"*"}}

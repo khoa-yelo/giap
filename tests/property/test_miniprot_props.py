@@ -1,4 +1,4 @@
-"""Hypothesis properties of the miniprot route (issue M3-12; GIAP_SPEC.md §7.2.3, §6.5).
+"""Hypothesis properties of the miniprot route (issue M3-12; GIPPA_SPEC.md §7.2.3, §6.5).
 
 - GFF ``mRNA`` coordinates (1-based closed) and ``Target`` (1-based closed on the protein) are
   converted exactly once to 0-based half-open.
@@ -18,9 +18,9 @@ import pandas as pd
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 L = 20_000
 REP = Replicon("chr1", L, "circular", "chromosome")
@@ -29,13 +29,13 @@ CFG = ProteinsConfig()
 
 
 def _mp():  # type: ignore[no-untyped-def]
-    from giap.mapping import miniprot
+    from gippa.mapping import miniprot
 
     return miniprot
 
 
 def _pa():  # type: ignore[no-untyped-def]
-    from giap.mapping import protein_assign
+    from gippa.mapping import protein_assign
 
     return protein_assign
 

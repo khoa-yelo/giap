@@ -21,7 +21,7 @@ Milestone M8 · track R · **pass 1** · depends on: M8-07 · estimate ≈ 340 c
 
 ## Public interface
 
-`src/giap/determinants/models.py` (pure; file I/O none)
+`src/gippa/determinants/models.py` (pure; file I/O none)
 ```python
 @dataclass(frozen=True, slots=True)
 class CvResult:

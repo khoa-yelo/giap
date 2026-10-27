@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from validation.operon_fallback_operating_point import _point, operating_point
 
-from giap.data.calibration import load
+from gippa.data.calibration import load
 
 
 def _L(n: int = 400) -> pd.DataFrame:

@@ -1,5 +1,5 @@
 """M8-16c: the determinants sensitivity ``agreement`` separates signal from fold noise (spec §8.4:
-every statistical claim gets a calibration test; GIAP_SPEC.md §8.6 ``agreement`` for the dominant
+every statistical claim gets a calibration test; GIPPA_SPEC.md §8.6 ``agreement`` for the dominant
 determinant block; PR #299 statistician review, finding 1; Khoa's option (a), 2026-10-24).
 
 Claim. ``agreement`` between two determinants reruns that differ only in their TU-fold stream
@@ -55,8 +55,8 @@ MIN_SEPARATION = 0.05
 
 def _arm(seed: int, signal: float) -> tuple[list[float], float]:
     """Agreements of fold streams 1-5 against stream 0, and the mean LightGBM CV R²."""
-    from giap.context.sensitivity import agreement
-    from giap.rng import for_step
+    from gippa.context.sensitivity import agreement
+    from gippa.rng import for_step
 
     genes, feats = sf.planted_world(n=N_GENES, seed=seed, signal=signal)
     cfg = sf.base_config()

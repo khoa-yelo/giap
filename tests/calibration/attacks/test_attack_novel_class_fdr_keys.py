@@ -1,5 +1,5 @@
 """Attack nulls on the picked ranking key of the M7-11 novel-ORF class FDR (decision 11;
-GIAP_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009, ADR-0047; M4-24 shared-key rule; statistician,
+GIPPA_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009, ADR-0047; M4-24 shared-key rule; statistician,
 PR #237 round 2).
 
 Round 2 ranks a class on (q, then score) when every q is finite, on score alone when every score
@@ -41,7 +41,7 @@ Replicate = tuple[dict[str, float], list[str], set[str]]
 
 
 def _fdr():  # type: ignore[no-untyped-def]
-    import giap.novel.fdr as m
+    import gippa.novel.fdr as m
 
     return m
 

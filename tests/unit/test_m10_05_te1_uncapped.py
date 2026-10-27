@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 from helpers.pilot_metrics_m10 import load_te_proxies
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 HIT_COLS = ("peptide", "route", "locus_class", "gene", "contig", "start", "end", "strand")
 

@@ -1,5 +1,5 @@
-"""giapsim strain stop-loss (M7-16b rule 20, D5; statistician review of the amendment, item 1;
-acceptance "With ``n_stop_loss = 0`` every existing giapsim strain build is byte-identical").
+"""gippasim strain stop-loss (M7-16b rule 20, D5; statistician review of the amendment, item 1;
+acceptance "With ``n_stop_loss = 0`` every existing gippasim strain build is byte-identical").
 
 ``StrainConfig.n_stop_loss: int = 0``. With ``k > 0`` ``derive_reference`` also places ``k`` SNVs,
 from a generator separate from the existing draws, each in the terminal stop codon of a distinct
@@ -12,7 +12,7 @@ eligible genes than ``k``, or fewer wrong-peptide slots than ``k``, raise ``Valu
 false for the uniform draws', ``cterm_peptide`` empty when none qualifies). With ``wrong_source =
 "other_strain"`` every planted ``cterm_peptide`` absent from the sample (I = L) is a wrong peptide.
 
-The giapsim strain model is SNV-only in these builds, so sample and reference coordinates agree.
+The gippasim strain model is SNV-only in these builds, so sample and reference coordinates agree.
 """
 
 from __future__ import annotations
@@ -25,10 +25,10 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giapsim.codons import CODE_11, STOPS
-from giapsim.proteomics import ProteomicsConfig
-from giapsim.simulate import SimConfig, simulate
-from giapsim.strain import StrainConfig
+from gippasim.codons import CODE_11, STOPS
+from gippasim.proteomics import ProteomicsConfig
+from gippasim.simulate import SimConfig, simulate
+from gippasim.strain import StrainConfig
 
 COLUMNS = [
     "locus_tag",
@@ -41,7 +41,7 @@ COLUMNS = [
     "cterm_peptide",
     "planted",
 ]
-SPACING = 12  # giapsim.strain._SPACING
+SPACING = 12  # gippasim.strain._SPACING
 PROT = ProteomicsConfig(search_db="other", pi_wrong=0.05, wrong_source="other_strain")
 #: digests of the float-free files of two strain builds, recorded on main (c523c1c0 + the 16b
 #: spec commits) before ``n_stop_loss`` existed

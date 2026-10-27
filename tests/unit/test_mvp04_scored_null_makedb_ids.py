@@ -1,15 +1,15 @@
-"""giapsim ``decoys = "scored_null"``: target rows name makedb entries whatever ``wrong_source``
+"""gippasim ``decoys = "scored_null"``: target rows name makedb entries whatever ``wrong_source``
 (MVP-04 gate 12; statistician diagnosis local/stat/mvp04-gates-2-12.md; M7-11b decision 9 in the
-module docstring of tests/sim/giapsim/proteomics.py; MVP-04 step 5: the simulated search is against
-``giap makedb --six-frame-orfs``).
+module docstring of tests/sim/gippasim/proteomics.py; MVP-04 step 5: the simulated search is against
+``gippa makedb --six-frame-orfs``).
 
 ``scenarios.k12_evidence`` uses ``decoys = "scored_null"`` with the default ``wrong_source =
-"shuffled"``. Run 20261023_a1 showed the true novel-ORF target rows carrying giapsim's truth IDs
-``NOVEL_xxxx``: GIAP then finds no makedb entry for them (``no_makedb_pair``) and the class FDR of
+"shuffled"``. Run 20261023_a1 showed the true novel-ORF target rows carrying gippasim's truth IDs
+``NOVEL_xxxx``: GIPPA then finds no makedb entry for them (``no_makedb_pair``) and the class FDR of
 almost every true ORF is unestimated. In scored_null mode the search database is the makedb FASTA,
 so (as in ``sixframe_noncoding``):
 
-* a true novel ORF's peptide names the makedb entry it lies in (``GIAPORF_…``), never ``NOVEL_``;
+* a true novel ORF's peptide names the makedb entry it lies in (``GIPPAORF_…``), never ``NOVEL_``;
 * a true protein's peptide reaching upstream of its annotated start names the gene's
   ``nterm_extension`` entry;
 * the scored_null wrong-peptide draw does not depend on ``wrong_source`` (it already draws its own
@@ -18,8 +18,8 @@ so (as in ``sixframe_noncoding``):
 * ``sixframe_noncoding`` outputs (unscored and scored_null) stay byte for byte as at main 98f89786.
 
 Small and fast: ``novel_orf_power(30, "100k")`` (about 0.7 s a run), checked against the makedb
-database GIAP itself builds (``m7_round3_oracle.makedb_entries``). The pairing check reproduces
-GIAP's own picked class-FDR key (``giap.novel.fdr``: contig, strand, stop codon) on the IDs the
+database GIPPA itself builds (``m7_round3_oracle.makedb_entries``). The pairing check reproduces
+GIPPA's own picked class-FDR key (``gippa.novel.fdr``: contig, strand, stop codon) on the IDs the
 search reports, which is all ``makedb_id_map`` builds entries from.
 """
 
@@ -34,9 +34,9 @@ import pytest
 from helpers import m7_round3_oracle as Q
 from helpers import m7_sim_oracle as O
 
-import giapsim
-import giapsim.scenarios as S
-from giap.novel import fdr as F
+import gippasim
+import gippasim.scenarios as S
+from gippa.novel import fdr as F
 
 SEED = 30
 FILES = ("peptides.tsv", "truth/peptides.tsv", "truth/proteomics.json")
@@ -70,14 +70,14 @@ def outs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     res = {}
     for ws in ("shuffled", "sixframe_noncoding"):
         out = tmp_path_factory.mktemp(f"scored_{ws}")
-        giapsim.simulate(config(ws), SEED, out)
+        gippasim.simulate(config(ws), SEED, out)
         res[ws] = out
     return res
 
 
 @pytest.fixture(scope="module")
 def entries(outs: dict[str, Path], tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    """``giap makedb --six-frame-orfs`` on the shuffled run (same genome and annotation)."""
+    """``gippa makedb --six-frame-orfs`` on the shuffled run (same genome and annotation)."""
     return Q.makedb_entries(outs["shuffled"], tmp_path_factory.mktemp("makedb"))
 
 
@@ -109,7 +109,7 @@ def test_novel_orf_targets_name_no_truth_id(outs: dict[str, Path], ws: str) -> N
     out = outs[ws]
     targets = _targets(out)
     bad = sorted({i for ids in targets.values() for i in ids if i.startswith("NOVEL_")})
-    assert not bad, f"{ws}: {len(bad)} target protein IDs are giapsim truth IDs: {bad[:5]}"
+    assert not bad, f"{ws}: {len(bad)} target protein IDs are gippasim truth IDs: {bad[:5]}"
 
 
 @pytest.mark.parametrize("ws", ["shuffled", "sixframe_noncoding"])
@@ -122,7 +122,7 @@ def test_novel_orf_targets_name_the_makedb_entry_they_lie_in(
     assert len(rows) >= 50, f"{ws}: only {len(rows)} detected novel-ORF truth rows"
     idx = Q.EntryIndex(entries, Q.lengths(out))
     unknown = sorted({i for t in rows for i in targets[t["peptide"]]
-                      if i.startswith("GIAPORF_") and i not in entries})  # fmt: skip
+                      if i.startswith("GIPPAORF_") and i not in entries})  # fmt: skip
     assert not unknown, f"{ws}: IDs that name no makedb entry: {unknown[:5]}"
     missing = []
     for t in rows:
@@ -138,7 +138,7 @@ def test_novel_orf_targets_name_the_makedb_entry_they_lie_in(
 
 @pytest.mark.parametrize("ws", ["shuffled", "sixframe_noncoding"])
 def test_true_novel_orfs_pair_with_a_reported_makedb_entry(outs: dict[str, Path], ws: str) -> None:
-    """Integration-light: GIAP's picked class FDR pairs an ORF with an entry by (contig, strand,
+    """Integration-light: GIPPA's picked class FDR pairs an ORF with an entry by (contig, strand,
     stop) among the class-tagged IDs the search reported (``makedb_id_map``). Every planted
     non-``nterm_extension`` ORF with a detected peptide must find one (else ``no_makedb_pair``)."""
     out = outs[ws]
@@ -212,7 +212,7 @@ def test_scored_null_wrong_draw_is_protein_and_sixframe_nulls_only(
     outs: dict[str, Path], ws: str
 ) -> None:
     """No shuffled (or sixframe_noncoding-mode) wrong source in scored_null: every wrong truth row
-    is a protein-entry null (locus tag ID) or a six-frame null (``GIAPORF_`` ID)."""
+    is a protein-entry null (locus tag ID) or a six-frame null (``GIPPAORF_`` ID)."""
     out = outs[ws]
     targets = _targets(out)
     wrong = [t for t in O.rows(out / "truth" / "peptides.tsv")
@@ -224,9 +224,9 @@ def test_scored_null_wrong_draw_is_protein_and_sixframe_nulls_only(
         if not ids:  # every PSM of this null went to its decoy (rule 6 coin)
             continue
         if t["origin"] == "sixframe_noncoding":
-            assert all(i.startswith("GIAPORF_") for i in ids), (t, ids)
+            assert all(i.startswith("GIPPAORF_") for i in ids), (t, ids)
         else:
-            assert not any(i.startswith(("GIAPORF_", "NOVEL_")) for i in ids), (t, ids)
+            assert not any(i.startswith(("GIPPAORF_", "NOVEL_")) for i in ids), (t, ids)
 
 
 # ---------------------------------------------------------------- sixframe_noncoding unchanged
@@ -239,5 +239,5 @@ def test_scored_null_wrong_draw_is_protein_and_sixframe_nulls_only(
 def test_sixframe_noncoding_outputs_unchanged(
     tmp_path: Path, decoys: str, expected: dict[str, str]
 ) -> None:
-    giapsim.simulate(config("sixframe_noncoding", decoys), SEED, tmp_path)
+    gippasim.simulate(config("sixframe_noncoding", decoys), SEED, tmp_path)
     assert {f: sha(tmp_path / f) for f in FILES} == expected

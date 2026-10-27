@@ -2,7 +2,7 @@
 # 024870447f6288ebc9d29b314e957a6dfdfeb5f6 (ADR-0008) into $CONDA_PREFIX/share/bactermfinder.
 # README: Python 3.9; versions below are the ones its requirements.txt pins for the packages
 # genome_scan.py and iLearnPlus/util/FileProcessing.py import.
-name: giap-bactermfinder
+name: gippa-bactermfinder
 channels: [conda-forge, bioconda]
 dependencies:
   - python=3.9.19

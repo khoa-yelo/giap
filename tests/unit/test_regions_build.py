@@ -1,4 +1,4 @@
-"""M2-19 regions: examples 1-10, rules and edge cases (docs/specs/M2-19-regions.md; GIAP_SPEC.md
+"""M2-19 regions: examples 1-10, rules and edge cases (docs/specs/M2-19-regions.md; GIPPA_SPEC.md
 §5.2, §6.5, §7.1.7, §9.3).
 
 The spec names this file ``tests/unit/test_regions.py``; M4-17 claims
@@ -9,7 +9,7 @@ Resolutions pinned here where the spec is silent (lead decision 6 of M2-index ov
 
 * Plasmid: every contig listed in geNOMAD's (already default-filtered) ``plasmid_summary`` is a
   plasmid call, whatever its ``plasmid_score`` — there is no 0.7 cut-off key.
-* ``build_regions(..., cfg)`` takes the resolved ``GiapConfig``
+* ``build_regions(..., cfg)`` takes the resolved ``GippaConfig``
   (``annotation.region_min_overlap_frac``, ``context.region_types``).
 * CRISPR: a gene is a flanking ``cas`` gene when its gap to the array (``array.start - gene.end``
   upstream, ``gene.start - array.end`` downstream, 0 when overlapping) is ≤ 1,000 bp; the gap is
@@ -34,16 +34,16 @@ from pathlib import Path
 import pytest
 from helpers.regions_oracle import TSV_HEADER
 
-from giap.annotate.antismash import BgcRegion
-from giap.annotate.genomad import GenomadResult, PlasmidCall, Provirus, VirusGene
-from giap.config import GiapConfig, resolve_config
-from giap.config.model import AnnotationConfig
-from giap.io.bed import write_bed
-from giap.io.tsv import read_tsv
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, NcFeature
+from gippa.annotate.antismash import BgcRegion
+from gippa.annotate.genomad import GenomadResult, PlasmidCall, Provirus, VirusGene
+from gippa.config import GippaConfig, resolve_config
+from gippa.config.model import AnnotationConfig
+from gippa.io.bed import write_bed
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, NcFeature
 
-regions = importlib.import_module("giap.annotate.regions")  # M2-19
+regions = importlib.import_module("gippa.annotate.regions")  # M2-19
 
 TAX = "Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;"
 CHR1 = Replicon("chr1", 100_000, "circular", "chromosome")
@@ -101,7 +101,7 @@ def bgc(start: int, end: int, contig: str = "chr1", products=("NRPS",), core=())
     return BgcRegion(contig, iv(start, end, contig, "."), tuple(products), tuple(core))
 
 
-def cfg(*overrides: str) -> GiapConfig:
+def cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 

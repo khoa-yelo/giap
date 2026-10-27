@@ -1,8 +1,8 @@
-"""``annotation_patch.gff3`` -> ``giap makedb --patch`` round trip (issue M7-07 example 7 and
-rule 8; GIAP_SPEC.md §7.6.6 "patch -> makedb round trip"; M3-23's collision rule ``<id>_patch``).
+"""``annotation_patch.gff3`` -> ``gippa makedb --patch`` round trip (issue M7-07 example 7 and
+rule 8; GIPPA_SPEC.md §7.6.6 "patch -> makedb round trip"; M3-23's collision rule ``<id>_patch``).
 
 Two arms: the hand-built genome of examples 1 and 6 (both strands, and an origin-crossing ORF), and
-a giapsim genome with planted novel ORFs and N-terminal extensions whose ``Orf`` records are built
+a gippasim genome with planted novel ORFs and N-terminal extensions whose ``Orf`` records are built
 from the simulator truth. For every new ORF the database protein equals its ``|best_ostir`` (or
 ``|longest``) record of ``novel_orfs.faa``; every N-terminal extension gives ``<locus>_patch``,
 the extended protein starting with ``M``; ``db_id_map.tsv`` rows have kind ``patch``.
@@ -29,11 +29,11 @@ from helpers.novel_outputs_fixture import (
     write_all,
 )
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.io.protein_fasta import read_protein_fasta
-from giap.io.tsv import read_tsv
-from giap.model.coords import Replicon
-from giap.novel.candidates import Orf
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Replicon
+from gippa.novel.candidates import Orf
 
 
 def _bakta_json(path: Path, case: Case) -> Path:
@@ -58,7 +58,7 @@ def _bakta_json(path: Path, case: Case) -> Path:
 
 
 def _makedb(annotation: Path, patch: Path, outdir: Path) -> tuple[dict[str, str], list[dict]]:
-    from giap.makedb.build import MakedbOptions, build_strain_db
+    from gippa.makedb.build import MakedbOptions, build_strain_db
 
     build_strain_db(MakedbOptions(annotation=annotation, genome=None, outdir=outdir, patch=patch))
     db = {r.id: r.sequence for r in read_protein_fasta(outdir / "strain_db.faa")}
@@ -137,14 +137,14 @@ def test_patch_without_called_orfs_adds_nothing(tmp_path: Path) -> None:
 
 
 def _sim(seed: int, out: Path) -> Any:
-    import giapsim
-    from giapsim import SimConfig
+    import gippasim
+    from gippasim import SimConfig
 
     cfg = SimConfig(
         n_nterm_extensions=3,
         n_novel_orfs=(("intergenic", 2), ("cds_outframe", 1), ("antisense", 1)),
     )
-    return giapsim.simulate(cfg, seed, out)
+    return gippasim.simulate(cfg, seed, out)
 
 
 def _tsv(path: Path) -> list[dict[str, str]]:

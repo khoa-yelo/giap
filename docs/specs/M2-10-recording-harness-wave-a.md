@@ -29,7 +29,7 @@ record_fixture.py TOOL --input NAME=PATH [--input …] --label INPUT_LABEL --out
                   [--keep GLOB …] [--strip-json-key KEY …] [--dry-run]
 ```
 - Builds the command with the tool's `*_cmd.py` builder (M2-03, later M2-12…M2-18), runs it with
-  `micromamba run -n giap-<tool>` in `$TMPDIR`, copies the kept files to
+  `micromamba run -n gippa-<tool>` in `$TMPDIR`, copies the kept files to
   `<out-root>/<tool>/<version>[-<db>]/<label>/`, gzips text (`gzip -n`, reproducible), and writes
   `PROVENANCE.md`: command line, env lock hash (`workflow/envs/locks/<tool>.explicit.txt` sha256) or
   image digest, DB name+version, input SHA-256s, date (UTC), host, node, `SLURM_JOB_ID`, wall time.
@@ -76,7 +76,7 @@ tests/data/recorded/bactermfinder/<git12>/sim100k/…
 - A tool that finds nothing (e.g. geNOMAD on sim100k) still yields a valid, committed fixture with
   header-only tables; that is a contract case too.
 - Nissle has two plasmids (pMUT1, pMUT2); the replicon table must list them as plasmids.
-- Jobs are named `giap-record-*`; never more than 20 GIAP jobs at once (R14).
+- Jobs are named `gippa-record-*`; never more than 20 GIPPA jobs at once (R14).
 
 ## Acceptance criteria
 
@@ -100,7 +100,7 @@ tests/data/recorded/bactermfinder/<git12>/sim100k/…
    (antiSMASH input for real genomes comes from the live run in the recording job).
 
 ## Lead decisions (after the test-author's pass)
-1. Topology follows GIAP_SPEC.md (line ~770): only `circular=true`/`[topology=circular]` header tags (or
+1. Topology follows GIPPA_SPEC.md (line ~770): only `circular=true`/`[topology=circular]` header tags (or
    `annotation.bakta.complete: true`) make a replicon circular. The committed fixture genomes
    (tests/data/genomes/*.fna.gz) carry `[topology=circular]` on the chromosome and the circular plasmids;
    the sequences equal NCBI's (sha256 of sequences recorded in PROVENANCE.md). The full-DB Bakta

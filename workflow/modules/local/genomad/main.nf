@@ -1,4 +1,4 @@
-// geNOMAD end-to-end [mobile] (GIAP_SPEC.md §7.1.1; M2-18); only genomad/*_summary/ is used.
+// geNOMAD end-to-end [mobile] (GIPPA_SPEC.md §7.1.1; M2-18); only genomad/*_summary/ is used.
 process GENOMAD {
     tag "${meta_id}"
     label 'process_high'

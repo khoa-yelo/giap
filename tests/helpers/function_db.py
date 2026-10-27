@@ -1,4 +1,4 @@
-"""A synthetic ``$GIAP_DB_DIR`` with the five M8 function resources (M8-06 Q6, lead decision 1).
+"""A synthetic ``$GIPPA_DB_DIR`` with the five M8 function resources (M8-06 Q6, lead decision 1).
 
 Built from the IDs a run actually carries (the simulator's own GO, KEGG and COG IDs, or any C3
 ``xrefs`` frame), so the collections are non-empty. Nothing here is real GO or KEGG content: the
@@ -7,7 +7,7 @@ file or KEGG-derived table is ever committed or generated). The COG 2020 functio
 ``fun-20.tab`` are the NCBI category letters and names (public domain, as M8-06 example 4 needs
 "Translation, ribosomal structure and biogenesis").
 
-Layout (``db_sources.yaml`` paths; ``db_manifest.json`` is a ``giap setup`` manifest)::
+Layout (``db_sources.yaml`` paths; ``db_manifest.json`` is a ``gippa setup`` manifest)::
 
     go/go-basic.obo          the three roots; per namespace 2 group terms and 4 parent terms;
                              every input GO ID is a leaf under one parent (ID mod 3 -> namespace,
@@ -18,7 +18,7 @@ Layout (``db_sources.yaml`` paths; ``db_manifest.json`` is a ``giap setup`` mani
     cog/fun-20.tab           the 26 COG 2020 functional categories
     cog/cog-20.def.tab       every input COG ID -> ``COG_LETTERS[number mod 9]``
 
-Nothing here imports ``giap``.
+Nothing here imports ``gippa``.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def cog_letters(cog_id: str) -> str:
 
 def _block(t: str, name: str, ns: str, isa: Iterable[str], subset: str | None = None) -> str:
     lines = ["[Term]", f"id: {t}", f"name: {name}", f"namespace: {ns}",
-             f'def: "Synthetic test term {t}." [GOC:giap]']  # fmt: skip
+             f'def: "Synthetic test term {t}." [GOC:gippa]']  # fmt: skip
     if subset:
         lines.append(f"subset: {subset}")
     lines += [f"is_a: {p}" for p in isa]
@@ -197,7 +197,7 @@ def cog_def_text(cog_ids: Iterable[str]) -> str:
 
 
 def manifest_doc(items: Iterable[str]) -> dict[str, object]:
-    """A ``giap setup`` manifest listing ``items`` as ``ok``."""
+    """A ``gippa setup`` manifest listing ``items`` as ``ok``."""
     rows = [{"name": n, "version": "synthetic", "url": "", "checksum": "", "size_bytes": 0,
              "retrieved": "", "path": PATHS[n], "status": "ok", "message": ""}
             for n in items]  # fmt: skip

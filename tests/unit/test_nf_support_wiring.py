@@ -2,15 +2,15 @@
 
 M9-17 gives the ``function``, ``determinants`` and ``context_stats`` steps an optional directory
 output each (``function_support``, ``determinants_support``, ``context_stats_support``;
-docs/specs/M9-17-plot-support-analysis.md lead decision 5). ``giap.runner.local.publish`` merges
-their ``support/`` subdirectories into ``OUT/plots/support`` (``SUPPORT_OUTPUTS``). GIAP_SPEC.md
+docs/specs/M9-17-plot-support-analysis.md lead decision 5). ``gippa.runner.local.publish`` merges
+their ``support/`` subdirectories into ``OUT/plots/support`` (``SUPPORT_OUTPUTS``). GIPPA_SPEC.md
 §6.4 executor equality asks the same of a Nextflow run, so:
 
-1. the subworkflow that runs each step asks its GIAP_STEP alias for the support key (an
+1. the subworkflow that runs each step asks its GIPPA_STEP alias for the support key (an
    ``'<key>=...'`` out spec item; else the real step never writes it) and emits a channel named
    after the key, taken from that alias's outputs;
 2. main.nf passes every support emission to the plots step under the ``plots_support`` key (one
-   of the ``plots`` step's optional inputs, ``giap.steps.plots._SUPPORT_INPUTS``);
+   of the ``plots`` step's optional inputs, ``gippa.steps.plots._SUPPORT_INPUTS``);
 3. the Nextflow support keys equal ``SUPPORT_OUTPUTS``, and both equal the registry's ``*_support``
    optional outputs (generated, so a fourth support step is caught on both sides).
 
@@ -26,9 +26,9 @@ from pathlib import Path
 
 import pytest
 
-from giap.runner.local import SUPPORT_OUTPUTS
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.runner.local import SUPPORT_OUTPUTS
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 REPO = Path(__file__).resolve().parents[2]
 MAIN = REPO / "workflow" / "main.nf"
@@ -59,7 +59,7 @@ KEYS = sorted(EXPECTED)
 
 
 def _owner(step: str) -> Path:
-    """The subworkflow file that builds the step's GIAP_STEP inputs (``stepIn('<step>'``)."""
+    """The subworkflow file that builds the step's GIPPA_STEP inputs (``stepIn('<step>'``)."""
     hits = [
         p
         for p in sorted(LOCAL.glob("*.nf"))
@@ -79,7 +79,7 @@ def _call(text: str, start: int) -> str:
 
 
 def _alias_call(text: str, step: str) -> tuple[str, str]:
-    """(alias, argument text) of the GIAP_STEP alias call fed by ``def v = stepIn('<step>'``."""
+    """(alias, argument text) of the GIPPA_STEP alias call fed by ``def v = stepIn('<step>'``."""
     m = re.search(rf"def\s+(\w+)\s*=\s*stepIn\(\s*'{step}'", text)
     assert m, f"no `def <v> = stepIn('{step}', ...)`"
     var = m.group(1)
@@ -135,7 +135,7 @@ def test_local_support_outputs_equal_the_registry_support_keys() -> None:
 
 def test_nextflow_support_keys_equal_the_local_support_outputs() -> None:
     """Every ``'<x>_support=`` out spec item in the subworkflows is a ``SUPPORT_OUTPUTS`` key and
-    every ``SUPPORT_OUTPUTS`` key has one (executor equality, GIAP_SPEC.md §6.4)."""
+    every ``SUPPORT_OUTPUTS`` key has one (executor equality, GIPPA_SPEC.md §6.4)."""
     found: set[str] = set()
     for nf in sorted(LOCAL.glob("*.nf")):
         found |= set(re.findall(r"['\"]([a-z_0-9]+_support)=", _strip(nf.read_text("utf-8"))))

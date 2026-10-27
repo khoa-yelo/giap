@@ -20,7 +20,7 @@ Milestone M2 · depends on: M2-04, M2-18 · estimate ≈ 350 code lines (tests n
 
 ## Public interface
 
-`src/giap/annotate/regions.py`; step `region_layer`.
+`src/gippa/annotate/regions.py`; step `region_layer`.
 ```python
 RegionType = Literal["prophage", "plasmid", "bgc", "crispr", "amr"]
 @dataclass(frozen=True, slots=True)
@@ -117,7 +117,7 @@ Rules:
    CP171242.1) — the circular-replicon recording (bakta_full_circ, M2-10 lead decision 1) is correct and
    gives 3 plasmid regions; the linear recording typed CP171243.1 as `contig` only for lack of topology
    tags. The contract test uses the circular recording (falls back to skip if missing).
-5. Contract C7 (src/giap/genetable/contract.py) gains optional `genes` and `notes` columns (no
+5. Contract C7 (src/gippa/genetable/contract.py) gains optional `genes` and `notes` columns (no
    `extra_column` warning on real regions tables).
 6. Tests kill the surviving mutants: the step with an AMR gene (`expert`); AMR rows in FASTA contig
    order (contig names that sort differently); `cas` as a prefix (`re.match`).

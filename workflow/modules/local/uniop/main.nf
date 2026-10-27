@@ -1,4 +1,4 @@
-// UniOP operon pair predictions (GIAP_SPEC.md §7.1.1); input from the uniop_input step (M2-12).
+// UniOP operon pair predictions (GIPPA_SPEC.md §7.1.1); input from the uniop_input step (M2-12).
 process UNIOP {
     tag "${meta_id}"
     label 'process_low'
@@ -20,7 +20,7 @@ process UNIOP {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        uniop: \$(cat \$UNIOP_HOME/GIAP_COMMIT)
+        uniop: \$(cat \$UNIOP_HOME/GIPPA_COMMIT)
     END_VERSIONS
     """
 

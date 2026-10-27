@@ -3,7 +3,7 @@
 # that pickled model.pkl. Found on 2026-10-14 by disassembling model.pkl at that commit with
 # `pickletools.dis` (no unpickling): the MLPClassifier state holds `_sklearn_version` = '1.1.2'.
 # numpy/scipy are versions contemporary with scikit-learn 1.1.2 (numpy.core pickle paths).
-name: giap-terminatornet
+name: gippa-terminatornet
 channels: [conda-forge, bioconda]
 dependencies:
   - python=3.10.14

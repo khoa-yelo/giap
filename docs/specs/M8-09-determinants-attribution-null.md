@@ -23,7 +23,7 @@ Milestone M8 · track R · **pass 1** · depends on: M8-08 · estimate ≈ 260 c
 
 ## Public interface
 
-`src/giap/determinants/attribution.py` and `src/giap/determinants/null.py` (pure)
+`src/gippa/determinants/attribution.py` and `src/gippa/determinants/null.py` (pure)
 ```python
 def shap_blocks(cv: CvResult, X: pd.DataFrame, blocks: Mapping[str, str]) -> pd.DataFrame: ...
 def attribution_table(features: pd.DataFrame, rows: B8, cv: CvResult,
@@ -56,7 +56,7 @@ def null_p(X, y, tu, folds_rep1: I64, observed_mean_r2: Mapping[str, float],
 6. **Null loop.** For b = 1 … B: permute y (stream `determinants.null`, child seed b from
    `SeedSequence.spawn`), refit **one** CV repeat on the repeat-1 fold assignment (decision 16) for
    each model, record its pooled-OOF R². `b_count` = #{R²_b ≥ observed `cv_r2_mean`};
-   `p = (1 + b_count)/(1 + B)` via `giap.stats.perm_p` with `alternative="greater"`. B =
+   `p = (1 + b_count)/(1 + B)` via `gippa.stats.perm_p` with `alternative="greater"`. B =
    `determinants.permutations` (10,000 with `--publication`, §8.2). Permutations run in parallel
    over `threads` workers, each fit single-threaded, results collected in b order: identical for
    any thread count.

@@ -1,6 +1,6 @@
 """Independent oracle for the Module 2 output writers (docs/specs/M3-16-mapping-outputs.md).
 
-Written from GIAP_SPEC.md §6.5/§9.2/§9.3 and the M3-16 spec, without importing giap.io: input
+Written from GIPPA_SPEC.md §6.5/§9.2/§9.3 and the M3-16 spec, without importing gippa.io: input
 rows are plain dicts with 0-based half-open, unwrapped ``start``/``end``; outputs are the expected
 TSV coordinates, BED12 core fields (chrom..strand, blockCount, blockSizes, blockStarts) and sort
 keys.

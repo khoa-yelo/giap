@@ -1,0 +1,106 @@
+# Official database and model sources of `gippa setup` (GIPPA_SPEC.md §3.2, §3.9, §7.9.1; R6).
+# Checksums are those of the archive as published; Bakta full, geNOMAD and Promotech pins: ADR-0014.
+# check: how `verify` recognises an installed copy; size_gib: free disk needed before downloading;
+# prefetch: the item's row in $GIPPA_DB_DIR/prefetch_manifest.tsv (adopted provenance).
+bakta_light:
+  version: "6.0"
+  url: https://zenodo.org/records/14916843/files/db-light.tar.xz
+  checksum: md5:4a6e059ded39e9c5537ef4137d2f5648   # §3.9
+  path: bakta/db-light
+  tool: bakta
+  check: bakta:light
+  size_gib: 5
+bakta_full:
+  version: "6.0"
+  url: https://zenodo.org/records/14916843/files/db.tar.xz
+  checksum: md5:4c1115e40abfa2b464ae5dd988bdd88e   # ADR-0014 (Zenodo record metadata)
+  path: bakta/db
+  tool: bakta
+  check: bakta:full
+  size_gib: 84
+genomad:
+  version: "1.9"
+  url: https://zenodo.org/records/14886553/files/genomad_db_v1.9.tar.gz
+  checksum: md5:67244b528bb8bed464d1ca147136d33e   # ADR-0014 (Zenodo 14886553)
+  path: genomad_db
+  tool: null                                         # GIPPA fetches the pinned tarball itself (R6)
+  check: genomad
+  size_gib: 4
+  prefetch: genomad_db
+antismash:
+  version: "8.0.4"
+  url: https://dl.secondarymetabolites.org/releases/
+  checksum: ""                                       # antiSMASH's downloader checks its own files
+  path: antismash
+  tool: antismash
+  check: antismash
+  size_gib: 10
+promotech_models:
+  version: RF-HOT
+  url: https://www.cs.mun.ca/~lourdes/public/PromoTech_models/RF-HOT.zip
+  checksum: sha256:fcd96ffe5a43b579af965839ee2bb896de94de3601978d88bcabd32c4fb5093f  # ADR-0014
+  path: promotech
+  tool: null
+  check: promotech
+  size_gib: 5
+  prefetch: promotech_rf_hot
+# M2-09 resources: single files fetched over HTTPS (check: go / kegg:<table> / sha256 / fasta:<n>).
+# GO: newest monthly release whose OBO headers announce the release date of its directory
+# (2026-06-19 and 2026-08-05 announce 2026-06-15 and 2026-07-26); sha256 pins retrieved 2026-10-15.
+go_basic:
+  version: "2026-05-19"
+  url: https://purl.obolibrary.org/obo/go/releases/2026-05-19/go-basic.obo
+  checksum: sha256:923645000afcb1df0e72e252b64950b1c2bcc98c9393fec8c1dd1a0f7c9d4d77
+  path: go/go-basic.obo
+  tool: null
+  check: go
+goslim_generic:
+  version: "2026-05-19"
+  url: https://purl.obolibrary.org/obo/go/releases/2026-05-19/subsets/goslim_generic.obo
+  checksum: sha256:dfc49ced033f5f047a9729a2b434e7a70b0c395ba61f950d138beff769555a26
+  path: go/goslim_generic.obo
+  tool: null
+  check: go
+kegg_ko_pathway:                                     # KEGG REST: unversioned, academic use (NOTICE.md)
+  version: ""                                        # recorded: retrieval date and sha256 of the bytes
+  url: https://rest.kegg.jp/link/pathway/ko
+  checksum: ""
+  path: kegg/ko_pathway.tsv
+  tool: null
+  check: kegg:links
+kegg_pathway_names:
+  version: ""
+  url: https://rest.kegg.jp/list/pathway
+  checksum: ""
+  path: kegg/pathway_names.tsv
+  tool: null
+  check: kegg:names
+cog2020_def:
+  version: "2020"
+  url: https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/cog-20.def.tab
+  checksum: sha256:00e93e42f38f6ada46ef6be5da4a8518829300ea29f2888261660de0ca2f7e77
+  path: cog/cog-20.def.tab
+  tool: null
+  check: sha256
+cog2020_fun:
+  version: "2020"
+  url: https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/fun-20.tab
+  checksum: sha256:fbdce778220f07a6f9701b2bde07fbcb1d3fca9fa7453fa9ab7021b5da18c4f7
+  path: cog/fun-20.tab
+  tool: null
+  check: sha256
+contaminants:                                        # Frankenfield et al. 2022 universal library; no licence file: downloaded, never vendored
+  version: bddf6da9
+  url: https://raw.githubusercontent.com/HaoGroup-ProtContLib/Protein-Contaminant-Libraries-for-DDA-and-DIA-Proteomics/bddf6da9334f4300caed75f7a87c096dd96b6bca/Universal%20protein%20contaminant%20FASTA/0602_Universal%20Contaminants.fasta
+  checksum: sha256:c0782146be6dad6ecf53e23e5a21a7ed4fea9b4802cb01e8d00091404ec66926
+  path: contaminants/contaminants.fasta
+  tool: null
+  check: fasta:381
+uniop_source:                                        # M11-14 item 1b: the authors' archive at the ADR-0008 commit; no licence file: fetched by `setup --uniop`, built locally, never vendored or pushed (R5, R6)
+  version: "git:3ed14dfc2a5d69b993d99a26e50c1f8e9723c087"
+  url: https://github.com/hongsua/UniOP/archive/3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz
+  # sha256 of the official archive, downloaded twice on FarmShare 2026-10-26 (spec AC 9b)
+  checksum: sha256:1f6b96f0a8659ad28e4f4b1ed49d538ded82f5f7669af74b265583d837a4108a
+  path: uniop/UniOP-3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz
+  tool: null
+  check: sha256

@@ -31,7 +31,7 @@ implementer must diff it against 1.36.2 and port 1.36.2.)
 
 ## Public interface
 
-`src/giap/stats/fgsea.py` (pure; numba kernels in `src/giap/stats/_fgsea_kernels.py`)
+`src/gippa/stats/fgsea.py` (pure; numba kernels in `src/gippa/stats/_fgsea_kernels.py`)
 ```python
 @dataclass(frozen=True, slots=True)
 class Prepared:
@@ -99,7 +99,7 @@ def fgsea_simple(prep: Prepared, n_perm: int, sample_size: int,
 | members absent from `labels` | dropped before the size filter |
 | ties in stats | stable order (example 4); the methods note says ES depends on it, as fgsea warns |
 | NES mean = 0 | NES and p NaN (`unestimated` in M8-05) |
-| `n_perm < 1` or `sample_size < 3` | `ValueError` (fgsea silently raises `sampleSize` to 3; GIAP's config is fixed at 101) |
+| `n_perm < 1` or `sample_size < 3` | `ValueError` (fgsea silently raises `sampleSize` to 3; GIPPA's config is fixed at 101) |
 | no set survives `prepare` | zero-length `SimpleResult` |
 
 ## Examples
@@ -163,7 +163,7 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
    - the order of the leading edge for a negative ES.
 
    Check each against the 1.36.2 source, not master.
-5. **Amends decision 4 (after the test step, 3d0d18b).** fgsea **1.36.2 has no integer scaling**: the 2³⁰/Σ rounding exists only on master (1.39.x), which is the version the designer read. GIAP follows 1.36.2, the version the golden env runs, so statistics stay float |stats| and `Prepared.stats` is float64. This lead decision overrides spec item 1 for that one point.
+5. **Amends decision 4 (after the test step, 3d0d18b).** fgsea **1.36.2 has no integer scaling**: the 2³⁰/Σ rounding exists only on master (1.39.x), which is the version the designer read. GIPPA follows 1.36.2, the version the golden env runs, so statistics stay float |stats| and `Prepared.stats` is float64. This lead decision overrides spec item 1 for that one point.
 6. The test-author's other resolutions are accepted:
    - the ES = 0 tie counts in both leZero and geZero;
    - p = (1 + nMoreExtreme)/(1 + modeFraction);
@@ -172,7 +172,7 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
 
    Owed to M8-13: R accumulates in long double, so near-ties may differ in rare cases, and the batch kernel's statEps weighting of zero stats is not pinned.
 7. **After the statistician's review (395a99a):** M8-02 is approved. The port is valid and at level under random-set nulls (30/30 cells). Carried to M8-05:
-   - **Tie order (lead-level; changes M8-05 rule 2 and M8-12's input):** TUs enter fgsea in a seeded random order, from `giap.rng.for_step`, and the R golden gets the same order. The order is never by TU ID, which inflates the level to 0.165 under `abundance.missing = min` ties.
+   - **Tie order (lead-level; changes M8-05 rule 2 and M8-12's input):** TUs enter fgsea in a seeded random order, from `gippa.rng.for_step`, and the R golden gets the same order. The order is never by TU ID, which inflates the level to 0.165 under `abundance.missing = min` ties.
    - **Owed to Khoa (ADR):** the GSEA null under positional autocorrelation. With AR(1) φ = 0.5–0.8 and genome-adjacent sets, the rejection rate is 0.14–0.44 at α = 0.05. The options are a genome-rotation null, a TU-block permutation, or a documented scope limit. M8-15 gets this attack as a gate that must fail without the fix.
    - **Owed to Khoa (ADR):** the §8.2 95 % CI for NES. M8-05 leaves `ci_low`/`ci_high` empty, so it needs either an exemption or a CI method.
    - **Pass-1 power note:** rows that need multilevel keep a p ≥ ~1/501, so families with more than ~25 sets have little power until M8-11.

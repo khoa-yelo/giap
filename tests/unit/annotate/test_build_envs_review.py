@@ -1,9 +1,9 @@
 """build_envs.sh against a fake micromamba (M2-01 lead decisions after code review, 1-4 and 7).
 
-No conda is needed: ``micromamba`` and ``git`` are small shell stubs in ``$GIAP_ROOT/bin`` (which
+No conda is needed: ``micromamba`` and ``git`` are small shell stubs in ``$GIPPA_ROOT/bin`` (which
 ``farmshare_env.sh`` puts first on PATH). The stub logs its argv, creates env prefixes, prints
 per-env version output and can be told to fail a step. The script runs against a throw-away
-``GIAP_REPO`` whose ``src`` and ``scripts`` link to this checkout, so locks and markers land in
+``GIPPA_REPO`` whose ``src`` and ``scripts`` link to this checkout, so locks and markers land in
 ``tmp_path``.
 
 Decision 5 (Apptainer cache file name) is not covered here: the naming is inline in
@@ -108,7 +108,7 @@ class Sandbox:
         locks = self.repo / "workflow" / "envs" / "locks"
         locks.mkdir()
         (locks / "fgsea.explicit.txt").write_text(
-            "@EXPLICIT\nhttps://conda.anaconda.org/conda-forge/linux-64/fake-1.0-0.conda#giap-fgsea\n"
+            "@EXPLICIT\nhttps://conda.anaconda.org/conda-forge/linux-64/fake-1.0-0.conda#gippa-fgsea\n"
         )
         shutil.copy(
             REPO / "workflow" / "conf" / "containers.config",
@@ -126,17 +126,17 @@ class Sandbox:
         self.locks = self.repo / "workflow" / "envs" / "locks"
 
     def version(self, tool: str, text: str) -> None:
-        (self.fake / f"version_giap-{tool}").write_text(text + "\n")
+        (self.fake / f"version_gippa-{tool}").write_text(text + "\n")
 
     def fail(self, step: str, tool: str) -> None:
-        (self.fake / f"fail_{step}_giap-{tool}").write_text("")
+        (self.fake / f"fail_{step}_gippa-{tool}").write_text("")
 
     def run(self, *tools: str) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "TMPDIR"}}
         env.update(
-            GIAP_REPO=str(self.repo),
-            GIAP_ROOT=str(self.root),
-            GIAP_PYTHON=sys.executable,
+            GIPPA_REPO=str(self.repo),
+            GIPPA_ROOT=str(self.root),
+            GIPPA_PYTHON=sys.executable,
             FAKE_DIR=str(self.fake),
             HOME=str(self.root / "home"),
         )
@@ -157,14 +157,14 @@ class Sandbox:
         for line in self.calls():
             words = line.split()
             if words[:2] == ["micromamba", "create"] and "-n" in words:
-                out.add(words[words.index("-n") + 1].removeprefix("giap-"))
+                out.add(words[words.index("-n") + 1].removeprefix("gippa-"))
         return out
 
     def reset_log(self) -> None:
         (self.fake / "calls.log").write_text("")
 
     def marker(self, tool: str) -> Path:
-        return self.envs / f"giap-{tool}" / ".giap-built"
+        return self.envs / f"gippa-{tool}" / ".gippa-built"
 
     def yml_sha(self, tool: str) -> str:
         data = (self.repo / "workflow" / "envs" / f"{tool}.yml").read_bytes()
@@ -194,7 +194,7 @@ def test_pip_freeze_lock_written(sb: Sandbox) -> None:
     assert pip_lock.is_file()
     assert "fakepkg==1.0" in pip_lock.read_text()
     assert any(
-        "run" in c.split() and "-n" in c and "giap-bakta" in c and "pip" in c and "freeze" in c
+        "run" in c.split() and "-n" in c and "gippa-bakta" in c and "pip" in c and "freeze" in c
         for c in sb.calls()
     ), sb.calls()
     assert "@EXPLICIT" in (sb.locks / "bakta.explicit.txt").read_text()
@@ -217,7 +217,7 @@ def test_matching_marker_skips_rebuild(sb: Sandbox) -> None:
     proc = sb.run("bakta")
     _ok(proc)
     assert sb.created() == set()
-    assert "giap-bakta exists" in proc.stdout
+    assert "gippa-bakta exists" in proc.stdout
 
 
 def test_missing_marker_triggers_rebuild(sb: Sandbox) -> None:
@@ -302,11 +302,11 @@ def test_git_commit_mismatch_fails_tool(sb: Sandbox) -> None:
 
 
 def test_git_commit_match_passes(sb: Sandbox) -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
-    _ok(sb.run("uniop"))  # stub runs the real version_cmd, which reads GIAP_COMMIT
+    _ok(sb.run("uniop"))  # stub runs the real version_cmd, which reads GIPPA_COMMIT
     sha = TOOLS["uniop"].version.removeprefix("git:")
-    assert (sb.envs / "giap-uniop" / "share" / "uniop" / "GIAP_COMMIT").read_text().strip() == sha
+    assert (sb.envs / "gippa-uniop" / "share" / "uniop" / "GIPPA_COMMIT").read_text().strip() == sha
     assert (sb.locks / "uniop.explicit.txt").is_file()
     assert (sb.locks / "uniop.pip.txt").is_file()
 
@@ -315,7 +315,7 @@ def test_git_commit_match_passes(sb: Sandbox) -> None:
 
 
 def test_all_partition_matches_registry() -> None:
-    from giap.annotate.tools import TOOLS, read_containers_config
+    from gippa.annotate.tools import TOOLS, read_containers_config
 
     pinned = {
         k.lower() for k in read_containers_config(REPO / "workflow" / "conf" / "containers.config")
@@ -330,7 +330,7 @@ def test_all_skips_container_and_opt_in_tools(sb: Sandbox) -> None:
     _ok(sb.run("all"))
     assert sb.created() == ALL_BUILDS
     for tool in ALL_SKIPS:
-        assert not (sb.envs / f"giap-{tool}").exists(), tool
+        assert not (sb.envs / f"gippa-{tool}").exists(), tool
         assert not (sb.locks / f"{tool}.explicit.txt").exists(), tool
 
 
@@ -344,18 +344,18 @@ def test_explicit_name_builds_skipped_tool(sb: Sandbox, tool: str) -> None:
 # ---------------------------------------------------------------- decision 7: comment wording
 
 
-def test_farmshare_env_comment_says_giap_root_must_be_exported() -> None:
+def test_farmshare_env_comment_says_gippa_root_must_be_exported() -> None:
     lines = (REPO / "scripts" / "farmshare_env.sh").read_text().splitlines()
     comments = [ln.split("#", 1)[1] for ln in lines if "#" in ln]
     hits = [
         c
         for c in comments
         if "worktree" in c.lower()
-        and "GIAP_ROOT" in c
+        and "GIPPA_ROOT" in c
         and "export" in c.lower()
         and "only" in c.lower()
     ]
-    assert hits, "farmshare_env.sh must say worktrees share local/ only when GIAP_ROOT is exported"
+    assert hits, "farmshare_env.sh must say worktrees share local/ only when GIPPA_ROOT is exported"
     assert not any(
         "worktrees share the main checkout's local/" in c and "only" not in c for c in comments
     )

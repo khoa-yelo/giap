@@ -1,8 +1,8 @@
-"""`giap setup --go --kegg --cog --contaminants` (issue M2-09; GIAP_SPEC.md §7.9.1, §3.2, §7.2.8).
+"""`gippa setup --go --kegg --cog --contaminants` (issue M2-09; GIPPA_SPEC.md §7.9.1, §3.2, §7.2.8).
 
-Examples 1-6 and the edge cases of docs/specs/M2-09-giap-setup-resources.md with fake fetchers.
+Examples 1-6 and the edge cases of docs/specs/M2-09-gippa-setup-resources.md with fake fetchers.
 Every test runs under ``setup_guard`` (M2-08 lead decision 3): no network, no tool, no real
-$GIAP_DB_DIR (``GIAP_DB_DIR`` and the tool roots point into ``tmp_path``).
+$GIPPA_DB_DIR (``GIPPA_DB_DIR`` and the tool roots point into ``tmp_path``).
 
 Ambiguities resolved here:
 - The GO pin is a release date: ``SOURCES["go_basic"].version == "YYYY-MM-DD"`` and the URL is
@@ -24,7 +24,7 @@ Ambiguities resolved here:
   ``antismash --check-prereqs`` through the command runner (M2-08 spec "verify rules"); exit 0
   without ``--databases`` means "in the image": record ``ok`` with ``url: "image"``, no download.
 - Backlog items already met by the M2-08 code (non-200, redirect cap, tarball deletion, unsafe tar
-  members reported by GIAP's own check rather than by ``tarfile``'s ``data`` filter) are pinned
+  members reported by GIPPA's own check rather than by ``tarfile``'s ``data`` filter) are pinned
   here so they stay met.
 - The live download test of the acceptance list is left out, as in M2-08: tests never download.
 """
@@ -76,14 +76,14 @@ class _Usage(NamedTuple):
 
 @pytest.fixture(autouse=True)
 def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Plenty of disk, inside Slurm, every GIAP root (and $GIAP_DB_DIR) in ``tmp_path``."""
+    """Plenty of disk, inside Slurm, every GIPPA root (and $GIPPA_DB_DIR) in ``tmp_path``."""
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: _Usage(10_000 * GIB, 0, 10_000 * GIB))
     monkeypatch.setenv("SLURM_JOB_ID", "123")
-    roots = {"GIAP_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
-             "NXF_APPTAINER_CACHEDIR": "cache", "GIAP_DB_DIR": "not-the-real-db"}  # fmt: skip
+    roots = {"GIPPA_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
+             "NXF_APPTAINER_CACHEDIR": "cache", "GIPPA_DB_DIR": "not-the-real-db"}  # fmt: skip
     for var, sub in roots.items():
         monkeypatch.setenv(var, str(tmp_path / "_env" / sub))
-    monkeypatch.setenv("GIAP_REPO", str(REPO))
+    monkeypatch.setenv("GIPPA_REPO", str(REPO))
 
 
 # ---------------------------------------------------------------- payloads
@@ -119,17 +119,17 @@ def sha256(payload: bytes) -> str:
 
 
 def sources() -> Any:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     return SOURCES
 
 
 def repin(monkeypatch: pytest.MonkeyPatch, name: str, **fields: Any) -> Any:
-    """Replace ``SOURCES[name]`` (every ``giap.setupdb`` module that holds it) by a copy."""
+    """Replace ``SOURCES[name]`` (every ``gippa.setupdb`` module that holds it) by a copy."""
     item = dataclasses.replace(sources()[name], **fields)
     patched = {**sources(), name: item}
     for mod_name, mod in list(sys.modules.items()):
-        if mod_name.startswith("giap.setupdb") and hasattr(mod, "SOURCES"):
+        if mod_name.startswith("gippa.setupdb") and hasattr(mod, "SOURCES"):
             monkeypatch.setattr(mod, "SOURCES", patched)
     return item
 
@@ -192,7 +192,7 @@ class MapFetcher:
 
 
 def source_error(host: str, reason: str = "timed out") -> Exception:
-    from giap.setupdb import SourceError
+    from gippa.setupdb import SourceError
 
     return SourceError(host, reason)
 
@@ -201,7 +201,7 @@ def source_error(host: str, reason: str = "timed out") -> Exception:
 
 
 def opts(db: Path, **kw: Any) -> Any:
-    from giap.setupdb import SetupOptions
+    from gippa.setupdb import SetupOptions
 
     base: dict[str, Any] = {"db_dir": db, "bakta": "skip", "genomad": False, "antismash": False,
                             "promotech_models": False, "check": False}  # fmt: skip
@@ -209,7 +209,7 @@ def opts(db: Path, **kw: Any) -> Any:
 
 
 def setup(db: Path, fetcher: Any = None, runner: Any = None, **kw: Any) -> int:
-    from giap.setupdb import run_setup
+    from gippa.setupdb import run_setup
 
     return int(run_setup(opts(db, **kw), runner or NoRunner(), fetcher or NoFetcher()))
 
@@ -222,7 +222,7 @@ def items(db: Path) -> dict[str, dict[str, Any]]:
 def validate_manifest(db: Path) -> None:
     import jsonschema
 
-    schema = json.loads((REPO / "src/giap/schemas/db_manifest.schema.json").read_text())
+    schema = json.loads((REPO / "src/gippa/schemas/db_manifest.schema.json").read_text())
     jsonschema.validate(json.loads((db / "db_manifest.json").read_text()), schema)
 
 
@@ -246,7 +246,7 @@ def item_file(db: Path, name: str) -> Path:
 
 
 def test_new_items_are_the_official_sources() -> None:
-    from giap.setupdb import DbItem
+    from gippa.setupdb import DbItem
 
     s = sources()
     assert set(NEW_NAMES) <= set(s)
@@ -296,13 +296,13 @@ def test_pinned_and_unpinned_checksums() -> None:
     ],
 )
 def test_plan_includes_resources(tmp_path: Path, flag: str, names: tuple[str, ...]) -> None:
-    from giap.setupdb import plan
+    from gippa.setupdb import plan
 
     assert {i.name for i in plan(opts(tmp_path, **{flag: True}))} == set(names)
 
 
 def test_plan_all_resources_and_none(tmp_path: Path) -> None:
-    from giap.setupdb import plan
+    from gippa.setupdb import plan
 
     every = {"go": True, "kegg": True, "cog": True, "contaminants": True}
     assert {i.name for i in plan(opts(tmp_path, **every))} == set(NEW_NAMES)
@@ -328,14 +328,14 @@ def _write(tmp_path: Path, body: bytes, name: str = "f") -> Path:
 
 
 def test_verify_go_header_matches_release(tmp_path: Path) -> None:
-    from giap.setupdb import verify_go
+    from gippa.setupdb import verify_go
 
     assert verify_go(_write(tmp_path, go_obo(RELEASE)), RELEASE) is True
     assert verify_go(_write(tmp_path, go_obo(OTHER_RELEASE)), RELEASE) is False
 
 
 def test_verify_go_accepts_the_goslim_header_form(tmp_path: Path) -> None:
-    from giap.setupdb import verify_go
+    from gippa.setupdb import verify_go
 
     assert verify_go(_write(tmp_path, go_obo(RELEASE, slim=True)), RELEASE) is True
     assert verify_go(_write(tmp_path, go_obo(OTHER_RELEASE, slim=True)), RELEASE) is False
@@ -348,13 +348,13 @@ def test_verify_go_accepts_the_goslim_header_form(tmp_path: Path) -> None:
      b"format-version: 1.2\ndata-version: releases/2026-07-011\n"],
 )  # fmt: skip
 def test_verify_go_rejects_files_without_the_release(tmp_path: Path, body: bytes) -> None:
-    from giap.setupdb import verify_go
+    from gippa.setupdb import verify_go
 
     assert verify_go(_write(tmp_path, body), RELEASE) is False
 
 
 def test_verify_go_missing_file_is_false(tmp_path: Path) -> None:
-    from giap.setupdb import verify_go
+    from gippa.setupdb import verify_go
 
     assert verify_go(tmp_path / "nope.obo", RELEASE) is False
 
@@ -366,7 +366,7 @@ _dates = st.dates(min_value=date(2015, 1, 1), max_value=date(2035, 12, 31)).map(
 @given(header=_dates, pinned=_dates, slim=st.booleans())
 def test_verify_go_property(header: str, pinned: str, slim: bool) -> None:
     """Property: an OBO file verifies exactly when its header release equals the pin."""
-    from giap.setupdb import verify_go
+    from gippa.setupdb import verify_go
 
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "go.obo"
@@ -375,7 +375,7 @@ def test_verify_go_property(header: str, pinned: str, slim: bool) -> None:
 
 
 def test_verify_kegg_links_example(tmp_path: Path) -> None:
-    from giap.setupdb import verify_kegg_links
+    from gippa.setupdb import verify_kegg_links
 
     assert verify_kegg_links(_write(tmp_path, KO_BODY)) is True
     live_shape = b"ko:K00001\tpath:map00010\nko:K00001\tpath:ko00010\nko:K00002\tpath:map00010\n"
@@ -388,13 +388,13 @@ def test_verify_kegg_links_example(tmp_path: Path) -> None:
      b"ko:K0001\tpath:map00010\n", b"ko:K00001 path:map00010\n", b"map00010\tGlycolysis\n"],
 )  # fmt: skip
 def test_verify_kegg_links_rejects(tmp_path: Path, body: bytes) -> None:
-    from giap.setupdb import verify_kegg_links
+    from gippa.setupdb import verify_kegg_links
 
     assert verify_kegg_links(_write(tmp_path, body)) is False
 
 
 def test_verify_kegg_links_missing_file_is_false(tmp_path: Path) -> None:
-    from giap.setupdb import verify_kegg_links
+    from gippa.setupdb import verify_kegg_links
 
     assert verify_kegg_links(tmp_path / "nope.tsv") is False
 
@@ -407,7 +407,7 @@ _map = st.integers(0, 99_999).map(lambda i: f"path:map{i:05d}")
 @given(st.lists(st.tuples(_ko, _map), min_size=1, max_size=30))
 def test_verify_kegg_links_property(pairs: list[tuple[str, str]]) -> None:
     """Property: any non-empty KO -> map link table verifies."""
-    from giap.setupdb import verify_kegg_links
+    from gippa.setupdb import verify_kegg_links
 
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "ko.tsv"
@@ -419,7 +419,7 @@ def test_verify_kegg_links_property(pairs: list[tuple[str, str]]) -> None:
 
 
 def test_count_fasta_records_examples(tmp_path: Path) -> None:
-    from giap.setupdb import count_fasta_records
+    from gippa.setupdb import count_fasta_records
 
     assert count_fasta_records(_write(tmp_path, b"")) == 0
     assert count_fasta_records(_write(tmp_path, fasta(381))) == 381
@@ -436,7 +436,7 @@ def test_count_fasta_records_examples(tmp_path: Path) -> None:
 )  # fmt: skip
 def test_count_fasta_records_property(records: list[tuple[str, list[str]]]) -> None:
     """Property: the count equals the number of ``>`` header lines, whatever the line wrapping."""
-    from giap.setupdb import count_fasta_records
+    from gippa.setupdb import count_fasta_records
 
     body = "".join(f">{h}\n" + "".join(f"{s}\n" for s in seq) for h, seq in records)
     with tempfile.TemporaryDirectory() as tmp:
@@ -469,8 +469,8 @@ def test_example1_go_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
 def test_example1_on_the_command_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
-    from giap.cli import cli
-    from giap.setupdb import HttpsFetcher
+    from gippa.cli import cli
+    from gippa.setupdb import HttpsFetcher
 
     fetcher = MapFetcher(dict(pin_go(monkeypatch)))
     monkeypatch.setattr(HttpsFetcher, "fetch", lambda _self, url, dest: fetcher.fetch(url, dest))
@@ -723,7 +723,7 @@ def test_example6_check_after_full_install_is_offline(
 def test_example6_on_the_command_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     every = {"go": True, "kegg": True, "cog": True, "contaminants": True}
     assert setup(tmp_path, MapFetcher(dict(pin_all(monkeypatch))), **every) == 0
@@ -822,7 +822,7 @@ GO_RELEASE_PATH = f"/{RELEASE}/ontology/go-basic.obo"
 
 def test_purl_redirect_to_geneontology_over_https_is_followed(net: FakeNet, tmp_path: Path) -> None:
     """The live purl answers 302 -> https://release.geneontology.org/... (§3.2 lists both)."""
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     body = go_obo(RELEASE)
     net.routes[("https", "purl.obolibrary.org", PURL_PATH)] = (
@@ -845,7 +845,7 @@ def test_purl_redirect_to_geneontology_over_https_is_followed(net: FakeNet, tmp_
 def test_purl_redirect_elsewhere_is_refused(net: FakeNet, tmp_path: Path, location: str) -> None:
     from urllib.parse import urlparse
 
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "purl.obolibrary.org", PURL_PATH)] = (302, {"Location": location}, b"")
     u = urlparse(location)
@@ -857,7 +857,7 @@ def test_purl_redirect_elsewhere_is_refused(net: FakeNet, tmp_path: Path, locati
 
 
 def test_kegg_redirect_to_another_host_is_refused(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "rest.kegg.jp", "/link/pathway/ko")] = (
         301, {"Location": "https://release.geneontology.org/link/pathway/ko"}, b"")  # fmt: skip
@@ -869,7 +869,7 @@ def test_kegg_redirect_to_another_host_is_refused(net: FakeNet, tmp_path: Path) 
 
 @pytest.mark.parametrize("status", [204, 206, 403, 404, 410, 500, 503])
 def test_non_200_is_rejected_before_writing(net: FakeNet, tmp_path: Path, status: int) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "rest.kegg.jp", "/link/pathway/ko")] = (status, {}, KO_BODY)
     with pytest.raises(SourceError) as exc:
@@ -879,7 +879,7 @@ def test_non_200_is_rejected_before_writing(net: FakeNet, tmp_path: Path, status
 
 
 def test_non_200_through_install_leaves_item_absent(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, install
+    from gippa.setupdb import HttpsFetcher, install
 
     net.routes[("https", "rest.kegg.jp", "/link/pathway/ko")] = (503, {}, KO_BODY)
     rec = install(sources()["kegg_ko_pathway"], tmp_path, NoRunner(), HttpsFetcher())
@@ -888,7 +888,7 @@ def test_non_200_through_install_leaves_item_absent(net: FakeNet, tmp_path: Path
 
 
 def test_truncated_body_is_an_error(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "rest.kegg.jp", "/link/pathway/ko")] = (
         200, {"Content-Length": "1000"}, KO_BODY)  # fmt: skip
@@ -897,7 +897,7 @@ def test_truncated_body_is_an_error(net: FakeNet, tmp_path: Path) -> None:
 
 
 def test_timeout_is_a_source_error_naming_the_host(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.raise_on[("https", "ftp.ncbi.nlm.nih.gov", "/pub/COG/COG2020/data/fun-20.tab")] = (
         TimeoutError("timed out"))  # fmt: skip
@@ -907,7 +907,7 @@ def test_timeout_is_a_source_error_naming_the_host(net: FakeNet, tmp_path: Path)
 
 
 def test_redirect_loop_is_capped(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "rest.kegg.jp", "/a")] = (302, {"Location": "/b"}, b"")
     net.routes[("https", "rest.kegg.jp", "/b")] = (302, {"Location": "https://rest.kegg.jp/a"}, b"")
@@ -924,7 +924,7 @@ def test_redirect_loop_is_capped(net: FakeNet, tmp_path: Path) -> None:
 def test_redirect_chain_property(net: FakeNet, hops: int) -> None:
     """Property: a same-host https chain is followed when short, refused when long; requests are
     bounded either way and never exceed one more than the redirects allowed."""
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes.clear()
     net.contacted.clear()
@@ -965,8 +965,8 @@ def test_genomad_tarball_deleted_after_unpacking(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, payload: bytes
 ) -> None:
     """§3.9: the archive is gone before the unpacked copy is verified and moved into place."""
-    import giap.setupdb.run as run_mod
-    from giap.setupdb import install
+    import gippa.setupdb.run as run_mod
+    from gippa.setupdb import install
 
     seen: list[list[Path]] = []
     real = getattr(run_mod, "check_dir", None)
@@ -1006,9 +1006,9 @@ def _special_tar(kind: str) -> bytes:
 
 
 @pytest.mark.parametrize("kind", ["fifo", "chardev", "hardlink-out", "hardlink-abs"])
-def test_unsafe_tar_members_are_caught_by_giaps_own_check(tmp_path: Path, kind: str) -> None:
+def test_unsafe_tar_members_are_caught_by_gippas_own_check(tmp_path: Path, kind: str) -> None:
     """The member check itself rejects these (named in the record), not tarfile's data filter."""
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     db = tmp_path / "a" / "db"
     db.mkdir(parents=True)
@@ -1026,7 +1026,7 @@ def test_unsafe_tar_members_are_caught_by_giaps_own_check(tmp_path: Path, kind: 
 
 
 def _old_genomad_record(db: Path, status: str) -> None:
-    from giap.setupdb import DbRecord, write_manifest
+    from gippa.setupdb import DbRecord, write_manifest
 
     item = sources()["genomad"]
     write_manifest(db, [DbRecord(item.name, item.version, item.url, item.checksum, 1, "2025-01-02",
@@ -1127,7 +1127,7 @@ def test_notice_names_kegg_academic_use_and_the_contaminant_library() -> None:
 
 def test_contaminant_library_is_not_vendored() -> None:
     # .nf-test is Nextflow's gitignored work tree: a local `nf-test test workflow/tests` run
-    # symlinks the real $GIAP_DB_DIR library into it (mapping_nf_main_review.nf.test), which is
+    # symlinks the real $GIPPA_DB_DIR library into it (mapping_nf_main_review.nf.test), which is
     # staging, not vendoring. Nothing under a gitignored directory can be vendored.
     skip = {".git", "local", ".venv", "node_modules", ".hypothesis", ".mypy_cache", ".ruff_cache",
             ".nf-test"}  # fmt: skip
@@ -1147,8 +1147,8 @@ def test_contaminant_library_is_not_vendored() -> None:
     assert vendored == [], vendored
 
 
-def test_giap_setup_sbatch_installs_the_resources() -> None:
-    text = (REPO / "scripts/slurm/giap_setup.sbatch").read_text(encoding="utf-8")
+def test_gippa_setup_sbatch_installs_the_resources() -> None:
+    text = (REPO / "scripts/slurm/gippa_setup.sbatch").read_text(encoding="utf-8")
     default = next(line for line in text.splitlines() if "set --" in line)
     for flag in ("--go", "--kegg", "--cog", "--contaminants"):
         assert re.search(rf"{flag}(\s|;|$)", default), (flag, default)

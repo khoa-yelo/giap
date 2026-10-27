@@ -10,26 +10,26 @@ The job sandbox (``convert_sandbox``) builds on ``helpers.slurm_sandbox.make_san
 M10-02 helper ``pilot_kit_m10`` does, and adds:
 
 * ``src/``, ``validation/`` and ``tests/contract/test_m10_03_diann_contract.py`` (when present)
-  in the sandbox checkout, committed, so ``PYTHONPATH=$GIAP_REPO/src`` runs this branch's
+  in the sandbox checkout, committed, so ``PYTHONPATH=$GIPPA_REPO/src`` runs this branch's
   converter and ``repo_is_clean`` means "the script wrote nothing into the checkout";
-* ``$UV_PROJECT_ENVIRONMENT/bin/python`` (the default ``GIAP_PYTHON``) replaced by a recording
+* ``$UV_PROJECT_ENVIRONMENT/bin/python`` (the default ``GIPPA_PYTHON``) replaced by a recording
   wrapper that runs the real interpreter. It logs one JSON line per call to
   ``$FAKE_SLURM_DIR/python.jsonl`` (``argv``, ``kind``, ``pythonpath``, ``rc`` and ``present``:
-  the names under ``$GIAP_ROOT/pilot/inputs`` when the call started). ``kind`` is ``convert``
-  (``-c … giap.cli … convert``), ``summary`` (``diann_convert.py``), ``pytest`` (``-m pytest``,
+  the names under ``$GIPPA_ROOT/pilot/inputs`` when the call started). ``kind`` is ``convert``
+  (``-c … gippa.cli … convert``), ``summary`` (``diann_convert.py``), ``pytest`` (``-m pytest``,
   faked: ``FAKE_PYTEST=fail`` exits 1; ``FAKE_PYTEST=skip`` exits 0 with every test skipped,
   printing ``SKIPPED [n] …`` lines and ``10 skipped in …`` and writing a junit XML with
   ``skipped == tests`` when ``--junitxml`` is given; the default passes, 5 tests) or ``other``.
-  A pytest record also holds ``env``: ``GIAP_M10_03_REPORT`` and ``GIAP_M10_03_ARM`` as the call
+  A pytest record also holds ``env``: ``GIPPA_M10_03_REPORT`` and ``GIPPA_M10_03_ARM`` as the call
   saw them. ``FAKE_CONVERT_NONDET=<flag>`` (``--out`` or ``--abundance-out``; ``1`` means
   ``--out``) appends one byte to that output of the **second** successful convert call (the
   determinism stub, Q8). ``FAKE_CONVERT_RC=<n>`` makes the **first** convert call exit ``n``
   without converting;
 * ``$UV_PROJECT_ENVIRONMENT/bin/mv``: ``/bin/mv``, except that ``FAKE_MV_FAIL=1`` makes every
   ``mv`` with an argument containing ``.tmp.`` (the publishing move) fail with exit 1;
-* ``$UV_PROJECT_ENVIRONMENT/bin/giap`` runs this branch's CLI (for ``giap version --json``).
+* ``$UV_PROJECT_ENVIRONMENT/bin/gippa`` runs this branch's CLI (for ``gippa version --json``).
 
-Nothing here touches the network, Slurm or the real ``$GIAP_ROOT``.
+Nothing here touches the network, Slurm or the real ``$GIPPA_ROOT``.
 """
 
 from __future__ import annotations
@@ -144,17 +144,17 @@ def job_rows(decoys: bool = True) -> list[dict[str, Any]]:
 # ------------------------------------------------------------------ the job sandbox
 
 _PYTHON = r"""#!{python}
-'''Recording GIAP_PYTHON wrapper (tests/helpers/diann_convert_m10.py).'''
+'''Recording GIPPA_PYTHON wrapper (tests/helpers/diann_convert_m10.py).'''
 import json, os, subprocess, sys
 argv = sys.argv[1:]
 state = os.environ["FAKE_SLURM_DIR"]
-inputs = os.path.join(os.environ.get("OUT_DIR") or os.path.join(os.environ["GIAP_ROOT"], "pilot"),
+inputs = os.path.join(os.environ.get("OUT_DIR") or os.path.join(os.environ["GIPPA_ROOT"], "pilot"),
                       "inputs")
 code = argv[argv.index("-c") + 1] if "-c" in argv and argv.index("-c") + 1 < len(argv) else ""
 rest = argv[argv.index("-c") + 2:] if code else []
 if argv[:2] == ["-m", "pytest"]:
     kind = "pytest"
-elif "giap.cli" in code and "convert" in rest:
+elif "gippa.cli" in code and "convert" in rest:
     kind = "convert"
 elif any(a.endswith("diann_convert.py") for a in argv):
     kind = "summary"
@@ -162,7 +162,7 @@ else:
     kind = "other"
 rec = {"argv": argv, "kind": kind, "pythonpath": os.environ.get("PYTHONPATH", ""),
        "present": sorted(os.listdir(inputs)) if os.path.isdir(inputs) else None,
-       "env": {k: os.environ.get(k) for k in ("GIAP_M10_03_REPORT", "GIAP_M10_03_ARM")}}
+       "env": {k: os.environ.get(k) for k in ("GIPPA_M10_03_REPORT", "GIPPA_M10_03_ARM")}}
 def log(rc):
     rec["rc"] = rc
     with open(os.path.join(state, "python.jsonl"), "a") as fh:
@@ -194,7 +194,7 @@ if kind == "pytest":
         print("1 failed, 4 passed in 0.01s"); log(1)
     if mode == "skip":
         junit(5, 5, 0)
-        print("SKIPPED [5] tests/contract/test_m10_03_diann_contract.py:88: GIAP_ROOT is not set")
+        print("SKIPPED [5] tests/contract/test_m10_03_diann_contract.py:88: GIPPA_ROOT is not set")
         print("5 skipped in 0.01s"); log(0)
     junit(5, 0, 0)
     print("5 passed in 0.01s"); log(0)
@@ -203,7 +203,7 @@ if kind == "convert" and os.environ.get("FAKE_CONVERT_RC"):
     c = int(open(c_path).read()) + 1 if os.path.exists(c_path) else 1
     open(c_path, "w").write(str(c))
     if c == 1:
-        print("giap convert: error: fake_failure: stub (0 rows)", file=sys.stderr)
+        print("gippa convert: error: fake_failure: stub (0 rows)", file=sys.stderr)
         log(int(os.environ["FAKE_CONVERT_RC"]))
 rc = subprocess.run([{python!r}, *argv]).returncode
 nondet = os.environ.get("FAKE_CONVERT_NONDET")
@@ -227,8 +227,8 @@ fi
 exec {mv} "$@"
 """
 
-_GIAP = """#!/bin/bash
-PYTHONPATH="$GIAP_REPO/src" exec {python} -c 'from giap.cli import cli; cli()' "$@"
+_GIPPA = """#!/bin/bash
+PYTHONPATH="$GIPPA_REPO/src" exec {python} -c 'from gippa.cli import cli; cli()' "$@"
 """
 
 
@@ -325,25 +325,25 @@ def convert_sandbox(tmp: Path) -> ConvertSandbox:
     py = sys.executable
     for name in ("python", "python3"):
         write_exe(sb.bin / name, _PYTHON.replace("{python!r}", repr(py)).replace("{python}", py))
-    write_exe(sb.bin / "giap", _GIAP.replace("{python}", py))
+    write_exe(sb.bin / "gippa", _GIPPA.replace("{python}", py))
     write_exe(sb.bin / "mv", _MV.replace("{mv}", shutil.which("mv") or "/bin/mv"))
     sb.env.update({"SLURM_JOB_ID": JOB_ID, "PYTHONDONTWRITEBYTECODE": "1"})
-    sb.env.pop("GIAP_PYTHON", None)
+    sb.env.pop("GIPPA_PYTHON", None)
     return ConvertSandbox(sb=sb)
 
 
 # ------------------------------------------------------------------ running the converter
 
 
-def giap_convert(
+def gippa_convert(
     report: Path, out: Path, abundance: Path, search_db: str
 ) -> subprocess.CompletedProcess[str]:
-    """``giap convert --from diann`` of this checkout in a subprocess (stderr = the issue log)."""
+    """``gippa convert --from diann`` of this checkout in a subprocess (stderr = the issue log)."""
     env = {**os.environ, "PYTHONPATH": str(REPO / "src")}
     cmd = [
         sys.executable,
         "-c",
-        "from giap.cli import cli; cli()",
+        "from gippa.cli import cli; cli()",
         "convert",
         "--from",
         "diann",
@@ -363,7 +363,7 @@ def load_summary_module():  # type: ignore[no-untyped-def]
     import importlib.util
 
     assert SUMMARY.is_file(), f"{SUMMARY.relative_to(REPO)} does not exist (M10-03)"
-    spec = importlib.util.spec_from_file_location("giap_pilot_diann_convert", SUMMARY)
+    spec = importlib.util.spec_from_file_location("gippa_pilot_diann_convert", SUMMARY)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

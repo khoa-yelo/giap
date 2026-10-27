@@ -1,6 +1,6 @@
 """M9-26 example 3 and work item 5: ``-resume`` caches ``PLOTS`` and ``REPORT_HTML`` when no table
 changed and reruns both when one table changed (docs/specs/M9-26-scale-and-determinism.md;
-GIAP_SPEC.md §6.3 ``-resume``, §3.8 "Resume").
+GIPPA_SPEC.md §6.3 ``-resume``, §3.8 "Resume").
 
 Stub runs of the REPORT subworkflow (``workflow/subworkflows/local/report.nf``) through a small
 driver script written into ``tmp_path`` that feeds it ``[key, path]`` pairs (the same keys as

@@ -1,4 +1,4 @@
-"""Performance budget for locus classification (issue M3-14 acceptance; GIAP_SPEC.md §7.2.6).
+"""Performance budget for locus classification (issue M3-14 acceptance; GIPPA_SPEC.md §7.2.6).
 
 500,000 accepted hits on a 5-Mb, ~4,500-gene model through ``annotate_peptide_hits``: <= 20 s
 (interval lookup by sorted arrays). Inputs are built by tests/unit/test_loci.py (``big_case``),

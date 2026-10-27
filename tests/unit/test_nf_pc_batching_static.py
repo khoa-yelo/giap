@@ -15,7 +15,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
 MODULE = REPO / "workflow" / "modules" / "local" / "promoter_calculator" / "main.nf"
-DEFAULTS = REPO / "src" / "giap" / "config" / "defaults.yaml"
+DEFAULTS = REPO / "src" / "gippa" / "config" / "defaults.yaml"
 
 
 def _strip_comments(text: str) -> str:

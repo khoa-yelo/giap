@@ -11,7 +11,7 @@ Interface fixed by these tests (readings chosen where the spec leaves room):
   ``licence``. The file ends with a newline.
 * ``update_digests.py`` gains ``--images PATH`` (default: ``images.json`` next to ``--config``)
   and ``--root DIR`` (the tree the keys are computed from; default the repository). For every
-  pinned tool it writes the entry: ``key = giap.io.image_key.key(tool, root)``,
+  pinned tool it writes the entry: ``key = gippa.io.image_key.key(tool, root)``,
   ``tag = tag(TOOLS[tool].version, key)``, ``ref`` from ``digests.json``,
   ``processes`` = the processes whose ``withName`` line in the new ``containers.config`` carries
   that ref (sorted), ``built_from = --source-commit``, ``licence = TOOLS[tool].licence``.
@@ -60,14 +60,14 @@ PROCESSES = {
 
 
 def _ref(tool: str, hexd: str) -> str:
-    return f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{hexd}"
+    return f"ghcr.io/khoa-yelo/gippa-{tool}@sha256:{hexd}"
 
 
 def _tree(root: Path) -> Path:
     for rel in ("workflow/containers", "workflow/envs"):
         shutil.copytree(REPO / rel, root / rel)
     (root / "workflow/bin").mkdir(parents=True)
-    shutil.copy2(REPO / "workflow/bin/giap_fgsea.R", root / "workflow/bin/giap_fgsea.R")
+    shutil.copy2(REPO / "workflow/bin/gippa_fgsea.R", root / "workflow/bin/gippa_fgsea.R")
     (root / "workflow/conf").mkdir(parents=True)
     shutil.copy2(CONFIG, root / "workflow/conf/containers.config")
     return root
@@ -107,8 +107,8 @@ def _images(root: Path) -> dict[str, dict[str, object]]:
 
 
 def _entry(root: Path, tool: str, ref: str, processes: list[str]) -> dict[str, object]:
-    from giap.annotate.tools import TOOLS
-    from giap.io.image_key import key, tag
+    from gippa.annotate.tools import TOOLS
+    from gippa.io.image_key import key, tag
 
     k = key(tool, root)
     return {
@@ -219,7 +219,7 @@ def test_rejected_batch_writes_no_images_json(tmp_path: Path) -> None:
     proc = _run(root, {"OSTIR": _ref("ostir", "2" * 64), "UNIOP": _ref("uniop", "3" * 64)})
     assert proc.returncode == 1
     assert not (root / "workflow/conf/images.json").exists()
-    proc = _run(root, {"OSTIR": "ghcr.io/khoa-yelo/giap-ostir@sha256:abc"})
+    proc = _run(root, {"OSTIR": "ghcr.io/khoa-yelo/gippa-ostir@sha256:abc"})
     assert proc.returncode == 1
     assert not (root / "workflow/conf/images.json").exists()
 

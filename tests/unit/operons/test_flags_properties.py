@@ -16,8 +16,8 @@ from helpers.flags_data import NAN, cfg, chain_pairs, frame, gene_table, row, tu
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.operons import flags as fl
-from giap.operons import tu_table as tt
+from gippa.operons import flags as fl
+from gippa.operons import tu_table as tt
 
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 EVIDENCE = st.sampled_from([NAN, 0.1, 0.4999, 0.5, 0.81])

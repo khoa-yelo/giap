@@ -7,7 +7,7 @@
 R1 is the urn recursion in 80-bit long double (tails >= 1e-3). R2 is the exact rational integral
 in fixed-point integers with >= 200 surviving bits (the smaller tail when it is < 1e-3); the
 larger tail is then 1 - small + pmf(k). Standard library and numpy (long double) only: no scipy,
-no R, no goseq or BiasedUrn code, no giap.
+no R, no goseq or BiasedUrn code, no gippa.
 """
 
 from __future__ import annotations

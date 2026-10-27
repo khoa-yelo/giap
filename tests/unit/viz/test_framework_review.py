@@ -6,7 +6,7 @@ Pinned here (lead decisions on the review):
   Written to a data TSV, the edges carry no decimal point or exponent (§9.2 ``%.6g`` floats lose
   precision on a 5 Mb replicon).
 - ``title_pct`` rounds half up: ``title_pct(1, 8) == "13 %"``.
-- ``style.COG_SUPER`` agrees with the bundled ``giap/data/cog_categories.tsv`` ``super_category``
+- ``style.COG_SUPER`` agrees with the bundled ``gippa/data/cog_categories.tsv`` ``super_category``
   column for every letter.
 """
 
@@ -22,9 +22,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.plot_files import write_instance
-from giap.viz import style
-from giap.viz.base import Instance, binned, title_pct
+from gippa.io.plot_files import write_instance
+from gippa.viz import style
+from gippa.viz.base import Instance, binned, title_pct
 
 
 def _intervals(n: int, length: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
@@ -104,7 +104,7 @@ def test_title_pct_rounds_half_up(n: int, d: int, text: str) -> None:
 
 
 def test_cog_super_agrees_with_bundled_table() -> None:
-    text = resources.files("giap.data").joinpath("cog_categories.tsv").read_text("utf-8")
+    text = resources.files("gippa.data").joinpath("cog_categories.tsv").read_text("utf-8")
     rows = [line.split("\t") for line in text.splitlines() if line and not line.startswith("#")]
     header, body = rows[0], rows[1:]
     i_letter, i_super = header.index("letter"), header.index("super_category")

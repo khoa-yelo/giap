@@ -4,7 +4,7 @@ Marked ``pending_sample`` until ``tests/data/recorded/blast/2.16.0/sim100k/`` ex
 directory holds the native tabular output (``*.tsv``/``*.tsv.gz`` in ``OUTFMT``), the query
 ``proteins.faa`` (leftover proteins: simulated CDS/sORF translations diverged to 80-95 %
 identity, IDs = locus tags of their source gene) and ``PROVENANCE.md`` (both commands, image
-digest or env lock, input sha256, date, host). The gene model is the giapsim 100-kb genome
+digest or env lock, input sha256, date, host). The gene model is the gippasim 100-kb genome
 (``SIM100K``, ``SIM100K_SEED``), regenerated here; a Bakta-like ``*.json`` in the directory is
 used instead when present.
 
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.config.model import ProteinsConfig
+from gippa.config.model import ProteinsConfig
 
 RECORDED = (
     Path(__file__).resolve().parents[1] / "data" / "recorded" / "blast" / "2.16.0" / "sim100k"
@@ -54,8 +54,8 @@ def _plain(path: Path, tmp: Path) -> Path:
 
 @pytest.fixture(scope="module")
 def recorded(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.io.protein_fasta import read_protein_fasta
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.io.protein_fasta import read_protein_fasta
 
     tmp = tmp_path_factory.mktemp("tblastn_contract")
     tsv = _one("*.tsv", "*.tsv.gz", "*.tab", "*.tab.gz")
@@ -63,7 +63,7 @@ def recorded(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyp
     assert tsv and faa, f"{RECORDED}: need the tblastn tabular output and proteins.faa"
     js = _one("*.json", "*.json.gz")
     if js is None:
-        from giapsim import SIM100K, SIM100K_SEED, simulate
+        from gippasim import SIM100K, SIM100K_SEED, simulate
 
         js = simulate(SIM100K, SIM100K_SEED, tmp / "sim").bakta_json
     model = parse_bakta_json(_plain(js, tmp)).model
@@ -85,7 +85,7 @@ def test_provenance_recorded() -> None:
 
 
 def test_recorded_output_parses(recorded) -> None:  # type: ignore[no-untyped-def]
-    from giap.mapping.tblastn import merge_hsps, parse_tblastn
+    from gippa.mapping.tblastn import merge_hsps, parse_tblastn
 
     tsv, model, proteins = recorded
     hsps = parse_tblastn(tsv)
@@ -111,8 +111,8 @@ def test_recorded_output_parses(recorded) -> None:  # type: ignore[no-untyped-de
 
 
 def test_example8_diverged_proteins_divergent(recorded) -> None:  # type: ignore[no-untyped-def]
-    from giap.mapping.protein_assign import assign_alignments
-    from giap.mapping.tblastn import merge_hsps, parse_tblastn
+    from gippa.mapping.protein_assign import assign_alignments
+    from gippa.mapping.tblastn import merge_hsps, parse_tblastn
 
     tsv, model, proteins = recorded
     tags = {g.locus_tag for g in model.genes if g.feature_type in ("cds", "sorf")}

@@ -22,10 +22,10 @@ import pytest
 from helpers.readthrough_index import FIXTURE, SEED, inputs, world
 from helpers.readthrough_toys import write_annotation
 
-from giap.config import resolve_config
-from giap.mapping.sixframe import build_sixframe, decode
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.config import resolve_config
+from gippa.mapping.sixframe import build_sixframe, decode
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 EVENT = "mapping.readthrough_unchecked"
 REPO = Path(__file__).resolve().parents[2]

@@ -1,8 +1,8 @@
-"""In-silico digestion (issue M3-22 examples 1-3; GIAP_SPEC.md §11.6 TE1/TE8, ``abundance.enzyme``).
+"""In-silico digestion (issue M3-22 examples 1-3; GIPPA_SPEC.md §11.6 TE1/TE8, ``abundance.enzyme``).
 
 Interface (docs/specs/M3-22-digest-and-te-proxies.md "Public interface")::
 
-    giap.mapping.digest.digest(protein, enzyme="trypsin_p", missed=1, min_len=7, max_len=30)
+    gippa.mapping.digest.digest(protein, enzyme="trypsin_p", missed=1, min_len=7, max_len=30)
         -> list[tuple[int, int, str]]          # (start, end, peptide), 0-based half-open
 
 Semantics pinned here (test author):
@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.mapping.digest import digest
+from gippa.mapping.digest import digest
 
 _AA = "ACDEFGHIKLMNPQRSTVWY"
 

@@ -1,9 +1,9 @@
-"""ADR-0049 through the wired chain (``giap.steps.variants.run_variants``): the A6a left 2->1
+"""ADR-0049 through the wired chain (``gippa.steps.variants.run_variants``): the A6a left 2->1
 block flag, swap flags, and flagged calls keeping their tier (local/handoff/adr0049_decision.md,
-decisions 1-2 and the implementation rules; GIAP_SPEC.md §7.5.2 step 4, §7.5.3).
+decisions 1-2 and the implementation rules; GIPPA_SPEC.md §7.5.2 step 4, §7.5.3).
 
 Decision 1: a mass-equivalent call that meets the call threshold (``variants.high_min_peptides``
-distinct peptides, ``giap.variants.pileup.sites``) stays ``high`` and carries ``mass_equivalent``.
+distinct peptides, ``gippa.variants.pileup.sites``) stays ``high`` and carries ``mass_equivalent``.
 Implementation rule A6a: a substitution is flagged when an ALT peptide also aligns as the 2->1
 block ``ref[p-1:p+1] -> alt`` with its prefix shifted by one (``q = 0`` or
 ``P[:q] == ref[p-1-q:p-1]``); no right-hand ``ref[p:p+2]`` form, no looser prefix.
@@ -21,11 +21,11 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
-from giap.steps.variants import run_variants
+from gippa.config import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
+from gippa.steps.variants import run_variants
 
 ME = "mass_equivalent"
 CODON = {
@@ -102,8 +102,8 @@ def _gm() -> GeneModel:
     return GeneModel(reps, (g1, g2), ())
 
 
-def _cfg() -> GiapConfig:
-    return GiapConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
+def _cfg() -> GippaConfig:
+    return GippaConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
 
 
 def _hits(drop: frozenset[str] = frozenset()) -> list[dict[str, Any]]:

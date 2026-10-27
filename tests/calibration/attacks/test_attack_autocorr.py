@@ -1,8 +1,8 @@
-"""Attack nulls for the M5-05 autocorrelation table (GIAP_SPEC.md §8.5 attack 1; ADR-0020
+"""Attack nulls for the M5-05 autocorrelation table (GIPPA_SPEC.md §8.5 attack 1; ADR-0020
 decision 19, M5-05 lead decisions 19 and 30; statistician-owned).
 
 All four arms of ADR-0020 decision 19 are here (lead decision 33: M5-04's
-``giapsim.scenarios`` is merged, so (a) and (b) have their ori-ter gradient). Each stays inside
+``gippasim.scenarios`` is merged, so (a) and (b) have their ori-ter gradient). Each stays inside
 the null the table claims and tries to push the lag tests above level:
 
 * **(a) TU null plus a 2 log2 ori-ter cosine** (gated): ``scenarios.tu_null(oriter_log2=2.0)``
@@ -30,7 +30,7 @@ the null the table claims and tries to push the lag tests above level:
   alpha 0.01 / 0.05 / 0.10, against 0.015 / 0.065 / 0.105 and 0.009 / 0.046 / 0.098 for the
   ADR-0020 procedure. The two-block gate must confirm the failure at alpha 0.05.
   Arm (d) builds its series from the engines alone, so it is independent of
-  ``giap.context.autocorrelation`` -- it is the control for the arms that are not.
+  ``gippa.context.autocorrelation`` -- it is the control for the arms that are not.
 
 Criterion: §8.4 level through ``_gate.calibrate_levels`` / ``_criteria.calibrate`` (ADR-0015
 two-block confirmation), R = ``replicates_fast``/``replicates_full``.``autocorrelation``.
@@ -118,9 +118,9 @@ def test_attack_oriter_gradient_gene_label_at_level(full: bool) -> None:
 def test_attack_ab_plant_a_two_log2_oriter_cosine() -> None:
     """The arms really plant the gradient: an oriC, and a 2 log2 ori-minus-ter difference of the
     TU-level truth along the replichore position."""
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    import giapsim.scenarios as scen
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    import gippasim.scenarios as scen
 
     for sc in (oriter_tu_null(FAST_GENES), oriter_label_null(FAST_GENES)):
         assert sc.layout_cfg.oric_frac == scen.ORIC_FRAC
@@ -156,7 +156,7 @@ def test_attack_short_prophage_join_count_at_level(full: bool) -> None:
 
 def test_attack_c_layout_draws_short_prophage_genes() -> None:
     """The arm really plants the confounder: prophage genes are shorter than the rest."""
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     sc = short_prophage_tu_null(FAST_GENES)
     lay = la.simulate_layout(sc.layout_cfg, np.random.default_rng(0))
@@ -188,7 +188,7 @@ def _tu_series(rng: np.random.Generator, n: int, p_geom: float = 0.55, tu_sd: fl
 def _no_redetrend_p(rng: np.random.Generator, lag: int = 1, n: int = FAST_GENES) -> float:
     """Two-sided p of Moran's I at ``lag`` under the superseded procedure: detrend once, then
     permute the residuals by TU block without recomputing the trend."""
-    from giap.stats import autocorr as ac
+    from gippa.stats import autocorr as ac
 
     y, blocks = _tu_series(rng, n)
     x = ad.oracle_values(y, True)
@@ -217,8 +217,8 @@ def test_teeth_permuting_residuals_without_redetrending_fails(teeth_log: Path) -
 def test_teeth_arm_d_uses_a_true_tu_block_null() -> None:
     """The arm's series has no structure beyond its TUs, so a rejection is the procedure's
     fault: the ADR-0020 values (re-detrended per replicate) are at level on the same draws."""
-    from giap.stats import autocorr as ac
-    from giap.stats.smooth import loess_detrend, loess_matrix
+    from gippa.stats import autocorr as ac
+    from gippa.stats.smooth import loess_detrend, loess_matrix
 
     n = 300
     rng = np.random.default_rng(4)

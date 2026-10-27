@@ -1,14 +1,14 @@
-// M3-17 example 5 needs `giap run --executor nextflow` to produce mapping/*.tsv, so main.nf runs
+// M3-17 example 5 needs `gippa run --executor nextflow` to produce mapping/*.tsv, so main.nf runs
 // MAPPING after ANNOTATE when params.inputs.peptides is given (decision 5 follow-up; the real
 // comparison is tests/integration/test_mapping_local.py::test_example_5_..., needs_nextflow).
 // Stub runs only. ci.yml runs: nf-test test workflow/tests --profile test,stub.
 //
-// Interface pinned here: params.inputs.peptides = peptides.norm.parquet (giap run passes the
+// Interface pinned here: params.inputs.peptides = peptides.norm.parquet (gippa run passes the
 // preflight-normalised file, as it does for genome); params.inputs.proteins_long (optional) =
 // proteins.long.faa; params.inputs.reference_peptides (optional); genes / features / replicons
 // come from ANNOTATE's parse_bakta; the contaminant library is
 // <db_dir>/contaminants/contaminants.fasta when <db_dir>/db_manifest.json lists `contaminants`
-// (M3-15, like the local executor's giap.runner.local.contaminant_library).
+// (M3-15, like the local executor's gippa.runner.local.contaminant_library).
 
 nextflow_pipeline {
 
@@ -45,7 +45,7 @@ nextflow_pipeline {
             }
             assert H.count(workflow.trace, 'MINIPROT') == 0 && H.count(workflow.trace, 'TBLASTN') == 0 : names
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "mapping step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "mapping step inputs vs gippa.steps registry: ${probs}"
 
             // genes / features / replicons are parse_bakta's outputs (no other source in main.nf)
             def pb = H.stepDirs(work, 'parse_bakta')[0].canonicalPath

@@ -9,21 +9,21 @@ command"); #396 review S5 (``local_build`` validates against the schema).
 Interface pinned here (readings chosen where the spec leaves room; listed in the PR):
 
 - Plain ``conda``: one ``micromamba create`` with ``-p``/``--prefix``
-  ``<cache-dir>/envs/giap-uniop`` and ``-f``/``--file`` naming a file whose bytes are
+  ``<cache-dir>/envs/gippa-uniop`` and ``-f``/``--file`` naming a file whose bytes are
   ``workflow/envs/locks/uniop.explicit.txt``;
   then the verified archive is extracted (first path component stripped) into
-  ``<prefix>/share/uniop`` with ``GIAP_COMMIT`` = the pinned commit. Nothing is fetched by the
+  ``<prefix>/share/uniop`` with ``GIPPA_COMMIT`` = the pinned commit. Nothing is fetched by the
   builder itself; docker and apptainer are never called.
 - ``local_tools.config`` gains ``conda { process { withName: 'UNIOP' { conda = '<prefix>' } } }``
   and never ``conda.enabled``.
 - ``image:uniop``: ``path`` = the prefix; ``local_build.runtime`` ``micromamba``, ``ref`` = the
   prefix, ``key`` = key("uniop"), ``terms`` ``flag``.
 - ``farmshare*``: no fetch, no build, ``local_tools.config`` untouched; ``local_build`` =
-  ``{"runtime": "prebuilt", "ref": "$GIAP_ROOT/micromamba/envs/giap-uniop", "key": key("uniop"),
+  ``{"runtime": "prebuilt", "ref": "$GIPPA_ROOT/micromamba/envs/gippa-uniop", "key": key("uniop"),
   "terms": ""}``; without ``share/uniop`` exit 2 naming ``sbatch scripts/slurm/build_envs.sbatch
   uniop``.
-- Preflight under plain ``conda`` reads the ``conda`` block's prefix (no ``$GIAP_ROOT`` needed):
-  present iff ``<prefix>/share/uniop/GIAP_COMMIT`` equals the pin and the key is current.
+- Preflight under plain ``conda`` reads the ``conda`` block's prefix (no ``$GIPPA_ROOT`` needed):
+  present iff ``<prefix>/share/uniop/GIPPA_COMMIT`` equals the pin and the key is current.
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ def _built(tmp_path: Path) -> tuple[Path, Path]:
     db, cache = tmp_path / "db", tmp_path / "cache"
     code, out = _uniop(db, cache, ACCEPT)
     assert code == 0, out
-    return db, cache / "envs" / "giap-uniop"
+    return db, cache / "envs" / "gippa-uniop"
 
 
 def _flag(argv: list[str], *names: str) -> str | None:
@@ -123,7 +123,7 @@ def test_example_16c_one_create_from_the_lock(archive: bytes, tmp_path: Path) ->
 def test_example_16c_archive_extracted_with_the_commit(archive: bytes, tmp_path: Path) -> None:
     _, prefix = _built(tmp_path)
     home = prefix / "share" / "uniop"
-    assert (home / "GIAP_COMMIT").read_text(encoding="utf-8").strip() == COMMIT
+    assert (home / "GIPPA_COMMIT").read_text(encoding="utf-8").strip() == COMMIT
     assert (home / "src" / "UniOP").is_file(), "first path component stripped (UniOP-<commit>/)"
     assert (home / "README.fixture").read_bytes() == b"not UniOP code\n"
 
@@ -172,21 +172,21 @@ def test_micromamba_failure_is_recorded_and_exits_2(
 
 
 def _reasons(db: Path, profile: str) -> dict[str, str]:
-    from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tool_reasons
+    from gippa.annotate.tools import TOOLS
+    from gippa.preflight.environment import missing_tool_reasons
 
     return missing_tool_reasons([TOOLS["uniop"]], profile, db / "containers", None,
                                 db / LOCAL_TOOLS)  # fmt: skip
 
 
-def test_preflight_plain_conda_present_without_giap_root(archive: bytes, tmp_path: Path) -> None:
+def test_preflight_plain_conda_present_without_gippa_root(archive: bytes, tmp_path: Path) -> None:
     db, _ = _built(tmp_path)
     assert _reasons(db, "conda") == {}
 
 
 def test_preflight_plain_conda_missing_on_a_wrong_commit(archive: bytes, tmp_path: Path) -> None:
     db, prefix = _built(tmp_path)
-    (prefix / "share" / "uniop" / "GIAP_COMMIT").write_text("0" * 40 + "\n")
+    (prefix / "share" / "uniop" / "GIPPA_COMMIT").write_text("0" * 40 + "\n")
     assert "uniop" in _reasons(db, "conda")
 
 
@@ -203,9 +203,9 @@ def test_micromamba_only_build_is_missing_under_docker(
 ) -> None:
     """AC 9 (14u2): no docker block, so ``-profile docker`` is missing, naming the docker
     command."""
-    from giap.config import resolve_config
-    from giap.preflight import environment
-    from giap.preflight.run import PreflightInputs, run_preflight
+    from gippa.config import resolve_config
+    from gippa.preflight import environment
+    from gippa.preflight.run import PreflightInputs, run_preflight
 
     db, _ = _built(tmp_path)
     assert "uniop" in _reasons(db, "docker")
@@ -232,8 +232,8 @@ def test_micromamba_only_build_is_missing_under_docker(
 def test_example_16d_prebuilt_builds_nothing(
     net: FakeNet, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str
 ) -> None:
-    root = prebuilt_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = prebuilt_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     db = tmp_path / "db"
     db.mkdir()
     before = (
@@ -249,7 +249,7 @@ def test_example_16d_prebuilt_builds_nothing(
     assert (db / LOCAL_TOOLS).read_text() == before, "local_tools.config unchanged"
     item = manifest_items(db)["image:uniop"]
     assert item["status"] == "ok", item
-    prefix = root / "micromamba" / "envs" / "giap-uniop"
+    prefix = root / "micromamba" / "envs" / "gippa-uniop"
     lb = item["local_build"]
     assert (lb["runtime"], lb["ref"], lb["terms"]) == ("prebuilt", str(prefix), ""), lb
     assert lb["key"] == uniop_key()
@@ -259,7 +259,7 @@ def test_example_16d_prebuilt_builds_nothing(
 def test_example_16d_prebuilt_writes_no_local_tools(
     net: FakeNet, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GIAP_ROOT", str(prebuilt_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(prebuilt_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     code, out = _uniop(db, tmp_path / "cache", ACCEPT, profile="farmshare,apptainer")
     assert code == 0, out
@@ -270,12 +270,12 @@ def test_example_16d_prebuilt_writes_no_local_tools(
 def test_example_16d_without_the_prefix_exits_2(
     net: FakeNet, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, share: bool | None
 ) -> None:
-    root = tmp_path / "giap_root"
+    root = tmp_path / "gippa_root"
     if share is None:
         root.mkdir()
     else:
         prebuilt_root(root, share=share)
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     db = tmp_path / "db"
     code, out = _uniop(db, tmp_path / "cache", ACCEPT, profile="farmshare,apptainer")
     assert code == 2, out

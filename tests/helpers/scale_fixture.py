@@ -1,18 +1,18 @@
 """The M9-26 20-Mb stress fixture: a synthetic ``OUT/`` (``RunView`` frames only, not a pipeline
 run) with 25,000 genes on one circular contig (docs/specs/M9-26-scale-and-determinism.md work
-item 2, example 1; GIAP_SPEC.md §10.1 "Plots aggregate into bins when a track would draw more
+item 2, example 1; GIPPA_SPEC.md §10.1 "Plots aggregate into bins when a track would draw more
 than 20,000 elements").
 
-Gene coordinates come from the giapsim sequence-free layout (``giapsim.layout.simulate_layout``,
+Gene coordinates come from the gippasim sequence-free layout (``gippasim.layout.simulate_layout``,
 no regions, 25,000 chromosome genes at a 220-aa median: one ≈ 20.5-Mb ``chr1``). Detection and
 abundance are drawn here from ``numpy.random.default_rng(seed)``: ``DETECTED_FRAC`` of the genes
 are ``detected`` with a measured (not imputed) ``abundance_log2 ~ N(20, 2)``, so V2 has more than
 20,000 points on its one panel; the rest are ``not_detected`` (no abundance). ``genes.tsv`` is
 written 1-based closed under the ``genes`` schema (``helpers.viz_out_tree``), ``preflight.json``
-names the replicon. Nothing here touches ``$GIAP_DB_DIR`` or the network.
+names the replicon. Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 
 Two genes cross the origin (M9-26 lead decision 4, review N7), written as the genes contract
-stores them (``crosses_origin = True``, unwrapped ``length < end < 2 length``; GIAP_SPEC.md
+stores them (``crosses_origin = True``, unwrapped ``length < end < 2 length``; GIPPA_SPEC.md
 §6.5 ``Interval``), not as ``start > end``:
 
 - the last gene by start keeps its start and ends ``c = first_start0 // 2`` bp past the origin,
@@ -56,7 +56,7 @@ class StressRun:
 
 def stress_out(tmp: Path, seed: int = SEED, n_genes: int = N_GENES) -> StressRun:
     """Write the stress ``OUT/`` under ``tmp`` and return its counts."""
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     lay = simulate_layout(
         LayoutConfig(n_genes_chromosome=n_genes, gene_len_median_aa=220.0, regions=()),

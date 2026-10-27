@@ -1,8 +1,8 @@
-"""Record real ``giap_fgsea.R`` calls for tests/data/recorded/fgsea/1.36.2/ (M8-17a §6; §11.4).
+"""Record real ``gippa_fgsea.R`` calls for tests/data/recorded/fgsea/1.36.2/ (M8-17a §6; §11.4).
 
 Usage: python scripts/dev/record_fgsea.py <outdir> [name ...]   (PYTHONPATH=src:tests/sim:tests)
-Runs only where the giap-fgsea env is built (``scripts/slurm/record_fgsea.sbatch``). Every
-recording is one call of the script through ``giap.io.fgsea_r`` (``write_call``, ``command``,
+Runs only where the gippa-fgsea env is built (``scripts/slurm/record_fgsea.sbatch``). Every
+recording is one call of the script through ``gippa.io.fgsea_r`` (``write_call``, ``command``,
 ``child_env``) in ``<outdir>/<name>/``, which keeps ``stats.tsv``, ``jobs.tsv``, ``sets.tsv``,
 ``command.txt``, ``results.tsv``, ``versions.txt`` and ``PROVENANCE.md``. All inputs are synthetic:
 
@@ -45,8 +45,8 @@ NAMES = ("sim_main", "sim_retest", "ties", "unbalanced", "tiny_p", "log2err_na")
 
 
 def _call(ids: Sequence[str], scores: Sequence[float], jobs: list, seed: int, params=None):
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall
 
     return EngineCall(tuple(ids), np.asarray(scores, dtype=np.float64), tuple(jobs),
                       params or GseaConfig(), seed)  # fmt: skip
@@ -54,7 +54,7 @@ def _call(ids: Sequence[str], scores: Sequence[float], jobs: list, seed: int, pa
 
 def run(call, d: Path, note: str) -> None:
     """One real call in ``d``; fails loudly on a non-zero exit."""
-    from giap.io import fgsea_r as fr
+    from gippa.io import fgsea_r as fr
 
     launcher = fr.resolve_launcher(os.environ)
     d.mkdir(parents=True, exist_ok=True)
@@ -73,14 +73,14 @@ def run(call, d: Path, note: str) -> None:
     head = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
                           capture_output=True, text=True, check=False).stdout.strip()  # fmt: skip
     (d / "PROVENANCE.md").write_text(
-        f"# {d.name}: real fgsea {fr.FGSEA_VERSION} output (giap_fgsea.R)\n\n"
+        f"# {d.name}: real fgsea {fr.FGSEA_VERSION} output (gippa_fgsea.R)\n\n"
         f"- Input: {note}\n"
-        f"- Command (in this directory, giap-fgsea env at {launcher.path}): `"
+        f"- Command (in this directory, gippa-fgsea env at {launcher.path}): `"
         f"{(d / 'command.txt').read_text().strip()}`\n"
         f"- Env lock workflow/envs/locks/fgsea.explicit.txt sha256 "
         f"{hashlib.sha256(lock.read_bytes()).hexdigest()}\n"
         f"- Date {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}, host {platform.node()}, "
-        f"Slurm job {os.environ.get('SLURM_JOB_ID', 'none')}, giap {head}\n"
+        f"Slurm job {os.environ.get('SLURM_JOB_ID', 'none')}, gippa {head}\n"
         f"- Recorded by scripts/dev/record_fgsea.py (scripts/slurm/record_fgsea.sbatch).\n",
         encoding="utf-8",
     )
@@ -91,7 +91,7 @@ def run(call, d: Path, note: str) -> None:
 
 
 def ties_call():
-    from giap.function.gsea import GseaJob
+    from gippa.function.gsea import GseaJob
 
     tied = [f"T{i:02d}" for i in range(20)]
     rest = [f"U{i:02d}" for i in range(30)]
@@ -110,7 +110,7 @@ def _natural(ids: Sequence[str], order: Sequence[str]) -> tuple[str, ...]:
 def _bottom_top_call(scores: Sequence[float], job: str, seed: int):
     """500 TUs (``scores`` in rank order, the last one negative); sets BOTTOM (the last 15),
     TOP (the first 15) and two random 20-sets, members in natural order."""
-    from giap.function.gsea import GseaJob
+    from gippa.function.gsea import GseaJob
 
     r = np.random.default_rng(20261023)
     natural = [f"TU_{i:03d}" for i in range(1, len(scores) + 1)]
@@ -139,7 +139,7 @@ def log2err_na_call():
 
 
 def tiny_p_call():
-    from giap.function.gsea import GseaJob
+    from gippa.function.gsea import GseaJob
 
     r = np.random.default_rng(20261024)
     n = 1000
@@ -160,12 +160,12 @@ def _world(root: Path):
     from helpers.function_db import write_function_db
     from helpers.function_step_data import world_pre, write_gene_table
 
-    from giap.config import GiapConfig
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import GippaConfig
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
-    cfg = GiapConfig.model_validate({"seed": 7, "stats": {"bootstrap": 100},
+    cfg = GippaConfig.model_validate({"seed": 7, "stats": {"bootstrap": 100},
                                      "function": {"gsea": {"n_perm_simple": 200}}})  # fmt: skip
     _, xrefs = world_pre()
     db = write_function_db(root / "db", xrefs)
@@ -179,13 +179,13 @@ def _world(root: Path):
 
 
 def sim_calls(root: Path, out: Path, names: Sequence[str]) -> None:
-    from giap.function.collections import build_collections
-    from giap.function.gsea import GO_NAMESPACES, GseaJob, _closure, tu_ranking, tu_sets
-    from giap.genetable.eligibility import eligible
-    from giap.io.fgsea_r import read_results
-    from giap.io.function_resources import read_resources
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.rng import for_step
+    from gippa.function.collections import build_collections
+    from gippa.function.gsea import GO_NAMESPACES, GseaJob, _closure, tu_ranking, tu_sets
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.fgsea_r import read_results
+    from gippa.io.function_resources import read_resources
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.rng import for_step
 
     cfg, gene_table, db = _world(root)
     genes = read_genes_parquet(gene_table)

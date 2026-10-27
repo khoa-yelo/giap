@@ -1,6 +1,6 @@
 """M4-10 protein covariates: examples 1-10, edge cases, covariate_table (docs/specs/M4-10-...).
 
-Spec: GIAP_SPEC.md §7.3.3 (covariates, pseudogene rule), §7.3.4 (observable peptides), §5.2
+Spec: GIPPA_SPEC.md §7.3.3 (covariates, pseudogene rule), §7.3.4 (observable peptides), §5.2
 (`abundance.enzyme`, `abundance.observable_len`), §9.3 (`genes.tsv` protein columns), §2.4 G6.
 Hand-computed values are given next to each example; Biopython 1.88 is the reference for GRAVY,
 pI and MW (spec: "equal to Biopython 1.88 to 1e-9").
@@ -27,7 +27,7 @@ EX3 = "MAGLLKAAGPEPTIDERPAAAGGSTLK" + "W" * 31 + "KAAAAAAAK"
 
 
 def _cov():
-    from giap.genetable import covariates as cov
+    from gippa.genetable import covariates as cov
 
     return cov
 
@@ -355,10 +355,10 @@ def build_genes(n: int = 1000, seed: int = 7) -> pd.DataFrame:
 
 
 def run_table(genes: pd.DataFrame, cfg: object | None = None) -> pd.DataFrame:
-    from giap.config import GiapConfig
-    from giap.genetable.covariates import covariate_table
+    from gippa.config import GippaConfig
+    from gippa.genetable.covariates import covariate_table
 
-    return covariate_table(genes, cfg if cfg is not None else GiapConfig())
+    return covariate_table(genes, cfg if cfg is not None else GippaConfig())
 
 
 def _expected_row(aa: object, nt: str, enzyme: str, length: tuple[int, int]) -> dict[str, float]:
@@ -412,15 +412,15 @@ def test_covariate_table_example10_row() -> None:
 
 
 def test_covariate_table_uses_config_enzyme_and_length() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     genes = build_genes(3)
     genes.loc[0, ["aa", "nt"]] = [EX3, _back_translate(EX3)]
     default = run_table(genes)
     assert int(default.loc[0, "n_observable_peptides"]) == 3
-    trypsin = run_table(genes, GiapConfig.model_validate({"abundance": {"enzyme": "trypsin"}}))
+    trypsin = run_table(genes, GippaConfig.model_validate({"abundance": {"enzyme": "trypsin"}}))
     assert int(trypsin.loc[0, "n_observable_peptides"]) == 2
-    narrow = run_table(genes, GiapConfig.model_validate({"abundance": {"observable_len": [9, 30]}}))
+    narrow = run_table(genes, GippaConfig.model_validate({"abundance": {"observable_len": [9, 30]}}))
     assert int(narrow.loc[0, "n_observable_peptides"]) == 2
 
 

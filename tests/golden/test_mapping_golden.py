@@ -1,13 +1,13 @@
-"""Golden mapping tables for the 50-kb fixture (issue M3-17 acceptance; GIAP_SPEC.md §7.2.9
+"""Golden mapping tables for the 50-kb fixture (issue M3-17 acceptance; GIPPA_SPEC.md §7.2.9
 "Golden: the hit tables for the 50-kb fixture", §11.4; M3-21 "golden" row).
 
 The fixture: ``simulate(SimConfig(proteomics=ProteomicsConfig(), write_precomputed=True),
-GOLDEN_SEED)`` (50 kb, M3-19 defaults), ``giap preflight`` with genome, peptides and Bakta-like
+GOLDEN_SEED)`` (50 kb, M3-19 defaults), ``gippa preflight`` with genome, peptides and Bakta-like
 JSON, then the mapping steps through ``run_step`` (helpers.mapping_steps.drive) with
 ``seed = GOLDEN_SEED``. The four mapping TSVs must equal ``tests/data/golden/sim50k/mapping/``
 byte for byte.
 
-Regenerating (only on purpose, reviewed in the PR diff): ``GIAP_UPDATE_GOLDEN=1 pytest
+Regenerating (only on purpose, reviewed in the PR diff): ``GIPPA_UPDATE_GOLDEN=1 pytest
 tests/golden/test_mapping_golden.py`` writes the files and skips.
 """
 
@@ -27,14 +27,14 @@ from helpers.mapping_steps import (
     roots_of,
 )
 
-from giap.config import resolve_config
+from gippa.config import resolve_config
 
 GOLDEN = Path(__file__).resolve().parents[1] / "data" / "golden" / "sim50k" / "mapping"
 
 
 def test_mapping_tsvs_equal_the_committed_golden_files(tmp_path: Path, golden_seed: int) -> None:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     res = simulate(
         SimConfig(proteomics=ProteomicsConfig(), write_precomputed=True),
@@ -47,7 +47,7 @@ def test_mapping_tsvs_equal_the_committed_golden_files(tmp_path: Path, golden_se
         reg = fresh_steps(mp)
         avail = drive(reg, cfg, tmp_path / "work", roots_of(run))
     files = module2_files(tmp_path / "work", avail)
-    if os.environ.get("GIAP_UPDATE_GOLDEN") == "1":
+    if os.environ.get("GIPPA_UPDATE_GOLDEN") == "1":
         GOLDEN.mkdir(parents=True, exist_ok=True)
         for f in MAPPING_TSVS:
             shutil.copy(files[f], GOLDEN / f)

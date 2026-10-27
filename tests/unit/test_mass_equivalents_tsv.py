@@ -1,15 +1,15 @@
 """M7-05 the committed ``mass_equivalents.tsv`` and its generator (docs/specs/M7-05-variant-flags.md
-rule 1, lead decision 2, acceptance criterion 1; GIAP_SPEC.md §7.5.3, Appendix B.5).
+rule 1, lead decision 2, acceptance criterion 1; GIPPA_SPEC.md §7.5.3, Appendix B.5).
 
 Interface pinned here (test-author reading of the spec):
 
-* ``python -m giap.data.build_mass_equivalents`` writes ``src/giap/data/mass_equivalents.tsv``
+* ``python -m gippa.data.build_mass_equivalents`` writes ``src/gippa/data/mass_equivalents.tsv``
   (the package data file); ``--out PATH`` writes the same bytes to ``PATH`` instead, which is how
   this test regenerates it without touching the committed file.
 * Format: ``#`` comment lines first (at least one, naming the generator
   ``build_mass_equivalents`` and Appendix ``B.5``), then a header row whose first four columns are
   ``left``, ``right``, ``delta_da``, ``kind`` (the ``MassEquivalence`` fields), then one row per
-  entry of ``giap.mapping.masses.mass_equivalents(0.05)`` in that function's order. ``delta_da``
+  entry of ``gippa.mapping.masses.mass_equivalents(0.05)`` in that function's order. ``delta_da``
   is a decimal that parses to the entry's value within 5e-7 Da.
 * The run time never reads the file (lead decision 2); ``test_flags.py`` checks the flag follows
   the configured tolerance.
@@ -25,14 +25,14 @@ from pathlib import Path
 
 import pytest
 
-from giap.mapping.masses import mass_equivalents
+from gippa.mapping.masses import mass_equivalents
 
-MODULE = "giap.data.build_mass_equivalents"
+MODULE = "gippa.data.build_mass_equivalents"
 
 
 def _committed() -> str:
-    res = files("giap.data").joinpath("mass_equivalents.tsv")
-    assert res.is_file(), "src/giap/data/mass_equivalents.tsv is not committed"
+    res = files("gippa.data").joinpath("mass_equivalents.tsv")
+    assert res.is_file(), "src/gippa/data/mass_equivalents.tsv is not committed"
     return res.read_text(encoding="utf-8")
 
 

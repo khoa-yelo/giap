@@ -1,4 +1,4 @@
-"""Hypothesis properties of giapsim's sequence-free layout (issue M4-07; GIAP_SPEC.md §11.3).
+"""Hypothesis properties of gippasim's sequence-free layout (issue M4-07; GIPPA_SPEC.md §11.3).
 
 For any replicon mix (chromosome of 2-250 genes, 0-2 plasmids, 0-2 linear contigs, with or without
 the default regions) and seed: the written tables pass the M4-06 contract with no error; genes,
@@ -44,8 +44,8 @@ def configs(draw: st.DrawFn) -> dict[str, Any]:
 
 
 def _run(kw: dict[str, Any], seed: int, root: str) -> tuple[Any, dict[str, pd.DataFrame], Path]:
-    from giapsim.contract_tables import write_contract_tables
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.contract_tables import write_contract_tables
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     layout = simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
     work = Path(tempfile.mkdtemp(dir=root)) / "work"

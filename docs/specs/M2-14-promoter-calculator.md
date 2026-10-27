@@ -17,7 +17,7 @@ counted) · capabilities: none (recording needs `needs_conda`)
 
 ## Public interface
 
-`src/giap/annotate/promoter_calculator.py`, `src/giap/annotate/promoter_calculator_cmd.py`; step `tx_layer`.
+`src/gippa/annotate/promoter_calculator.py`, `src/gippa/annotate/promoter_calculator_cmd.py`; step `tx_layer`.
 ```python
 def region_fasta_text(tu: Tu, genome: Mapping[str, str]) -> str
     # ">{tu_id}\n{seq}\n": exactly one record, one sequence line, 5'→3' in TU orientation (revcomp for −)

@@ -1,4 +1,4 @@
-"""Calibration of giapsim layout knobs (issue M4-07; GIAP_SPEC.md §11.3, §8.4).
+"""Calibration of gippasim layout knobs (issue M4-07; GIPPA_SPEC.md §11.3, §8.4).
 
 Every distributional claim of docs/specs/M4-07-sim-layout-tables.md, pooled over ``N``
 replicate 1,000-gene layouts (seeds ``calibration_base + i`` from tolerances.yaml). Proportions
@@ -42,7 +42,7 @@ pytestmark = pytest.mark.calibration
 
 
 def _layout(seed: int, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 
@@ -174,7 +174,7 @@ def test_core_biosynthetic_thirty_percent() -> None:
 
 
 def test_xrefs_for_seventy_percent(tmp_path: Path) -> None:
-    from giapsim.contract_tables import write_contract_tables
+    from gippasim.contract_tables import write_contract_tables
 
     k = n = 0
     for i, lay in enumerate(_pool()[:4]):

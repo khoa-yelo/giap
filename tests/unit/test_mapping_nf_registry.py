@@ -1,18 +1,18 @@
 """MAPPING py step calls follow the step registry (M3-17 lead decision 5: the subworkflow follows
-M2-07, ``GIAP_STEP`` + ``stepIn``, no duplicate processes; decision 6: ``placement`` takes
+M2-07, ``GIPPA_STEP`` + ``stepIn``, no duplicate processes; decision 6: ``placement`` takes
 genes/features/replicons; ``contaminants`` is wired into ``loci``).
 
-Static checks of ``workflow/subworkflows/local/mapping.nf`` against ``giap.steps.mapping`` (no
+Static checks of ``workflow/subworkflows/local/mapping.nf`` against ``gippa.steps.mapping`` (no
 Nextflow needed), like tests/unit/test_nf_annotate_registry.py does for ANNOTATE:
 
-* every py step of ``giap.steps.mapping`` is called exactly once, through a ``GIAP_STEP`` alias
+* every py step of ``gippa.steps.mapping`` is called exactly once, through a ``GIPPA_STEP`` alias
   named after the step (``ALIAS(v.files, v.keys, [out spec])`` with ``v = stepIn('<step>', ...)``),
   and its out-spec keys equal the registry's outputs;
 * every statically resolvable ``stepIn`` input key (``kv('<key>', ...)`` literals, variables bound
   to them, and list variables of those) is a declared input of that step;
-* the ``giap_mapping`` module (GIAP_MAPPING / GIAP_MAPPING_LOCI duplicates of GIAP_STEP) is gone;
+* the ``gippa_mapping`` module (GIPPA_MAPPING / GIPPA_MAPPING_LOCI duplicates of GIPPA_STEP) is gone;
 * workflow/tests/data/mapping/step_registry.json (read by workflow/tests/mapping.nf.test, which
-  checks every task's ``.giap_inputs`` at run time) equals the live registry;
+  checks every task's ``.gippa_inputs`` at run time) equals the live registry;
 * the §9.3 headers pinned in mapping.nf.test equal the Python column constants.
 """
 
@@ -24,14 +24,14 @@ from pathlib import Path
 
 import pytest
 
-from giap.steps import load_step_modules
-from giap.steps.registry import all_steps
+from gippa.steps import load_step_modules
+from gippa.steps.registry import all_steps
 
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "mapping.nf"
 NFTEST = REPO / "workflow" / "tests" / "mapping.nf.test"
 FIXTURE = REPO / "workflow" / "tests" / "data" / "mapping" / "step_registry.json"
-GIAP_MAPPING_MODULE = REPO / "workflow" / "modules" / "local" / "giap_mapping"
+GIPPA_MAPPING_MODULE = REPO / "workflow" / "modules" / "local" / "gippa_mapping"
 
 MERGED = {"sixframe_index", "map_exact", "map_tolerant", "placement", "protein_leftovers", "loci"}
 
@@ -45,7 +45,7 @@ def _registry() -> dict[str, dict[str, list[str]]]:
             "outputs": sorted(s.outputs),
         }
         for s in all_steps()
-        if s.kind == "py" and getattr(s.func, "__module__", "") == "giap.steps.mapping"
+        if s.kind == "py" and getattr(s.func, "__module__", "") == "gippa.steps.mapping"
     }
 
 
@@ -84,11 +84,11 @@ def _step_calls() -> dict[str, tuple[str, list[str]]]:
 
 
 def _gs_aliases(text: str) -> set[str]:
-    """Aliases of ``GIAP_STEP`` included from modules/local/giap_step/main."""
+    """Aliases of ``GIPPA_STEP`` included from modules/local/gippa_step/main."""
     aliases: set[str] = set()
     for m in re.finditer(r"include\s*\{(.*?)\}\s*from\s*'([^']+)'", text, flags=re.S):
-        if m.group(2).rstrip("/").endswith("giap_step/main"):
-            aliases |= set(re.findall(r"GIAP_STEP\s+as\s+(\w+)", m.group(1)))
+        if m.group(2).rstrip("/").endswith("gippa_step/main"):
+            aliases |= set(re.findall(r"GIPPA_STEP\s+as\s+(\w+)", m.group(1)))
     return aliases
 
 
@@ -132,7 +132,7 @@ def test_registry_has_the_merged_mapping_steps() -> None:
 def test_step_registry_fixture_equals_the_live_registry() -> None:
     got = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert got == _registry(), (
-        "regenerate workflow/tests/data/mapping/step_registry.json from giap.steps.mapping "
+        "regenerate workflow/tests/data/mapping/step_registry.json from gippa.steps.mapping "
         "(py steps: sorted inputs, optional_inputs, outputs)"
     )
 
@@ -140,40 +140,40 @@ def test_step_registry_fixture_equals_the_live_registry() -> None:
 # ---------------------------------------------------------------- no duplicate processes
 
 
-def test_giap_mapping_module_is_removed() -> None:
-    assert not GIAP_MAPPING_MODULE.exists(), (
-        "decision 5: no duplicate processes; py steps run through GIAP_STEP, so "
-        "workflow/modules/local/giap_mapping/ must go"
+def test_gippa_mapping_module_is_removed() -> None:
+    assert not GIPPA_MAPPING_MODULE.exists(), (
+        "decision 5: no duplicate processes; py steps run through GIPPA_STEP, so "
+        "workflow/modules/local/gippa_mapping/ must go"
     )
     text = _text()
-    assert "giap_mapping" not in text, "mapping.nf still includes the giap_mapping module"
-    assert not re.search(r"\bGIAP_MAPPING(_LOCI)?\b", text), "mapping.nf uses GIAP_MAPPING*"
+    assert "gippa_mapping" not in text, "mapping.nf still includes the gippa_mapping module"
+    assert not re.search(r"\bGIPPA_MAPPING(_LOCI)?\b", text), "mapping.nf uses GIPPA_MAPPING*"
 
 
 def test_every_stepin_step_is_a_registered_mapping_step() -> None:
     text = _text()
     called = set(_step_vars(text).values())
     unknown = called - set(_registry())
-    assert not unknown, f"stepIn steps not in giap.steps.mapping: {sorted(unknown)}"
+    assert not unknown, f"stepIn steps not in gippa.steps.mapping: {sorted(unknown)}"
     assert called == set(_registry()), (
         f"mapping.nf stepIn steps {sorted(called)} != registry {sorted(_registry())}"
     )
 
 
-def test_every_mapping_step_runs_once_through_a_giap_step_alias() -> None:
+def test_every_mapping_step_runs_once_through_a_gippa_step_alias() -> None:
     text = _text()
     calls = _step_calls()
     aliases = _gs_aliases(text)
     assert set(calls) == set(_registry()), f"called: {sorted(calls)}"
     for step, (alias, _) in calls.items():
         assert alias == step.upper(), f"alias {alias} runs step {step}"
-        assert alias in aliases, f"{alias} is not `GIAP_STEP as {alias}` from giap_step/main"
+        assert alias in aliases, f"{alias} is not `GIPPA_STEP as {alias}` from gippa_step/main"
 
 
 @pytest.mark.parametrize("step", sorted(MERGED))
 def test_out_keys_equal_the_registry_outputs(step: str) -> None:
     calls = _step_calls()
-    assert step in calls, f"mapping.nf does not call {step} through GIAP_STEP"
+    assert step in calls, f"mapping.nf does not call {step} through GIPPA_STEP"
     got = calls[step][1]  # a directory output may list one entry per stub file (scatterSpec)
     assert sorted(set(got)) == _registry()[step]["outputs"], f"{step}: mapping.nf outputs {got}"
 
@@ -215,8 +215,8 @@ def _nftest_header(name: str) -> list[str]:
 
 
 def test_nf_test_headers_equal_the_python_columns() -> None:
-    from giap.mapping.outputs import MAPPING_FDR_COLUMNS, PEPTIDE_HITS_COLUMNS, UNMAPPED_COLUMNS
-    from giap.mapping.protein_assign import PROTEIN_HITS_COLUMNS
+    from gippa.mapping.outputs import MAPPING_FDR_COLUMNS, PEPTIDE_HITS_COLUMNS, UNMAPPED_COLUMNS
+    from gippa.mapping.protein_assign import PROTEIN_HITS_COLUMNS
 
     assert _nftest_header("PEPTIDE_HITS") == list(PEPTIDE_HITS_COLUMNS)
     assert _nftest_header("PROTEIN_HITS") == list(PROTEIN_HITS_COLUMNS)

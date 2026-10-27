@@ -1,4 +1,4 @@
-"""Fast level calibration of the M4-03 permutation engine (GIAP_SPEC.md §8.4 level criterion).
+"""Fast level calibration of the M4-03 permutation engine (GIPPA_SPEC.md §8.4 level criterion).
 
 For alpha in ``levels``, the null rejection rate is <= alpha + k * sqrt(alpha(1-alpha)/R), with
 k = ``se_multiplier``, R = ``replicates_fast.regions`` (tests/calibration/tolerances.yaml).
@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.permutation import (
+from gippa.stats.permutation import (
     apply_shift,
     besag_clifford,
     choose_shifts,

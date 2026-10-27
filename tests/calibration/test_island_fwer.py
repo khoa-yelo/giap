@@ -1,4 +1,4 @@
-"""M5-07: island FWER calibration on the giapsim AR(1) backgrounds, the M5 gate (GIAP_SPEC.md §13
+"""M5-07: island FWER calibration on the gippasim AR(1) backgrounds, the M5 gate (GIPPA_SPEC.md §13
 row M5, §7.3.6, §8.4 "Islands | AR(1) backgrounds without islands | FWER | 50 | 500"; spec
 docs/specs/M5-07-island-calibration-power.md; ADR-0021 with Amendment 1; ADR-0015).
 
@@ -54,7 +54,7 @@ pytestmark = pytest.mark.calsuite(SUITE)
 
 def gate_pair(n_genes: int, rho: float, plasmid: int | None = None) -> Any:
     """``ar1_background(n_genes, rho)``, with one circular plasmid of ``plasmid`` genes."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     lcfg, ecfg = sc.ar1_background(n_genes, rho)
     if plasmid is not None:

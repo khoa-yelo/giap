@@ -7,7 +7,7 @@ lines) · not statistical
 
 - §10.2 V16: "UpSet of detected genes across runs; pairwise abundance concordance matrix
   (Spearman ρ, scatter)"; library "UpSetPlot (fallback: custom matplotlib)"; "Plotly
-  (concordance)". "V16 is written only by `giap compare`."
+  (concordance)". "V16 is written only by `gippa compare`."
 - §7.9.3 (`plots/V16_compare.*`, `report/compare.html`), §10.1, §10.3 (self-contained HTML rules).
 
 ## Why custom matplotlib
@@ -70,18 +70,18 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
 ## Questions for the lead
 
 1. Wording "genes" for n = 1 ("1 genes") — **Proposed default:** a tiny pluralisation helper in
-   `giap.viz.base` used by every title.
+   `gippa.viz.base` used by every title.
 
 ## Lead decisions (2026-10-23)
-1. **Question 1 accepted:** a small pluralisation helper in `giap.viz.base` (for example
+1. **Question 1 accepted:** a small pluralisation helper in `gippa.viz.base` (for example
    `plural(n, "gene")` → "1 gene" / "2 genes"). Every title uses it. Existing titles switch to it
    only when their tests are next touched; that is a backlog item, not this PR.
-2. #232 (M9-22 `giap compare`) has merged, so the test-author starts from main.
+2. #232 (M9-22 `gippa compare`) has merged, so the test-author starts from main.
 3. **Test-author (5d830124), interface accepted:**
    - `compare_plot(detection, abundance, genes)`, where `genes` maps each label to that run's
      `genes.tsv`. ADR-0046 is amended (lead-level) so V16 also reads per-gene log2 from each run.
    - V16 is registered under the name `compare`. On ordinary runs its `(view, cfg)` returns a
-     `Skip` with the reason "written by giap compare". Hiding that skip from the run report is a
+     `Skip` with the reason "written by gippa compare". Hiding that skip from the run report is a
      backlog item. *Amended 2026-10-24 (lead, #323):* the reason is the vocabulary form
      `input_absent:compare`, so the M9-24 checklist sweep's declared reasons cover it.
    - The "detection tier per run" in the runs section is the `detection_tier` of each run's

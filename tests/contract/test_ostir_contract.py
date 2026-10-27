@@ -1,4 +1,4 @@
-"""Contract test: OSTIR 1.1.3 input writer and parser on recorded runs (M2-16; GIAP_SPEC.md §5.4,
+"""Contract test: OSTIR 1.1.3 input writer and parser on recorded runs (M2-16; GIPPA_SPEC.md §5.4,
 §7.1.1, §7.1.6).
 
 Committed recordings (``tests/data/recorded/ostir/PROVENANCE.md``): the complete sim100k run and
@@ -6,10 +6,10 @@ excerpts of the K-12 MG1655 and Nissle 1917 runs (both strands, sORFs, pseudogen
 plasmid genes, the last K-12 gene, and the one gene per genome for which OSTIR wrote no row).
 
 * sim100k: the M2-16 writer reproduces the recorded ``ostir_input.csv`` **byte for byte** from
-  the Bakta gene coordinates (``genes.tsv``) and giapsim's regenerated SIM100K genome.
+  the Bakta gene coordinates (``genes.tsv``) and gippasim's regenerated SIM100K genome.
 * the parser keeps every recorded row (all at ``start_position == start == 51``) with exactly the
   recorded values; genes without a row are absent.
-* full K-12 / Nissle runs under ``$GIAP_ROOT/recordings/ostir/`` (not committed; skipped when
+* full K-12 / Nissle runs under ``$GIPPA_ROOT/recordings/ostir/`` (not committed; skipped when
   missing): every row parses, exactly one gene each is missing, and (when the recorded Bakta JSON is
   there too) the writer reproduces the full recorded inputs byte for byte.
 """
@@ -24,18 +24,18 @@ from pathlib import Path
 
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "ostir" / "1.1.3"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
 NO_ROW = {"sim100k": set(), "k12_mg1655": {"KOIAIB_02000"}, "nissle1917": {"JMJJOG_02078"}}
 ASD = "ACCTCCTTA"
 SIM_GENOME_SHA = "dd10216ee21cb0ac13940b2f7d5a26bf0fdc8c2af54af8baf26b380fc65a8d69"
-GIAP_ROOT = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings"
+GIPPA_ROOT = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings"
 FULL = {
-    "k12_mg1655": GIAP_ROOT / "ostir" / "k12_mg1655",
-    "nissle1917": GIAP_ROOT / "ostir" / "nissle1917",
+    "k12_mg1655": GIPPA_ROOT / "ostir" / "k12_mg1655",
+    "nissle1917": GIPPA_ROOT / "ostir" / "nissle1917",
 }
 
 
@@ -67,7 +67,7 @@ def _requested(inp: Path) -> dict[str, int]:
 
 
 def _check_parsed(inp: Path, out: Path, no_row: set[str]) -> None:
-    from giap.annotate.ostir import RbsFeatures, parse_ostir
+    from gippa.annotate.ostir import RbsFeatures, parse_ostir
 
     requested = _requested(inp)
     got = parse_ostir(out, requested)
@@ -99,14 +99,14 @@ def test_recorded_files_present() -> None:
 
 
 def test_sim100k_writer_reproduces_the_recorded_input_byte_for_byte(tmp_path: Path) -> None:
-    import giapsim
-    from giap.annotate.ostir import ostir_row, write_ostir_input
-    from giap.io.fasta import read_genome_fasta
+    import gippasim
+    from gippa.annotate.ostir import ostir_row, write_ostir_input
+    from gippa.io.fasta import read_genome_fasta
 
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path / "sim")
     fa = Path(res.genome_fasta)
     if hashlib.sha256(fa.read_bytes()).hexdigest() != SIM_GENOME_SHA:
-        pytest.fail("giapsim SIM100K genome changed: the recording no longer matches it")
+        pytest.fail("gippasim SIM100K genome changed: the recording no longer matches it")
     seq = {r.id: r.sequence for r in read_genome_fasta(fa)}
     genes, reps = _genes("sim100k")
     rows = [ostir_row(g, reps[g.interval.contig], seq[g.interval.contig], ASD) for g in genes]
@@ -137,7 +137,7 @@ def test_recorded_outputs_parse(sample: str) -> None:
 
 
 def test_sim100k_first_row_values() -> None:
-    from giap.annotate.ostir import RbsFeatures, parse_ostir
+    from gippa.annotate.ostir import RbsFeatures, parse_ostir
 
     d = RECORDED / "sim100k"
     got = parse_ostir(d / "ostir.csv", _requested(d / "ostir_input.csv"))
@@ -158,7 +158,7 @@ def test_excerpts_cover_the_listed_cases() -> None:
     assert last.locus_tag == "KOIAIB_04715" and last.interval.end > 4641652 - 50
 
 
-# ---------------------------------------------------------------- full runs ($GIAP_ROOT)
+# ---------------------------------------------------------------- full runs ($GIPPA_ROOT)
 
 
 def _full(sample: str) -> Path:
@@ -177,12 +177,12 @@ def test_full_recording_parses(sample: str) -> None:
 
 @pytest.mark.parametrize("sample", sorted(FULL))
 def test_full_writer_reproduces_the_recorded_input(sample: str, tmp_path: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.ostir import ostir_row, write_ostir_input
-    from giap.model.coords import interval_sort_key
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.ostir import ostir_row, write_ostir_input
+    from gippa.model.coords import interval_sort_key
 
     d = _full(sample)
-    js = sorted((GIAP_ROOT / "bakta_full" / sample / "bakta").glob("*.json"))
+    js = sorted((GIPPA_ROOT / "bakta_full" / sample / "bakta").glob("*.json"))
     if not js:
         pytest.skip(f"full recorded Bakta JSON for {sample} missing")
     ann = parse_bakta_json(js[0])

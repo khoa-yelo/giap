@@ -1,7 +1,7 @@
 """M9-25 work item 4 and index decision 22: one ubuntu-latest / Python 3.12 CI job runs
 ``pytest tests/snapshot --mpl``; every other job that runs the snapshot tests does so without
 ``--mpl`` (docs/specs/M9-25-snapshot-baselines.md Q1, default: a separate small ``snapshot``
-job; GIAP_SPEC.md §11.2, §12).
+job; GIPPA_SPEC.md §11.2, §12).
 """
 
 from __future__ import annotations

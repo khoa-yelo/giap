@@ -1,4 +1,4 @@
-"""Hypothesis properties of the MAYU closed form (issue M4-02; GIAP_SPEC.md §7.3.2, §8.3).
+"""Hypothesis properties of the MAYU closed form (issue M4-02; GIPPA_SPEC.md §7.3.2, §8.3).
 
 - the curve equals an independent reference of §7.3.2 given the function's own bins;
 - FDR and fdr_2pep in [0, 1]; fdr_2pep <= fdr; gene_q in [0, 1] or NaN exactly where best_q is NaN;
@@ -15,8 +15,8 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.stats.mayu import MayuResult, mayu_gene_fdr
-from giap.stats.tda import monotone_q
+from gippa.stats.mayu import MayuResult, mayu_gene_fdr
+from gippa.stats.tda import monotone_q
 
 FAST = settings(max_examples=150, deadline=None)
 NAN = float("nan")

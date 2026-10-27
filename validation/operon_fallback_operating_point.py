@@ -12,12 +12,12 @@ Nothing written here is committed (R6 / R11): the output names counts and estima
 Usage::
 
     python validation/operon_fallback_operating_point.py \
-        --regulondb-dir $GIAP_DATA_DIR/regulondb/14.5.0 \
+        --regulondb-dir $GIPPA_DATA_DIR/regulondb/14.5.0 \
         --bakta-json tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz \
         --genome tests/data/genomes/k12_mg1655.fna.gz \
-        --uniop-dir $GIAP_ROOT/recordings/uniop/k12_mg1655 \
+        --uniop-dir $GIPPA_ROOT/recordings/uniop/k12_mg1655 \
         --terminatornet tests/data/recorded/terminatornet/721803095459/k12/terms.tsv.gz \
-        --out $GIAP_ROOT/stat/m11-14s2/operating_point.json
+        --out $GIPPA_ROOT/stat/m11-14s2/operating_point.json
 """
 
 from __future__ import annotations
@@ -38,16 +38,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from validation.calibrate_cutoffs import K12_PINS, _read_tsv, _verify, coordinate_id_map, pair_table
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.operons import distance_model_p
-from giap.annotate.uniop_adapter import parse_uniop_pred
-from giap.config import GiapConfig
-from giap.data.calibration import load as load_calibration
-from giap.io.fasta import read_genome_fasta
-from giap.manifest import finite
-from giap.rng import for_step
-from giap.stats import cutoffs as sc
-from giap.stats.bootstrap import tu_block_bootstrap
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.operons import distance_model_p
+from gippa.annotate.uniop_adapter import parse_uniop_pred
+from gippa.config import GippaConfig
+from gippa.data.calibration import load as load_calibration
+from gippa.io.fasta import read_genome_fasta
+from gippa.manifest import finite
+from gippa.rng import for_step
+from gippa.stats import cutoffs as sc
+from gippa.stats.bootstrap import tu_block_bootstrap
 
 STEP = "m11_14s2_operon_fallback"
 
@@ -128,7 +128,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     a = ap.parse_args(argv)
     L = labelled_pairs(a.regulondb_dir, a.bakta_json, a.genome, a.uniop_dir, a.terminatornet)
     model = load_calibration()["operon_distance"]
-    t = float(GiapConfig().annotation.uniop.pair_threshold)
+    t = float(GippaConfig().annotation.uniop.pair_threshold)
     res = operating_point(L, float(model["d0"]), float(model["s"]), t, seed=a.seed, B=a.B)
     res["date"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     a.out.parent.mkdir(parents=True, exist_ok=True)

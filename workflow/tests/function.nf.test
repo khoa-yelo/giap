@@ -1,5 +1,5 @@
 // M8-06b: stub run of the FUNCTION subworkflow (workflow/subworkflows/local/function.nf;
-// GIAP_SPEC.md §6.2 step row "function", §6.3, §7.7, §9.1; docs/specs/M8-06-function-step-and-run.md
+// GIPPA_SPEC.md §6.2 step row "function", §6.3, §7.7, §9.1; docs/specs/M8-06-function-step-and-run.md
 // item 8). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here too.
 //
 // Interface pinned here (spec item 8):
@@ -8,7 +8,7 @@
 //         tu_folds    (genetable/tu_folds.parquet, GENETABLE's tu_folds emission)
 //         resources   ([key, path] per installed function resource, or channel.empty())
 //   emit: category_summary, enrichment_detection, enrichment_gsea (the §9.1 file names), versions
-// The py step runs through the alias GIAP_STEP as FUNCTION_STEP (tag "function") with the
+// The py step runs through the alias GIPPA_STEP as FUNCTION_STEP (tag "function") with the
 // registry's keys: gene_table, replicons and tu_folds are required (stepIn's `need`), and each
 // resource is staged under its setup item name only when given. Published: the three
 // tables/*.tsv files only (M6-08 decision 7).
@@ -54,7 +54,7 @@ nextflow_workflow {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name FUNCTION)
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->
@@ -73,9 +73,9 @@ nextflow_workflow {
             assert ranTagged('function') == 1 : "function ran ${ranTagged('function')}x; tasks: ${H.names(workflow.trace)}"
             assert H.names(workflow.trace).any { H.procOf(it) == 'FUNCTION_STEP' && H.tagOf(it) == 'function' } : "no FUNCTION_STEP alias: ${H.names(workflow.trace)}"
             def dirs = dirsTagged(work, 'function')
-            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "function did not run through GIAP_STEP"
+            assert dirs.size() == 1 && new File(dirs[0], '.gippa_inputs').isFile() : "function did not run through GIPPA_STEP"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def din = H.stepInputs(dirs[0])
             assert din.collect { it[0] }.sort() == ['cog2020_fun', 'gene_table', 'go_basic', 'goslim_generic',

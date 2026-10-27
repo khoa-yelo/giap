@@ -1,4 +1,4 @@
-"""Performance budget for frameshift splits (issue M3-08 acceptance; GIAP_SPEC.md §7.2.4).
+"""Performance budget for frameshift splits (issue M3-08 acceptance; GIPPA_SPEC.md §7.2.4).
 
 "Benchmark: adds <= 50 % to the M3-07 benchmark runtime." The M3-07 inputs (benchmarks/
 test_tolerant.py: 10,000 leftover peptides of 10-30 aa on a 5-Mb random circular genome and 1,000
@@ -27,13 +27,13 @@ SCRIPT = textwrap.dedent(
     sys.path.insert(0, sys.argv[3])
     import numpy as np
     from fs_genomes import codons_for, join_split, rc
-    from giap.config.model import TolerantConfig
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.frameshift import match_frameshift
-    from giap.mapping.sixframe import build_sixframe, decode
-    from giap.mapping.tolerant import match_tolerant
-    from giap.model import Replicon
-    from giap.rng import for_step
+    from gippa.config.model import TolerantConfig
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.frameshift import match_frameshift
+    from gippa.mapping.sixframe import build_sixframe, decode
+    from gippa.mapping.tolerant import match_tolerant
+    from gippa.model import Replicon
+    from gippa.rng import for_step
 
     L, N = int(sys.argv[1]), int(sys.argv[2])
     cfg = TolerantConfig()

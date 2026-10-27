@@ -29,9 +29,9 @@ from pathlib import Path
 
 import pytest
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "miniprot" / "alt_start_sim100k.gff"
 L = 100_000
@@ -42,13 +42,13 @@ PLEN = {"GSIM_00005": 647, "GSIM_00025": 259, "GSIM_00085": 188, "GSIM_00090": 1
 
 
 def _mp():  # type: ignore[no-untyped-def]
-    from giap.mapping import miniprot
+    from gippa.mapping import miniprot
 
     return miniprot
 
 
 def _pa():  # type: ignore[no-untyped-def]
-    from giap.mapping import protein_assign
+    from gippa.mapping import protein_assign
 
     return protein_assign
 

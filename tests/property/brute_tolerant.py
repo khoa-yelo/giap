@@ -1,7 +1,7 @@
-"""Brute-force tolerant matcher over whole frames (issue M3-07; GIAP_SPEC.md §7.2.4, §11.2).
+"""Brute-force tolerant matcher over whole frames (issue M3-07; GIPPA_SPEC.md §7.2.4, §11.2).
 
-Written by the test author from the spec text only (it does not import ``giap.mapping.diffops``
-or ``giap.mapping.tolerant_dp``). Two parts:
+Written by the test author from the spec text only (it does not import ``gippa.mapping.diffops``
+or ``gippa.mapping.tolerant_dp``). Two parts:
 
 - :func:`semi_global_costs`: an unbanded numpy DP of the query against *every* window of one
   frame (free start and end in the frame). Row ``i`` holds, for every frame position ``j``, the
@@ -26,8 +26,8 @@ from dataclasses import dataclass
 import numpy as np
 from oracle_tolerant import align_window
 
-from giap.mapping.decoys import mirror_aa
-from giap.mapping.sixframe import ALPHABET, Frame, SixFrameIndex, decode, encode_query
+from gippa.mapping.decoys import mirror_aa
+from gippa.mapping.sixframe import ALPHABET, Frame, SixFrameIndex, decode, encode_query
 
 INF = 1 << 20
 NRES = 19  # residue codes 0..18; 19 '*', 20 'X', 21 query NOMATCH

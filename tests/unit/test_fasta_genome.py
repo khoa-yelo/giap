@@ -1,4 +1,4 @@
-"""Genome FASTA reader and writer (issue M1-02; GIAP_SPEC.md §5.3, §7.0; ADR-0005 item 1)."""
+"""Genome FASTA reader and writer (issue M1-02; GIPPA_SPEC.md §5.3, §7.0; ADR-0005 item 1)."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-import giapsim
-from giap.io._open import open_text
-from giap.io.fasta import (
+import gippasim
+from gippa.io._open import open_text
+from gippa.io.fasta import (
     IUPAC_DNA,
     SAFE_ID,
     FastaFormatError,
@@ -316,8 +316,8 @@ def test_round_trip_write_then_read(tmp_path: Path) -> None:
 
 
 def test_sim_genome_reads_as_one_circular_record(tmp_path: Path) -> None:
-    cfg = giapsim.SimConfig(genome_length=20_000)
-    giapsim.simulate(cfg, seed=3, outdir=tmp_path)
+    cfg = gippasim.SimConfig(genome_length=20_000)
+    gippasim.simulate(cfg, seed=3, outdir=tmp_path)
     recs = read_genome_fasta(tmp_path / "genome.fasta")
     assert len(recs) == 1
     (r,) = recs

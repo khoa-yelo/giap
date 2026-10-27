@@ -1,4 +1,4 @@
-"""Attack nulls for the same-strain shortcut in the placement FDR (M3-10; GIAP_SPEC.md §7.2.5
+"""Attack nulls for the same-strain shortcut in the placement FDR (M3-10; GIPPA_SPEC.md §7.2.5
 step 5, §8.5; statistician). Methods: docs/methods/placement-fdr.md, section "Same-strain input".
 
 Step 5 lets peptides from a search against this genome's own proteins (``search_db = same``) skip
@@ -125,17 +125,17 @@ SCENARIOS: dict[str, Callable[[np.random.Generator], tuple[pd.DataFrame, np.ndar
 
 
 def _q_placement(costs: pd.DataFrame) -> np.ndarray:
-    from giap.config import GiapConfig
-    from giap.mapping.placement_fdr import placement
+    from gippa.config import GippaConfig
+    from gippa.mapping.placement_fdr import placement
 
-    per, _ = placement(costs, GiapConfig())
+    per, _ = placement(costs, GippaConfig())
     q = per.set_index("peptide")["placement_q"].astype(float)
     return np.asarray(q.reindex(costs["peptide"]).to_numpy(), dtype=float)
 
 
 def _q_reference(costs: pd.DataFrame) -> np.ndarray:
     """Corrected rule, stratum 0: shortcut for database same_db exact only; pi over the rest."""
-    from giap.mapping.placement_fdr import stratum_qvalues
+    from gippa.mapping.placement_fdr import stratum_qvalues
 
     db = (costs["source"] == "database").to_numpy()
     m_t = costs["m_target"].to_numpy()

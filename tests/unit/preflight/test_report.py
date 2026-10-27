@@ -1,5 +1,5 @@
 """``preflight.json`` schema and writer, ``preflight.md`` summary, report exit code
-(issue M1-11; GIAP_SPEC.md §7.0 Outputs, §9.5, §6.6, §6.7; ADR-0005 item 3). T-PRE-25.
+(issue M1-11; GIPPA_SPEC.md §7.0 Outputs, §9.5, §6.6, §6.7; ADR-0005 item 3). T-PRE-25.
 
 Reports are built from real ``Check`` lists produced by the genome, evidence and environment
 rules on tiny in-memory or ``tmp_path`` inputs. ``jsonschema`` is a test-only dependency here.
@@ -18,20 +18,20 @@ import jsonschema
 import numpy as np
 import pytest
 
-import giap
-from giap.config import GiapConfig, resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.io.protein_fasta import read_protein_fasta
-from giap.preflight.checks import Check
-from giap.preflight.environment import EnvProbe, environment_checks, requirements
-from giap.preflight.evidence import candidate_tier, inputs_checks, protein_checks, tier_check
-from giap.preflight.genome import (
+import gippa
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.preflight.checks import Check
+from gippa.preflight.environment import EnvProbe, environment_checks, requirements
+from gippa.preflight.evidence import candidate_tier, inputs_checks, protein_checks, tier_check
+from gippa.preflight.genome import (
     classify_replicons,
     genome_checks,
     resolve_topology,
     summarize_genome,
 )
-from giap.preflight.report import (
+from gippa.preflight.report import (
     InputRef,
     PreflightReport,
     render_preflight_md,
@@ -40,12 +40,12 @@ from giap.preflight.report import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 GIB = 1024**3
 TIERS = ("decoy_picked", "mayu", "two_peptide", "protein_list")
 TOP_KEYS = {
     "schema_version",
-    "giap_version",
+    "gippa_version",
     "inputs",
     "checks",
     "summary",
@@ -77,7 +77,7 @@ def validate(instance: object) -> None:
     jsonschema.Draft202012Validator(schema()).validate(instance)
 
 
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config(overrides=SMALL)
 
 
@@ -133,7 +133,7 @@ def build_report(
         InputRef("proteins", "proteins.faa", "b" * 64, ppath.stat().st_size),
     ]
     return PreflightReport(
-        giap_version=giap.__version__,
+        gippa_version=gippa.__version__,
         inputs=inputs,
         checks=checks,
         routing={
@@ -182,7 +182,7 @@ def test_T_PRE_25_pass(tmp_path: Path) -> None:
     validate(d)
     assert set(d) == TOP_KEYS
     assert d["summary"]["n_error"] == 0
-    assert d["giap_version"] == giap.__version__
+    assert d["gippa_version"] == gippa.__version__
     assert d["evidence_tier"] == "protein_list"
 
 
@@ -386,7 +386,7 @@ def test_numpy_scalars_in_values_are_converted(tmp_path: Path) -> None:
         {"gc": np.float64(0.5), "n": np.int64(3), "flag": np.bool_(True)},  # type: ignore[dict-item]
     )
     r2 = PreflightReport(
-        giap_version=r.giap_version,
+        gippa_version=r.gippa_version,
         inputs=r.inputs,
         checks=[c for c in r.checks if c.rule_id != "genome.gc"] + [extra],
         routing=r.routing,
@@ -440,7 +440,7 @@ def _md_report(tmp_path: Path) -> PreflightReport:
         chk("genome.topology", "ok", []),
     ]
     return PreflightReport(
-        giap_version=r.giap_version,
+        gippa_version=r.gippa_version,
         inputs=r.inputs,
         checks=checks,
         routing=r.routing,

@@ -1,7 +1,7 @@
-"""Hidden command ``giap _step NAME --config resolved.yaml --in k=path --out k=path``.
+"""Hidden command ``gippa _step NAME --config resolved.yaml --in k=path --out k=path``.
 
-M2-02 examples 5-7; GIAP_SPEC.md §5.1 (exit 4 = a pipeline step failed, 5 = internal error).
-The toy steps are registered in this process, so ``giap.cli.main`` is called in-process.
+M2-02 examples 5-7; GIPPA_SPEC.md §5.1 (exit 4 = a pipeline step failed, 5 = internal error).
+The toy steps are registered in this process, so ``gippa.cli.main`` is called in-process.
 """
 
 from __future__ import annotations
@@ -13,13 +13,13 @@ from typing import Any
 import pytest
 import yaml
 
-from giap.config import GiapConfig
-from giap.exitcodes import ExitCode
-from giap.rng import for_step
+from gippa.config import GippaConfig
+from gippa.exitcodes import ExitCode
+from gippa.rng import for_step
 
 
 def _exit_code(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -33,7 +33,7 @@ def _exit_code(argv: list[str]) -> int:
 @pytest.fixture
 def resolved(tmp_path: Path) -> Path:
     path = tmp_path / "resolved.yaml"
-    path.write_text(yaml.safe_dump(GiapConfig(seed=11).model_dump(mode="json"), sort_keys=True))
+    path.write_text(yaml.safe_dump(GippaConfig(seed=11).model_dump(mode="json"), sort_keys=True))
     return path
 
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.mapping.diffops import block_tables
-from giap.mapping.masses import RESIDUE_MASS, mass_equivalents
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.masses import RESIDUE_MASS, mass_equivalents
 
 
 def _pairs(tol: float) -> set[frozenset[str]]:

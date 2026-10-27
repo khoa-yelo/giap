@@ -1,5 +1,5 @@
 """M7-03 table writers and schemas: ``pileup.tsv.gz`` and ``variants.tsv``
-(docs/specs/M7-03-variant-tables-and-vcf.md rule 10; GIAP_SPEC.md §9.3, §9.4, §9.5, §6.5;
+(docs/specs/M7-03-variant-tables-and-vcf.md rule 10; GIPPA_SPEC.md §9.3, §9.4, §9.5, §6.5;
 ADR-0006).
 
 Interface reading (test author; see the report to the lead):
@@ -8,8 +8,8 @@ Interface reading (test author; see the report to the lead):
   takes the table returned by ``vcf_records``; ``read_variants`` returns the §9.3 columns with
   0-based ``codon_start`` (the inverse of the writer) and list cells for ``flags``.
 * ``class_error_rate`` is written ``unestimated`` and ``class_error_n`` ``NA`` until M7-10.
-* The Frictionless descriptors are ``src/giap/schemas/tables/{pileup,variants}.schema.json``
-  and ``src/giap/schemas/datapackage.json`` lists both resources (§9.5).
+* The Frictionless descriptors are ``src/gippa/schemas/tables/{pileup,variants}.schema.json``
+  and ``src/gippa/schemas/datapackage.json`` lists both resources (§9.5).
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from helpers.variant_tables_fixture import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMAS = ROOT / "src" / "giap" / "schemas"
+SCHEMAS = ROOT / "src" / "gippa" / "schemas"
 TABLES = SCHEMAS / "tables"
 
 

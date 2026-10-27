@@ -1,16 +1,16 @@
 """M9-16 behaviour 2, example 4: the report's methods snippets are generated from marked blocks
 of ``docs/methods/<topic>.md`` and a test fails when a snippet and its source differ
-(docs/specs/M9-16-report-content.md; GIAP_SPEC.md §10.3 section 12).
+(docs/specs/M9-16-report-content.md; GIPPA_SPEC.md §10.3 section 12).
 
 Interface pinned here (M9-16 test author, beyond the spec text):
 - ``scripts/dev/sync_report_snippets.py [--check] [--docs DIR] [--out DIR]`` (defaults
-  ``docs/methods`` and ``src/giap/report/snippets``): writes ``<topic>.html`` for every
+  ``docs/methods`` and ``src/gippa/report/snippets``): writes ``<topic>.html`` for every
   ``<topic>.md`` holding a ``<!-- report:begin -->`` … ``<!-- report:end -->`` block; ``--check``
   writes nothing and exits 1, naming the topic, when a snippet differs from its source, is
   missing, or has no source block (an orphan); exit 0 when all agree;
 - the generated HTML: one ``<p>`` per blank-line-separated paragraph (lines joined by a space),
   one ``<ul>`` of ``<li>`` per run of ``- `` lines; text HTML-escaped; nothing else;
-- the snippets are package data of ``giap.report`` (``importlib.resources``); the methods
+- the snippets are package data of ``gippa.report`` (``importlib.resources``); the methods
   section renders every snippet; ``islands.html`` exists and holds the validity-domain sentence;
 - no Markdown library is imported at run time.
 """
@@ -31,7 +31,7 @@ from helpers.report_fixtures import parse, run_out
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "dev" / "sync_report_snippets.py"
 DOCS = ROOT / "docs" / "methods"
-SNIPPETS = ROOT / "src" / "giap" / "report" / "snippets"
+SNIPPETS = ROOT / "src" / "gippa" / "report" / "snippets"
 BEGIN, END = "<!-- report:begin -->", "<!-- report:end -->"
 
 
@@ -118,7 +118,7 @@ def test_generated_html_paragraphs_lists_escaping(tmp_path: Path) -> None:
 
 
 def test_snippets_are_package_data() -> None:
-    files = resources.files("giap.report").joinpath("snippets")
+    files = resources.files("gippa.report").joinpath("snippets")
     names = sorted(f.name for f in files.iterdir() if f.name.endswith(".html"))
     assert "islands.html" in names
 
@@ -135,7 +135,7 @@ def test_methods_section_renders_every_snippet(tmp_path: Path) -> None:
         assert body and body in methods, path.name
 
 
-@pytest.mark.parametrize("path", sorted((ROOT / "src" / "giap" / "report").rglob("*.py")))
+@pytest.mark.parametrize("path", sorted((ROOT / "src" / "gippa" / "report").rglob("*.py")))
 def test_no_markdown_library_at_run_time(path: Path) -> None:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):

@@ -1,6 +1,6 @@
 """M7 gate, novel-ORF half (M7-13b): G3 novel-ORF F1, G4 class FDR per regime and class, G4-k3
 clustered false ORFs (docs/specs/M7-13-calibration-gate.md § Checks, rules 1, 2, 5-8, 10-12,
-risks 3-5, lead decisions 1-2; GIAP_SPEC.md §7.6.4, §7.6.6, §8.4 row "Novel-ORF class FDR", §13
+risks 3-5, lead decisions 1-2; GIPPA_SPEC.md §7.6.4, §7.6.6, §8.4 row "Novel-ORF class FDR", §13
 row M7; ADR-0015; M7-11b rules 6 and 11; M7-11b statistician review, PR #256 comment 6365221592).
 
 R is the module constant ``_m7_gate.GATE_R`` (10 fast / 300 full; lead decision 1, ADR-0048
@@ -27,14 +27,14 @@ nightly; the per-PR subset is the one-replicate smoke test at 100 kb.
   intergenic at 0.01 are strict xfails naming ADR-0050 (``raises=AssertionError``, lead decision
   10), so a fix shows as XPASS; the other cells stay hard checks.
 * G4-k3 raises ``RuntimeError`` (so no xfail can absorb it) when the injected keys reaching
-  GIAP's table, summed over the replicates run, fall below ``REACH_MIN_SHARE`` (0.90) of those
+  GIPPA's table, summed over the replicates run, fall below ``REACH_MIN_SHARE`` (0.90) of those
   injected; when its ORFs are ``unestimated`` for an ``UNESTIMATED_BUGS`` reason (as G4); and
   when an ADR-0050 xfail cell turns vacuous (review of #271, B2 and nits 2-3).
 * Lead decision 11: a ``no_makedb_pair`` ORF whose every peptide row names another planted
   ORF's makedb entry (a chance shared peptide) is exempt from ``UNESTIMATED_BUGS`` and recorded
   as ``shared_peptide_no_pair``; any other ``no_makedb_pair`` still fails.
 
-Under ``--shard`` / ``GIAP_CALIBRATION_CONFIRM`` a check has no verdict and the test skips after
+Under ``--shard`` / ``GIPPA_CALIBRATION_CONFIRM`` a check has no verdict and the test skips after
 writing its record (lead decision 6). No threshold is widened (R3).
 """
 

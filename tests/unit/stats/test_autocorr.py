@@ -1,5 +1,5 @@
 """Moran's I, join counts, label and TU-block permutations, ``lag_test``, ``choose_block_len``
-(issue M5-02; GIAP_SPEC.md §7.3.5(c), §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4).
+(issue M5-02; GIPPA_SPEC.md §7.3.5(c), §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4).
 
 Spec examples 1-10 and 13 (docs/specs/M5-02-stats-moran-joincount.md), the edge cases, and the
 lead decisions 4-8:
@@ -31,7 +31,7 @@ import math
 import numpy as np
 import pytest
 
-from giap.stats.autocorr import (
+from gippa.stats.autocorr import (
     LagTest,
     block_len_prime,
     choose_block_len,
@@ -46,7 +46,7 @@ from giap.stats.autocorr import (
     tu_block_permutations,
     tu_blocks,
 )
-from giap.stats.permutation import perm_p
+from gippa.stats.permutation import perm_p
 
 NAN = float("nan")
 

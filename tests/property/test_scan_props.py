@@ -1,4 +1,4 @@
-"""Hypothesis properties of the window scan (issue M5-03; GIAP_SPEC.md §7.3.5(d) steps 4-6, §8.3).
+"""Hypothesis properties of the window scan (issue M5-03; GIPPA_SPEC.md §7.3.5(d) steps 4-6, §8.3).
 
 - S on random z equals the direct sum over the window (wrapping on circular input) divided by
   sqrt(n_w), within 1e-9 * max(1, sum |z|); windows are exactly the enumerated set, in order.
@@ -21,7 +21,7 @@ import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.scan import fwer_p, merge_windows, n_windows, scan_max, scan_null_max
+from gippa.stats.scan import fwer_p, merge_windows, n_windows, scan_max, scan_null_max
 
 SETTINGS = settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 

@@ -2,12 +2,12 @@
 "The compare job", acceptance criteria 5 and 6, examples 7, 8 and 9).
 
 The job runs in a sandbox checkout (``helpers.pilot_runs_m10_04.compare_job_sandbox``: fake Slurm
-tools, a logging ``giap`` that must never be called, ``src/`` and ``validation/`` of this branch)
-on two tiny arms written by ``helpers.pilot_runs_m10_04.write_arm``, with the real ``giap compare``.
+tools, a logging ``gippa`` that must never be called, ``src/`` and ``validation/`` of this branch)
+on two tiny arms written by ``helpers.pilot_runs_m10_04.write_arm``, with the real ``gippa compare``.
 
 Pinned by the test-author where the spec leaves it open: the evidence goes to
 ``$(dirname CMP)/evidence/compare.json`` (the spec's ``<R>/evidence/compare.json`` with
-``CMP = <R>/cmp_a1_a2``); when the first ``giap compare`` exits non-zero, ``run_evidence.py`` is not
+``CMP = <R>/cmp_a1_a2``); when the first ``gippa compare`` exits non-zero, ``run_evidence.py`` is not
 run (its exit is the job's).
 """
 
@@ -26,7 +26,7 @@ from helpers.pilot_runs_m10_04 import (
     compare_job_sandbox,
     two_arms,
 )
-from helpers.slurm_sandbox import assert_honours_giap_repo, write_exe
+from helpers.slurm_sandbox import assert_honours_gippa_repo, write_exe
 
 
 def _text() -> str:
@@ -36,7 +36,7 @@ def _text() -> str:
 
 @pytest.fixture
 def job(tmp_path: Path) -> CompareJobSandbox:
-    assert_honours_giap_repo(_text(), "pilot_compare.sbatch")
+    assert_honours_gippa_repo(_text(), "pilot_compare.sbatch")
     return compare_job_sandbox(tmp_path)
 
 
@@ -64,19 +64,19 @@ def test_two_compares_then_evidence_exit_0(job: CompareJobSandbox) -> None:
     doc = json.loads(_evidence(cmp).read_text())
     assert doc["failures"] == []
     assert job.repo_is_clean(), "the job wrote into the checkout"
-    assert not any(ln.startswith("giap ") for ln in job.sb.calls_log()), "giap runs via GIAP_PYTHON"
+    assert not any(ln.startswith("gippa ") for ln in job.sb.calls_log()), "gippa runs via GIPPA_PYTHON"
 
 
-def test_giap_python_runs_compare_twice_and_the_evidence(job: CompareJobSandbox) -> None:
+def test_gippa_python_runs_compare_twice_and_the_evidence(job: CompareJobSandbox) -> None:
     a1, a2 = two_arms(job.runs)
     cmp = job.runs / "cmp_a1_a2"
-    res = job.run(str(a1), str(a2), str(cmp), env={"GIAP_PYTHON": str(job.recording_python())})
+    res = job.run(str(a1), str(a2), str(cmp), env={"GIPPA_PYTHON": str(job.recording_python())})
     assert res.returncode == 0, _out(res)[-3000:]
     calls = job.python_calls()
     compares = [c for c in calls if "compare" in c and "-c" in c and "--outdir" in c]
     assert len(compares) == 2, calls
     for c in compares:
-        assert "from giap.cli import cli" in c[c.index("-c") + 1]
+        assert "from gippa.cli import cli" in c[c.index("-c") + 1]
         assert c[c.index("--labels") + 1] == "A1,A2"
         assert c[c.index("compare") + 1 : c.index("compare") + 3] == [str(a1), str(a2)]
     outdirs = [c[c.index("--outdir") + 1] for c in compares]
@@ -123,7 +123,7 @@ def test_existing_cmp_exits_2_and_writes_nothing(job: CompareJobSandbox) -> None
 
 
 def test_different_genome_digests_exit_1(job: CompareJobSandbox) -> None:
-    """Example 8: ``giap compare`` exit 1 (CompareInputError) is the job's exit code."""
+    """Example 8: ``gippa compare`` exit 1 (CompareInputError) is the job's exit code."""
     a1, a2 = two_arms(job.runs, sha_b="9" * 64)
     cmp = job.runs / "cmp_a1_a2"
     res = job.run(str(a1), str(a2), str(cmp))
@@ -135,9 +135,9 @@ def test_different_genome_digests_exit_1(job: CompareJobSandbox) -> None:
 
 # ------------------------------------------------------------------ review S4: job exit codes
 
-# A GIAP_PYTHON that runs the real interpreter, except: ``FAULT=evidence_fails`` deletes
+# A GIPPA_PYTHON that runs the real interpreter, except: ``FAULT=evidence_fails`` deletes
 # ``CMP/plots/V16_compare.svg`` before ``run_evidence.py`` (rule C5 then fails, exit 1);
-# ``FAULT=second_fails`` exits 3 for the second ``giap compare`` (its ``--outdir`` is not CMP).
+# ``FAULT=second_fails`` exits 3 for the second ``gippa compare`` (its ``--outdir`` is not CMP).
 _FAULTY_PYTHON = r"""#!/bin/bash
 args=("$@")
 if [ "${FAULT:-}" = evidence_fails ]; then
@@ -160,7 +160,7 @@ def _faulty(job: CompareJobSandbox, fault: str, cmp: Path) -> dict[str, str]:
     exe = write_exe(
         job.sb.bin / "faulty_python", _FAULTY_PYTHON.replace("{python}", sys.executable)
     )
-    return {"GIAP_PYTHON": str(exe), "FAULT": fault, "FAULT_CMP": str(cmp)}
+    return {"GIPPA_PYTHON": str(exe), "FAULT": fault, "FAULT_CMP": str(cmp)}
 
 
 def test_evidence_failure_is_the_job_exit_code(job: CompareJobSandbox) -> None:
@@ -173,7 +173,7 @@ def test_evidence_failure_is_the_job_exit_code(job: CompareJobSandbox) -> None:
 
 
 def test_second_compare_failure_fails_the_job(job: CompareJobSandbox) -> None:
-    """The second ``giap compare`` fails: the job fails and no evidence is written."""
+    """The second ``gippa compare`` fails: the job fails and no evidence is written."""
     a1, a2 = two_arms(job.runs)
     cmp = job.runs / "cmp_a1_a2"
     res = job.run(str(a1), str(a2), str(cmp), env=_faulty(job, "second_fails", cmp))
@@ -194,8 +194,8 @@ def _directives(text: str) -> dict[str, str]:
 
 def test_sbatch_header() -> None:
     d = _directives(_text())
-    assert d.get("job-name", "").startswith("giap-"), d
-    assert d.get("job-name") == "giap-pilot-compare"
+    assert d.get("job-name", "").startswith("gippa-"), d
+    assert d.get("job-name") == "gippa-pilot-compare"
     assert d.get("partition") == "normal" and d.get("qos") == "normal"
     assert d.get("cpus-per-task") == "2"
     assert d.get("mem") == "8G"
@@ -212,5 +212,5 @@ def test_sbatch_shell_rules() -> None:
     assert re.search(r"source\s+\S*scripts/farmshare_env\.sh", body)
     assert not re.search(r"\buv\s+(run|sync)\b", body), "no uv run / uv sync"
     assert not re.search(r"(^|[\s;|&])(pip3?|python3? -m pip)\s", body), "no pip"
-    assert "GIAP_PYTHON" in body and "UV_PROJECT_ENVIRONMENT" in body
-    assert re.search(r"PYTHONPATH=\S*\$\{?GIAP_REPO\}?/src", body)
+    assert "GIPPA_PYTHON" in body and "UV_PROJECT_ENVIRONMENT" in body
+    assert re.search(r"PYTHONPATH=\S*\$\{?GIPPA_REPO\}?/src", body)

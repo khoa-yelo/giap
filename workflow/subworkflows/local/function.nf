@@ -1,14 +1,14 @@
-// FUNCTION subworkflow (GIAP_SPEC.md §6.2 step row "function", §6.3, §7.7, §9.1; M8-06b): the
+// FUNCTION subworkflow (GIPPA_SPEC.md §6.2 step row "function", §6.3, §7.7, §9.1; M8-06b): the
 // final gene table, the C1 replicons, the TU folds and the installed function resources ->
 // tables/category_summary.tsv, tables/enrichment_detection.tsv and tables/enrichment_gsea.tsv
-// (the `function` py step, through a GIAP_STEP alias). main.nf calls it only when 'function' is
+// (the `function` py step, through a GIPPA_STEP alias). main.nf calls it only when 'function' is
 // in params.modules. gene_table, replicons and tu_folds are required (stepIn's `need`); each
 // resource ([setup item name, path]) is staged only when installed, else the step records
 // layer_missing:<layer>. Only the three tables/*.tsv are published (M6-08 decision 7), and the
 // optional plot support (M9-17: function_support, the gsea_running file, published under
 // plots/support/; empty when no set was testable).
-include { GIAP_STEP as FUNCTION_STEP } from '../../modules/local/giap_step/main'
-include { supportDir } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as FUNCTION_STEP } from '../../modules/local/gippa_step/main'
+include { supportDir } from '../../modules/local/gippa_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 workflow FUNCTION {

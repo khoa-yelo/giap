@@ -14,11 +14,11 @@ from pathlib import Path
 import pytest
 from helpers.viz_out_tree import gene_row, make_out, write_schema_table
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.io.tsv import write_tsv
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.io.tsv import write_tsv
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REGION_COLUMNS = ["region_id", "region_type", "contig", "start", "end", "source_tool", "score",
                   "genes", "notes"]  # fmt: skip
@@ -51,7 +51,7 @@ def _variant(vid: str, codon: int) -> dict[str, object]:
 
 def _render(tmp: Path, genes: Sequence[dict[str, object]], regions: list | None = None,
             variants: list | None = None) -> Instance:  # fmt: skip
-    import giap.viz.circos  # noqa: F401  (registers V01)
+    import gippa.viz.circos  # noqa: F401  (registers V01)
 
     out = make_out(tmp)
     pf = out / "preflight" / "preflight.json"

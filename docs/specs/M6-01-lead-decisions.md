@@ -7,7 +7,7 @@ they land.
    list's "element-wise maximum of the per-decoy monotone curves". The two differ
    (monotone-of-max ≥ max-of-monotones). The acceptance text is **wrong and must be corrected**; the
    test additionally asserts `q ≥ max of the monotone curves`, so the order is pinned either way.
-2. **"Monotone" means `giap.stats.tda.monotone_q`** — the running minimum over *looser* thresholds, the
+2. **"Monotone" means `gippa.stats.tda.monotone_q`** — the running minimum over *looser* thresholds, the
    only direction that keeps q an upper bound and the one the merged engine already uses. The spec's
    "running minimum from the top" reads as a constant equal to the strictest FDR; fix the wording.
 3. **`DecoyFdr.lfdr`**: the same "larger wins" rule as the FDR — the element-wise maximum over decoy

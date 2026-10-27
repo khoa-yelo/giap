@@ -1,6 +1,6 @@
-# M3-18: giapsim, genome features that mapping needs
+# M3-18: gippasim, genome features that mapping needs
 
-Milestone M3 · depends on: M0 simulator skeleton · changes `tests/sim/giapsim/` (new
+Milestone M3 · depends on: M0 simulator skeleton · changes `tests/sim/gippasim/` (new
 `features.py`, `strain.py`; `simulate.py` extended) · simulator tooling (implementer writes it,
 test author tests it; AGENTS.md) · pure Python · estimate ≈ 380 lines (not counted by the
 ADR-0007 gate, kept under 400 anyway)
@@ -15,8 +15,8 @@ ADR-0007 gate, kept under 400 anyway)
   extensions (annotated start set downstream of the true start)"; plasmids.
 - "**Strain differences.** A "sample" genome differs from the "reference" genome by SNVs (ALT
   residues) and indels."
-- "**Annotation.** Written as a Bakta-like JSON containing only the fields GIAP parses (validated
-  by GIAP's own parser), plus GFF3. All truth tables are written too."
+- "**Annotation.** Written as a Bakta-like JSON containing only the fields GIPPA parses (validated
+  by GIPPA's own parser), plus GFF3. All truth tables are written too."
 - Speed: "a 100-kb genome in < 1 s, a 5-Mb genome in < 30 s".
 - Needed by M3-01 (types), M3-14 (all eight locus classes, origin crossing), M3-02/04 (linear and
   circular contigs), M3-07 (strain differences → tolerant hits). Promoter/RBS/terminator signals,
@@ -67,14 +67,14 @@ strain: StrainConfig | None = None       # snv_rate_per_kb, indel_rate_per_kb, s
 
 - [ ] `tests/unit/test_sim_features.py`: examples 1–9.
 - [ ] Every simulated annotation is read by M3-01's `gene_model_from_bakta_json` without issues
-  ("validated by GIAP's own parser").
+  ("validated by GIPPA's own parser").
 - [ ] Property: for random seeds, features never overlap in ways the config does not ask for (rRNA
   never overlaps a CDS unless planted), every non-pseudo CDS translates without internal stops.
 - [ ] Timing test (`slow`): example 10.
 
 ## Questions for the lead
 
-1. Which genome does GIAP receive in a strain-difference run? **Proposed default:** `genome.fasta`
+1. Which genome does GIPPA receive in a strain-difference run? **Proposed default:** `genome.fasta`
    is the sample's own genome (peptides map exactly); `reference.fasta` is the related genome, so
    `--genome reference.fasta --annotation reference_bakta_like.json` exercises
    `genome_relation = related` and tolerant hits.

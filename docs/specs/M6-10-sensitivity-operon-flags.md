@@ -33,7 +33,7 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    per distinct `pair_threshold` and reuse it across the abundance variants.
 6. Output: one `sensitivity.tsv` row per (family, variant) with `n_primary`, `n_variant`,
    `n_shared`, `jaccard`; `agreement` NA (it belongs to the determinants family).
-7. **Reaching `giap run`:** the merged `sensitivity` step (registered by M4-19 decision 16 and
+7. **Reaching `gippa run`:** the merged `sensitivity` step (registered by M4-19 decision 16 and
    wired by MVP-01's CONTEXT subworkflow) gains the new inputs; no new subworkflow is needed, but
    `context.nf` must pass the pair-related channels through. That wiring is part of this issue, not
    a follow-up.
@@ -64,8 +64,8 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
 - [ ] `tests/unit/context/test_sensitivity_operons.py`: examples 1–7 on hand-built frames.
 - [ ] Property: the family is pure and order-independent; `jaccard` ∈ [0, 1] or NA.
 - [ ] Property: the primary set equals `operon_flags.tsv` of the main run (no recomputation drift).
-- [ ] Integration: `tables/sensitivity.tsv` from a real `giap run` contains the `operon_flags`
-  rows — the "it must reach `giap run`" criterion.
+- [ ] Integration: `tables/sensitivity.tsv` from a real `gippa run` contains the `operon_flags`
+  rows — the "it must reach `gippa run`" criterion.
 - [ ] Runtime: the four reruns add < 2× the single-run cost of Module 4 on 4,500 genes.
 
 ## Hardening owed
@@ -113,7 +113,7 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    - Behaviour 5 (one pair frame per threshold, reused) is deferred to the decision-6 backlog item.
 8. **Review #243 (comment, 2026-10-23):**
    - **B1 (lead, done):** `test_m6_10_sensitivity_has_operon_flags_rows` in
-     tests/integration/test_m6_08_operons_run.py checks that a real `giap run` writes
+     tests/integration/test_m6_08_operons_run.py checks that a real `gippa run` writes
      `operon_flags` rows (n 0, J NA on sim100k). The backlog line is dropped.
    - **B2 (accepted, option a):** a variant that only patches config runs only for the families
      that read the patched key.

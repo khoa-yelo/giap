@@ -5,14 +5,14 @@
 newest ``v*`` tag reachable from HEAD, read with ``git show <tag>:<path>`` (no network, no
 checkout):
 
-- the ``fields[].name`` of every ``src/giap/schemas/tables/*.schema.json`` (a table file that
+- the ``fields[].name`` of every ``src/gippa/schemas/tables/*.schema.json`` (a table file that
   disappears removes its columns, a new one adds them);
-- the top-level ``properties`` keys of ``src/giap/schemas/run_manifest.schema.json`` (table
+- the top-level ``properties`` keys of ``src/gippa/schemas/run_manifest.schema.json`` (table
   ``run_manifest``).
 
 A removed column (a rename is a removal plus an addition) is a breaking change: it needs a larger
-major of both ``__version__`` (``src/giap/__init__.py``) and ``output_schema_version``
-(``src/giap/schemas/datapackage.json``); an added one needs a larger ``output_schema_version``
+major of both ``__version__`` (``src/gippa/__init__.py``) and ``output_schema_version``
+(``src/gippa/schemas/datapackage.json``); an added one needs a larger ``output_schema_version``
 (minor, or major). A shallow clone is a problem (``fetch tags: ...``),
 checked first; no reachable ``v*`` tag raises ``NoPreviousRelease``. Exit codes of the command
 line: 0 compatible or no previous release, 1 a problem.
@@ -28,10 +28,10 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-TABLES = "src/giap/schemas/tables"
-MANIFEST = "src/giap/schemas/run_manifest.schema.json"
-DATAPACKAGE = "src/giap/schemas/datapackage.json"
-INIT = "src/giap/__init__.py"
+TABLES = "src/gippa/schemas/tables"
+MANIFEST = "src/gippa/schemas/run_manifest.schema.json"
+DATAPACKAGE = "src/gippa/schemas/datapackage.json"
+INIT = "src/gippa/__init__.py"
 FETCH_TAGS = "fetch tags: actions/checkout with fetch-depth: 0 and fetch-tags: true"
 
 _VERSION = re.compile(r"""^__version__\s*=\s*["']([^"']+)["']""", re.MULTILINE)

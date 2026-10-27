@@ -84,7 +84,7 @@ def run_render(root: Path, out: Path, *extra: str) -> subprocess.CompletedProces
 
 
 def run_entries(out: Path) -> list[str]:
-    data: dict[str, Any] = yaml.safe_load((out / "giap" / "meta.yaml").read_text())
+    data: dict[str, Any] = yaml.safe_load((out / "gippa" / "meta.yaml").read_text())
     return [" ".join(str(r).split()) for r in data["requirements"]["run"]]
 
 
@@ -156,7 +156,7 @@ def test_example_2_unmapped_dependency_fails(tmp_path: Path) -> None:
     proc = run_render(root, out)
     assert proc.returncode != 0
     assert "no conda name for newlib (add it to the map)" in proc.stdout + proc.stderr
-    assert not (out / "giap" / "meta.yaml").exists()
+    assert not (out / "gippa" / "meta.yaml").exists()
 
 
 def test_pin_change_propagates(tmp_path: Path) -> None:
@@ -183,4 +183,4 @@ def test_environment_marker_fails(tmp_path: Path) -> None:
     proc = run_render(root, out)
     assert proc.returncode != 0
     assert "numpy" in proc.stdout + proc.stderr
-    assert not (out / "giap" / "meta.yaml").exists()
+    assert not (out / "gippa" / "meta.yaml").exists()

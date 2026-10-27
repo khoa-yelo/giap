@@ -3,7 +3,7 @@
 docs/specs/M4-17-region-tests.md "Edge cases", "Public interface" and the lead decisions of
 docs/specs/M4-index.md (decision 5: shifts index eligible genes; BH within (region type, statistic);
 ``few_shifts`` flag when K < 19). Hand-built tables from tests/helpers/region_tests_data.py; the
-round-trip test writes giapsim's C1-C8 and reads them with M4-06 ``load_m4_inputs``.
+round-trip test writes gippasim's C1-C8 and reads them with M4-06 ``load_m4_inputs``.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from region_tests_data import Contig, flag_set, gene_table, pick, region_frames,
 
 
 def _regions() -> Any:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R
 
@@ -293,7 +293,7 @@ def _many_regions() -> tuple[list[Contig], dict[str, tuple[str, list[str]]]]:
 
 def test_q_values_bh_within_type_and_stat() -> None:
     """q = BH within each (region_type, stat) family (lead decision 5)."""
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     contigs, members = _many_regions()
     res = _run(contigs, members)
@@ -337,7 +337,7 @@ def test_gene_row_order_does_not_matter() -> None:
 
 
 def test_runs_on_frames_loaded_through_m4_06(tmp_path: Path) -> None:
-    """giapsim M4-07 layout (plasmid with its own AMR set, origin crossing) + M4-08 truth:
+    """gippasim M4-07 layout (plasmid with its own AMR set, origin crossing) + M4-08 truth:
     written as the C1-C8 contract and re-read with ``load_m4_inputs`` gives the same results as
     the in-memory frames (list cells, nullable dtypes)."""
     rng = np.random.default_rng(17)

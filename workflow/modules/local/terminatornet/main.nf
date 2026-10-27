@@ -1,4 +1,4 @@
-// TerminatorNet, genome-wide (GIAP_SPEC.md §7.1.1; M2-15). Its parser matches flags by substring:
+// TerminatorNet, genome-wide (GIPPA_SPEC.md §7.1.1; M2-15). Its parser matches flags by substring:
 // pass exactly -f -s -n -o (always -s); the genome is staged as genome.fa (no spaces).
 process TERMINATORNET {
     tag "${meta_id}"
@@ -20,7 +20,7 @@ process TERMINATORNET {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        terminatornet: \$(cat \$TERMINATORNET_HOME/GIAP_COMMIT)
+        terminatornet: \$(cat \$TERMINATORNET_HOME/GIPPA_COMMIT)
     END_VERSIONS
     """
 

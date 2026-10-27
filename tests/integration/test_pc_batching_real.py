@@ -1,21 +1,21 @@
 """M2-14b example 4: batched Promoter Calculator output is byte-identical to the unbatched
-pipeline (docs/specs/M2-14b-promoter-calculator-batching.md item 3; GIAP_SPEC.md §7.1.1).
+pipeline (docs/specs/M2-14b-promoter-calculator-batching.md item 3; GIPPA_SPEC.md §7.1.1).
 
-Real tool, ``giap-promoter_calculator`` prebuilt env (workflow/conf/prebuilt_envs.config), the
+Real tool, ``gippa-promoter_calculator`` prebuilt env (workflow/conf/prebuilt_envs.config), the
 module run through a driver script written into ``tmp_path`` (the workflow/tests/real pattern:
 ``-c workflow/tests/real/real.config -profile farmshare_local`` publishes the declared outputs into
 ``<launchDir>/out``). The driver groups the regions as annotate.nf does (sorted by TU id,
 ``collate(100)``; annotate.nf itself is pinned by tests/unit/test_nf_pc_batching_static.py).
 
 * sim100k: the TU upstream regions of the merged ``parse_bakta`` / ``uniop_input`` /
-  ``operon_pairs`` steps on giapsim SIM100K (recorded ``uniop.pred``, as tests/helpers/
+  ``operon_pairs`` steps on gippasim SIM100K (recorded ``uniop.pred``, as tests/helpers/
   layers_chain.py). sim100k has 20 TUs (the spec's "288 TUs -> 3 tasks" does not hold; test
   author), so this is one batch. "Unbatched" is the M2-14 per-TU task script run once per region
   (``promoter-calculator -i <TU>.fa -o <TU>.csv -j 1``, then the CRLF header when the tool wrote
   no CSV). Every ``<TU>.csv`` and the ``tx_layer`` step's ``tx_rates.parquet`` must be equal byte
   for byte.
 * three batches on recorded inputs: the first 250 K-12 MG1655 regions (TU_00001 ... TU_00250) of
-  ``$GIAP_ROOT/recordings/promoter_calculator/k12_mg1655`` (recorded one region per call with the
+  ``$GIPPA_ROOT/recordings/promoter_calculator/k12_mg1655`` (recorded one region per call with the
   same command, PROVENANCE.md) -> tasks of 100, 100 and 50, every CSV equal to the recorded one;
   the two regions without a recorded CSV (TU_00058, TU_00059) get the CRLF header.
 
@@ -36,8 +36,8 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
-ROOT = Path(os.environ.get("GIAP_ROOT", REPO / "local"))
-ENV = ROOT / "micromamba" / "envs" / "giap-promoter_calculator"
+ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
+ENV = ROOT / "micromamba" / "envs" / "gippa-promoter_calculator"
 K12 = ROOT / "recordings" / "promoter_calculator" / "k12_mg1655"
 HEADER_LINE = REPO / "tests" / "data" / "recorded" / "headers" / "promoter_calculator.csv.txt"
 HEADER = HEADER_LINE.read_text(encoding="utf-8").splitlines()[0]
@@ -113,13 +113,13 @@ def _sim100k_regions(root: Path) -> tuple[Path, Path, Path]:
     """(tu_upstream dir, tus.parquet, replicons.parquet) of the merged steps on SIM100K."""
     from helpers import layers_chain as lc
 
-    import giapsim
-    from giap.config import GiapConfig
+    import gippasim
+    from gippa.config import GippaConfig
 
-    sim = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, root / "sim")
+    sim = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, root / "sim")
     w = root / "work"
     w.mkdir()
-    cfg = GiapConfig(seed=1)
+    cfg = GippaConfig(seed=1)
     with lc.registry() as reg:
         lc._run(reg, "parse_bakta", cfg, {"bakta_json": sim.bakta_json, "genome": sim.genome_fasta},
                 {k: w / v for k, v in lc.PARSE_OUT.items()})  # fmt: skip
@@ -139,10 +139,10 @@ def _sim100k_regions(root: Path) -> tuple[Path, Path, Path]:
 def _tx_rates(csvs: list[Path], tus: Path, replicons: Path, out: Path) -> bytes:
     from helpers import layers_chain as lc
 
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     with lc.registry() as reg:
-        lc._run(reg, "tx_layer", GiapConfig(seed=1),
+        lc._run(reg, "tx_layer", GippaConfig(seed=1),
                 {"pc": csvs, "tus": tus, "replicons": replicons},
                 {"tx_rates": out})  # fmt: skip
     return out.read_bytes()

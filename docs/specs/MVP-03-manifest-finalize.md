@@ -1,13 +1,13 @@
 # MVP-03: the §6.2 `manifest` and `finalize` steps (run_manifest.json, provenance, finalising OUT)
 
 Track: **MVP / end-to-end**. Scheduled before M9-16 (M9-index Q2, lead 2026-10-22), because M9's
-provenance section (M9-16 §6), `giap compare`'s genome check (M9-22 item 4) and the KEGG retrieval
+provenance section (M9-16 §6), `gippa compare`'s genome check (M9-22 item 4) and the KEGG retrieval
 date (ADR-0017) all read the manifest.
 Depends on: nothing beyond main (cf41ca4). Not statistical; no tools; no new dependency
 (`jsonschema` 4.26 and `frictionless` 5.20 are already in the venv).
 Estimate: **≈ 760 code lines, split into 03a / 03b / 03c** (see "Size and split"; ADR-0007).
 
-Sources: GIAP_SPEC.md §6.2 (rows `finalize`, `manifest`), §6.3 (Launch, Error strategy, Optional
+Sources: GIPPA_SPEC.md §6.2 (rows `finalize`, `manifest`), §6.3 (Launch, Error strategy, Optional
 modules), §6.4, §6.6, §6.7, §5.1 (`--publication`), §5.2, §7.1 "Calibration" (terminator cut-off
 "flagged `uncalibrated` in the manifest"), §7.3.2 (tier "recorded in the manifest"), §7.7.1
 (`bakta_db = light`), §7.9.3, §9.1 (`modules_off`), §9.2 (Versioning), §9.4 (Run row), §9.5;
@@ -17,28 +17,28 @@ M6-06/M6-08 (`bin_counts`, π₀, `±Infinity`), M7-03 review (descriptor locati
 M9-index decision 26, M9-02 items 6 and 8, M9-16 §6, M9-22 item 4.
 
 ## The gap
-- `src/giap/schemas/run_manifest.schema.json` is the M0 skeleton. **Nothing writes
+- `src/gippa/schemas/run_manifest.schema.json` is the M0 skeleton. **Nothing writes
   `run_manifest.json`.** No step is registered under `manifest` or `finalize`.
 - Run flags are scattered. Some go to `logs/events.jsonl` (`*.layer_missing`,
   `mapping.input_prefiltered`). Some sit in `annotation_meta.json` (`anti_sd_default`,
   `bakta_db_light`). Some exist only as log lines and never reach a file: `c_assumed` and
   `operon_source_distance_model` (both in the §9.4 Run row), the `layer_missing:*` warnings of
   `region_layer`, `operons` and `context_stats`, and `cai_reference_missing`.
-- `context_stats.oriter.multiple_oric` is logged on `giap.context.oriter`. That logger is outside
-  `giap.steps`, so `EventsHandler` never sees it and the event is lost under both executors.
+- `context_stats.oriter.multiple_oric` is logged on `gippa.context.oriter`. That logger is outside
+  `gippa.steps`, so `EventsHandler` never sees it and the event is lost under both executors.
 - `operons.missed_operons` writes `-Infinity` (not strict JSON). Backlog M6-08 marks this
   "must-do before the manifest writer".
 - `logs/events.jsonl` is opened in append mode, and nothing resets it. A re-run or a `-resume` into
   the same OUT appends the preflight events and every cached step's events a second time.
 - `tables/genes.tsv` is written by `context_stats` (M5-09 decision 3). A run that skips CONTEXT
   has no master table. §6.2 gives the file to `finalize`.
-- `OUT/schemas/datapackage.json` is never written. `src/giap/schemas/datapackage.json` lists 3 of
+- `OUT/schemas/datapackage.json` is never written. `src/gippa/schemas/datapackage.json` lists 3 of
   the 21 table schemas. Its `tables/...` paths would resolve under `OUT/schemas/` (M7-03 review).
 
 ## Goal
-Every `giap run` that gets past preflight writes `OUT/run_manifest.json`. That holds for both
+Every `gippa run` that gets past preflight writes `OUT/run_manifest.json`. That holds for both
 executors, for success and for a failed step. The manifest validates against
-`src/giap/schemas/run_manifest.schema.json` and holds the §6.7 list. Two manifests of the same inputs
+`src/gippa/schemas/run_manifest.schema.json` and holds the §6.7 list. Two manifests of the same inputs
 and seed are byte-identical once the declared volatile fields are removed: local against Nextflow,
 and a fresh run against a `-resume`. `tables/genes.tsv` always exists when a gene table exists, and
 `OUT/schemas/datapackage.json` describes exactly the tables that this run wrote.
@@ -48,15 +48,15 @@ and a fresh run against a `-resume`. `tables/genes.tsv` always exists when a gen
 ### D-A. Where the two steps run
 | Step | Registered | Runs | Why |
 |---|---|---|---|
-| `finalize` | py, core: `gene_table` (required), `gene_context` (optional) → `genes_tsv` | **in the graph**, after GENETABLE/CONTEXT (Nextflow: `GIAP_STEP` in a new `finalize.nf`; local: topological order) | M9's `plots`/`report` read `tables/genes.tsv` in the graph (M9-02 item 8) |
-| `manifest` | py, core, run-tail only: `preflight` (required); optional `provenance`, `events`, `trace`, `annotation_meta`, `sensitivity`, `island_diagnostics` → `run_manifest` | **after the graph**, called by `giap run` under both executors, also after a failed step | the trace is complete only after Nextflow exits; a failed run needs a manifest; it must be the last writer |
+| `finalize` | py, core: `gene_table` (required), `gene_context` (optional) → `genes_tsv` | **in the graph**, after GENETABLE/CONTEXT (Nextflow: `GIPPA_STEP` in a new `finalize.nf`; local: topological order) | M9's `plots`/`report` read `tables/genes.tsv` in the graph (M9-02 item 8) |
+| `manifest` | py, core, run-tail only: `preflight` (required); optional `provenance`, `events`, `trace`, `annotation_meta`, `sensitivity`, `island_diagnostics` → `run_manifest` | **after the graph**, called by `gippa run` under both executors, also after a failed step | the trace is complete only after Nextflow exits; a failed run needs a manifest; it must be the last writer |
 | datapackage writer (the descriptor half of §6.2 `finalize`) | a function of the tail, not a separate step | after the graph, before `manifest` | only then is the set of published tables known; it is executor-identical by construction |
 
-`giap _step manifest ...` still works, because the step is registered. The local runner leaves
+`gippa _step manifest ...` still works, because the step is registered. The local runner leaves
 run-tail steps out of the topological plan (`TAIL_STEPS = ("manifest",)`) and calls them in
 `run_tail()`.
 
-### D-B. Run order of `giap run` (both executors)
+### D-B. Run order of `gippa run` (both executors)
 1. Rotate `OUT/logs/events.jsonl` to `events.previous.jsonl` (one generation kept).
 2. Preflight (unchanged). An exit of 1, 2 or 3 here writes **no** manifest: `preflight.json` is the
    record.
@@ -71,15 +71,15 @@ run-tail steps out of the topological plan (`TAIL_STEPS = ("manifest",)`) and ca
 | Manifest field | Source | Issue | Volatile |
 |---|---|---|---|
 | `schema_version` | `cfg.schema_version` (the §9.2 output-standard version) | a | |
-| `giap_version`, `git_commit`, `git_dirty` | `giap.__version__`; `git -C <source root> rev-parse HEAD` / `status --porcelain`; `null` when not a git checkout | a | |
+| `gippa_version`, `git_commit`, `git_dirty` | `gippa.__version__`; `git -C <source root> rev-parse HEAD` / `status --porcelain`; `null` when not a git checkout | a | |
 | `command_line` | `sys.argv` | a | yes |
-| `executor`, `profile`, `resume`, `outdir`, `started_at`, `finished_at` | `giap run` | a | yes |
+| `executor`, `profile`, `resume`, `outdir`, `started_at`, `finished_at` | `gippa run` | a | yes |
 | `status` ∈ {`completed`, `failed`}, `exit_code`, `failed_step`, `failed_log` | runner result; Nextflow: `failed_step(trace)`; local: `StepError.name` | a | `failed_log` |
-| `publication` | the `--publication` flag (it is not in `GiapConfig`) | a | |
+| `publication` | the `--publication` flag (it is not in `GippaConfig`) | a | |
 | `config` | `cfg.model_dump(mode="json")` | a | the `annotation.precomputed.*` paths |
 | `inputs[]` {role, file, path, sha256, size} | `preflight.json` `inputs` (reused, never re-hashed); the manifest hashes the other given files itself: `annotation`, `reference_peptides`, `replicon_depth`, and each set `annotation.precomputed.<key>` as role `precomputed:<key>` | a | `path` |
-| `inputs_absent[]` | optional `giap run` inputs that were not given (`proteins`, `abundance`, `annotation`, `reference_peptides`, `replicon_depth`); backlog M4-18 | a | |
-| `tools[]` {name, version, container_digest, conda_lock_hash, processes} | Nextflow: `<workdir>/versions.yml` of each COMPLETED/CACHED trace row (no workflow change); the digest comes from the trace column `container` (added to `trace.fields`); the lock hash is the SHA-256 of `workflow/envs/locks/<tool>.explicit.txt` when the task had no container. `giap` itself is left out (it is `giap_version`). Local: `[]` | a | |
+| `inputs_absent[]` | optional `gippa run` inputs that were not given (`proteins`, `abundance`, `annotation`, `reference_peptides`, `replicon_depth`); backlog M4-18 | a | |
+| `tools[]` {name, version, container_digest, conda_lock_hash, processes} | Nextflow: `<workdir>/versions.yml` of each COMPLETED/CACHED trace row (no workflow change); the digest comes from the trace column `container` (added to `trace.fields`); the lock hash is the SHA-256 of `workflow/envs/locks/<tool>.explicit.txt` when the task had no container. `gippa` itself is left out (it is `gippa_version`). Local: `[]` | a | |
 | `databases[]` {name, version, checksum, retrieved, size_bytes} | `<db_dir>/db_manifest.json`, items with `status: ok` (KEGG's `retrieved` is the ADR-0017 date); `db_dir` absent → `[]` | a | |
 | `annotation` {source, bakta_version, db_version, db_type} | `annotation_meta.json` (C4; §7.7.1 `bakta_db = light`) | a | |
 | `detection_tier` | the tier the run used: `genes.tsv` `detection_tier` = `detection_summary.tsv` `tier` (§7.3.2: one tier per run, the same in the manifest and `genes.tsv`). Amended 2026-10-25 (lead, #363): it was preflight's provisional `evidence_tier`, which differs since M4-24 (unscored decoys fall back to `mayu` / `two_peptide`). Preflight's tier stays in `preflight.json`; it is the fallback when neither table yields exactly one tier (absent, empty, unreadable or ambiguous tables: failed or stub runs, a manifest built without tables) | a | |
@@ -90,23 +90,23 @@ run-tail steps out of the topological plan (`TAIL_STEPS = ("manifest",)`) and ca
 | `flags[]` | sorted unique union of: `data.flag` / `data.flags` of every event; `annotation_meta.flags`; `uncalibrated:<key>` (03c) | a (03c adds the calibration source) | |
 | `layers_missing[]` | `<layer>` of each `layer_missing:<layer>` flag, minus layers that an off module explains (decision 7) | a | |
 | `warnings[]` | `preflight:<rule_id>` for each `warn` check; `<step>:<event>` for each WARNING-level event; sorted unique | a | |
-| `volatile[]` | the JSON pointers above (constant `giap.manifest.VOLATILE`) | a | |
+| `volatile[]` | the JSON pointers above (constant `gippa.manifest.VOLATILE`) | a | |
 | `provenance_digest` | SHA-256 of the canonical JSON of the provenance core (D-D) | a | |
 | `sensitivity` {level, n_rows, families: {family: {variant: {n_primary, n_variant, n_shared, jaccard}}}} | `cfg.output.sensitivity` and `tables/sensitivity.tsv`. "Absent" and "header-only" both give `n_rows: 0` (backlog MVP-01 pass 2, M4-19 d7) | c | |
 | `context.replicons[]` {contig, scanned, block_rule, l_hat, block_len, morans_i_lag1, flags} | `context/island_diagnostics.parquet` (ADR-0021 Amendment 1) | c | |
 | `context.oric[]` | `context_stats.oriter.multiple_oric` events | c | |
 | `operons` {pi0, bin_counts} | the `operons.missed_operons` event, with ±∞ → `null` (backlog M6-06/M6-08) | c | |
 | `mapping` {search_db, n_queries} | the `mapping.search_db_resolved` event | c | |
-| `calibration` {key: {calibrated, provenance}} | `src/giap/data/calibration.yaml` through `giap.data.calibration.load()` (§7.1, backlog M2-15) | c | |
+| `calibration` {key: {calibrated, provenance}} | `src/gippa/data/calibration.yaml` through `gippa.data.calibration.load()` (§7.1, backlog M2-15) | c | |
 
 Canonical JSON throughout: `json.dumps(sort_keys=True, indent=2, ensure_ascii=False,
 allow_nan=False)` plus a trailing newline. A NaN or ±∞ reaching the writer is a bug (exit 4), not a
 `NaN` token.
 
 ### D-D. Provenance core, stable view, digest
-- **Provenance core:** `schema_version`, `giap_version`, `git_commit`, `git_dirty`, `publication`,
+- **Provenance core:** `schema_version`, `gippa_version`, `git_commit`, `git_dirty`, `publication`,
   `config` (each `annotation.precomputed.*` value replaced by its file name), `inputs` (without
-  `path`), `databases`, `seeds.master`. All of it is known before launch, so `giap run` writes it to
+  `path`), `databases`, `seeds.master`. All of it is known before launch, so `gippa run` writes it to
   `OUT/work/provenance.json` (D-B step 3). M9-16 can then stage the core into `report` and print
   the same digest that the manifest records later.
 - **Stable view:** the manifest minus `VOLATILE`, with the same path normalisation. Two
@@ -134,7 +134,7 @@ allow_nan=False)` plus a trailing newline. A NaN or ±∞ reaching the writer is
 The event shape is the existing one (`extra={"event": "<step>.run_flag", "data": {"flag": tok}}`;
 the `*.layer_missing` events keep their names). The manifest reads any event whose `data.flag` is a
 string or whose `data.flags` is a list of strings. That covers ADR-0036's `function.run_flags`
-without a special case. `giap.manifest.RUN_FLAGS` lists the registered vocabulary, including the
+without a special case. `gippa.manifest.RUN_FLAGS` lists the registered vocabulary, including the
 `layer_missing:` and `uncalibrated:` prefixes. Tokens pending Khoa are in `RUN_FLAGS_PENDING`.
 
 ## Examples (input → expected output)
@@ -152,7 +152,7 @@ Examples 9–12 are runs.
 | 7 | the event `operons.missed_operons` with `lower_bp: -Infinity` in bin 0 (03c) | `operons.bin_counts[0].lower_bp is None`; `json.dumps(..., allow_nan=False)` succeeds |
 | 8 | `cfg.output.sensitivity = "off"`, sensitivity table header-only **or** absent (03c) | `sensitivity == {"level":"off","n_rows":0,"families":{}}` in both cases |
 | 9 | **local**, SIM100K with every precomputed layer, `--seed 7 --modules core,mobile,bgc` (the `test_m2_21_local_vs_nextflow` setup) | exit 0; `run_manifest.json` validates; `status completed`; `executor local`; `modules_off == ["function"]`; `tools == []`; `inputs[role=genome].sha256` equals `preflight.json`'s; `inputs` has a `precomputed:bakta_json` row; `provenance_digest == sha256(canonical(work/provenance.json))` |
-| 10 | the same arguments with `--executor nextflow --profile farmshare_local` | `stable_view(nextflow) == stable_view(local)` (this is §6.4 extended to the manifest); `steps[*].peak_rss_bytes` present; `tools == []` (all layers precomputed; `giap` left out) |
+| 10 | the same arguments with `--executor nextflow --profile farmshare_local` | `stable_view(nextflow) == stable_view(local)` (this is §6.4 extended to the manifest); `steps[*].peak_rss_bytes` present; `tools == []` (all layers precomputed; `gippa` left out) |
 | 11 | the M2-21 fault: PROMOTECH exits 137 twice (stub) | exit 4; manifest written; `status failed`, `exit_code 4`, `failed_step "promotech"`, `failed_log` ends in `.command.log`; `steps[promotech].status == "failed"`; no `finalize` entry in `steps` |
 | 12 | example 11, then `--resume` without the fault | exit 0; `status completed`, `resume true`; the steps that finished in run 1 have `status cached`; `stable_view` equals that of a fresh run with the same arguments; `logs/events.jsonl` holds each step's events once (the run-1 file is in `events.previous.jsonl`) |
 
@@ -179,13 +179,13 @@ Finalize (03b):
 | The tail fails after a successful graph | exit 4 `step manifest failed`; `logs/manifest.log` holds the traceback |
 | `-resume` | trace rows CACHED → step `status cached` with the original metrics; `resume: true`; flags/warnings from a fresh `events.jsonl` (D-B step 1) are identical to a non-resumed run |
 | Re-run of the local executor into the same OUT | same rotation; `steps` from this run only |
-| No `--db-dir` and no `$GIAP_DB_DIR` | `databases == []`; the KEGG date is not recorded; M9-16 prints "not recorded" |
+| No `--db-dir` and no `$GIPPA_DB_DIR` | `databases == []`; the KEGG date is not recorded; M9-16 prints "not recorded" |
 | `db_manifest.json` in the provisional `{"<name>": ...}` form (read_manifest's second shape) | `databases[]` gets `{name, version}`, with `checksum`/`retrieved` `null` |
 | `trace.tsv` absent (Nextflow died before the first task) | `steps == []`; `status failed`; `failed_step null` |
 | A trace metric `-` or empty | that metric is left out of the step entry (the schema makes them optional), never written as 0 |
 | `versions.yml` missing in a task dir (failed task, `work/` cleaned) | that tool is left out; no error |
 | Two processes report different versions of one tool | one `tools[]` row per (name, version), each with its `processes[]` |
-| An event line that is not JSON | the manifest step fails (exit 4): events.jsonl is GIAP's own output, so a bad line is a bug |
+| An event line that is not JSON | the manifest step fails (exit 4): events.jsonl is GIPPA's own output, so a bad line is a bug |
 | Non-git install (wheel) | `git_commit: null`, `git_dirty: null` |
 | Circular/linear replicons, minus strand | do not apply to the manifest. `context.replicons[]` (03c) keeps C1 order. `genes.tsv` (03b) keeps the §6.5 sort |
 | Empty inputs (a header-only gene table) | `finalize` writes a header-only `genes.tsv`; the manifest has the `no_eligible_genes` flag only if `function` ran |
@@ -200,21 +200,21 @@ Finalize (03b):
   edge-case row that does not need a run.
 - [ ] `tests/unit/manifest/test_stable_view.py`: `stable_view` removes exactly `VOLATILE`;
   `provenance_digest` is stable under key order and changes when one input SHA-256 changes.
-- [ ] `tests/unit/manifest/test_vocabulary.py`: every token emitted anywhere in `src/giap`
+- [ ] `tests/unit/manifest/test_vocabulary.py`: every token emitted anywhere in `src/gippa`
   (constants `*_FLAG`, `LAYER_MISSING`, …) is in `RUN_FLAGS ∪ RUN_FLAGS_PENDING`.
 - [ ] `tests/unit/steps/test_run_flag_events.py`: each D-E "add an event" site emits an event with
   `data.flag`.
 - [ ] Examples 9, 10 (integration, `needs_nextflow`), 11 and 12 (stub variants of
   `test_m2_21_resume_failure.py`): the manifest validates and the stated fields hold. Example 10
   compares `stable_view`s.
-- [ ] Evidence: one Slurm `giap_run.sbatch` on sim100k (real path), job ID in PROGRESS.md; the
+- [ ] Evidence: one Slurm `gippa_run.sbatch` on sim100k (real path), job ID in PROGRESS.md; the
   manifest validates and `tools[]` lists the containerised tools with digests.
 
 03b (finalize):
 - [ ] Examples 13–16. `context_stats` no longer declares `genes_tsv`. The test-author updates the
   tests that pin it: `tests/integration/test_context_stats_step.py`, `context.nf.test`,
   `main_genetable_context.nf.test`. `workflow/tests/finalize.nf.test` is the stub for FINALIZE.
-- [ ] `src/giap/schemas/datapackage.json` becomes the full catalogue (every table and annotation
+- [ ] `src/gippa/schemas/datapackage.json` becomes the full catalogue (every table and annotation
   schema). A test checks that every `schemas/{tables,annotation}/*.schema.json` has exactly one
   resource.
 - [ ] Backlog lines closed: M5-09 d3 (genes.tsv when CONTEXT is skipped) and the M7-03 descriptor
@@ -235,12 +235,12 @@ Finalize (03b):
   `NaN` or `Infinity`.
 - Mutation guard: drop one entry from `VOLATILE` → example 10 fails (it proves that the list is
   needed).
-- `giap _step manifest --in preflight=... --out run_manifest=...` works on its own (registry path).
+- `gippa _step manifest --in preflight=... --out run_manifest=...` works on its own (registry path).
 
 ## Size and split (ADR-0007: code under src/, workflow/, scripts/)
 | Part | Contents | Code lines |
 |---|---|---|
-| **03a** manifest | `giap/manifest.py` (pure builder, `VOLATILE`, `stable_view`, digest, `RUN_FLAGS`) ≈ 170; `giap/io/manifest_sources.py` (trace units, versions.yml, events, db manifest, hashing, strict writer, git) ≈ 90; `steps/manifest.py` + `run_tail` ≈ 35; `cli.py` (events rotation, provenance core, tail under both executors and on failure, local step timing) ≈ 45; the 7 event conversions of D-E ≈ 20; `trace.fields += container` 1; schema JSON ≈ 80 | **≈ 440** |
+| **03a** manifest | `gippa/manifest.py` (pure builder, `VOLATILE`, `stable_view`, digest, `RUN_FLAGS`) ≈ 170; `gippa/io/manifest_sources.py` (trace units, versions.yml, events, db manifest, hashing, strict writer, git) ≈ 90; `steps/manifest.py` + `run_tail` ≈ 35; `cli.py` (events rotation, provenance core, tail under both executors and on failure, local step timing) ≈ 45; the 7 event conversions of D-E ≈ 20; `trace.fields += container` 1; schema JSON ≈ 80 | **≈ 440** |
 | **03b** finalize | `steps/finalize.py` (moves `_with_context`) ≈ 45; the `context_stats` key removal ≈ 10; `finalize.nf` + `main.nf` ≈ 35; datapackage writer + schema copy in the tail ≈ 70; `datapackage.json` catalogue (JSON) ≈ 30 | **≈ 190** |
 | **03c** content blocks | sensitivity / context / oric / operons / mapping / calibration blocks ≈ 80; the `oriter` logger fix and `_plain` ±∞ → null ≈ 10; schema JSON ≈ 40 | **≈ 130** |
 
@@ -275,16 +275,16 @@ merged.
    Alternative: run `finalize`, `plots`, `report` and `manifest` all in the tail. That is simpler and
    executor-identical by construction, but it overturns M9-02's accepted `report.nf` design.
 4. **Proposed default:** the datapackage stays at §9.1's `OUT/schemas/datapackage.json`. Resource
-   `path`s and `schema`s are relative to `OUT`, and GIAP validates with
+   `path`s and `schema`s are relative to `OUT`, and GIPPA validates with
    `frictionless.Package(descriptor, basepath=OUT)`. Checked in the session with frictionless
    5.20: a `../tables/x.tsv` path is rejected as "not safe" even with `trusted=True`, and a naive
    `frictionless validate OUT/schemas/datapackage.json` resolves under `OUT/schemas/`. The user
    guide gives the `--basepath OUT` command. The alternative is Khoa item 2.
-5. **Proposed default:** `giap run` rotates `logs/events.jsonl` to `events.previous.jsonl` at start.
+5. **Proposed default:** `gippa run` rotates `logs/events.jsonl` to `events.previous.jsonl` at start.
    This changes today's append behaviour; the test-author checks `test_mapping_nf_run_events.py`.
 6. **Proposed default:** `provenance_digest` (D-D) is the "manifest digest" that M9-16 prints, not
    the SHA-256 of the file. The file hash changes on every run (timings) and does not exist yet
-   when the in-graph `report` runs. `giap run` writes `OUT/work/provenance.json` before launch so
+   when the in-graph `report` runs. `gippa run` writes `OUT/work/provenance.json` before launch so
    that M9-16 can stage it. M9-16 §6 needs a one-line amendment.
 7. **Proposed default:** a `layer_missing:<layer>` token that an off module explains (`genomad` ↔
    `mobile`, `antismash` ↔ `bgc`) is left out of `flags` and `layers_missing`. The module is listed
@@ -293,7 +293,7 @@ merged.
 8. **Proposed default:** per-step metrics are task sums (`wall_time_s` = Σ realtime, task-seconds,
    not elapsed time), `peak_rss_bytes` = max, last attempt only, with `n_tasks`/`n_retries`. The
    trace is parsed in its human form with the `scripts/measure_runtimes.py` rules, moved into
-   `giap.io.manifest_sources`; `trace.raw` stays off.
+   `gippa.io.manifest_sources`; `trace.raw` stays off.
 9. **Proposed default:** `tools[]` comes from each task's `versions.yml` in its work dir (through
    the trace), with digests from a new trace column `container`. No subworkflow wiring is needed;
    ANNOTATE and NOVEL emit no `versions` channel today.
@@ -318,10 +318,10 @@ merged.
    accepts them and the vocabulary test names them as pending. Nothing blocks.
 2. **Only if the lead rejects decision 4:** moving the descriptor to `OUT/datapackage.json`
    (Frictionless's convention, so a naive validate works) changes the §9.1 output tree in
-   GIAP_SPEC.md (protected) and needs an ADR accepted by Khoa.
+   GIPPA_SPEC.md (protected) and needs an ADR accepted by Khoa.
 3. **No protected file is touched otherwise.** There are no new config keys (`defaults.yaml`
    unchanged) and no calibration or tolerance changes. The manifest schema is additive, and
-   `src/giap/schemas/` is not in `ci/protected.txt`.
+   `src/gippa/schemas/` is not in `ci/protected.txt`.
 
 ## Questions for the lead (gaps in the spec)
 1. §6.7 "warnings": should these be the human messages, or the machine IDs proposed here
@@ -351,13 +351,13 @@ merged.
 
 15. The strict `MVP03C` xfail marks in the 03a tests are removed by the lead once 03c's
     implementation lands (they will XPASS); the implementer reports which ones pass.
-16. Under the local executor the CLI tests use `fake_giap_root` for a setup-form db; the sim100k
+16. Under the local executor the CLI tests use `fake_gippa_root` for a setup-form db; the sim100k
     integration keeps the provisional test db (`retrieved` null there).
 17. `operons` and `mapping` are null when no event exists; `context` holds empty lists. A stub
     `mapping.search_db_resolved` event with no values gives `mapping = null`.
 18. `context.oric` is sorted by contig; `context.replicons` keeps C1 order.
 19. The `calibration` source defaults to None (no `uncalibrated:` flags) so the 03a exact-flag
-    tests stay green; the run tail and `giap _step manifest` pass `calibration.load()`.
+    tests stay green; the run tail and `gippa _step manifest` pass `calibration.load()`.
 20. **Lead edits after the 03c implementation (2bb97710):**
     - The 11 strict `MVP03C` xfail marks are removed (decision 15).
     - `test_operons_step.py::test_decision_6_event_records_pi0_and_bin_counts` compares a
@@ -365,7 +365,7 @@ merged.
     - A 0-byte output (a `-stub-run` `touch`) reads as absent.
     - Of several distinct `operons.missed_operons` / `mapping.search_db_resolved` payloads, the
       last one in file order wins.
-    - `giap _step manifest` still writes `databases: []`; this is a backlog item.
+    - `gippa _step manifest` still writes `databases: []`; this is a backlog item.
 21. **Review on #236 (lead fixes):**
     - B1: an unreadable `versions.yml` (YAML or UTF-8 error) is skipped with a warning, so the run
       tail never fails on it.

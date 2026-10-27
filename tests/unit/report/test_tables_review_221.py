@@ -6,9 +6,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.report import tables
+from gippa.report import tables
 
-SRC = Path(__file__).resolve().parents[3] / "src" / "giap"
+SRC = Path(__file__).resolve().parents[3] / "src" / "gippa"
 JS = SRC / "report" / "templates" / "tables.js"
 
 
@@ -37,7 +37,7 @@ def test_js_maps_inf_to_infinity() -> None:
 
 
 def test_report_budget_is_decimal_25_mb() -> None:
-    from giap.steps.plots import REPORT_BUDGET
+    from gippa.steps.plots import REPORT_BUDGET
 
     assert REPORT_BUDGET == 25_000_000
 

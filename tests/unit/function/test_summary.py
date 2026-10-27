@@ -1,7 +1,7 @@
-"""M8-04b: ``category_summary`` (docs/specs/M8-04 §3; GIAP_SPEC.md §7.7.2, §9.3; unchanged by
+"""M8-04b: ``category_summary`` (docs/specs/M8-04 §3; GIPPA_SPEC.md §7.7.2, §9.3; unchanged by
 ADR-0029 and ADR-0035).
 
-Interface pinned here (module ``giap.function.summary``):
+Interface pinned here (module ``gippa.function.summary``):
 ``category_summary(genes, colls, B, rng) -> DataFrame`` with the §9.3 columns plus ``flags``
 (``SUMMARY_COLUMNS``); one row per category of the ``cog``, ``kegg`` and ``go_slim`` collections
 (others are ignored), every category whatever its size, sorted by collection in that order, then
@@ -32,8 +32,8 @@ import pandas as pd
 import pytest
 from helpers.ora_data import SUMMARY_COLUMNS, Gene, as_list, frame, gene_sets, summary
 
-from giap.rng import for_step
-from giap.stats.bootstrap import tu_block_bootstrap
+from gippa.rng import for_step
+from gippa.stats.bootstrap import tu_block_bootstrap
 
 STREAM = "function.bootstrap"
 B = 200

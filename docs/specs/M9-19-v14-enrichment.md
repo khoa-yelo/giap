@@ -54,9 +54,9 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
 | Situation | Behaviour |
 |---|---|
 | `function` module off | skip `module_off:function` |
-| `layer_missing:go;kegg;cog` (no resources) | header-only tables → empty state "No annotation resources installed (giap setup --go --kegg --cog)" |
+| `layer_missing:go;kegg;cog` (no resources) | header-only tables → empty state "No annotation resources installed (gippa setup --go --kegg --cog)" |
 | no abundance (`enrichment_gsea` header-only) | panels (a), (b) "no abundance input"; (c) drawn |
-| `gsea_running` absent (old run, or `giap report` before M9-17) | panel (a) "running scores not available"; (b), (c) drawn |
+| `gsea_running` absent (old run, or `gippa report` before M9-17) | panel (a) "running scores not available"; (b), (c) drawn |
 | support `running_es` max deviation ≠ table `es` (> 1e-9) | the plot raises (a data mismatch is a bug, exit 4) |
 | q = 0 (cannot happen: fgsea p ≥ floor) | guarded: −log₁₀ capped at the p floor and noted |
 | only `under` rows significant | panel (c) shows them; colours as above |

@@ -1,4 +1,4 @@
-"""``operons.tsv``: one row per C5 TU (issue M6-07 step 5; GIAP_SPEC.md §7.4.7, §9.3;
+"""``operons.tsv``: one row per C5 TU (issue M6-07 step 5; GIPPA_SPEC.md §7.4.7, §9.3;
 docs/specs/M6-07-flags-and-operons-table.md example 11 and the degenerate cases).
 
 Readings this file pins (the spec leaves them open):
@@ -26,8 +26,8 @@ import pandas as pd
 import pytest
 from helpers.flags_data import cfg, chain_pairs, gene_table, tu, tus
 
-from giap.operons import flags as fl
-from giap.operons import tu_table as tt
+from gippa.operons import flags as fl
+from gippa.operons import tu_table as tt
 
 ROOT = Path(__file__).resolve().parents[3]
 OPERON_COLUMNS = (
@@ -53,7 +53,7 @@ def _by_id(out: pd.DataFrame) -> pd.DataFrame:
 def test_operon_columns_match_spec_9_3() -> None:
     line = next(
         ln
-        for ln in (ROOT / "GIAP_SPEC.md").read_text(encoding="utf-8").splitlines()
+        for ln in (ROOT / "GIPPA_SPEC.md").read_text(encoding="utf-8").splitlines()
         if ln.startswith("**`tables/operons.tsv`:**")
     )
     cols = tuple(re.findall(r"`([^`]+)`", line))[1:]

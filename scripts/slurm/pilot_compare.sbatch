@@ -1,24 +1,24 @@
 #!/bin/bash
-#SBATCH --job-name=giap-pilot-compare
+#SBATCH --job-name=gippa-pilot-compare
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
 #SBATCH --time=01:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
-# giap compare of the pilot arms, twice, then rule set C (M10-04; three arms: M10-10).
+# gippa compare of the pilot arms, twice, then rule set C (M10-04; three arms: M10-10).
 #
-#   sbatch -J giap-pilot-compare scripts/slurm/pilot_compare.sbatch OUT_A1 OUT_A2 CMP
-#   sbatch -J giap-pilot-compare3 scripts/slurm/pilot_compare.sbatch OUT_A1 OUT_A2 OUT_A3 CMP
+#   sbatch -J gippa-pilot-compare scripts/slurm/pilot_compare.sbatch OUT_A1 OUT_A2 CMP
+#   sbatch -J gippa-pilot-compare3 scripts/slurm/pilot_compare.sbatch OUT_A1 OUT_A2 OUT_A3 CMP
 #
 # CMP must not exist (no merging into stale output). The second compare goes to $TMPDIR/cmp2 and
 # must be byte-identical (rule C6). The evidence goes to $(dirname CMP)/evidence/compare.json
 # (labels A1,A2) or compare3.json (labels A1,A2,A3). With three arms, pass 1's
 # $(dirname OUT_A1)/cmp_a1_a2, when it exists, is the reference of rule C7 (a warning only).
-# Exit codes: 2 bad arguments; the first giap compare's code when it fails (1: CompareInputError);
+# Exit codes: 2 bad arguments; the first gippa compare's code when it fails (1: CompareInputError);
 # else run_evidence.py's (0 pass, 1 a rule of set C failed).
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 set -f
 
 usage() {
@@ -39,9 +39,9 @@ if [ -e "$CMP" ]; then
   exit 2
 fi
 
-GIAP_PYTHON="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
-export PYTHONPATH="$GIAP_REPO/src"
-TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/giap.XXXXXX")"; export TMPDIR
+GIPPA_PYTHON="${GIPPA_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
+export PYTHONPATH="$GIPPA_REPO/src"
+TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/gippa.XXXXXX")"; export TMPDIR
 trap 'rm -rf "$TMPDIR"' EXIT
 EVIDENCE="$(dirname "$CMP")/evidence/$NAME"
 PAIR_ARGS=()
@@ -50,27 +50,27 @@ if [ $# -eq 4 ] && [ -d "$PAIR_CMP" ]; then
   PAIR_ARGS=(--pair-cmp "$PAIR_CMP")
 fi
 
-giap_compare() {  # OUTDIR
-  "$GIAP_PYTHON" -c 'from giap.cli import cli; cli()' compare "${RUNS[@]}" \
+gippa_compare() {  # OUTDIR
+  "$GIPPA_PYTHON" -c 'from gippa.cli import cli; cli()' compare "${RUNS[@]}" \
     --outdir "$1" --labels "$LABELS"
 }
 
 rc=0
-giap_compare "$CMP" || rc=$?
+gippa_compare "$CMP" || rc=$?
 if [ "$rc" -ne 0 ]; then
-  echo "giap compare exited $rc" >&2
+  echo "gippa compare exited $rc" >&2
   exit "$rc"
 fi
 rc=0
-giap_compare "$TMPDIR/cmp2" || rc=$?
+gippa_compare "$TMPDIR/cmp2" || rc=$?
 if [ "$rc" -ne 0 ]; then
-  echo "the second giap compare exited $rc" >&2
+  echo "the second gippa compare exited $rc" >&2
   exit "$rc"
 fi
 
 rc=0
 # ${PAIR_ARGS[@]+...}: bash 3.2 (macOS CI) never expands an empty array under `set -u`
-"$GIAP_PYTHON" "$GIAP_REPO/validation/pilot/run_evidence.py" compare "$CMP" \
+"$GIPPA_PYTHON" "$GIPPA_REPO/validation/pilot/run_evidence.py" compare "$CMP" \
   --second "$TMPDIR/cmp2" --labels "$LABELS" --genes "$OUT_A1/tables/genes.tsv" \
   ${PAIR_ARGS[@]+"${PAIR_ARGS[@]}"} --out "$EVIDENCE" || rc=$?
 echo "evidence: $EVIDENCE (exit $rc)"

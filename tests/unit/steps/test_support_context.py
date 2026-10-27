@@ -15,7 +15,7 @@ Readings pinned here (test author; contract in tests/helpers/support_analysis_da
   the step's null is NaN; ``observed`` its observed value, so ``perm_p(observed, null)`` is the
   table's ``p_value``. Example 4 on the fixture: a circular replicon with N eligible genes and
   every shift used gives N - 1 rows per stat, ``shift_k`` 1..N - 1.
-* **Q2.** ``giap.steps.context_stats.NULL_REGIONS_MAX_BYTES`` (5 x 2^20) bounds the written
+* **Q2.** ``gippa.steps.context_stats.NULL_REGIONS_MAX_BYTES`` (5 x 2^20) bounds the written
   exhaustive file; at or above it the step writes the 1st-99th percentile grid instead, and the
   header says so: the third column is ``percentile`` (1..99) instead of ``shift_k`` (one §9.2
   header row; no comment line). Grid values are numpy's default (linear) percentiles of the
@@ -54,8 +54,8 @@ def _cfg(**over: Any) -> Any:
 
 def _inputs(work: Path) -> dict[str, Path]:
     """What ``run_context_stats`` passes (contract tables, gene table, the summary parts, C15)."""
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
-    from giap.steps.gene_table import contract_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.steps.gene_table import contract_paths
 
     ins = contract_paths(work)
     ins |= {k: p for k, p in default_paths(work).items()
@@ -82,8 +82,8 @@ TABLE_OUTPUTS = {
 
 
 def _run(work: Path, out: Path, *, support: bool = True, cfg: Any = None) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outs = {k: out / v for k, v in TABLE_OUTPUTS.items()}
@@ -164,10 +164,10 @@ def test_validates_against_its_schema(full: dict[str, Path], name: str) -> None:
     import json
 
     frictionless = pytest.importorskip("frictionless")
-    import giap.schemas
+    import gippa.schemas
 
     path = sa.need(full[KEY], name)
-    d = json.loads((Path(giap.schemas.__file__).parent / "plot_support" / f"{name}.json")
+    d = json.loads((Path(gippa.schemas.__file__).parent / "plot_support" / f"{name}.json")
                    .read_text(encoding="utf-8"))  # fmt: skip
     d = {k: v for k, v in d.items() if k != "coordinates"}
     res = frictionless.Resource(path=path.name, basepath=str(path.parent), format="tsv",
@@ -180,7 +180,7 @@ def test_validates_against_its_schema(full: dict[str, Path], name: str) -> None:
 
 
 def test_q2_size_bound_constant() -> None:
-    from giap.steps import context_stats
+    from gippa.steps import context_stats
 
     assert context_stats.NULL_REGIONS_MAX_BYTES == sa.NULL_REGIONS_MAX_BYTES
 
@@ -197,7 +197,7 @@ def test_example_4_n_minus_1_shifts_per_stat(
 ) -> None:
     """Circular chromosome, every shift used (N <= exhaustive_shift_max_genes): N - 1 rows per
     stat, ``shift_k`` = 1..N - 1; the O - E null has no NA, the HL null has ``n_perm`` values."""
-    from giap.context.regions import replicon_index
+    from gippa.context.regions import replicon_index
 
     for _, r in regions.iterrows():
         n = len(replicon_index(genes, r["contig"]))
@@ -212,7 +212,7 @@ def test_example_4_n_minus_1_shifts_per_stat(
 def test_observed_constant_and_perm_p_is_the_table_p(
     nulls: pd.DataFrame, regions: pd.DataFrame
 ) -> None:
-    from giap.stats.permutation import perm_p
+    from gippa.stats.permutation import perm_p
 
     for _, r in regions.iterrows():
         grp = nulls[(nulls["region_id"] == r["region_id"]) & (nulls["stat"] == r["stat"])]
@@ -230,7 +230,7 @@ def test_o_minus_e_null_is_the_studentised_statistic(
 ) -> None:
     """ADR-0018: the observed O - E statistic is (O - E) / sqrt(sum p (1 - p)), not the
     reported effect."""
-    from giap.context.regions import replicon_index
+    from gippa.context.regions import replicon_index
 
     rg = pd.read_parquet(work / "region_genes.parquet")
     for _, r in regions[regions["stat"] == "o_minus_e"].iterrows():
@@ -245,7 +245,7 @@ def test_o_minus_e_null_is_the_studentised_statistic(
 def test_k_zero_region_has_no_rows(work: Path, tmp_path: Path) -> None:
     """A region whose replicon gives K = 0 shifts (here: a region with no eligible gene, n_perm
     0) has no null rows; the others keep theirs."""
-    from giap.io.work_tables import default_paths
+    from gippa.io.work_tables import default_paths
 
     w = tmp_path / "w"
     import shutil
@@ -271,7 +271,7 @@ def test_q2_percentile_grid_above_the_bound(
 ) -> None:
     """Above the bound: 99 rows per (region, stat), ``percentile`` 1..99, the null's
     percentiles, the same observed value; the header names the grid."""
-    from giap.steps import context_stats
+    from gippa.steps import context_stats
 
     monkeypatch.setattr(context_stats, "NULL_REGIONS_MAX_BYTES", 1)
     out = _run(work, tmp_path / "grid")
@@ -303,10 +303,10 @@ def test_q2_exhaustive_below_the_bound(full: dict[str, Path]) -> None:
 @pytest.fixture(scope="module")
 def scan(work: Path, genes: pd.DataFrame) -> Any:
     """``scan_replicons`` as the step calls it (stream ``context_stats.islands``, drawn first)."""
-    from giap.context.islands import scan_replicons, tu_series
-    from giap.context.regions import replicon_index
-    from giap.io.work_tables import M4_INPUT_KEYS, load_m4_inputs
-    from giap.rng import for_step
+    from gippa.context.islands import scan_replicons, tu_series
+    from gippa.context.regions import replicon_index
+    from gippa.io.work_tables import M4_INPUT_KEYS, load_m4_inputs
+    from gippa.rng import for_step
 
     cfg = _cfg()
     ins = _inputs(work)
@@ -384,9 +384,9 @@ def _split_inputs() -> tuple[Any, ...]:
 
 def _split_written(tmp: Path) -> tuple[pd.DataFrame, list[Any], Path]:
     """(regions_stats table, the step's RegionNulls, the support dir) through the step's writer."""
-    import giap.steps.context_stats as cs
-    from giap.context.regions import region_tests
-    from giap.context.regions_table import plasmid_rows, regions_stats, subset_rows
+    import gippa.steps.context_stats as cs
+    from gippa.context.regions import region_tests
+    from gippa.context.regions_table import plasmid_rows, regions_stats, subset_rows
 
     genes, regions, rg, reps, cfg = _split_inputs()
     tests, nulls = region_tests(genes, regions, rg, reps, cfg, np.random.default_rng(3))
@@ -412,7 +412,7 @@ def _null_of(nulls: list[Any], rid: str, contig: str, stat: str) -> Any:
 def test_split_region_exhaustive_one_null_per_contig(tmp_path: Path) -> None:
     """Review B2 (kills M14): a region on two replicons gives one (region, contig, stat) group
     per contig, each with its own shifts 1..N_c - 1, its own null and its own observed value."""
-    from giap.stats.permutation import perm_p
+    from gippa.stats.permutation import perm_p
 
     table, nulls, out = _split_written(tmp_path)
     path = sa.need(out, "null_regions")
@@ -444,7 +444,7 @@ def test_split_region_grid_one_null_per_contig(
 ) -> None:
     """Review B2, grid form: the same two groups per stat, each the 1st-99th percentiles of its
     own contig's finite null and its own observed value."""
-    import giap.steps.context_stats as cs
+    import gippa.steps.context_stats as cs
 
     monkeypatch.setattr(cs, "NULL_REGIONS_MAX_BYTES", 0)
     table, nulls, out = _split_written(tmp_path)
@@ -475,7 +475,7 @@ def _exhaustive(groups: dict[tuple[str, str, str], tuple[list[float], float]]) -
 
 
 def _grid_of(ex: pd.DataFrame, key: tuple[str, str, str]) -> pd.DataFrame:
-    from giap.context.support import null_regions_grid
+    from gippa.context.support import null_regions_grid
 
     g = null_regions_grid(ex)
     assert list(g.columns) == list(sa.GRID_COLUMNS)
@@ -523,8 +523,8 @@ def test_grid_drops_infinite_values_before_percentiles() -> None:
 def test_grid_all_nan_null_writes_na_rows(tmp_path: Path) -> None:
     """Review N5: a group whose null is all NaN gives NA ``null_value`` rows (no crash); the
     other groups are unaffected and the file is written."""
-    from giap.context.support import null_regions_grid
-    from giap.io.plot_support import write_support
+    from gippa.context.support import null_regions_grid
+    from gippa.io.plot_support import write_support
 
     nan_key = ("r1", "chr1", "hl_shift")
     ok_key = ("r1", "chr1", "o_minus_e")
@@ -546,14 +546,14 @@ def test_grid_form_validates_against_the_grid_schema(
     import json
 
     frictionless = pytest.importorskip("frictionless")
-    import giap.schemas
-    from giap.steps import context_stats
+    import gippa.schemas
+    from gippa.steps import context_stats
 
     monkeypatch.setattr(context_stats, "NULL_REGIONS_MAX_BYTES", 1)
     out = _run(work, tmp_path / "grid")
     path = sa.need(out[KEY], "null_regions")
     assert sa.header(path) == list(sa.GRID_COLUMNS)
-    spath = Path(giap.schemas.__file__).parent / "plot_support" / f"{GRID_SCHEMA}.json"
+    spath = Path(gippa.schemas.__file__).parent / "plot_support" / f"{GRID_SCHEMA}.json"
     assert spath.is_file(), f"missing grid schema {spath}"
     d = json.loads(spath.read_text(encoding="utf-8"))
     res = frictionless.Resource(path=path.name, basepath=str(path.parent), format="tsv",
@@ -568,9 +568,9 @@ def test_no_hl_null_when_hl_variance_nonpositive(
     """Statistician N2 = review N8: an HL row flagged ``hl_variance_nonpositive`` (p NA) has no
     null to plot, so ``region_tests`` returns none for it and ``null_regions`` writes none; the
     O - E null of the same region stays."""
-    from giap.context import regions as R
-    from giap.context.regions_table import plasmid_rows, regions_stats, subset_rows
-    from giap.context.support import null_regions
+    from gippa.context import regions as R
+    from gippa.context.regions_table import plasmid_rows, regions_stats, subset_rows
+    from gippa.context.support import null_regions
 
     orig = R._hl_t
 
@@ -598,7 +598,7 @@ def test_null_islands_observed_max_is_the_largest_absolute_s() -> None:
     extreme window is negative; ``direction`` is ``abs``."""
     from types import SimpleNamespace
 
-    from giap.context.support import null_islands
+    from gippa.context.support import null_islands
 
     scan = SimpleNamespace(
         series=(SimpleNamespace(contig="chr1"), SimpleNamespace(contig="p1")),

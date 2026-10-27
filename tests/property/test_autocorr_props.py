@@ -1,4 +1,4 @@
-"""Hypothesis properties of the autocorrelation engine (issue M5-02; GIAP_SPEC.md §7.3.5(c), §7.3.6,
+"""Hypothesis properties of the autocorrelation engine (issue M5-02; GIPPA_SPEC.md §7.3.5(c), §7.3.6,
 §8.3; docs/specs/M5-02-stats-moran-joincount.md acceptance criteria, lead decision 7).
 
 - every TU-block permutation row is a permutation of 0 ... n - 1, keeps each block contiguous
@@ -24,7 +24,7 @@ import numpy as np
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.autocorr import (
+from gippa.stats.autocorr import (
     block_len_prime,
     choose_block_len,
     join_count,
@@ -38,7 +38,7 @@ from giap.stats.autocorr import (
     tu_block_permutations,
     tu_blocks,
 )
-from giap.stats.permutation import perm_p
+from gippa.stats.permutation import perm_p
 
 FAST = settings(max_examples=150, deadline=None)
 SEED = st.integers(0, 2**32 - 1)

@@ -1,15 +1,15 @@
 # Novel ORFs (M7)
 
 Status: §"Class FDR" written for the statistician's round-2 review of PR #237 (M7-11). Code:
-`src/giap/novel/fdr.py` (pure); the `novel_orfs` step wiring (M7-11b, PR #256) is
-`src/giap/novel/class_call.py` and §"Wiring in the `novel_orfs` step". Spec: GIAP_SPEC.md §7.6.4,
+`src/gippa/novel/fdr.py` (pure); the `novel_orfs` step wiring (M7-11b, PR #256) is
+`src/gippa/novel/class_call.py` and §"Wiring in the `novel_orfs` step". Spec: GIPPA_SPEC.md §7.6.4,
 §7.9.2, §8.1, §8.2; ADR-0009, ADR-0010; docs/specs/M7-11-novel-class-fdr.md, lead decisions 1–14;
 docs/specs/M7-11b-class-fdr-wiring.md, lead decisions 1–7.
 
 ## Class FDR
 
 Novel peptides have a lower prior than annotated ones, so the global search FDR understates their
-error (§7.6.4). GIAP therefore estimates the error of a novel-ORF call **within its class**
+error (§7.6.4). GIPPA therefore estimates the error of a novel-ORF call **within its class**
 (`intergenic`, `cds_outframe`, `antisense`, `nterm_extension`), with `stats.alpha.novel_orfs`
 (0.01) as the call threshold.
 
@@ -18,7 +18,7 @@ The regime is chosen per ORF from the source of its peptides, database first.
 
 - `picked_decoy`: the run has decoy rows whose stripped protein IDs (longest
   `input.decoy_prefixes` match removed) are class-tagged `makedb` IDs
-  `GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`, and the ORF has at least one database
+  `GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}`, and the ORF has at least one database
   (non-`denovo`) peptide.
 - `denovo_subgroup`: otherwise, when the ORF has a de novo peptide.
 - `unestimated`: everything else, for example decoys from a Bakta-protein search
@@ -59,7 +59,7 @@ their decoy count as decoy wins.
 
 **Unscored rows (decision 11, as M4-24).** C9 allows a missing `q_value` and a missing `score`.
 Mapping a missing q to +∞ would rank an unscored decoy below every target and silently give D = 0.
-In the statistician's all-null attack, 400 of 400 null ORFs then reached q ≤ 0.05. GIAP therefore
+In the statistician's all-null attack, 400 of 400 null ORFs then reached q ≤ 0.05. GIPPA therefore
 ranks a class only on a key that every target and decoy row of that class carries:
 - (q ascending, then score descending) when every q is finite;
 - otherwise score alone, when every score is finite;
@@ -127,8 +127,8 @@ and a per-ORF Bonferroni over peptides (decision 3). A strict xfail in
 `tests/calibration/attacks/test_attack_novel_class_fdr.py` flags any change to decision 3.
 
 ### Wiring in the `novel_orfs` step (M7-11b)
-Code: `src/giap/novel/class_call.py`, `giap.novel.evidence.class_rules` and `_call`,
-`src/giap/steps/novel.py`. Spec: docs/specs/M7-11b-class-fdr-wiring.md, lead decisions 1–7.
+Code: `src/gippa/novel/class_call.py`, `gippa.novel.evidence.class_rules` and `_call`,
+`src/gippa/steps/novel.py`. Spec: docs/specs/M7-11b-class-fdr-wiring.md, lead decisions 1–7.
 
 **Inputs.** The step reads the C9 `peptides` (picked regime), and for the de novo regime it reads
 `placement_costs`, `hits_exact` and `hits_tolerant`. All are optional. Without `peptides`, every
@@ -259,7 +259,7 @@ false ORFs per class, 3–5 wrong reads each; R = 300) the ORF-level FDP was 0.0
 `cds_outframe` and `antisense` at both q = 0.01 and 0.05, and 0.015–0.017 for `intergenic` at 0.01.
 The exact reads account for the excess; error-bearing reads alone leave only a small excess at q =
 0.01. The size of the excess scales with how many such errors a run contains, so it is not a
-prediction for real data. GIAP therefore does not claim class-FDR control against exact systematic
+prediction for real data. GIPPA therefore does not claim class-FDR control against exact systematic
 de novo errors. q values and calls are unchanged. Calls that this limitation can affect carry
 `denovo_only_unsupported` unless chance RBS support exempts them (below): every peptide is de novo,
 none is a database PSM, and there is no RBS support beyond what the class rule already requires. RBS
@@ -269,7 +269,7 @@ ORF that reached q ≤ 0.05 passed it in 12 of 199 `cds_outframe` rows (0.060) a
 `intergenic` and `nterm_extension` are never exempt. The flag is therefore a pointer to an evidence
 gap, not a second error estimate: flagged calls are not estimated to be false, and unflagged de
 novo-only calls are not estimated to be correct. In a run with only de novo input nearly every call
-carries it. Users who need such calls should confirm them by a database search against the `giap
+carries it. Users who need such calls should confirm them by a database search against the `gippa
 makedb` six-frame database, or by independent evidence.
 
 ### Limitations

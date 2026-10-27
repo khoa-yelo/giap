@@ -15,7 +15,7 @@ Milestone M2 · depends on: M2-03 · estimate ≈ 240 code lines (tests not coun
 
 ## Public interface
 
-`src/giap/annotate/user_annotation.py`
+`src/gippa/annotate/user_annotation.py`
 ```python
 AnnotationFormat = Literal["bakta_json", "gff3", "gbff"]
 

@@ -5,7 +5,7 @@ Milestone M2 · depends on: M2-04 (genes, ribosomal set, tRNA counts) · estimat
 
 ## Spec sections implemented
 
-- §7.1.1: "Codon usage | codon-bias 0.5.0 (MIT, PyPI) | main GIAP env, in-process | library calls |
+- §7.1.1: "Codon usage | codon-bias 0.5.0 (MIT, PyPI) | main GIPPA env, in-process | library calls |
   CAI, tAI, ENC, Fop, GC3, codon-pair bias".
 - §7.1.6: "**codon-bias.** CAI (reference = ribosomal-protein genes); tAI (tRNA gene copy numbers);
   ENC; Fop (optimal codons from the reference set); GC3; codon-pair bias (reference = all CDS).
@@ -17,7 +17,7 @@ Milestone M2 · depends on: M2-04 (genes, ribosomal set, tRNA counts) · estimat
 
 ## Public interface
 
-`src/giap/annotate/codon_usage.py`; step `codon_usage`.
+`src/gippa/annotate/codon_usage.py`; step `codon_usage`.
 ```python
 @dataclass(frozen=True, slots=True)
 class CodonFeatures:
@@ -91,7 +91,7 @@ when ≥ 10 codons exist.
 
 ## Lead decisions after code review (PR #86, changes requested)
 4. Run flags are stored, not only logged: `cai_reference_missing` (and any other codon-usage run flag)
-   goes into the codon.parquet file metadata (key `giap_flags`, JSON list) so M2-20/report can read it.
+   goes into the codon.parquet file metadata (key `gippa_flags`, JSON list) so M2-20/report can read it.
 5. Only genetic code 11 is accepted; any other table raises ValueError (table 1 and table 4 tested).
 6. `gc3` returns None (not ZeroDivisionError) when no third position is A/C/G/T.
 7. codon-bias RuntimeWarnings for genes with nothing to weight are suppressed and logged once as a count.

@@ -13,7 +13,7 @@ Pins the lead decisions on the review of 1f5fba6 (docs/specs/M9-09-v02-v10-lands
 
 plus the cheap NIT pins of the review (mutants L7, L11, L12, L14, C4, C13, C9).
 
-Oracles are the fixture rows and ``giap.stats.smooth.loess_detrend`` (the spec's example 1 oracle).
+Oracles are the fixture rows and ``gippa.stats.smooth.loess_detrend`` (the spec's example 1 oracle).
 """
 
 from __future__ import annotations
@@ -41,12 +41,12 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.stats.smooth import loess_detrend
-from giap.viz import style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.stats.smooth import loess_detrend
+from gippa.viz import style
+from gippa.viz.base import Instance, Skip
 
 NOT_ESTIMABLE = "Autocorrelation not estimable on this genome"
 CHR_A: Replicon = ("chrA", 100_000, "circular", "chromosome")
@@ -62,16 +62,16 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 @pytest.fixture
-def cfg1() -> GiapConfig:
+def cfg1() -> GippaConfig:
     return resolve_config(overrides=[FRAC1])
 
 
-def _render(pid: str, out: Path, cfg: GiapConfig) -> Instance:
+def _render(pid: str, out: Path, cfg: GippaConfig) -> Instance:
     result = plot_spec(pid).fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -136,7 +136,7 @@ def _flag_lags(rows: list[dict], statistic: str, lags: set[int], flags: str, zer
 
 
 def test_all_not_estimable_contig_with_zero_join_counts_is_the_empty_state(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """chrB as the producer writes it (join count 0, zero nulls, q NA, ``not_estimable``): both
     panels carry the note and no marker, beside an estimable chrA (review B1)."""
@@ -152,7 +152,7 @@ def test_all_not_estimable_contig_with_zero_join_counts_is_the_empty_state(
     assert len(markers(_ax(inst, "b:chrA"))) == 20
 
 
-def test_flagged_rows_are_na_even_when_every_value_is_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_flagged_rows_are_na_even_when_every_value_is_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     """Moran's I written as 0 too: flags decide, not finiteness; the title is not estimable."""
     rows = correlogram_rows("chrA")
     _flag_lags(rows, "morans_i", set(range(1, 21)), "ci_unestimated;few_values;not_estimable", True)
@@ -168,7 +168,7 @@ def test_flagged_rows_are_na_even_when_every_value_is_zero(tmp_path: Path, cfg: 
 
 @pytest.mark.parametrize("flags", [NE_FLAGS, "ci_unestimated;few_values"])
 def test_mixed_contig_draws_only_the_estimable_lags(
-    tmp_path: Path, cfg: GiapConfig, flags: str
+    tmp_path: Path, cfg: GippaConfig, flags: str
 ) -> None:
     """Join count lags 11-20 written as 0 and flagged: markers at lags 1-10 only, no note; Moran's
     I lags 15-20 flagged with their finite values kept: markers at lags 1-14 only."""
@@ -184,7 +184,7 @@ def test_mixed_contig_draws_only_the_estimable_lags(
     assert sorted(x for x, _, _, _ in markers(a)) == [float(lag) for lag in range(1, 15)]
 
 
-def test_a_flagged_lag1_row_is_not_the_title_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_a_flagged_lag1_row_is_not_the_title_row(tmp_path: Path, cfg: GippaConfig) -> None:
     """chrA's Moran's I is all flagged (written as 0): the title falls through to chrB."""
     rows = [*correlogram_rows("chrA"), *correlogram_rows("chrB")]
     for r in rows:
@@ -240,7 +240,7 @@ def _landmark_out(tmp: Path) -> Path:
     return out
 
 
-def test_landmarks_are_drawn_from_the_support_file(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_landmarks_are_drawn_from_the_support_file(tmp_path: Path, cfg: GippaConfig) -> None:
     """Positive control for the layout tests: the oriC and ter rows and legend entries exist."""
     inst = _render("V02", _landmark_out(tmp_path), cfg)
     kinds = set(inst.data["kind"].astype(str))
@@ -253,14 +253,14 @@ def _legends(fig: Figure) -> list:  # type: ignore[type-arg]
     return [*fig.legends, *[ax.get_legend() for ax in fig.axes if ax.get_legend()]]
 
 
-def test_legend_with_landmarks_overlaps_no_text(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_legend_with_landmarks_overlaps_no_text(tmp_path: Path, cfg: GippaConfig) -> None:
     """Review B2: with the oriC/ter entries the legend ran into the suptitle."""
     inst = _render("V02", _landmark_out(tmp_path), cfg)
     assert text_overlaps(inst.figure) == []
 
 
 def test_legend_with_landmarks_stays_off_the_title_and_the_data(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """The legend box intersects neither the suptitle's box nor any panel's data area
     (decision 22: below the axes or in reserved space)."""
@@ -283,7 +283,7 @@ def test_legend_with_landmarks_stays_off_the_title_and_the_data(
             assert not (w > 1.0 and h > 1.0), f"legend overlaps {name}"
 
 
-def test_landmark_figure_keeps_every_text_inside(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_landmark_figure_keeps_every_text_inside(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render("V02", _landmark_out(tmp_path), cfg)
     assert _drawn_outside_figure(inst.figure) == []
 
@@ -298,7 +298,7 @@ def _many(n: int) -> tuple[Replicon, ...]:
     )
 
 
-def _many_inst(tmp: Path, n: int, cfg: GiapConfig) -> Instance:
+def _many_inst(tmp: Path, n: int, cfg: GippaConfig) -> Instance:
     reps = _many(n)
     rows = [r for rep in reps for r in correlogram_rows(rep[0])]
     return _render("V10", _v10_out(tmp, rows, reps), cfg)
@@ -306,7 +306,7 @@ def _many_inst(tmp: Path, n: int, cfg: GiapConfig) -> Instance:
 
 @pytest.mark.parametrize("n", [4, 6])
 def test_many_replicons_wrap_into_rows_of_at_most_3(
-    tmp_path: Path, cfg: GiapConfig, n: int
+    tmp_path: Path, cfg: GippaConfig, n: int
 ) -> None:
     inst = _many_inst(tmp_path, n, cfg)
     reps = [r[0] for r in _many(n)]
@@ -331,13 +331,13 @@ def test_many_replicons_wrap_into_rows_of_at_most_3(
 
 
 @pytest.mark.parametrize("n", [4, 6])
-def test_many_replicons_have_no_text_overlaps(tmp_path: Path, cfg: GiapConfig, n: int) -> None:
+def test_many_replicons_have_no_text_overlaps(tmp_path: Path, cfg: GippaConfig, n: int) -> None:
     inst = _many_inst(tmp_path, n, cfg)
     assert text_overlaps(inst.figure) == []
     assert _drawn_outside_figure(inst.figure) == []
 
 
-def test_figure_height_grows_with_the_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_figure_height_grows_with_the_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     three = _many_inst(tmp_path / "3", 3, cfg).figure.get_size_inches()[1]
     four = _many_inst(tmp_path / "4", 4, cfg).figure.get_size_inches()[1]
     six = _many_inst(tmp_path / "6", 6, cfg).figure.get_size_inches()[1]
@@ -348,7 +348,7 @@ def test_figure_height_grows_with_the_rows(tmp_path: Path, cfg: GiapConfig) -> N
 # --- decision 25: statistic order -------------------------------------------------------------
 
 
-def test_statistics_sort_in_enum_order_not_alphabetically(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_statistics_sort_in_enum_order_not_alphabetically(tmp_path: Path, cfg: GippaConfig) -> None:
     """Lead decision 6: morans_i before join_count_bb in each contig (mutant C7)."""
     rows = [*correlogram_rows("chrA"), *correlogram_rows("chrB")][::-1]
     inst = _render("V10", _v10_out(tmp_path, rows, (CHR_A, CHR_B)), cfg)
@@ -367,7 +367,7 @@ def test_statistics_sort_in_enum_order_not_alphabetically(tmp_path: Path, cfg: G
 
 
 def test_rows_sharing_a_midpoint_are_averaged_for_the_trend(
-    tmp_path: Path, cfg1: GiapConfig
+    tmp_path: Path, cfg1: GippaConfig
 ) -> None:
     """Two genes at midpoint 30,000 with log2 1 and 3 enter the LOESS once, at 2 (mutant L7)."""
     genes = [
@@ -388,7 +388,7 @@ def test_rows_sharing_a_midpoint_are_averaged_for_the_trend(
     np.testing.assert_allclose(by_pos.to_numpy(dtype=float), engine, atol=1e-12)
 
 
-def test_origin_crossing_island_position_wraps_mod_length(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_origin_crossing_island_position_wraps_mod_length(tmp_path: Path, cfg1: GippaConfig) -> None:
     """ISL 95,001-105,000 on L = 100,000: (start0 + end) / 2 mod L + 1 = 1 (mutant L14)."""
     genes = [gene(f"g{i}", m, 1.0) for i, m in enumerate((10_000, 30_000, 50_000))]
     islands = [island("ISL_9", "high", 95_001, 105_000, 0.001)]
@@ -399,7 +399,7 @@ def test_origin_crossing_island_position_wraps_mod_length(tmp_path: Path, cfg1: 
     assert 1 <= int(isl.loc[0, "position_bp"]) <= CHR1[1]
 
 
-def test_bins_take_the_median_of_several_genes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_bins_take_the_median_of_several_genes(tmp_path: Path, cfg: GippaConfig) -> None:
     """20,001 genes, three per 10 bp bin with log2 0, 0, 9: every bin's point is 0, the median,
     not 3, the mean (mutant L11)."""
     n_bins, length = 6_667, 200_000
@@ -415,7 +415,7 @@ def test_bins_take_the_median_of_several_genes(tmp_path: Path, cfg: GiapConfig) 
     assert [float(v) for v in pts["value"]] == [0.0] * n_bins
 
 
-def test_exactly_2_mb_stays_in_kb(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_exactly_2_mb_stays_in_kb(tmp_path: Path, cfg1: GippaConfig) -> None:
     """Mb only when length > 2 Mb (mutant L12)."""
     rep: Replicon = ("two", 2_000_000, "circular", "chromosome")
     genes = [gene(f"g{i}", m, float(i), contig="two") for i, m in enumerate((500_000, 1_500_000))]
@@ -425,7 +425,7 @@ def test_exactly_2_mb_stays_in_kb(tmp_path: Path, cfg1: GiapConfig) -> None:
 
 @pytest.mark.parametrize(("value", "lo", "hi"), [(0.12, -0.05, 0.12), (-0.05, -0.05, 0.12)])
 def test_value_on_the_envelope_edge_is_within(
-    tmp_path: Path, cfg: GiapConfig, value: float, lo: float, hi: float
+    tmp_path: Path, cfg: GippaConfig, value: float, lo: float, hi: float
 ) -> None:
     """``value == null_hi`` and ``value == null_lo`` read "within" (mutants C4, C13)."""
     over: dict[tuple[str, str, int], Cell] = {
@@ -436,7 +436,7 @@ def test_value_on_the_envelope_edge_is_within(
     assert inst.title == f"Lag-1 Moran's I {value:g}: within the TU-block envelope (q = 0.04)"
 
 
-def test_marker_falls_back_to_the_gene_label_value(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_marker_falls_back_to_the_gene_label_value(tmp_path: Path, cfg: GippaConfig) -> None:
     """TU-block lag 3 has value NA (not flagged not-estimable); the gene-label row's 0.2 is drawn,
     open because the TU-block q is NA (mutant C9)."""
     na: Cell = (None, None, None, None, None)

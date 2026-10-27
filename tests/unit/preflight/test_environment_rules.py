@@ -1,5 +1,5 @@
 """Environment preflight rules T-PRE-23 (tools and databases) and T-PRE-24 (resources)
-(issue M1-11; GIAP_SPEC.md §7.0 Environment rows; ADR-0005 items 3-4).
+(issue M1-11; GIPPA_SPEC.md §7.0 Environment rows; ADR-0005 items 3-4).
 
 All probes are fakes (``EnvProbe`` is injected); no real tool is run.
 
@@ -18,8 +18,8 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from giap.preflight.checks import Check
-from giap.preflight.environment import EnvProbe, Requirement, environment_checks, requirements
+from gippa.preflight.checks import Check
+from gippa.preflight.environment import EnvProbe, Requirement, environment_checks, requirements
 
 GIB = 1024**3
 LEVELS = ("ok", "info", "warn", "error")

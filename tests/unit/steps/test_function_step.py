@@ -1,6 +1,6 @@
 """M8-06a: the ``function`` step and its three tables (docs/specs/M8-06-function-step-and-run.md,
 items 1-5, examples 4-9, the 06a degenerate cases and lead decisions 1-3; M8-04 decision 13;
-GIAP_SPEC.md §6.2, §6.3, §6.6, §6.7, §7.7, §9.1-§9.4).
+GIPPA_SPEC.md §6.2, §6.3, §6.6, §6.7, §7.7, §9.1-§9.4).
 
 Interface pinned here (test-author reading of the spec):
 
@@ -48,22 +48,22 @@ from helpers.function_step_data import (
     write_tu_folds,
 )
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 
 @pytest.fixture(autouse=True, scope="module")
 def _simple_gsea_engine() -> Iterator[None]:
     """The step runs on ``fgsea_simple``, never R: unit tests use fakes (ADR-0038 §4, M8-17b 10).
     Module scope, so module-scoped fixtures that run the step see it too."""
-    import giap.steps.function as fn
-    from giap.function.gsea import SIMPLE_ENGINE
+    import gippa.steps.function as fn
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(fn, "_LazyRFgsea", lambda log: SIMPLE_ENGINE)
         yield
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 REGISTRY_JSON = (Path(__file__).resolve().parents[3] / "workflow" / "tests" / "data" / "annotate"
                  / "step_registry.json")  # fmt: skip
 OUTPUTS = {
@@ -80,16 +80,16 @@ RUN_ONLY = ("layer_missing:cog", "layer_missing:kegg", "layer_missing:go",
             "too_few_ranked_tus", "no_eligible_genes")  # fmt: skip
 
 
-def _cfg(seed: int = 7, **over: Any) -> GiapConfig:
+def _cfg(seed: int = 7, **over: Any) -> GippaConfig:
     raw: dict[str, Any] = {"seed": seed, "stats": {"bootstrap": 100},
                            "function": {"gsea": {"n_perm_simple": 200}}}  # fmt: skip
     for k, v in over.items():
         raw[k] = {**raw.get(k, {}), **v} if isinstance(v, dict) else v
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
 def _columns() -> dict[str, tuple[str, ...]]:
-    from giap.function import gsea, ora, summary
+    from gippa.function import gsea, ora, summary
 
     return {"category_summary": tuple(summary.COLUMNS),
             "enrichment_detection": tuple(ora.COLUMNS),
@@ -110,7 +110,7 @@ class _Recorder(logging.Handler):
 
 class Run:
     def __init__(self, out: Path, records: list[logging.LogRecord], inputs: dict[str, Path],
-                 cfg: GiapConfig) -> None:  # fmt: skip
+                 cfg: GippaConfig) -> None:  # fmt: skip
         self.out = out
         self.records = records
         self.inputs = inputs
@@ -143,14 +143,14 @@ class Run:
         return [r.getMessage() for r in self.records if r.levelno >= logging.WARNING]
 
 
-def run_function_step(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> Run:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+def run_function_step(inputs: Mapping[str, Path], out: Path, cfg: GippaConfig) -> Run:
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outputs = {k: out / "tables" / v for k, v in OUTPUTS.items()}
     rec = _Recorder()
-    log = logging.getLogger("giap.steps.function")
+    log = logging.getLogger("gippa.steps.function")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -208,8 +208,8 @@ def _tokens(cell: str) -> set[str]:
 
 
 def test_function_step_is_registered_with_the_spec_keys() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("function")
@@ -223,15 +223,15 @@ def test_function_step_is_registered_with_the_spec_keys() -> None:
 
 
 def test_function_resources_constant_is_the_five_setup_items() -> None:
-    from giap.setupdb.installed import FUNCTION_RESOURCES as LIVE
+    from gippa.setupdb.installed import FUNCTION_RESOURCES as LIVE
 
     assert LIVE == ("go_basic", "goslim_generic", "kegg_ko_pathway", "kegg_pathway_names",
                     "cog2020_fun")  # fmt: skip
 
 
 def test_function_runs_after_detectability_which_produces_tu_folds() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     det = reg.get("detectability")
@@ -242,15 +242,15 @@ def test_function_runs_after_detectability_which_produces_tu_folds() -> None:
 
 def test_function_is_switched_by_modules() -> None:
     """§6.3 / item 6: planned only when ``"function" in cfg.modules`` (default on)."""
-    from giap.runner.local import _enabled
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.runner.local import _enabled
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("function")
-    assert "function" in GiapConfig(seed=1).modules
-    assert _enabled(GiapConfig(seed=1), spec)
-    assert not _enabled(GiapConfig.model_validate({"seed": 1, "modules": ["core"]}), spec)
+    assert "function" in GippaConfig(seed=1).modules
+    assert _enabled(GippaConfig(seed=1), spec)
+    assert not _enabled(GippaConfig.model_validate({"seed": 1, "modules": ["core"]}), spec)
 
 
 def test_step_registry_json_pins_function_and_tu_folds() -> None:
@@ -322,8 +322,8 @@ def test_example_4_collections_event(ex4: Run) -> None:
 
 
 def test_example_4_run_function_is_the_pure_core(toy_db: FunctionDb) -> None:
-    from giap.io.function_resources import read_resources
-    from giap.steps.function import run_function
+    from gippa.io.function_resources import read_resources
+    from gippa.steps.function import run_function
 
     reps = pd.DataFrame({"contig": ["chr1"], "length": [1_000_000], "topology": ["circular"],
                          "kind": ["chromosome"]})  # fmt: skip
@@ -384,10 +384,10 @@ def _forbid_steps_3_to_5(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_: Any, **__: Any) -> Any:
         raise AssertionError("called despite no eligible gene")
 
-    names = {"giap.function.summary": "category_summary",
-             "giap.function.ora": "detection_enrichment",
-             "giap.function.gsea": "gsea_table"}  # fmt: skip
-    step_mod = importlib.import_module("giap.steps.function")
+    names = {"gippa.function.summary": "category_summary",
+             "gippa.function.ora": "detection_enrichment",
+             "gippa.function.gsea": "gsea_table"}  # fmt: skip
+    step_mod = importlib.import_module("gippa.steps.function")
     for mod, fn in names.items():
         monkeypatch.setattr(importlib.import_module(mod), fn, boom)
         monkeypatch.setattr(step_mod, fn, boom, raising=False)
@@ -397,7 +397,7 @@ def _forbid_steps_3_to_5(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_example_6_no_eligible_gene(
     case: str, toy_db: FunctionDb, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.steps import load_step_modules
+    from gippa.steps import load_step_modules
 
     load_step_modules()
     _forbid_steps_3_to_5(monkeypatch)
@@ -416,7 +416,7 @@ def test_example_6_no_eligible_gene(
 
 def test_unparsable_resource_fails_the_step(toy_db: FunctionDb, tmp_path: Path) -> None:
     """Item 2 step 1: a bad OBO raises (exit 4 = ``StepError``); no fallback, no table left."""
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     bad = tmp_path / "db" / "go" / "go-basic.obo"
     bad.parent.mkdir(parents=True)
@@ -445,7 +445,7 @@ def test_eligible_gene_without_p_detect_or_tu_fails_closed(
     bad: dict[str, Any], toy_db: FunctionDb, tmp_path: Path
 ) -> None:
     """Degenerate case: ``ValueError`` from ``eligible_genes`` -> exit 4, naming the gene."""
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     ins = toy_inputs(tmp_path, _toy5(**bad), toy_db.inputs(["cog2020_fun"]))
     with pytest.raises(StepError) as err:
@@ -460,12 +460,12 @@ def test_eligible_gene_without_p_detect_or_tu_fails_closed(
 
 class World:
     def __init__(self, root: Path) -> None:
-        from giap.genetable.covariates import COVARIATE_COLUMNS
-        from giap.genetable.detectability import fit_detectability
-        from giap.io.genes_tsv import read_genes_parquet
-        from giap.rng import for_step
-        from giap.steps import load_step_modules
-        from giap.steps import registry as reg
+        from gippa.genetable.covariates import COVARIATE_COLUMNS
+        from gippa.genetable.detectability import fit_detectability
+        from gippa.io.genes_tsv import read_genes_parquet
+        from gippa.rng import for_step
+        from gippa.steps import load_step_modules
+        from gippa.steps import registry as reg
 
         load_step_modules()
         self.root = root
@@ -500,7 +500,7 @@ class World:
                "tu_folds": self.tu_folds}  # fmt: skip
         return ins | self.db.inputs(items) | over
 
-    def run(self, name: str, cfg: GiapConfig | None = None, **kw: Any) -> Run:
+    def run(self, name: str, cfg: GippaConfig | None = None, **kw: Any) -> Run:
         return run_function_step(self.inputs(**kw), self.root / name, cfg or _cfg())
 
 
@@ -548,10 +548,10 @@ def test_world_no_run_only_token_in_a_summary_or_gsea_row(full: Run, skipped: Ru
 
 
 def test_world_collections_event_matches_the_collections(world: World, full: Run) -> None:
-    from giap.function.collections import COLLECTIONS, build_collections
-    from giap.genetable.eligibility import eligible
-    from giap.io.function_resources import read_resources
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.function.collections import COLLECTIONS, build_collections
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.function_resources import read_resources
+    from gippa.io.genes_tsv import read_genes_parquet
 
     genes = read_genes_parquet(world.gene_table)
     colls, _ = build_collections(genes, eligible(genes), read_resources(world.db.inputs()))
@@ -605,11 +605,11 @@ def test_decision_3_folds_passed_explicitly(
     one the file's ``{tu_id: fold}``."""
     import importlib
 
-    from giap.steps import load_step_modules
+    from gippa.steps import load_step_modules
 
     load_step_modules()
-    ora = importlib.import_module("giap.function.ora")
-    step_mod = importlib.import_module("giap.steps.function")
+    ora = importlib.import_module("gippa.function.ora")
+    step_mod = importlib.import_module("gippa.steps.function")
     real = ora.detection_enrichment
     calls: list[dict[str, Any]] = []
 
@@ -710,7 +710,7 @@ def test_linear_replicon_changes_only_genomic_cluster(world: World, tmp_path: Pa
 def test_minus_strand_has_no_effect(world: World, full: Run) -> None:
     """Degenerate case: the tables have no coordinates; TU membership and ``tu_position`` come
     from C5, so flipping every strand changes nothing."""
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     genes = read_genes_parquet(world.gene_table)
     genes["strand"] = "-"
@@ -722,7 +722,7 @@ def test_minus_strand_has_no_effect(world: World, full: Run) -> None:
 
 def test_no_abundance_world(world: World) -> None:
     """Degenerate case "no abundance": summary medians NA, ORA as usual, GSEA header-only."""
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     genes = read_genes_parquet(world.gene_table)
     genes["abundance_log2"] = float("nan")

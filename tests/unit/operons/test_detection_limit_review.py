@@ -11,7 +11,7 @@ import pytest
 from helpers import detection_limit_data as D
 from unit.operons.test_detection_limit_conditional import BETA, SEED, _dl, _rng
 
-from giap.config.model import GiapConfig
+from gippa.config.model import GippaConfig
 
 PEP_COEF = {"intercept": -10.0, "abundance_log2": 0.5, "length": -0.03, "gravy": 0.8}
 
@@ -34,7 +34,7 @@ def test_peptide_conditional_fit_k_min_2_recovers_abundance() -> None:
     the k = 1 form gives beta_a ~0.44 here."""
     rng = np.random.default_rng(SEED + 2)
     train = D.simulate_peptides(rng, 3000, BETA, n_peps=(5, 20), k_min=2, tier="two_peptide")
-    m = _dl().fit_peptide_model(train.genes, train.hits, GiapConfig(seed=SEED), _rng())
+    m = _dl().fit_peptide_model(train.genes, train.hits, GippaConfig(seed=SEED), _rng())
     assert m.usable is True
     assert m.k_min == 2
     assert m.coef["abundance_log2"] == pytest.approx(0.5, abs=0.04)
@@ -63,7 +63,7 @@ def test_training_ignores_the_gene_level_call() -> None:
     drop = in_seen & (np.random.default_rng(7).random(len(train.genes)) < 0.5)
     uncalled = train.genes.assign(detected=train.genes["detected"].to_numpy() & ~drop)
     assert drop.sum() > 100
-    cfg = GiapConfig(seed=SEED)
+    cfg = GippaConfig(seed=SEED)
     m_all = _dl().fit_peptide_model(train.genes, train.hits, cfg, _rng())
     m_sub = _dl().fit_peptide_model(uncalled, train.hits, cfg, _rng())
     assert m_sub.usable and m_sub.n_fit == m_all.n_fit

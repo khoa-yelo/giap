@@ -1,4 +1,4 @@
-"""Hypothesis properties of giapsim's synthetic ontology and function worlds (issue M8-14;
+"""Hypothesis properties of gippasim's synthetic ontology and function worlds (issue M8-14;
 docs/specs/M8-14-sim-function-determinants.md §1, lead decision 1; interface as assumed in
 tests/unit/test_sim_function.py).
 
@@ -28,13 +28,13 @@ RE_MAP = re.compile(r"^map9\d{4}$")
 
 
 def _fs() -> Any:
-    import giapsim.function_sim
+    import gippasim.function_sim
 
-    return giapsim.function_sim
+    return gippasim.function_sim
 
 
 def _read_go(obo: str) -> Any:
-    from giap.io.function_resources import read_go
+    from gippa.io.function_resources import read_go
 
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "s.obo"
@@ -89,7 +89,7 @@ def test_synthetic_ontology_invariants(n_terms: int, depth: int, n_genes: int, s
     seed=st.integers(0, 2**32 - 1),
 )
 def test_world_ids_always_reserved(which: str, n_genes: int, seed: int) -> None:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     pair = {
         "ora_null": lambda: sc.ora_null(n_genes),

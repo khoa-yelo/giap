@@ -17,7 +17,7 @@ pass 1) (+ ≈ 300 test lines) · **statistical** (label `stats`)
 
 ## Public interface
 
-`src/giap/operons/discordance.py` (pure)
+`src/gippa/operons/discordance.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class Discordance:
@@ -28,7 +28,7 @@ class Discordance:
 MIN_OP_PAIRS: int = 20
 
 def fit_rows(pairs: pd.DataFrame) -> F64: ...          # Δ of OP pairs usable for the fit
-def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
+def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GippaConfig,
                 p_miss: PMissModel | None) -> Discordance: ...
 ```
 
@@ -67,7 +67,7 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
 6. **Relative scale.** When the run's `abundance_scale` is `relative` (§7.3.4; from the gene table's
    `abundance_type` / the detection summary), every abundance test is skipped: `test = "none"`,
    `flags` gains `relative_scale`. The pair table still carries classes, distances and evidence.
-7. **BH.** One family over all OP rows with a non-NA p (both kinds together), `giap.stats.bh`;
+7. **BH.** One family over all OP rows with a non-NA p (both kinds together), `gippa.stats.bh`;
    `q_value` written back. `discordant = q_value <= stats.alpha.operon_flags` (0.1) is not a column
    — M6-07 reads the q.
    *Superseded (M6-05H, 2026-10-24): per M6-index lead decision 1 and M6-02 lead decision 4 the family holds only the `both_detected_t` p; P(miss) rows get no q — item 7's "both kinds" and example 8's "one family of 150" stand only once M6-09 attack C and an ADR admit the mixture.*
@@ -144,5 +144,5 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
    not `unestimated` — the claim has p and q; only the CI is missing (R4).
 3. Q3: superseded by M6-index lead decision 1 — `P(miss)` never enters the BH family; in pass 1 the
    one-detected branch is `unestimated (no_detection_limit_model)`, so the family holds only t p-values.
-4. The t fit is `giap.stats.tdist.fit_student_t` (M6-01, #144). A degenerate fit (`converged = False`,
+4. The t fit is `gippa.stats.tdist.fit_student_t` (M6-01, #144). A degenerate fit (`converged = False`,
    NaN parameters — M6-01 decision 13) means every pair is `unestimated`, never p = 0.

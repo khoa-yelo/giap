@@ -1,7 +1,7 @@
 """M7-10 calibration: the class error rate is unbiased for the true per-class de novo error rate
 on the planted-variant arm, whose reference is variant-aware; the no-variant arm is a sanity check
 (docs/specs/M7-10-class-error-rates.md acceptance 2, rule 5, lead decisions 3, 7 and 8 (B2);
-docs/methods/variants.md §"Class error rates"; GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is real",
+docs/methods/variants.md §"Class error rates"; GIPPA_SPEC.md §7.5.4, §8.1 row "ALT call is real",
 §8.4; M7-index "class error rate bias | M7-10 | variant_f1 without variants | |bias| <= 0.05").
 
 R comes from ``tolerances.yaml``: ``replicates_fast.variants`` / ``replicates_full.variants``
@@ -9,12 +9,12 @@ R comes from ``tolerances.yaml``: ``replicates_fast.variants`` / ``replicates_fu
 spec says. Seeds: ``replicate_rng("variants.class_error", i)`` (planted arm:
 ``variants.class_error.planted``).
 
-Replicate: a 50-kb giapsim genome, M3-19 database identifications (pi_wrong 0.05) and their M3-20
-de novo reads as ``--peptides``, giapsim's paired ``reference_peptides.tsv`` as
+Replicate: a 50-kb gippasim genome, M3-19 database identifications (pi_wrong 0.05) and their M3-20
+de novo reads as ``--peptides``, gippasim's paired ``reference_peptides.tsv`` as
 ``--reference-peptides``; preflight (writing C17) -> mapping chain -> the registered ``variants``
 step with ``peptide_spectra``. The estimate is the written ``variants.tsv`` value per class.
 
-**Estimand.** The true error rate of class c is the share of erroneous reads (giapsim
+**Estimand.** The true error rate of class c is the share of erroneous reads (gippasim
 ``truth/denovo.tsv``: read != true peptide after I/L folding) among *all* de novo reads that
 support an ALT of class c (paired or not), the sites and classes taken from the merged M7-02/05
 chain. Per class, bias = mean over the replicates where c is estimated of (rate_hat - rate_true);
@@ -22,7 +22,7 @@ classes estimated in at least half of the replicates are gated. The bias against
 truth is recorded next to it.
 
 **Planted arm (gated, recorded; B2).** The same with an M3-18 strain layer (sample peptides on the
-reference genome). giapsim's reference peptides are the sample's own identifications, so the
+reference genome). gippasim's reference peptides are the sample's own identifications, so the
 reference search can return the ALT peptide: true rates are well below 1 (about 0.24 for
 frameshift, 0.63 and 0.73 for substitution), and the gate requires at least
 ``MIN_INFORMATIVE_CLASSES`` gated classes whose truth is below ``1 - 2 * bound``, so a constant
@@ -40,8 +40,8 @@ without the variant; the estimate is 1 by construction, rule 5) is M7-13's, on M
 degeneracy on synthetic tables.
 
 **Scenario.** M7-12's ``variant_f1`` scenario is not merged yet; both arms are built from the same
-giapsim pieces (M3-18 + M3-19 + M3-20). When M7-12 lands, the replicate should switch to
-``giapsim.scenarios.variant_f1(seed)`` (lead decision 7, backlog).
+gippasim pieces (M3-18 + M3-19 + M3-20). When M7-12 lands, the replicate should switch to
+``gippasim.scenarios.variant_f1(seed)`` (lead decision 7, backlog).
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def _max_bias() -> float:
 def _replicate(seed: int, d: Path, *, planted: bool) -> dict[str, Any]:
     strain = None
     if planted:
-        from giapsim.strain import StrainConfig
+        from gippasim.strain import StrainConfig
 
         strain = StrainConfig(snv_rate_per_kb=5.0, indel_rate_per_kb=0.5, indel_len=(1, 1))
     ch = build_chain(d, seed, strain=strain)

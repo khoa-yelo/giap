@@ -215,10 +215,10 @@ def test_verify_refuses_non_main(jobs: dict[str, Any]) -> None:
 
 
 def test_verify_checks_version(jobs: dict[str, Any]) -> None:
-    """Example 3: ``version input 1.0.0 != giap 0.0.1``; the input regex is enforced."""
+    """Example 3: ``version input 1.0.0 != gippa 0.0.1``; the input regex is enforced."""
     t = _job_text(jobs["verify"])
     assert "__version__" in t
-    assert "version input" in t and "!= giap" in t
+    assert "version input" in t and "!= gippa" in t
     assert "inputs.version" in t
     assert re.search(r"rc(\\d|\[0-9\])\+", t), "verify enforces ^\\d+\\.\\d+\\.\\d+(rc\\d+)?$"
 
@@ -248,7 +248,7 @@ def test_build_builds_checks_and_smokes(jobs: dict[str, Any]) -> None:
     s = _script(jobs["build"])
     assert "uv build" in s
     assert re.search(r"check_dist\.py dist --version\b", s), s
-    assert ".whl" in s and "giap --version" in s, "the M11-01 clean-venv smoke"
+    assert ".whl" in s and "gippa --version" in s, "the M11-01 clean-venv smoke"
 
 
 def test_build_renders_notes_with_draft_on_dry_run(jobs: dict[str, Any]) -> None:
@@ -300,7 +300,7 @@ def test_publish_skip_existing_only_on_matching_sha256(jobs: dict[str, Any]) -> 
     """Edge case: re-run after a failed publish compares sha256 with the index JSON first."""
     t = _job_text(jobs["publish"])
     assert "skip-existing" in t
-    assert "pypi.org/pypi/giap/" in t and "sha256" in t
+    assert "pypi.org/pypi/gippa/" in t and "sha256" in t
 
 
 # --- github-release -----------------------------------------------------------------------------
@@ -309,7 +309,7 @@ def test_publish_skip_existing_only_on_matching_sha256(jobs: dict[str, Any]) -> 
 def test_github_release_command(jobs: dict[str, Any]) -> None:
     s = _script(jobs["github-release"])
     assert re.search(r"gh release create [\"']?v", s), s
-    for frag in ("dist/*", "--target", "github.sha", "--title", "GIAP ", "--notes-file notes.md"):
+    for frag in ("dist/*", "--target", "github.sha", "--title", "GIPPA ", "--notes-file notes.md"):
         assert frag in s, frag
     assert "--prerelease" in s
     assert any(u.startswith("actions/download-artifact@") for u in _uses(jobs["github-release"]))

@@ -5,7 +5,7 @@ order. The M7-08 executor-equality and TE7 tests stay in tests/unit/steps/test_n
 and tests/integration (unchanged).
 
 The expectations are computed here from the run's own work files, independently of
-``giap.novel.evidence``: the sim100k run (tests/helpers/novel_steps_fixture.py) has no detected
+``gippa.novel.evidence``: the sim100k run (tests/helpers/novel_steps_fixture.py) has no detected
 gene with an OSTIR score, so its published table exercises the "threshold unestimated" branch;
 the second test reruns the step on a gene table with every scored non-partial gene detected.
 
@@ -35,14 +35,14 @@ def run1(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path, Path]:
     sim = nf.simulate(root / "sim")
     out = root / "OUT"
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, out)
+        code, log = nf.run_gippa(sim, out)
     assert code == 0, log
     return sim, out, out / "work"
 
 
 @pytest.fixture(scope="module")
 def cfg1(run1: tuple[Any, Path, Path]) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(Path(run1[0].config_yaml), [f"seed={nf.SEED}"])
 
@@ -78,8 +78,8 @@ def _terminator_oracle(orf: Any, layer: pd.DataFrame, n: int) -> tuple[float | N
 
 
 def _check(table: pd.DataFrame, work: Path, sim: Any, cfg: Any, thr: float | None) -> None:
-    from giap.annotate.precomputed import load_precomputed
-    from giap.steps.novel import read_candidates
+    from gippa.annotate.precomputed import load_precomputed
+    from gippa.steps.novel import read_candidates
 
     orfs = {o.orf_id: o for o in read_candidates(work / "novel_candidates")[0]}
     ann = nf.annotation_of(sim)
@@ -140,7 +140,7 @@ def _check(table: pd.DataFrame, work: Path, sim: Any, cfg: Any, thr: float | Non
 
 
 def test_published_table_threshold(run1: tuple[Any, Path, Path], cfg1: Any) -> None:
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     sim, out, work = run1
     gt = pd.read_parquet(work / "gene_table")
@@ -155,7 +155,7 @@ def test_published_table_threshold(run1: tuple[Any, Path, Path], cfg1: Any) -> N
 def test_step_with_detected_genes_applies_the_rbs_threshold(
     run1: tuple[Any, Path, Path], cfg1: Any, tmp_path: Path
 ) -> None:
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     sim, _, work = run1
     gt = pd.read_parquet(work / "gene_table")
@@ -181,7 +181,7 @@ def test_step_with_detected_genes_applies_the_rbs_threshold(
 
 
 def test_gff3_carries_rank_and_called_of_the_table(run1: tuple[Any, Path, Path]) -> None:
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     _, out, _ = run1
     table = read_novel_orfs(out / "tables" / "novel_orfs.tsv")

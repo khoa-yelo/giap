@@ -1,8 +1,8 @@
 # M3 "Mapping and decoy FDR": issue index
 
-Spec: GIAP_SPEC.md §13 row M3. Deliverables: "six-frame index, exact matching, miniprot and
+Spec: GIPPA_SPEC.md §13 row M3. Deliverables: "six-frame index, exact matching, miniprot and
 tblastn, tolerant matcher, decoys, placement FDR, loci, contaminants, Module 2 outputs;
-`giap makedb`; **pilot kit (§15) prepared**, and Khoa asked to install DIA-NN". **Gate:** "≥ 99.9 %
+`gippa makedb`; **pilot kit (§15) prepared**, and Khoa asked to install DIA-NN". **Gate:** "≥ 99.9 %
 recall of planted peptides; mapping FDR calibrated; TE1 and TE8 proxies pass".
 Sections used: §7.2 (all), §7.9.2, §8.1–8.5, §9.3–9.4, §11.2–11.3, §11.6 (TE1, TE5, TE8), §15,
 Appendix B.2, B.5, B.6; decisions 5, 6, 13, 16, 20; G3, G4.
@@ -30,12 +30,12 @@ under 400 anyway. Tests are not counted.
 | 15 | [M3-15](M3-15-contaminants-unmapped.md) | unmapped bucket, reasons, contaminant library (peptides AC; proteins blastp) | 10, 12, 13 | **BLAST+ blastp** | 250 |
 | 16 | [M3-16](M3-16-mapping-outputs.md) | the seven Module 2 outputs + Frictionless table schemas | 10, 11, 14, 15 | – | 360 |
 | 17 | [M3-17](M3-17-mapping-steps.md) | query selection, step functions, `mapping.nf`, local executor, golden | 01–16, M2-02, M2-06 | via 12, 13, 15 | 330 |
-| 18 | [M3-18](M3-18-sim-genome-features.md) | giapsim: sORFs, pseudogenes, rRNA/tRNA, N-term ext., novel ORFs, plasmids, linear contig, origin gene, strain differences | M0 sim | – | (380 sim) |
-| 19 | [M3-19](M3-19-sim-peptides-db-errors.md) | giapsim: digest, detectability, intensities, π_wrong errors, score mixture → q/PEP, decoy rows, proteins.faa | 18 | – | (360 sim) |
-| 20 | [M3-20](M3-20-sim-denovo-errors.md) | giapsim: de novo error model, known precision per bin, reference peptides | 19 | – | (300 sim) |
+| 18 | [M3-18](M3-18-sim-genome-features.md) | gippasim: sORFs, pseudogenes, rRNA/tRNA, N-term ext., novel ORFs, plasmids, linear contig, origin gene, strain differences | M0 sim | – | (380 sim) |
+| 19 | [M3-19](M3-19-sim-peptides-db-errors.md) | gippasim: digest, detectability, intensities, π_wrong errors, score mixture → q/PEP, decoy rows, proteins.faa | 18 | – | (360 sim) |
+| 20 | [M3-20](M3-20-sim-denovo-errors.md) | gippasim: de novo error model, known precision per bin, reference peptides | 19 | – | (300 sim) |
 | 21 | [M3-21](M3-21-calibration-and-gate.md) | placement/de novo calibration suites, attack 5, recall gate, golden tables, nightly array | 17, 19, 20 | – | 80 |
 | 22 | [M3-22](M3-22-digest-and-te-proxies.md) | `mapping/digest.py`; TE1 proxy (Nissle Bakta), TE8 proxy (UniProt K-12, weekly) | 17; M2-10 recorded Bakta JSON | network (FarmShare) | 260 |
-| 23 | [M3-23](M3-23-makedb.md) | `giap makedb`: strain DB, six-frame ORFs, id_map, manifest | 01, 02, 14 | – | 330 |
+| 23 | [M3-23](M3-23-makedb.md) | `gippa makedb`: strain DB, six-frame ORFs, id_map, manifest | 01, 02, 14 | – | 330 |
 | 24 | [M3-24](M3-24-pilot-kit.md) | pilot kit: DIA-NN cfgs, sbatch scripts, A2 DB, Khoa's DIA-NN install request | 23; M2-10 recorded Bakta JSON | DIA-NN, Cascadia (prepared, not run) | 250 |
 
 Total ≈ 5,700 code lines in `src/`/`workflow/`/`scripts/` plus ≈ 1,000 simulator lines.
@@ -98,16 +98,16 @@ a Slurm job.
 
 ## Gene model: the interface M3 consumes
 
-M3-01 defines `giap.model.genes.GeneModel` (`replicons`, `genes: Gene` with locus tag, type
+M3-01 defines `gippa.model.genes.GeneModel` (`replicons`, `genes: Gene` with locus tag, type
 {cds, sorf, pseudogene}, interval, `aa`, `nt`, start codon, partial; `features: NcFeature` for
 rRNA/tRNA/ncRNA/…; `overlapping(iv)`). The full Bakta parser is **M2-03**
-(`parse_bakta_json`, which extends the same `giap.model.genes` module with defaulted fields) and
+(`parse_bakta_json`, which extends the same `gippa.model.genes` module with defaulted fields) and
 **M2-04** (`parse_bakta` step → `genes.parquet`, `features.parquet`). Until they land, M3 reads
 the simulator's Bakta-like JSON through `gene_model_from_bakta_json`, so no M3 issue waits for
 M2. M3-01 and M2-03 share one file: give them to one agent or merge M3-01 first (M2-index says
 the same). Other M2 touch points: M2-02 step registry and M2-06 Nextflow skeleton (M3-17 only);
 M2-01 `workflow/envs/miniprot.yml` / `blast.yml` (M3-12/13/15; created by M3 if M2-01 is late);
-M2-09 `giap setup --contaminants` → `contaminants/contaminants.fasta` (M3-15; tests use a
+M2-09 `gippa setup --contaminants` → `contaminants/contaminants.fasta` (M3-15; tests use a
 fixture); M2-10 recorded full-DB Bakta JSON for Nissle and K-12 (M3-22, M3-24); M3-18 must merge
 before M2-05 (simulator v2 builds on it).
 
@@ -125,7 +125,7 @@ classes, every `gene` a locus tag of the gene model. `poisson_binomial_*` is sha
 
 Calibration (§8.4, `tests/calibration/tolerances.yaml`): statistics-only suites ship with M3-09
 (B.2 Monte Carlo within 20 %), M3-10 (FDR ≤ q + 2 SE on exchangeable lists) and M3-11 (|bias| ≤
-0.05); genome-level suites with giapsim (R = 50 @ 100 kb per PR, R = 300 @ 1 Mb nightly) and the
+0.05); genome-level suites with gippasim (R = 50 @ 100 kb per PR, R = 300 @ 1 Mb nightly) and the
 gate are M3-21. Hypothesis properties of §11.2 owned by M3: "a peptide cut from a random genome
 maps back to its origin" (M3-04), "reverse complement swaps the strand" (M3-02, M3-08), "tolerant
 matcher = brute force" (M3-06, M3-07, M3-08; zero false negatives per difference type), "decoy

@@ -1,9 +1,9 @@
 """M11-14w ``long_orf_cover``: examples 1-5, the brute-force Hypothesis property (AC 2), strand
 symmetry, lowercase input and the non-ACGT break (docs/specs/M11-14w-wrong-genetic-code-warning.md
-"Signal", "Examples", "Edge cases"; GIAP_SPEC.md §6.5).
+"Signal", "Examples", "Edge cases"; GIPPA_SPEC.md §6.5).
 
 Interface assumed (spec "Where it runs" item 1):
-``giap.preflight.genetic_code.long_orf_cover(seq, stops, min_codons) -> tuple[int, int]``
+``gippa.preflight.genetic_code.long_orf_cover(seq, stops, min_codons) -> tuple[int, int]``
 returning ``(bp covered, number of runs)`` for one record over all six frames; ``stops`` is
 passed as a ``frozenset`` of upper-case codons (``S11`` / ``S4`` below). The reference is
 ``helpers.genetic_code_fixture.reference_cover`` (codon-by-codon, pure Python).
@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 
 
 def cover(seq: str, stops: frozenset[str], min_codons: int) -> tuple[int, int]:
-    from giap.preflight.genetic_code import long_orf_cover
+    from gippa.preflight.genetic_code import long_orf_cover
 
     out = long_orf_cover(seq, stops, min_codons)
     assert isinstance(out, tuple) and len(out) == 2

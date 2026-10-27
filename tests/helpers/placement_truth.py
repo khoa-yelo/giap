@@ -1,5 +1,5 @@
 """Truth oracle for the genome-level placement suites (issue M3-21; docs/specs/M3-21 lead
-decisions 1-5). Independent of the code under test: it reads giapsim truth files and the mapping
+decisions 1-5). Independent of the code under test: it reads gippasim truth files and the mapping
 work tables (hit Parquets, 0-based half-open; ``peptide_hits.tsv``, 1-based closed).
 
 * **True origin** (decision 2): correct database peptide -> every truth row of the peptide (its

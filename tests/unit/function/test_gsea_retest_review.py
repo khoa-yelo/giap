@@ -15,7 +15,7 @@ import pandas as pd
 from helpers.gsea_data import gene_sets
 from test_gsea import ALPHA, FakeEngine, _family, _flags, _go_frame, _row, _run, fake  # noqa: F401
 
-from giap.stats.multitest import bh
+from gippa.stats.multitest import bh
 
 
 def test_zero_tu_retest_is_redundant_and_size_filtered(fake: Callable[..., FakeEngine]) -> None:

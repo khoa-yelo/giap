@@ -1,4 +1,4 @@
-"""Operon pairs, distance-model fallback and TUs (issue M2-12; GIAP_SPEC.md §7.1.3, §9.3, §6.5).
+"""Operon pairs, distance-model fallback and TUs (issue M2-12; GIPPA_SPEC.md §7.1.3, §9.3, §6.5).
 
 Examples 1-3 and 5-9 of docs/specs/M2-12-uniop-pairs-tus.md, its edge cases, the TSV/FASTA
 writers and ``calibration.yaml`` (M2-index decision 5).
@@ -30,7 +30,7 @@ from typing import Any
 import pytest
 import yaml
 
-from giap.annotate.operons import (
+from gippa.annotate.operons import (
     Tu,
     adjacent_pairs,
     build_pairs,
@@ -42,10 +42,10 @@ from giap.annotate.operons import (
     write_tu_regions,
     write_tus_tsv,
 )
-from giap.annotate.uniop_adapter import PairProb
-from giap.io.tsv import read_tsv
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 D0, S = 50.0, 20.0
 FLAG = "operon_source_distance_model"
@@ -524,7 +524,7 @@ def _get(obj: Any, key: str) -> Any:
     return obj[key] if isinstance(obj, dict) else getattr(obj, key)
 
 
-#: GIAP_SPEC §7.1.3 / §15.4 placeholder values, binding only while an entry is uncalibrated.
+#: GIPPA_SPEC §7.1.3 / §15.4 placeholder values, binding only while an entry is uncalibrated.
 PLACEHOLDERS = {"operon_distance": {"d0": 50, "s": 20}, "terminatornet_yes": {"value": 0.5}}
 #: calibration.yaml entries mirrored by a defaults.yaml key (M6-12 decision 2: the mirror plus
 #: this agreement test; defaults.yaml stays the value the code reads).
@@ -537,7 +537,7 @@ MIRRORS = {
 def test_calibration_yaml_entries() -> None:
     """Placeholders while uncalibrated; once calibrated (ADR-0022) an entry names its
     provenance and keeps finite values in range."""
-    text = resources.files("giap.data").joinpath("calibration.yaml").read_text()
+    text = resources.files("gippa.data").joinpath("calibration.yaml").read_text()
     data = yaml.safe_load(text)
     assert {"operon_distance", "terminatornet_yes"} <= set(data)
     for key, entry in data.items():
@@ -557,10 +557,10 @@ def test_calibration_yaml_entries() -> None:
 
 
 def test_calibration_loader() -> None:
-    from giap.data import calibration
+    from gippa.data import calibration
 
     cal = calibration.load()
-    text = resources.files("giap.data").joinpath("calibration.yaml").read_text()
+    text = resources.files("gippa.data").joinpath("calibration.yaml").read_text()
     assert cal == yaml.safe_load(text)
     assert float(_get(_get(cal, "operon_distance"), "d0")) > 0
 
@@ -568,9 +568,9 @@ def test_calibration_loader() -> None:
 def test_calibration_and_defaults_agree() -> None:
     """A calibrated entry with a defaults.yaml mirror has the same value there (vacuous while
     every mirrored entry is a placeholder)."""
-    from giap.data import calibration
+    from gippa.data import calibration
 
-    text = resources.files("giap.config").joinpath("defaults.yaml").read_text()
+    text = resources.files("gippa.config").joinpath("defaults.yaml").read_text()
     defaults = yaml.safe_load(text)
     for key, entry in calibration.load().items():
         if key not in MIRRORS or not entry["calibrated"]:

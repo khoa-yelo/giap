@@ -1,8 +1,8 @@
-"""The ``plots`` step writes ``plots/support/`` from its run inputs; ``giap report`` never does
-(M9-03 acceptance "support written when ``genome`` is supplied, absent otherwise; ``giap report``
+"""The ``plots`` step writes ``plots/support/`` from its run inputs; ``gippa report`` never does
+(M9-03 acceptance "support written when ``genome`` is supplied, absent otherwise; ``gippa report``
 never writes ``plots/support/``", degenerate case "``genome`` input absent: no ``gc_skew.tsv``;
 landmarks still written", lead decisions 2026-10-22: GC-skew window 10 kb as a module constant,
-``giap report`` never recomputes GC skew).
+``gippa report`` never recomputes GC skew).
 
 A separate file from tests/unit/steps/test_plots_step.py (M9-02's tests are not edited here).
 
@@ -13,7 +13,7 @@ Interface assumed beyond the spec text (M9-03 test author):
 - Landmarks need ``replicons`` (``features`` absent behaves like no oriC call); GC skew needs
   ``genome`` and ``replicons``. Without ``replicons`` no support file is written.
 - The support tables are written **before** rendering, and the plots rendered by the step see
-  them through ``view.support(name)`` (V1/V2 need them during ``giap run``).
+  them through ``view.support(name)`` (V1/V2 need them during ``gippa run``).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import pytest
 from click.testing import CliRunner
 from helpers.report_fixtures import cfg, register_fake, run_out, swap_registry
 
-from giap.steps import registry as reg
+from gippa.steps import registry as reg
 
 FEATURE_COLUMNS = [
     "feature_id", "type", "contig", "start", "end", "strand",
@@ -38,7 +38,7 @@ FEATURE_COLUMNS = [
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ def test_step_support_is_byte_identical_across_runs(
 def test_plots_rendered_by_the_step_see_the_support_tables(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.viz import base
+    from gippa.viz import base
 
     seen: dict[str, Any] = {}
 
@@ -179,11 +179,11 @@ def test_plots_rendered_by_the_step_see_the_support_tables(
     assert seen["skew"] is not None and len(seen["skew"]) == 4
 
 
-# ---------------------------------------------------------------- giap report
+# ---------------------------------------------------------------- gippa report
 
 
 def _report(out: Path) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(
         cli, ["report", str(out), "--set", "report.formats=[svg]", "--set", "report.dpi=50"]
@@ -197,7 +197,7 @@ def _tree(path: Path) -> dict[str, bytes]:
     return {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*") if p.is_file()}
 
 
-def test_giap_report_without_support_writes_none(fake_registry: ModuleType, tmp_path: Path) -> None:
+def test_gippa_report_without_support_writes_none(fake_registry: ModuleType, tmp_path: Path) -> None:
     register_fake("V07")
     out = run_out(tmp_path, islands=1)
     # run inputs lying next to OUT (and a genome in OUT) are never used to recompute (decision 2)
@@ -208,11 +208,11 @@ def test_giap_report_without_support_writes_none(fake_registry: ModuleType, tmp_
     assert not (out / "plots" / "support").exists()
 
 
-def test_giap_report_reads_but_never_rewrites_support(
+def test_gippa_report_reads_but_never_rewrites_support(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.io.plot_support import write_support
-    from giap.viz.support import replicon_landmarks
+    from gippa.io.plot_support import write_support
+    from gippa.viz.support import replicon_landmarks
 
     register_fake("V07")
     out = run_out(tmp_path, islands=1)

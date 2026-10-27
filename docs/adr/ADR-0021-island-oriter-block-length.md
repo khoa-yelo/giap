@@ -37,13 +37,13 @@ TU-size-standardised scores 0.18 at ρ 0) all failed.
   0.905, and the arms 0.875–0.945. The estimator is unbiased (−2.4239 against the closed form −2.4317);
   the interval is 1–5 points narrow throughout.
 - Power (4,500 genes, ρ 0.5, R = 100): 20 TUs × 2 SD 0.18, 20 × 1.5 0.06, 10 × 2 0.04, 5 × 2 0.00 — low
-  because ≈ 45 % of genes are censored independently of abundance in giapsim defaults; power stays
+  because ≈ 45 % of genes are censored independently of abundance in gippasim defaults; power stays
   recorded, not gated, and is also run with `detection = "abundance"`.
 - Open limitation: 1,000 genes at ρ 0.9 gives FWER 0.13 (spec rule 0.55), because ℓ̂ ≈ 1.3 there (Moran's
   I cannot detect the diluted correlation on ≈ 555 TUs); hence decision 2.
 
 ## Consequences
-- M5-07's planning target (power ≥ 0.8) will not be met under giapsim defaults; the report says so.
+- M5-07's planning target (power ≥ 0.8) will not be met under gippasim defaults; the report says so.
 - The effect CI stays the spec's TU-bootstrap CI; the methods note says it is conditional on the selected
   window (winner's curse) and ignores within-window autocorrelation; M5-07 records its coverage.
 - The `sim1000_island` golden (M5-11) is checked against ℓ' before it is frozen.
@@ -61,11 +61,11 @@ under local/scratch/m5-06-stat/). The original numbers reproduce (4,500 genes: 0
 ADR's 0.040; 0.024 at ρ 0.9 against 0.023); the **inference** from them was wrong.
 
 2. **Validity domain.** The island FWER is claimed for the dependence regime the calibration covers, not
-   for a replicon size. It is claimed for giapsim `ar1_background` at ρ ≤ 0.5 at every size measured
+   for a replicon size. It is claimed for gippasim `ar1_background` at ρ ≤ 0.5 at every size measured
    (557 / 1,001 / 2,501 scored TUs: 0.020 / 0.031 / 0.037), for the 4,500-gene chromosome at ρ = 0.9
    (0.024, where ℓ̂ ≈ 8 makes ℓ' = 17 span the 20-TU windows), and for the §8.5 attacks that stay in that
    regime. It is **not** claimed where strong TU-level autocorrelation is resolved by Moran's I only to a
-   short lag (ℓ' ≤ 7): giapsim ρ = 0.9 gives 0.113 at 557 TUs and 0.095 at 1,001 TUs, and 1,000
+   short lag (ℓ' ≤ 7): gippasim ρ = 0.9 gives 0.113 at 557 TUs and 0.095 at 1,001 TUs, and 1,000
    single-gene TUs give 0.068 / 0.110 / 0.208 / 0.327 at ρ = 0.7 / 0.8 / 0.9 / 0.95 (bound 0.0638).
    The scored-TU count decides nothing on its own — 400 TUs at ρ 0.5 give 0.005, 1,000 TUs at ρ 0.9 give
    0.095–0.208, 2,500 TUs at ρ 0.9 give 0.024 — it enters only through the power of the ℓ̂ test, together
@@ -80,7 +80,7 @@ ADR's 0.040; 0.024 at ρ 0.9 against 0.023); the **inference** from them was wro
 2a. **No flag.** `uncalibrated` is **dropped** (Khoa, option B): no per-replicon statistic certifies the
    domain, so a flag would give false reassurance. ℓ̂, ℓ', the lag-1 Moran's I of the detrended TU scores,
    a Bartlett variance ratio of the window sums and a local-scale ratio all fail as keep/flag rules, and
-   selecting on them is **adverse** — giapsim ρ = 0.9 at 557 TUs is 0.113 overall but **0.220** among the
+   selecting on them is **adverse** — gippasim ρ = 0.9 at 557 TUs is 0.113 overall but **0.220** among the
    replicates that look calmest (ℓ̂ ≤ 1, flat local scale), because a small ℓ̂ is exactly what makes the
    block too short; the same rule flags 94 % of the perfectly calibrated 2,501-TU ρ = 0.5 cell.
    Instead: docs/methods/islands.md states the domain above, and the §9.4 run report carries ℓ̂, ℓ'

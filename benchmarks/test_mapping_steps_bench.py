@@ -1,7 +1,7 @@
-"""Performance budget for the mapping steps (issue M3-17 acceptance; GIAP_SPEC.md §6.4, §7.2).
+"""Performance budget for the mapping steps (issue M3-17 acceptance; GIPPA_SPEC.md §6.4, §7.2).
 
 The whole mapping chain (``parse_bakta`` → ``sixframe_index`` → ``map_exact`` → ``map_tolerant``
-→ ``placement`` → ``loci``) through ``giap.steps.registry.run_step`` on the 100-kb giapsim
+→ ``placement`` → ``loci``) through ``gippa.steps.registry.run_step`` on the 100-kb gippasim
 genome with 5,000 query peptides (the simulator's M3-19 peptides, topped up with windows of the
 genome's six-frame translation and random tryptic peptides, all ``q = 0.001``): <= 20 s wall
 time (local executor, no external tools). Simulation and preflight are excluded; numba is warmed
@@ -32,9 +32,9 @@ from helpers.mapping_steps import (
     simulate_with_proteomics,
 )
 
-from giap.config import resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.steps.mapping import select_queries
+from gippa.config import resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.steps.mapping import select_queries
 
 N_PEPTIDES = 5_000
 BUDGET_S = 20.0

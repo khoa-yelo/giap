@@ -10,12 +10,12 @@ Interface pinned for the fix:
   under both executors, before anything is launched. A run whose Nextflow writes no trace then
   has no ``logs/trace.tsv``: ``steps == []``, ``failed_step null`` and no step events copied by
   ``append_step_events`` from the earlier run.
-* B2: an unexpected exception from ``giap.cli._run_nextflow`` (after the provenance core) exits
+* B2: an unexpected exception from ``gippa.cli._run_nextflow`` (after the provenance core) exits
   5 (``ExitCode.INTERNAL``), and the tail still writes ``run_manifest.json`` with ``status
   failed`` and ``exit_code 5``; the exception text is reported (stderr or a file under
   ``OUT/logs``).
-* M7: ``giap.runner.nextflow._step_name`` maps an alias named ``*_STEP`` to its tag.
-* M19: ``command_line`` is the raw ``giap`` argv (``["giap", "run", ...]``), never
+* M7: ``gippa.runner.nextflow._step_name`` maps an alias named ``*_STEP`` to its tag.
+* M19: ``command_line`` is the raw ``gippa`` argv (``["gippa", "run", ...]``), never
   ``sys.argv`` (pytest's argv under CliRunner).
 
 The fake ``nextflow`` harness is that of ``test_manifest_cli_nextflow.py`` (copied, not imported:
@@ -33,10 +33,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 from helpers.manifest_data import validate
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -61,11 +61,11 @@ STEP_EVENT = {"ts": "2026-10-22T00:00:00+00:00", "step": "parse_bakta", "level":
 
 @pytest.fixture
 def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
@@ -112,9 +112,9 @@ def _trace(tmp_path: Path, rows: list[dict[str, str]], name: str = "trace_src.ts
 
 
 def _ok_trace(tmp_path: Path) -> Path:
-    pb = _task(tmp_path, "pb", '"ANNOTATE:GIAP_STEP":\n    giap: 0.1.0\n')
+    pb = _task(tmp_path, "pb", '"ANNOTATE:GIPPA_STEP":\n    gippa: 0.1.0\n')
     return _trace(tmp_path, [
-        {"name": "ANNOTATE:GIAP_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "5.5s",
+        {"name": "ANNOTATE:GIPPA_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "5.5s",
          "%cpu": "65.8%", "peak_rss": "269.9 MB", "workdir": str(pb)},
     ], "ok_trace.tsv")  # fmt: skip
 
@@ -133,7 +133,7 @@ def _argv(nf: dict[str, Path], out: Path, *extra: str) -> list[str]:
 
 
 def _run(nf: dict[str, Path], out: Path, *extra: str) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, _argv(nf, out, *extra))
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -271,7 +271,7 @@ def test_b1_a_new_trace_replaces_the_rotated_one(
 def test_b2_exception_in_run_nextflow_exits_5_with_a_failed_manifest(
     nf: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.cli as gcli
+    import gippa.cli as gcli
 
     def boom(*a: Any, **k: Any) -> int:
         raise RuntimeError("nextflow wrapper exploded on purpose")
@@ -280,7 +280,7 @@ def test_b2_exception_in_run_nextflow_exits_5_with_a_failed_manifest(
     out = tmp_path / "OUT"
     res = CliRunner().invoke(gcli.cli, _argv(nf, out))
     assert isinstance(res.exception, SystemExit), (
-        f"the exception escaped giap run (main() would exit 5 with no manifest): {res.exception!r}"
+        f"the exception escaped gippa run (main() would exit 5 with no manifest): {res.exception!r}"
     )
     assert res.exit_code == ExitCode.INTERNAL, res.output
     assert (out / "work" / "provenance.json").is_file()
@@ -302,12 +302,12 @@ def test_b2_exception_in_run_nextflow_exits_5_with_a_failed_manifest(
     ("name", "step"),
     [
         ("OPERONS:OPERONS_STEP (operons)", "operons"),
-        ("ANNOTATE:GIAP_STEP (parse_bakta)", "parse_bakta"),
+        ("ANNOTATE:GIPPA_STEP (parse_bakta)", "parse_bakta"),
         ("ANNOTATE:PROMOTECH (chunk_1)", "promotech"),
     ],
 )
 def test_m7_step_name_of_a_star_step_alias_is_its_tag(name: str, step: str) -> None:
-    from giap.runner.nextflow import _step_name
+    from gippa.runner.nextflow import _step_name
 
     assert _step_name(name) == step
 
@@ -320,7 +320,7 @@ def test_m7_star_step_alias_groups_under_its_tag_in_the_manifest() -> None:
     assert [s["name"] for s in m["steps"]] == ["operons"]
 
 
-def test_m19_command_line_is_the_giap_argv(
+def test_m19_command_line_is_the_gippa_argv(
     nf: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("FAKE_NF_TRACE", str(_ok_trace(tmp_path)))
@@ -328,5 +328,5 @@ def test_m19_command_line_is_the_giap_argv(
     code, log = _run(nf, out)
     assert code == ExitCode.SUCCESS, log
     cl = _manifest(out)["command_line"]
-    assert cl[:2] == ["giap", "run"], cl
+    assert cl[:2] == ["gippa", "run"], cl
     assert cl[2:] == _argv(nf, out)[1:], cl

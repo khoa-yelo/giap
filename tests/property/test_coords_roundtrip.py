@@ -1,4 +1,4 @@
-"""Hypothesis properties for coordinates (issue M1-01; GIAP_SPEC.md §6.5, §11.2)."""
+"""Hypothesis properties for coordinates (issue M1-01; GIPPA_SPEC.md §6.5, §11.2)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import get_args
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.model import (
+from gippa.model import (
     Interval,
     Replicon,
     check_interval,
@@ -16,7 +16,7 @@ from giap.model import (
     to_one_based_closed,
     wrap_position,
 )
-from giap.model.coords import Strand
+from gippa.model.coords import Strand
 
 FAST = settings(max_examples=200, deadline=None)
 STRANDS = st.sampled_from(["+", "-", "."])

@@ -1,4 +1,4 @@
-"""Hypothesis properties for peptide-table aggregation (issue M1-06; GIAP_SPEC.md §5.3).
+"""Hypothesis properties for peptide-table aggregation (issue M1-06; GIPPA_SPEC.md §5.3).
 
 - aggregation is invariant to row order (shuffled input → identical frames);
 - one aggregated row per distinct kept peptide;
@@ -14,8 +14,8 @@ import pandas as pd
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import InputConfig
-from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+from gippa.config.model import InputConfig
+from gippa.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
 
 FAST = settings(max_examples=100, deadline=None)
 

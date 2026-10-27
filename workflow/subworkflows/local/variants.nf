@@ -1,4 +1,4 @@
-// VARIANTS subworkflow (GIAP_SPEC.md §6.2, §7.5, §9.1; M7-04): the `variants` py step (Module 5,
+// VARIANTS subworkflow (GIPPA_SPEC.md §6.2, §7.5, §9.1; M7-04): the `variants` py step (Module 5,
 // core) reads the loci directory `mapping` (its peptide_hits.tsv), MAP_TOLERANT's hits_tolerant
 // (optional: without it frameshift rows are skipped with a run flag), the C2/C1 gene model, the
 // genome and the C9 peptides, and publishes tables/pileup.tsv.gz, tables/variants.tsv and
@@ -7,15 +7,15 @@
 // required keys go to stepIn's `need` explicitly, so the step does not run when one of their
 // channels is empty. peptide_spectra (C17, optional, M7-10) carries the paired de novo and
 // reference spectra for the class error rates.
-include { GIAP_STEP as VARIANTS_STEP } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as VARIANTS_STEP } from '../../modules/local/gippa_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 // The loci output directory: the `mapping` directory itself in a real run, the parent of its
 // files in a stub run (the loci stub emits the files of mapping/).
 def lociDir(ch) { ch.map { s, fs -> def f = fs instanceof List ? fs[0] : fs; f.name == 'mapping' ? f : f.parent } }
 
-// Stub runs (rule 6): header-only tables with their §9.3 headers (giap.variants.pileup,
-// giap.variants.vcf_records) and a header-only VCF with the §7.5.5 header (giap.io.vcf).
+// Stub runs (rule 6): header-only tables with their §9.3 headers (gippa.variants.pileup,
+// gippa.variants.vcf_records) and a header-only VCF with the §7.5.5 header (gippa.io.vcf).
 def vcfMeta(String kind, List f) { "##${kind}=<ID=${f[0]},Number=${f[1]},Type=${f[2]},Description=\"${f[3]}\">".toString() }
 
 def variantsSpec(List spec) {
@@ -30,12 +30,12 @@ def variantsSpec(List spec) {
                 ['CONF', 'A', 'String', 'Confidence of each ALT allele: high or candidate'],
                 ['NT_CHANGES', 'A', 'Integer', 'Nucleotide changes of the minimal-change ALT codon(s)'],
                 ['ALT_TYPE', 'A', 'String', 'ALT type: substitution, swap or block'],
-                ['FLAGS', '.', 'String', 'Variant flags of the alleles, deduplicated, in GIAP §9.4 order'],
+                ['FLAGS', '.', 'String', 'Variant flags of the alleles, deduplicated, in GIPPA §9.4 order'],
                 ['CLASS_ERR', 'A', 'String', 'Class-specific error rate of each allele, or unestimated']]
     def fmt = [['GT', '1', 'String', 'Haploid genotype: the best-supported ALT allele; . for mixed or tie'],
                ['AD', 'R', 'Integer', 'Distinct peptides supporting REF, then each ALT allele'],
                ['DP', '1', 'Integer', 'Distinct eligible peptides covering the codon']]
-    def vcf = ['##fileformat=VCFv4.3', '##source=giap-stub', '##reference=stub'] +
+    def vcf = ['##fileformat=VCFv4.3', '##source=gippa-stub', '##reference=stub'] +
         info.collect { f -> vcfMeta('INFO', f) } + fmt.collect { f -> vcfMeta('FORMAT', f) } +
         ['#CHROM POS ID REF ALT QUAL FILTER INFO FORMAT sample'.tokenize(' ').join('\\t')]
     def hdr = [pileup: pile.tokenize(' ').join('\t'), variants: vars.tokenize(' ').join('\t'),

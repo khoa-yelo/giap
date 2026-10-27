@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (the report's wording is Unicode: –, ℓ̂, −∞, σ70)
 """M9-16 behaviour 3 and 4: every mandatory caveat is present in its section when its condition
 holds; the operon bin-count table; the ℓ̂ table and its degenerate rows
-(docs/specs/M9-16-report-content.md; GIAP_SPEC.md §7.4, §7.7.1, §7.8.2; ADR-0017, ADR-0021
+(docs/specs/M9-16-report-content.md; GIPPA_SPEC.md §7.4, §7.7.1, §7.8.2; ADR-0017, ADR-0021
 Amendment 1, ADR-0025, ADR-0026, ADR-0027, ADR-0032, ADR-0033, ADR-0034; backlog M6-06).
 
 Interface pinned here (M9-16 test author, beyond the spec text):
@@ -16,7 +16,7 @@ Interface pinned here (M9-16 test author, beyond the spec text):
   ``layer_missing:kegg``;
 - ``<table data-table="island_diagnostics">`` in ``genome-context``: one row per replicon, a
   header cell containing each of ℓ̂, ℓ′ and Î₁; ℓ̂ printed with
-  ``giap.context.diagnostics.render_l_hat`` (never ``0``);
+  ``gippa.context.diagnostics.render_l_hat`` (never ``0``);
 - ``<table data-table="missed_operons_bins">`` in ``operons``: the ``bin_counts`` rows, bounds
   ``−∞`` (U+2212) / ``∞``, and π₀ printed beside it.
 ADR sentences are matched case-insensitively on whitespace-normalised section text, with room
@@ -84,11 +84,11 @@ def test_determinants_section_7_8_2_caveats_verbatim(tmp_path: Path) -> None:
 
 
 def test_determinants_caveats_match_the_module_constant() -> None:
-    """``giap.determinants.CAVEATS`` (#178) is the source the report renders, verbatim §7.8.2."""
-    import giap.determinants as det
+    """``gippa.determinants.CAVEATS`` (#178) is the source the report renders, verbatim §7.8.2."""
+    import gippa.determinants as det
 
     if not hasattr(det, "CAVEATS"):
-        pytest.skip("giap.determinants.CAVEATS arrives with #178 (M8-10)")
+        pytest.skip("gippa.determinants.CAVEATS arrives with #178 (M8-10)")
     assert tuple(det.CAVEATS) == DETERMINANTS_CAVEATS  # type: ignore[attr-defined]
 
 
@@ -221,7 +221,7 @@ def _col(header: list[str], symbol: str) -> int:
 
 
 def test_island_diagnostics_table_per_replicon(tmp_path: Path) -> None:
-    from giap.context.diagnostics import render_l_hat
+    from gippa.context.diagnostics import render_l_hat
 
     out = run_out(tmp_path)
     write_islands(out, [0.001])

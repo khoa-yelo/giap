@@ -1,7 +1,7 @@
-# R golden-reference env (M8-12; GIAP_SPEC.md §3.2, §11.5). Built only by
+# R golden-reference env (M8-12; GIPPA_SPEC.md §3.2, §11.5). Built only by
 # scripts/slurm/golden_r.sbatch; never used by src/ (fgsea MIT, goseq LGPL, BiasedUrn GPL-3, R GPL-2+).
 # Exact solve frozen in golden_r.explicit.txt.
-name: giap-golden-r
+name: gippa-golden-r
 channels:
   - conda-forge
   - bioconda

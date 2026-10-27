@@ -1,4 +1,4 @@
-"""Contract test: BacTermFinder parser (M2-15; GIAP_SPEC.md §5.4, §7.1.1, §7.1.5).
+"""Contract test: BacTermFinder parser (M2-15; GIPPA_SPEC.md §5.4, §7.1.1, §7.1.5).
 
 Active since fix-bactermfinder-parser: every sample directory under
 ``tests/data/recorded/bactermfinder/024870447f62/`` (pinned commit; genome FASTA, the tool's
@@ -27,9 +27,9 @@ def test_recordings_exist() -> None:
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[p.name for p in SAMPLES])
 def test_recorded_bactermfinder_output_parses(sample: Path) -> None:
-    from giap.annotate.terminators import parse_bactermfinder
-    from giap.io.fasta import read_genome_fasta
-    from giap.model.coords import Replicon, check_interval
+    from gippa.annotate.terminators import parse_bactermfinder
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.model.coords import Replicon, check_interval
 
     fastas = sorted(sample.glob("*.fa")) + sorted(sample.glob("*.fasta"))
     assert fastas, f"{sample}: the recording needs its genome FASTA"

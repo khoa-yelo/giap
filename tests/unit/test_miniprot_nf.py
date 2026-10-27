@@ -1,6 +1,6 @@
 """miniprot builders vs. ``workflow/modules/local/miniprot/main.nf`` (issue M3-12; M2-07 sync rule).
 
-``giap.mapping.miniprot`` is not under ``giap.annotate``, so M2-07's ``test_nf_cmd_sync`` does not
+``gippa.mapping.miniprot`` is not under ``gippa.annotate``, so M2-07's ``test_nf_cmd_sync`` does not
 discover it; this file applies the same rule: every flag the builders emit (index and align, minus
 the configurable ``mapping.proteins.miniprot_args``, which reach the process via ``task.ext.args``)
 appears in a ``script:`` block, the script runs ``miniprot`` and the ``stub:`` writes a GFF.
@@ -33,7 +33,7 @@ def _has_flag(text: str, flag: str) -> bool:
 
 
 def test_builder_flags_appear_in_script() -> None:
-    from giap.mapping.miniprot import miniprot_align_cmd, miniprot_index_cmd
+    from gippa.mapping.miniprot import miniprot_align_cmd, miniprot_index_cmd
 
     argv = miniprot_index_cmd(Path("g.fa"), Path("g.mpi"), 2) + miniprot_align_cmd(
         Path("g.mpi"), Path("p.faa"), 2, ""

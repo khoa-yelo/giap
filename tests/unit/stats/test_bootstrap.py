@@ -1,8 +1,8 @@
-"""TU-block bootstrap, percentile CI and circular block bootstrap (issue M4-04; GIAP_SPEC.md
+"""TU-block bootstrap, percentile CI and circular block bootstrap (issue M4-04; GIPPA_SPEC.md
 §7.3.5(a)-(b), §8.2 "resample TUs, not genes", §8.3; decision 14 sets B = 1000 by default).
 
 Conventions pinned here: randomness only from the ``np.random.Generator`` passed in (callers get
-it from ``giap.rng.for_step``, as in ``giap.stats.permutation``); ``estimate = stat_fn(df)``;
+it from ``gippa.rng.for_step``, as in ``gippa.stats.permutation``); ``estimate = stat_fn(df)``;
 each replicate draws, per stratum, as many TU IDs as the stratum has, with replacement, and
 concatenates their rows (a TU drawn twice contributes its rows twice, in its internal order); NaN
 replicate statistics are dropped and fewer than B/2 valid gives CI (NaN, NaN). Circular blocks
@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.rng import for_step
-from giap.stats.bootstrap import (
+from gippa.rng import for_step
+from gippa.stats.bootstrap import (
     BootCI,
     circular_block_bootstrap,
     percentile_ci,

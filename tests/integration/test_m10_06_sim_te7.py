@@ -1,12 +1,12 @@
-"""M10-06 acceptance criterion 12: TE7 and TE5 on two real local GIAP runs of giapsim.
+"""M10-06 acceptance criterion 12: TE7 and TE5 on two real local GIPPA runs of gippasim.
 
 Spec: docs/specs/M10-06-te-real-and-te7.md, acceptance criterion 12 (``slow``; Slurm via
 ``scripts/slurm/test_branch.sbatch``, never the session allocation).
 
-Two ``giap run --executor local`` runs of giapsim SIM100K (``pi_wrong = 0``) with the same seed
+Two ``gippa run --executor local`` runs of gippasim SIM100K (``pi_wrong = 0``) with the same seed
 in two directories, on a peptide table with planted trypsin and keratin digests from
 ``tests/data/contaminants_mini.faa`` (accessions renamed to the real library's ``Cont_`` form;
-the same file is the test ``$GIAP_DB_DIR`` contaminant library). Then ``te_real.py te7``
+the same file is the test ``$GIPPA_DB_DIR`` contaminant library). Then ``te_real.py te7``
 (``pass``), ``te_real.py compute`` (TE5 ``pass``; ``|S| - genome_exact`` equals the planted family
 peptides that the independent oracle ``tests/helpers/contaminant_oracle.py`` finds nowhere in
 the genome; TE2 runs on the run's ``variants.tsv``), and a copy of one run with one
@@ -53,7 +53,7 @@ def _read_fasta(path: Path) -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    from giap.io.protein_fasta import resolve_protein_id
+    from gippa.io.protein_fasta import resolve_protein_id
 
     root = tmp_path_factory.mktemp("m10_06_sim_te7")
     contam = write_contaminants(root / "lib" / "contaminants.fasta")
@@ -95,8 +95,8 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
     s = dataclasses.replace(sim, peptides=pep)
     rep1, rep2 = root / "runs" / "rep1", root / "runs" / "rep2"
-    mr.giap_run(s, rep1, db, SEED)
-    mr.giap_run(s, rep2, db, SEED)
+    mr.gippa_run(s, rep1, db, SEED)
+    mr.gippa_run(s, rep2, db, SEED)
     head = git(REPO, "rev-parse", "HEAD")
     for out in (rep1, rep2):
         # the test checkout may be dirty or the manifest commit unset: the pair under test is
@@ -125,7 +125,7 @@ def _te7(w: dict[str, Any], ref: Path, rep: Path, out: Path) -> dict[str, Any]:
 
 def test_two_runs_same_seed_pass_te7(world: dict[str, Any]) -> None:
     doc = _te7(world, world["rep1"], world["rep2"], world["root"] / "m_te7")
-    g = doc["giap"]
+    g = doc["gippa"]
     assert g["status"] == "pass", g["differing"]
     assert g["n_gate"] > 0 and g["n_excluded"] > 0
 
@@ -188,7 +188,7 @@ def test_one_changed_genes_cell_is_numeric_only(world: dict[str, Any]) -> None:
     assert changed, "no numeric cell to change in genes.tsv"
     path.write_text("\n".join(lines), encoding="utf-8")
     doc = _te7(world, world["rep1"], rep3, world["root"] / "m_te7_changed")
-    g = doc["giap"]
+    g = doc["gippa"]
     assert g["status"] == "fail"
     d = {x["path"]: x for x in g["differing"]}
     assert list(d) == ["tables/genes.tsv"]

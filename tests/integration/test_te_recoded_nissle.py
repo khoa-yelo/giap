@@ -60,7 +60,7 @@ def _db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def te1(_db: Path, tmp_path_factory: pytest.TempPathFactory) -> Any:
     assert hashlib.sha256(NISSLE_GENOME.read_bytes()).hexdigest() == NISSLE_SHA256
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(_db))
+        mp.setenv("GIPPA_DB_DIR", str(_db))
         r = _te().te1_proxy(NISSLE_GENOME, NISSLE_JSON)
     out = tmp_path_factory.mktemp("te1") / "te1.json"
     out.write_text(json.dumps(r.to_json(), indent=2, sort_keys=True))
@@ -71,7 +71,7 @@ def te1(_db: Path, tmp_path_factory: pytest.TempPathFactory) -> Any:
 @pytest.fixture(scope="module")
 def te2(_db: Path) -> Any:
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(_db))
+        mp.setenv("GIPPA_DB_DIR", str(_db))
         return _te().te2_proxy(NISSLE_GENOME, NISSLE_JSON)
 
 

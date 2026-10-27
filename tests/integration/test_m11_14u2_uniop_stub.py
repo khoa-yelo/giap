@@ -3,16 +3,16 @@
 docs/specs/M11-14-container-install.md item 1b ("What is recorded (14u2)": the run manifest's
 ``uniop`` entry), examples 19 and 21, AC 9a.
 
-``giap run --profile docker`` goes through the CLI, preflight and the run tail. The state "after
+``gippa run --profile docker`` goes through the CLI, preflight and the run tail. The state "after
 example 16" is written directly (no fetch, no build): ``db_manifest.json`` with an ``ok``
 ``image:uniop`` whose ``local_build`` is the docker build of the current ``key("uniop")``, and
 ``local_tools.config`` naming its tag. A ``nextflow`` wrapper forwards the runner's command line
 to the real Nextflow with the profile swapped for ``test,docker,stub`` and ``-stub-run`` added
-(the ``-c <db_dir>/local_tools.config`` that ``giap run`` adds is kept). A logging fake
+(the ``-c <db_dir>/local_tools.config`` that ``gippa run`` adds is kept). A logging fake
 ``docker`` answers ``image inspect`` for the tag with the fake image ID, exits 0 for the UniOP
 ``--help`` probe, and runs each task's command on the host. Preflight's tool rows other than
 ``uniop`` are dropped (the conda-only promoter tools are missing under docker by design, item 3;
-they are not under test here). No network, no real docker, never the real ``$GIAP_DB_DIR``.
+they are not under test here). No network, no real docker, never the real ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -27,10 +27,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, setup_manifest
+from helpers.fake_env import fake_gippa_root, setup_manifest
 from helpers.uniop_14u1 import ARCHIVE_URL, FAKE_IMAGE_ID, VERSION, uniop_key, uniop_tag
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -105,7 +105,7 @@ def _db(db: Path) -> Path:
 def run(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     import socket
 
-    import giap.preflight.run as pre
+    import gippa.preflight.run as pre
 
     tmp = tmp_path_factory.mktemp("uniop_stub")
     mp = pytest.MonkeyPatch()
@@ -123,7 +123,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         bindir.mkdir()
         _exe(bindir / "nextflow", WRAPPER.replace("{real}", real_nf))
         _exe(bindir / "docker", FAKE_DOCKER)
-        for var in ("GIAP_DB_DIR", "NXF_APPTAINER_CACHEDIR", "GIAP_CONTAINER_RUNTIME",
+        for var in ("GIPPA_DB_DIR", "NXF_APPTAINER_CACHEDIR", "GIPPA_CONTAINER_RUNTIME",
                     "SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE",
                     "SLURM_MEM_PER_CPU", "UNIOP_HOME"):  # fmt: skip
             mp.delenv(var, raising=False)
@@ -134,7 +134,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         mp.setenv("FAKE_DOCKER_LOG", str(tmp / "docker.log"))
         mp.setenv("FAKE_TAG", uniop_tag())
         mp.setenv("FAKE_IMAGE_ID", FAKE_IMAGE_ID)
-        mp.setenv("GIAP_ROOT", str(fake_giap_root(tmp / "giap_root")))
+        mp.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp / "gippa_root")))
         real_reasons = pre.missing_tool_reasons
 
         def uniop_only(*a: Any, **k: Any) -> dict[str, str]:
@@ -145,7 +145,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         proteins = tmp / "proteins.faa"
         proteins.write_text(">prot1\nM" + "ACDEFGHIKLMNPQRSTVWY" * 8 + "\n")
         out = tmp / "OUT"
-        from giap.cli import cli
+        from gippa.cli import cli
 
         argv = ["run", "--genome", str(DATA / "genome.fa"), "--proteins", str(proteins),
                 "--outdir", str(out), "--db-dir", str(db), "--modules", "core",

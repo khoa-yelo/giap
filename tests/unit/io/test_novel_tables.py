@@ -1,12 +1,12 @@
 """``tables/novel_orfs.tsv``: the Frictionless schema, the writer and reader, and the Data Package
 resource (issue M7-07; docs/specs/M7-07-novel-orf-outputs.md rules 1-4, lead decision 1;
-GIAP_SPEC.md §9.3, §9.4, §9.5; ADR-0012 decision 3; M7-index lead decision 2 (new flag values
+GIPPA_SPEC.md §9.3, §9.4, §9.5; ADR-0012 decision 3; M7-index lead decision 2 (new flag values
 through the schema)).
 
 Interface reading (test author): ``write_novel_orfs(path, table)`` writes the table returned by
-``giap.novel.outputs.orf_table``; ``read_novel_orfs(path)`` returns a frame with the same columns
+``gippa.novel.outputs.orf_table``; ``read_novel_orfs(path)`` returns a frame with the same columns
 that ``write_novel_orfs`` writes back to identical bytes. The descriptor is
-``src/giap/schemas/tables/novel_orfs.schema.json`` and ``src/giap/schemas/datapackage.json`` lists
+``src/gippa/schemas/tables/novel_orfs.schema.json`` and ``src/gippa/schemas/datapackage.json`` lists
 it as the resource ``novel_orfs`` at ``tables/novel_orfs.tsv``.
 """
 
@@ -37,7 +37,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMAS = ROOT / "src" / "giap" / "schemas"
+SCHEMAS = ROOT / "src" / "gippa" / "schemas"
 TABLES = SCHEMAS / "tables"
 NOVEL_CLASSES = {"nterm_extension", "cterm_extension", "intergenic", "cds_outframe", "antisense",
                  "pseudogene", "sorf"}  # fmt: skip

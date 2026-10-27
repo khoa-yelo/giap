@@ -1,21 +1,21 @@
 r"""K-12 cut-off calibration: UniOP AUROC and cut-off, the d0 / s refit, the TerminatorNet cut-off.
 
-Issue M6-12 part B (GIAP_SPEC.md §15.4 steps 3-5, §7.1.3, §7.4.6); spec
+Issue M6-12 part B (GIPPA_SPEC.md §15.4 steps 3-5, §7.1.3, §7.4.6); spec
 ``docs/specs/M6-12-uniop-terminator-cutoffs.md``; methods ``docs/methods/operons.md`` "K-12 cut-off
 calibration (M6-12)". This driver does the I/O, the identity checks, the coordinate re-map,
-directons, eligibility and matching; every statistic is a pure function of ``giap.stats.cutoffs``.
-Randomness comes from one ``giap.rng.for_step(STEP, seed)`` generator, drawn in the methods'
+directons, eligibility and matching; every statistic is a pure function of ``gippa.stats.cutoffs``.
+Randomness comes from one ``gippa.rng.for_step(STEP, seed)`` generator, drawn in the methods'
 fixed stream order. Nothing written here is committed (R6 / R11).
 
 Usage::
 
     python validation/calibrate_cutoffs.py \
-        --regulondb-dir $GIAP_DATA_DIR/regulondb/14.5.0 \
+        --regulondb-dir $GIPPA_DATA_DIR/regulondb/14.5.0 \
         --bakta-json tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz \
         --genome tests/data/genomes/k12_mg1655.fna.gz \
-        --uniop-dir $GIAP_ROOT/recordings/uniop/k12_mg1655 \
+        --uniop-dir $GIPPA_ROOT/recordings/uniop/k12_mg1655 \
         --terminatornet tests/data/recorded/terminatornet/721803095459/k12/terms.tsv.gz \
-        --out-dir $GIAP_DATA_DIR/regulondb/14.5.0/calibration
+        --out-dir $GIPPA_DATA_DIR/regulondb/14.5.0/calibration
 """
 
 from __future__ import annotations
@@ -45,16 +45,16 @@ from validation.regulondb_truth import (
     verified_release,
 )
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.operons import adjacent_pairs, intergenic_distance
-from giap.annotate.terminators import parse_terminatornet
-from giap.annotate.uniop_adapter import PairProb, genome_order, parse_uniop_pred
-from giap.io.fasta import read_genome_fasta, write_fasta
-from giap.manifest import finite
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats import cutoffs as sc
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.operons import adjacent_pairs, intergenic_distance
+from gippa.annotate.terminators import parse_terminatornet
+from gippa.annotate.uniop_adapter import PairProb, genome_order, parse_uniop_pred
+from gippa.io.fasta import read_genome_fasta, write_fasta
+from gippa.manifest import finite
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats import cutoffs as sc
 
 STEP = sc.STEP
 UNIOP_PIN = "3ed14dfc2a5d69b993d99a26e50c1f8e9723c087"  # ADR-0008

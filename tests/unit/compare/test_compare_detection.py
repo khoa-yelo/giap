@@ -1,6 +1,6 @@
-"""M9-22 ``giap.compare.detection``: the gene x run detection matrix and the exact (UpSet)
+"""M9-22 ``gippa.compare.detection``: the gene x run detection matrix and the exact (UpSet)
 intersections (docs/specs/M9-22-compare-tables.md "Tables", example 1, lead decision 4;
-GIAP_SPEC.md §7.9.3, §6.5 sort order).
+GIPPA_SPEC.md §7.9.3, §6.5 sort order).
 
 File named ``test_compare_detection.py`` (not ``test_detection.py`` as in the acceptance list):
 tests/ has no ``__init__.py`` files, so basenames must be unique across the tree.
@@ -46,7 +46,7 @@ def _example1() -> dict[str, pd.DataFrame]:
 
 
 def _inter(runs: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    from giap.compare.detection import detection_matrix, intersections
+    from gippa.compare.detection import detection_matrix, intersections
 
     return intersections(detection_matrix(runs), list(runs))
 
@@ -59,7 +59,7 @@ def _counts(inter: pd.DataFrame) -> dict[str, int]:
 
 
 def test_matrix_has_one_row_per_gene_and_run() -> None:
-    from giap.compare.detection import detection_matrix
+    from gippa.compare.detection import detection_matrix
 
     m = detection_matrix(_example1())
     assert len(m) == len(GENES) * len(LABELS)
@@ -69,7 +69,7 @@ def test_matrix_has_one_row_per_gene_and_run() -> None:
 
 
 def test_matrix_copies_detected_and_status() -> None:
-    from giap.compare.detection import detection_matrix
+    from gippa.compare.detection import detection_matrix
 
     m = detection_matrix(_example1())
     got = {(r.locus_tag, r.run): bool(r.detected) for r in m.itertuples()}
@@ -81,7 +81,7 @@ def test_matrix_copies_detected_and_status() -> None:
 
 def test_matrix_sorted_genes_by_position_then_run_in_label_order() -> None:
     """§6.5: by contig (as first seen), then start; labels in the given order (not sorted)."""
-    from giap.compare.detection import detection_matrix
+    from gippa.compare.detection import detection_matrix
 
     # positions disagree with the lexicographic order of IDs and labels
     names = ["z9", "a1", "m5"]
@@ -93,7 +93,7 @@ def test_matrix_sorted_genes_by_position_then_run_in_label_order() -> None:
 
 
 def test_matrix_contig_order_is_first_seen_not_alphabetical() -> None:
-    from giap.compare.detection import detection_matrix
+    from gippa.compare.detection import detection_matrix
 
     rows = [gene("p1", start=0, contig="plasmid"), gene("c1", start=0, contig="chrA"),
             gene("p0", start=50, contig="plasmid")]  # fmt: skip
@@ -172,7 +172,7 @@ def test_property_intersections_partition_the_genes(hits: list[tuple[bool, ...]]
 @FAST
 @given(st.lists(st.tuples(st.booleans(), st.booleans()), min_size=1, max_size=20))
 def test_property_matrix_counts_match_detected_sets(hits: list[tuple[bool, bool]]) -> None:
-    from giap.compare.detection import detection_matrix
+    from gippa.compare.detection import detection_matrix
 
     genes = [f"g{i:02d}" for i in range(len(hits))]
     runs = _runs({"A": {g for g, h in zip(genes, hits, strict=True) if h[0]},

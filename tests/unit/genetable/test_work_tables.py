@@ -1,4 +1,4 @@
-"""M4-06 loader: ``giap.io.work_tables`` (docs/specs/M4-06-input-contract.md, "Public interface").
+"""M4-06 loader: ``gippa.io.work_tables`` (docs/specs/M4-06-input-contract.md, "Public interface").
 
 ``load_m4_inputs`` reads M2's Parquet intermediates (0-based) and M3's final ``mapping/*.tsv``
 (1-based closed, ``;`` lists, ``NA``/``INF`` per ADR-0006), converts on read and never raises on
@@ -17,7 +17,7 @@ import pandas as pd
 import pytest
 from m4_contract_fixture import FILE_NAMES, build_frames, empty_like, write_work
 
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 KEYS = set(FILE_NAMES)
 OPTIONAL_FILES = ("abundance", "id_map")
@@ -28,7 +28,7 @@ REQUIRED_FILES = (
 
 
 def _wt() -> Any:
-    from giap.io import work_tables
+    from gippa.io import work_tables
 
     return work_tables
 

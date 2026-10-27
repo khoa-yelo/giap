@@ -1,11 +1,11 @@
 """MVP-03c content blocks on real runs under both executors (docs/specs/MVP-03-manifest-finalize.md
-acceptance 03c, D-C rows marked c, "Goal": executor-identical stable views; GIAP_SPEC.md §6.4,
+acceptance 03c, D-C rows marked c, "Goal": executor-identical stable views; GIPPA_SPEC.md §6.4,
 §6.7).
 
-The ``test_mvp03_manifest_executors`` setup (giapsim SIM100K with M3-19 proteomics and every
+The ``test_mvp03_manifest_executors`` setup (gippasim SIM100K with M3-19 proteomics and every
 precomputed layer, peptides only, ``--modules core,mobile,bgc --seed 7``, ``--executor local``
 and ``--executor nextflow --profile farmshare_local``). The database directory is the test DB of
-``helpers.mapping_steps`` (provisional per-name form, never the real ``$GIAP_DB_DIR``); the
+``helpers.mapping_steps`` (provisional per-name form, never the real ``$GIPPA_DB_DIR``); the
 ``retrieved`` dates are pinned by the unit tests (tests/unit/manifest/test_content_*.py). Run
 through Slurm (``scripts/slurm/test_branch.sbatch``), never in the session.
 """
@@ -32,17 +32,17 @@ BLOCKS = ("sensitivity", "context", "operons", "mapping", "calibration", "databa
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 def _run(sim: Any, out: Path, *extra: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
@@ -59,7 +59,7 @@ def outs(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     try:
         from helpers.mapping_steps import write_test_db
 
-        mp.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db_mvp03c"))))
+        mp.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db_mvp03c"))))
         mp.setenv("NXF_ANSI_LOG", "false")
         local = tmp_path_factory.mktemp("LOCAL") / "OUT"
         nf = tmp_path_factory.mktemp("NF") / "OUT"

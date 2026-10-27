@@ -1,7 +1,7 @@
-"""giapsim function and determinants scenarios (issue M8-14; GIAP_SPEC.md §7.7.5, §7.8.3, §8.4,
+"""gippasim function and determinants scenarios (issue M8-14; GIPPA_SPEC.md §7.7.5, §7.8.3, §8.4,
 §8.5 attacks 2 and 3, §11.3, §11.4; docs/specs/M8-14-sim-function-determinants.md).
 
-The spec's ``tests/sim/tests/test_function_sim.py`` lives in tests/unit like the other giapsim
+The spec's ``tests/sim/tests/test_function_sim.py`` lives in tests/unit like the other gippasim
 tests (the simulator tree is the implementer's). Examples 1, 3 and 6's "over seeds" claims (and the
 "detection depends only on p_true" half of example 2) are gated in
 tests/calibration/test_sim_function_calibration.py; the ontology invariants are Hypothesis
@@ -9,14 +9,14 @@ properties in tests/property/test_sim_function_props.py.
 
 Interface assumed (the spec gives only the scenario signatures ``-> Pair``; reported to the lead):
 
-- ``giapsim.scenarios``: ``ora_null(n)``, ``ora_attack_confounded(n, member_shift)``,
+- ``gippasim.scenarios``: ``ora_null(n)``, ``ora_attack_confounded(n, member_shift)``,
   ``gsea_null(n)``, ``gsea_attack_operon_packed(n, n_sets)``,
   ``determinants_null(n, *, noise_sd=1.0, features="planted")`` and
   ``determinants_planted(n, coefs, noise_sd, *, features="planted")``, each returning
   ``Pair = (LayoutConfig, ExpressionConfig)``; ``coefs`` keys are ``promoter``, ``rbs``, ``cai``
   (blocks ``transcription``, ``translation``, ``codon``); ``features="gaussian"`` draws iid N(0, 1)
   features (unit tests only, lead decision 2).
-- ``giapsim.function_sim``:
+- ``gippasim.function_sim``:
 
   * ``RESERVED_PREFIXES``: the reserved ID prefixes (``GO:9``, ``K9``, ``map9``; decision 1);
   * ``CONFOUND_COVARIATE``: the M4-13 covariate carrying ``ora_attack_confounded``'s shift,
@@ -24,8 +24,8 @@ Interface assumed (the spec gives only the scenario signatures ``-> Pair``; repo
     decisions 4 and 6, B1);
   * ``synthetic_ontology(n_terms, depth, rng, *, genes=())`` -> ``(obo_text, table)``, ``table``
     a C3-shaped (``locus_tag``, ``db``, ``id``) gene -> GO term table over ``genes``;
-  * ``draw(pair, rng)`` -> a world with ``layout`` (giapsim Layout; the synthetic GO/KEGG/COG
-    xrefs in its C3 ``xrefs``), ``expression`` (giapsim Expression), ``obo`` (str),
+  * ``draw(pair, rng)`` -> a world with ``layout`` (gippasim Layout; the synthetic GO/KEGG/COG
+    xrefs in its C3 ``xrefs``), ``expression`` (gippasim Expression), ``obo`` (str),
     ``kegg_links`` (``ko``, ``pathway``: ``ko:K9xxxx``, ``path:map9xxxx``), ``sets`` (one row per
     member: ``set_id``, ``collection``, ``locus_tag``, ``confounded``), ``features`` (determinants
     scenarios: ``locus_tag``, ``promoter``, ``rbs``, ``cai``) and ``truth`` (a mapping of frames);
@@ -56,7 +56,7 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-GIAPSIM = ROOT / "tests" / "sim" / "giapsim"
+GIPPASIM = ROOT / "tests" / "sim" / "gippasim"
 sys.path.insert(0, str(ROOT / "tests" / "helpers"))
 SCENARIOS = ("ora_null", "ora_attack_confounded", "gsea_null", "gsea_attack_operon_packed",
              "determinants_null", "determinants_planted")  # fmt: skip
@@ -79,15 +79,15 @@ ANY_MAP = re.compile(r"(?<![A-Za-z0-9])map\d{5}(?!\d)")
 
 
 def _fs() -> Any:
-    import giapsim.function_sim
+    import gippasim.function_sim
 
-    return giapsim.function_sim
+    return gippasim.function_sim
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def draw(pair: Any, seed: int) -> Any:
@@ -120,7 +120,7 @@ def _obo_ids(obo: str) -> list[str]:
 
 
 def _read_go(obo: str, tmp: Path) -> Any:
-    from giap.io.function_resources import read_go
+    from gippa.io.function_resources import read_go
 
     path = tmp / "synthetic.obo"
     path.write_text(obo)
@@ -167,8 +167,8 @@ def planted3000() -> Any:
 
 
 def test_every_scenario_exists_and_returns_a_pair() -> None:
-    from giapsim.expression import ExpressionConfig
-    from giapsim.layout import LayoutConfig
+    from gippasim.expression import ExpressionConfig
+    from gippasim.layout import LayoutConfig
 
     sc = _sc()
     pairs = [sc.ora_null(600), sc.ora_attack_confounded(600, -1.0), sc.gsea_null(600),
@@ -192,13 +192,13 @@ def test_function_sim_exports() -> None:
     assert values == {"GO:9", "K9", "map9"}
 
 
-def test_function_sim_imports_nothing_from_giap() -> None:
-    """Sequence-free giapsim modules import nothing from ``giap`` (as layout and expression)."""
+def test_function_sim_imports_nothing_from_gippa() -> None:
+    """Sequence-free gippasim modules import nothing from ``gippa`` (as layout and expression)."""
     code = (
-        "import sys, giapsim.function_sim, giapsim.scenarios; "
-        "print(sorted(m for m in sys.modules if m == 'giap' or m.startswith('giap.')))"
+        "import sys, gippasim.function_sim, gippasim.scenarios; "
+        "print(sorted(m for m in sys.modules if m == 'gippa' or m.startswith('gippa.')))"
     )
-    env_path = f"{GIAPSIM.parent}"
+    env_path = f"{GIPPASIM.parent}"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                          env={"PYTHONPATH": env_path, "PATH": "/usr/bin:/bin"},
                          check=True)  # fmt: skip
@@ -387,7 +387,7 @@ def test_simulator_files_carry_no_real_go_kegg_literal() -> None:
     """Acceptance: no real GO/KEGG content in the simulator's function files (a grep for IDs
     outside the reserved prefixes)."""
     for name in ("function_sim.py", "scenarios.py"):
-        path = GIAPSIM / name
+        path = GIPPASIM / name
         assert path.is_file(), name
         text = path.read_text()
         bad = [t for t in ANY_GO.findall(text) if not RE_GO.match(t)]
@@ -401,7 +401,7 @@ def test_simulator_files_carry_no_real_go_kegg_literal() -> None:
 
 
 def test_ora_null_detection_is_covariates_only(ora4000: Any) -> None:
-    from giapsim.expression import DEFAULT_BETA
+    from gippasim.expression import DEFAULT_BETA
 
     _, ecfg = _sc().ora_null(4000)
     assert ecfg.detection == "covariates_only"
@@ -443,7 +443,7 @@ def _covariate_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
     """(M4-09 covariate logit ``b0 + b1 log len + b2 log1p n_obs + b3 GRAVY`` from the world's
     *recorded* covariates — ``aa`` length, ``n_obs_true``, ``gravy_true`` — and the mask of genes
     with a protein sequence)."""
-    from giapsim.expression import DEFAULT_BETA as B
+    from gippasim.expression import DEFAULT_BETA as B
 
     g = _genes(world)
     aa = world.layout.genes.set_index("locus_tag").loc[g["locus_tag"], "aa"]
@@ -458,14 +458,14 @@ def _covariate_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _recomputed_covariates(world: Any) -> pd.DataFrame:
-    """GIAP's gene-table covariates (``giap.genetable.covariates.covariates`` with the default
+    """GIPPA's gene-table covariates (``gippa.genetable.covariates.covariates`` with the default
     ``abundance.enzyme`` / ``observable_len``) recomputed from each gene's ``aa``, indexed like
     ``_genes(world)``; ``has_aa`` marks genes with an amino-acid sequence (pseudogenes without one
-    are translated from ``nt`` by GIAP but carry no covariates in giapsim, so they are excluded)."""
-    from giap.config import GiapConfig
-    from giap.genetable.covariates import covariates
+    are translated from ``nt`` by GIPPA but carry no covariates in gippasim, so they are excluded)."""
+    from gippa.config import GippaConfig
+    from gippa.genetable.covariates import covariates
 
-    ab = GiapConfig().abundance
+    ab = GippaConfig().abundance
     g = _genes(world)
     aa = world.layout.genes.set_index("locus_tag").loc[g["locus_tag"], "aa"].tolist()
     rows = []
@@ -480,7 +480,7 @@ def _recomputed_covariates(world: Any) -> pd.DataFrame:
 
 def _recomputed_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
     """(M4-09 covariate logit from the covariates *recomputed from ``aa``*, has-aa mask)."""
-    from giapsim.expression import DEFAULT_BETA as B
+    from gippasim.expression import DEFAULT_BETA as B
 
     c = _recomputed_covariates(world)
     ok = c["has_aa"].to_numpy(bool)
@@ -525,7 +525,7 @@ def test_example2_confounded_members_are_less_detectable(attack4000: Any) -> Non
 
 def test_confounding_covariate_is_recorded() -> None:
     """B1 (lead decision 6): ``n_obs`` carries the shift, and every member's recorded
-    ``n_obs_true`` is GIAP's observable-peptide count recomputed from its ``aa`` (M8-15 refits
+    ``n_obs_true`` is GIPPA's observable-peptide count recomputed from its ``aa`` (M8-15 refits
     p_detect from the gene table, which sees only the sequences); likewise every gene with an
     ``aa``."""
     assert _fs().CONFOUND_COVARIATE == "n_obs"
@@ -545,7 +545,7 @@ def test_attack_shift_is_carried_by_the_members_covariate() -> None:
     ``p_detect_true`` / ``detected_true`` in the expression; non-members are identical; K/R edits
     leave every member's GRAVY unchanged; movable members (``n_obs`` > 0 at shift 0) lose
     observable peptides, immovable ones stay members, unchanged."""
-    from giap.genetable.covariates import protein_sequence
+    from gippa.genetable.covariates import protein_sequence
 
     a, b, inside = _shift_pair()
     conf = _confounded(a)
@@ -625,7 +625,7 @@ def test_attack_logit_is_computed_from_covariates_only(shift: float) -> None:
     assert ok.sum() > 1000
     p = _genes(w)["p_detect_true"].to_numpy(float)
     np.testing.assert_allclose(p[ok], 1.0 / (1.0 + np.exp(-logit[ok])), rtol=0, atol=1e-9)
-    # lead decision 6: the recorded covariates are the ones GIAP recomputes from the sequences
+    # lead decision 6: the recorded covariates are the ones GIPPA recomputes from the sequences
     c = _recomputed_covariates(w)
     assert np.array_equal(c["has_aa"].to_numpy(bool), ok)
     g = _genes(w)

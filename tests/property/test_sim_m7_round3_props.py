@@ -1,10 +1,10 @@
 """Properties of M7-12 round 3 (lead decisions 21 and 22; PR #225) over random seeds at 100 kb
-(GIAP_SPEC.md §7.6.6, §7.9.2, §11.3).
+(GIPPA_SPEC.md §7.6.6, §7.9.2, §11.3).
 
 These hold for any seed of ``novel_orf_power``:
 
 * every six-frame decoy row carries ``rev_`` + the ``db_id`` of the makedb entry
-  (``giap makedb --six-frame-orfs``, ``min_orf_aa = 7``) whose protein holds the reversed
+  (``gippa makedb --six-frame-orfs``, ``min_orf_aa = 7``) whose protein holds the reversed
   peptide, with the entry's class in the ID;
 * every six-frame wrong target lies in exactly one makedb entry;
 * decoy score, q and PEP are finite, and q and PEP sit in [0, 1];
@@ -28,7 +28,7 @@ from helpers import m7_sim_oracle as O
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giapsim
+import gippasim
 
 seeds = st.integers(min_value=0, max_value=2**31 - 1)
 _SETTINGS = settings(max_examples=3, deadline=None,
@@ -38,11 +38,11 @@ _SETTINGS = settings(max_examples=3, deadline=None,
 @_SETTINGS
 @given(seed=seeds)
 def test_sixframe_decoys_and_territories_for_any_seed(seed: int) -> None:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "sim"
-        giapsim.simulate(sc.novel_orf_power(seed), seed, out)
+        gippasim.simulate(sc.novel_orf_power(seed), seed, out)
         entries = Q.makedb_entries(out, Path(td) / "db")
         index = Q.EntryIndex(entries, Q.lengths(out))
         t, d6, dp = Q.split_rows(out)

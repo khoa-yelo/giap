@@ -2,14 +2,14 @@
 (docs/specs/M5-09-context-tables-step.md, acceptance item
 ``tests/integration/test_context_stats_m5.py``).
 
-GIAP_SPEC.md §6.2 (the step: gene table → ``regions_stats``, ``autocorrelation``, ``islands``,
+GIPPA_SPEC.md §6.2 (the step: gene table → ``regions_stats``, ``autocorrelation``, ``islands``,
 ``detection_summary``, ori-ter), §9.3 (the two column dictionaries and the genes.tsv context
 group), §9.5 (Frictionless), §6.6 / R7 (determinism), R4 (every claim carries FWER/q or an
 ``unestimated`` label).
 
 Interface assumed
 -----------------
-``giap.steps.context_stats`` gains the optional input ``features`` (C15, flat layout
+``gippa.steps.context_stats`` gains the optional input ``features`` (C15, flat layout
 ``work_dir/features.parquet``) and the outputs ``autocorrelation`` → ``tables/
 autocorrelation.tsv``, ``islands`` → ``tables/islands.tsv``, ``gene_context`` →
 ``work/context/gene_context.parquet`` (spec "Public interface"); ``run_context_stats`` keeps its
@@ -21,7 +21,7 @@ artifact yet — see the test-author report).
 The rows themselves come from the merged M5-05 / M5-06 producers and from M5-08 (PR #132, not
 merged): the step only assembles, sorts and writes them, so every check here compares the written
 table with ``context_tables_data``'s oracle, which calls those producers on the step's own random
-streams (``giap.rng.for_step("context_stats.<part>", cfg.seed)``).
+streams (``gippa.rng.for_step("context_stats.<part>", cfg.seed)``).
 
 The fixture is the M4-18 integration fixture plus an oriC and a planted island; M4-20's
 ``build_m4_fixture`` (which the spec names) is not merged — see ``context_tables_data``.
@@ -43,7 +43,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import context_tables_data as cd
 
-TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 #: an island is only reachable on a small fixture with a fixed block and a wide detrend span
 #: (M5-06 decision 50: left censoring caps the high direction too); the ADR-0021 calibration does
 #: not apply to a run with a fixed ``block_len``, which is fine for a plumbing fixture.
@@ -83,11 +83,11 @@ class Run:
 
 
 def _run(work: Path, cfg: Any, *, islands: Any = (), features: bool = True) -> Run:
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     fixture = cd.build(work, islands=islands, features=features)
     handler = _Recorder()
-    log = logging.getLogger("giap.steps.context_stats")
+    log = logging.getLogger("gippa.steps.context_stats")
     log.addHandler(handler)
     try:
         run_context_stats(work, cfg, None)
@@ -127,8 +127,8 @@ def test_example_1_both_tables_are_written(runs: dict[str, Run]) -> None:
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_example_1_headers_equal_the_module_constants(runs: dict[str, Run], name: str,
                                                       table: str) -> None:  # fmt: skip
-    from giap.context.autocorrelation import AUTOCORR_COLUMNS
-    from giap.context.islands import ISLAND_COLUMNS
+    from gippa.context.autocorrelation import AUTOCORR_COLUMNS
+    from gippa.context.islands import ISLAND_COLUMNS
 
     want = AUTOCORR_COLUMNS if table == "autocorrelation" else ISLAND_COLUMNS
     df = cd.read_table(getattr(runs[name], table))
@@ -278,7 +278,7 @@ def test_no_row_carries_the_dropped_uncalibrated_flag(runs: dict[str, Run], name
 
 @pytest.mark.parametrize("name", ["plain", "island", "no_features"])
 def test_every_flag_is_in_the_vocabulary(runs: dict[str, Run], name: str) -> None:
-    from giap.context.vocab import CONTEXT_FLAGS
+    from gippa.context.vocab import CONTEXT_FLAGS
 
     for table in ("autocorrelation", "islands"):
         df = cd.read_table(getattr(runs[name], table))
@@ -336,7 +336,7 @@ def test_probabilities_are_in_the_unit_interval(runs: dict[str, Run], name: str)
 def test_island_schema_rules_on_the_data(runs: dict[str, Run]) -> None:
     """``q_value`` always NA, ``p_value`` ∈ (0, alpha], ``method = scan_max_stat``,
     ``n_tus`` ≥ ``min_tus``, ``island_id`` matches ``ISL_[1-9][0-9]*``."""
-    from giap.context.islands import METHOD
+    from gippa.context.islands import METHOD
 
     run = runs["island"]
     alpha = float(run.cfg.stats.alpha.context)
@@ -362,7 +362,7 @@ def test_island_ids_are_numbered_from_one(runs: dict[str, Run]) -> None:
 
 
 def test_example_4_no_island_writes_the_header_line_only(runs: dict[str, Run]) -> None:
-    from giap.context.islands import ISLAND_COLUMNS
+    from gippa.context.islands import ISLAND_COLUMNS
 
     run = runs["plain"]
     want, _ = cd.oracle_islands(run.fixture, run.cfg)
@@ -468,7 +468,7 @@ def test_replichore_position_is_in_the_unit_interval(runs: dict[str, Run]) -> No
 def test_genes_tsv_schema_has_the_context_group() -> None:
     """§9.3 genes.tsv context group: ``island_id``, ``replichore``, ``replichore_position``
     (the writer left-joins ``gene_context`` on ``locus_tag``; without it they stay NA)."""
-    from giap.genetable.assemble import GENES_COLUMNS
+    from gippa.genetable.assemble import GENES_COLUMNS
 
     fields = [f["name"] for f in _schema("genes")["fields"]]
     for column in ("island_id", "replichore", "replichore_position"):
@@ -515,7 +515,7 @@ def test_example_8_m4_tables_are_still_deterministic(runs: dict[str, Run], table
 
 def test_island_diagnostics_are_persisted(runs: dict[str, Run]) -> None:
     """ADR-0021 Amendment 1: l-hat, l' and Î₁ per replicon survive the step."""
-    from giap.context.diagnostics import DIAGNOSTICS_COLUMNS
+    from gippa.context.diagnostics import DIAGNOSTICS_COLUMNS
 
     run = runs["plain"]
     df = pd.read_parquet(run.diagnostics)
@@ -524,7 +524,7 @@ def test_island_diagnostics_are_persisted(runs: dict[str, Run]) -> None:
 
 
 def test_island_diagnostics_match_the_scan(runs: dict[str, Run]) -> None:
-    from giap.context.diagnostics import island_diagnostics
+    from gippa.context.diagnostics import island_diagnostics
 
     run = runs["plain"]
     _, scan = cd.oracle_islands(run.fixture, run.cfg)
@@ -570,7 +570,7 @@ def test_step_declares_the_new_inputs_and_outputs() -> None:
 
 
 def test_step_leaves_its_inputs_untouched(tmp_path: Path) -> None:
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     run = _run(tmp_path / "w", cd.config())
     first = run.autocorrelation.read_bytes()
@@ -584,7 +584,7 @@ def test_genes_tsv_is_the_gene_table_joined_with_gene_context(
 ) -> None:
     """Lead decision 3 (code review of #138): ``tables/genes.tsv`` has one row per gene in
     gene-table order, a 1-based ``start``, and the three context columns of ``gene_context``."""
-    from giap.io.genes_tsv import read_genes_tsv
+    from gippa.io.genes_tsv import read_genes_tsv
 
     run = runs[name]
     path = run.tables / "genes.tsv"

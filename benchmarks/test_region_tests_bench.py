@@ -1,6 +1,6 @@
 """Performance budget for the M4-17 region tests (docs/specs/M4-17-region-tests.md "Performance").
 
-4,500-gene circular chromosome (giapsim M4-07 layout + M4-08 truth), 30 regions (8 prophages,
+4,500-gene circular chromosome (gippasim M4-07 layout + M4-08 truth), 30 regions (8 prophages,
 8 BGCs, 8 CRISPR arrays, 6 AMR sets), exhaustive shifts (K = 4,499 per region and statistic),
 B = 1,000 TU-block bootstrap replicates: ``test_all_regions`` < 60 s (4 CPUs). Run with
 ``pytest benchmarks --benchmark-only``.
@@ -21,7 +21,7 @@ import region_tests_data as rd
 
 
 def _regions() -> tuple[Any, ...]:
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     spec = la.RegionSpec
     return (
@@ -33,7 +33,7 @@ def _regions() -> tuple[Any, ...]:
 
 
 def test_region_tests_4500_genes_30_regions_budget(benchmark: Any) -> None:
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     lc = la.LayoutConfig(n_genes_chromosome=4500, regions=_regions())
     tables = rd.sim_tables(np.random.default_rng(45), lc, {"ar1_rho": 0.5})

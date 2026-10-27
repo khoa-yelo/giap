@@ -64,7 +64,7 @@ def _big_frame() -> pd.DataFrame:
 
 def test_example1_alternating_series_is_moran_minus_one_in_the_engine() -> None:
     """Appendix B.4 / §7.3.6: the alternating series has I_1 = -1 at lag 1 (circular, n = 10)."""
-    from giap.stats.autocorr import morans_i
+    from gippa.stats.autocorr import morans_i
 
     x = np.array([1.0, -1.0] * 5)
     assert morans_i(x, 1, True) == pytest.approx(-1.0)
@@ -115,7 +115,7 @@ def test_example2_rows_are_sorted_contig_statistic_null_model_lag() -> None:
 
 
 def test_columns_methods_and_test_column_conventions() -> None:
-    from giap.context.autocorrelation import AUTOCORR_COLUMNS
+    from gippa.context.autocorrelation import AUTOCORR_COLUMNS
 
     out = _big_frame()
     assert tuple(AUTOCORR_COLUMNS) == ad.COLUMNS
@@ -142,7 +142,7 @@ def test_example4_q_value_is_above_p_value_and_na_together() -> None:
 
 
 def test_example4_q_value_is_bh_within_contig_statistic_null_model() -> None:
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     out = _big_frame()
     for _, sub in out.groupby(["contig", "statistic", "null_model"], sort=False):
@@ -180,7 +180,7 @@ def test_example6_small_plasmid_rows_and_bh_family() -> None:
     """30-gene circular plasmid next to a 1,000-gene chromosome: the plasmid's join-count lags
     15 ... 20 are NA (max_lag = 14) and its BH family has 14 tests; its Moran rows are
     ``few_values`` (decision 21) and enter no family."""
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     rng = np.random.default_rng(11)
     plasmid = ad.series_contig(
@@ -327,8 +327,8 @@ def test_degenerate_circular_replicon_with_thirty_genes() -> None:
 def test_moran_values_follow_decision_22() -> None:
     """``moran_values`` = the wide pre-trend then the 10 % detrend over the ordinals of the genes
     with values; NaN at genes without a value."""
-    from giap.context.autocorrelation import moran_values
-    from giap.context.regions import replicon_index
+    from gippa.context.autocorrelation import moran_values
+    from gippa.context.regions import replicon_index
 
     rng = np.random.default_rng(13)
     values = ad.ramp(60, rng)
@@ -346,8 +346,8 @@ def test_moran_values_follow_decision_22() -> None:
 
 def test_moran_values_are_degenerate_below_four_span_points() -> None:
     """M5-01 decision 4: with k = 3 every residual is 0 (consumers test k < 4, never x == 0)."""
-    from giap.context.autocorrelation import moran_values
-    from giap.context.regions import replicon_index
+    from gippa.context.autocorrelation import moran_values
+    from gippa.context.regions import replicon_index
 
     genes, _ = ad.genome([ad.series_contig("chr1", ad.ramp(30, np.random.default_rng(2)))])
     x = np.asarray(moran_values(replicon_index(genes, "chr1"), True), dtype=float)
@@ -356,8 +356,8 @@ def test_moran_values_are_degenerate_below_four_span_points() -> None:
 
 def test_join_count_value_is_the_raw_count_and_effect_is_the_pearson_statistic() -> None:
     """ADR-0020 Amendment 1: ``value`` = BB_k, ``effect`` = Pearson statistic - null mean."""
-    from giap.context.regions import replicon_index
-    from giap.stats.autocorr import join_count
+    from gippa.context.regions import replicon_index
+    from gippa.stats.autocorr import join_count
 
     rng = np.random.default_rng(17)
     detected = list(rng.integers(0, 2, 60))
@@ -427,9 +427,9 @@ def test_frame_matches_the_naive_oracle() -> None:
 
 
 def test_replicon_autocorrelation_matches_the_oracle_for_one_replicon() -> None:
-    from giap.context.autocorrelation import replicon_autocorrelation
-    from giap.context.regions import replicon_index
-    from giap.rng import for_step
+    from gippa.context.autocorrelation import replicon_autocorrelation
+    from gippa.context.regions import replicon_index
+    from gippa.rng import for_step
 
     rng = np.random.default_rng(31)
     contig = ad.series_contig(

@@ -1,4 +1,4 @@
-"""V12 ``variants``: where do peptides support ALT residues? (M9-18; GIAP_SPEC.md §10.2 V12, §7.5,
+"""V12 ``variants``: where do peptides support ALT residues? (M9-18; GIPPA_SPEC.md §10.2 V12, §7.5,
 §9.3 ``variants.tsv`` / ``peptide_hits.tsv``, §9.4 flag order; lead decisions 1-3 of 2026-10-22).
 
 Tests the plotted data (the ``Instance`` data frame = ``plots/data/V12_variants.tsv``), the two
@@ -7,10 +7,10 @@ the colours the spec names. No ``--mpl`` baselines (Khoa approves those at M9-25
 
 Interface assumed where the spec leaves it open (M9-18 test author):
 
-- The plot lives in ``giap.viz.variants``; importing it registers ``V12`` (name ``variants``,
+- The plot lives in ``gippa.viz.variants``; importing it registers ``V12`` (name ``variants``,
   module ``core``, ``needs`` ⊇ {``variants``}, ``optional`` ⊇ {``peptide_hits``}). It returns one
   ``Instance`` with ``suffix=None`` and ``coords=()``. ``FLAG_COLOUR`` maps every §9.4 variant
-  flag (``giap.variants.flags.FLAG_ORDER``) to a distinct Okabe-Ito colour, assigned in §9.4
+  flag (``gippa.variants.flags.FLAG_ORDER``) to a distinct Okabe-Ito colour, assigned in §9.4
   order (colour indices in ``style.OKABE_ITO`` increase along the flag order).
 - The two panel axes carry ``Axes.get_label()`` ``"a"`` and ``"b"``. Panel (a) draws its bars as
   ``Rectangle`` patches whose height is the count (stacked: a flag's segments sum to its ``n``)
@@ -49,11 +49,11 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 COLUMNS = {
     "panel", "call", "confidence", "flag", "n", "rank", "variant_id", "gene", "aa_pos",
@@ -70,7 +70,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -78,16 +78,16 @@ def cfg() -> GiapConfig:
 
 
 def _v12() -> base.PlotSpec:
-    import giap.viz.variants  # noqa: F401  (registers V12)
+    import gippa.viz.variants  # noqa: F401  (registers V12)
 
     return base.registered()["V12"]
 
 
-def _result(out: Path, cfg: GiapConfig) -> list[Instance] | Skip:
+def _result(out: Path, cfg: GippaConfig) -> list[Instance] | Skip:
     return _v12().fn(RunView.from_outdir(out), cfg)
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _result(out, cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -96,7 +96,7 @@ def _render(out: Path, cfg: GiapConfig) -> Instance:
     return inst
 
 
-def _main(tmp: Path, cfg: GiapConfig, *, windows: bool = True, hits: bool = True) -> Instance:
+def _main(tmp: Path, cfg: GippaConfig, *, windows: bool = True, hits: bool = True) -> Instance:
     sites = vv.main_variants()
     alt = [s for s in sites if s["call"] == "ALT"]
     out = vv.build_out(
@@ -201,12 +201,12 @@ def test_v12_is_registered_as_variants_needing_variants() -> None:
     assert "peptide_hits" not in spec.needs
 
 
-def test_variants_absent_skips_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_variants_absent_skips_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vv.build_out(tmp_path, None, vv.main_hits())
     assert _result(out, cfg) == Skip("input_absent:variants")
 
 
-def test_example_5_header_only_is_the_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_5_header_only_is_the_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vv.build_out(tmp_path, [], [])
     inst = _render(out, cfg)
     assert len(inst.data) == 0
@@ -227,7 +227,7 @@ def test_genome_relation_same_empty_state_title(tmp_path: Path) -> None:
     )
 
 
-def test_renders_without_peptide_hits(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_without_peptide_hits(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg, hits=False)
     assert _order(inst) == ["VAR0001", "VAR0002", "VAR0003", "VAR0004"]
     assert all(not _peptides(v) for v in _rows(inst, "b")["peptides"])
@@ -236,7 +236,7 @@ def test_renders_without_peptide_hits(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- data frame shape -------------------------------------------------------------------------
 
 
-def test_data_columns_suffix_coords_and_panel_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_columns_suffix_coords_and_panel_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert set(inst.data.columns) == COLUMNS
     assert inst.data.columns[0] == "panel"
@@ -247,7 +247,7 @@ def test_data_columns_suffix_coords_and_panel_order(tmp_path: Path, cfg: GiapCon
     assert panels == sorted(panels)  # panel a rows first, then panel b
 
 
-def test_panel_b_carries_the_site_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_carries_the_site_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     r = _b_row(_main(tmp_path, cfg), "VAR0001")
     assert str(r["gene"]) == "GSIM_00105"
     assert _int(r["aa_pos"]) == 214
@@ -269,7 +269,7 @@ def _example1() -> list[dict[str, object]]:
     ]
 
 
-def test_example_1_counts_by_call_confidence_flag(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_1_counts_by_call_confidence_flag(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(vv.build_out(tmp_path, _example1(), []), cfg)
     assert _nonzero(inst) == {
         ("ALT", "high", "snv"): 2,
@@ -280,8 +280,8 @@ def test_example_1_counts_by_call_confidence_flag(tmp_path: Path, cfg: GiapConfi
     }
 
 
-def test_example_1_stacked_segments_sum_to_each_flag_count(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.viz.variants import FLAG_COLOUR
+def test_example_1_stacked_segments_sum_to_each_flag_count(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.viz.variants import FLAG_COLOUR
 
     inst = _render(vv.build_out(tmp_path, _example1(), []), cfg)
     ax = _ax(inst, "a")
@@ -296,15 +296,15 @@ def test_example_1_stacked_segments_sum_to_each_flag_count(tmp_path: Path, cfg: 
         assert heights.get(FLAG_COLOUR[f].upper(), 0.0) == pytest.approx(0.0)
 
 
-def test_example_1_all_totals_printed_above_the_bars(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_1_all_totals_printed_above_the_bars(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(vv.build_out(tmp_path, _example1(), []), cfg)
     tokens = re.findall(r"\d+", " ".join(t.get_text() for t in _ax(inst, "a").texts))
     assert "2" in tokens and "1" in tokens
 
 
 def test_flag_colours_are_okabe_ito_in_flag_order() -> None:
-    from giap.variants.flags import FLAG_ORDER
-    from giap.viz.variants import FLAG_COLOUR
+    from gippa.variants.flags import FLAG_ORDER
+    from gippa.viz.variants import FLAG_COLOUR
 
     assert tuple(FLAG_ORDER) == vv.FLAG_ORDER
     palette = [c.upper() for c in style.OKABE_ITO.values()]
@@ -316,7 +316,7 @@ def test_flag_colours_are_okabe_ito_in_flag_order() -> None:
 
 
 def test_panel_a_rows_sorted_call_confidence_then_flag_order(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _main(tmp_path, cfg)
     a = _rows(inst, "a")
@@ -329,7 +329,7 @@ def test_panel_a_rows_sorted_call_confidence_then_flag_order(
         assert flags == sorted(flags, key=vv.FLAG_ORDER.index), (c, k, flags)
 
 
-def test_main_fixture_panel_a_counts(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_main_fixture_panel_a_counts(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _nonzero(_main(tmp_path, cfg)) == {
         ("ALT", "high", "snv"): 2,
         ("ALT", "high", "start_codon"): 1,
@@ -345,7 +345,7 @@ def test_main_fixture_panel_a_counts(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (b): order ---------------------------------------------------------------------------
 
 
-def test_example_2_order_confidence_then_n_alt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_2_order_confidence_then_n_alt(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = [
         _site("v1", aa_pos=20, n_alt=3),
         _site("v2", aa_pos=40, n_alt=5),
@@ -354,7 +354,7 @@ def test_example_2_order_confidence_then_n_alt(tmp_path: Path, cfg: GiapConfig) 
     assert _order(_render(vv.build_out(tmp_path, sites, []), cfg)) == ["v2", "v1", "v4"]
 
 
-def test_order_then_class_error_ascending_na_last_then_id(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_order_then_class_error_ascending_na_last_then_id(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = [
         _site("VAR0001", aa_pos=10, n_alt=2, class_error_rate="unestimated"),
         _site("VAR0002", aa_pos=20, n_alt=2, class_error_rate="0.01"),
@@ -365,11 +365,11 @@ def test_order_then_class_error_ascending_na_last_then_id(tmp_path: Path, cfg: G
     assert _order(inst) == ["VAR0003", "VAR0004", "VAR0002", "VAR0001"]
 
 
-def test_mixed_sites_are_not_in_panel_b(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_mixed_sites_are_not_in_panel_b(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _order(_main(tmp_path, cfg)) == ["VAR0001", "VAR0002", "VAR0003", "VAR0004"]
 
 
-def test_more_than_30_alt_sites_draw_30_and_count_all(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_more_than_30_alt_sites_draw_30_and_count_all(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = [
         _site(f"VAR{i:04d}", gene=f"GA{i:02d}", aa_pos=5 + 3 * i, n_alt=100 - i, flags="snv")
         for i in range(1, 36)
@@ -390,21 +390,21 @@ def test_more_than_30_alt_sites_draw_30_and_count_all(tmp_path: Path, cfg: GiapC
 
 
 def test_covering_peptides_are_distinct_same_contig_strand_whole_codon(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _main(tmp_path, cfg)
     for vid, peps in vv.covering().items():
         assert _peptides(_b_row(inst, vid)["peptides"]) == peps, vid
 
 
-def test_ref_window_comes_from_the_support_table(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_ref_window_comes_from_the_support_table(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert str(_b_row(inst, "VAR0001")["ref_window"]) == vv.P105[203:224]
     assert str(_b_row(inst, "VAR0002")["ref_window"]) == vv.P200[39:60]  # - strand: as is
     assert str(_b_row(inst, "VAR0004")["ref_window"]) == vv.P900[24:45]  # origin gene
 
 
-def test_header_line_of_a_site(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_line_of_a_site(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _joined(_ax(_main(tmp_path, cfg), "b"))
     for token in (
         "GSIM_00105", "aa 214", "Q→K", "substitution", "high", "n_alt 3 / n_ref 0",
@@ -413,7 +413,7 @@ def test_header_line_of_a_site(tmp_path: Path, cfg: GiapConfig) -> None:
         assert token in text, token
 
 
-def test_ref_line_and_aligned_peptides(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_ref_line_and_aligned_peptides(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _joined(_ax(_main(tmp_path, cfg), "b"))
     assert vv.P105[203:224] in text  # the ref window, residues 204-224
     assert vv.PEP1 in text
@@ -421,7 +421,7 @@ def test_ref_line_and_aligned_peptides(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_long_peptide_is_truncated_to_21_residues_around_the_site(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     text = _joined(_ax(_main(tmp_path, cfg), "b"))
     shown = vv.P105[203:213] + "K" + vv.P105[214:224]  # PEP_LONG residues 204-224
@@ -431,32 +431,32 @@ def test_long_peptide_is_truncated_to_21_residues_around_the_site(
     assert "K" + vv.P105[214:225] not in text  # residue 225 is cut
 
 
-def test_no_residue_line_longer_than_21(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_residue_line_longer_than_21(tmp_path: Path, cfg: GippaConfig) -> None:
     for t in _ax(_main(tmp_path, cfg), "b").texts:
         for run in re.findall(r"[A-Z]+", t.get_text()):
             assert len(run) <= 21, t.get_text()
 
 
-def test_alt_residue_is_bold_vermillion_on_both_strands(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_alt_residue_is_bold_vermillion_on_both_strands(tmp_path: Path, cfg: GippaConfig) -> None:
     bold = _bold_vermillion(_ax(_main(tmp_path, cfg), "b"))
     assert set(bold) == {"K", "N", "T"}  # VAR0001 (+), VAR0002 (-), VAR0004 (origin)
 
 
-def test_minus_strand_site_peptide_and_window(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_minus_strand_site_peptide_and_window(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _joined(_ax(_main(tmp_path, cfg), "b"))
     assert vv.PEP_MINUS in text
     assert vv.P200[39:60] in text
     assert "LVAEKTRGLW" not in text  # the + strand placement at the - site
 
 
-def test_origin_crossing_gene_site(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_origin_crossing_gene_site(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _joined(_ax(_main(tmp_path, cfg), "b"))
     assert vv.PEP_ORIGIN in text
     assert vv.P900[24:45] in text
 
 
 def test_example_4_frameshift_row_present_peptides_unaligned(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _main(tmp_path, cfg)
     r = _b_row(inst, "VAR0003")
@@ -468,7 +468,7 @@ def test_example_4_frameshift_row_present_peptides_unaligned(
     assert vv.PEP_FS in text
 
 
-def test_block_site_is_shown_unaligned(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_block_site_is_shown_unaligned(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = [_site("VAR0001", aa_pos=245, ref_aa="QW", alt_aa="GT", alt_type="block")]
     inst = _render(vv.build_out(tmp_path, sites, [vv.plus_hit(vv.PEP_FS, 1001, 245)]), cfg)
     ax = _ax(inst, "b")
@@ -477,7 +477,7 @@ def test_block_site_is_shown_unaligned(tmp_path: Path, cfg: GiapConfig) -> None:
     assert not _bold_vermillion(ax)
 
 
-def test_without_support_panel_b_shows_peptides_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_without_support_panel_b_shows_peptides_only(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg, windows=False)
     assert all(_isna(v) for v in _rows(inst, "b")["ref_window"])
     text = _joined(_ax(inst, "b"))
@@ -489,7 +489,7 @@ def test_without_support_panel_b_shows_peptides_only(tmp_path: Path, cfg: GiapCo
 # --- title and wording ------------------------------------------------------------------------
 
 
-def test_title_counts_and_class_error_range(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_counts_and_class_error_range(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     expected = (
         "2 high-confidence and 2 candidate ALT sites (class error 0.004\u20130.02,"
@@ -499,7 +499,7 @@ def test_title_counts_and_class_error_range(tmp_path: Path, cfg: GiapConfig) -> 
     assert expected in _all_texts(inst)
 
 
-def test_title_when_every_class_error_is_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_when_every_class_error_is_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = [
         _site("v1", aa_pos=20, class_error_rate="unestimated"),
         _site("v2", aa_pos=40, confidence="candidate", class_error_rate="unestimated"),
@@ -509,7 +509,7 @@ def test_title_when_every_class_error_is_unestimated(tmp_path: Path, cfg: GiapCo
     assert inst.title == "1 high-confidence and 2 candidate ALT sites (class error unestimated)"
 
 
-def test_never_says_mutation_or_modification(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_never_says_mutation_or_modification(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     words = " ".join([inst.title, *_all_texts(inst)]).lower()
     assert "mutation" not in words
@@ -519,7 +519,7 @@ def test_never_says_mutation_or_modification(tmp_path: Path, cfg: GiapConfig) ->
 # --- determinism ------------------------------------------------------------------------------
 
 
-def test_two_renders_give_equal_data_and_identical_svg(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_two_renders_give_equal_data_and_identical_svg(tmp_path: Path, cfg: GippaConfig) -> None:
     sites = vv.main_variants()
     out = vv.build_out(
         tmp_path, sites, vv.main_hits(), vv.windows_frame([s for s in sites if s["call"] == "ALT"])

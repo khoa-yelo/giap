@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from giap.stats.decoy_fdr import bin_index, max_decoy_fdr
+from gippa.stats.decoy_fdr import bin_index, max_decoy_fdr
 
 from ._unit_helpers import timed
 

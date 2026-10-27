@@ -1,4 +1,4 @@
-// BacTermFinder, opt-in (annotation.terminators.bactermfinder; GIAP_SPEC.md §7.1.1; M2-15).
+// BacTermFinder, opt-in (annotation.terminators.bactermfinder; GIPPA_SPEC.md §7.1.1; M2-15).
 // Command per the README at the pinned commit (ADR-0008).
 process BACTERMFINDER {
     tag "${meta_id}"
@@ -28,7 +28,7 @@ process BACTERMFINDER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        bactermfinder: \$(cat \$BACTERMFINDER_HOME/GIAP_COMMIT)
+        bactermfinder: \$(cat \$BACTERMFINDER_HOME/GIPPA_COMMIT)
     END_VERSIONS
     """
 

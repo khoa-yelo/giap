@@ -31,10 +31,10 @@ from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 ORF_EDGE = "#CC79A7"
 PROMOTER, TERMINATOR = "#009E73", "#D55E00"
@@ -47,13 +47,13 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 @pytest.fixture
 def nov() -> ModuleType:
-    return importlib.import_module("giap.viz.novel_orfs")
+    return importlib.import_module("gippa.viz.novel_orfs")
 
 
 def orf(
@@ -103,7 +103,7 @@ def orf(
     return row
 
 
-def _run(out: Path, cfg: GiapConfig, nov: ModuleType) -> list[Instance]:
+def _run(out: Path, cfg: GippaConfig, nov: ModuleType) -> list[Instance]:
     assert nov is not None
     result = base.registered()["V13"].fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
@@ -111,7 +111,7 @@ def _run(out: Path, cfg: GiapConfig, nov: ModuleType) -> list[Instance]:
 
 
 def _rows_run(
-    tmp: Path, cfg: GiapConfig, nov: ModuleType, rows: Sequence[Mapping[str, object]], **kw: Any
+    tmp: Path, cfg: GippaConfig, nov: ModuleType, rows: Sequence[Mapping[str, object]], **kw: Any
 ) -> list[Instance]:
     return _run(vl.build_out(tmp, novel_orfs=rows, **kw), cfg, nov)
 
@@ -182,7 +182,7 @@ def _band_out(tmp: Path, strand: str) -> Path:
 
 @pytest.mark.parametrize("strand", ["+", "-"])
 def test_orf_arrow_meets_no_gene_label(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, strand: str
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, strand: str
 ) -> None:
     (view,) = _views(_run(_band_out(tmp_path, strand), cfg, nov))
     fig = view.figure
@@ -197,7 +197,7 @@ def test_orf_arrow_meets_no_gene_label(
 
 @pytest.mark.parametrize("strand", ["+", "-"])
 def test_orf_arrow_meets_no_plus_strand_mark(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, strand: str
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, strand: str
 ) -> None:
     (view,) = _views(_run(_band_out(tmp_path, strand), cfg, nov))
     fig = view.figure
@@ -245,7 +245,7 @@ def _ticks(fig: Figure) -> list[float]:
     ids=["plus", "minus", "minus_crossing"],
 )  # fmt: skip
 def test_ostir_tick_is_exact(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, row: dict[str, object], want: int
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, row: dict[str, object], want: int
 ) -> None:
     (view,) = _views(_rows_run(tmp_path, cfg, nov, [row]))
     ticks = _ticks(view.figure)
@@ -265,7 +265,7 @@ def test_ostir_tick_is_exact(
     ids=["plus", "minus", "minus_crossing"],
 )  # fmt: skip
 def test_no_tick_when_ostir_equals_the_drawn_start(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, row: dict[str, object]
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, row: dict[str, object]
 ) -> None:
     (view,) = _views(_rows_run(tmp_path, cfg, nov, [row]))
     assert _ticks(view.figure) == []
@@ -281,7 +281,7 @@ def _legends(fig: Figure) -> list[Legend]:
 
 
 def test_every_locus_view_has_a_novel_orf_key(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_5001_p", start_longest=5_001, start_best_ostir=5_031, end=5_300, rank=1),
@@ -315,7 +315,7 @@ def test_every_locus_view_has_a_novel_orf_key(
 
 
 def test_class_with_only_uncalled_finite_rows_is_labelled_none_called(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", start_longest=1_001, end=1_300, class_fdr="0.004", rank=1),
@@ -329,14 +329,14 @@ def test_class_with_only_uncalled_finite_rows_is_labelled_none_called(
     assert texts == ["FDR ≤ 0.004", "none called"]
 
 
-def test_singular_title(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_singular_title(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     rows = [orf("NOVEL_chr1_1001_p", start_longest=1_001, end=1_300, class_fdr="0.004")]
     main = _main(_rows_run(tmp_path, cfg, nov, rows))
     assert _collapse(main.title) == "1 novel ORF called (class FDR ≤ 0.004), 0 unestimated"
 
 
 def test_title_fdr_bound_is_the_max_over_called_rows_of_every_class(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", start_longest=1_001, end=1_300, class_fdr="0.004", rank=1),
@@ -355,7 +355,7 @@ def test_title_fdr_bound_is_the_max_over_called_rows_of_every_class(
 
 
 def test_called_row_with_na_rank_sorts_after_every_ranked_row(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", start_longest=1_001, end=1_300, rank=None),  # smallest ID

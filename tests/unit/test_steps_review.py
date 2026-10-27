@@ -2,7 +2,7 @@
 
 Assumptions pinned here (the spec leaves the exact mechanics open):
 - The step-module loader discovers modules with ``pkgutil``-style iteration over
-  ``giap.steps.__path__`` (so a test can point that path at a temporary directory).
+  ``gippa.steps.__path__`` (so a test can point that path at a temporary directory).
 - ``run_step`` hands the step temporary output paths and renames them into place on success.
 - Opt-in step ``bactermfinder`` is enabled by ``annotation.terminators.bactermfinder``.
 - Precomputed parse errors count rows from the first data row (header excluded) as row 1.
@@ -21,14 +21,14 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig, resolve_config
-from giap.exitcodes import ExitCode
-from giap.io.tsv import write_tsv
-from giap.model.coords import Replicon
+from gippa.config import GippaConfig, resolve_config
+from gippa.exitcodes import ExitCode
+from gippa.io.tsv import write_tsv
+from gippa.model.coords import Replicon
 
 
 def _exit_code(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -38,7 +38,7 @@ def _exit_code(argv: list[str]) -> int:
 
 @contextmanager
 def _fresh() -> Iterator[ModuleType]:
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(reg, "_REGISTRY", {})
@@ -55,24 +55,24 @@ def genome(tmp_path: Path) -> Path:
 @pytest.fixture
 def no_step_modules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Point the loader at an empty package directory (no real step modules get imported)."""
-    import giap.steps
+    import gippa.steps
 
     d = tmp_path / "steps_pkg"
     d.mkdir()
-    monkeypatch.setattr(giap.steps, "__path__", [str(d)])
+    monkeypatch.setattr(gippa.steps, "__path__", [str(d)])
     return d
 
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``giap run`` runs preflight: a test ``$GIAP_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev. 12)."""
     from helpers.mapping_steps import write_test_db
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 
 def _run_argv(genome: Path, outdir: Path, *extra: str) -> list[str]:
-    """``giap run --executor local`` with one peptide as evidence (a run without evidence exits 1,
+    """``gippa run --executor local`` with one peptide as evidence (a run without evidence exits 1,
     M3-17 review decision 7)."""
     pep = genome.parent / "evidence_peptides.tsv"
     pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
@@ -101,9 +101,9 @@ def test_run_local_loader_imports_step_modules(
     genome: Path,
     tmp_path: Path,
 ) -> None:
-    modname = "giap.steps.zz_review_toy"
+    modname = "gippa.steps.zz_review_toy"
     (no_step_modules / "zz_review_toy.py").write_text(
-        "from giap.steps.registry import step\n\n"
+        "from gippa.steps.registry import step\n\n"
         "@step('zz_review_toy', inputs=[], outputs=['zz_review_toy.txt'])\n"
         "def _toy(ctx):\n"
         "    ctx.outputs['zz_review_toy.txt'].write_text('loaded')\n"
@@ -136,7 +136,7 @@ REGION_COLS = [
 
 
 def _load(key: str, path: Path) -> pd.DataFrame:
-    from giap.annotate.precomputed import load_precomputed
+    from gippa.annotate.precomputed import load_precomputed
 
     return load_precomputed(key, path, REPLICONS)
 
@@ -172,7 +172,7 @@ def test_noop_step_with_stale_output_fails_output_check(
     out = tmp_path / "b.txt"
     out.write_text("stale from a previous run")
     with pytest.raises(registry.WiringError, match="toy"):
-        registry.run_step("toy", GiapConfig(), {}, {"b": out})
+        registry.run_step("toy", GippaConfig(), {}, {"b": out})
     assert not out.exists()
 
 
@@ -189,7 +189,7 @@ def test_output_removed_before_step_runs_and_written_via_temp_path(
         ctx.outputs["b"].write_text("fresh")
 
     registry.step("toy", inputs=[], outputs=["b"])(toy)
-    registry.run_step("toy", GiapConfig(), {}, {"b": out})
+    registry.run_step("toy", GippaConfig(), {}, {"b": out})
     assert seen["final_exists"] is False
     assert seen["path"] != out  # temporary path, renamed into place on success
     assert out.read_text() == "fresh"
@@ -205,7 +205,7 @@ def test_failing_step_leaves_no_partial_output(registry: ModuleType, tmp_path: P
     out = tmp_path / "b.txt"
     out.write_text("stale")
     with pytest.raises(registry.StepError):
-        registry.run_step("toy", GiapConfig(), {}, {"b": out})
+        registry.run_step("toy", GippaConfig(), {}, {"b": out})
     assert not out.exists()
     assert [p.name for p in tmp_path.iterdir() if "partial" in p.read_text()] == []
 
@@ -232,7 +232,7 @@ def _opt_in_graph(reg: ModuleType) -> None:
 
 
 def test_opt_in_step_not_planned_when_config_off_even_if_targeted(registry: ModuleType) -> None:
-    from giap.runner.local import plan_local
+    from gippa.runner.local import plan_local
 
     _opt_in_graph(registry)
     cfg = resolve_config(None, ["annotation.terminators.bactermfinder=false"])
@@ -240,7 +240,7 @@ def test_opt_in_step_not_planned_when_config_off_even_if_targeted(registry: Modu
 
 
 def test_opt_in_step_planned_when_config_on(registry: ModuleType) -> None:
-    from giap.runner.local import plan_local
+    from gippa.runner.local import plan_local
 
     _opt_in_graph(registry)
     cfg = resolve_config(None, ["annotation.terminators.bactermfinder=true"])
@@ -269,7 +269,7 @@ def test_cli_add_bactermfinder_controls_opt_in_step(
 def test_precomputed_layer_wins_over_stale_workdir_key(
     registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.runner.local import run_local
+    from gippa.runner.local import run_local
 
     registry.external("term_tool", inputs=[], outputs=["term_tool.tsv"], precomputed="terminators")
     registry.step(
@@ -325,7 +325,7 @@ def test_step_failure_writes_log_with_traceback(
 
     registry.step("toy", inputs=[], outputs=["b"])(toy)
     resolved = tmp_path / "resolved.yaml"
-    resolved.write_text(yaml.safe_dump(GiapConfig().model_dump(mode="json"), sort_keys=True))
+    resolved.write_text(yaml.safe_dump(GippaConfig().model_dump(mode="json"), sort_keys=True))
     monkeypatch.chdir(tmp_path)
     argv = ["_step", "toy", "--config", str(resolved), "--out", f"b={tmp_path / 'b.txt'}"]
     assert _exit_code(argv) == ExitCode.STEP_FAILED
@@ -377,7 +377,7 @@ def test_repeated_in_key_collects_list(registry: ModuleType, tmp_path: Path) -> 
     one = tmp_path / "one.txt"
     one.write_text("1")
     resolved = tmp_path / "resolved.yaml"
-    resolved.write_text(yaml.safe_dump(GiapConfig().model_dump(mode="json"), sort_keys=True))
+    resolved.write_text(yaml.safe_dump(GippaConfig().model_dump(mode="json"), sort_keys=True))
     argv = ["_step", "toy", "--config", str(resolved), "--in", f"one={one}"]
     for p in paths:
         argv += ["--in", f"chunks={p}"]
@@ -456,18 +456,18 @@ KEYS = ("b.txt", "c.txt", "d.txt", "e.txt")
 def test_run_local_rerun_same_workdir_is_byte_identical(
     registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.runner.local import run_local
+    from gippa.runner.local import run_local
 
     _chain(registry, ["x", "y", "z", "w"])
     work = tmp_path / "work"
-    run_local(GiapConfig(seed=9), work, ["w"])
+    run_local(GippaConfig(seed=9), work, ["w"])
     first = {k: (work / k).read_bytes() for k in KEYS}
-    run_local(GiapConfig(seed=9), work, ["w"])
+    run_local(GippaConfig(seed=9), work, ["w"])
     assert {k: (work / k).read_bytes() for k in KEYS} == first
 
 
 def test_run_local_independent_of_registration_order(tmp_path: Path) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     results: list[tuple[list[str], dict[str, bytes]]] = []
     for i, order in enumerate(itertools.permutations(["x", "y", "z", "w"])):
@@ -483,7 +483,7 @@ def test_run_local_independent_of_registration_order(tmp_path: Path) -> None:
             with pytest.MonkeyPatch.context() as mp:
                 mp.setattr(reg, "run_step", spy)
                 work = tmp_path / f"w{i}"
-                local.run_local(GiapConfig(seed=4), work, ["w"])
+                local.run_local(GippaConfig(seed=4), work, ["w"])
             results.append((calls, {k: (work / k).read_bytes() for k in KEYS}))
     first_calls, first_bytes = results[0]
     assert first_calls == ["x", "y", "z", "w"]

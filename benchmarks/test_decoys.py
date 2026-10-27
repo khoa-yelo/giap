@@ -21,10 +21,10 @@ SCRIPT = textwrap.dedent(
     """
     import json, time
     import numpy as np
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.sixframe import build_sixframe
-    from giap.model import Replicon
-    from giap.rng import for_step
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.model import Replicon
+    from gippa.rng import for_step
 
     tiny = build_sixframe({"w": "ATGAAATAG" * 50}, {"w": Replicon("w", 450, "circular")})
     build_decoys(tiny, "reverse", 50, for_step("sixframe_index", 0))

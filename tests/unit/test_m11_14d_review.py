@@ -2,7 +2,7 @@
 
 S1. ADR-0061 decision 5 and docs/specs/M11-14-container-install.md item 1 (c) "The fallback is
 never silent" (Khoa 2026-10-26: "when uniop failed, need to flag the user in preflight"). When
-preflight passes with a UniOP fallback warning, ``giap run`` prints that warning to stderr
+preflight passes with a UniOP fallback warning, ``gippa run`` prints that warning to stderr
 before Nextflow starts, not only into ``OUT/preflight/preflight.{json,md}``. The cases:
 ``enabled: false``, ``auto`` resolving to false, a recorded failed setup and a failed probe.
 
@@ -11,12 +11,12 @@ S2. Guards for mutants that survived review:
   fake env ``python`` (the global conftest stub is opted out with ``real_uniop_probe``);
 - the ``test``/``stub`` no-probe gate of ``run_preflight``;
 - re-resolving a recorded ``auto`` -> false;
-- the local executor: ``uniop`` skipped under ``enabled: false``; ``giap run --executor local``
+- the local executor: ``uniop`` skipped under ``enabled: false``; ``gippa run --executor local``
   resolves ``auto``;
 - Nextflow wiring: OPERONS and CONTEXT_STATS receive ``operon_meta`` (static checks).
 
-Fakes only: ``helpers.fake_env.fake_giap_root``, a fake ``nextflow`` on ``PATH``, a fake env
-``python`` script. No network; never the real ``$GIAP_DB_DIR`` or ``$GIAP_ROOT``.
+Fakes only: ``helpers.fake_env.fake_gippa_root``, a fake ``nextflow`` on ``PATH``, a fake env
+``python`` script. No network; never the real ``$GIPPA_DB_DIR`` or ``$GIPPA_ROOT``.
 """
 
 from __future__ import annotations
@@ -33,10 +33,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.config import GiapConfig, resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import GippaConfig, resolve_config
+from gippa.exitcodes import ExitCode
 
 REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
@@ -58,12 +58,12 @@ def _set(enabled: bool | str) -> str:
     return f"annotation.uniop.enabled={str(enabled).lower()}"
 
 
-def _cfg(enabled: bool | str, *extra: str) -> GiapConfig:
+def _cfg(enabled: bool | str, *extra: str) -> GippaConfig:
     return resolve_config(overrides=[*QUIET, _set(enabled), *extra])
 
 
 def _env_mod() -> Any:
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     return environment
 
@@ -80,8 +80,8 @@ def _probe(monkeypatch: pytest.MonkeyPatch, code: int, err: str) -> list[Any]:
 
 
 def _root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, uniop: bool) -> Path:
-    root = fake_giap_root(tmp_path / "giap_root", skip=() if uniop else ("uniop",))
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root", skip=() if uniop else ("uniop",))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
     return root
 
@@ -95,7 +95,7 @@ def _record_uniop(db: Path, status: str, message: str) -> Path:
     return db
 
 
-# ---------------------------------------------------------------- S1: giap run, stderr
+# ---------------------------------------------------------------- S1: gippa run, stderr
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -136,7 +136,7 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     args = tmp_path / "nf_args.txt"
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setenv("FAKE_NF_ARGS", str(args))
-    from giap.runner import nextflow as nf
+    from gippa.runner import nextflow as nf
 
     real = nf.run_nextflow
 
@@ -149,18 +149,18 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return args
 
 
-def _giap_run(
+def _gippa_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path,
     *, uniop: bool, sets: tuple[str, ...] = (), record: str | None = None,
 ) -> tuple[int, str]:  # fmt: skip
-    """``(exit code, stderr)`` of ``giap run`` under :data:`PROFILE`."""
-    from giap.cli import cli
+    """``(exit code, stderr)`` of ``gippa run`` under :data:`PROFILE`."""
+    from gippa.cli import cli
 
     _root(tmp_path, monkeypatch, uniop=uniop)
     db = write_setup_manifest(tmp_path / "db_env")
     if record is not None:
         _record_uniop(db, "failed", record)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     out = tmp_path / "OUT"
     argv = ["run", "--genome", str(genome), "--proteins", str(proteins), "--outdir", str(out),
             "--profile", PROFILE]  # fmt: skip
@@ -177,7 +177,7 @@ def _before_launch(stderr: str, *wanted: str) -> None:
     head = stderr.split(NF_MARKER, 1)[0]
     for text in wanted:
         assert text in head, (
-            f"giap run did not print {text!r} to stderr before Nextflow started "
+            f"gippa run did not print {text!r} to stderr before Nextflow started "
             f"(ADR-0061 decision 5); stderr:\n{stderr}"
         )
 
@@ -186,7 +186,7 @@ def _before_launch(stderr: str, *wanted: str) -> None:
 def test_s1_false_warning_on_stderr_before_nextflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, err = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+    code, err = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
                           sets=(_set(False),))  # fmt: skip
     assert code == ExitCode.SUCCESS, err
     _before_launch(err, FALSE_WARNING)
@@ -196,7 +196,7 @@ def test_s1_false_warning_on_stderr_before_nextflow(
 def test_s1_auto_not_installed_warning_on_stderr_before_nextflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, err = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
+    code, err = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
                           sets=(_set("auto"),))  # fmt: skip
     assert code == ExitCode.SUCCESS, err
     _before_launch(err, AUTO_WARNING)
@@ -206,7 +206,7 @@ def test_s1_auto_not_installed_warning_on_stderr_before_nextflow(
 def test_s1_recorded_setup_failure_on_stderr_before_nextflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, err = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
+    code, err = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
                           sets=(_set("auto"),), record=SETUP_MSG)  # fmt: skip
     assert code == ExitCode.SUCCESS, err
     _before_launch(err, AUTO_WARNING, f"(last setup: {SETUP_MSG})")
@@ -217,7 +217,7 @@ def test_s1_failed_probe_on_stderr_before_nextflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
     _probe(monkeypatch, 1, PROBE_STDERR)
-    code, err = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+    code, err = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
                           sets=(_set("auto"),))  # fmt: skip
     assert code == ExitCode.SUCCESS, err
     _before_launch(err, AUTO_WARNING, f"UniOP --help exited 1: {PROBE_TAIL}")
@@ -228,7 +228,7 @@ def test_s1_no_uniop_warning_when_uniop_runs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
     """Guard: the default ``true`` with UniOP installed prints no fallback warning."""
-    code, err = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True)
+    code, err = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True)
     assert code == ExitCode.SUCCESS, err
     assert NF_MARKER in err, err
     assert "distance model" not in err.split(NF_MARKER, 1)[0], err
@@ -244,7 +244,7 @@ printf '%s\\n' "$0" "$@" > "$FAKE_PY_ARGS"
 
 def _fake_env_python(env_root: Path, body: str, monkeypatch: pytest.MonkeyPatch) -> Path:
     """``<env_root>/<uniop env>/bin/python``: records its argv to ``$FAKE_PY_ARGS``."""
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     exe = env_root / TOOLS["uniop"].env_name / "bin" / "python"
     exe.parent.mkdir(parents=True, exist_ok=True)
@@ -267,7 +267,7 @@ def _real_probe(profile: str, tmp_path: Path, env_root: Path | None) -> tuple[in
 def test_probe_micromamba_runs_the_env_python_with_help(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str
 ) -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     env_root = tmp_path / "envs"
     rec = _fake_env_python(env_root, "echo probe-ok >&2\nexit 0", monkeypatch)
@@ -304,7 +304,7 @@ def test_probe_timeout_gives_124(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ("profile", "env_root"),
     [
         ("local", "envs"),  # no container or conda profile
-        ("conda", None),  # no $GIAP_ROOT
+        ("conda", None),  # no $GIPPA_ROOT
         ("conda", "envs"),  # the env python does not exist (OSError)
     ],
 )
@@ -325,7 +325,7 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
 @pytest.fixture
 def inputs(tmp_path: Path) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     rng = random.Random(0)
     g = tmp_path / "in" / "g.fa"
@@ -342,7 +342,7 @@ def inputs(tmp_path: Path) -> Any:
 def test_no_probe_under_test_or_stub_profiles(
     inputs: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str
 ) -> None:
-    from giap.preflight.run import exit_code, run_preflight
+    from gippa.preflight.run import exit_code, run_preflight
 
     _root(tmp_path, monkeypatch, uniop=True)
     calls = _probe(monkeypatch, 127, "no container or conda profile")
@@ -361,7 +361,7 @@ def test_no_probe_under_test_or_stub_profiles(
 def test_re_resolving_a_recorded_auto_false_keeps_false_when_installed(tmp_path: Path) -> None:
     """A rerun or ``-resume`` re-runs preflight on ``resolved_config.yaml``: the recorded
     ``auto`` -> false keeps its outcome even if UniOP is installed now."""
-    from giap.runner.nextflow import write_params
+    from gippa.runner.nextflow import write_params
 
     resolve = _env_mod().resolve_uniop
     once = resolve(_cfg("auto"), installed=False, publication=False)
@@ -379,8 +379,8 @@ def test_re_resolving_a_recorded_auto_false_keeps_false_when_installed(tmp_path:
 
 
 def test_local_plan_skips_uniop_when_disabled() -> None:
-    from giap.runner import local
-    from giap.steps import load_step_modules
+    from gippa.runner import local
+    from gippa.steps import load_step_modules
 
     load_step_modules()
     plan = local.plan_local(_cfg(False), ["uniop", "operon_pairs"])
@@ -390,20 +390,20 @@ def test_local_plan_skips_uniop_when_disabled() -> None:
         local.plan_local(_cfg(True), ["uniop", "operon_pairs"])
 
 
-def test_giap_run_executor_local_resolves_auto(
+def test_gippa_run_executor_local_resolves_auto(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    from giap.cli import cli
-    from giap.runner import local
+    from gippa.cli import cli
+    from gippa.runner import local
 
-    seen: list[GiapConfig] = []
+    seen: list[GippaConfig] = []
 
-    def plan(cfg: GiapConfig, *a: Any, **kw: Any) -> list[str]:
+    def plan(cfg: GippaConfig, *a: Any, **kw: Any) -> list[str]:
         seen.append(cfg)
         raise local.LayerMissing("stop here (test)")
 
     monkeypatch.setattr(local, "plan_local", plan)
-    monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
     argv = ["run", "--executor", "local", "--genome", str(genome), "--proteins", str(proteins),
             "--outdir", str(tmp_path / "OUT"), "--set", _set("auto")]  # fmt: skip
     for s in QUIET:

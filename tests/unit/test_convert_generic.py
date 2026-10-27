@@ -1,4 +1,4 @@
-"""Generic converter: validate, normalise, report (issue M1-07; GIAP_SPEC.md §5.3, §5.4)."""
+"""Generic converter: validate, normalise, report (issue M1-07; GIPPA_SPEC.md §5.3, §5.4)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from giap.config.model import InputConfig
-from giap.io.converters import CONVERTERS
-from giap.io.converters.base import ConvertResult
-from giap.io.converters.generic import convert_generic
-from giap.io.issues import Issue
-from giap.io.peptides import PEPTIDE_COLUMNS
+from gippa.config.model import InputConfig
+from gippa.io.converters import CONVERTERS
+from gippa.io.converters.base import ConvertResult
+from gippa.io.converters.generic import convert_generic
+from gippa.io.issues import Issue
+from gippa.io.peptides import PEPTIDE_COLUMNS
 
 
 def _write(tmp_path: Path, text: str, name: str = "in.tsv") -> Path:

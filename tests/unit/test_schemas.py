@@ -1,4 +1,4 @@
-"""Bundled JSON Schemas (GIAP_SPEC.md §6.7) and the committed config schema."""
+"""Bundled JSON Schemas (GIPPA_SPEC.md §6.7) and the committed config schema."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import jsonschema
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_DIR = ROOT / "src" / "giap" / "schemas"
+SCHEMA_DIR = ROOT / "src" / "gippa" / "schemas"
 SCHEMAS = ["run_manifest.schema.json", "config.schema.json", "preflight.schema.json"]
 
 
@@ -44,7 +44,7 @@ def test_run_manifest_declares_draft_2020_12() -> None:
 
 
 def test_config_schema_validates_default_config() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     schema = _load("config.schema.json")
     instance = resolve_config().model_dump(mode="json")
@@ -83,7 +83,7 @@ def _enum(name: str, column: str) -> set[str]:
 
 
 def _columns(name: str) -> tuple[str, ...]:
-    from giap.mapping import outputs
+    from gippa.mapping import outputs
 
     return getattr(outputs, f"{name.upper()}_COLUMNS")  # type: ignore[no-any-return]
 
@@ -111,7 +111,7 @@ def test_mapping_table_schema_coordinates(name: str) -> None:
 
 
 def test_peptide_hits_schema_enums_and_types() -> None:
-    from giap.mapping.loci import LOCUS_CLASSES
+    from gippa.mapping.loci import LOCUS_CLASSES
 
     f = _fields("peptide_hits")
     assert _enum("peptide_hits", "route") == {"exact", "tolerant"}
@@ -162,10 +162,10 @@ def _rich_outputs(outdir: Path) -> None:
     """Write outputs that use every enum value of §9.3 (stand-in for the 50-kb golden fixture)."""
     import pandas as pd
 
-    from giap.mapping.contaminants import UnmappedRow
-    from giap.mapping.loci import LOCUS_CLASSES
-    from giap.mapping.outputs import PEPTIDE_HITS_COLUMNS, PROTEIN_HITS_COLUMNS
-    from giap.model import Replicon
+    from gippa.mapping.contaminants import UnmappedRow
+    from gippa.mapping.loci import LOCUS_CLASSES
+    from gippa.mapping.outputs import PEPTIDE_HITS_COLUMNS, PROTEIN_HITS_COLUMNS
+    from gippa.model import Replicon
 
     reps = {"chr1": Replicon("chr1", 50_000, "circular"), "p1": Replicon("p1", 3000, "linear")}
     pep_rows = []
@@ -261,7 +261,7 @@ def _rich_outputs(outdir: Path) -> None:
         ]
     )  # fmt: skip
     fdr = pd.concat([placement, denovo], ignore_index=True)
-    from giap.mapping.outputs import write_mapping_outputs
+    from gippa.mapping.outputs import write_mapping_outputs
 
     write_mapping_outputs(outdir, peps, prots, unmapped, fdr, reps, "cd" * 32)
 

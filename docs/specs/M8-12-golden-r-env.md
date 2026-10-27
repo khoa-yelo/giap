@@ -1,7 +1,7 @@
 # M8-12: The R golden environment, the frozen inputs, `make_golden_r.R`, and the committed outputs
 
 Milestone M8 · track G (golden data) · **pass 2** (the env build is submitted in wave A) · depends
-on: nothing in `src/` (inputs come from giapsim and plain numpy); M8-02's `prepare` order is
+on: nothing in `src/` (inputs come from gippasim and plain numpy); M8-02's `prepare` order is
 mirrored, not imported · estimate ≈ 220 code lines (R ≈ 110, Python ≈ 70, shell/YAML ≈ 40)
 (+ ≈ 120 test lines) · not statistical · **Slurm**
 
@@ -21,7 +21,7 @@ mirrored, not imported · estimate ≈ 220 code lines (R ≈ 110, Python ≈ 70,
 ## Licences and the boundary (index §Licences)
 
 fgsea (MIT), goseq (LGPL ≥ 2), BiasedUrn (GPL-3) and R (GPL-2+) are installed **only** in
-`giap-golden-r`. No `src/` file imports, vendors or shells out to R; `scripts/ci/check_imports.py`
+`gippa-golden-r`. No `src/` file imports, vendors or shells out to R; `scripts/ci/check_imports.py`
 adds `rpy2` to FORBIDDEN, and a new CI check fails if any file under `src/` contains `Rscript`.
 The committed outputs are numbers (not covered by those licences). The golden **inputs are
 synthetic** — random gene IDs and random set memberships — so they contain no KEGG, GO or COG
@@ -31,11 +31,11 @@ content (KEGG's academic-use terms, index §KEGG).
 
 | File | Content |
 |---|---|
-| `scripts/golden/golden_r.yml` | env `giap-golden-r`, channels `[conda-forge, bioconda]`: `r-base=4.5.3`, `bioconductor-fgsea=1.36.2`, `bioconductor-goseq=1.62.0`, `r-biasedurn=2.0.12`, `r-data.table` (fgsea dep, solver-pinned) — exact pins confirmed by the first solve and frozen in the lock |
+| `scripts/golden/golden_r.yml` | env `gippa-golden-r`, channels `[conda-forge, bioconda]`: `r-base=4.5.3`, `bioconductor-fgsea=1.36.2`, `bioconductor-goseq=1.62.0`, `r-biasedurn=2.0.12`, `r-data.table` (fgsea dep, solver-pinned) — exact pins confirmed by the first solve and frozen in the lock |
 | `scripts/golden/golden_r.explicit.txt` | `micromamba env export --explicit` lock (the reproducibility record) |
 | `scripts/golden/make_golden_inputs.py` | writes the frozen inputs from `GOLDEN_SEED` (50000, `tolerances.yaml`) with numpy only |
 | `scripts/golden/make_golden_r.R` | reads the inputs, runs fgsea and goseq, writes the outputs and `VERSIONS.txt` |
-| `scripts/slurm/golden_r.sbatch` | `giap-golden-r` job: builds the env if its marker is stale (the `build_envs.sh` marker pattern: sha256 of the yml), then runs both scripts |
+| `scripts/slurm/golden_r.sbatch` | `gippa-golden-r` job: builds the env if its marker is stale (the `build_envs.sh` marker pattern: sha256 of the yml), then runs both scripts |
 | `.github/workflows/golden-r.yml` | manual (`workflow_dispatch`): setup-micromamba from the lock, run both scripts, open a PR with the diff (never pushes to main) |
 | `tests/data/golden/r/` | `inputs/*.tsv.gz`, `outputs/*.tsv.gz`, `VERSIONS.txt`, `PROVENANCE.md` |
 
@@ -87,7 +87,7 @@ content (KEGG's academic-use terms, index §KEGG).
 
 ## Acceptance criteria
 
-- [ ] The env builds on FarmShare from the yml in a `giap-golden-r` job (job ID in PROGRESS.md);
+- [ ] The env builds on FarmShare from the yml in a `gippa-golden-r` job (job ID in PROGRESS.md);
   the lock is committed.
 - [ ] `tests/golden/test_golden_r_files.py`: inputs and outputs exist, parse, have the expected
   set/category counts, total < 5 MB, and `VERSIONS.txt` names the pinned versions.

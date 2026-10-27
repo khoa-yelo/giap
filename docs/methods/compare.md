@@ -1,7 +1,7 @@
-# `giap compare`: detection, abundance agreement and result stability
+# `gippa compare`: detection, abundance agreement and result stability
 
-Implements `giap.compare.{detection,abundance,stability}` and `giap.io.compare_io`
-(GIAP_SPEC.md §7.9.3, §8.2, §8.3; issue M9-22; layout ADR-0046). Statistician sign-off: block B1 fixed (decision 11), 2026-10-22.
+Implements `gippa.compare.{detection,abundance,stability}` and `gippa.io.compare_io`
+(GIPPA_SPEC.md §7.9.3, §8.2, §8.3; issue M9-22; layout ADR-0046). Statistician sign-off: block B1 fixed (decision 11), 2026-10-22.
 
 ## Inputs and checks
 Two or more `OUT/` trees on the same genome (genome SHA-256 from `run_manifest.json`, else
@@ -21,7 +21,7 @@ log2 abundance in both runs.
   constant side.
 - **CI**: the 95 % percentile CI of `tu_block_bootstrap` with `B = stats.bootstrap` resamples of
   the TUs of the pair's first run (a gene without a TU is its own unit), drawn from
-  `giap.rng.for_step("compare", seed)`. Genes of one TU share promoter and transcript, so their
+  `gippa.rng.for_step("compare", seed)`. Genes of one TU share promoter and transcript, so their
   measurement errors in both runs are positively correlated; resampling genes would treat them
   as independent and give a CI too narrow by about the square root of the design effect
   (docs/methods/bootstrap.md). The calibration test's teeth arm (gene-level units) shows the

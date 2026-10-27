@@ -1,10 +1,10 @@
-# GIAP
+# GIPPA
 
-GIAP (genome-integrated analysis of proteomics data) takes one assembled bacterial genome plus
+GIPPA (genome integrated prokaryotic proteomics analysis) takes one assembled bacterial genome plus
 proteomics evidence and asks: what does genome context explain about which proteins are detected,
 and how abundant they are?
 
-GIAP runs after your proteomics search; it does not search spectra itself. It:
+GIPPA runs after your proteomics search; it does not search spectra itself. It:
 
 - places peptides and proteins on the genome, with its own error control (placement FDR);
 - builds one gene table keyed by Bakta locus tags, with detection tiers and gene q-values;
@@ -13,18 +13,18 @@ GIAP runs after your proteomics search; it does not search spectra itself. It:
 - calls REF/ALT residues at covered codons and finds novel ORFs and start sites;
 - writes standard tables with schemas, plots with their data, and a self-contained HTML report.
 
-Every claim carries a q-value, an FDR, an FWER or the label `unestimated`, and GIAP says
+Every claim carries a q-value, an FDR, an FWER or the label `unestimated`, and GIPPA says
 "detected", never "expressed".
 
 ## Start here
 
-- [Install](get-started/install.md) the `giap` command, Nextflow and a container profile.
-- [Set up the databases](get-started/setup-databases.md) once with `giap setup`.
+- [Install](get-started/install.md) the `gippa` command, Nextflow and a container profile.
+- [Set up the databases](get-started/setup-databases.md) once with `gippa setup`.
 - Run the [Quickstart](get-started/quickstart.md) on public E. coli K-12 inputs.
 
 ## User guide
 
-- [Inputs](user-guide/inputs.md), [Running GIAP](user-guide/run.md) and
+- [Inputs](user-guide/inputs.md), [Running GIPPA](user-guide/run.md) and
   [Outputs](user-guide/outputs.md).
 - [Interpreting results](user-guide/interpreting-results.md): q-values, detection tiers and kinds
   of placement.

@@ -1,0 +1,16 @@
+{
+  "name": "compare_stability",
+  "description": "gippa compare: Jaccard overlap between runs of island genes, operon-flag pairs, enriched categories, called novel ORFs and ALT sites (GIPPA_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "family", "type": "string", "description": "Result family compared", "constraints": {"required": true, "enum": ["islands", "operon_flags", "enriched_categories", "novel_orfs", "alt_sites"]}},
+    {"name": "run_a", "type": "string", "description": "First run of the pair (label order)", "constraints": {"required": true}},
+    {"name": "run_b", "type": "string", "description": "Second run of the pair", "constraints": {"required": true}},
+    {"name": "n_a", "type": "integer", "description": "Set size in run_a (NA when its table is absent)", "constraints": {"minimum": 0}},
+    {"name": "n_b", "type": "integer", "description": "Set size in run_b (NA when its table is absent)", "constraints": {"minimum": 0}},
+    {"name": "n_shared", "type": "integer", "description": "Size of the intersection", "constraints": {"minimum": 0}},
+    {"name": "jaccard", "type": "number", "description": "n_shared / size of the union; NA when both sets are empty or a table is absent", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "flags", "type": "string", "description": "Semicolon-joined flags (§9.4)", "constraints": {"pattern": "(?:both_empty|missing_in:[^;]+)(?:;(?:both_empty|missing_in:[^;]+))*"}}
+  ]
+}

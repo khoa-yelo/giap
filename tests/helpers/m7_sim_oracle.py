@@ -1,7 +1,7 @@
-"""Independent oracle for the M7-12 giapsim scenarios (docs/specs/M7-12-*.md).
+"""Independent oracle for the M7-12 gippasim scenarios (docs/specs/M7-12-*.md).
 
 Brute-force recounts of the truth denominators of rule 2 and coordinate checks of rule 1, written
-from the spec and the M3-18/M3-19/M3-20 file formats only: nothing here imports giapsim, so a bug
+from the spec and the M3-18/M3-19/M3-20 file formats only: nothing here imports gippasim, so a bug
 in the simulator cannot hide in the oracle. Shared by tests/unit/test_sim_m7_scenarios.py,
 tests/property/test_sim_m7_props.py and tests/calibration/test_sim_m7_calibration.py.
 
@@ -85,7 +85,7 @@ def read_fasta(path: Path) -> dict[str, str]:
 
 
 def bakta_features(path: Path) -> dict[str, dict[str, Any]]:
-    """CDS/sORF features of a giapsim Bakta-like JSON by locus (``contig`` or ``sequence``)."""
+    """CDS/sORF features of a gippasim Bakta-like JSON by locus (``contig`` or ``sequence``)."""
     data = json.loads(Path(path).read_text())
     out = {}
     for f in data["features"]:
@@ -183,7 +183,7 @@ def recount_site_peptides(
 
 
 def receiving_genome(outdir: Path) -> dict[str, str]:
-    """The genome GIAP is given (rule 1): ``reference.fasta`` in strain scenarios."""
+    """The genome GIPPA is given (rule 1): ``reference.fasta`` in strain scenarios."""
     ref = outdir / "reference.fasta"
     return read_fasta(ref if ref.exists() else outdir / "genome.fasta")
 

@@ -1,16 +1,16 @@
 """The report size budget (M9-14 behaviour 5; degenerate row "a 30-MB report (huge run): written;
 warning event; exit 3 only with ``--strict``"; lead decision 2 "the 25 MB budget is measured with
-both" the static SVGs and the twins; GIAP_SPEC.md §10.3 "The size target is < 25 MB").
+both" the static SVGs and the twins; GIPPA_SPEC.md §10.3 "The size target is < 25 MB").
 
 The oversized pages are made of a hand-written ``plots/`` directory (a padded SVG and a data TSV)
 and a test-only twin padding its layout, so no huge run is needed. Sizes are chosen far from the
 25 MB line on both readings (25 000 000 and 25 * 2**20 bytes), so the tests do not pin which.
-Never touches the real ``$GIAP_DB_DIR``.
+Never touches the real ``$GIPPA_DB_DIR``.
 
 Interface assumed beyond the spec text (M9-14 test author):
 - the event is logged by the ``report`` step (``ctx.log`` or a module logger) as a record with
   ``event == "report.size_exceeded"``, level WARNING, ``data == {"bytes": <size of report.html>}``;
-- ``giap report OUT`` gains ``--strict``: an oversized report is still written and the command
+- ``gippa report OUT`` gains ``--strict``: an oversized report is still written and the command
   exits 3 (``WARNINGS_STRICT``) with ``--strict``, 0 without.
 """
 
@@ -25,7 +25,7 @@ from click.testing import CliRunner, Result
 from helpers.interactive_fixtures import BANNER, register_twin, report_step, swap_twins
 from helpers.report_fixtures import run_out, swap_registry
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 MB = 1_000_000
 EVENT = "report.size_exceeded"
@@ -34,7 +34,7 @@ EVENT = "report.size_exceeded"
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ def _events(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
 
 
 def _cli(out: Path, *args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     fast = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
     res = CliRunner().invoke(cli, ["report", str(out), *fast, *args])

@@ -4,7 +4,7 @@ Spec ``docs/specs/M6-12-uniop-terminator-cutoffs.md`` (examples 6-9, the degener
 acceptance criteria, lead decisions 1-7) and methods ``docs/methods/operons.md`` "K-12 cut-off
 calibration (M6-12)" (the authority where it is more specific). Offline: every input is a toy
 written under ``tmp_path`` by ``tests/helpers/k12_cutoffs_world.py``; no RegulonDB bytes, no
-``$GIAP_ROOT/recordings``, no ``$GIAP_DB_DIR`` (the env vars point at a missing directory here).
+``$GIPPA_ROOT/recordings``, no ``$GIPPA_DB_DIR`` (the env vars point at a missing directory here).
 
 Interface pinned here (``validation.calibrate_cutoffs`` imported as ``cc``):
 
@@ -89,13 +89,13 @@ from helpers.k12_cutoffs_world import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.operons import intergenic_distance
-from giap.annotate.uniop_adapter import PairProb
-from giap.io.fasta import write_fasta
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.annotate.operons import intergenic_distance
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.io.fasta import write_fasta
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     auroc,
     auroc_ci,
     auroc_diff_ci,
@@ -125,7 +125,7 @@ FAST = {"B": 30, "R": 5}
 def _no_real_data(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Point every data root at a missing directory: the driver must only read its arguments."""
     missing = tmp_path / "no-such-root"
-    for var in ("GIAP_ROOT", "GIAP_DB_DIR", "GIAP_DATA_DIR"):
+    for var in ("GIPPA_ROOT", "GIPPA_DB_DIR", "GIPPA_DATA_DIR"):
         monkeypatch.setenv(var, str(missing))
 
 
@@ -224,7 +224,7 @@ def test_terminatornet_commit_missing_provenance_raises(tmp_path: Path) -> None:
 
 def _gff(path: Path, rows: Sequence[tuple[str, int, int, str]]) -> Path:
     lines = ["##gff-version 3"]
-    lines += [f"{CONTIG}\tGIAP\tCDS\t{s}\t{e}\t.\t{st}\t0\tID={i}" for i, s, e, st in rows]
+    lines += [f"{CONTIG}\tGIPPA\tCDS\t{s}\t{e}\t.\t{st}\t0\tID={i}" for i, s, e, st in rows]
     path.write_text("\n".join(lines) + "\n")
     return path
 

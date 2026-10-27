@@ -19,7 +19,7 @@ from typing import Any
 import numba
 import numpy as np
 
-from giap.stats.poisson_binomial import conditional_poisson_binomial, tilt
+from gippa.stats.poisson_binomial import conditional_poisson_binomial, tilt
 
 from ._unit_helpers import timed
 

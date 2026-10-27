@@ -1,14 +1,14 @@
 """Annotated-stop read-through through the mapping steps (M7-16a; spec test plan
 ``test_mapping_readthrough.py``, example 10; ADR-0058 items 1-3).
 
-- giapsim 100 kb (``parse_bakta`` on its Bakta-like JSON; sORFs, pseudogenes and an
+- gippasim 100 kb (``parse_bakta`` on its Bakta-like JSON; sORFs, pseudogenes and an
   origin-crossing gene switched on): ``sixframe_index`` -> ``map_exact`` -> ``map_tolerant``.
   Index format 2 round trip; the ``mapping.stop_sites`` event equals the counts derived here
-  without ``giap.mapping.readthrough``; five read-through peptides (each annotated stop read as
+  without ``gippa.mapping.readthrough``; five read-through peptides (each annotated stop read as
   ``W`` with 7 gene and 7 flank residues, both strands) get a cost-1 target row over their stop,
   classified ``cterm_extension`` of their gene (M3-14, unchanged); exact peptides are unchanged.
 
-  The spec names giapsim ``n_readthrough = 5``; that simulator knob is 16b tooling (rule 14),
+  The spec names gippasim ``n_readthrough = 5``; that simulator knob is 16b tooling (rule 14),
   so 16a plants the read-through peptides from the gene model instead.
 - Example 10 (``slow``): the committed Nissle recording has 4,689 terminal sites, 0
   ``not_a_stop``, 4,689 target cells and equal decoy cell counts.
@@ -24,14 +24,14 @@ import pandas as pd
 import pytest
 from helpers.readthrough_toys import rc
 
-from giap.config import resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.loci import classify_locus
-from giap.mapping.sixframe import STOP, build_sixframe, decode
-from giap.model.coords import Interval
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
-from giap.steps.mapping import read_gene_model
+from gippa.config import resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.loci import classify_locus
+from gippa.mapping.sixframe import STOP, build_sixframe, decode
+from gippa.model.coords import Interval
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
+from gippa.steps.mapping import read_gene_model
 
 REPO = Path(__file__).resolve().parents[2]
 NISSLE_JSON = REPO / "tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz"
@@ -57,7 +57,7 @@ def _terminal(
 
 @pytest.fixture(scope="module")
 def chain(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.simulate import SimConfig, simulate
 
     load_step_modules()
     tmp = tmp_path_factory.mktemp("rt")
@@ -121,7 +121,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-
                           "search_db": ["same"] * n})  # fmt: skip
     files["peptides"] = tmp / "peptides.parquet"
     table.to_parquet(files["peptides"], index=False)
-    logger = logging.getLogger("giap.steps.sixframe_index")
+    logger = logging.getLogger("gippa.steps.sixframe_index")
     events: list[logging.LogRecord] = []
 
     class _H(logging.Handler):
@@ -164,7 +164,7 @@ def test_stop_sites_event_counts(chain) -> None:  # type: ignore[no-untyped-def]
 
 
 def test_index_format_2_round_trip(chain) -> None:  # type: ignore[no-untyped-def]
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     cells = load_stop_cells(chain["files"]["sixframe"])
     assert {(s.contig, s.strand, s.codon_start) for s in cells.sites} == set(chain["sites"])
@@ -197,10 +197,10 @@ def test_exact_peptides_stay_exact(chain) -> None:  # type: ignore[no-untyped-de
 
 @pytest.mark.slow
 def test_example_10_nissle_sites_and_cells() -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.readthrough import annotated_stops, frame_cells, mirror_cells
-    from giap.rng import for_step
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.readthrough import annotated_stops, frame_cells, mirror_cells
+    from gippa.rng import for_step
 
     genome = {r.id: r.sequence for r in read_genome_fasta(NISSLE_GENOME)}
     ann = parse_bakta_json(NISSLE_JSON, genome=genome)

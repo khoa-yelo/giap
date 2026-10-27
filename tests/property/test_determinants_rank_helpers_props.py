@@ -25,7 +25,7 @@ from hypothesis import strategies as st
 from scipy import stats
 from sklearn.metrics import roc_auc_score
 
-from giap.determinants.models import MIN_UNIVARIATE_ROWS, _auroc, _ranks, _rho
+from gippa.determinants.models import MIN_UNIVARIATE_ROWS, _auroc, _ranks, _rho
 
 SETTINGS = settings(
     max_examples=80,

@@ -1,10 +1,10 @@
 """M4 end to end on the real M2/M3 outputs (docs/specs/M4-21-m2-m3-conformance.md work item 3,
-example 4; GIAP_SPEC.md §6.4, §9.5, §11.6 TE7).
+example 4; GIPPA_SPEC.md §6.4, §9.5, §11.6 TE7).
 
-``giap run --executor local`` on giapsim SIM100K with its precomputed layers produces the M2/M3
+``gippa run --executor local`` on gippasim SIM100K with its precomputed layers produces the M2/M3
 tables (tests/helpers/m4_real.py); the M4 chain of M4-20 (``m4_chain.run_m4``: ``run_gene_table``
 -> ``run_detectability`` -> ``run_context_stats`` -> ``run_sensitivity``) then runs on that very
-``OUT/work`` directory -- the layout ``giap run`` writes, not the flat fixture layout -- and its
+``OUT/work`` directory -- the layout ``gippa run`` writes, not the flat fixture layout -- and its
 four ``tables/*.tsv`` validate with ``frictionless``. TE7: the whole real path twice, with the same
 seed in two directories, gives byte-identical tables (one machine, so ``regions_stats.tsv`` is
 compared byte for byte too; M4-20 decision 9 only concerns cross-machine goldens).
@@ -31,7 +31,7 @@ STATS = {"permutations": 199, "bootstrap": 200, "alpha": {"identification": 0.05
 
 def real_m4(root: Path, db: Path) -> dict[str, Path]:
     sim = mr.sim100k(root / "sim")
-    work = mr.giap_run(sim, root / "OUT", db, SEED)
+    work = mr.gippa_run(sim, root / "OUT", db, SEED)
     return mc.run_m4(work, mc.config(SEED, stats=STATS), db)
 
 
@@ -70,7 +70,7 @@ def test_real_path_is_not_vacuous(run_a: dict[str, Path]) -> None:
 def test_example_4_real_path_twice_is_byte_identical(
     run_a: dict[str, Path], tmp_path: Path, db: Path
 ) -> None:
-    """Example 4 (TE7): giapsim -> ``giap run`` -> M4, twice, gives the same bytes."""
+    """Example 4 (TE7): gippasim -> ``gippa run`` -> M4, twice, gives the same bytes."""
     run_b = real_m4(tmp_path, db)
     a, b = mc.digests(run_a), mc.digests(run_b)
     assert set(a) == set(mc.OUTPUT_TABLES), f"run A wrote only {sorted(a)}"
@@ -81,14 +81,14 @@ def test_example_4_real_path_twice_is_byte_identical(
 def test_the_local_executor_itself_plans_runs_and_publishes_context_stats(
     tmp_path: Path, db: Path
 ) -> None:
-    """M4-21 lead decision 4 (code review of #145, F1): ``giap run --executor local`` plans
+    """M4-21 lead decision 4 (code review of #145, F1): ``gippa run --executor local`` plans
     ``context_stats`` and ``sensitivity`` on the real outputs and publishes their tables, without
     the M4 test helpers re-running anything."""
     sim = mr.sim100k(tmp_path / "sim")
     out = tmp_path / "OUT"
-    work = mr.giap_run(sim, out, db, SEED)
+    work = mr.gippa_run(sim, out, db, SEED)
     for key in ("regions_stats", "detection_summary", "sensitivity"):
         assert (work / key).is_file(), f"the executor did not run the step writing {key}"
     for rel in ("tables/regions_stats.tsv", "tables/detection_summary.tsv",
                 "tables/sensitivity.tsv", "genetable/genes.parquet"):  # fmt: skip
-        assert (out / rel).is_file(), f"giap run published no {rel}"
+        assert (out / rel).is_file(), f"gippa run published no {rel}"

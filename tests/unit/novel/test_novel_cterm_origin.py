@@ -20,8 +20,8 @@ from helpers.novel_oracle import Case, cds, hit_row, mirror_case
 from helpers.novel_outputs_fixture import orfs_of
 from helpers.readthrough_toys import toy_c1
 
-from giap.model import Replicon
-from giap.model.coords import Interval
+from gippa.model import Replicon
+from gippa.model.coords import Interval
 
 N = 126
 P1 = ("WQLNEFKWVPAGHTL", 33, 78)

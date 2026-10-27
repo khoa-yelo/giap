@@ -43,7 +43,7 @@ violation check, use the row's **TSV** (observed) class.
   injected segment's stop. The row has no RBS support and is flagged.
 - **Reclassification is correct behaviour.** An ORF is every placement to one stop (§7.6.2,
   "Grouping"). Its class is the highest-priority member class (§7.2.6; `CLASS_PRIORITY`), and
-  antisense and cds_outframe rank above intergenic. GIAP cannot see what was injected.
+  antisense and cds_outframe rank above intergenic. GIPPA cannot see what was injected.
 
 ## Q1: injected or observed class?
 - The spec defines the observed class:
@@ -61,8 +61,8 @@ violation check, use the row's **TSV** (observed) class.
    - Why this is not a widening:
      - every reached row is still checked against rule 4 both ways, with zero tolerance;
      - R, q ≤ 0.05, the RBS threshold and the rule are unchanged;
-     - the intergenic statement still has to hold exactly on every row GIAP calls `intergenic`.
-   - What it gives up: exempting an injected-intergenic row that GIAP calls antisense with chance
+     - the intergenic statement still has to hold exactly on every row GIPPA calls `intergenic`.
+   - What it gives up: exempting an injected-intergenic row that GIPPA calls antisense with chance
      RBS support. That is the antisense chance-RBS escape the methods note already documents
      ("`intergenic` and `nterm_extension` are never exempt" refers to the TSV class), and it
      stays recorded.
@@ -73,7 +73,7 @@ violation check, use the row's **TSV** (observed) class.
      no false ORF. It does not change the ADR-0050 conclusions.
    - It changes the G4-k3 stream (rng draws), so the lead should list it for Khoa's batch.
    - Do **not** exclude every segment whose span overlaps a CDS. That would narrow the
-     intergenic attack territory, and the replicate-130 path is correct GIAP behaviour.
+     intergenic attack territory, and the replicate-130 path is correct GIPPA behaviour.
 
 ## Rescored, observed class, R = 300 (from the existing records; no rerun)
 

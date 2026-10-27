@@ -1,7 +1,7 @@
 # M3-03: Decoy translations and the `sixframe_index` work file
 
-Milestone M3 · depends on: M3-02 · creates `src/giap/mapping/decoys.py`, `save_index`/`load_index`
-in `src/giap/mapping/sixframe.py` · pure Python + numba · estimate ≈ 220 code lines ·
+Milestone M3 · depends on: M3-02 · creates `src/gippa/mapping/decoys.py`, `save_index`/`load_index`
+in `src/gippa/mapping/sixframe.py` · pure Python + numba · estimate ≈ 220 code lines ·
 **statistical** (decoy construction): section "Genome decoys" of
 `docs/methods/placement-fdr.md`, signed off by the statistician (§14.1) before merge
 
@@ -39,7 +39,7 @@ def load_index(path: Path) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, 
   a segment; within it, the non-`X` residues are cut into consecutive windows of `window` residues
   from the segment start (the last window may be shorter) and each window is permuted with
   `rng.permutation`. Frames are processed in index order, so the stream is deterministic.
-- **RNG.** `giap.rng.for_step("sixframe_index", config.seed)`.
+- **RNG.** `gippa.rng.for_step("sixframe_index", config.seed)`.
 - **Which decoys are built.** `reverse` if any query has `source = database`; `shuffle` if any has
   `source = denovo`; both when the input is mixed (each peptide is searched against the decoy of
   its own source; M3-10 reports `decoy_type` per row).

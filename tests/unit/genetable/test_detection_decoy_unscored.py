@@ -1,6 +1,6 @@
 """M4-24: unscored and partly scored decoys in gene detection (docs/specs/M4-24-decoy-unscored.md).
 
-Spec: GIAP_SPEC.md §7.3.2 picked steps 1-3 (targets and decoys compared on a scale both carry; a
+Spec: GIPPA_SPEC.md §7.3.2 picked steps 1-3 (targets and decoys compared on a scale both carry; a
 tie counts as a decoy), the tier table ("Otherwise, q-values or PEPs exist" -> ``mayu``), §8
 preamble / R4 (no silent claim), §5.3 (``q_value``, ``pep``, ``score`` optional on C9), ADR-0009
 (1/f unchanged), ADR-0047 (decoys above ``q_value_max`` leave the picked competition; the filter
@@ -43,7 +43,7 @@ TIER_ROWS = ("n_decoys_paired", "n_decoys_unpaired", "decoy_paired_share", "deco
 
 
 def _det() -> Any:
-    from giap.genetable import detection
+    from gippa.genetable import detection
 
     return detection
 
@@ -403,10 +403,10 @@ def test_sim50k_fixture_shares_every_target_key_column(tmp_path: Path, golden_se
     tests/golden/test_m4_golden.py (case ``sim50k``, unchanged)."""
     import m4_chain as mc
 
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detection import detect
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detection import detect
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     work = mc.build(tmp_path / "work", seed=golden_seed, size="sim50k")
     m4, _ = load_m4_inputs(default_paths(work))

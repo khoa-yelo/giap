@@ -1,4 +1,4 @@
-"""MVP-03a readers and writer in ``giap.io.manifest_sources``
+"""MVP-03a readers and writer in ``gippa.io.manifest_sources``
 (docs/specs/MVP-03-manifest-finalize.md D-B step 1, D-C ``tools``/``inputs``/``git`` rows, edge
 cases "An event line that is not JSON", "versions.yml missing", "Non-git install"; lead
 decisions 5 and 9).
@@ -23,7 +23,7 @@ Interface assumed (test-author names; the spec names the module and its contents
 * ``input_row(role: str, path: Path) -> dict``: ``{role, file, path, sha256, size}``.
 * ``git_info(root: Path) -> tuple[str | None, bool | None]``: ``(HEAD sha, dirty)``; ``(None,
   None)`` outside a git checkout.
-* ``write_manifest(path: Path, manifest) -> None``: writes ``giap.manifest.canonical_json``;
+* ``write_manifest(path: Path, manifest) -> None``: writes ``gippa.manifest.canonical_json``;
   NaN/±∞ raise ``ValueError``.
 """
 
@@ -43,7 +43,7 @@ DIGEST = "9" * 64
 
 
 def _ms():  # type: ignore[no-untyped-def]
-    from giap.io import manifest_sources
+    from gippa.io import manifest_sources
 
     return manifest_sources
 
@@ -206,7 +206,7 @@ def test_git_info_clean_then_dirty(tmp_path: Path) -> None:
 
 
 def test_write_manifest_is_canonical(tmp_path: Path) -> None:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     doc = {"b": 1, "a": ["é", None]}
     p = tmp_path / "run_manifest.json"

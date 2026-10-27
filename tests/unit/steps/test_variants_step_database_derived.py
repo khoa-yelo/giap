@@ -5,8 +5,8 @@ peptide is ``source = database`` with ``search_db = other`` (under ``genome_rela
 degenerate row "frameshift event": rules 3-4 apply to frameshifts too; rule 5 and the pinned
 ``start_codon`` reading ("``end - 3`` on -, wrapped on circular replicons").
 
-The giapsim step fixture is all ``database``/``same``, so these tests drive
-``giap.steps.variants.run_variants`` on a hand-built genome instead:
+The gippasim step fixture is all ``database``/``same``, so these tests drive
+``gippa.steps.variants.run_variants`` on a hand-built genome instead:
 
 * linear ``c1`` (400 nt), CDS ``G1`` + [30, 330) built from fixed codons (``PROT``);
 * four ALT sites, in ``sites`` order: substitution A -> S at codon 39 (database/other),
@@ -26,12 +26,12 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig
-from giap.mapping.sixframe import translate11_text
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
-from giap.steps.variants import run_variants
+from gippa.config import GippaConfig
+from gippa.mapping.sixframe import translate11_text
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
+from gippa.steps.variants import run_variants
 
 CODON = {
     "A": "GCT", "C": "TGT", "D": "GAT", "E": "GAA", "F": "TTT", "G": "GGT", "H": "CAT",
@@ -94,8 +94,8 @@ def _gm() -> GeneModel:
     return GeneModel(reps, (g1, g2), ())
 
 
-def _cfg() -> GiapConfig:
-    return GiapConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
+def _cfg() -> GippaConfig:
+    return GippaConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
 
 
 SUPPORT: dict[str, tuple[str, str]] = {  # peptide -> (source, search_db)

@@ -68,7 +68,7 @@ class Env:
 
     def sacct(self, *rows: tuple[str, str]) -> None:
         (self.state / "sacct_rows.json").write_text(
-            json.dumps([{"JobID": j, "State": st, "JobName": "giap-nightly"} for j, st in rows])
+            json.dumps([{"JobID": j, "State": st, "JobName": "gippa-nightly"} for j, st in rows])
         )
 
     def calls(self) -> list[dict[str, Any]]:

@@ -1,4 +1,4 @@
-"""Attack (GIAP_SPEC.md §8.5, statistician): a TU-structured null for the M8-08 determinants
+"""Attack (GIPPA_SPEC.md §8.5, statistician): a TU-structured null for the M8-08 determinants
 models (§7.8.2 steps 2-3, §8.2 "resample TUs, not genes"; docs/specs/M8-08-determinants-models.md).
 
 Generator (replicate ``i`` of stream ``determinants.attack_tu.<name>``): 1,500 genes (600 for the
@@ -40,7 +40,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_models_data as d
 
-from giap.stats import bootstrap
+from gippa.stats import bootstrap
 
 SUITE = "determinants"
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite(SUITE)]

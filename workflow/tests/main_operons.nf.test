@@ -1,9 +1,9 @@
-// M6-08: main.nf runs OPERONS after GENETABLE and beside CONTEXT, so `giap run` publishes
-// tables/pairs.tsv, tables/operons.tsv and tables/operon_flags.tsv (GIAP_SPEC.md §6.2, §6.3, §9.1;
+// M6-08: main.nf runs OPERONS after GENETABLE and beside CONTEXT, so `gippa run` publishes
+// tables/pairs.tsv, tables/operons.tsv and tables/operon_flags.tsv (GIPPA_SPEC.md §6.2, §6.3, §9.1;
 // docs/specs/M6-08-operons-step-and-run.md items 6 and 7, example 7). Stub runs only; ci.yml
 // runs: nf-test test workflow/tests --profile test,stub.
 //
-// Pinned here (test author): the operons py step (GIAP_STEP tag `operons`) gets the final gene
+// Pinned here (test author): the operons py step (GIPPA_STEP tag `operons`) gets the final gene
 // table from detectability, the C2 genes / C15 features / C1 replicons from parse_bakta, the
 // C5 tus and pairs_raw from operon_pairs, and the three pair-evidence layers from
 // promoter_layer, terminator_layer and tx_layer (ANNOTATE's `layers_for_pairs`, lead decision 1).
@@ -44,7 +44,7 @@ nextflow_pipeline {
             def ops = byTag('operons')
             assert ops.size() == 1 : "operons ran ${ops.size()}x; tasks: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def oin = H.stepInputs(ops[0])
             def keys = oin.collect { it[0] }.toSet()

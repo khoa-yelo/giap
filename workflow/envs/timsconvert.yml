@@ -1,5 +1,5 @@
 # TIMSCONVERT 2.0.0 for the A3 pilot's .d -> mzML conversion, route B2 (M10-08; ADR-0054 =
-# ADR-M10-B). Not a pipeline tool: giap.annotate.tools.PILOT_TOOLS (`build_envs.sh timsconvert`).
+# ADR-M10-B). Not a pipeline tool: gippa.annotate.tools.PILOT_TOOLS (`build_envs.sh timsconvert`).
 # Source: GitHub gtluu/timsconvert, tag v2.0.0 = commit 3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b
 #   (not on PyPI or bioconda); its requirements.txt pins pyTDFSDK at commit
 #   4808da81d3e37f82da96f392dbb446c3733edacb. Both Apache-2.0.
@@ -10,7 +10,7 @@
 # pip: timsconvert from GitHub at the commit, its requirements from PyPI (and pyTDFSDK from
 # GitHub), pinned by that commit only; the exact set is in the pip lock. Pinned 2026-10-24.
 # Locks: workflow/envs/locks/timsconvert.{explicit,pip}.txt, written by build_envs.sh.
-name: giap-timsconvert
+name: gippa-timsconvert
 channels:
   - conda-forge
 dependencies:

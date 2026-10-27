@@ -1,15 +1,15 @@
-"""``calibration_full.sbatch`` with ``GIAP_WORKTREE`` tests the worktree's code, not main's.
+"""``calibration_full.sbatch`` with ``GIPPA_WORKTREE`` tests the worktree's code, not main's.
 
-Slurm 1885838 ran M6-13's branch tests from a worktree but imported giap from the shared venv's
+Slurm 1885838 ran M6-13's branch tests from a worktree but imported gippa from the shared venv's
 editable install (the main checkout's src) and failed with ``TypeError: discordance() got an
 unexpected keyword argument 'sigma_model'``. Pinned here:
 
-- with ``GIAP_WORKTREE`` set the job exports
-  ``PYTHONPATH=$GIAP_WORKTREE/src:$GIAP_WORKTREE/tests/sim:$GIAP_WORKTREE/tests`` (as
+- with ``GIPPA_WORKTREE`` set the job exports
+  ``PYTHONPATH=$GIPPA_WORKTREE/src:$GIPPA_WORKTREE/tests/sim:$GIPPA_WORKTREE/tests`` (as
   test_branch.sbatch does) before the harness runs; without it PYTHONPATH is left alone;
-- fail closed: under ``GIAP_WORKTREE`` the harness (``_criteria.py``, every mode including
-  ``--dry-run`` and ``--merge``) prints ``giap.__file__`` and exits 2 unless it lies under
-  ``$GIAP_WORKTREE/src``.
+- fail closed: under ``GIPPA_WORKTREE`` the harness (``_criteria.py``, every mode including
+  ``--dry-run`` and ``--merge``) prints ``gippa.__file__`` and exits 2 unless it lies under
+  ``$GIPPA_WORKTREE/src``.
 
 The sbatch runs under bash with a stub ``uv`` (the Slurm script test kit of
 test_calibration_full_array.py); the guard runs the real harness in a subprocess.
@@ -49,15 +49,15 @@ def run_sbatch(tmp: Path, worktree: Path | None, task: int = 3) -> list[str]:
     env = {
         "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
         "HOME": str(tmp),
-        "GIAP_REPO": str(repo),
-        "GIAP_ROOT": str(tmp),
-        "GIAP_CALIBRATION_LOG_DIR": str(tmp / "log"),
+        "GIPPA_REPO": str(repo),
+        "GIPPA_ROOT": str(tmp),
+        "GIPPA_CALIBRATION_LOG_DIR": str(tmp / "log"),
         "SLURM_ARRAY_TASK_ID": str(task),
         "SLURM_ARRAY_JOB_ID": "1",
         "STUB_LOG": str(log),
     }
     if worktree is not None:
-        env["GIAP_WORKTREE"] = str(worktree)
+        env["GIPPA_WORKTREE"] = str(worktree)
     bash = shutil.which("bash") or "/bin/bash"
     proc = subprocess.run([bash, str(SBATCH)], env=env, capture_output=True, text=True,
                           timeout=60, check=False)  # fmt: skip
@@ -86,21 +86,21 @@ def test_main_checkout_job_leaves_pythonpath_alone(tmp_path: Path) -> None:
 
 
 def _harness(worktree: Path, pythonpath: str, *args: str) -> subprocess.CompletedProcess[str]:
-    keep = {k: v for k, v in os.environ.items() if not k.startswith("GIAP_CALIBRATION_")}
-    env = {**keep, "GIAP_WORKTREE": str(worktree), "PYTHONPATH": pythonpath,
-           "GIAP_CALIBRATION_LOG_DIR": str(worktree / "log")}  # fmt: skip
+    keep = {k: v for k, v in os.environ.items() if not k.startswith("GIPPA_CALIBRATION_")}
+    env = {**keep, "GIPPA_WORKTREE": str(worktree), "PYTHONPATH": pythonpath,
+           "GIPPA_CALIBRATION_LOG_DIR": str(worktree / "log")}  # fmt: skip
     return subprocess.run([sys.executable, str(HARNESS), "--suite", "discordance", *args],
                           env=env, capture_output=True, text=True, timeout=120, check=False,
                           cwd=REPO)  # fmt: skip
 
 
-def test_harness_refuses_giap_from_outside_the_worktree(tmp_path: Path) -> None:
-    """``GIAP_WORKTREE`` names another checkout but giap comes from this one: exit 2."""
+def test_harness_refuses_gippa_from_outside_the_worktree(tmp_path: Path) -> None:
+    """``GIPPA_WORKTREE`` names another checkout but gippa comes from this one: exit 2."""
     other = tmp_path / "other_worktree"
     (other / "src").mkdir(parents=True)
     proc = _harness(other, f"{REPO}/src:{REPO}/tests/sim", "--dry-run")
     assert proc.returncode == 2, (proc.stdout, proc.stderr)
-    assert "giap.__file__" in proc.stderr and str(other) in proc.stderr
+    assert "gippa.__file__" in proc.stderr and str(other) in proc.stderr
     assert "pytest" not in proc.stdout  # nothing ran
 
 
@@ -109,10 +109,10 @@ def test_harness_refusal_covers_merge_too(tmp_path: Path, args: tuple[str, ...])
     other = tmp_path / "other_worktree"
     (other / "src").mkdir(parents=True)
     proc = _harness(other, f"{REPO}/src:{REPO}/tests/sim", *args)
-    assert proc.returncode == 2 and "giap.__file__" in proc.stderr, (proc.stdout, proc.stderr)
+    assert proc.returncode == 2 and "gippa.__file__" in proc.stderr, (proc.stdout, proc.stderr)
 
 
-def test_harness_accepts_giap_from_the_worktree(tmp_path: Path) -> None:
+def test_harness_accepts_gippa_from_the_worktree(tmp_path: Path) -> None:
     proc = _harness(REPO, f"{REPO}/src:{REPO}/tests/sim", "--dry-run")
     assert proc.returncode == 0, proc.stderr
-    assert f"giap.__file__={(REPO / 'src' / 'giap' / '__init__.py').resolve()}" in proc.stderr
+    assert f"gippa.__file__={(REPO / 'src' / 'gippa' / '__init__.py').resolve()}" in proc.stderr

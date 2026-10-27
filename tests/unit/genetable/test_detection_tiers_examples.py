@@ -1,6 +1,6 @@
 """M4-12 detection tiers: examples 1-10 and edge cases (docs/specs/M4-12-detection-tiers.md).
 
-Spec: GIAP_SPEC.md §2.1 decision 4, §7.3 (eligible = non-partial), §7.3.2 (tier table, picked steps
+Spec: GIPPA_SPEC.md §2.1 decision 4, §7.3 (eligible = non-partial), §7.3.2 (tier table, picked steps
 1-4, MAYU), §9.3 (``detection_status`` enum, ``detection_summary.tsv`` section ``tier``); ADR-0009
 (picked decoy wins rescaled by 1/f); M4-index lead decisions 4 (decoys pass q <= ``q_value_max``;
 the pairing cut-off reuses ``mapping.proteins.min_identity`` / ``min_coverage``, 0.80); M4-02
@@ -47,7 +47,7 @@ from detection_tiers_fixtures import NAN, Builder, cfg, tag
 
 
 def _det() -> Any:
-    from giap.genetable import detection
+    from gippa.genetable import detection
 
     return detection
 
@@ -542,7 +542,7 @@ def test_contaminant_evidence_counts_for_detection() -> None:
 
 
 def test_pep_partial_uses_t_times_p_and_warns() -> None:
-    from giap.stats.mayu import mayu_gene_fdr
+    from gippa.stats.mayu import mayu_gene_fdr
 
     b = Builder(40)
     t = b.tags or []
@@ -559,7 +559,7 @@ def test_pep_partial_uses_t_times_p_and_warns() -> None:
 
 
 def test_mayu_uses_pep_when_every_peptide_has_one() -> None:
-    from giap.stats.mayu import mayu_gene_fdr
+    from gippa.stats.mayu import mayu_gene_fdr
 
     b = Builder(40)
     t = b.tags or []

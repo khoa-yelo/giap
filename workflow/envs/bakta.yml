@@ -1,5 +1,5 @@
 # Bakta 1.12.2 (GPL-3.0; separate process only, R5). DB v6.0 (Zenodo record 14916843).
-name: giap-bakta
+name: gippa-bakta
 channels: [conda-forge, bioconda]
 dependencies:
   - bakta=1.12.2

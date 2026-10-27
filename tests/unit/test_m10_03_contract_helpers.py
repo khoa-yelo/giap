@@ -1,9 +1,9 @@
 """The path helpers and the assertion messages of the M10-03 contract test (review round 1).
 
 Spec: docs/specs/M10-03-diann-convert.md, "The contract test" and job step 7; review findings
-B1 (the job's report and arm reach the contract test through ``GIAP_M10_03_REPORT`` and
-``GIAP_M10_03_ARM``), B2 (a report under a git-ignored, untracked directory of the checkout, the
-FarmShare default ``GIAP_ROOT=$GIAP_REPO/local``, is allowed) and N5 (a failing check prints
+B1 (the job's report and arm reach the contract test through ``GIPPA_M10_03_REPORT`` and
+``GIPPA_M10_03_ARM``), B2 (a report under a git-ignored, untracked directory of the checkout, the
+FarmShare default ``GIPPA_ROOT=$GIPPA_REPO/local``, is allowed) and N5 (a failing check prints
 counts and IDs only, never a peptide or protein string from the report; criterion 10 pastes the
 output into the PR).
 
@@ -24,7 +24,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 CONTRACT_DIR = Path(__file__).resolve().parents[1] / "contract"
 SECRET_PEP = "SECRETPEPTIDEK"
@@ -66,9 +66,9 @@ def test_full_report_path_uses_the_job_report(
     rep.write_bytes(b"PAR1")
     (tmp_path / "root" / "pilot" / "A1").mkdir(parents=True)
     (tmp_path / "root" / "pilot" / "A1" / "A1_report.parquet").write_bytes(b"PAR1-other")
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
-    monkeypatch.setenv("GIAP_M10_03_REPORT", str(rep))
-    monkeypatch.setenv("GIAP_M10_03_ARM", "A1")
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
+    monkeypatch.setenv("GIPPA_M10_03_REPORT", str(rep))
+    monkeypatch.setenv("GIPPA_M10_03_ARM", "A1")
     assert contract.full_report_path("A1") == rep
 
 
@@ -78,9 +78,9 @@ def test_full_report_path_never_checks_another_arm_against_the_job_report(
     """The A1 job's report is never checked as A2 (with A2's ``--search-db``)."""
     rep = tmp_path / "A1_report.parquet"
     rep.write_bytes(b"PAR1")
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
-    monkeypatch.setenv("GIAP_M10_03_REPORT", str(rep))
-    monkeypatch.setenv("GIAP_M10_03_ARM", "A1")
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
+    monkeypatch.setenv("GIPPA_M10_03_REPORT", str(rep))
+    monkeypatch.setenv("GIPPA_M10_03_ARM", "A1")
     try:
         got = contract.full_report_path("A2")
     except pytest.skip.Exception:
@@ -88,16 +88,16 @@ def test_full_report_path_never_checks_another_arm_against_the_job_report(
     assert got != rep
 
 
-def test_full_report_path_without_job_env_reads_giap_root(
+def test_full_report_path_without_job_env_reads_gippa_root(
     contract: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Unchanged default: ``$GIAP_ROOT/pilot/<arm>/<arm>_report.parquet``."""
+    """Unchanged default: ``$GIPPA_ROOT/pilot/<arm>/<arm>_report.parquet``."""
     rep = tmp_path / "root" / "pilot" / "A2" / "A2_report.parquet"
     rep.parent.mkdir(parents=True)
     rep.write_bytes(b"PAR1")
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
-    monkeypatch.delenv("GIAP_M10_03_REPORT", raising=False)
-    monkeypatch.delenv("GIAP_M10_03_ARM", raising=False)
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
+    monkeypatch.delenv("GIPPA_M10_03_REPORT", raising=False)
+    monkeypatch.delenv("GIPPA_M10_03_ARM", raising=False)
     assert contract.full_report_path("A2") == rep
 
 
@@ -127,17 +127,17 @@ def _file(path: Path) -> Path:
 def test_outside_checkout_accepts_an_ignored_untracked_path(
     contract: ModuleType, repo: Path
 ) -> None:
-    """Review B2: ``GIAP_ROOT=$GIAP_REPO/local`` (farmshare_env.sh's default)."""
+    """Review B2: ``GIPPA_ROOT=$GIPPA_REPO/local`` (farmshare_env.sh's default)."""
     p = _file(repo / "local" / "pilot" / "A1" / "A1_report.parquet")
     assert contract._outside_checkout(p) == p
 
 
-def test_sample_path_under_the_default_giap_root(
+def test_sample_path_under_the_default_gippa_root(
     contract: ModuleType, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Review B2, end to end: the sample under ``$GIAP_REPO/local`` is found, not refused."""
+    """Review B2, end to end: the sample under ``$GIPPA_REPO/local`` is found, not refused."""
     p = _file(repo / "local" / "pilot/recorded/diann/2.3.1/A1/report.sample.parquet")
-    monkeypatch.setenv("GIAP_ROOT", str(repo / "local"))
+    monkeypatch.setenv("GIPPA_ROOT", str(repo / "local"))
     assert contract.sample_path("A1") == p
 
 

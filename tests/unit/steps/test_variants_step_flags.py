@@ -1,7 +1,7 @@
 """M7-05 the wired ``variants`` step fills ``flags`` (docs/specs/M7-05-variant-flags.md rule 7,
-acceptance criteria 3-4; GIAP_SPEC.md §7.5.3, §7.5.5, §9.4, B.7).
+acceptance criteria 3-4; GIPPA_SPEC.md §7.5.3, §7.5.5, §9.4, B.7).
 
-On the M7-04 giapsim chain (sample-strain peptides mapped to the reference genome, default
+On the M7-04 gippasim chain (sample-strain peptides mapped to the reference genome, default
 ``genome_relation: related``):
 
 * every ``variants.tsv`` row has a non-empty ``flags`` cell, ``;``-joined, each flag once, in the
@@ -9,7 +9,7 @@ On the M7-04 giapsim chain (sample-strain peptides mapped to the reference genom
   start_codon, stop_codon``, then M7-03's ``vcf_unrepresentable``);
 * each cell equals an independent oracle of rules 1-6 built from the row itself (``ref_codon``,
   ``ref_aa``, ``alt_aa``, ``alt_type``) and the gene model. The fixture's peptides are all
-  ``database`` with ``search_db: same`` (giapsim), so ``database_derived`` is absent; if a
+  ``database`` with ``search_db: same`` (gippasim), so ``database_derived`` is absent; if a
   peptide with another ``search_db`` ever appears, rows with database support skip the check;
 * the VCF ``FLAGS`` INFO field is the ``|``-joined union of the flags of the record's alleles
   (order not pinned here; M7-03 sorts it);

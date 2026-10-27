@@ -1,5 +1,5 @@
 """Calibration of M4-14 gene-level abundance (docs/specs/M4-14-abundance.md, acceptance criterion 3;
-GIAP_SPEC.md §7.3.4, §8.4, §11.3).
+GIPPA_SPEC.md §7.3.4, §8.4, §11.3).
 
 Statistical claims (for the statistician), each gated through the M4-05 harness
 (``_criteria.calibrate``, ADR-0015 two-block confirmation), suite ``regions`` (SUITE_REGISTRY file
@@ -24,7 +24,7 @@ estimates feed):
    Re-run on the M4-09 simulator once #80 is merged (backlog).
 
 Simulated data (the M4-09 evidence simulator is not merged; tests/helpers/abundance_oracle.py):
-giapsim layout (M4-07, 400 chromosome genes) and expression (M4-08 defaults); each ``detected_true``
+gippasim layout (M4-07, 400 chromosome genes) and expression (M4-08 defaults); each ``detected_true``
 gene's observable tryptic peptides (0 missed cleavages, 7-30 aa) are quantified with probability
 0.6 and intensity ln I = abundance_log2_true * ln 2 + N(0, 0.5^2) (the M4-09 intensity model),
 as unique exact accepted peptides. ``n_observable_peptides`` is the oracle's digest count.
@@ -56,8 +56,8 @@ N_GENES = 400
 
 
 def _simulate(rng: np.random.Generator) -> tuple[Any, ao.SimPeptides]:
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=N_GENES), rng)
     expr = ex.simulate_expression(lay, ex.ExpressionConfig(), rng)
@@ -67,8 +67,8 @@ def _simulate(rng: np.random.Generator) -> tuple[Any, ao.SimPeptides]:
 def _estimate(
     lay: Any, sim: ao.SimPeptides, method: str, n_obs: dict[str, int] | None = None
 ) -> dict[str, float]:
-    from giap.config import GiapConfig
-    from giap.genetable.abundance import gene_abundance
+    from gippa.config import GippaConfig
+    from gippa.genetable.abundance import gene_abundance
 
     tags = lay.genes["locus_tag"].astype(str).tolist()
     res = gene_abundance(
@@ -78,7 +78,7 @@ def _estimate(
         ao.detection(tags, sim.detected),
         None,
         ao.pmap_frame([]),
-        GiapConfig(abundance={"method": method}),
+        GippaConfig(abundance={"method": method}),
     )
     t = res.table
     return dict(zip(t["locus_tag"].astype(str), t["abundance_log2"].astype(float), strict=True))

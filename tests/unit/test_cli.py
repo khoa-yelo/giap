@@ -1,4 +1,4 @@
-"""Command-line interface skeleton (GIAP_SPEC.md §5.1)."""
+"""Command-line interface skeleton (GIPPA_SPEC.md §5.1)."""
 
 from __future__ import annotations
 
@@ -24,22 +24,22 @@ def genome(tmp_path: Path) -> Path:
 
 
 def test_main_entry_point_exists() -> None:
-    from giap.cli import main
+    from gippa.cli import main
 
     assert callable(main)
 
 
 def test_version_option_prints_package_version(runner: CliRunner) -> None:
-    import giap
-    from giap.cli import cli
+    import gippa
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert giap.__version__ in result.output
+    assert gippa.__version__ in result.output
 
 
 def test_help_lists_public_subcommands(runner: CliRunner) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
@@ -48,7 +48,7 @@ def test_help_lists_public_subcommands(runner: CliRunner) -> None:
 
 
 def test_help_hides_hidden_commands(runner: CliRunner) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["--help"])
     assert "_step" not in result.output
@@ -57,25 +57,25 @@ def test_help_hides_hidden_commands(runner: CliRunner) -> None:
 
 
 def test_hidden_step_command_is_registered() -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     assert "_step" in cli.commands
     assert cli.commands["_step"].hidden
 
 
-def test_version_json_has_giap_and_python(runner: CliRunner) -> None:
-    import giap
-    from giap.cli import cli
+def test_version_json_has_gippa_and_python(runner: CliRunner) -> None:
+    import gippa
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["version", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
-    assert data["giap"] == giap.__version__
+    assert data["gippa"] == gippa.__version__
     assert "python" in data
 
 
 def test_exit_codes() -> None:
-    from giap.exitcodes import ExitCode
+    from gippa.exitcodes import ExitCode
 
     assert ExitCode.SUCCESS == 0
     assert ExitCode.INVALID_INPUT == 1
@@ -87,7 +87,7 @@ def test_exit_codes() -> None:
 
 @pytest.mark.parametrize("name", SUBCOMMANDS)
 def test_subcommands_accept_shared_options(runner: CliRunner, name: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(cli, [name, "--help"])
     assert result.exit_code == 0
@@ -106,13 +106,13 @@ def proteins(tmp_path: Path) -> Path:
 def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # preflight (M1-12): a missing db_manifest.json is info, so exit codes come from the inputs
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))  # never the real $GIAP_ROOT
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))  # never the real $GIPPA_ROOT
 
 
 def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Path) -> None:
-    from giap.cli import cli
-    from giap.exitcodes import ExitCode
+    from gippa.cli import cli
+    from gippa.exitcodes import ExitCode
 
     result = runner.invoke(cli, ["preflight", "--genome", str(genome), "--proteins", str(proteins)])
     # a 200 bp genome only warns (total length, contiguity); warnings exit 0 without --strict
@@ -121,8 +121,8 @@ def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Pat
 
 
 def test_unknown_set_key_exits_invalid_input(runner: CliRunner, genome: Path) -> None:
-    from giap.cli import cli
-    from giap.exitcodes import ExitCode
+    from gippa.cli import cli
+    from gippa.exitcodes import ExitCode
 
     result = runner.invoke(
         cli, ["preflight", "--genome", str(genome), "--set", "stats.bogus_key=1"]
@@ -132,8 +132,8 @@ def test_unknown_set_key_exits_invalid_input(runner: CliRunner, genome: Path) ->
 
 
 def test_valid_set_is_accepted_repeatedly(runner: CliRunner, genome: Path, proteins: Path) -> None:
-    from giap.cli import cli
-    from giap.exitcodes import ExitCode
+    from gippa.cli import cli
+    from gippa.exitcodes import ExitCode
 
     args = ["preflight", "--genome", str(genome), "--proteins", str(proteins)]
     result = runner.invoke(cli, [*args, "--set", "seed=1", "--set", "stats.permutations=5"])
@@ -144,8 +144,8 @@ def test_valid_set_is_accepted_repeatedly(runner: CliRunner, genome: Path, prote
 def test_config_file_with_unknown_key_exits_invalid_input(
     runner: CliRunner, genome: Path, tmp_path: Path
 ) -> None:
-    from giap.cli import cli
-    from giap.exitcodes import ExitCode
+    from gippa.cli import cli
+    from gippa.exitcodes import ExitCode
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("not_a_key: 1\n")
@@ -154,7 +154,7 @@ def test_config_file_with_unknown_key_exits_invalid_input(
 
 
 def test_run_rejects_bad_genome_relation(runner: CliRunner, genome: Path, tmp_path: Path) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(
         cli,
@@ -172,7 +172,7 @@ def test_run_rejects_bad_genome_relation(runner: CliRunner, genome: Path, tmp_pa
 
 
 def test_run_rejects_bad_abundance_missing(runner: CliRunner, genome: Path, tmp_path: Path) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(
         cli,
@@ -190,14 +190,14 @@ def test_run_rejects_bad_abundance_missing(runner: CliRunner, genome: Path, tmp_
 
 
 def test_run_requires_outdir(runner: CliRunner, genome: Path) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["run", "--genome", str(genome)])
     assert result.exit_code == 2
 
 
 def test_run_lists_spec_options(runner: CliRunner) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = runner.invoke(cli, ["run", "--help"])
     assert result.exit_code == 0
@@ -236,11 +236,11 @@ def test_run_lists_spec_options(runner: CliRunner) -> None:
 def test_run_valid_options_reach_the_runner(
     runner: CliRunner, genome: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # M2-07 wires `giap run`: valid options get past option parsing and reach preflight, which
+    # M2-07 wires `gippa run`: valid options get past option parsing and reach preflight, which
     # (run-wiring decisions 1 and 3d) runs before the `nextflow` check and stops a genome-only run
     # (no peptides or proteins) with exit 1 — not a usage error, not "not implemented".
-    from giap.cli import cli
-    from giap.exitcodes import ExitCode
+    from gippa.cli import cli
+    from gippa.exitcodes import ExitCode
 
     monkeypatch.setenv("PATH", str(tmp_path / "no_nextflow_here"))
 

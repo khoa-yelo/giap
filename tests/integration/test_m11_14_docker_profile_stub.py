@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.runner.nextflow import launch_command
+from gippa.runner.nextflow import launch_command
 
 pytestmark = pytest.mark.needs_nextflow
 

@@ -1,4 +1,4 @@
-"""Hypothesis properties of the M5-09 table writers and readers (GIAP_SPEC.md §9.2, §6.5, §11.2;
+"""Hypothesis properties of the M5-09 table writers and readers (GIPPA_SPEC.md §9.2, §6.5, §11.2;
 docs/specs/M5-09-context-tables-step.md acceptance "round trips (dtype-aware) of both tables").
 
 Invariants, over random tables:
@@ -24,8 +24,8 @@ from hypothesis import strategies as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import context_tables_data as cd
 
-from giap.context.autocorrelation import AUTOCORR_COLUMNS
-from giap.context.islands import ISLAND_COLUMNS
+from gippa.context.autocorrelation import AUTOCORR_COLUMNS
+from gippa.context.islands import ISLAND_COLUMNS
 
 FAST = settings(max_examples=50, deadline=None,
                 suppress_health_check=[HealthCheck.function_scoped_fixture])  # fmt: skip
@@ -33,7 +33,7 @@ NA = float("nan")
 
 
 def _vocabulary() -> list[str]:
-    from giap.context.vocab import CONTEXT_FLAGS
+    from gippa.context.vocab import CONTEXT_FLAGS
 
     return sorted(str(f) for f in CONTEXT_FLAGS)
 
@@ -151,7 +151,7 @@ def _canonical(df: pd.DataFrame, lists: tuple[str, ...]) -> list[tuple[Any, ...]
 @given(df=autocorrelation_frame())
 @FAST
 def test_autocorrelation_round_trip(tmp_path_factory: Any, df: pd.DataFrame) -> None:
-    from giap.io.context_tsv import read_autocorrelation, write_autocorrelation
+    from gippa.io.context_tsv import read_autocorrelation, write_autocorrelation
 
     out = tmp_path_factory.mktemp("ac") / "autocorrelation.tsv"
     write_autocorrelation(out, df)
@@ -161,7 +161,7 @@ def test_autocorrelation_round_trip(tmp_path_factory: Any, df: pd.DataFrame) -> 
 @given(df=island_frame())
 @FAST
 def test_islands_round_trip(tmp_path_factory: Any, df: pd.DataFrame) -> None:
-    from giap.io.context_tsv import read_islands, write_islands
+    from gippa.io.context_tsv import read_islands, write_islands
 
     out = tmp_path_factory.mktemp("isl") / "islands.tsv"
     write_islands(out, df)
@@ -177,7 +177,7 @@ def test_islands_round_trip(tmp_path_factory: Any, df: pd.DataFrame) -> None:
 def test_island_start_is_always_one_based_and_end_unchanged(tmp_path_factory: Any, start: int,
                                                             extra: int) -> None:  # fmt: skip
     """§6.5 in both directions, origin crossers (``end`` beyond the length) included."""
-    from giap.io.context_tsv import read_islands, write_islands
+    from gippa.io.context_tsv import read_islands, write_islands
 
     base = _one_island(start, start + extra)
     out = tmp_path_factory.mktemp("coord") / "islands.tsv"
@@ -207,7 +207,7 @@ def _one_island(start: int, end: int) -> pd.DataFrame:
 def test_writing_is_a_pure_function_of_the_frame(tmp_path_factory: Any,
                                                  df: pd.DataFrame) -> None:  # fmt: skip
     """R7: no clock, no path, no dict ordering in the bytes."""
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     base = tmp_path_factory.mktemp("pure")
     write_islands(base / "a.tsv", df)
@@ -218,7 +218,7 @@ def test_writing_is_a_pure_function_of_the_frame(tmp_path_factory: Any,
 @given(df=autocorrelation_frame())
 @FAST
 def test_row_order_is_preserved(tmp_path_factory: Any, df: pd.DataFrame) -> None:
-    from giap.io.context_tsv import write_autocorrelation
+    from gippa.io.context_tsv import write_autocorrelation
 
     out = tmp_path_factory.mktemp("order") / "autocorrelation.tsv"
     write_autocorrelation(out, df)
@@ -230,7 +230,7 @@ def test_row_order_is_preserved(tmp_path_factory: Any, df: pd.DataFrame) -> None
 @given(chosen=st.lists(VOCABULARY, max_size=4, unique=True))
 @FAST
 def test_any_vocabulary_subset_round_trips(tmp_path_factory: Any, chosen: list[str]) -> None:
-    from giap.io.context_tsv import read_islands, write_islands
+    from gippa.io.context_tsv import read_islands, write_islands
 
     df = _one_island(10, 20)
     df.at[0, "flags"] = tuple(sorted(chosen))
@@ -242,7 +242,7 @@ def test_any_vocabulary_subset_round_trips(tmp_path_factory: Any, chosen: list[s
 @given(lag=st.one_of(st.none(), st.integers(min_value=1, max_value=20)))
 @FAST
 def test_lag_is_an_integer_or_missing(tmp_path_factory: Any, lag: int | None) -> None:
-    from giap.io.context_tsv import read_autocorrelation, write_autocorrelation
+    from gippa.io.context_tsv import read_autocorrelation, write_autocorrelation
 
     row = {
         "contig": "chr1", "statistic": "morans_i" if lag else "oriter_slope",

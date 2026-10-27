@@ -8,18 +8,18 @@ Conda is enabled only by the ``conda`` profile and by ``prebuilt_envs.config`` (
 only a ``conda`` directive would run on the host without its environment, so preflight reports it
 missing with a reason instead of passing.
 
-Interface pinned here (implementer, ``src/giap/preflight/environment.py``):
+Interface pinned here (implementer, ``src/gippa/preflight/environment.py``):
 
 - ``missing_tools(tools, profile, image_cache, env_root, local_tools) -> list[str]``: sorted
   registry names of ``tools`` (``Sequence[ToolSpec]``) not usable under the comma-joined Nextflow
   ``profile``.
   - ``image_cache: Path``: the apptainer image cache (14a's ``image_cache(environ, db_dir)``:
-    ``NXF_APPTAINER_CACHEDIR`` → ``$GIAP_ROOT/containers`` → ``<db_dir>/containers``); a pinned
+    ``NXF_APPTAINER_CACHEDIR`` → ``$GIPPA_ROOT/containers`` → ``<db_dir>/containers``); a pinned
     image is present under apptainer iff ``<image_cache>/<simpleName>.img`` exists (ADR-0059:
     scheme stripped, ``/`` and ``:`` → ``-``).
   - ``env_root: Path | None``: the directory holding the prebuilt envs
-    (``$GIAP_ROOT/micromamba/envs``; ``None`` without ``$GIAP_ROOT``); an env is built iff
-    ``<env_root>/giap-<tool>/.giap-built`` equals the sha256 of ``workflow/envs/<tool>.yml``.
+    (``$GIPPA_ROOT/micromamba/envs``; ``None`` without ``$GIPPA_ROOT``); an env is built iff
+    ``<env_root>/gippa-<tool>/.gippa-built`` equals the sha256 of ``workflow/envs/<tool>.yml``.
   - ``local_tools: Path | None``: ``<db_dir>/local_tools.config`` written by ``setup --uniop``
     (item 1b), or ``None``. The file is one ``profiles { docker {...} apptainer {...} conda {...}
     }``; a block applies only under its own runtime ``container_runtime(profile)``. The docker
@@ -27,10 +27,10 @@ Interface pinned here (implementer, ``src/giap/preflight/environment.py``):
     ``docker image inspect <tag>`` exits 0; the apptainer block's ``container = '<absolute
     .sif>'`` makes it present under apptainer iff the file exists (a relative path is malformed:
     missing, never mapped to a cache file name). No block for the runtime: uniop is missing. Under
-    a ``farmshare*`` list the file is ignored (``giap run`` never adds it there, example 19a).
+    a ``farmshare*`` list the file is ignored (``gippa run`` never adds it there, example 19a).
   - Pins are the ``withName`` lines of ``workflow_main().parent / "conf/containers.config"``; the
     function looks ``workflow_main`` up as the module attribute
-    ``giap.preflight.environment.workflow_main`` (the tests patch it with a fake workflow tree).
+    ``gippa.preflight.environment.workflow_main`` (the tests patch it with a fake workflow tree).
   - ``test``/``stub`` profiles: ``[]``; in-process tools are never missing.
 - ``missing_tool_reasons(tools, profile, image_cache, env_root, local_tools) -> dict[str, str]``:
   one reason per missing tool (keys == ``set(missing_tools(...))``). Exact texts:
@@ -38,9 +38,9 @@ Interface pinned here (implementer, ``src/giap/preflight/environment.py``):
     ``conda-only tool under a container profile without conda: <tool>``;
   - pinned image not in the apptainer cache: names ``<pkg> setup --images --profile apptainer``
     (``<pkg>`` = ``[project] name`` of pyproject.toml).
-- ``container_runtime(profile) -> "docker" | "apptainer" | None``: the value ``giap run`` passes
-  in ``GIAP_CONTAINER_RUNTIME`` (the export itself is 14c).
-- ``run_preflight(..., profile=...)`` takes the cache from 14a's helper (no ``$GIAP_ROOT`` needed)
+- ``container_runtime(profile) -> "docker" | "apptainer" | None``: the value ``gippa run`` passes
+  in ``GIPPA_CONTAINER_RUNTIME`` (the export itself is 14c).
+- ``run_preflight(..., profile=...)`` takes the cache from 14a's helper (no ``$GIPPA_ROOT`` needed)
   and puts the reasons into the ``environment.tools`` message.
 
 No test runs real docker/apptainer or touches a registry: a logging fake ``docker`` and
@@ -63,14 +63,14 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.tools import TOOLS, ToolSpec, read_containers_config, required_tools
-from giap.config import resolve_config
+from gippa.annotate.tools import TOOLS, ToolSpec, read_containers_config, required_tools
+from gippa.config import resolve_config
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / "workflow"
 CONTAINERS_CONFIG = WORKFLOW / "conf" / "containers.config"
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
-MARKER = ".giap-built"
+MARKER = ".gippa-built"
 OSTIR_REF = "ghcr.io/khoa-yelo/" + PKG + "-ostir@sha256:" + "a1" * 32
 CONDA_REASON = "conda-only tool under a container profile without conda: {}"
 SETUP_IMAGES = f"{PKG} setup --images --profile apptainer"
@@ -86,14 +86,14 @@ WITH_CONDA = ["conda", "farmshare,apptainer", "farmshare_local,apptainer", "cond
 
 
 def _env():  # type: ignore[no-untyped-def]
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     return environment
 
 
 def _fn(name: str) -> Any:
     fn = getattr(_env(), name, None)
-    assert fn is not None, f"giap.preflight.environment.{name} is not implemented"
+    assert fn is not None, f"gippa.preflight.environment.{name} is not implemented"
     return fn
 
 
@@ -127,7 +127,7 @@ def fill_cache(cache: Path, tools: Iterable[str], pinned: dict[str, str]) -> Pat
 
 
 def build_envs(env_root: Path, tools: Iterable[str]) -> Path:
-    """Prebuilt envs with a matching ``.giap-built`` marker (scripts/build_envs.sh)."""
+    """Prebuilt envs with a matching ``.gippa-built`` marker (scripts/build_envs.sh)."""
     env_root.mkdir(parents=True, exist_ok=True)
     for name in tools:
         prefix = env_root / TOOLS[name].env_name
@@ -151,10 +151,10 @@ exit 3
 
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never the real $GIAP_ROOT / $GIAP_DB_DIR / caches; fake docker and apptainer on PATH."""
-    for var in ("GIAP_DB_DIR", "GIAP_ROOT", "NXF_APPTAINER_CACHEDIR", "GIAP_FGSEA_PREFIX"):
+    """Never the real $GIPPA_ROOT / $GIPPA_DB_DIR / caches; fake docker and apptainer on PATH."""
+    for var in ("GIPPA_DB_DIR", "GIPPA_ROOT", "NXF_APPTAINER_CACHEDIR", "GIPPA_FGSEA_PREFIX"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.delenv("GIAP_CONTAINER_RUNTIME", raising=False)
+    monkeypatch.delenv("GIPPA_CONTAINER_RUNTIME", raising=False)
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
     for exe in ("docker", "apptainer", "singularity"):
@@ -293,7 +293,7 @@ def test_row_pinned_image_apptainer_present_iff_img_in_cache(tmp_path: Path) -> 
 
 
 def test_row_pinned_image_only_the_given_cache_counts(tmp_path: Path) -> None:
-    """The image under the old ``$GIAP_ROOT/containers`` does not count when the cache is
+    """The image under the old ``$GIPPA_ROOT/containers`` does not count when the cache is
     elsewhere: the cache is what Nextflow is told to use (``apptainer.cacheDir``)."""
     pinned = pins()
     root = tmp_path / "root"
@@ -360,7 +360,7 @@ def test_row_conda_only_with_conda_needs_the_prebuilt_env(tmp_path: Path, profil
 
 @pytest.mark.parametrize("profile", WITH_CONDA)
 def test_row_conda_only_with_conda_and_no_env_root(tmp_path: Path, profile: str) -> None:
-    """No ``$GIAP_ROOT`` (``env_root=None``): every conda-only tool is missing."""
+    """No ``$GIPPA_ROOT`` (``env_root=None``): every conda-only tool is missing."""
     names = conda_only(pins())
     tools = [TOOLS[n] for n in names]
     assert call("missing_tools", tools, profile, empty(tmp_path, "cache"), None) == names
@@ -441,7 +441,7 @@ def test_row_uniop_local_micromamba_build_under_container_profile(
     tmp_path: Path, profile: str
 ) -> None:
     """A micromamba-built local UniOP works only with a conda-enabled profile (item 1b)."""
-    prefix = tmp_path / "cache" / "envs" / "giap-uniop"
+    prefix = tmp_path / "cache" / "envs" / "gippa-uniop"
     (prefix / "bin").mkdir(parents=True)
     local = _local_tools(tmp_path / "db", conda=f"conda = '{prefix}'")
     cache = empty(tmp_path, "c")
@@ -556,7 +556,7 @@ def test_b1_conda_block_only_is_missing_under_a_container_profile(
     tmp_path: Path, profile: str
 ) -> None:
     """Only a conda block, no block for ``R(P)``: uniop stays missing under docker/apptainer."""
-    prefix = tmp_path / "envs" / "giap-uniop"
+    prefix = tmp_path / "envs" / "gippa-uniop"
     (prefix / "bin").mkdir(parents=True)
     local = _local_tools(tmp_path / "db", conda=f"conda = '{prefix}'")
     got = call("missing_tools", [TOOLS["uniop"]], profile, empty(tmp_path, "c"), None, local)
@@ -589,7 +589,7 @@ FARMSHARE_APPTAINER = ["farmshare,apptainer", "farmshare_local,apptainer"]
 
 @pytest.mark.parametrize("profile", FARMSHARE_APPTAINER)
 def test_b2_farmshare_ignores_local_tools_config(tmp_path: Path, profile: str) -> None:
-    """AC 5, example 19a: under a ``farmshare*`` list ``giap run`` never adds local_tools.config,
+    """AC 5, example 19a: under a ``farmshare*`` list ``gippa run`` never adds local_tools.config,
     so a usable apptainer/docker block does not satisfy uniop without the prebuilt env."""
     local, sif = _two_blocks(tmp_path, "docker-first")
     sif.write_bytes(b"fake sif\n")
@@ -684,7 +684,7 @@ def test_property_missing_and_reasons_agree(built: set[str], profile: str) -> No
     assert got == sorted(set(got))
 
 
-# ---------------------------------------------------------------- GIAP_CONTAINER_RUNTIME
+# ---------------------------------------------------------------- GIPPA_CONTAINER_RUNTIME
 
 
 @pytest.mark.parametrize(
@@ -711,7 +711,7 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
 
 def _inputs(tmp_path: Path) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     rng = random.Random(0)
     g = tmp_path / "in" / "g.fa"
@@ -730,7 +730,7 @@ def _db(tmp_path: Path) -> Path:
 
 
 def _tools_check(tmp_path: Path, db: Path, profile: str) -> Any:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     cfg = resolve_config(  # 14d2: the default is auto; pin the enabled: true path
         overrides=["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1",
@@ -762,10 +762,10 @@ def _assert_only_conda_only_missing(check: Any) -> None:
         assert CONDA_REASON.format(name) in check.message, check.message
 
 
-def test_run_preflight_apptainer_uses_nxf_cache_without_giap_root(
+def test_run_preflight_apptainer_uses_nxf_cache_without_gippa_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Q-L11: a pip user, no ``$GIAP_ROOT``; the images are in ``NXF_APPTAINER_CACHEDIR``."""
+    """Q-L11: a pip user, no ``$GIPPA_ROOT``; the images are in ``NXF_APPTAINER_CACHEDIR``."""
     need_pinned, _ = _needed()
     cache = fill_cache(tmp_path / "nxf", need_pinned, pins())
     monkeypatch.setenv("NXF_APPTAINER_CACHEDIR", str(cache))
@@ -773,20 +773,20 @@ def test_run_preflight_apptainer_uses_nxf_cache_without_giap_root(
 
 
 def test_run_preflight_apptainer_cache_falls_back_to_db_dir(tmp_path: Path) -> None:
-    """No ``NXF_APPTAINER_CACHEDIR``, no ``$GIAP_ROOT``: ``<db_dir>/containers``."""
+    """No ``NXF_APPTAINER_CACHEDIR``, no ``$GIPPA_ROOT``: ``<db_dir>/containers``."""
     need_pinned, _ = _needed()
     db = _db(tmp_path)
     fill_cache(db / "containers", need_pinned, pins())
     _assert_only_conda_only_missing(_tools_check(tmp_path, db, "apptainer"))
 
 
-def test_run_preflight_apptainer_cache_from_giap_root(
+def test_run_preflight_apptainer_cache_from_gippa_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     need_pinned, _ = _needed()
     root = tmp_path / "root"
     fill_cache(root / "containers", need_pinned, pins())
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     _assert_only_conda_only_missing(_tools_check(tmp_path, _db(tmp_path), "apptainer"))
 
 
@@ -810,12 +810,12 @@ def test_run_preflight_docker_with_nothing_installed(tmp_path: Path) -> None:
 def test_run_preflight_farmshare_unchanged_with_full_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """FarmShare behaviour is unchanged: images in ``$GIAP_ROOT/containers`` and the prebuilt
-    envs under ``$GIAP_ROOT/micromamba/envs`` pass."""
+    """FarmShare behaviour is unchanged: images in ``$GIPPA_ROOT/containers`` and the prebuilt
+    envs under ``$GIPPA_ROOT/micromamba/envs`` pass."""
     need_pinned, need_conda = _needed()
     root = tmp_path / "root"
     fill_cache(root / "containers", need_pinned, pins())
     build_envs(root / "micromamba" / "envs", need_conda)
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     check = _tools_check(tmp_path, _db(tmp_path), "farmshare,apptainer")
     assert check.level == "ok", check

@@ -116,7 +116,7 @@ def test_fetch_header_and_no_plain_http() -> None:
     text = require(FETCH_SBATCH, "deliverable 6").read_text()
     assert text.splitlines()[0] == "#!/bin/bash"
     name = _header_value(text, "job-name")
-    assert name is not None and name.startswith("giap-")
+    assert name is not None and name.startswith("gippa-")
     assert _header_value(text, "partition") == "normal"
     assert _header_value(text, "cpus-per-task") == "1"
     assert _header_value(text, "mem") == "4G"
@@ -242,7 +242,7 @@ def test_assets_table_layout() -> None:
         assert r["url"].startswith("https://"), r
         assert r["licence"], r
         assert r["sha256"] in ("", "NA") or re.fullmatch(r"[0-9a-f]{64}", r["sha256"]), r
-        assert r["path"] == "" or "GIAP_ROOT" in r["path"] or "GIAP_DB_DIR" in r["path"], r
+        assert r["path"] == "" or "GIPPA_ROOT" in r["path"] or "GIPPA_DB_DIR" in r["path"], r
     w = rows["cascadia_weights"]
     assert w["url"].startswith("https://drive.usercontent.google.com/download?id=")
     assert "export=download" in w["url"] and "confirm=t" in w["url"]
@@ -277,7 +277,7 @@ def test_mzml_pilot_header_and_no_network() -> None:
     text = require(MZML_SBATCH, "deliverable 7").read_text()
     assert text.splitlines()[0] == "#!/bin/bash"
     name = _header_value(text, "job-name")
-    assert name is not None and name.startswith("giap-")
+    assert name is not None and name.startswith("gippa-")
     assert _header_value(text, "partition") == "normal"
     assert _header_value(text, "cpus-per-task") == "8"
     assert _header_value(text, "mem") == "32000M"  # MaxMemPerCPU 4000M x 8 CPUs
@@ -298,7 +298,7 @@ def test_mzml_pilot_default_route_timsconvert(box: A3Sandbox) -> None:
     calls = _timsconvert_calls(box)
     assert len(calls) == 1, box.calls("micromamba.jsonl")
     argv = calls[0]
-    assert argv[0] == "run" and "giap-timsconvert" in argv
+    assert argv[0] == "run" and "gippa-timsconvert" in argv
     t = argv[argv.index("timsconvert") + 1 :]
     assert t.count("--input") == 1
     assert Path(t[t.index("--input") + 1]).resolve() == d.resolve()
@@ -309,7 +309,7 @@ def test_mzml_pilot_default_route_timsconvert(box: A3Sandbox) -> None:
     new = box.files_under_root() - before
     mzml_dir = (box.data / "mzml").resolve()
     stray = [p for p in new if mzml_dir not in p.resolve().parents]
-    assert not stray, f"writes outside $GIAP_DATA_DIR/pxd078459/mzml/: {stray}"
+    assert not stray, f"writes outside $GIPPA_DATA_DIR/pxd078459/mzml/: {stray}"
     assert box.pilot.repo_is_clean() == ""
     assert box.urls() == []
 

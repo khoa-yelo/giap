@@ -5,7 +5,7 @@ Spec: docs/specs/M11-03c-calibration-full-sharding.md, "calibration_full_launch.
 examples 6-9. The launcher validates the **worktree's** plan (``calibration_lanes.py check``; exit
 2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(lanes x cpus_per_lane) + 1 >
 128``, refuses when ``now + max(time) + 20 min`` reaches the next nightly start, submits the 15
-``calibration_suite.sbatch`` jobs in plan order (``giap-cal-<suite>``, ``--cpus-per-task`` = lanes x
+``calibration_suite.sbatch`` jobs in plan order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes x
 cpus_per_lane, ``--mem`` = lanes x mem_per_lane_mb, ``--time``), then the aggregator
 (``afterany:<j0>:...:<j14>``, ``--job <j0>``, ``--expect 15``). A failed ``sbatch`` cancels exactly
 the jobs already submitted. Fixtures: ``test_m11_03b_launcher`` (fake sbatch IDs 4242, 4243, ...).
@@ -51,7 +51,7 @@ def _suite_jobs(sb: Sandbox) -> list[dict[str, Any]]:
 
 
 def _rows_job(sb: Sandbox) -> dict[str, Any]:
-    calls = [c for c in sb.sbatch_calls() if _job_name(c) == "giap-calibration-rows"]
+    calls = [c for c in sb.sbatch_calls() if _job_name(c) == "gippa-calibration-rows"]
     assert len(calls) == 1, sb.sbatch_calls()
     return calls[0]
 
@@ -77,15 +77,15 @@ def _push(sb: Sandbox, edit: dict[str, dict[str, str]], keep_working_copy: bool)
 
 
 def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
-    _queue(sb, ["1 giap-nightly-launch"])
+    _queue(sb, ["1 gippa-nightly-launch"])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     plan, jobs = _plan(), _suite_jobs(sb)
-    assert [_job_name(j) for j in jobs] == [f"giap-cal-{r['suite']}" for r in plan], jobs
+    assert [_job_name(j) for j in jobs] == [f"gippa-cal-{r['suite']}" for r in plan], jobs
     assert not [c for c in sb.sbatch_calls() if option(c["argv"], "array", "a")]
     assert not [c for c in sb.sbatch_calls() if "calibration_full.sbatch" in " ".join(c["argv"])]
     wt = f"{sb.root}/ci/calibration-{sb.head[:12]}"
-    log = _export(jobs[0], "GIAP_CALIBRATION_LOG_DIR") or ""
+    log = _export(jobs[0], "GIPPA_CALIBRATION_LOG_DIR") or ""
     assert log.startswith(f"{sb.root}/logs/calibration/full-{sb.head[:12]}-"), log
     for r, j in zip(plan, jobs, strict=True):
         a = j["argv"]
@@ -94,8 +94,8 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
         mem = option(a, "mem") or ""
         assert re.fullmatch(rf"{_lanes(r) * int(r['mem_per_lane_mb'])}M?", mem), a
         assert option(a, "time", "t") == r["time"], a
-        assert _export(j, "GIAP_SUITE") == r["suite"] and _export(j, "GIAP_WORKTREE") == wt, j
-        assert _export(j, "GIAP_CALIBRATION_LOG_DIR") == log, j
+        assert _export(j, "GIPPA_SUITE") == r["suite"] and _export(j, "GIPPA_WORKTREE") == wt, j
+        assert _export(j, "GIPPA_CALIBRATION_LOG_DIR") == log, j
     first = jobs[0]["argv"]
     assert option(first, "cpus-per-task", "c") == "20" and option(first, "time", "t") == "06:00:00"
     rows = _rows_job(sb)
@@ -104,7 +104,7 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
     cmd = " ".join(rows["argv"]) + " " + (rows.get("script") or "")
     for pat in (rf"--job[= ]{IDS[0]}\b", r"--expect[= ]15\b", rf"--commit[= ]{sb.head}\b"):
         assert re.search(pat, cmd), (pat, cmd)
-    assert all((_job_name(c) or "").startswith("giap-") for c in sb.sbatch_calls())
+    assert all((_job_name(c) or "").startswith("gippa-") for c in sb.sbatch_calls())
     want = rf"jobs={','.join(IDS)} rows={ROWS} log={re.escape(log)} cpus=98\b"
     assert re.search(want, res.stdout), res.stdout
     seen = (sb.state / "squeue_seen").read_text().split()
@@ -112,11 +112,11 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
 
 
 @pytest.mark.parametrize(("lines", "ok"),
-                         [(["29 giap-x"], True),        # 29 + 98 + 1 = 128
-                          (["30 giap-x"], False),       # example 7: 129 > 128
-                          (["15 giap-a", "15 giap-b", "64 other"], False),
-                          (["1 giap-j"] * 4, True),     # 4 + 16 = 20 jobs
-                          (["0 giap-j"] * 5, False)])  # 21 > 20 jobs  # fmt: skip
+                         [(["29 gippa-x"], True),        # 29 + 98 + 1 = 128
+                          (["30 gippa-x"], False),       # example 7: 129 > 128
+                          (["15 gippa-a", "15 gippa-b", "64 other"], False),
+                          (["1 gippa-j"] * 4, True),     # 4 + 16 = 20 jobs
+                          (["0 gippa-j"] * 5, False)])  # 21 > 20 jobs  # fmt: skip
 def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> None:
     _queue(sb, lines)
     res = _launch(sb)
@@ -125,7 +125,7 @@ def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> N
         return
     out = _out(res)
     assert res.returncode == 2 and sb.sbatch_calls() == [] and "R14" in out, out
-    if sum(int(ln.split()[0]) for ln in lines if ln.split()[1].startswith("giap-")) == 30:
+    if sum(int(ln.split()[0]) for ln in lines if ln.split()[1].startswith("gippa-")) == 30:
         assert all(re.search(rf"\b{n}\b", out) for n in (30, 99, 128)), out
 
 
@@ -136,8 +136,8 @@ def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> N
 def test_example8_window_is_max_time_plus_20_min(
     sb: Sandbox, hour: int, minute: int, nightly: str, ok: bool
 ) -> None:
-    _queue(sb, ["8 giap-other"])  # CPUs used no longer stretch the window: no waves
-    res = _launch(sb, GIAP_NOW=at(hour, minute), GIAP_NIGHTLY_AT=nightly)
+    _queue(sb, ["8 gippa-other"])  # CPUs used no longer stretch the window: no waves
+    res = _launch(sb, GIPPA_NOW=at(hour, minute), GIPPA_NIGHTLY_AT=nightly)
     if ok:
         assert res.returncode == 0 and len(_suite_jobs(sb)) == 15, _out(res)
     else:
@@ -149,7 +149,7 @@ def test_example9_failed_suite_submission_cancels_exactly_the_submitted(sb: Sand
     res = _launch(sb, FAKE_SBATCH_FAIL="8")  # the 9th sbatch: ora
     assert res.returncode == 1, _out(res)
     assert sorted(_cancelled(sb)) == IDS[:8], sb.calls_log()
-    assert len(sb.sbatch_calls()) == 9 and _job_name(sb.sbatch_calls()[8]) == "giap-cal-ora"
+    assert len(sb.sbatch_calls()) == 9 and _job_name(sb.sbatch_calls()[8]) == "gippa-cal-ora"
 
 
 def test_failed_aggregator_cancels_all_15(sb: Sandbox) -> None:

@@ -5,7 +5,7 @@ the suite R (attack C's ``R_C = 300`` under ``replicates_full.discordance = 1000
 replicate range and raised; tests asserting ``status in {pass, unconfirmed}`` failed on a
 ``shard`` record; tests computing over every replicate repeated it in every shard. Pinned here:
 
-- ``--shard K/N`` exports ``GIAP_CALIBRATION_REPLICATES=start:stop@K/N``; ``replicate_range(R)``
+- ``--shard K/N`` exports ``GIPPA_CALIBRATION_REPLICATES=start:stop@K/N``; ``replicate_range(R)``
   is then ``shard_replicates(R, N, K)`` for *every* R (a check with R < N runs nothing in some
   shards; such an empty shard logs nothing). Without the ``@K/N`` suffix the variable means what
   it meant before (start:stop of the given R).

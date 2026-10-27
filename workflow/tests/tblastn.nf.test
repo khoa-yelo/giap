@@ -1,8 +1,8 @@
-// M3-13: the TBLASTN process (workflow/modules/local/tblastn/main.nf; GIAP_SPEC.md §7.2.3, §6.2
+// M3-13: the TBLASTN process (workflow/modules/local/tblastn/main.nf; GIPPA_SPEC.md §7.2.3, §6.2
 // step `tblastn`: genome, leftover proteins -> tabular hits). Mirrors the M3-12 MINIPROT tests:
 // - stub run: emits tblastn.tsv (empty: no hits is a valid result) and versions.yml;
 // - module contract: makeblastdb -dbtype nucl (no -parse_seqids: M3-13 review decision 1), then tblastn with task.ext.args and
-//   the 15-column -outfmt of giap.mapping.tblastn.OUTFMT;
+//   the 15-column -outfmt of gippa.mapping.tblastn.OUTFMT;
 // - pipeline wiring: mapping.proteins.tblastn_args (params.mapping) reaches the command via
 //   ext.args, with no hard-coded default in main.nf.
 // The non-stub tests put fake makeblastdb/tblastn (workflow/tests/bin) on PATH; both record argv.

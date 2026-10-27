@@ -30,7 +30,7 @@ from helpers.cpb_oracle import assert_tail_close, cpb_enumerate, cpb_exact, rel_
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.poisson_binomial import (
+from gippa.stats.poisson_binomial import (
     conditional_poisson_binomial,
     poisson_binomial_cdf,
     poisson_binomial_pmf,

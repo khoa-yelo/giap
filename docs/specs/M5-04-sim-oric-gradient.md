@@ -16,17 +16,17 @@ definitions) · **can start now** · no tools, no Slurm
   structure (TU null)" and "Islands | AR(1) backgrounds without islands"; §8.5 attack 1 "Autocorrelated
   abundance with no islands → islands, autocorrelation".
 - §6.2 `parse_bakta` "→ `features.parquet` (rRNA, tRNA, CRISPR, oriC, gaps)" — merged in M2-04
-  (`giap.steps.annotation._FEATURE_COLS`) but not part of the M4 input contract (M4-06 C1–C14).
+  (`gippa.steps.annotation._FEATURE_COLS`) but not part of the M4 input contract (M4-06 C1–C14).
 
 ## Public interface
 
-**Contract (src, implementer):** `giap.genetable.contract.TABLES["features"]` = `feature_id` str, `type`
-str (enum of `giap.model.genes.NcType`), `contig` str, `start` int, `end` int, `strand` str
+**Contract (src, implementer):** `gippa.genetable.contract.TABLES["features"]` = `feature_id` str, `type`
+str (enum of `gippa.model.genes.NcType`), `contig` str, `start` int, `end` int, `strand` str
 (`+`, `-`, `.`), `gene` str?, `product` str?, `amino_acid` str?, `anticodon` str? — the columns
 `parse_bakta` writes. It is **optional** in `validate_inputs` (absent file = no oriC → M5-08 `no_oric`);
 rules: `contig` known, 0 ≤ start < end ≤ 2·length. Called **C15** in the M5 contract.
 
-**Simulator (tests/sim/giapsim, implementer):**
+**Simulator (tests/sim/gippasim, implementer):**
 ```python
 # layout.py
 LayoutConfig.oric_frac: float | None = None   # oriC midpoint on chr1 as a fraction of its length; None = no oriC
@@ -89,7 +89,7 @@ def oriter_gradient(n_genes: int, rho: float, oriter_log2: float) -> tuple[Layou
 
 - [ ] `tests/sim/test_layout_oric.py`, `tests/sim/test_expression_oriter.py`,
   `tests/sim/test_scenarios.py` (test-author): examples 1–9.
-- [ ] `tests/unit/genetable/test_contract.py` gains C15 cases (column list equals giapsim's literal copy;
+- [ ] `tests/unit/genetable/test_contract.py` gains C15 cases (column list equals gippasim's literal copy;
   optional absence; out-of-range rows rejected).
 - [ ] Determinism: same seed → byte-identical `features.parquet` and expression frame.
 

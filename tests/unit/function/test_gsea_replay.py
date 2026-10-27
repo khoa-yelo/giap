@@ -36,7 +36,7 @@ from helpers.fgsea_switch_data import (
     sim_world,
 )
 
-from giap.stats.multitest import bh
+from gippa.stats.multitest import bh
 
 FORCED = {"GO:0990100": 1e-4, "GO:0990000": 2e-4, "GO:0990101": 1e-4, "GO:0990002": 2e-4}
 RETESTED = ("GO:0990100", "GO:0990101")
@@ -60,7 +60,7 @@ def test_sim_main_replay_is_one_call(world: SimWorld) -> None:
 
 
 def test_sim_main_replay_equals_the_committed_table(world: SimWorld, tmp_path: Path) -> None:
-    from giap.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
 
     df = run_sim_gsea(world, ReplayEngine([RECORDED / "sim_main"]))
     assert df.attrs["run_flags"] == []
@@ -72,7 +72,7 @@ def test_sim_main_replay_equals_the_committed_table(world: SimWorld, tmp_path: P
 def test_sim_main_replay_validates_against_the_schema(world: SimWorld, tmp_path: Path) -> None:
     from helpers.fgsea_switch_data import validate_gsea
 
-    from giap.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
 
     out = tmp_path / "enrichment_gsea.tsv"
     write_enrichment_gsea_tsv(out, run_sim_gsea(world, ReplayEngine([RECORDED / "sim_main"])))

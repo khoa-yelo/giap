@@ -1,10 +1,10 @@
 """The novel-ORF steps and the second round under the local executor (issue M7-08;
-docs/specs/M7-08-novel-steps-and-second-round.md, ADR-0024; GIAP_SPEC.md §6.2, §6.4, §7.6.2).
+docs/specs/M7-08-novel-steps-and-second-round.md, ADR-0024; GIPPA_SPEC.md §6.2, §6.4, §7.6.2).
 
 Covered: the registration of ``novel_candidates``, ``promotech_novel`` (ext),
 ``novel_promoter_layer``, ``ostir_novel`` (ext), ``novel_rbs_layer`` and ``novel_orfs``; the local
 plan (rule 5, example 6, "no peptides"); rules 1-4 on the work files of one real local run, with
-hand-written Promotech / OSTIR outputs and hand-built layers; examples 1 and 6 through ``giap run``.
+hand-written Promotech / OSTIR outputs and hand-built layers; examples 1 and 6 through ``gippa run``.
 
 Readings pinned by the test author (see tests/helpers/novel_steps_fixture.py for the position
 convention of ``rbs_novel``):
@@ -17,11 +17,11 @@ convention of ``rbs_novel``):
   that start's windows over ``novel_promoter_windows`` and the first-round ``promoter_windows``,
   joined on ``(contig, strand, end3p)`` -- the window map's ``end3p`` and the layer's ``end3p``
   share the M2-13 convention, and a TSV layer carries the same numbers 1-based (M2-02).
-* rule 5 / example 6: the exit code of a missing layer is the one ``giap run --executor local``
+* rule 5 / example 6: the exit code of a missing layer is the one ``gippa run --executor local``
   gives every missing layer today (``ExitCode.INVALID_INPUT`` = 1, pinned by
   tests/unit/test_local_executor.py); the spec's "exit 2" contradicts its own "exactly as a missing
   ``rbs`` is today" and is read as the latter.
-* the run flag ``layer_missing:<key>`` is a WARNING record of a ``giap.steps`` logger, as
+* the run flag ``layer_missing:<key>`` is a WARNING record of a ``gippa.steps`` logger, as
   ``gene_table`` and ``context_layers`` emit theirs.
 """
 
@@ -37,7 +37,7 @@ import pandas as pd
 import pytest
 from helpers import novel_steps_fixture as nf
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 NOVEL_STEPS = ("novel_candidates", "promotech_novel", "novel_promoter_layer", "ostir_novel",
                "novel_rbs_layer", "novel_orfs")  # fmt: skip
@@ -68,8 +68,8 @@ NOVEL_LOCUS_CLASSES = {"nterm_extension", "cterm_extension", "intergenic", "cds_
 
 
 def _reg() -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     return reg
@@ -92,7 +92,7 @@ def test_step_is_registered_as_specified(name: str) -> None:
     else:
         assert set(spec.inputs) == req
     if kind == "py":
-        assert spec.func is not None and spec.func.__module__ == "giap.steps.novel"
+        assert spec.func is not None and spec.func.__module__ == "gippa.steps.novel"
     else:
         assert spec.func is None
 
@@ -106,7 +106,7 @@ def test_novel_orfs_needs_the_gene_table() -> None:
 
 
 def _layers_cfg(tmp_path: Path, *, rbs_novel: bool = True, promoters: bool = True) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     keys = ["bakta_json", "operon_pairs", "tx_rates", "terminators", "rbs", "regions"]
     keys += ["promoters"] if promoters else []
@@ -125,7 +125,7 @@ ROOTS = {"genome", "peptides", "bakta_json"}
 
 
 def _plan(cfg: Any, roots: set[str]) -> list[str]:
-    from giap.runner import local
+    from gippa.runner import local
 
     reg = _reg()
     return local.plan_local(cfg, [s.name for s in reg.all_steps()], roots)
@@ -141,7 +141,7 @@ def test_local_plan_replaces_the_second_round_with_layers(tmp_path: Path) -> Non
 
 
 def test_example_6_plan_without_rbs_novel_names_the_key(tmp_path: Path) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     with pytest.raises(local.LayerMissing) as info:
         _plan(_layers_cfg(tmp_path, rbs_novel=False), ROOTS)
@@ -149,7 +149,7 @@ def test_example_6_plan_without_rbs_novel_names_the_key(tmp_path: Path) -> None:
 
 
 def test_without_promoters_layer_the_local_plan_names_promoters(tmp_path: Path) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     with pytest.raises(local.LayerMissing) as info:
         _plan(_layers_cfg(tmp_path, promoters=False), ROOTS)
@@ -173,14 +173,14 @@ def run1(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path, Path]:
     sim = nf.simulate(root / "sim")
     out = root / "OUT"
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, out)
+        code, log = nf.run_gippa(sim, out)
     assert code == 0, log
     return sim, out, out / "work"
 
 
 @pytest.fixture(scope="module")
 def cfg1(run1: tuple[Any, Path, Path]) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(Path(run1[0].config_yaml), [f"seed={nf.SEED}"])
 
@@ -217,7 +217,7 @@ def test_example_1_four_files_published(run1: tuple[Any, Path, Path]) -> None:
 def test_example_1_one_row_per_reconstructed_orf(
     run1: tuple[Any, Path, Path], orfs1: list[Any]
 ) -> None:
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     _, out, work = run1
     table = read_novel_orfs(out / "tables" / "novel_orfs.tsv")
@@ -273,7 +273,7 @@ def test_example_6_local_run_without_rbs_novel_exits_naming_the_key(
 ) -> None:
     sim = run1[0]
     with nf.db_env(tmp_path):
-        code, log = nf.run_giap(sim, tmp_path / "OUT", "--set",
+        code, log = nf.run_gippa(sim, tmp_path / "OUT", "--set",
                                 "annotation.precomputed.rbs_novel=null")  # fmt: skip
     assert code == ExitCode.INVALID_INPUT, log
     assert "annotation.precomputed.rbs_novel is required with --executor local" in log, log
@@ -297,7 +297,7 @@ def test_rule_1_candidates_one_row_per_orf_and_peptide(
 def test_rule_1_windows_and_map_are_the_m7_06_second_round(
     run1: tuple[Any, Path, Path], cfg1: Any, cands: dict[str, Path], orfs1: list[Any]
 ) -> None:
-    from giap.novel.candidates import promoter_windows, window_chunks
+    from gippa.novel.candidates import promoter_windows, window_chunks
 
     sim = run1[0]
     ann = nf.annotation_of(sim)
@@ -321,8 +321,8 @@ def test_rule_1_windows_and_map_are_the_m7_06_second_round(
 def test_rule_1_ostir_input_is_one_multi_start_row_per_orf_with_a_start(
     run1: tuple[Any, Path, Path], cfg1: Any, cands: dict[str, Path], orfs1: list[Any]
 ) -> None:
-    from giap.annotate.ostir import read_ostir_input
-    from giap.novel.candidates import ostir_rows
+    from gippa.annotate.ostir import read_ostir_input
+    from gippa.novel.candidates import ostir_rows
 
     sim, _, work = run1
     ann = nf.annotation_of(sim)
@@ -367,7 +367,7 @@ def _promotech_dirs(root: Path, windows: Path) -> list[Path]:
 def test_rule_2_novel_promoter_layer_is_promoter_layer_on_the_novel_map(
     run1: tuple[Any, Path, Path], cfg1: Any, cands: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.annotate.promoters import promoter_layer
+    from gippa.annotate.promoters import promoter_layer
 
     work = run1[2]
     dirs = _promotech_dirs(tmp_path / "pt", cands["novel_windows"])
@@ -395,7 +395,7 @@ def test_rule_2_novel_rbs_layer_keys_every_scored_start_by_position(
     run1: tuple[Any, Path, Path], cfg1: Any, cands: dict[str, Path], orfs1: list[Any],
     tmp_path: Path,
 ) -> None:  # fmt: skip
-    from giap.annotate.ostir import read_ostir_input
+    from gippa.annotate.ostir import read_ostir_input
 
     sim, _, work = run1
     genome = nf.genome_of(sim)
@@ -445,7 +445,7 @@ def test_rule_2_empty_ostir_output_gives_an_empty_layer(
 
 
 def _no_candidate_mapping(work: Path, dst: Path) -> Path:
-    from giap.io.tsv import read_tsv, write_tsv
+    from gippa.io.tsv import read_tsv, write_tsv
 
     shutil.copytree(work / "mapping", dst)
     header, rows = read_tsv(dst / "peptide_hits.tsv")
@@ -560,7 +560,7 @@ def rule4(
 
 
 def _parquet_cfg(sim: Any) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(Path(sim.config_yaml), [
         f"seed={nf.SEED}", "annotation.precomputed.promoters=null",
@@ -572,7 +572,7 @@ def test_rule_4_joins_scores_by_position_from_parquet_layers(
     run1: tuple[Any, Path, Path], cands: dict[str, Path], rule4: Any, tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:  # fmt: skip
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     sim, _, work = run1
     rbs, novel, first, want = rule4
@@ -583,7 +583,7 @@ def test_rule_4_joins_scores_by_position_from_parquet_layers(
         df.to_parquet(paths[key], index=False)
     ins = nf.step_inputs("novel_orfs", work, {"novel_candidates": cands["novel_candidates"],
                                               **paths}, skip=("terminators",))  # fmt: skip
-    with caplog.at_level(logging.WARNING, logger="giap.steps"):
+    with caplog.at_level(logging.WARNING, logger="gippa.steps"):
         o = nf.run("novel_orfs", _parquet_cfg(sim), ins, tmp_path / "o")
     _check_rule4(read_novel_orfs(o["novel_orfs"]), want)
     msgs = [r.getMessage() for r in caplog.records]
@@ -594,7 +594,7 @@ def test_rule_4_joins_scores_by_position_from_parquet_layers(
 def _tsv_layers(tmp_path: Path, rule4: Any) -> tuple[Path, Path]:
     """The same layers as M2-02 TSVs (1-based positions): one promoters file serves both rounds
     (the first-round 0.9 row replaces the second-round score at its position)."""
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     rbs, novel, first, _ = rule4
     rbs_tsv = tmp_path / "rbs_novel.tsv"
@@ -614,8 +614,8 @@ def test_rule_5_novel_orfs_accepts_the_precomputed_tsv_layers(
 ) -> None:
     """Under the local executor ``novel_orfs`` receives the layers' TSVs (``load_precomputed``)
     instead of the Parquet files; the join is the same."""
-    from giap.config import resolve_config
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.config import resolve_config
+    from gippa.io.novel_tables import read_novel_orfs
 
     sim, _, work = run1
     rbs_tsv, prom_tsv = _tsv_layers(tmp_path, rule4)
@@ -635,12 +635,12 @@ def test_rule_4_missing_optional_layers_give_na_and_run_flags(
     run1: tuple[Any, Path, Path], cands: dict[str, Path], orfs1: list[Any], tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:  # fmt: skip
-    from giap.io.novel_tables import read_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs
 
     sim, _, work = run1
     skip = ("novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators")
     ins = nf.step_inputs("novel_orfs", work, {"novel_candidates": cands["novel_candidates"]}, skip)
-    with caplog.at_level(logging.WARNING, logger="giap.steps"):
+    with caplog.at_level(logging.WARNING, logger="gippa.steps"):
         o = nf.run("novel_orfs", _parquet_cfg(sim), ins, tmp_path / "o")
     t = read_novel_orfs(o["novel_orfs"])
     assert sorted(t["orf_id"]) == sorted(x.orf_id for x in orfs1)
@@ -663,7 +663,7 @@ def test_rule_4_outputs_byte_identical_on_rerun(
     """TE7 at the step level: the same inputs give byte-identical files."""
     sim, _, work = run1
     rbs_tsv, prom_tsv = _tsv_layers(tmp_path, rule4)
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = resolve_config(Path(sim.config_yaml), [
         f"seed={nf.SEED}", f"annotation.precomputed.promoters={prom_tsv}",

@@ -1,5 +1,5 @@
 """Codon usage: CAI, tAI, ENC, Fop, GC3, codon-pair bias, ``at_2_10``, ``rare_codons_2_10``
-(docs/specs/M2-17-codon-usage.md; GIAP_SPEC.md §6.2, §7.1.1, §7.1.6, §9.3, §9.4).
+(docs/specs/M2-17-codon-usage.md; GIPPA_SPEC.md §6.2, §7.1.1, §7.1.6, §9.3, §9.4).
 
 Examples 1-10, the edge cases, the ``genetic_code=11`` spy (acceptance criterion 3), the
 ``codon_usage`` step (registry keys equal to the ANNOTATE call) and a K-12 excerpt of the
@@ -43,10 +43,10 @@ import pytest
 from helpers import codon_oracle as O
 from helpers.codon_excerpt import load_excerpt, to_bakta, write_inputs
 
-import giapsim
-from giap.config import GiapConfig
-from giap.model.coords import Interval
-from giap.model.genes import Gene
+import gippasim
+from gippa.config import GippaConfig
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene
 
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
@@ -65,7 +65,7 @@ REL = 1e-9
 
 
 def cu() -> ModuleType:
-    return importlib.import_module("giap.annotate.codon_usage")
+    return importlib.import_module("gippa.annotate.codon_usage")
 
 
 # ------------------------------------------------------------------ synthetic genes
@@ -264,7 +264,7 @@ def _expected(genes: Sequence[Gene], trna: dict[str, int]) -> dict[str, dict[str
     """Oracle features (ENC and CPB from codon-bias directly, the rest independent)."""
     from codonbias.scores import CodonPairBias, EffectiveNumberOfCodons
 
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     sc = {g.locus_tag: O.scored(g.nt, g.feature_type, g.partial) for g in genes}
     eligible = [s for s in sc.values() if s]
@@ -436,7 +436,7 @@ def spy(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[tuple[tuple[Any, ...]
 
 
 def test_genetic_code_11_reaches_every_codon_bias_constructor(spy: dict[str, Any]) -> None:
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     genes = synthetic_set(seed=4)
     genes.append(make_gene("P_1", "ATG" + "GCC" * 30 + "TAA", feature_type="pseudogene"))
@@ -474,8 +474,8 @@ def test_no_codon_bias_model_without_reference_or_trnas(spy: dict[str, Any]) -> 
 
 @pytest.fixture(scope="module")
 def k12() -> tuple[list[Gene], dict[str, int]]:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.bakta_layers import trna_counts
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta_layers import trna_counts
 
     data, fasta = to_bakta(load_excerpt())
     head, seq = fasta.split("\n")[:2]
@@ -544,14 +544,14 @@ def test_k12_alternative_starts_pseudogenes_and_sorfs(
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -586,13 +586,13 @@ def test_annotate_nf_calls_codon_usage_with_the_registry_keys() -> None:
 
 def _parse(reg: ModuleType, js: Path, fa: Path, work: Path) -> dict[str, Path]:
     outs = {k: work / v for k, v in PARSE_OUT.items()}
-    reg.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
+    reg.run_step("parse_bakta", GippaConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
     return outs
 
 
 def _codon(reg: ModuleType, genes: Path, trna: Path, out: Path, seed: int = 1) -> Path:
     reg.run_step(
-        "codon_usage", GiapConfig(seed=seed), {"genes": genes, "trna_counts": trna},
+        "codon_usage", GippaConfig(seed=seed), {"genes": genes, "trna_counts": trna},
         {"codon": out},
     )  # fmt: skip
     return out
@@ -608,7 +608,7 @@ def test_step_writes_codon_parquet(
     steps: ModuleType, excerpt_work: dict[str, Path], tmp_path: Path,
     k12: tuple[list[Gene], dict[str, int]],
 ) -> None:  # fmt: skip
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     path = _codon(
         steps, excerpt_work["genes"], excerpt_work["trna_counts"], tmp_path / "codon.parquet"
@@ -676,8 +676,8 @@ def test_step_without_trnas_writes_null_tai(
 
 
 def test_step_on_sim100k_has_no_cai_reference(steps: ModuleType, tmp_path: Path) -> None:
-    """giapsim's SIM100K has no ribosomal-protein genes (example 7 at step level)."""
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path / "sim")
+    """gippasim's SIM100K has no ribosomal-protein genes (example 7 at step level)."""
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path / "sim")
     outs = _parse(steps, res.bakta_json, res.genome_fasta, tmp_path / "work")
     with outs["trna_counts"].open(newline="") as fh:
         trna = {r["anticodon"]: int(r["n_copies"]) for r in csv.DictReader(fh, delimiter="\t")}

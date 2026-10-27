@@ -1,4 +1,4 @@
-"""Hypothesis properties for promoter windows (issue M2-13 acceptance; GIAP_SPEC.md §7.1.4).
+"""Hypothesis properties for promoter windows (issue M2-13 acceptance; GIPPA_SPEC.md §7.1.4).
 
 Module 1 tests: "window generation property tests: count, strand, 3'-end range, origin wrap on
 circular replicons, no wrap on linear contigs". Plus: every window is 40 nt and equals a
@@ -16,8 +16,8 @@ from helpers.promoter_oracle import api, oracle_windows, revcomp
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 SETTINGS = settings(max_examples=60, deadline=None)
 
@@ -207,7 +207,7 @@ def _merge(ivs: list[tuple[int, float]]) -> list[tuple[int, int, int]]:
 @SETTINGS
 @given(score_frames(), st.sampled_from([0.3, 0.5, 0.8]))
 def test_promoters_bed_merges_overlaps_not_touching(df: pd.DataFrame, yes: float) -> None:
-    """GIAP_SPEC §7.1, corrected lead decision 3: overlap -> one record (max); touch -> two."""
+    """GIPPA_SPEC §7.1, corrected lead decision 3: overlap -> one record (max); touch -> two."""
     rep = Replicon("c1", 2000, "linear")
     recs = api("promoters_bed")(df, {"c1": rep}, yes=yes)
     keep = df[df["score"] >= yes]

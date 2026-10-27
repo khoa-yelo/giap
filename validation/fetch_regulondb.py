@@ -1,9 +1,9 @@
-"""Download the RegulonDB transcription units and terminators (GIAP_SPEC.md §15.3, §15.4).
+"""Download the RegulonDB transcription units and terminators (GIPPA_SPEC.md §15.3, §15.4).
 
 Usage: ``python validation/fetch_regulondb.py`` (no arguments; network, run by hand).
 
 Writes the official RegulonDB datasets ``TUSet``, ``TerminatorSet`` and ``GeneProductSet`` into
-``$GIAP_DATA_DIR/regulondb/<release>/`` together with ``provenance.json`` (URL, release, dataset
+``$GIPPA_DATA_DIR/regulondb/<release>/`` together with ``provenance.json`` (URL, release, dataset
 version, byte count, SHA-256 and every retrieval date). Nothing is committed (R11) and no mirror
 is used (R6): the bytes come from RegulonDB's own GraphQL endpoint.
 
@@ -55,7 +55,7 @@ DATASETS = ("TUSet", "TerminatorSet", "GeneProductSet")
 ATTEMPTS = 3
 TIMEOUT_S = 300
 OPENSSL_TIMEOUT_S = 60
-USER_AGENT = "giap-validation (FarmShare)"
+USER_AGENT = "gippa-validation (FarmShare)"
 
 _FILE_QUERY = """query GetDataOfFile($fileName: String) {
   getDataOfFile(fileName: $fileName) {
@@ -319,7 +319,7 @@ def provenance(
         "retrieved_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "retrieved_dates": retrieved,
         "tls": {
-            "note": f"{HOST} omits its TLS intermediate; GIAP completes the chain",
+            "note": f"{HOST} omits its TLS intermediate; GIPPA completes the chain",
             "intermediate_url": INTERMEDIATE_URL,
             "intermediate_sha256": INTERMEDIATE_SHA256,
             "intermediate_cn": INTERMEDIATE_CN,
@@ -356,9 +356,9 @@ def _read_previous(path: Path) -> dict[str, Any] | None:
 
 
 def main() -> int:
-    data_dir = os.environ.get("GIAP_DATA_DIR")
+    data_dir = os.environ.get("GIPPA_DATA_DIR")
     if not data_dir:
-        print("fetch_regulondb: GIAP_DATA_DIR is not set", file=sys.stderr)
+        print("fetch_regulondb: GIPPA_DATA_DIR is not set", file=sys.stderr)
         return 1
     try:
         context = regulondb_context()

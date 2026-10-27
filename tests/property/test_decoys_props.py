@@ -1,4 +1,4 @@
-"""Hypothesis properties for decoy translations (issue M3-03; GIAP_SPEC.md §7.2.9 "decoy
+"""Hypothesis properties for decoy translations (issue M3-03; GIPPA_SPEC.md §7.2.9 "decoy
 translations keep composition", §8.2, §7.6.4).
 
 Frames are drawn as code arrays over ``ALPHABET`` with extra weight on ``*`` and ``X``. Windows
@@ -13,10 +13,10 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.decoys import build_decoys, mirror_aa, reverse_frame, shuffle_frame
-from giap.mapping.sixframe import AMBIG, STOP, build_sixframe
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.mapping.decoys import build_decoys, mirror_aa, reverse_frame, shuffle_frame
+from gippa.mapping.sixframe import AMBIG, STOP, build_sixframe
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 SETTINGS = settings(max_examples=60, deadline=None)
 

@@ -1,14 +1,14 @@
 # Quickstart
 
-This page runs GIAP once, from start to finish, on a small synthetic demo: the SIM100K genome
+This page runs GIPPA once, from start to finish, on a small synthetic demo: the SIM100K genome
 (a 100 kb circular chromosome and an 8 kb plasmid) and a peptide table simulated for it. Both were
-made by giapsim, GIAP's test simulator, so the run needs no download from NCBI or UniProt and no
+made by gippasim, GIPPA's test simulator, so the run needs no download from NCBI or UniProt and no
 search engine. You need an installation ([Install](install.md)) and the databases
 ([Set up the databases](setup-databases.md)).
 
 !!! warning "Where this runs"
-    `giap run` passes preflight only when every tool image or environment is in place (see
-    [Install › What `giap run` needs](install.md#what-giap-run-needs-before-preflight-passes)).
+    `gippa run` passes preflight only when every tool image or environment is in place (see
+    [Install › What `gippa run` needs](install.md#what-gippa-run-needs-before-preflight-passes)).
     Until the first image publish, that is FarmShare from a repository checkout
     ([Install › Tested platforms](install.md#tested-platforms)). Steps 1 and 2 work anywhere the
     Python package is installed.
@@ -16,7 +16,7 @@ search engine. You need an installation ([Install](install.md)) and the database
 !!! note "The demo inputs are synthetic"
     `docs/tutorials/data/sim100k_peptides.tsv.gz` (68 KB, 1,685 rows of one run, `run1`) is a
     generic peptide table ([Inputs › Peptide table](../user-guide/inputs.md#peptide-table-peptidestsv))
-    with q-values, PEPs, scores, intensities and a few decoy rows. giapsim generated every row from
+    with q-values, PEPs, scores, intensities and a few decoy rows. gippasim generated every row from
     `tests/data/genomes/sim100k.fna.gz`: it contains no real mass spectrometry data. How it was made,
     and the one command that remakes it, are in its
     [provenance note](../tutorials/data/PROVENANCE.md).
@@ -38,22 +38,22 @@ Without a checkout, download them from the repository:
 
 ```bash
 mkdir -p quickstart && cd quickstart
-curl -fLO https://raw.githubusercontent.com/khoa-yelo/giap/main/tests/data/genomes/sim100k.fna.gz
-curl -fLO https://raw.githubusercontent.com/khoa-yelo/giap/main/docs/tutorials/data/sim100k_peptides.tsv.gz
+curl -fLO https://raw.githubusercontent.com/khoa-yelo/gippa/main/tests/data/genomes/sim100k.fna.gz
+curl -fLO https://raw.githubusercontent.com/khoa-yelo/gippa/main/docs/tutorials/data/sim100k_peptides.tsv.gz
 ```
 
-The genome headers carry ` [topology=circular]`, so both replicons are read as circular. GIAP
+The genome headers carry ` [topology=circular]`, so both replicons are read as circular. GIPPA
 reads gzipped FASTA and peptide tables directly.
 
 ## 2. Check the inputs
 
 ```bash
-giap preflight --genome sim100k.fna.gz --peptides sim100k_peptides.tsv.gz --outdir preflight_check
+gippa preflight --genome sim100k.fna.gz --peptides sim100k_peptides.tsv.gz --outdir preflight_check
 ```
 
 Preflight takes seconds. It prints a table of checks (`ok`, `info`, `warn`, `error`) and writes
 `preflight_check/preflight/preflight.json` and `preflight.md`. Exit code 0 means you can go on.
-Any other code is explained in [Running GIAP › Exit codes](../user-guide/run.md#exit-codes); for
+Any other code is explained in [Running GIPPA › Exit codes](../user-guide/run.md#exit-codes); for
 an input error (1), the table names the rule that failed.
 
 On the demo, preflight exits 0 with one warning, `genome.contiguity` (a 100 kb chromosome is far
@@ -67,7 +67,7 @@ in the `detection_tier` column of `genes.tsv` and in `detection_summary.tsv` (se
 ## 3. Run
 
 ```bash
-giap run --genome sim100k.fna.gz \
+gippa run --genome sim100k.fna.gz \
   --peptides sim100k_peptides.tsv.gz \
   --db-dir /path/to/db \
   --threads 16 --memory 64.GB \
@@ -82,7 +82,7 @@ Measured runtimes: see [Runtimes](../user-guide/runtimes.md).
 ### Your own data
 
 To run on a real genome, pass its FASTA and your search results. Convert DIA-NN or Cascadia
-output with [`giap convert`](../user-guide/convert.md), then pass the table with `--peptides`.
+output with [`gippa convert`](../user-guide/convert.md), then pass the table with `--peptides`.
 Without a peptide table, a protein list works too: for example the E. coli K-12 MG1655 assembly
 GCA_000005845.2 from NCBI with the UniProt reference proteome UP000000625:
 
@@ -90,7 +90,7 @@ GCA_000005845.2 from NCBI with the UniProt reference proteome UP000000625:
 curl -fLO https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/005/845/GCA_000005845.2_ASM584v2/GCA_000005845.2_ASM584v2_genomic.fna.gz
 curl -fL -o UP000000625.fasta \
   "https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=%28proteome%3AUP000000625%29"
-giap run --genome GCA_000005845.2_ASM584v2_genomic.fna.gz \
+gippa run --genome GCA_000005845.2_ASM584v2_genomic.fna.gz \
   --proteins UP000000625.fasta \
   --set annotation.bakta.complete=true \
   --db-dir /path/to/db --outdir out_k12
@@ -140,6 +140,6 @@ links to work.
 ## Next
 
 - [Inputs](../user-guide/inputs.md): peptide tables, abundance and existing annotations.
-- [Running GIAP](../user-guide/run.md): modules, seeds, `--publication` and exit codes.
+- [Running GIPPA](../user-guide/run.md): modules, seeds, `--publication` and exit codes.
 - [Interpreting results](../user-guide/interpreting-results.md): what the q-values mean.
 - [Tutorial: E. coli K-12](../tutorials/ecoli-k12.md).

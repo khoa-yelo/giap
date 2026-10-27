@@ -1,6 +1,6 @@
 """Attack: the ADR-0022 distance-model operon fallback as the source of pair classes and TUs
 (M11-14 14s1, docs/specs/M11-14-container-install.md "Statistical evidence that gates 14d2";
-GIAP_SPEC.md §7.1.3, §8.1, §8.5; R3, R4). Statistician-owned.
+GIPPA_SPEC.md §7.1.3, §8.1, §8.5; R3, R4). Statistician-owned.
 
 When UniOP is absent or fails, ``operon_pairs`` scores every adjacent same-strand pair with
 p_dist = 1 / (1 + exp((d - d0) / s)) (``calibration.yaml``: d0 = 102.69, s = 47.16) and links it
@@ -8,7 +8,7 @@ when p_dist >= ``annotation.uniop.pair_threshold`` (0.5, i.e. d <= 102 bp). The 
 (OP / NO) and the TUs, which are the exchangeability blocks of most §8 nulls, then come from
 distance alone. No bound, alpha, R or tolerance differs from the gates the arms re-run (R3).
 
-**Arm A, class re-derivation** (suites ``missed_operons`` and ``discordance``). giapsim
+**Arm A, class re-derivation** (suites ``missed_operons`` and ``discordance``). gippasim
 ``operon_null``, ``operon_attack_ar1(rho 0.5)`` and ``operon_attack_detection(prophage)`` with
 ``uniop_p`` of every same-strand pair replaced by p_dist(``intergenic_bp``) (``source =
 distance_model``) and the classes re-derived by the step's rule (``_operon_gate.reclass``). Then:
@@ -20,9 +20,9 @@ distance_model``) and the classes re-derived by the step's rule (``_operon_gate.
 - the M6-09 discordance checks (pooled level, KS uniformity of one p per replicate, BH family
   FDR), R = ``discordance``. The null is now *pair-level*: a re-derived OP pair that is not a true
   operon pair spans a TU boundary, so a promoter and a terminator lie between its genes
-  (giapsim truth ``promoter_between_true``) and calling it discordant is a true discovery. Level
+  (gippasim truth ``promoter_between_true``) and calling it discordant is a true discovery. Level
   and KS use the tested pairs with ``true_operon`` and no element between; the FDR counts a call
-  as false on those pairs only. On giapsim layouts (intra-TU gaps -20...40 bp, inter-TU 50...300
+  as false on those pairs only. On gippasim layouts (intra-TU gaps -20...40 bp, inter-TU 50...300
   bp) the model never splits a TU, it only merges (inter-TU gaps <= 102 bp), so arm A attacks the
   merges; splits are arm B's.
 
@@ -34,7 +34,7 @@ operon pair with probability 0.084 and merges a same-strand TU boundary with pro
 the K-12 rates (``test_arm_b_plants_k12_rates``). Abundance, detection and set membership are
 generated from the **true** TUs; the **distance-model TUs** are the analysis blocks (``tu_id``,
 the TU collapse, the TU folds, the bootstrap blocks, the permutation blocks). In the abstract
-worlds a TU boundary is same-strand with probability ``P_SAME`` (giapsim's default), otherwise it
+worlds a TU boundary is same-strand with probability ``P_SAME`` (gippasim's default), otherwise it
 is never linked. The arm feeds:
 
 - GSEA: the gated arms of ``test_attack_gsea_structure`` (a) median imputation, (b) size-biased
@@ -52,7 +52,7 @@ is never linked. The arm feeds:
   ``autocorrelation``.
 
 Each arm B check runs with ``source = distance_model`` (gated) and once with UniOP-like errors
-(``uniop_like``: giapsim's Beta(8, 2) / Beta(2, 8) classes, recorded, not gated) on the same
+(``uniop_like``: gippasim's Beta(8, 2) / Beta(2, 8) classes, recorded, not gated) on the same
 worlds (the world stream does not depend on the source), so the two sources are compared on the
 same data.
 
@@ -100,9 +100,9 @@ MO, DI = "missed_operons", "discordance"
 SOURCES = ("distance_model", "uniop_like")
 GATED_SOURCE = "distance_model"
 M_POOLED = 200
-#: same-strand probability of a TU boundary in the abstract worlds (giapsim LayoutConfig default)
+#: same-strand probability of a TU boundary in the abstract worlds (gippasim LayoutConfig default)
 P_SAME = 0.6
-#: giapsim's UniOP-like classes (LayoutConfig uniop_beta_in / uniop_beta_out)
+#: gippasim's UniOP-like classes (LayoutConfig uniop_beta_in / uniop_beta_out)
 BETA_IN, BETA_OUT = (8.0, 2.0), (2.0, 8.0)
 #: UniOP's K-12 error rates at 0.5 (ADR-0022: TP 1,476 of P 1,730, FP 172 of N 1,009): the
 #: autocorrelation arm's third, recorded source, which separates "TU errors" from "the fallback"
@@ -127,16 +127,16 @@ K12_BINS: tuple[tuple[int, int, int, float], ...] = (
 
 
 def _model() -> tuple[float, float, float]:
-    from giap.config import GiapConfig
-    from giap.data.calibration import load
+    from gippa.config import GippaConfig
+    from gippa.data.calibration import load
 
     od = load()["operon_distance"]
-    return float(od["d0"]), float(od["s"]), float(GiapConfig().annotation.uniop.pair_threshold)
+    return float(od["d0"]), float(od["s"]), float(GippaConfig().annotation.uniop.pair_threshold)
 
 
 def p_dist(d: np.ndarray) -> np.ndarray:
     """The step's ``distance_model_p`` at the bundled d0 and s, per pair."""
-    from giap.annotate.operons import distance_model_p
+    from gippa.annotate.operons import distance_model_p
 
     d0, s, _ = _model()
     return np.array([distance_model_p(int(v), d0, s) for v in np.asarray(d)], dtype=float)
@@ -277,8 +277,8 @@ class _SimA:
 
 
 def simulate_a(cfgs: Any, seed: int) -> _SimA:
-    """One giapsim operon replicate with distance-model pair scores and re-derived classes."""
-    import giapsim.scenarios as sc
+    """One gippasim operon replicate with distance-model pair scores and re-derived classes."""
+    import gippasim.scenarios as sc
 
     s = sc.simulate_operons(cfgs, int(seed))
     pairs = s.pairs.copy()
@@ -320,13 +320,13 @@ def _missed_records(stream: str, cfgs: Any, gcfg: Any) -> Callable[[int], dict[s
 def test_arm_a_missed_operon_fdr(scen: str, arm: str, full: bool) -> None:
     name, args = ARM_A_SCENARIOS[scen]
     if arm == "shipped":
-        cfgs, gcfg = G.scenario(name, *args), G.giap_cfg()
+        cfgs, gcfg = G.scenario(name, *args), G.gippa_cfg()
     else:
         k, sd = G.NONVAC_PLANT
         # operon_null has no planting: its non-vacuous arm is M6-09's missed_operon_power
         cfgs = (G.scenario("missed_operon_power", G.N_GENES, k, sd) if scen == "operon_null"
                 else G.scenario(name, *args, n_planted=k, effect_sd=sd))  # fmt: skip
-        gcfg = G.giap_cfg(G.CV_ONLY)
+        gcfg = G.gippa_cfg(G.CV_ONLY)
     stream = f"{MO}.fallback_a.{scen}.{arm}"
     R = C.replicates(MO, full)
     records = _missed_records(stream, cfgs, gcfg)
@@ -348,10 +348,10 @@ class _DiscA:
 
 
 def discordance_a(sim: _SimA) -> _DiscA:
-    from giap.config import GiapConfig
-    from giap.operons.discordance import discordance
+    from gippa.config import GippaConfig
+    from gippa.operons.discordance import discordance
 
-    res = discordance(sim.pairs, sim.expression.genes[["locus_tag"]], GiapConfig(), None)
+    res = discordance(sim.pairs, sim.expression.genes[["locus_tag"]], GippaConfig(), None)
     cols = ["pair_id", "true_operon", "promoter_between_true", "terminator_between_true"]
     rows = res.rows.merge(sim.pairs[cols], on="pair_id", how="left")
     t = (rows["test"] == "both_detected_t").to_numpy()
@@ -446,9 +446,9 @@ GS = "gsea"
 
 
 def _gsea_p(genes: pd.DataFrame, members: list[str], rng: np.random.Generator) -> float:
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     seed = int(rng.integers(0, 2**31 - 1))
     out = gsea.gsea_table(genes, [gene_sets("kegg", {"S": members})], (10, 500), GseaConfig(),
@@ -560,7 +560,7 @@ ORA_FLAG = "ora_uncalibrated"
 def _reblock(sim: Any, blocks: np.ndarray, rng: np.random.Generator
              ) -> tuple[pd.DataFrame, dict[str, int]]:  # fmt: skip
     """The ORA gene frame with distance-model TUs (``tu_id``, ``tu_position``, folds)."""
-    from giap.genetable.detectability import tu_folds
+    from gippa.genetable.detectability import tu_folds
 
     genes = sim.genes.copy()
     ids = np.array([f"ATU_{int(b) + 1}" for b in blocks])
@@ -571,7 +571,7 @@ def _reblock(sim: Any, blocks: np.ndarray, rng: np.random.Generator
 
 @cache
 def _ora_tables(scenario: str, source: str, i: int) -> dict[str, pd.DataFrame]:
-    from giap.function import ora
+    from gippa.function import ora
 
     world = f"{ORA}.fallback_b.{scenario}"
     rng = C.replicate_rng(world, i)
@@ -645,7 +645,7 @@ def _det_world(rng: np.random.Generator, lrng: np.random.Generator, source: str,
 @pytest.mark.parametrize("full", NIGHTLY_MODES)
 @pytest.mark.parametrize("source", SOURCES)
 def test_arm_b_determinants_univariate_ci_level(source: str, full: bool) -> None:
-    from giap.stats import bootstrap
+    from gippa.stats import bootstrap
 
     m = dm.mod()
     R = 5 * C.replicates(DET, full=full)
@@ -692,7 +692,7 @@ AC_LAGS = (1, 20)
 
 
 def genome_blocks(genes: pd.DataFrame, rng: np.random.Generator, source: str) -> np.ndarray:
-    """Distance-model TU ids of a giapsim gene table (per contig, genome order; the wrap pair of
+    """Distance-model TU ids of a gippasim gene table (per contig, genome order; the wrap pair of
     a circular replicon is left unlinked)."""
     out = np.empty(len(genes), dtype=object)
     for contig, sub in genes.groupby("contig", sort=False):

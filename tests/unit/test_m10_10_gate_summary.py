@@ -33,9 +33,9 @@ from helpers.a3_run_m10_10 import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import InputConfig
-from giap.io.converters.cascadia import convert_cascadia
-from giap.io.issues import Issue
+from gippa.config.model import InputConfig
+from gippa.io.converters.cascadia import convert_cascadia
+from gippa.io.issues import Issue
 
 # ------------------------------------------------------------------ criterion 1: the gate
 
@@ -265,7 +265,7 @@ def test_summary_json_has_no_sequence_and_is_stable(tmp_path: Path) -> None:
 def _cli(tmp: Path, *, sabotage: str | None = None) -> tuple[int, dict[str, Any], dict[str, Path]]:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     a3 = tmp / "A3"
     paths = [write_ssl(a3 / r / f"{r}.ssl", r, TWELVE[r]) for r in RUNS]
@@ -278,7 +278,7 @@ def _cli(tmp: Path, *, sabotage: str | None = None) -> tuple[int, dict[str, Any]
     res = CliRunner().invoke(cli, argv)
     assert res.exit_code == 0, res.output
     log.write_text("".join(ln + "\n" for ln in res.output.splitlines()
-                           if ln.startswith("giap convert:")))  # fmt: skip
+                           if ln.startswith("gippa convert:")))  # fmt: skip
     if sabotage == "extra_ssl_row":
         with paths[0].open("a") as fh:
             fh.write("\t".join(["/x/WT_1.mzML", "9", "2", "PEPTLDEK", "UNKNOWN", "0.9", "1", "1",
@@ -309,7 +309,7 @@ def test_summary_cli_writes_a3_convert_json(tmp_path: Path) -> None:
     assert doc["outputs"]["log"]["sha256"] == sha256(p["log"])
     assert doc["counts"]["rows_per_run"] == {"WT_1": 4, "WT_2": 4, "WT_3": 4}
     assert doc["issues"]["stripped"] == {"severity": "info", "rows": 2}
-    assert set(doc["giap"]) >= {"version", "commit", "dirty"}
+    assert set(doc["gippa"]) >= {"version", "commit", "dirty"}
     assert isinstance(doc["command"], list) and "cascadia" in doc["command"]
     assert set(doc["job"]) >= {"id", "node", "start", "end"}
     bad = [s for s in strings(doc) if re.fullmatch(SEQ_LIKE, s)]

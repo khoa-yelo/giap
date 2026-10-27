@@ -1,12 +1,12 @@
 # Runtimes
 
-This page will hold the measured wall-clock times of a standard `giap run`, from
+This page will hold the measured wall-clock times of a standard `gippa run`, from
 `scripts/slurm/benchmark_standard.sbatch` (M10-12). Each row will give the median of three runs,
-with the node class, the date and the GIAP commit. The numbers will come from
+with the node class, the date and the GIPPA commit. The numbers will come from
 `benchmarks/baseline.json › standard_run` and the M10-12 decision record.
 
 **Status: pending (M10-12).** No standard-run benchmark has been committed yet. The table below is
-empty on purpose: GIAP's documentation states no runtime that has not been measured.
+empty on purpose: GIPPA's documentation states no runtime that has not been measured.
 
 | Run | Median (h:mm) | Range of 3 runs | Peak memory (GiB) | Threads / memory | Node class | Date | Commit |
 |---|---|---|---|---|---|---|---|

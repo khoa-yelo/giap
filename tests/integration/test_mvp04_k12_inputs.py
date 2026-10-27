@@ -1,8 +1,8 @@
-"""MVP-04 giapsim inputs on the full K-12 genome (docs/specs/MVP-04-ecoli-evidence-run.md), part 1.
+"""MVP-04 gippasim inputs on the full K-12 genome (docs/specs/MVP-04-ecoli-evidence-run.md), part 1.
 
 Slow: each test simulates the whole 4.6-Mb genome at ``K12_EVIDENCE_SEED`` from the committed
 FASTA and recorded Bakta JSON (hash-checked, rule 1). Outputs go to pytest temporary directories
-only (rule 2). The RegulonDB TUs are used when ``$GIAP_DATA_DIR/regulondb/14.5.0/TUSet.txt``
+only (rule 2). The RegulonDB TUs are used when ``$GIPPA_DATA_DIR/regulondb/14.5.0/TUSet.txt``
 exists (read-only); the RegulonDB-specific tests skip without it.
 
 Statistical claims checked here (single fixed seed, as the acceptance gates):
@@ -36,14 +36,14 @@ pytestmark = pytest.mark.slow
 
 
 def _sc() -> Any:
-    return importlib.import_module("giapsim.scenarios")
+    return importlib.import_module("gippasim.scenarios")
 
 
 def _simulate(out: Path, cfg: Any = None) -> list[Any]:
     sc = _sc()
     tu = M.TUSET if M.TUSET.is_file() else None
     with M.capture_warnings() as recs:
-        importlib.import_module("giapsim.real_genome").simulate_on_genome(
+        importlib.import_module("gippasim.real_genome").simulate_on_genome(
             cfg if cfg is not None else sc.k12_evidence(), sc.K12_EVIDENCE_SEED, out,
             genome_fasta=M.K12_FASTA, bakta_json=M.K12_JSON, tu_set=tu,
         )  # fmt: skip
@@ -244,7 +244,7 @@ def test_regulondb_tus(k12: tuple[Path, list[Any]], genes: list[M.Gene]) -> None
 def test_same_seed_full_genome_is_byte_identical(
     k12: tuple[Path, list[Any]], tmp_path: Path
 ) -> None:
-    """Acceptance 9: two giapsim calls with the same seed give byte-identical tables."""
+    """Acceptance 9: two gippasim calls with the same seed give byte-identical tables."""
     _simulate(tmp_path)
     for rel in (
         "peptides.tsv",

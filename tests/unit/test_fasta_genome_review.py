@@ -1,4 +1,4 @@
-"""Code-review findings on the genome FASTA reader/writer (M1-02 review; GIAP_SPEC.md §5.3)."""
+"""Code-review findings on the genome FASTA reader/writer (M1-02 review; GIPPA_SPEC.md §5.3)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.fasta import FastaFormatError, invalid_letters, read_genome_fasta, write_fasta
+from gippa.io.fasta import FastaFormatError, invalid_letters, read_genome_fasta, write_fasta
 
 
 def _write_bytes(tmp_path: Path, data: bytes, name: str = "g.fa") -> Path:

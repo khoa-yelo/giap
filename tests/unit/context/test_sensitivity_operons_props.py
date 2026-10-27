@@ -30,13 +30,13 @@ SETTINGS = settings(max_examples=12, deadline=None, derandomize=True,
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(so.STREAM, 7)
 
@@ -122,8 +122,8 @@ def test_rows_jaccard_in_unit_interval_or_na(a: frozenset[str], b: frozenset[str
 
 
 def _operons_step(inputs: dict[str, Path], out: Path, cfg: Any) -> pd.DataFrame:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     names = {"pairs": "pairs.tsv", "operons": "operons.tsv", "operon_flags": "operon_flags.tsv"}
@@ -151,7 +151,7 @@ def test_primary_set_equals_the_main_run_operon_flags(
     main = _operons_step(ins, tmp_path / "out", cfg)
     want = frozenset(main["pair_id"])
     assert want or t != 0.5 or drop, "fixture: the main run flags no pair"
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     gt = read_genes_parquet(ins["gene_table"])
     t_in = {k: pd.read_parquet(ins[k]) for k in so.FAMILY_KW if k in ins}

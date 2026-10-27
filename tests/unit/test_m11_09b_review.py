@@ -1,7 +1,7 @@
 """#354 review S1-S2 (M11-09b): ``build_envs.sbatch`` exits with the env-build status, and the
 three Slurm ``grep -P`` readers find a pin in both the bare and the legacy prefixed form.
 
-S1 runs ``build_envs.sbatch`` with bash in a throw-away ``GIAP_REPO`` whose stub
+S1 runs ``build_envs.sbatch`` with bash in a throw-away ``GIPPA_REPO`` whose stub
 ``scripts/build_envs.sh`` exits 3. S2 runs each script's own ``grep -oP`` line, copied verbatim
 from the script, through bash on a one-line config, so a mandatory ``docker://`` group in any
 reader fails here.
@@ -41,7 +41,7 @@ def _build_envs(tmp: Path, config: str, env_status: int) -> subprocess.Completed
     fake.write_text(FAKE_APPTAINER)
     fake.chmod(0o755)
     env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG"}}
-    env.update(GIAP_REPO=str(repo), GIAP_ROOT=str(root), HOME=str(root / "home"))
+    env.update(GIPPA_REPO=str(repo), GIPPA_ROOT=str(root), HOME=str(root / "home"))
     return subprocess.run(
         ["bash", str(repo / "scripts" / "slurm" / "build_envs.sbatch")],
         capture_output=True, text=True, cwd=repo, env=env, timeout=120, check=False,

@@ -21,10 +21,10 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 MAX_TICKS = 5
 #: the helper's chr1 / lin1 plus a K-12-sized chromosome (7-digit positions)
@@ -40,12 +40,12 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
-def _loci(tmp: Path, cfg: GiapConfig, contig: str, start: int, end: int) -> Instance:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+def _loci(tmp: Path, cfg: GippaConfig, contig: str, start: int, end: int) -> Instance:
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     out = vl.build_out(
         tmp,
@@ -107,21 +107,21 @@ CASES = {
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_locus_is_single_column(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_locus_is_single_column(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     contig, s, e, _ = CASES[case]
     fig = _loci(tmp_path, cfg, contig, s, e).figure
     assert fig.get_figwidth() == pytest.approx(style.SINGLE_IN)
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_at_most_five_major_ticks(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_at_most_five_major_ticks(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     contig, s, e, _ = CASES[case]
     labels = _labels(_loci(tmp_path, cfg, contig, s, e).figure)
     assert 2 <= len(labels) <= MAX_TICKS, [t for t, _, _ in labels]
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_tick_labels_do_not_overlap(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_tick_labels_do_not_overlap(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     contig, s, e, _ = CASES[case]
     labels = _labels(_loci(tmp_path, cfg, contig, s, e).figure)
     bad = []
@@ -134,7 +134,7 @@ def test_tick_labels_do_not_overlap(tmp_path: Path, cfg: GiapConfig, case: str) 
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_ticks_are_in_kb_and_read_the_position(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_ticks_are_in_kb_and_read_the_position(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     contig, s, e, length = CASES[case]
     fig = _loci(tmp_path, cfg, contig, s, e).figure
     labels = _labels(fig)

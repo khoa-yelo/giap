@@ -1,7 +1,7 @@
 """M8-09 SHAP block attribution, top decile, dominant block and residual flag: examples 5-8, the
 degenerate rows and the §7.8.3 unit "SHAP block sums equal the prediction minus the expected
 value" (docs/specs/M8-09-determinants-attribution-null.md rules 1-4, decisions Q2-Q3;
-GIAP_SPEC.md §7.8.2 steps 5-6, §9.3, §9.4).
+GIPPA_SPEC.md §7.8.2 steps 5-6, §9.3, §9.4).
 
 Contract choices the interface leaves open are in ``tests/helpers/determinants_attrib_data.py``.
 SHAP tests fit real LightGBM models (3 repeats, 40 trees); the table tests use a synthetic
@@ -24,8 +24,8 @@ import determinants_attrib_data as a
 import determinants_models_data as d
 from determinants_models_data import flags_of, is_na
 
-from giap.config.model import DeterminantsConfig, LightgbmConfig
-from giap.rng import for_step
+from gippa.config.model import DeterminantsConfig, LightgbmConfig
+from gippa.rng import for_step
 
 SEED = 20261021
 TOL = 1e-9

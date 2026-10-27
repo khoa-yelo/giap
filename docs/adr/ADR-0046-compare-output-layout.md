@@ -1,4 +1,4 @@
-# ADR-0046: `giap compare` output layout (ADR-M9-B)
+# ADR-0046: `gippa compare` output layout (ADR-M9-B)
 - Status: accepted (lead-level, 2026-10-22)
 - Date: 2026-10-22
 - Spec sections: §5.1, §7.9.3, §9.2, §9.5
@@ -11,7 +11,7 @@ where the genome digest comes from before `run_manifest.json` existed (M9-22 spe
 
 ## Decision
 1. All three tables live under `CMP/tables/`: `compare_detection.tsv`, `compare_abundance.tsv`,
-   `compare_stability.tsv`, each with a Frictionless schema in `giap/schemas/tables/`.
+   `compare_stability.tsv`, each with a Frictionless schema in `gippa/schemas/tables/`.
 2. `compare_detection.tsv` is long, with `section` in {matrix, intersection}; per-run columns
    would make the schema depend on the run count. Intersections are exact (UpSet) sets.
 3. Genes are joined by `locus_tag`; every run must have the same locus-tag set (exit 1 with the

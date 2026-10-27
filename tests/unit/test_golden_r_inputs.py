@@ -16,7 +16,7 @@ Interface assumed (the spec leaves it open):
   ``ora_categories.tsv.gz``     ``category  gene``        long table, 150 categories
   ============================  ==========================================================
 
-- numpy only (plus the standard library and PyYAML to read the seed); never ``giap``.
+- numpy only (plus the standard library and PyYAML to read the seed); never ``gippa``.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def test_file_is_gzip_tsv_with_header(inputs: Path, name: str) -> None:
     assert all(len(r) == len(header) for r in rows)
 
 
-def test_numpy_only_and_no_giap_import() -> None:
+def test_numpy_only_and_no_gippa_import() -> None:
     assert SCRIPT.is_file(), f"missing {SCRIPT.relative_to(REPO)}"
     tree = ast.parse(SCRIPT.read_text())
     allowed = set(sys.stdlib_module_names) | {"numpy", "yaml", "__future__"}

@@ -2,14 +2,14 @@
 ADR-0050 strict xfails of G4-k3 and full-tier attack GC (lead decisions 10, 13). Unmarked: runs
 on every commit.
 
-Decision 11: ``no_makedb_pair`` is right when every peptide row of a GIAP ORF names another
+Decision 11: ``no_makedb_pair`` is right when every peptide row of a GIPPA ORF names another
 planted ORF's makedb entry (a short Met-initial 7-mer recurring at another ATG; statistician
 ``local/stat/m713b-full/nopair.py``: replicate 35 ``MVTAAGR`` at ``NOVEL_chr1_463046_p``, whose
-three rows name ``GIAPORF_cds_outframe_chr1_872115_872252_p``; replicate 36 ``MTPLWTK``). Such
+three rows name ``GIPPAORF_cds_outframe_chr1_872115_872252_p``; replicate 36 ``MTPLWTK``). Such
 ORFs are counted as ``shared_peptide_no_pair`` and exempted; any other ``no_makedb_pair`` still
 fails. Interface (``helpers.m7_gate_novel_records``, test plumbing):
 
-* ``parse_makedb_id(pid) -> (cls, contig, a, b, strand) | None``: ``GIAPORF_<cls>_<contig>_<a>_
+* ``parse_makedb_id(pid) -> (cls, contig, a, b, strand) | None``: ``GIPPAORF_<cls>_<contig>_<a>_
   <b>_<p|m>`` (1-based closed plus-strand span without the stop codon; ``strand`` ``+``/``-``).
 * ``planted_in_entry(entry, truth) -> set[(contig, strand, stop)]``: truth ORFs whose start
   codon (``start`` on ``+``, ``end - 2`` on ``-``) lies in frame inside the entry on its strand
@@ -17,7 +17,7 @@ fails. Interface (``helpers.m7_gate_novel_records``, test plumbing):
   part, where the planted extension starts).
 * ``shared_peptide_no_pair(peptides, rows, own_key, truth) -> bool``: the input rows whose
   peptide equals one of ``peptides`` (I/L-insensitive) are at least one, and every row names
-  at least one ``GIAPORF_`` entry and each such entry holds a planted ORF other than
+  at least one ``GIPPAORF_`` entry and each such entry holds a planted ORF other than
   ``own_key``. No rows, a gene locus, a decoy (``rev_``) or a non-planted entry: False.
 * ``shared_no_pair_counts(novel_orfs, side, rows, truth, lengths) -> {class: int}`` over the
   four classes: side rows with ``reason == "no_makedb_pair"`` that pass the test above.
@@ -38,7 +38,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 HERE = Path(__file__).parent
-ENTRY_35 = "GIAPORF_cds_outframe_chr1_872115_872252_p"
+ENTRY_35 = "GIPPAORF_cds_outframe_chr1_872115_872252_p"
 BUGS = frozenset({"paired_share_low", "decoys_unscored", "no_makedb_pair", "decoys_not_makedb",
                   "denovo_inputs_missing"})  # fmt: skip
 
@@ -70,9 +70,9 @@ R35 = rows(("MVTAAGR", ENTRY_35), ("MVTAAGR", ENTRY_35), ("MVTAAGR", ENTRY_35))
 
 def test_parse_makedb_id() -> None:
     assert N.parse_makedb_id(ENTRY_35) == ("cds_outframe", "chr1", 872115, 872252, "+")
-    assert N.parse_makedb_id("GIAPORF_nterm_extension_chr_2_5_94_m") == (
+    assert N.parse_makedb_id("GIPPAORF_nterm_extension_chr_2_5_94_m") == (
         "nterm_extension", "chr_2", 5, 94, "-")  # fmt: skip
-    for bad in ("GSIM_02040", "rev_" + ENTRY_35, "GIAPORF_other_chr1_1_9_p", "GIAPORF_x"):
+    for bad in ("GSIM_02040", "rev_" + ENTRY_35, "GIPPAORF_other_chr1_1_9_p", "GIPPAORF_x"):
         assert N.parse_makedb_id(bad) is None, bad
 
 
@@ -86,7 +86,7 @@ def test_planted_in_entry_plus_in_frame_only() -> None:
 
 
 def test_planted_in_entry_minus_strand() -> None:
-    e = N.parse_makedb_id("GIAPORF_antisense_c1_961_990_m")
+    e = N.parse_makedb_id("GIPPAORF_antisense_c1_961_990_m")
     # off-frame rows carry their own start, so their key differs from the in-frame one (S1)
     t = truth(("antisense", "c1", 958, 990, "-"), ("antisense", "c1", 957, 989, "-"),
               ("antisense", "c1", 956, 988, "-"))  # fmt: skip
@@ -95,17 +95,17 @@ def test_planted_in_entry_minus_strand() -> None:
 
 def test_origin_crossing_entry_vetoes() -> None:
     """``a > b`` (an entry across the origin, not unwrapped) holds no ORF: fails closed."""
-    e = N.parse_makedb_id("GIAPORF_intergenic_c1_990_30_p")
+    e = N.parse_makedb_id("GIPPAORF_intergenic_c1_990_30_p")
     assert e == ("intergenic", "c1", 990, 30, "+")
     t = truth(("intergenic", "c1", 993, 1020, "+"), ("intergenic", "c1", 3, 30, "+"),
               ("intergenic", "c1", 1, 27, "+"))  # fmt: skip
     assert N.planted_in_entry(e, t) == set()
-    r = rows(("MVTAAGR", "GIAPORF_intergenic_c1_990_30_p"))
+    r = rows(("MVTAAGR", "GIPPAORF_intergenic_c1_990_30_p"))
     assert not N.shared_peptide_no_pair(["MVTAAGR"], r, OWN_35, t)
 
 
 def test_planted_in_entry_nterm_upstream_start() -> None:
-    e = N.parse_makedb_id("GIAPORF_nterm_extension_c1_101_400_p")
+    e = N.parse_makedb_id("GIPPAORF_nterm_extension_c1_101_400_p")
     t = truth(("nterm_extension", "c1", 131, 2000, "+"), ("intergenic", "c1", 500, 600, "+"))
     assert N.planted_in_entry(e, t) == {("c1", "+", 1998)}
 
@@ -119,7 +119,7 @@ def test_replicate35_shape_is_shared() -> None:
 
 def test_replicate36_shape_is_shared_across_classes() -> None:
     t = truth(("cds_outframe", "chr1", 309570, 309758, "+"))
-    r = rows(*[("MTPLWTK", "GIAPORF_cds_outframe_chr1_309570_309755_p")] * 3)
+    r = rows(*[("MTPLWTK", "GIPPAORF_cds_outframe_chr1_309570_309755_p")] * 3)
     assert N.shared_peptide_no_pair(["MTPLWTK"], r, ("chr1", "+", 546230), t)
 
 
@@ -144,12 +144,12 @@ def test_no_rows_is_not_shared() -> None:
 
 
 def test_non_planted_entry_is_not_shared() -> None:
-    r = rows(("MVTAAGR", "GIAPORF_antisense_chr1_10_99_p"))
+    r = rows(("MVTAAGR", "GIPPAORF_antisense_chr1_10_99_p"))
     assert not N.shared_peptide_no_pair(["MVTAAGR"], r, OWN_35, T35)
 
 
 def test_one_row_off_planted_entry_breaks_the_exemption() -> None:
-    for extra in ("GSIM_02040", "GIAPORF_antisense_chr1_10_99_p", "rev_" + ENTRY_35):
+    for extra in ("GSIM_02040", "GIPPAORF_antisense_chr1_10_99_p", "rev_" + ENTRY_35):
         r = pd.concat([R35, rows(("MVTAAGR", extra))], ignore_index=True)
         assert not N.shared_peptide_no_pair(["MVTAAGR"], r, OWN_35, T35), extra
 
@@ -159,9 +159,9 @@ def test_own_planted_orf_is_not_another() -> None:
 
 
 def test_multi_id_row_needs_every_entry_planted() -> None:
-    ok = rows(("MVTAAGR", f"{ENTRY_35};GIAPORF_cds_outframe_chr1_462976_463077_p"))
+    ok = rows(("MVTAAGR", f"{ENTRY_35};GIPPAORF_cds_outframe_chr1_462976_463077_p"))
     assert N.shared_peptide_no_pair(["MVTAAGR"], ok, OWN_35, T35)
-    bad = rows(("MVTAAGR", f"{ENTRY_35};GIAPORF_antisense_chr1_10_99_p"))
+    bad = rows(("MVTAAGR", f"{ENTRY_35};GIPPAORF_antisense_chr1_10_99_p"))
     assert not N.shared_peptide_no_pair(["MVTAAGR"], bad, OWN_35, T35)
 
 
@@ -179,7 +179,7 @@ def test_shared_no_pair_counts_per_class() -> None:
     side = pd.DataFrame({"orf_id": ["A", "B", "C"], "class": ["cds_outframe", "antisense",
                          "intergenic"], "reason": ["no_makedb_pair", "no_makedb_pair",
                          "lost_pick"]})  # fmt: skip
-    r = pd.concat([R35, rows(("MTPLWTK", "GIAPORF_antisense_chr1_10_99_p"))], ignore_index=True)
+    r = pd.concat([R35, rows(("MTPLWTK", "GIPPAORF_antisense_chr1_10_99_p"))], ignore_index=True)
     got = N.shared_no_pair_counts(novel, side, r, T35, {"chr1": 1_000_000})
     assert got == {"intergenic": 0, "cds_outframe": 1, "antisense": 0, "nterm_extension": 0}
 
@@ -195,7 +195,7 @@ def test_own_entry_counts_zero_on_both_strands() -> None:
     ])  # fmt: skip
     side = pd.DataFrame({"orf_id": ["P", "M"], "class": ["cds_outframe", "antisense"],
                          "reason": ["no_makedb_pair", "no_makedb_pair"]})  # fmt: skip
-    r = rows(("MVTAAGR", ENTRY_35), ("MTPLWTK", "GIAPORF_antisense_chr1_961_990_m"))
+    r = rows(("MVTAAGR", ENTRY_35), ("MTPLWTK", "GIPPAORF_antisense_chr1_961_990_m"))
     got = N.shared_no_pair_counts(novel, side, r, t, {"chr1": 1_000_000})
     assert got == {"intergenic": 0, "cds_outframe": 0, "antisense": 0, "nterm_extension": 0}
 
@@ -204,7 +204,7 @@ def test_minus_strand_shared_counts_one() -> None:
     t = truth(("antisense", "chr1", 958, 990, "-"))
     novel = pd.DataFrame([{**_novel("M", "antisense", 5000, "MTPLWTK"), "strand": "-"}])
     side = pd.DataFrame({"orf_id": ["M"], "class": ["antisense"], "reason": ["no_makedb_pair"]})
-    r = rows(("MTPLWTK", "GIAPORF_antisense_chr1_961_990_m"))
+    r = rows(("MTPLWTK", "GIPPAORF_antisense_chr1_961_990_m"))
     got = N.shared_no_pair_counts(novel, side, r, t, {"chr1": 1_000_000})
     assert got["antisense"] == 1
 
@@ -261,7 +261,7 @@ def test_unestimated_bugs_drops_exactly_the_shared(reasons: dict[str, int], frac
 
 @settings(max_examples=60, deadline=None)
 @given(il=st.lists(st.booleans(), min_size=7, max_size=7), extra=st.sampled_from(
-    ["GSIM_1", "GIAPORF_intergenic_chr1_10_99_p", "rev_" + ENTRY_35]))  # fmt: skip
+    ["GSIM_1", "GIPPAORF_intergenic_chr1_10_99_p", "rev_" + ENTRY_35]))  # fmt: skip
 def test_il_invariant_and_one_bad_row_vetoes(il: list[bool], extra: str) -> None:
     pep = "".join("I" if b else "L" for b in il)
     r = rows((pep, ENTRY_35))

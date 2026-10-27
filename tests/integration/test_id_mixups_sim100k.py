@@ -1,13 +1,13 @@
 """M7-14 example 5: ``detection_summary.tsv`` after a sim100k run with peptides has a numeric
 ``id_mixups`` row without ``requires_variants`` (docs/specs/M7-14-te2-proxy-and-id-mixups.md rules
-3-4; GIAP_SPEC.md §7.5.1 row 1, §9.3).
+3-4; GIPPA_SPEC.md §7.5.1 row 1, §9.3).
 
-``giap run --executor local`` on giapsim SIM100K with M3-19 peptides (``search_db = same``, the
+``gippa run --executor local`` on gippasim SIM100K with M3-19 peptides (``search_db = same``, the
 simulator's default; tests/helpers/m4_real.py) plans ``variants`` and ``context_stats``; rule 4:
 "the local executor needs no change (optional inputs are picked up when present)", so
 ``work/variants_qc`` reaches ``context_stats``. Oracle: every peptide is database/same, so ``n`` =
 the ``variants.tsv`` rows and the count = rows flagged neither ``start_codon`` nor
-``stop_codon``. A test ``$GIAP_DB_DIR`` only.
+``stop_codon``. A test ``$GIPPA_DB_DIR`` only.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
     db = mc.test_db(root / "db")
     sim = mr.sim100k(root / "sim")
     out = root / "OUT"
-    work = mr.giap_run(sim, out, db, SEED)
+    work = mr.gippa_run(sim, out, db, SEED)
     return out, work
 
 
@@ -41,7 +41,7 @@ def test_variants_qc_is_produced_by_the_local_executor(run: tuple[Path, Path]) -
 
 
 def test_example_5_id_mixups_row_is_numeric(run: tuple[Path, Path]) -> None:
-    from giap.io.variant_tables import read_variants
+    from gippa.io.variant_tables import read_variants
 
     out, _ = run
     ds = mc.read(out / "tables" / "detection_summary.tsv")

@@ -20,13 +20,13 @@ in M11-13) · Khoa: Q-K5, Q-K6, Q-K12 (criteria readings).
 
 The evidence lives in five places (committed pilot metrics, `benchmarks/baseline.json`, the FarmShare
 `nightly.tsv`/`weekly.tsv` logs, PROGRESS gate blocks, the repository itself). Khoa approves one
-table, not five sources. `release.yml` runs on GitHub and cannot read `$GIAP_ROOT`, so the table is
+table, not five sources. `release.yml` runs on GitHub and cannot read `$GIPPA_ROOT`, so the table is
 computed on FarmShare, committed, and re-verified by the workflow (Q-L4).
 
 ## Interface
 
 ```text
-python scripts/release/readiness.py compute --version 1.0.0 [--repo .] [--logs $GIAP_ROOT/logs]
+python scripts/release/readiness.py compute --version 1.0.0 [--repo .] [--logs $GIPPA_ROOT/logs]
         [--freeze-run DIR_A2] --out validation/release/1.0.0/
 python scripts/release/readiness.py verify validation/release/1.0.0/readiness.json [--repo .]
 ```
@@ -63,9 +63,9 @@ python scripts/release/readiness.py verify validation/release/1.0.0/readiness.js
 | R9 | "The pilot passes (§15.6)" | `PROGRESS.md` has `### Gate M10` with a Khoa review line **and** `validation/pilot/REPORT.md` status table has no `fail`/`pending` | PROGRESS, REPORT.md | repo |
 | R10 | "co-abundance … moves to the full validation" | always `deferred` (spec text quoted) | none | repo |
 | H1 | milestone gates | `PROGRESS.md` has a `### Gate M<k>` block for k = 1…10 (Q-K12) | PROGRESS | repo |
-| H2 | version agreement | `giap.__version__` = `--version` = `CITATION.cff › version`; tag `v<version>` does **not** exist (`git tag -l`) | repo | repo |
-| H3 | changelog | `CHANGELOG.md` has `## GIAP <version> (` and `changelog.d/` holds no fragment (built) | repo | repo |
-| H4 | containers by digest | every `container =` in `workflow/conf/containers.config` is `docker://…@sha256:<64 hex>`; every process of `src/giap/annotate/tools.py`'s registry is either pinned or in the documented conda-only list (UniOP, fgsea, and those M11-06 has not yet published) | repo | repo |
+| H2 | version agreement | `gippa.__version__` = `--version` = `CITATION.cff › version`; tag `v<version>` does **not** exist (`git tag -l`) | repo | repo |
+| H3 | changelog | `CHANGELOG.md` has `## GIPPA <version> (` and `changelog.d/` holds no fragment (built) | repo | repo |
+| H4 | containers by digest | every `container =` in `workflow/conf/containers.config` is `docker://…@sha256:<64 hex>`; every process of `src/gippa/annotate/tools.py`'s registry is either pinned or in the documented conda-only list (UniOP, fgsea, and those M11-06 has not yet published) | repo | repo |
 | H5 | licences | every tool in the registry appears in `NOTICE.md`'s table; `LICENSE` is MIT | repo | repo |
 | H6 | CI on R | GitHub check runs for R all `success` (`gh api repos/{owner}/{repo}/commits/R/check-runs`) | GitHub | farmshare (also re-run by `release.yml`) |
 
@@ -91,10 +91,10 @@ is in the paperwork allow-list: `validation/release/**`, `PROGRESS.md`, `docs/**
 | 6 | as 4, ADR status `proposed` | R7 stays `fail`; the ADR is named in `evidence` as "not accepted" |
 | 7 | `metrics.json` te_real: TE3 `reported (not passed, explained)` | R5 `fail` naming TE3 (Q-K5 default) |
 | 8 | no `### Gate M9` in PROGRESS | H1 `fail (missing: M9)` |
-| 9 | `nightly.tsv` newest calibration row is for commit X, and X..R changes `src/giap/stats/bh.py` | R3 `pending (no calibration run for R)` |
+| 9 | `nightly.tsv` newest calibration row is for commit X, and X..R changes `src/gippa/stats/bh.py` | R3 `pending (no calibration run for R)` |
 | 10 | X..R changes only `docs/user-guide/install.md` | R3 uses X's row: `pass`, evidence `nightly.tsv 2026-11-02 <job> X` |
 | 11 | `verify` with HEAD = R + one commit touching `validation/release/1.0.0/READINESS.md` | commit rule `pass` |
-| 12 | `verify` with HEAD = R + a commit touching `src/giap/cli.py` | exit 1, `fail (stale: src/giap/cli.py)` |
+| 12 | `verify` with HEAD = R + a commit touching `src/gippa/cli.py` | exit 1, `fail (stale: src/gippa/cli.py)` |
 | 13 | `containers.config` has `container = 'docker://oschwengers/bakta:v1.12.2'` | H4 `fail (tag, not digest: BAKTA)` |
 
 ## Edge cases
@@ -123,7 +123,7 @@ is in the paperwork allow-list: `validation/release/**`, `PROGRESS.md`, `docs/**
 3. `READINESS.md` is a pure function of `readiness.json` (a test renders twice: byte-identical).
 4. No threshold appears in a config file: thresholds are module constants with the spec quote in a
    comment (R3); a test asserts the four constants (0.995, 0.01, 960, 3300).
-5. `ruff`, `mypy` (scripts are outside the strict `src/giap` target; type hints anyway) pass.
+5. `ruff`, `mypy` (scripts are outside the strict `src/gippa` target; type hints anyway) pass.
 
 ## Gaps (for the lead)
 

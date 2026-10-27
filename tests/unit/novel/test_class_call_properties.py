@@ -26,7 +26,7 @@ from helpers.novel_fdr_fixture import ContigClassifier, PickedWorld, hit_rows, m
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 SETTINGS = settings(max_examples=40, deadline=None,
                     suppress_health_check=[HealthCheck.too_slow])  # fmt: skip
@@ -76,7 +76,7 @@ def _dn_frames(case: dict[str, Any]) -> tuple[list[Any], pd.DataFrame, pd.DataFr
 @SETTINGS
 @given(denovo_case())
 def test_denovo_class_fdr_q_equals_denovo_class_q(case: dict[str, Any]) -> None:
-    from giap.novel import fdr
+    from gippa.novel import fdr
 
     orfs, th, dh, clf, pi = _dn_frames(case)
     want = fdr.denovo_class_q(orfs, th, dh, clf, pi)
@@ -89,7 +89,7 @@ def test_denovo_class_fdr_q_equals_denovo_class_q(case: dict[str, Any]) -> None:
 @SETTINGS
 @given(denovo_case())
 def test_denovo_class_stats_are_the_list_sizes(case: dict[str, Any]) -> None:
-    from giap.novel import fdr
+    from gippa.novel import fdr
 
     orfs, th, dh, clf, pi = _dn_frames(case)
     out = fdr.denovo_class_fdr(orfs, th, dh, clf, pi)

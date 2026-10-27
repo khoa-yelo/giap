@@ -1,5 +1,5 @@
 """fgsea port I: the simple permutation stage, NES, the simple p, ``log2err`` and the multilevel
-decision (issue M8-02; GIAP_SPEC.md §7.7.4, §2.4 G15, §6.6).
+decision (issue M8-02; GIPPA_SPEC.md §7.7.4, §2.4 G15, §6.6).
 
 Oracles from fgsea **1.36.2** (Bioconductor 3.22 tarball): ``R/fgsea.R`` ``fgseaSimpleImpl`` and
 ``R/fgseaMultilevel.R`` (simple-stage part), ``src/fastGSEA.cpp`` ``calcGseaStatCumulativeBatch``.
@@ -24,8 +24,8 @@ import numpy as np
 import pytest
 from helpers.fgsea_oracle import simple_and_multilevel_errors, simple_log2err
 
-from giap.rng import for_step
-from giap.stats.fgsea import Prepared, SimpleResult, fgsea_simple, gsea_es, prepare
+from gippa.rng import for_step
+from gippa.stats.fgsea import Prepared, SimpleResult, fgsea_simple, gsea_es, prepare
 
 STREAM = "function.gsea"
 SAMPLE_SIZE = 101

@@ -1,6 +1,6 @@
 """``terminatornet_cmd`` / ``transtermhp_cmd`` builders vs. their Nextflow processes (M2-15
 acceptance "test_nf_cmd_sync covers TerminatorNet (-s present) and TransTermHP"; M2-07 sync rule,
-M2-index decision 2: every ``giap.annotate.<tool>_cmd`` builder is kept in sync with
+M2-index decision 2: every ``gippa.annotate.<tool>_cmd`` builder is kept in sync with
 ``workflow/modules/local/<tool>/main.nf``).
 
 Skips until the processes exist (M2-07). G12: TerminatorNet's script block must pass ``-s``; it
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.terminatornet_cmd import terminatornet_command
-from giap.annotate.transtermhp_cmd import transterm_command
+from gippa.annotate.terminatornet_cmd import terminatornet_command
+from gippa.annotate.transtermhp_cmd import transterm_command
 
 REPO = Path(__file__).resolve().parents[2]
 FLAG = re.compile(r"(?<![\w-])(-{1,2}[A-Za-z][\w-]*)")

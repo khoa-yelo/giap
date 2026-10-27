@@ -28,7 +28,7 @@ under `src/` changed, so any patch reruns the full calibration.
    - `<key>` is the first 12 hex of sha256 over the `path\tmode\tsha256` lines of the tool's
      build inputs, sorted by the code points of the path. The inputs are its
      `workflow/containers/<tool>/` files, `workflow/envs/<tool>.yml` and its lock files; fgsea also
-     includes `workflow/bin/giap_fgsea.R`, which is baked into the image.
+     includes `workflow/bin/gippa_fgsea.R`, which is baked into the image.
    - Dockerfiles install from the locks, and every fetched source archive is checksummed
      (`ADD --checksum`).
    - A tag is pushed once and never overwritten. A tool whose key already exists in the registry
@@ -70,13 +70,13 @@ under `src/` changed, so any patch reruns the full calibration.
      bump below major. The predicate holds when every path of
      `git diff --name-only --no-renames C R` (deletions and both sides of a move included) lies
      under a `NON_STATS_PATHS` entry, matched on whole path components.
-     - The only exception is a diff to `src/giap/__init__.py` that is a single `__version__`
+     - The only exception is a diff to `src/gippa/__init__.py` that is a single `__version__`
        hunk.
      - A diff touching `scripts/release/readiness.py`, which defines the list, is never reusable.
    - `NON_STATS_PATHS` holds only paths that cannot change a statistic:
      - docs and paperwork;
      - `.github/`, `.claude/`, `scripts/dev/`, `scripts/docs/`;
-     - `src/giap/report/` and `src/giap/viz/`.
+     - `src/gippa/report/` and `src/gippa/viz/`.
    - A disjoint never list is a constant too. It names `preflight/`, `runner/`, `setupdb/`,
      `cli.py`, `data/`, `config/`, `rng.py`, `io/`, `workflow/`, `pyproject.toml`, `uv.lock`, the
      simulator, the calibration tests and `ci/`. Changing either list needs `stats` review.
@@ -91,7 +91,7 @@ under `src/` changed, so any patch reruns the full calibration.
    - `release.yml` verify recomputes the keys. It also checks that every GHCR pin resolves
      anonymously.
    - Agents never push tags, never dispatch with `dry_run=false`, never set `GHCR_PUBLISH` and
-     never approve `ghcr`. The first publish is Khoa's, after the GIAP → GIPPA rename, so no image
+     never approve `ghcr`. The first publish is Khoa's, after the GIPPA rename, so no image
      is ever published under the old name.
 6. **Compatibility.** The run manifest already records the package version, the tool versions
    and digests, and the database versions; M11-14 adds `operon_source`. `compare` warns across

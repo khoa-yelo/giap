@@ -1,7 +1,7 @@
 """Performance budgets for M4-11 accepted evidence (docs/specs/M4-11-accepted-evidence.md: "runs
 in < 1 s for 4,500 genes"); ``accepted_peptides`` + ``gene_evidence``.
 
-- M4-09 default giapsim fixture (layout seed 1, expression seed 2, evidence seed 3): one run
+- M4-09 default gippasim fixture (layout seed 1, expression seed 2, evidence seed 3): one run
   < 1 s per 4,500 genes (floor 1 s). From ``tests/unit/genetable/test_evidence.py::
   test_m409_default_fixture_detected_true_have_evidence``.
 - 4,500-gene chromosome + plasmid + linear contig, origin crossing (``_sim_inputs(4500, 5,
@@ -26,9 +26,9 @@ _E = load_test_module("unit/genetable/test_evidence.py")
 
 
 def test_m409_default_fixture_evidence_budget(benchmark: Any) -> None:
-    evmod = pytest.importorskip("giapsim.evidence")
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    evmod = pytest.importorskip("gippasim.evidence")
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     layout = simulate_layout(LayoutConfig(), np.random.default_rng(1))
     expr = simulate_expression(layout, ExpressionConfig(), np.random.default_rng(2))

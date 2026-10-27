@@ -4,12 +4,12 @@ the lead decision after the M10-15a review).
 
 Inputs: M10-05's synthetic pilot (``helpers.pilot_metrics_m10.build_pilot``) plus the A3 inputs
 of ``helpers.a3_metrics_m10_10b.build_a3`` (synthetic de novo peptides, examples 9 and 10 as the
-A2/A3 tables). Nothing comes from ``$GIAP_ROOT``.
+A2/A3 tables). Nothing comes from ``$GIPPA_ROOT``.
 
 Interface fixed here (test-author choices, reversible):
 
 * the new options are ``--peptides-a3``, ``--convert-a3``, ``--cmp3`` (spec) and the optional
-  ``--strain-db`` (lead decision S4); ``CMP3`` is a ``giap compare`` directory
+  ``--strain-db`` (lead decision S4); ``CMP3`` is a ``gippa compare`` directory
   (``CMP3/tables/<stem>.tsv``);
 * the A3 manifest records A2's table under the input role ``reference_peptides``;
   ``CONV_A3`` is 10a's ``a3.convert.json`` (``failures``, ``outputs.peptides.sha256``);
@@ -57,7 +57,7 @@ M10_05_KEYS = {
     "schema",
     "spec",
     "warnings",
-    "giap_commit",
+    "gippa_commit",
     "m1",
     "m2",
     "m3",
@@ -254,7 +254,7 @@ def test_doctored_cmp3_alt_row_exit_1(pilot: Pilot, world: World, tmp_path: Path
 
 
 def test_doctored_mapping_fdr_bins_exit_1(pilot: Pilot, world: World, tmp_path: Path) -> None:
-    """Definition 2: a ``score_bin`` label GIAP's bins never give → ``Inconsistent``, exit 1."""
+    """Definition 2: a ``score_bin`` label GIPPA's bins never give → ``Inconsistent``, exit 1."""
     res, out, _ = _with_a3(pilot, world, tmp_path, fdr_extra_bin=True)
     assert res.returncode == 1, res.stdout + res.stderr
     assert _nothing_written(out)

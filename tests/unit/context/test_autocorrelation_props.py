@@ -70,7 +70,7 @@ def _rows(genes: pd.DataFrame, replicons: pd.DataFrame, seed: int = 2) -> pd.Dat
 
 
 def _n_values(genes: pd.DataFrame, contig: str) -> int:
-    from giap.context.regions import replicon_index
+    from gippa.context.regions import replicon_index
 
     ix = replicon_index(genes, contig)
     return int(np.isfinite(ix["a"].to_numpy(float)).sum()) if len(ix) else 0
@@ -98,7 +98,7 @@ def test_row_grid_is_complete_and_unique(g: tuple[pd.DataFrame, pd.DataFrame]) -
 @SETTINGS
 @given(genomes())
 def test_test_columns_and_flags(g: tuple[pd.DataFrame, pd.DataFrame]) -> None:
-    from giap.context.autocorrelation import AUTOCORR_COLUMNS
+    from gippa.context.autocorrelation import AUTOCORR_COLUMNS
 
     genes, replicons = g
     out = _rows(genes, replicons)
@@ -125,7 +125,7 @@ def test_test_columns_and_flags(g: tuple[pd.DataFrame, pd.DataFrame]) -> None:
 @SETTINGS
 @given(genomes())
 def test_bh_within_contig_statistic_and_null(g: tuple[pd.DataFrame, pd.DataFrame]) -> None:
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     genes, replicons = g
     out = _rows(genes, replicons)
@@ -148,8 +148,8 @@ def test_bh_within_contig_statistic_and_null(g: tuple[pd.DataFrame, pd.DataFrame
 def test_raw_join_count_is_an_integer_within_its_support(
     g: tuple[pd.DataFrame, pd.DataFrame],
 ) -> None:
-    from giap.context.regions import replicon_index
-    from giap.stats.autocorr import lag_pairs
+    from gippa.context.regions import replicon_index
+    from gippa.stats.autocorr import lag_pairs
 
     genes, replicons = g
     out = _rows(genes, replicons)
@@ -231,8 +231,8 @@ def test_same_seed_same_frame(g: tuple[pd.DataFrame, pd.DataFrame]) -> None:
 @SETTINGS
 @given(genomes(max_contigs=1))
 def test_values_match_the_decision_22_oracle(g: tuple[pd.DataFrame, pd.DataFrame]) -> None:
-    from giap.context.autocorrelation import moran_values
-    from giap.context.regions import replicon_index
+    from gippa.context.autocorrelation import moran_values
+    from gippa.context.regions import replicon_index
 
     genes, replicons = g
     contig = str(replicons["contig"].iloc[0])

@@ -34,8 +34,8 @@ HEADER = ["fixture", "plot", "item", "passed", "detail"]
 
 def deuteranopia(src: Path, dest: Path) -> None:
     """``dest``: the simulated-deuteranopia PNG of ``src`` (alpha kept)."""
-    from giap.io.plot_files import read_png, write_png
-    from giap.viz.checklist import simulate_deuteranopia
+    from gippa.io.plot_files import read_png, write_png
+    from gippa.viz.checklist import simulate_deuteranopia
 
     img = read_png(src)
     img[..., :3] = simulate_deuteranopia(img[..., :3])
@@ -47,8 +47,8 @@ def check(results: dict[str, Any], plots: Path) -> list[Any]:
     the checklist on it, closing each figure once checked; returns the ``CheckResult``s."""
     import matplotlib.pyplot as plt
 
-    from giap.io.plot_files import write_instance
-    from giap.viz import base, checklist
+    from gippa.io.plot_files import write_instance
+    from gippa.viz import base, checklist
 
     out = []
     for pid, result in results.items():
@@ -63,10 +63,10 @@ def check(results: dict[str, Any], plots: Path) -> list[Any]:
 
 
 def k12_results(out: Path) -> dict[str, Any]:
-    from giap.config import resolve_config
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
+    from gippa.config import resolve_config
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
 
     load_plot_modules()
     runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
@@ -119,8 +119,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     from helpers import snapshot_fixture as sf
 
-    from giap.io.tsv import write_tsv
-    from giap.viz import checklist
+    from gippa.io.tsv import write_tsv
+    from gippa.viz import checklist
 
     dest: Path = ns.dest
     # A fresh packet every run: no PNG of an earlier run (a removed or renamed baseline, an old

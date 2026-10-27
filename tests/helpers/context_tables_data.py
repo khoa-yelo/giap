@@ -10,14 +10,14 @@ layout + M4-08 expression + perfect C9/C11-C14 evidence) with two M5 additions:
 * a **planted island** (``ExpressionConfig.islands``), which only changes the gene table this
   module builds (as M4-18's integration test does, through ``region_tests_data.tables_from``).
 
-M4-20's ``giapsim.fixtures.build_m4_fixture`` (the builder the spec names) is not merged; when it
+M4-20's ``gippasim.fixtures.build_m4_fixture`` (the builder the spec names) is not merged; when it
 is, :func:`build` should become ``m4_chain.build(work, seed=, size=, layout={"oric_frac": ...},
 evidence=...)`` plus the same gene-table override. Nothing else in these tests depends on how the
 work directory is filled.
 
-Oracles call the **merged** producers ``giap.context.autocorrelation`` (M5-05) and
-``giap.context.islands`` (M5-06) and the **unmerged** ``giap.context.oriter`` (M5-08, PR #132)
-directly on the step's own random streams (§6.6: ``giap.rng.for_step(<stream>, cfg.seed)``), so a
+Oracles call the **merged** producers ``gippa.context.autocorrelation`` (M5-05) and
+``gippa.context.islands`` (M5-06) and the **unmerged** ``gippa.context.oriter`` (M5-08, PR #132)
+directly on the step's own random streams (§6.6: ``gippa.rng.for_step(<stream>, cfg.seed)``), so a
 test can compare what the step wrote with what the producers produce without re-deriving any
 statistic.
 """
@@ -39,15 +39,15 @@ import detection_summary_fixture as fx
 import region_tests_data as rd
 
 REPO = Path(__file__).resolve().parents[2]
-TABLE_DIR = REPO / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = REPO / "src" / "gippa" / "schemas" / "tables"
 
-#: §9.3 ``tables/autocorrelation.tsv`` columns (= ``giap.context.autocorrelation``
+#: §9.3 ``tables/autocorrelation.tsv`` columns (= ``gippa.context.autocorrelation``
 #: ``AUTOCORR_COLUMNS``; a literal copy, so a silent reorder fails a test)
 AUTOCORR_COLUMNS: tuple[str, ...] = (
     "contig", "statistic", "lag", "null_model", "value", "null_mean", "null_lo", "null_hi",
     "stat", "effect", "ci_low", "ci_high", "p_value", "q_value", "method", "n_perm", "flags",
 )  # fmt: skip
-#: §9.3 ``tables/islands.tsv`` columns (= ``giap.context.islands.ISLAND_COLUMNS``)
+#: §9.3 ``tables/islands.tsv`` columns (= ``gippa.context.islands.ISLAND_COLUMNS``)
 ISLAND_COLUMNS: tuple[str, ...] = (
     "island_id", "direction", "contig", "start", "end", "tu_first", "tu_last", "n_tus",
     "n_genes", "genes", "mean_abundance_log2", "detected_frac", "scan_s", "block_len",
@@ -105,10 +105,10 @@ def config(
     span_frac: float = 0.10,
     block_len: int | str = "auto",
 ) -> Any:
-    """``GiapConfig`` with the §5.2 knobs the M5 parts of ``context_stats`` read."""
-    from giap.config.model import GiapConfig
+    """``GippaConfig`` with the §5.2 knobs the M5 parts of ``context_stats`` read."""
+    from gippa.config.model import GippaConfig
 
-    return GiapConfig.model_validate(
+    return GippaConfig.model_validate(
         {
             "seed": seed,
             "stats": {
@@ -145,7 +145,7 @@ class Fixture:
 
 def _layout(seed: int, n_genes: int, oric_frac: float | None) -> Any:
     """The ``sim_fixture`` layout, optionally with an oriC (placing one draws nothing)."""
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(
         LayoutConfig(
@@ -179,7 +179,7 @@ def _expression(
     oriter_log2: float,
     detection_beta: float,
 ) -> Any:
-    from giapsim.expression import ExpressionConfig, simulate_expression
+    from gippasim.expression import ExpressionConfig, simulate_expression
 
     cfg = ExpressionConfig(
         detection="abundance",
@@ -192,7 +192,7 @@ def _expression(
 
 
 def island_spec(first_tu: int, n_tus: int, effect: float, replicon: str = "chr1") -> Any:
-    from giapsim.expression import IslandSpec
+    from gippasim.expression import IslandSpec
 
     return IslandSpec(replicon=replicon, first_tu=first_tu, n_tus=n_tus, effect=effect)
 
@@ -213,8 +213,8 @@ def build(
     ``features=False`` deletes ``features.parquet`` (example 5); ``oric_frac=None`` keeps it but
     header-only (no oriC call).
     """
-    from giap.io.work_tables import default_paths, load_m4_inputs
-    from giapsim.contract_tables import write_contract_tables
+    from gippa.io.work_tables import default_paths, load_m4_inputs
+    from gippasim.contract_tables import write_contract_tables
 
     fx.sim_fixture(work, seed=seed, n_genes=n_genes)
     layout = _layout(seed, n_genes, oric_frac)
@@ -246,9 +246,9 @@ def build(
 
 def oracle_autocorrelation(f: Fixture, cfg: Any) -> pd.DataFrame:
     """M5-05 rows plus M5-08 rows, each on its own stream, in the spec's "Row assembly" order."""
-    from giap.context.autocorrelation import autocorrelation_rows
-    from giap.context.oriter import oriter_rows
-    from giap.rng import for_step
+    from gippa.context.autocorrelation import autocorrelation_rows
+    from gippa.context.oriter import oriter_rows
+    from gippa.rng import for_step
 
     ac = autocorrelation_rows(
         f.genes, f.replicons, cfg, for_step(STREAMS["autocorrelation"], cfg.seed)
@@ -263,7 +263,7 @@ def oracle_islands(f: Fixture, cfg: Any) -> tuple[pd.DataFrame, Any]:
     """The M5-06 island frame and its ``IslandScan`` on the step's island stream."""
     import islands_data as isd
 
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     series = isd.build_series(f.genes, f.tus, f.replicons, cfg)
     rng = for_step(STREAMS["islands"], cfg.seed)
@@ -274,8 +274,8 @@ def oracle_islands(f: Fixture, cfg: Any) -> tuple[pd.DataFrame, Any]:
 def oracle_gene_context(f: Fixture, islands: pd.DataFrame) -> pd.DataFrame:
     """``gene_context``: the M5-06 gene→island map and the M5-08 replichore columns, left-joined
     onto the gene table (one row per gene, NA where a gene has neither)."""
-    from giap.context.islands import gene_island_map
-    from giap.context.oriter import gene_replichores
+    from gippa.context.islands import gene_island_map
+    from gippa.context.oriter import gene_replichores
 
     tags = f.genes["locus_tag"].astype(str)
     isl = gene_island_map(islands).set_index("locus_tag")["island_id"]
@@ -319,7 +319,7 @@ def sort_autocorrelation(df: pd.DataFrame, replicons: pd.DataFrame) -> pd.DataFr
 
 def read_table(path: Path) -> pd.DataFrame:
     """A written TSV as strings (``NA`` → None), for the schema-rule checks."""
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     header, rows = read_tsv(path)
     return pd.DataFrame(rows, columns=header, dtype=object)

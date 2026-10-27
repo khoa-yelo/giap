@@ -20,10 +20,10 @@ from typing import Any
 
 import pytest
 
-from giap.annotate.bakta import BaktaParseError, parse_bakta_json
-from giap.annotate.bakta_cmd import bakta_db_path
-from giap.model import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
+from gippa.annotate.bakta import BaktaParseError, parse_bakta_json
+from gippa.annotate.bakta_cmd import bakta_db_path
+from gippa.model import Interval, Replicon
+from gippa.model.genes import gene_model_from_bakta_json
 
 
 def _rand_seq(n: int, seed: int) -> str:

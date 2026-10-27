@@ -1,13 +1,13 @@
 """M9-26 example 1 and work item 2: the 20-Mb stress fixture (25,000 genes on one contig) bins
 V1's gene tracks and V2's points, and every track stays at or under 20,000 drawn elements
-(docs/specs/M9-26-scale-and-determinism.md; GIAP_SPEC.md §10.1 "Plots aggregate into bins when
+(docs/specs/M9-26-scale-and-determinism.md; GIPPA_SPEC.md §10.1 "Plots aggregate into bins when
 a track would draw more than 20,000 elements"; M9-index decision 12; M9-24 checklist item
 "≤ 20,000 drawn elements", which for V1's polar axes counts per track, M9-24 "V1 polar axes").
 
-The fixture is ``helpers.scale_fixture.stress_out`` (giapsim layout coordinates, ``RunView``
+The fixture is ``helpers.scale_fixture.stress_out`` (gippasim layout coordinates, ``RunView``
 frames only, not a pipeline run). Oracles are recomputed from the written ``genes.tsv``:
 
-- V1 bins genes by their 0-based ``start`` over ``giap.viz.base.bin_edges(L, 20000)`` (one
+- V1 bins genes by their 0-based ``start`` over ``gippa.viz.base.bin_edges(L, 20000)`` (one
   replicon, so it gets every bin; M9-08's ``_bins`` contract); ``gene_plus``/``gene_minus``
   values are the detected share of that strand's genes in the bin, ``abundance`` the median of
   the measured ``abundance_log2`` of all genes in the bin (``None`` when none is measured);
@@ -33,10 +33,10 @@ import pytest
 from helpers.scale_fixture import MAX_ELEMENTS, N_GENES, StressRun, stress_out
 from helpers.viz_tracks import elements
 
-from giap.config import resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base
+from gippa.config import resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base
 
 pytestmark = pytest.mark.slow
 
@@ -55,8 +55,8 @@ def genes(stress: StressRun) -> pd.DataFrame:
 
 
 def _render(stress: StressRun, pid: str) -> base.Instance:
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import style
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import style
 
     load_plot_modules()
     style.apply()
@@ -206,7 +206,7 @@ def test_v1_each_track_draws_at_most_20000_elements(v01: base.Instance, track: s
 
 def test_v1_passes_the_checklist_element_item_at_20_mb(v01: base.Instance, tmp_path: Path) -> None:
     """M9-26 work item 1 / M9-24: every track ≤ 20,000 elements, as the checklist gates it."""
-    from giap.viz import checklist
+    from gippa.viz import checklist
 
     files = write_instance(v01, "V01", "circos", tmp_path / "plots", ["svg", "png"], 100)
     (res,) = [r for r in checklist.check_instance(v01, "V01", files) if r.item == ELEMENT_ITEM]
@@ -263,7 +263,7 @@ def test_v2_rug_stays_one_row_per_undetected_gene_under_the_limit(
 
 
 def test_v2_passes_the_checklist_element_item_at_20_mb(v02: base.Instance, tmp_path: Path) -> None:
-    from giap.viz import checklist
+    from gippa.viz import checklist
 
     files = write_instance(
         v02, "V02", "abundance_landscape", tmp_path / "plots", ["svg", "png"], 100

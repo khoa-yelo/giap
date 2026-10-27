@@ -16,7 +16,7 @@ blocking (Q1–Q6 are lead questions with reversible defaults).
   "Nightly (full)" R column. §8.5 "the method passes when it stays at level".
 - §11.2 Calibration layer ("fast subset per PR, full nightly"). §12 "Every … FarmShare suite ends by
   posting a compact summary" (here: two `nightly.tsv` rows).
-- R3: no threshold, tolerance, α or R changes; R14: ≤ 128 CPUs and ≤ 20 `giap-*` jobs (running +
+- R3: no threshold, tolerance, α or R changes; R14: ≤ 128 CPUs and ≤ 20 `gippa-*` jobs (running +
   pending), checked before every `sbatch`.
 
 ## Scope (after the #344 review correction)
@@ -55,7 +55,7 @@ the fallback rows of the EXIT/TERM traps (`task <n>: ended during …`, `task <n
 | Label | Written by | When | Covers |
 |---|---|---|---|
 | `calibration_nightly` | `scripts/slurm/nightly.sbatch` task 2 (existing, unchanged) | every night (scrontab) or `sbatch --array=2 …` | the whole fast tier, `tests -m "not slow and not calibration_full and not e2e"` with the coverage gate; this includes the 316 fast-tier attack tests (`calibration`, `calibration_nightly` markers) |
-| `calibration_full` | **new** aggregator job `giap-calibration-rows`, submitted by **new** `scripts/slurm/calibration_full_launch.sh` with `--dependency=afterany:<array>` of `calibration_full.sbatch` | on demand (release step 7) and whenever the lead launches the full tier; not in the nightly scrontab (R14, below) | all 15 `replicates_full` suites (422 tests marked `calibration_full` today), at full R |
+| `calibration_full` | **new** aggregator job `gippa-calibration-rows`, submitted by **new** `scripts/slurm/calibration_full_launch.sh` with `--dependency=afterany:<array>` of `calibration_full.sbatch` | on demand (release step 7) and whenever the lead launches the full tier; not in the nightly scrontab (R14, below) | all 15 `replicates_full` suites (422 tests marked `calibration_full` today), at full R |
 | `calibration_attacks` | the same aggregator job, same run | as above | the attack tests among them: testcases under `tests/calibration/attacks/` (230 tests in 14 suites today; `denovo_precision` has none) |
 
 **Attack tier (decision, Q1):** `calibration_attacks` is the **full tier's** attack tests (the §8.4
@@ -66,18 +66,18 @@ both tiers therefore gates the release; R4's own row shows the full-R attack out
 **Why not inside the nightly array (R14):** the nightly holds 4 × 16 + 1 CPUs and 5 jobs
 (+ the 1-CPU launcher). The full array is 15 × 4 CPUs. Together: 125–126 CPUs and 21–22 jobs, over
 the 20-job cap, and with no room for anything else. The nightly launcher does not check the budget
-today, so it can already overrun when other `giap-*` jobs run. This issue does not add load to it.
+today, so it can already overrun when other `gippa-*` jobs run. This issue does not add load to it.
 
 ### `calibration_full.sbatch` (changed)
 
 Per array task, in addition to what it does today:
 
 1. **JUnit per pytest run.** Before each `harness` call it sets
-   `PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }--junitxml=$GIAP_CALIBRATION_LOG_DIR/task-<i>.<part>.junit.xml"`
+   `PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }--junitxml=$GIPPA_CALIBRATION_LOG_DIR/task-<i>.<part>.junit.xml"`
    with `<part>` = `run` (unsharded), `shard<k>` (task-13 shard k), `merge` (the `--merge` call;
    its block-2 pytest subprocess inherits the environment). Each concurrent shard gets its own file.
 2. **Task record.** An EXIT trap (and a TERM trap: exit 143, record written once) writes
-   `$GIAP_CALIBRATION_LOG_DIR/task-<i>.json`:
+   `$GIPPA_CALIBRATION_LOG_DIR/task-<i>.json`:
 
    ```json
    {"task": 3, "suite": "regions", "job": "1900000", "commit": "<40-hex HEAD of the checkout>",
@@ -89,7 +89,7 @@ Per array task, in addition to what it does today:
    `dirty` is true when `git status --porcelain -- src tests/calibration tests/sim tests/helpers ci`
    is non-empty; `args` are the harness arguments (`"$@"`); `exit` is the task's own exit code as
    today. The record is written with one `write` to a temporary name and renamed (no partial JSON).
-3. Nothing else changes: exit codes, task-13 sharding, `GIAP_WORKTREE`, `--array=0-14`,
+3. Nothing else changes: exit codes, task-13 sharding, `GIPPA_WORKTREE`, `--array=0-14`,
    `--cpus-per-task=4`, `--time=04:00:00`. A hand run (`sbatch calibration_full.sbatch`) writes
    records but **no** `nightly.tsv` row; the aggregator can be run on its log directory by hand.
 
@@ -98,30 +98,30 @@ Per array task, in addition to what it does today:
 1. Resolve `REF` (default `origin/main`) after `git fetch -q origin` to a 40-hex SHA; refuse any
    further argument (harness options such as `--fast`, `--shard`, `--dry-run` would make the
    result something other than the full tier: exit 2, nothing submitted).
-2. Check out SHA into a detached worktree `$GIAP_ROOT/ci/calibration-<sha12>` (flock on
-   `$GIAP_ROOT/ci/.git.lock`, as the nightly does); fresh log directory
-   `GIAP_CALIBRATION_LOG_DIR=$GIAP_ROOT/logs/calibration/full-<sha12>-<YYYYmmdd-HHMMSS>` (refuse if
+2. Check out SHA into a detached worktree `$GIPPA_ROOT/ci/calibration-<sha12>` (flock on
+   `$GIPPA_ROOT/ci/.git.lock`, as the nightly does); fresh log directory
+   `GIPPA_CALIBRATION_LOG_DIR=$GIPPA_ROOT/logs/calibration/full-<sha12>-<YYYYmmdd-HHMMSS>` (refuse if
    it exists).
 3. **R14** (amended in the #349 review round; see "Lead decisions, #349 review"). Sum running +
-   pending `giap-*` jobs and CPUs of `$USER` with `squeue -h -r -u "$USER" -t RUNNING,PENDING -o
+   pending `gippa-*` jobs and CPUs of `$USER` with `squeue -h -r -u "$USER" -t RUNNING,PENDING -o
    '%C %j'` (`-r`: one line per array task); fail closed (exit 2) when squeue fails or prints a
    non-integer CPU count. Slurm queues all 15 array tasks and the aggregator at once, so a launch
    adds **16 jobs** whatever the throttle: refuse when `used_jobs + 16 > 20`. Throttle
    `T = min(15, ⌊(128 − used_cpus − 1) / 4⌋)` (the `− 1` is the aggregator's CPU); refuse when
    `T < 4`. **Nightly window:** the worst-case end is `now + ⌈15 / T⌉ × 4 h + 20 min` (array time
    limit per wave, plus the aggregator). Refuse when that end is at or after the next nightly start
-   (`GIAP_NIGHTLY_AT`, default `01:30` local, the scrontab time) — the nightly launcher does not
+   (`GIPPA_NIGHTLY_AT`, default `01:30` local, the scrontab time) — the nightly launcher does not
    check the budget and would push the user past 20 jobs. No CPUs or jobs are reserved otherwise.
-   The clock is `GIAP_NOW` (epoch seconds) when set, else `date +%s` (tests set it). Every refusal
+   The clock is `GIPPA_NOW` (epoch seconds) when set, else `date +%s` (tests set it). Every refusal
    is exit 2 with nothing submitted and a message naming the numbers (jobs, CPUs, T, end, nightly
    start). With nothing else queued at 10:00, T = 15 and the run ends by 14:20.
-4. `sbatch --parsable --array=0-14%T --export=ALL,GIAP_WORKTREE=<wt>,GIAP_CALIBRATION_LOG_DIR=<dir>
+4. `sbatch --parsable --array=0-14%T --export=ALL,GIPPA_WORKTREE=<wt>,GIPPA_CALIBRATION_LOG_DIR=<dir>
    scripts/slurm/calibration_full.sbatch` (log dir via the environment, as `calibration_sharded.sh`
    does, so a comma is safe).
-5. `sbatch --parsable --job-name=giap-calibration-rows --cpus-per-task=1 --mem=2G --time=00:20:00
+5. `sbatch --parsable --job-name=gippa-calibration-rows --cpus-per-task=1 --mem=2G --time=00:20:00
    --dependency=afterany:<array> … python scripts/ci/calibration_rows.py --log-dir <dir> --job
-   <array> --commit <sha> --expect 15 --tsv $GIAP_ROOT/logs/nightly.tsv`. If this submission fails,
-   `scancel` the array just submitted (GIAP job by ID only) and exit 1: an array without its
+   <array> --commit <sha> --expect 15 --tsv $GIPPA_ROOT/logs/nightly.tsv`. If this submission fails,
+   `scancel` the array just submitted (GIPPA job by ID only) and exit 1: an array without its
    aggregator produces no evidence.
 6. Print `array=<id> rows=<id> log=<dir> throttle=<T>`.
 
@@ -189,7 +189,7 @@ Fixture: log dir with records `task-0.json … task-14.json`, JUnit files, commi
 | 7 | one record `args: ["--fast"]` (someone bypassed the launcher) | both rows exit 1, `(<suite> args --fast)`; never a full-tier pass from fast R |
 | 8 | record commit ≠ `--commit` | both rows exit 1, `(<suite> commit mismatch)` |
 | 9 | aggregator run twice on the same log dir | second run writes nothing, exit 0 (`rows.done`) |
-| 10 | launcher with 70 CPUs / 6 jobs of other `giap-*` work queued | T = min(15, ⌊(128−65−70−1)/4⌋ < 0, …) → refuse, exit 2, no `sbatch` call |
+| 10 | launcher with 70 CPUs / 6 jobs of other `gippa-*` work queued | T = min(15, ⌊(128−65−70−1)/4⌋ < 0, …) → refuse, exit 2, no `sbatch` call |
 
 ## Edge cases
 
@@ -229,7 +229,7 @@ Fixture: log dir with records `task-0.json … task-14.json`, JUnit files, commi
    `failed suites` is 0 and every `(\d+) (failed|errors?)` count is 0 (property-style test over
    random fixture outcomes).
 4. Static checks of `calibration_full.sbatch`: `--array=0-14` and `--cpus-per-task=4` unchanged; it
-   sets `PYTEST_ADDOPTS` with `--junitxml=` under `$GIAP_CALIBRATION_LOG_DIR`, distinct per shard;
+   sets `PYTEST_ADDOPTS` with `--junitxml=` under `$GIPPA_CALIBRATION_LOG_DIR`, distinct per shard;
    EXIT and TERM traps write `task-<i>.json`. Existing `tests/unit/test_calibration_full_*.py` still
    pass unchanged.
 5. With the stub `uv` of `test_calibration_full_array.py` (writing a fake JUnit), a task exit 1 and a
@@ -237,7 +237,7 @@ Fixture: log dir with records `task-0.json … task-14.json`, JUnit files, commi
 6. Static and sandbox checks of `calibration_full_launch.sh` (`tests/helpers/slurm_sandbox.py` fake
    `sbatch`/`squeue`/`scancel`): `squeue` runs before the first `sbatch`; example 10 refuses with no
    `sbatch` call; a squeue failure refuses; with an empty queue the array is `--array=0-14%15` (at 10:00; #349 review B3), the
-   aggregator has `--cpus-per-task=1`, `--dependency=afterany:<array>`, job names start `giap-`;
+   aggregator has `--cpus-per-task=1`, `--dependency=afterany:<array>`, job names start `gippa-`;
    extra arguments are refused; a failed aggregator submission `scancel`s exactly the array ID.
 7. Example 9 (idempotent) and the `flock`ed single append are tested on a `tmp_path` TSV.
 8. `nightly.sbatch`, `weekly.sbatch`, `post_summary.py` and `readiness.py` are byte-unchanged
@@ -282,7 +282,7 @@ lines.
   (it has exit 0 and would otherwise read as a pass).
 - *Superseded for R3/R4 by M11-14 item 4 (14g): reuse needs `reusable(C, R)`, not code-equal.*
 - **Q6. `CALIB_PATHS` misses inputs of the calibration suites.** 64 files in `tests/calibration`
-  import `giapsim` (`tests/sim/`) and many use `tests/helpers/`; a change there alters the nulls but
+  import `gippasim` (`tests/sim/`) and many use `tests/helpers/`; a change there alters the nulls but
   not `CALIB_PATHS = ("src", "tests/calibration", "ci")`, so an older row stays code-equal. Default:
   readiness unchanged (outside this issue; the release freeze in runbook step 6 covers `src/`,
   `workflow/`, `tests/calibration/` only). Fix if wanted: add `tests/sim` and `tests/helpers` to

@@ -1,7 +1,7 @@
 # M3-16: Module 2 outputs and their table schemas
 
 Milestone M3 · depends on: M3-10, M3-11, M3-14, M3-15; M1-04 (TSV, BED, proBed), M1-05 (GFF3) ·
-creates `src/giap/mapping/outputs.py`, `src/giap/schemas/tables/{peptide_hits,protein_hits,
+creates `src/gippa/mapping/outputs.py`, `src/gippa/schemas/tables/{peptide_hits,protein_hits,
 unmapped,mapping_fdr}.schema.json` · pure Python · estimate ≈ 360 code lines (schemas excluded)
 
 ## Spec sections implemented
@@ -53,7 +53,7 @@ def write_mapping_outputs(outdir: Path, peptide_hits: pd.DataFrame, protein_hits
   `peptideSequence` = peptide, `uniqueness` = `unique` | `not-unique[same-set]`
   (multi_identical) | `not-unique[conflict]` (shared), `psmScore` = `score_input`, `fdr` =
   `placement_q`, `genomeReferenceVersion` = `sha256:<genome hash>` (Q2).
-- **GFF3 (`mappings.gff3`):** source `GIAP`, type `nucleotide_to_protein_match` (SO:0000568) for
+- **GFF3 (`mappings.gff3`):** source `GIPPA`, type `nucleotide_to_protein_match` (SO:0000568) for
   peptides and proteins; attributes `ID`, `Name`, `route`, `n_diff`, `diff_types`, `placement_q`,
   `locus_class`, `uniqueness`, `gene`, `flags` (peptides) or `identity`, `query_coverage`,
   `class`, `rank` (proteins); frameshift peptides as two `match_part` children.

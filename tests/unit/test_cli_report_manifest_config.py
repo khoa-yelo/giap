@@ -1,6 +1,6 @@
-"""``giap report OUT`` on a local run (no ``resolved_config.yaml`` in ``OUT`` or ``OUT/work``)
+"""``gippa report OUT`` on a local run (no ``resolved_config.yaml`` in ``OUT`` or ``OUT/work``)
 takes the run's config, modules included, from ``run_manifest.json`` ``config``, so the page
-it writes equals the ``giap run`` tail's (M9-16b example 3; the nightly regression after
+it writes equals the ``gippa run`` tail's (M9-16b example 3; the nightly regression after
 ``rerender_report`` started honouring ``cfg.modules``). New guard test authorised by the lead.
 """
 
@@ -14,20 +14,20 @@ import pytest
 from click.testing import CliRunner
 from helpers.report_fixtures import run_out, swap_registry
 
-from giap.config import resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import resolve_config
+from gippa.exitcodes import ExitCode
 
 
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 def _cfg_seen(out: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    from giap.cli import cli
-    from giap.steps import plots as P
+    from gippa.cli import cli
+    from gippa.steps import plots as P
 
     swap_registry(monkeypatch)
     seen: list[Any] = []

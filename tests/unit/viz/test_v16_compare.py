@@ -1,25 +1,25 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (ρ and − are the spec's own characters)
 """V16 ``compare``: UpSet of detected genes across runs and the pairwise abundance concordance
-matrix (M9-23; GIAP_SPEC.md §10.2 V16, §7.9.3; M9-index decision 29; lead decisions 1-2 of
+matrix (M9-23; GIPPA_SPEC.md §10.2 V16, §7.9.3; M9-index decision 29; lead decisions 1-2 of
 2026-10-23).
 
 Covers examples 1-3, every degenerate row (two runs, ρ NA, no detections, 12 runs), the data TSV,
-the title (through ``giap.viz.base.plural``, decision 1), the registry entry, the binning of large
+the title (through ``gippa.viz.base.plural``, decision 1), the registry entry, the binning of large
 scatters, determinism, the double width and the "no ``upsetplot`` import" AST rule. No ``--mpl``
 baselines: M9-25 snapshots V16 on a three-run fixture (acceptance criterion 3), as M9-18 (#227)
 left V12's baselines to M9-25.
 
 Interface assumed where the spec leaves it open (M9-23 test author):
 
-- ``giap.viz.compare.compare_plot(detection, abundance, genes) -> Instance`` (pure):
+- ``gippa.viz.compare.compare_plot(detection, abundance, genes) -> Instance`` (pure):
   ``detection`` is ``compare_detection`` (both sections), ``abundance`` is ``compare_abundance``,
   ``genes`` maps each run label, in label order, to its ``genes.tsv`` frame (``RunView`` dtypes)
   for the upper-triangle scatters (the three compare tables hold no per-gene log2). One
   ``Instance`` with ``suffix=None``, ``coords=()``; the figure is double width (7.2 in) and draws
   ``Instance.title``.
-- Importing ``giap.viz.compare`` registers ``V16`` under the name ``compare`` (file stem
+- Importing ``gippa.viz.compare`` registers ``V16`` under the name ``compare`` (file stem
   ``V16_compare``); the registered ``(view, cfg)`` function returns a ``Skip`` on an ordinary run
-  (V16 is written only by ``giap compare``).
+  (V16 is written only by ``gippa compare``).
 - Axes labels (``Axes.get_label()``): ``"a"`` the intersection bars (one ``Rectangle`` per drawn
   intersection, height = ``n_genes``), ``"a_sets"`` the set-size bars (one horizontal
   ``Rectangle`` per run, width = detected genes in that run), ``"b"`` the concordance matrix.
@@ -60,11 +60,11 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 SRC = Path(__file__).resolve().parents[3] / "src"
 COLUMNS = {
@@ -89,7 +89,7 @@ def _plot(
     detection: pd.DataFrame | None = None,
     abundance: pd.DataFrame | None = None,
 ) -> Instance:
-    from giap.viz.compare import compare_plot
+    from gippa.viz.compare import compare_plot
 
     d, a = vc.inputs(genes)
     inst = compare_plot(detection if detection is not None else d,
@@ -193,7 +193,7 @@ def test_plural_property(n: int, word: str) -> None:
 
 
 def test_v16_is_registered_as_compare() -> None:
-    import giap.viz.compare  # noqa: F401  (registers V16)
+    import gippa.viz.compare  # noqa: F401  (registers V16)
 
     spec = base.registered()["V16"]
     assert spec.pid == "V16"
@@ -202,8 +202,8 @@ def test_v16_is_registered_as_compare() -> None:
 
 
 def test_v16_is_not_drawn_for_a_single_run(tmp_path: Path) -> None:
-    """V16 is written only by ``giap compare`` (§10.2): on an ordinary run it is a skip."""
-    import giap.viz.compare  # noqa: F401
+    """V16 is written only by ``gippa compare`` (§10.2): on an ordinary run it is a skip."""
+    import gippa.viz.compare  # noqa: F401
 
     view = RunView.from_outdir(make_out(tmp_path))
     result = base.registered()["V16"].fn(view, resolve_config())
@@ -482,4 +482,4 @@ def test_no_upsetplot_import_in_src() -> None:
                     names = [str(a.value) for a in node.args if isinstance(a, ast.Constant)]
             bad += [f"{path}:{n}" for n in names if n.split(".")[0] == "upsetplot"]
     assert bad == []
-    assert (SRC / "giap" / "viz" / "compare.py").is_file()
+    assert (SRC / "gippa" / "viz" / "compare.py").is_file()

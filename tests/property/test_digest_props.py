@@ -1,4 +1,4 @@
-"""Hypothesis properties of the in-silico digest (issue M3-22; GIAP_SPEC.md §11.2, §11.6).
+"""Hypothesis properties of the in-silico digest (issue M3-22; GIPPA_SPEC.md §11.2, §11.6).
 
 - Acceptance: "concatenating missed = 0 products with the short fragments reconstructs the
   protein" (with unbounded lengths the missed = 0 products tile the protein; with the default
@@ -13,7 +13,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.digest import digest
+from gippa.mapping.digest import digest
 
 # K, R and P over-represented so cut sites, KP/RP pairs and runs of sites are common
 _ALPHABET = "ACDEFGHILMNQSTVWY" + "KKKRRRPPP"

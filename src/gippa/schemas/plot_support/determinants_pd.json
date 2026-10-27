@@ -1,0 +1,12 @@
+{
+  "name": "determinants_pd",
+  "description": "LightGBM partial dependence of CAI, tAI, OSTIR TIR and promoter score, for V15(b) (GIPPA_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Grid: the 5 %, 10 %, ..., 95 % quantiles plus min and max of the feature over the model rows, on the feature's own scale. Written by the determinants step. Not a result table.",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "feature", "type": "string", "description": "PD feature (determinants_features.tsv column)", "constraints": {"required": true, "enum": ["cai", "tai", "tir_ostir", "promotech_max"]}},
+    {"name": "grid_value", "type": "number", "description": "Grid value on the feature's own scale (tir_ostir is logged before predicting)", "constraints": {"required": true}},
+    {"name": "pd_mean", "type": "number", "description": "Mean over boosters of each booster's mean prediction over the model rows with the feature set to grid_value", "constraints": {"required": true}},
+    {"name": "pd_low", "type": "number", "description": "Minimum over boosters of the per-booster partial dependence: a spread over the boosters, not a confidence interval", "constraints": {"required": true}},
+    {"name": "pd_high", "type": "number", "description": "Maximum over boosters of the per-booster partial dependence: a spread over the boosters, not a confidence interval", "constraints": {"required": true}}
+  ]
+}

@@ -231,7 +231,7 @@ def test_uniop_rejected_before_any_build() -> None:
 def test_uniop_never_built_or_pushed() -> None:
     text = _text()
     assert "workflow/containers/uniop" not in text
-    assert not re.search(r"giap-uniop", text)
+    assert not re.search(r"gippa-uniop", text)
 
 
 def test_dispatch_input_is_validated_against_the_five() -> None:

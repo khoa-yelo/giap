@@ -4,9 +4,9 @@ lead decision 9).
 
 - ``enrichment_gsea.schema.json``: the flags pattern gains ``log2err_unestimated``; the ``method``
   description drops "reserved for M8-11"; the enum stays ``fgsea_simple``, ``fgsea_multilevel``.
-- ``workflow/conf/prebuilt_envs.config`` sets ``env { GIAP_FGSEA_PREFIX = "${GIAP_ROOT ?:
-  projectDir/../local}/micromamba/envs/giap-fgsea" }``. Lead decision 9 (conda-only): no
-  ``GIAP_FGSEA_IMAGE`` anywhere under ``workflow/``.
+- ``workflow/conf/prebuilt_envs.config`` sets ``env { GIPPA_FGSEA_PREFIX = "${GIPPA_ROOT ?:
+  projectDir/../local}/micromamba/envs/gippa-fgsea" }``. Lead decision 9 (conda-only): no
+  ``GIPPA_FGSEA_IMAGE`` anywhere under ``workflow/``.
 - ``workflow/conf/base.config``: ``withName: 'FUNCTION_STEP'`` 1 CPU, 6 GB, 4 h; no ``maxForks``.
 - ``pyproject.toml`` registers ``requires_r``.
 - ``scripts/ci/check_no_rscript.py`` (from #192) documents the one R entry point.
@@ -26,7 +26,7 @@ from helpers.fgsea_switch_data import RecordingEngine, validate_gsea
 from helpers.gsea_data import gene_sets, singleton_frame, spread
 
 REPO = Path(__file__).resolve().parents[2]
-SCHEMA = REPO / "src" / "giap" / "schemas" / "tables" / "enrichment_gsea.schema.json"
+SCHEMA = REPO / "src" / "gippa" / "schemas" / "tables" / "enrichment_gsea.schema.json"
 CONF = REPO / "workflow" / "conf"
 FLAGS = (
     "ci_unestimated",
@@ -79,10 +79,10 @@ def test_method_description_and_enum() -> None:
 
 def test_example_4_table_validates(tmp_path: Path) -> None:
     """A7: a written table with a ``log2err_unestimated`` row validates."""
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import gsea_table
-    from giap.io.function_tables import write_enrichment_gsea_tsv
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import gsea_table
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.rng import for_step
 
     genes = singleton_frame(spread(60, np.random.default_rng(1)))
     tags = [f"g{i}" for i in range(1, 61)]
@@ -119,14 +119,14 @@ def _block(text: str, opener: str) -> str:
     return text[m.end() : i - 1]
 
 
-def test_prebuilt_envs_sets_giap_fgsea_prefix() -> None:
+def test_prebuilt_envs_sets_gippa_fgsea_prefix() -> None:
     text = _strip_comments((CONF / "prebuilt_envs.config").read_text(encoding="utf-8"))
     env = _block(text, r"(?m)^\s*env")
-    m = re.search(r"GIAP_FGSEA_PREFIX\s*=\s*(\"[^\"]*\"|'[^']*')", env)
+    m = re.search(r"GIPPA_FGSEA_PREFIX\s*=\s*(\"[^\"]*\"|'[^']*')", env)
     assert m is not None, env
     value = m.group(1)
-    assert value.rstrip("\"'").endswith("/micromamba/envs/giap-fgsea"), value
-    assert "GIAP_ROOT" in value and "projectDir" in value and "/../local" in value, value
+    assert value.rstrip("\"'").endswith("/micromamba/envs/gippa-fgsea"), value
+    assert "GIPPA_ROOT" in value and "projectDir" in value and "/../local" in value, value
 
 
 def test_no_image_launcher_anywhere_in_workflow() -> None:
@@ -134,7 +134,7 @@ def test_no_image_launcher_anywhere_in_workflow() -> None:
     hits = [
         str(p.relative_to(REPO))
         for p in (REPO / "workflow").rglob("*")
-        if p.is_file() and p.suffix in {".config", ".nf"} and "GIAP_FGSEA_IMAGE" in p.read_text()
+        if p.is_file() and p.suffix in {".config", ".nf"} and "GIPPA_FGSEA_IMAGE" in p.read_text()
     ]
     assert hits == []
 
@@ -169,7 +169,7 @@ def test_check_no_rscript_docstring_names_the_one_entry_point() -> None:
     path = REPO / "scripts" / "ci" / "check_no_rscript.py"
     assert path.is_file(), "scripts/ci/check_no_rscript.py arrives with #192; merge it first"
     text = path.read_text(encoding="utf-8")
-    assert "GIAP never shells out to R" not in text
-    assert "src/ starts R only through workflow/bin/giap_fgsea.R (ADR-0038)" in " ".join(
+    assert "GIPPA never shells out to R" not in text
+    assert "src/ starts R only through workflow/bin/gippa_fgsea.R (ADR-0038)" in " ".join(
         text.split()
     )

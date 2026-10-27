@@ -1,9 +1,9 @@
 """Inputs and oracles for the M5-10 ``islands`` sensitivity family
-(docs/specs/M5-10-sensitivity-islands.md, lead decision 38; GIAP_SPEC.md §8.6, §2.4 G9,
+(docs/specs/M5-10-sensitivity-islands.md, lead decision 38; GIPPA_SPEC.md §8.6, §2.4 G9,
 §7.3.5(d)).
 
 Interface assumed (spec "Public interface", decision 38 = M4-19 decision 5):
-``giap.context.sensitivity.islands_family(genes, cfg, rng, *, tus, replicons) -> frozenset[str]``
+``gippa.context.sensitivity.islands_family(genes, cfg, rng, *, tus, replicons) -> frozenset[str]``
 registered as ``FAMILIES["islands"]``; the step binds C5 ``tus`` and C1 ``replicons`` by keyword
 (``functools.partial``). The flagged set is ``{"<direction>:<locus_tag>"}`` over every gene of
 every island row of M5-06 ``islands_frame`` (best-window gene lists, decision Q3 of M5-06), so a
@@ -16,7 +16,7 @@ gene in a high and a low island contributes both IDs.
   replicon, ``scan_replicons`` then ``islands_frame`` on one generator), turned into IDs.
 * ``fake_islands`` / ``patch_islands_frame``: replace ``islands_frame`` by a stub returning chosen
   island rows, to pin the ID rule without depending on what a scan finds.
-* ``sim_work_dir``: a giapsim work directory (M5-04 scenario ``island_power``: 1,000-gene
+* ``sim_work_dir``: a gippasim work directory (M5-04 scenario ``island_power``: 1,000-gene
   chromosome, AR(1) rho = 0.5, one 15-TU island at +4 SD with abundance-dependent detection),
   peptide intensities blanked on ``blank_intensity_genes`` genes (imputed under the primary
   ``median``, NA under ``exclude``), then the M4-15 gene table. With ``work_config`` (LOESS span
@@ -95,8 +95,8 @@ def unit_config(**over: Any) -> Any:
 
 
 def call_islands_family(t: IslandTables, cfg: Any, rng: np.random.Generator) -> frozenset[str]:
-    """``giap.context.sensitivity.islands_family`` on ``t`` (spec signature, keyword tables)."""
-    from giap.context import sensitivity as S
+    """``gippa.context.sensitivity.islands_family`` on ``t`` (spec signature, keyword tables)."""
+    from gippa.context import sensitivity as S
 
     return S.islands_family(t.genes, cfg, rng, tus=t.tus, replicons=t.replicons)  # type: ignore[no-any-return]
 
@@ -152,10 +152,10 @@ def fake_islands(rows: Iterable[tuple[str, Sequence[str]]], contig: str = "chr1"
 
 def patch_islands_frame(monkeypatch: Any, frames: Sequence[pd.DataFrame]) -> list[dict[str, Any]]:
     """Replace M5-06 ``islands_frame`` (module attribute and any name imported into
-    ``giap.context.sensitivity``) by a stub returning ``frames`` in call order (the last one
+    ``gippa.context.sensitivity``) by a stub returning ``frames`` in call order (the last one
     again once they run out); returns the call log."""
-    from giap.context import islands as I
-    from giap.context import sensitivity as S
+    from gippa.context import islands as I
+    from gippa.context import sensitivity as S
 
     calls: list[dict[str, Any]] = []
 
@@ -171,8 +171,8 @@ def patch_islands_frame(monkeypatch: Any, frames: Sequence[pd.DataFrame]) -> lis
 def record_scans(monkeypatch: Any) -> list[Any]:
     """Wrap M5-06 ``scan_replicons`` (module and any imported name) to record the config of
     every call; the real scan still runs."""
-    from giap.context import islands as I
-    from giap.context import sensitivity as S
+    from gippa.context import islands as I
+    from gippa.context import sensitivity as S
 
     real = I.scan_replicons
     cfgs: list[Any] = []
@@ -193,9 +193,9 @@ SIM_GENES = 1000
 
 
 def work_config(**over: Any) -> Any:
-    """``GiapConfig`` for the work directory: a small ``stats.bootstrap`` (50, so the B = 199
+    """``GippaConfig`` for the work directory: a small ``stats.bootstrap`` (50, so the B = 199
     override is visible), LOESS span 0.30 and block length 1, and nested overrides."""
-    from giap.config.model import GiapConfig
+    from gippa.config.model import GippaConfig
 
     raw: dict[str, Any] = {
         "seed": SIM_SEED,
@@ -204,7 +204,7 @@ def work_config(**over: Any) -> Any:
     }
     for k, v in over.items():
         raw[k] = {**raw[k], **v} if isinstance(v, Mapping) and isinstance(raw.get(k), dict) else v
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
 def sim_work_dir(
@@ -214,14 +214,14 @@ def sim_work_dir(
     evidence: Mapping[str, Any] | None = None,
     seed: int = SIM_SEED,
 ) -> Path:
-    """giapsim work directory (M5-04 ``island_power`` scenario) with the M4-15 gene table."""
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
-    from giapsim import scenarios as sc
-    from giapsim.contract_tables import write_contract_tables
+    """gippasim work directory (M5-04 ``island_power`` scenario) with the M4-15 gene table."""
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
+    from gippasim import scenarios as sc
+    from gippasim.contract_tables import write_contract_tables
 
     work.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -250,13 +250,13 @@ def sim_work_dir(
 
 
 def sim_genes(work: Path) -> pd.DataFrame:
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     return read_genes_parquet(work / "genetable" / "genes.parquet")
 
 
 def sim_m4(work: Path) -> Any:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     m4, _ = load_m4_inputs({k: p for k, p in default_paths(work).items() if p.exists()})
     return m4
@@ -264,7 +264,7 @@ def sim_m4(work: Path) -> Any:
 
 def sensitivity_config(cfg: Any) -> Any:
     """``cfg`` with the two §8.6 rerun knobs at 199 (what the islands family runs under)."""
-    from giap.steps.sensitivity import with_overrides
+    from gippa.steps.sensitivity import with_overrides
 
     return with_overrides(cfg, {"stats.permutations": SENS_B, "stats.bootstrap": SENS_B})
 
@@ -272,9 +272,9 @@ def sensitivity_config(cfg: Any) -> Any:
 def oracle_sets(work: Path, cfg: Any) -> tuple[frozenset[str], dict[str, frozenset[str]]]:
     """(primary set, variant -> set) of the islands family on ``work`` for the ``basic``
     ``missing=*`` variants, each call on a fresh ``for_step(STREAM, seed)`` generator."""
-    from giap.context import sensitivity as S
-    from giap.rng import for_step
-    from giap.steps.sensitivity import with_overrides
+    from gippa.context import sensitivity as S
+    from gippa.rng import for_step
+    from gippa.steps.sensitivity import with_overrides
 
     genes = sim_genes(work)
     m4 = sim_m4(work)

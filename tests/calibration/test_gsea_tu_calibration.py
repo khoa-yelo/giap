@@ -1,7 +1,7 @@
-"""Level of the TU-collapsed GSEA (issue M8-05; GIAP_SPEC.md §7.7.4, §7.7.5, §8.2, §8.4, §8.5
+"""Level of the TU-collapsed GSEA (issue M8-05; GIPPA_SPEC.md §7.7.4, §7.7.5, §8.2, §8.4, §8.5
 attack 3; M8-02 lead decision 7).
 
-Claims checked through ``giap.function.gsea.gsea_table`` (fgsea simple stage, pass 1), with the
+Claims checked through ``gippa.function.gsea.gsea_table`` (fgsea simple stage, pass 1), with the
 §8.4 level criterion at every ``levels`` alpha, R = ``replicates_fast.gsea`` (full arms:
 ``replicates_full.gsea``):
 
@@ -16,7 +16,7 @@ Claims checked through ``giap.function.gsea.gsea_table`` (fgsea simple stage, pa
    order (M8-02 lead decision 7). Teeth: the same data ranked in TU-ID order is a confirmed fail
    (the statistician measured 0.165).
 
-The fgsea stream of each replicate is ``giap.rng.for_step("function.gsea", seed)`` with ``seed``
+The fgsea stream of each replicate is ``gippa.rng.for_step("function.gsea", seed)`` with ``seed``
 drawn from the replicate generator.
 """
 
@@ -32,9 +32,9 @@ import pytest
 from _gate import calibrate_levels
 from helpers.gsea_data import Gene, frame, gene_sets
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
-from giap.stats.fgsea import fgsea_simple, prepare
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
+from gippa.stats.fgsea import fgsea_simple, prepare
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("gsea")]
 
@@ -45,7 +45,7 @@ ALPHA = 0.05
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 
@@ -130,7 +130,7 @@ def _packed_tu_rep(rng: np.random.Generator) -> float:
 
 
 def _packed_gene_level_rep(rng: np.random.Generator) -> float:
-    """The arm GIAP rejects: genes ranked individually and permuted as if independent."""
+    """The arm GIPPA rejects: genes ranked individually and permuted as if independent."""
     genes, members = _packed(rng)
     x = genes["abundance_log2"].to_numpy(float)
     prep = prepare(x - np.median(x), list(genes["locus_tag"]), {"S": members}, 10, 500)

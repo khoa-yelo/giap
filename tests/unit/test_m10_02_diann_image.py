@@ -11,8 +11,8 @@ is a fake that logs its calls. No container runs, the real image is never read o
 Conventions settled by the test author:
 
 * ``DIANN_SIF`` is left unset in these tests, so the copy goes to its default
-  ``$GIAP_ROOT/images/diann_2.3.1.sif``.
-* The install record ``$GIAP_ROOT/images/diann_2.3.1.sif.json`` has a ``source`` object (``path``,
+  ``$GIPPA_ROOT/images/diann_2.3.1.sif``.
+* The install record ``$GIPPA_ROOT/images/diann_2.3.1.sif.json`` has a ``source`` object (``path``,
   ``size``, ``mode``, ``owner``, ``group``, ``mtime``, ``sha256``) and a ``copy`` object (``path``,
   ``size``, ``mode``, ``sha256``); modes are octal strings as ``stat -c %a`` prints them
   (``"777"``, ``"444"``; a leading ``0`` is accepted).
@@ -297,14 +297,14 @@ def _code() -> str:
 
 
 def test_house_rules_of_the_jobs_table() -> None:
-    assert _directive("job-name") == "giap-diann-image"
+    assert _directive("job-name") == "gippa-diann-image"
     assert _directive("partition") == "normal"
     assert _directive("qos") == "normal", "dev allows one job; M10-01/M10-08 may hold it"
     assert _directive("cpus-per-task") == "1"
     assert (_directive("mem") or "").upper().rstrip("B") in {"2G", "2048M"}
     assert _directive("time") in {"00:30:00", "30:00", "30"}
     out = _directive("output") or ""
-    assert "/local/logs/" in out or "$GIAP_ROOT" in out, out
+    assert "/local/logs/" in out or "$GIPPA_ROOT" in out, out
     code = _code()
     assert "scripts/farmshare_env.sh" in code
     assert re.search(r"^set -euo pipefail$", code, re.M)
@@ -320,8 +320,8 @@ def test_the_script_reads_the_pin_file_and_defaults() -> None:
     assert m and m.group(1).strip("\"'") == DIANN_SIF_SHARED, "the source default is Khoa's image"
     m = re.search(r"DIANN_SIF:-([^}]+)\}", code)
     assert m and m.group(1).strip("\"'") in {
-        "$GIAP_ROOT/images/diann_2.3.1.sif",
-        "${GIAP_ROOT}/images/diann_2.3.1.sif",
+        "$GIPPA_ROOT/images/diann_2.3.1.sif",
+        "${GIPPA_ROOT}/images/diann_2.3.1.sif",
     }, m and m.group(1)
     assert re.search(r"\bmv\s+-n\b", code), "the rename must not overwrite (mv -n, rule 6)"
     assert re.search(r"chmod\s+0?444\b", code), "chmod 0444 (rule 6)"

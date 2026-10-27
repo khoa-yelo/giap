@@ -58,7 +58,7 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
 | a gene crossing the origin | two rectangles; one data TSV row with `end > length` |
 | no `peptide_hits` (protein-only) | track 6 omitted, noted |
 | `variants.tsv` absent (variants step not on main yet) or `novel_orfs.tsv` absent | the marker kind omitted |
-| no support files (`giap report` on an old `OUT/`) | tracks 9 and oriC/ter omitted, noted |
+| no support files (`gippa report` on an old `OUT/`) | tracks 9 and oriC/ter omitted, noted |
 | no regions (`layer_missing:genomad`, `layer_missing:antismash`) | prophage/BGC arcs absent; CRISPR/plasmid arcs from Bakta still drawn; the figure notes the missing layers |
 | a 20-kb replicon among 5-Mb ones | sector drawn at its true angle (≈ 0.4 % of the circle) and labelled outside |
 | > 20,000 genes (a large genome) | gene tracks binned; `binned = true` rows |
@@ -126,9 +126,9 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
     positions are taken modulo the replicon length, never clamped.
 15. **Novel-ORF position** (amends 11; there is no `start` column): `start_best_ostir`, else
     `start_longest`, else the stop codon (`end`) as a 1-bp mark.
-16. **rcParams.** `giap.viz.style.RC` pins `savefig.bbox` (`None`, the standard) and
+16. **rcParams.** `gippa.viz.style.RC` pins `savefig.bbox` (`None`, the standard) and
     `savefig.pad_inches` (0.1) so importing pyCirclize changes no other figure; a test imports
-    `giap.viz.circos` and then saves a figure from another module at the stated size.
+    `gippa.viz.circos` and then saves a figure from another module at the stated size.
 17. **Layout.** Every text element (bottom note, oriC/ter labels, sector names) lies inside the
     7.2-in canvas and overlaps no other text, measured with FigureCanvasAgg after draw; labels are
     staggered radially where needed, and a small sector's long name is truncated with "…" when it
@@ -136,7 +136,7 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
 18. **Missing-layers note** names only the layers that have a ring on V1; layers without one
     (cog, go, promoters when not a ring) are not listed.
 19. **Tick tracks** switch to per-bin counts above 20,000 elements, with the same binning as the
-    gene tracks (`giap.viz.base.binned`, the duplicate `bin_edges` removed).
+    gene tracks (`gippa.viz.base.binned`, the duplicate `bin_edges` removed).
 20. NITs (a ring key, absent legend categories, colour scales, NA cell contrast, end-of-sector tick
     label) go to the backlog for the hardening pass.
 

@@ -72,7 +72,7 @@ SUITES = [r[0] for r in INITIAL]
 @pytest.fixture(scope="module")
 def mod() -> ModuleType:
     assert SCRIPT.is_file(), f"{SCRIPT} does not exist (M11-03c PR 1a)"
-    spec = importlib.util.spec_from_file_location("giap_calibration_lanes", SCRIPT)
+    spec = importlib.util.spec_from_file_location("gippa_calibration_lanes", SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module

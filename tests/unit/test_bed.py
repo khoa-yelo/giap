@@ -1,4 +1,4 @@
-"""BED writer (issue M1-04; GIAP_SPEC.md §6.5, decision 16; ADR-0005 item 1).
+"""BED writer (issue M1-04; GIPPA_SPEC.md §6.5, decision 16; ADR-0005 item 1).
 
 Internal intervals are 0-based half-open and BED is too, so coordinates are written unchanged.
 Origin-crossing features on circular replicons become two records ``_part1`` / ``_part2``.
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from giap.io.bed import BedRecord, bed_lines, write_bed
-from giap.model import Interval, Replicon
+from gippa.io.bed import BedRecord, bed_lines, write_bed
+from gippa.model import Interval, Replicon
 
 C = Replicon("c1", 1000, "circular")
 L = Replicon("c1", 1000, "linear")

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Write the committed test genomes tests/data/genomes/*.fna.gz (M2-10; GIAP_SPEC.md §11.4, R11).
+"""Write the committed test genomes tests/data/genomes/*.fna.gz (M2-10; GIPPA_SPEC.md §11.4, R11).
 
 K-12 MG1655 (GCA_000005845.2) and Nissle 1917 (GCA_043228065.1) come from NCBI Datasets
 (api.ncbi.nlm.nih.gov); headers are kept as NCBI gives them and ``[topology=circular]`` is appended
 to every replicon of these complete assemblies (lead decision 1). With ``--compare DIR`` the
 sequences must equal those of the NCBI FTP downloads of ``fetch_resources.sbatch``
-(``DIR/<name>/*_genomic.fna.gz``). ``sim100k.fna.gz`` is the giapsim SIM100K/SIM100K_SEED genome.
+(``DIR/<name>/*_genomic.fna.gz``). ``sim100k.fna.gz`` is the gippasim SIM100K/SIM100K_SEED genome.
 Files are gzipped reproducibly (no name, mtime 0); PROVENANCE.md lists their sha256 sums.
 """
 
@@ -87,7 +87,7 @@ def main() -> None:
         for h, s in recs:
             notes.append(f"  - `{h.split()[0]}` {len(s):,} bp, sequence sha256 `{seq_sha(s)}`")
 
-    from giapsim import SIM100K, SIM100K_SEED, simulate
+    from gippasim import SIM100K, SIM100K_SEED, simulate
 
     with tempfile.TemporaryDirectory() as tmp:
         sim = simulate(SIM100K, SIM100K_SEED, Path(tmp) / "sim").genome_fasta.read_bytes()
@@ -99,17 +99,17 @@ def main() -> None:
     )
     acc_lines = "\n".join(f"- `{n}.fna.gz`: {a}" for n, a in GENOMES.items())
     (args.out / "PROVENANCE.md").write_text(
-        "# Test genomes (M2-10; GIAP_SPEC.md §11.4)\n\n"
+        "# Test genomes (M2-10; GIPPA_SPEC.md §11.4)\n\n"
         f"- Command: `python scripts/fetch_test_genomes.py --out {args.out}"
         f"{' --compare ' + str(args.compare) if args.compare else ''}`\n"
         f"- Date: {now:%Y-%m-%dT%H:%M:%SZ}\n"
         f"- Host: {socket.gethostname()}\n"
         f"- Source: NCBI Datasets v2 (`{API.split('/datasets')[0]}`), assemblies:\n{acc_lines}\n"
         "- Cross-check: NCBI FTP downloads of `scripts/slurm/fetch_resources.sbatch`, fetched\n"
-        "  20261014 (2026-10-14) into `$GIAP_DATA_DIR/genomes/<name>/` (md5 verified).\n"
+        "  20261014 (2026-10-14) into `$GIPPA_DATA_DIR/genomes/<name>/` (md5 verified).\n"
         f"- Headers are NCBI's with ` {TAG}` appended to every replicon (chromosomes and plasmids\n"
         "  of these complete assemblies are circular; lead decision 1). Sequences are unchanged.\n"
-        "- `sim100k.fna.gz`: giapsim `simulate(SIM100K, SIM100K_SEED)` genome FASTA, verbatim.\n"
+        "- `sim100k.fna.gz`: gippasim `simulate(SIM100K, SIM100K_SEED)` genome FASTA, verbatim.\n"
         "- Gzipped without name or mtime (`gzip -n -9` equivalent).\n\n"
         "## Sequences (sha256 of the upper-case sequence, no header or newlines)\n\n"
         + "\n".join(notes)

@@ -1,4 +1,4 @@
-"""TSV reader/writer conventions (issue M1-04; GIAP_SPEC.md §6.6, §9.2, §9.3).
+"""TSV reader/writer conventions (issue M1-04; GIPPA_SPEC.md §6.6, §9.2, §9.3).
 
 Floats ``%.6g``, integers as integers, booleans ``true``/``false``, ``NA`` for missing, lists
 ``;``-joined; ``.gz`` output is byte-reproducible (``mtime=0``, no filename in the header).
@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.io.tsv import COLUMN_NAME, NA, format_value, read_tsv, write_tsv
+from gippa.io.tsv import COLUMN_NAME, NA, format_value, read_tsv, write_tsv
 
 # --- Examples 1-4, 9 ----------------------------------------------------------------------------
 

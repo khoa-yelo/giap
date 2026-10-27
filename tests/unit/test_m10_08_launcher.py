@@ -20,7 +20,7 @@ run: ``PeptideTokenizer.from_massivekb()`` -> ``pyteomics.proforma.UnimodResolve
 
 Stub ``cascadia``, ``pyteomics``, ``psims`` and ``lxml`` packages
 (``helpers.a3_kit.write_stub_packages``) record what the launcher did; nothing real is imported.
-The production call is ``python -I`` inside the ``giap-cascadia`` env, where ``-I`` ignores
+The production call is ``python -I`` inside the ``gippa-cascadia`` env, where ``-I`` ignores
 ``PYTHONPATH``: most tests use ``PYTHONPATH`` without ``-I`` and two tests run ``-I`` against a
 throw-away venv (no pip) holding the stubs.
 No statistical claim here, so no calibration test (spec §8.4).
@@ -158,9 +158,9 @@ def test_no_arguments_exits_2(tmp_path: Path, stubs: Path) -> None:
 
 
 def test_runs_isolated_inside_an_env_that_has_cascadia(tmp_path: Path, unimod: Path) -> None:
-    # The production call: `micromamba run -n giap-cascadia python -I cascadia_offline.py …`.
-    # No giap on the path, no PYTHONPATH: only the env's own site-packages.
-    env = make_stub_venv(tmp_path / "giap-cascadia")
+    # The production call: `micromamba run -n gippa-cascadia python -I cascadia_offline.py …`.
+    # No gippa on the path, no PYTHONPATH: only the env's own site-packages.
+    env = make_stub_venv(tmp_path / "gippa-cascadia")
     res, rec, _ = _launch(tmp_path, None, str(unimod), *ARGS, python=str(env / "bin" / "python"),
                           isolated=True)  # fmt: skip
     assert res.returncode == 0, res.stdout + res.stderr
@@ -168,7 +168,7 @@ def test_runs_isolated_inside_an_env_that_has_cascadia(tmp_path: Path, unimod: P
     assert _same_path(rec["url_in_main"], unimod)
 
 
-def test_launcher_imports_no_giap_and_no_network_modules() -> None:
+def test_launcher_imports_no_gippa_and_no_network_modules() -> None:
     tree = ast.parse(require(LAUNCHER, "deliverable 4").read_text())
     mods = set()
     for node in ast.walk(tree):
@@ -176,7 +176,7 @@ def test_launcher_imports_no_giap_and_no_network_modules() -> None:
             mods |= {a.name.split(".")[0] for a in node.names}
         elif isinstance(node, ast.ImportFrom) and node.module:
             mods.add(node.module.split(".")[0])
-    assert "giap" not in mods  # it runs inside giap-cascadia, where giap is not installed
+    assert "gippa" not in mods  # it runs inside gippa-cascadia, where gippa is not installed
     # `socket` is allowed: the launcher imports it to install the connection guard (B1).
     assert not mods & {"http", "requests", "ftplib", "urllib3"}
 
@@ -200,7 +200,7 @@ def test_psims_unimod_resolver_uses_the_local_table(
     # parses http://www.unimod.org/xml/unimod_tables.xml (a plain-HTTP request on a permissive
     # lxml build).
     if isolated:
-        env = make_stub_venv(tmp_path / "giap-cascadia")
+        env = make_stub_venv(tmp_path / "gippa-cascadia")
         res, rec, _ = _launch(tmp_path, None, str(unimod), *ARGS,
                               python=str(env / "bin" / "python"), isolated=True)  # fmt: skip
     else:

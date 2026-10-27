@@ -1,5 +1,5 @@
 ##fileformat=VCFv4.3
-##source=giap-VERSION
+##source=gippa-VERSION
 ##reference=sha256:f35980c161b7764a75a7fb975a77581d1acb2e4c292b1ccc1ea45d0b33c6e95d
 ##contig=<ID=chr1,length=50000>
 ##INFO=<ID=GENE,Number=1,Type=String,Description="Locus tag of the gene framing the codon">
@@ -10,7 +10,7 @@
 ##INFO=<ID=CONF,Number=A,Type=String,Description="Confidence of each ALT allele: high or candidate">
 ##INFO=<ID=NT_CHANGES,Number=A,Type=Integer,Description="Nucleotide changes of the minimal-change ALT codon(s)">
 ##INFO=<ID=ALT_TYPE,Number=A,Type=String,Description="ALT type: substitution, swap or block">
-##INFO=<ID=FLAGS,Number=.,Type=String,Description="Variant flags of the alleles, deduplicated, in GIAP §9.4 order">
+##INFO=<ID=FLAGS,Number=.,Type=String,Description="Variant flags of the alleles, deduplicated, in GIPPA §9.4 order">
 ##INFO=<ID=CLASS_ERR,Number=A,Type=String,Description="Class-specific error rate of each allele, or unestimated">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Haploid genotype: the best-supported ALT allele; . for mixed or tie">
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Distinct peptides supporting REF, then each ALT allele">

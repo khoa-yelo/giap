@@ -1,18 +1,18 @@
-"""giapsim scenarios for variants and novel ORFs (issue M7-12; GIAP_SPEC.md §11.3, §7.5.6, §7.6.6,
+"""gippasim scenarios for variants and novel ORFs (issue M7-12; GIPPA_SPEC.md §11.3, §7.5.6, §7.6.6,
 §8.4 suite "Novel-ORF class FDR", §8.5 attack 6, §11.6 TE2).
 
 Examples 1-5, rules 1-3 and the acceptance items of docs/specs/M7-12-sim-variant-novel-scenarios.md
 with lead decisions 1-4 (2026-10-22). The spec names ``tests/sim/test_m7_scenarios.py``; like the
-M4-07/M5-04 simulator tests this file lives in tests/unit (tests/sim holds only the giapsim package
+M4-07/M5-04 simulator tests this file lives in tests/unit (tests/sim holds only the gippasim package
 and tests/unit/sim/ is reserved by M6-03 on another branch). The 1-Mb examples are marked ``slow``;
 the rule-4 runtime budget belongs in ``benchmarks/`` (see the report to the lead). Brute-force
-recounts come from tests/helpers/m7_sim_oracle.py, which imports nothing from giapsim.
+recounts come from tests/helpers/m7_sim_oracle.py, which imports nothing from gippasim.
 
 Interface choices pinned here (beyond the spec's four signatures):
 
-* ``giapsim.scenarios.variant_f1(seed, size)``, ``novel_orf_power(seed, size)``,
+* ``gippasim.scenarios.variant_f1(seed, size)``, ``novel_orf_power(seed, size)``,
   ``same_strain_insilico(seed)`` and ``isobaric_attack(seed)`` return a ``SimConfig`` that is
-  simulated with ``giapsim.simulate(cfg, seed, outdir)``; ``size`` "100k" / "1M" sets
+  simulated with ``gippasim.simulate(cfg, seed, outdir)``; ``size`` "100k" / "1M" sets
   ``genome_length`` 100_000 / 1_000_000; any other size raises ``ValueError``. The same seed gives
   an equal config.
 * Every M7 scenario writes ``truth/alt_sites.tsv`` (header only when no SNV is planted) and lists
@@ -37,7 +37,7 @@ Interface choices pinned here (beyond the spec's four signatures):
   peptides then share ``genome.fasta``); ``novel_orf_power`` writes the precomputed layers
   (``rbs``, ``rbs_novel``) the RBS calibration reads.
 * Truth readers (the spec's "≈ 40 lines of loaders the calibration tests share"):
-  ``giapsim.truth.read_alt_sites(outdir)``, ``read_indel_sites(outdir)`` and
+  ``gippasim.truth.read_alt_sites(outdir)``, ``read_indel_sites(outdir)`` and
   ``read_novel_orfs(outdir)`` return pandas DataFrames with integer coordinates and counts and a
   boolean ``rbs_planted``.
 * Example 5 is pinned on this branch's base (f6a8bf8, which includes M7-08's ``rbs_novel`` layer
@@ -53,7 +53,7 @@ from typing import Any
 import pytest
 from helpers import m7_sim_oracle as O
 
-import giapsim
+import gippasim
 
 SEED = 20261022
 SEED_B = 4242
@@ -120,9 +120,9 @@ def sha(path: Path) -> str:
 
 
 def sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def config(name: str, seed: int, size: str | None = None) -> Any:
@@ -131,7 +131,7 @@ def config(name: str, seed: int, size: str | None = None) -> Any:
 
 
 def run(name: str, seed: int, out: Path, size: str | None = None) -> Any:
-    return giapsim.simulate(config(name, seed, size), seed, out)
+    return gippasim.simulate(config(name, seed, size), seed, out)
 
 
 def files(out: Path) -> dict[str, str]:
@@ -143,11 +143,11 @@ def files(out: Path) -> dict[str, str]:
 
 
 def mixed_config() -> Any:
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.strain import StrainConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.strain import StrainConfig
 
-    return giapsim.SimConfig(
+    return gippasim.SimConfig(
         genome_length=60_000,
         n_novel_orfs=(("intergenic", 3), ("cds_outframe", 2), ("antisense", 2)),
         n_nterm_extensions=3,
@@ -206,7 +206,7 @@ def scenario_out(request: pytest.FixtureRequest, name: str) -> tuple[Path, Any]:
 @pytest.mark.parametrize("name", M7_SCENARIOS)
 def test_scenarios_return_simconfig_deterministically(name: str) -> None:
     a, b = config(name, SEED), config(name, SEED)
-    assert isinstance(a, giapsim.SimConfig)
+    assert isinstance(a, gippasim.SimConfig)
     assert a == b
 
 
@@ -553,8 +553,8 @@ def test_example4_isobaric_attack(iso: Any) -> None:
 
 @pytest.mark.parametrize("name", M7_SCENARIOS)
 def test_genomes_and_annotations_load(name: str, request: pytest.FixtureRequest) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.io.fasta import read_genome_fasta
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.io.fasta import read_genome_fasta
 
     out, _ = scenario_out(request, name)
     pairs = [("genome.fasta", "bakta_like.json")]
@@ -569,8 +569,8 @@ def test_genomes_and_annotations_load(name: str, request: pytest.FixtureRequest)
 
 @pytest.mark.parametrize("name", M7_SCENARIOS)
 def test_peptide_tables_pass_m106(name: str, request: pytest.FixtureRequest) -> None:
-    from giap.config.model import InputConfig
-    from giap.io.peptides import read_peptide_table, validate_peptides
+    from gippa.config.model import InputConfig
+    from gippa.io.peptides import read_peptide_table, validate_peptides
 
     out, _ = scenario_out(request, name)
     tables = [p for p in ("peptides.tsv", "peptides_denovo.tsv", "reference_peptides.tsv")
@@ -585,7 +585,7 @@ def test_peptide_tables_pass_m106(name: str, request: pytest.FixtureRequest) -> 
 
 
 def test_truth_readers(vf: Any, nop: Any) -> None:
-    from giapsim import truth
+    from gippasim import truth
 
     out, _ = vf()
     alt = truth.read_alt_sites(out)
@@ -604,7 +604,7 @@ def test_truth_readers(vf: Any, nop: Any) -> None:
 
 
 def test_truth_reader_empty_alt_sites(iso: Any) -> None:
-    from giapsim import truth
+    from gippasim import truth
 
     out, _ = iso()
     alt = truth.read_alt_sites(out)
@@ -636,21 +636,21 @@ def test_other_seed_changes_truth(name: str, truth_file: str, outs: Any) -> None
 
 
 def test_example5_sim100k_byte_identical(tmp_path: Path) -> None:
-    giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path)
+    gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path)
     assert files(tmp_path) == SIM100K_SHA256
 
 
 def test_example5_mixed_config_byte_identical(tmp_path: Path) -> None:
     """Strain with indels, novel ORFs, N-terminal extensions, proteomics, de novo and layers, with
     no M7-12 field set: same files, same bytes, no alt_sites/indel_sites written."""
-    giapsim.simulate(mixed_config(), MIXED_SEED, tmp_path)
+    gippasim.simulate(mixed_config(), MIXED_SEED, tmp_path)
     assert files(tmp_path) == MIXED_SHA256
 
 
 def test_default_novel_length_range_stays_10_30(tmp_path: Path) -> None:
     """The configurable range defaults to M3-18's 10-30 aa for planted intergenic ORFs."""
-    cfg = giapsim.SimConfig(genome_length=80_000, n_novel_orfs=(("intergenic", 12),))
-    giapsim.simulate(cfg, 3, tmp_path)
+    cfg = gippasim.SimConfig(genome_length=80_000, n_novel_orfs=(("intergenic", 12),))
+    gippasim.simulate(cfg, 3, tmp_path)
     inter = [r for r in O.rows(tmp_path / "truth" / "novel_orfs.tsv") if r["class"] == "intergenic"]
     assert len(inter) == 12
     assert all(10 <= len(r["aa"]) <= 30 for r in inter)

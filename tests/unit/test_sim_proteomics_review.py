@@ -1,11 +1,11 @@
-"""giapsim proteomics: the lead decisions after code review of PR #55 (issue M3-19).
+"""gippasim proteomics: the lead decisions after code review of PR #55 (issue M3-19).
 
 docs/specs/M3-19-sim-peptides-db-errors.md, "Lead decisions after code review", items 1-4:
 
 1. A wrong-peptide shortfall is never silent: the truth metadata records ``pi_wrong_realised``
    next to ``pi_wrong``, a WARNING names both, and PEP/q use the realised share.
 2. Decoy sampling honours ``missed_cleavages`` (``missed_cleavages=0, digest_len=(20, 30)``).
-3. ``n_loci_genome`` is the count of GIAP's merged exact matcher (six-frame, I = L; 0 allowed) for
+3. ``n_loci_genome`` is the count of GIPPA's merged exact matcher (six-frame, I = L; 0 allowed) for
    correct and wrong peptides; N-terminal peptides of GTG/TTG-start genes carry
    ``alt_start_nterm = true`` and are exactly the correct peptides without an exact hit.
 4. Mutant killers: a tight wrong share (the 1/(1 - pi) factor), a peptide starting exactly at the
@@ -40,14 +40,14 @@ from helpers.peptide_oracle import (
     empty,
     find_truth_meta,
     genome_slice,
-    giap_exact_counts,
+    gippa_exact_counts,
     mixture_fdr,
     mixture_pep,
     truthy,
     trypsin_p_peptides,
 )
 
-import giapsim
+import gippasim
 
 MIX = (3.0, 1.0, 0.0, 1.0)
 ALL_DETECTED = (50.0, 0.0, 0.0)
@@ -68,14 +68,14 @@ _FLOAT = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
 
 
 def proteomics(**kw: Any) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     return ProteomicsConfig(**kw)
 
 
 def simulate(out: Path, seed: int, prot: Any, **kw: Any) -> Run:
-    cfg = giapsim.SimConfig(proteomics=prot, **kw)
-    res = giapsim.simulate(cfg, seed, out)
+    cfg = gippasim.SimConfig(proteomics=prot, **kw)
+    res = gippasim.simulate(cfg, seed, out)
     return Run(out, {"res": res, "cfg": cfg, "seed": seed})
 
 
@@ -98,7 +98,7 @@ def wrong_rows(run: Run) -> list[dict[str, str]]:
 def shortfall(tmp_path_factory: pytest.TempPathFactory) -> tuple[Run, list[str]]:
     """The reviewer's case: a near-identical strain cannot supply pi_wrong = 0.5 wrong peptides."""
     prot = proteomics(pi_wrong=0.5, wrong_source="other_strain")
-    st = giapsim.StrainConfig(snv_rate_per_kb=0.5)
+    st = gippasim.StrainConfig(snv_rate_per_kb=0.5)
     out = tmp_path_factory.mktemp("shortfall")
     logger = logging.getLogger()
     records: list[logging.LogRecord] = []
@@ -228,7 +228,7 @@ def complete(tmp_path_factory: pytest.TempPathFactory) -> Run:
 @pytest.fixture(scope="module")
 def other(tmp_path_factory: pytest.TempPathFactory) -> Run:
     prot = proteomics(pi_wrong=0.05, wrong_source="other_strain")
-    st = giapsim.StrainConfig(snv_rate_per_kb=10.0, indel_rate_per_kb=0.5)
+    st = gippasim.StrainConfig(snv_rate_per_kb=10.0, indel_rate_per_kb=0.5)
     return simulate(tmp_path_factory.mktemp("other"), 45, prot, **{**FEATURES, "strain": st})
 
 
@@ -240,11 +240,11 @@ def _alt_start(run: Run, r: dict[str, str]) -> bool:
 
 
 @pytest.mark.parametrize("name", ["complete", "other"])
-def test_n_loci_genome_is_giap_exact_count(name: str, request: pytest.FixtureRequest) -> None:
+def test_n_loci_genome_is_gippa_exact_count(name: str, request: pytest.FixtureRequest) -> None:
     run: Run = request.getfixturevalue(name)
     rows = correct_rows(run) + wrong_rows(run)
     assert wrong_rows(run)
-    counts = giap_exact_counts(run, [r["peptide"] for r in rows])
+    counts = gippa_exact_counts(run, [r["peptide"] for r in rows])
     bad = []
     for r in rows:
         assert not empty(r["n_loci_genome"]), r
@@ -268,7 +268,7 @@ def test_alt_start_nterm_flag(complete: Run) -> None:
 
 def test_alt_start_peptides_are_exactly_those_without_exact_hit(complete: Run) -> None:
     rows = correct_rows(complete)
-    counts = giap_exact_counts(complete, [r["peptide"] for r in rows])
+    counts = gippa_exact_counts(complete, [r["peptide"] for r in rows])
     alt = {r["peptide"] for r in rows if truthy(r.get("alt_start_nterm", ""))}
     no_hit = {r["peptide"] for r in rows if counts[r["peptide"]] == 0}
     assert alt and alt == no_hit, (sorted(alt - no_hit)[:5], sorted(no_hit - alt)[:5])
@@ -278,7 +278,7 @@ def test_alt_start_peptides_are_exactly_those_without_exact_hit(complete: Run) -
 
 
 def test_wrong_rows_have_integer_n_loci(other: Run) -> None:
-    counts = giap_exact_counts(other, [r["peptide"] for r in wrong_rows(other)])
+    counts = gippa_exact_counts(other, [r["peptide"] for r in wrong_rows(other)])
     for r in wrong_rows(other):
         assert int(r["n_loci_genome"]) == counts[r["peptide"]] >= 0, r
 

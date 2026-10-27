@@ -1,6 +1,6 @@
-"""`giap setup` after code review (PR #57; docs/specs/M2-08 "Lead decisions after code review" 1-6).
+"""`gippa setup` after code review (PR #57; docs/specs/M2-08 "Lead decisions after code review" 1-6).
 
-Every test runs under ``setup_guard`` (decision 3): no network, no tool, no real $GIAP_DB_DIR.
+Every test runs under ``setup_guard`` (decision 3): no network, no tool, no real $GIPPA_DB_DIR.
 
 Ambiguities resolved here:
 - Redirect handling is exercised through fake ``http.client`` connections (``HttpsFetcher`` may use
@@ -66,11 +66,11 @@ def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Plenty of disk, inside Slurm, and tool lookups pointed at empty temporary roots."""
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: _Usage(10_000 * GIB, 0, 10_000 * GIB))
     monkeypatch.setenv("SLURM_JOB_ID", "123")
-    roots = {"GIAP_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
-             "NXF_APPTAINER_CACHEDIR": "cache", "GIAP_DB_DIR": "not-the-real-db"}  # fmt: skip
+    roots = {"GIPPA_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
+             "NXF_APPTAINER_CACHEDIR": "cache", "GIPPA_DB_DIR": "not-the-real-db"}  # fmt: skip
     for var, sub in roots.items():
         monkeypatch.setenv(var, str(tmp_path / "_env" / sub))
-    monkeypatch.setenv("GIAP_REPO", str(REPO))
+    monkeypatch.setenv("GIPPA_REPO", str(REPO))
 
 
 def items(db: Path) -> dict[str, dict[str, Any]]:
@@ -83,7 +83,7 @@ def leftovers(db: Path) -> list[Path]:
 
 
 def sources() -> Any:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     return SOURCES
 
@@ -96,7 +96,7 @@ def genomad_item(payload: bytes) -> Any:
 
 
 def test_guard_blocks_tools_subprocesses_sockets_and_https() -> None:
-    from giap.setupdb import HttpsFetcher, ToolRunner, ToolUnavailable
+    from gippa.setupdb import HttpsFetcher, ToolRunner, ToolUnavailable
 
     with pytest.raises((GuardError, ToolUnavailable)):
         ToolRunner().run("bakta", ["bakta_db", "--help"])
@@ -115,7 +115,7 @@ def test_cli_genomad_download_goes_through_the_https_fetcher(tmp_path: Path) -> 
     """The CLI wires geNOMAD to ``HttpsFetcher`` (decision 1); the guard stops it before the net."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["setup", "--db-dir", str(tmp_path / "db"), "--bakta", "skip", "--genomad",
             "--no-antismash", "--no-promotech-models"]  # fmt: skip
@@ -138,7 +138,7 @@ def test_genomad_source_is_the_pinned_zenodo_tarball_without_a_tool() -> None:
 
 
 def test_genomad_fetched_md5_checked_unpacked_archive_deleted(tmp_path: Path) -> None:
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     item = genomad_item(GENOMAD_TAR)
     fetcher = ZipFetcher(GENOMAD_TAR)
@@ -151,7 +151,7 @@ def test_genomad_fetched_md5_checked_unpacked_archive_deleted(tmp_path: Path) ->
 
 
 def test_genomad_md5_mismatch_is_mismatch_and_nothing_unpacked(tmp_path: Path) -> None:
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     rec = install(sources()["genomad"], tmp_path, NoRunner(), ZipFetcher(GENOMAD_TAR))
     assert rec.status == "mismatch", rec
@@ -167,7 +167,7 @@ def test_genomad_md5_mismatch_exits_2(tmp_path: Path) -> None:
 
 def test_genomad_download_is_verified_after_unpacking(tmp_path: Path) -> None:
     """Checksum right, content wrong (v1.8): never installed."""
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     payload = _tar([("genomad_db/version.txt", b"1.8\n")])
     rec = install(genomad_item(payload), tmp_path, NoRunner(), ZipFetcher(payload))
@@ -191,7 +191,7 @@ def _unsafe_tars(base: Path) -> list[tuple[str, bytes]]:
     "case", ["dotdot", "dotdot-inside", "absolute", "symlink-out", "symlink-abs"]
 )
 def test_genomad_unsafe_tarball_is_rejected(tmp_path: Path, case: str) -> None:
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     db = tmp_path / "a" / "db"
     db.mkdir(parents=True)
@@ -215,7 +215,7 @@ def test_genomad_unsafe_tarball_is_rejected(tmp_path: Path, case: str) -> None:
 )
 def test_any_member_with_dotdot_is_rejected(parts: list[str]) -> None:
     """Property: a member path with a ``..`` component never yields an ``ok`` install."""
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     payload = _tar([("genomad_db/version.txt", b"1.9\n"), ("/".join([*parts, "f.txt"]), b"x")])
     with tempfile.TemporaryDirectory() as tmp:
@@ -240,7 +240,7 @@ def _zip(members: Sequence[tuple[str, bytes]]) -> bytes:
 
 @pytest.mark.parametrize("bad", ["../evil.model", "RF-HOT/../../evil.model", "/ABS/evil.model"])
 def test_promotech_zip_slip_is_rejected(tmp_path: Path, bad: str) -> None:
-    from giap.setupdb import install
+    from gippa.setupdb import install
 
     db = tmp_path / "a" / "db"
     db.mkdir(parents=True)
@@ -301,7 +301,7 @@ def test_prefetch_row_matching_the_pin_is_adopted_with_its_old_date(tmp_path: Pa
 
 
 def _old_manifest(db: Path, **kw: Any) -> None:
-    from giap.setupdb import DbRecord, write_manifest
+    from gippa.setupdb import DbRecord, write_manifest
 
     base = {"name": "genomad", "version": "1.9", "url": sources()["genomad"].url,
             "checksum": GENOMAD_MD5, "size_bytes": 1, "retrieved": "2025-01-02",
@@ -386,20 +386,20 @@ def _image(cache: Path, tool: str) -> Path:
 
 
 def _env_dir(mamba: Path, tool: str) -> None:
-    (mamba / "envs" / f"giap-{tool}").mkdir(parents=True)
+    (mamba / "envs" / f"gippa-{tool}").mkdir(parents=True)
 
 
 def test_command_prefers_the_conda_environment(tmp_path: Path) -> None:
-    from giap.setupdb import ToolRunner
+    from gippa.setupdb import ToolRunner
 
     _env_dir(tmp_path / "_env" / "mamba", "bakta")
     _image(tmp_path / "_env" / "cache", "bakta")
     argv = ["bakta_db", "download", "--output", str(tmp_path), *ARGV_TAIL]
-    assert ToolRunner().command("bakta", argv) == ["micromamba", "run", "-n", "giap-bakta", *argv]
+    assert ToolRunner().command("bakta", argv) == ["micromamba", "run", "-n", "gippa-bakta", *argv]
 
 
 def test_command_falls_back_to_the_pinned_image_with_binds(tmp_path: Path) -> None:
-    from giap.setupdb import ToolRunner
+    from gippa.setupdb import ToolRunner
 
     img = _image(tmp_path / "_env" / "cache", "bakta")
     out = tmp_path / "out"
@@ -425,7 +425,7 @@ def test_command_without_environment_or_image_is_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _no_docker(tmp_path, monkeypatch)
-    from giap.setupdb import ToolRunner, ToolUnavailable
+    from gippa.setupdb import ToolRunner, ToolUnavailable
 
     with pytest.raises(ToolUnavailable, match="build_envs"):
         ToolRunner().command("bakta", ["bakta_db", "download"])
@@ -435,7 +435,7 @@ def test_install_with_no_environment_is_absent_and_starts_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _no_docker(tmp_path, monkeypatch)
-    from giap.setupdb import ToolRunner, install
+    from gippa.setupdb import ToolRunner, install
 
     rec = install(sources()["bakta_light"], tmp_path, ToolRunner(), NoFetcher())
     assert rec.status == "absent" and "build_envs" in rec.message, rec
@@ -504,7 +504,7 @@ FILE = "/records/14886553/files/genomad_db_v1.9.tar.gz"
 
 
 def test_fake_net_serves_a_plain_https_download(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     net.routes[("https", "zenodo.org", FILE)] = (200, {}, b"DATA")
     HttpsFetcher().fetch("https://zenodo.org" + FILE, tmp_path / "f")
@@ -512,7 +512,7 @@ def test_fake_net_serves_a_plain_https_download(net: FakeNet, tmp_path: Path) ->
 
 
 def test_redirect_on_the_official_host_over_https_is_followed(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     net.routes[("https", "zenodo.org", FILE)] = (
         302,
@@ -532,7 +532,7 @@ def test_redirect_on_the_official_host_over_https_is_followed(net: FakeNet, tmp_
 def test_redirect_off_https_or_off_host_is_an_error(
     net: FakeNet, tmp_path: Path, location: str
 ) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("https", "zenodo.org", FILE)] = (302, {"Location": location}, b"")
     evil = [("http", "zenodo.org", "/api/x"), ("https", "evil.example", "/x"),
@@ -549,7 +549,7 @@ def test_redirect_off_https_or_off_host_is_an_error(
 def test_fetch_refuses_non_https_urls_without_contacting(
     net: FakeNet, tmp_path: Path, url: str
 ) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     with pytest.raises(SourceError):
         HttpsFetcher().fetch(url, tmp_path / "f")
@@ -557,7 +557,7 @@ def test_fetch_refuses_non_https_urls_without_contacting(
 
 
 def test_install_redirect_off_host_leaves_item_absent(net: FakeNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher, install
+    from gippa.setupdb import HttpsFetcher, install
 
     item = genomad_item(GENOMAD_TAR)
     path = "/" + item.url.split("/", 3)[3]

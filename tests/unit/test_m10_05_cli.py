@@ -4,8 +4,8 @@ repository").
 
 Spec: docs/specs/M10-05-pilot-metrics.md ("Inputs", "Outputs", "REPORT.md draft", "§15.6 checklist
 in pass 1", "Interface"). Inputs are built in ``tmp`` by ``tests/helpers/pilot_metrics_m10.py``
-(a giapsim SIM100K genome and Bakta JSON; every table under its schema; a schema-valid
-``run_manifest.json``); nothing comes from ``$GIAP_ROOT`` or a DIA-NN report.
+(a gippasim SIM100K genome and Bakta JSON; every table under its schema; a schema-valid
+``run_manifest.json``); nothing comes from ``$GIPPA_ROOT`` or a DIA-NN report.
 
 Interface fixed here (beyond the spec's command lines and exit codes):
 
@@ -22,10 +22,10 @@ Interface fixed here (beyond the spec's command lines and exit codes):
   notes file; a template placeholder missing under a metric that was computed); every read,
   schema, JSON, missing-key and config error is a precondition, exit 2, nothing written (B1). A
   metric with a ``reason`` renders its placeholders as ``**missing: <reason>**`` and ``render``
-  exits 0 (B2). ``metrics.json`` ``giap_commit`` is the runs' ``run_manifest.json``
+  exits 0 (B2). ``metrics.json`` ``gippa_commit`` is the runs' ``run_manifest.json``
   ``git_commit`` (S4). Warning codes: ``unknown_source``, ``target_q_na``,
   ``sacct_ignored_no_attempts``, and one naming the compare table that fails
-  ``giap.io.output_checks.check_tsv`` (B3).
+  ``gippa.io.output_checks.check_tsv`` (B3).
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from typing import Any
 import pytest
 from helpers.a3_metrics_m10_10b import build_a3
 from helpers.pilot_metrics_m10 import (
-    GIAP_COMMIT,
+    GIPPA_COMMIT,
     REPO,
     TEMPLATE,
     Pilot,
@@ -111,8 +111,8 @@ def test_metrics_json_layout(pilot: Pilot, tmp_path: Path) -> None:
     assert raw.endswith("\n")
     doc = json.loads(raw)
     assert raw == json.dumps(doc, sort_keys=True, indent=2) + "\n"
-    assert doc["schema"] == "giap-pilot-metrics/1"
-    for key in ("inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m7", "te1",
+    assert doc["schema"] == "gippa-pilot-metrics/1"
+    for key in ("inputs", "spec", "gippa_commit", "m1", "m2", "m3", "m4", "m5", "m7", "te1",
                 "te1_a1_diagnostic", "h1", "h3", "checklist", "warnings"):  # fmt: skip
         assert key in doc, key
     assert re.fullmatch(r"[0-9a-f]{40}", str(doc["spec"])), doc["spec"]
@@ -497,13 +497,13 @@ def test_s7_manifest_without_config_exit_2(pilot: Pilot, tmp_path: Path) -> None
 # ---------------------------------------------------------------- S4: commits
 
 
-def test_s4_giap_commit_from_the_manifest(computed: tuple[Pilot, Path]) -> None:
+def test_s4_gippa_commit_from_the_manifest(computed: tuple[Pilot, Path]) -> None:
     _, out = computed
     doc = _metrics(out)
-    assert doc["giap_commit"] == GIAP_COMMIT
+    assert doc["gippa_commit"] == GIPPA_COMMIT
     report = out / "REPORT.md"
     _ok(_render(out / "metrics.json", report))
-    assert GIAP_COMMIT in report.read_text(encoding="utf-8")
+    assert GIPPA_COMMIT in report.read_text(encoding="utf-8")
 
 
 def test_s4_git_failure_is_a_precondition(pilot: Pilot, tmp_path: Path) -> None:
@@ -632,7 +632,7 @@ def _attempts(runs: Path, rows: list[tuple[str, ...]]) -> Path:
 
 
 def _attempt_rows(runs: Path) -> list[tuple[str, ...]]:
-    c = GIAP_COMMIT[:7]
+    c = GIPPA_COMMIT[:7]
     return [
         ("A2", "1", str(runs / "out_a2"), "1001", "fresh", c, "superseded", "1"),
         ("A1", "1", str(runs / "out_a1"), "2001", "fresh", c, "accepted", "0"),
@@ -662,11 +662,11 @@ def test_s3_resolve_attempt_last_non_superseded(tmp_path: Path) -> None:
 
 def _sacct(path: Path) -> Path:
     cols = "JobID|JobName|State|Elapsed|MaxRSS|NodeList|AllocCPUS"
-    rows = ["1002|giap-run-a2|FAILED|00:10:00||sh04-01n02|114",
-            "1003|giap-run-a2|COMPLETED|01:42:00||sh04-01n01|114",
+    rows = ["1002|gippa-run-a2|FAILED|00:10:00||sh04-01n02|114",
+            "1003|gippa-run-a2|COMPLETED|01:42:00||sh04-01n01|114",
             "1003.batch|batch|COMPLETED|01:42:00|3000000K|sh04-01n01|2",
             "1003.extern|extern|COMPLETED|01:42:01|0|sh04-01n01|114",
-            "2001|giap-run-a1|COMPLETED|02:10:00||sh04-01n03|114",
+            "2001|gippa-run-a1|COMPLETED|02:10:00||sh04-01n03|114",
             "2001.batch|batch|COMPLETED|02:10:00|2000000K|sh04-01n03|2"]  # fmt: skip
     path.write_text("\n".join([cols, *rows]) + "\n", encoding="utf-8")
     return path
@@ -754,7 +754,7 @@ def _paths() -> list[str]:
 @pytest.mark.parametrize(
     "path",
     [
-        "giap_commit", "spec",  # S4, section 1
+        "gippa_commit", "spec",  # S4, section 1
         "te1.misses.exact_other_class", "te1.misses.unplaced",  # S8, SF3
         "te1.non_atg_nterm.peptides",  # SF3
         "te1.share_without_q_at_cutoff.removed",  # statistician B2

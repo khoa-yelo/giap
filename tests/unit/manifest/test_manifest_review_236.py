@@ -14,8 +14,8 @@ from types import SimpleNamespace
 import pytest
 from helpers.manifest_data import trace_row
 
-from giap.io import manifest_sources as ms
-from giap.manifest import _event_data
+from gippa.io import manifest_sources as ms
+from gippa.manifest import _event_data
 
 DIGEST = "9" * 64
 BAD = {

@@ -42,7 +42,7 @@ nextflow_pipeline {
                 assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def from = { File dir, String step ->
                 def d = H.stepDirs(work, step)[0].canonicalPath

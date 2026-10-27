@@ -4,7 +4,7 @@
 Static checks of the script text, then runs under bash with a stub ``uv`` (the pattern of
 tests/unit/test_calibration_full_array.py): the stub logs its call and ``PYTEST_ADDOPTS``, writes a
 one-testcase JUnit file wherever ``--junitxml=`` points (as pytest would), and exits by role. The
-checkout (``GIAP_WORKTREE``) is a git repository in ``tmp_path`` holding a copy of
+checkout (``GIPPA_WORKTREE``) is a git repository in ``tmp_path`` holding a copy of
 ``tests/calibration/tolerances.yaml`` (the ``replicates_full`` lookup of the suite name).
 """
 
@@ -85,10 +85,10 @@ def run_task(tmp: Path, task: int, *args: str, env: dict[str, str] | None = None
     full = {
         "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
         "HOME": str(tmp),
-        "GIAP_REPO": str(repo),
-        "GIAP_WORKTREE": str(repo),
-        "GIAP_ROOT": str(tmp),
-        "GIAP_CALIBRATION_LOG_DIR": str(log),
+        "GIPPA_REPO": str(repo),
+        "GIPPA_WORKTREE": str(repo),
+        "GIPPA_ROOT": str(tmp),
+        "GIPPA_CALIBRATION_LOG_DIR": str(log),
         "SLURM_ARRAY_TASK_ID": str(task),
         "SLURM_ARRAY_JOB_ID": "1900000",
         "STUB_LOG": str(calls_log),
@@ -140,7 +140,7 @@ def test_script_sets_junitxml_under_the_log_dir() -> None:
     lines = [ln for ln in text.splitlines() if "PYTEST_ADDOPTS" in ln and not ln.lstrip()
              .startswith("#")]  # fmt: skip
     assert lines, "no PYTEST_ADDOPTS assignment"
-    assert any("--junitxml=" in ln and "GIAP_CALIBRATION_LOG_DIR" in ln for ln in lines), lines
+    assert any("--junitxml=" in ln and "GIPPA_CALIBRATION_LOG_DIR" in ln for ln in lines), lines
     assert "${PYTEST_ADDOPTS:+" in text, "an existing PYTEST_ADDOPTS must be kept"
 
 

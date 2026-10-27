@@ -23,7 +23,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.mapping.readthrough import StopSite
+from gippa.mapping.readthrough import StopSite
 
 G1_SITE = StopSite("c1", "+", 54, ("G1",), "TGA", "terminal")
 C2_SITE = StopSite("c2", "-", 120, ("G2",), "TAA", "terminal")  # example 8
@@ -37,7 +37,7 @@ def _consumed(
     lengths: Mapping[str, int] = LIN,
     circular: Mapping[str, bool] = LIN_TOPO,
 ) -> list[tuple[StopSite, ...]]:
-    from giap.mapping.readthrough import consumed_sites
+    from gippa.mapping.readthrough import consumed_sites
 
     return consumed_sites(rows, sites, lengths, circular)
 
@@ -54,7 +54,7 @@ def row(
     diff_types: str | None = "substitution",
     peptide: str = "PEPTIDEKAAA",
 ) -> dict[str, Any]:
-    """One hit row (``giap.mapping.hits`` columns; ``frame_id``/``aa_*`` unused by the rule)."""
+    """One hit row (``gippa.mapping.hits`` columns; ``frame_id``/``aa_*`` unused by the rule)."""
     return {
         "peptide": peptide,
         "query": peptide,

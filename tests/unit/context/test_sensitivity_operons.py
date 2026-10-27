@@ -1,7 +1,7 @@
 """M6-10 ``operon_flags`` sensitivity family: registration, signature, the ``config_patch``
 variant kind (lead decision 1), the flagged-set rule and spec examples 1-5 and 7 plus the
-degenerate cases on the giapsim SIM100K producer chain
-(docs/specs/M6-10-sensitivity-operon-flags.md; GIAP_SPEC.md §8.6, G9; M4-19 decisions 2, 5).
+degenerate cases on the gippasim SIM100K producer chain
+(docs/specs/M6-10-sensitivity-operon-flags.md; GIPPA_SPEC.md §8.6, G9; M4-19 decisions 2, 5).
 
 The interface assumed is spelled out in ``tests/helpers/sensitivity_operons_data.py``. The
 reference flagged set is the ``pair_id`` column of the merged M6-08 chain's ``operon_flags``
@@ -25,7 +25,7 @@ import pytest
 from helpers import sensitivity_operons_data as so
 from helpers.layers_chain import Chain, build_chain
 
-PRIMARY_T = 0.5  # GiapConfig default annotation.uniop.pair_threshold
+PRIMARY_T = 0.5  # GippaConfig default annotation.uniop.pair_threshold
 OP_FLAGS = frozenset({"internal_promoter_supported", "internal_terminator_supported",
                       "unexplained_discordance", "conflict_terminator_in_operon"})  # fmt: skip
 NO_FLAGS = frozenset({"novel_operon_candidate", "coabundant_despite_terminator"})
@@ -34,13 +34,13 @@ SINGLE = (4, 5, 13, 14, 22, 23, 31, 32)
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng(seed: int = 20261022) -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(so.STREAM, seed)
 

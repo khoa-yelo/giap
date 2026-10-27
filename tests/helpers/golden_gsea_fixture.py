@@ -64,7 +64,7 @@ def golden_file_order() -> dict[str, int]:
 def golden_world(collection: str = "golden", shift: float = 0.0) -> GoldenWorld:
     """``shift`` is added to every ``abundance_log2`` (the mutation of example 9); ``stats``
     stays the golden reference."""
-    from giap.function.collections import GeneSets
+    from gippa.function.collections import GeneSets
 
     stats, sets = golden_stats(), golden_sets()
     tus = list(stats)
@@ -92,9 +92,9 @@ def golden_world(collection: str = "golden", shift: float = 0.0) -> GoldenWorld:
 
 def run_gsea(world: GoldenWorld, engine: Any, seed: int) -> pd.DataFrame:
     """``gsea_table`` on the fixture as the function step calls it (sizes [10, 500], defaults)."""
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import gsea_table
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import gsea_table
+    from gippa.rng import for_step
 
     return gsea_table(world.genes, world.colls, (10, 500), GseaConfig(), 0.05,
                       for_step("function.gsea", seed), world.replicons, engine=engine)  # fmt: skip
@@ -124,7 +124,7 @@ class GoldenReplayEngine:
     def __call__(self, call: Any) -> Any:
         from dataclasses import replace
 
-        from giap.function.gsea import EngineRow
+        from gippa.function.gsea import EngineRow
 
         self.calls.append(call)
         gold = golden_fgsea()

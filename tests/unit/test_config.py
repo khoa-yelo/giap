@@ -1,4 +1,4 @@
-"""Configuration model, defaults sync and resolution (GIAP_SPEC.md §5.2)."""
+"""Configuration model, defaults sync and resolution (GIPPA_SPEC.md §5.2)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-DEFAULTS_YAML = Path(__file__).resolve().parents[2] / "src" / "giap" / "config" / "defaults.yaml"
+DEFAULTS_YAML = Path(__file__).resolve().parents[2] / "src" / "gippa" / "config" / "defaults.yaml"
 
 
 def _raw_defaults() -> dict[str, object]:
@@ -18,61 +18,61 @@ def _raw_defaults() -> dict[str, object]:
 
 
 def test_load_defaults_returns_parsed_yaml() -> None:
-    from giap.config import load_defaults
+    from gippa.config import load_defaults
 
     assert load_defaults() == _raw_defaults()
 
 
 def test_model_defaults_equal_defaults_yaml() -> None:
-    from giap.config import GiapConfig, load_defaults
+    from gippa.config import GippaConfig, load_defaults
 
-    assert GiapConfig().model_dump(mode="python") == load_defaults()
+    assert GippaConfig().model_dump(mode="python") == load_defaults()
 
 
 def test_distance_bins_keep_infinities() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    bins = GiapConfig().model_dump(mode="python")["operons"]["distance_bins_bp"]
+    bins = GippaConfig().model_dump(mode="python")["operons"]["distance_bins_bp"]
     assert bins[0] == -math.inf
     assert bins[-1] == math.inf
 
 
 def test_tolerant_max_diff_keys_are_length_ranges() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    dump = GiapConfig().model_dump(mode="python")
+    dump = GippaConfig().model_dump(mode="python")
     assert dump["mapping"]["tolerant"]["max_diff"] == {"10-11": 1, "12-40": 2}
 
 
 def test_unknown_top_level_key_rejected() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     with pytest.raises(ValueError):
-        GiapConfig.model_validate({"no_such_key": 1})
+        GippaConfig.model_validate({"no_such_key": 1})
 
 
 def test_unknown_nested_key_rejected() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     with pytest.raises(ValueError):
-        GiapConfig.model_validate({"stats": {"permutationz": 10}})
+        GippaConfig.model_validate({"stats": {"permutationz": 10}})
 
 
 def test_unknown_deeply_nested_key_rejected() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     with pytest.raises(ValueError):
-        GiapConfig.model_validate({"stats": {"alpha": {"nonsense": 0.1}}})
+        GippaConfig.model_validate({"stats": {"alpha": {"nonsense": 0.1}}})
 
 
 def test_resolve_without_arguments_gives_defaults() -> None:
-    from giap.config import load_defaults, resolve_config
+    from gippa.config import load_defaults, resolve_config
 
     assert resolve_config().model_dump(mode="python") == load_defaults()
 
 
 def test_resolve_config_file_deep_merges(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("seed: 7\nstats:\n  alpha:\n    context: 0.01\n")
@@ -85,19 +85,19 @@ def test_resolve_config_file_deep_merges(tmp_path: Path) -> None:
 
 
 def test_resolve_override_integer() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config(overrides=["stats.permutations=50"]).stats.permutations == 50
 
 
 def test_resolve_override_yaml_list() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert list(resolve_config(overrides=["modules=[core, bgc]"]).modules) == ["core", "bgc"]
 
 
 def test_override_wins_over_config_file(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("seed: 7\n")
@@ -105,14 +105,14 @@ def test_override_wins_over_config_file(tmp_path: Path) -> None:
 
 
 def test_resolve_override_unknown_key_raises() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     with pytest.raises(ValueError, match="nonexistent"):
         resolve_config(overrides=["stats.nonexistent=1"])
 
 
 def test_resolve_config_file_unknown_key_raises(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("bogus_section: {a: 1}\n")
@@ -121,14 +121,14 @@ def test_resolve_config_file_unknown_key_raises(tmp_path: Path) -> None:
 
 
 def test_resolve_override_without_equals_raises() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     with pytest.raises(ValueError):
         resolve_config(overrides=["seed"])
 
 
 def test_publication_sets_permutations_and_bootstrap() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     c = resolve_config(publication=True)
     assert c.stats.permutations == 10000
@@ -136,20 +136,20 @@ def test_publication_sets_permutations_and_bootstrap() -> None:
 
 
 def test_genome_relation_rejects_other_values() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     with pytest.raises(ValueError):
         resolve_config(overrides=["genome_relation=distant"])
 
 
 def test_genome_relation_accepts_same() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config(overrides=["genome_relation=same"]).genome_relation == "same"
 
 
 def test_abundance_missing_rejects_other_values() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     with pytest.raises(ValueError):
         resolve_config(overrides=["abundance.missing=knn"])
@@ -157,13 +157,13 @@ def test_abundance_missing_rejects_other_values() -> None:
 
 @pytest.mark.parametrize("value", ["median", "exclude", "min", "zero", "mean"])
 def test_abundance_missing_accepts_allowed_values(value: str) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config(overrides=[f"abundance.missing={value}"]).abundance.missing == value
 
 
 def test_core_module_added_when_missing() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     modules = list(resolve_config(overrides=["modules=[bgc]"]).modules)
     assert "core" in modules
@@ -171,7 +171,7 @@ def test_core_module_added_when_missing() -> None:
 
 
 def test_json_schema_lists_seed() -> None:
-    from giap.config import json_schema
+    from gippa.config import json_schema
 
     schema = json_schema()
     assert isinstance(schema, dict)

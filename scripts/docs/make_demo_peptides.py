@@ -1,4 +1,4 @@
-"""Make the quickstart demo peptide table from giapsim (backlog 2026-10-25: quickstart demo table).
+"""Make the quickstart demo peptide table from gippasim (backlog 2026-10-25: quickstart demo table).
 
 Usage: python scripts/docs/make_demo_peptides.py [--check]
 
@@ -6,7 +6,7 @@ Simulates SIM100K (seed SIM100K_SEED) with simulated proteomics in one run and w
 ``peptides.tsv``, gzipped without name or mtime, to docs/tutorials/data/sim100k_peptides.tsv.gz.
 The simulated genome must equal the committed tests/data/genomes/sim100k.fna.gz, so the table and
 that genome belong together. ``--check`` writes nothing and exits 1 when the committed table
-differs from what giapsim generates now (compared uncompressed). No network access.
+differs from what gippasim generates now (compared uncompressed). No network access.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(REPO / "src"), str(REPO / "tests" / "sim")]
 
-from giapsim import SIM100K, SIM100K_SEED, simulate  # noqa: E402
-from giapsim.proteomics import ProteomicsConfig  # noqa: E402
+from gippasim import SIM100K, SIM100K_SEED, simulate  # noqa: E402
+from gippasim.proteomics import ProteomicsConfig  # noqa: E402
 
 GENOME = REPO / "tests" / "data" / "genomes" / "sim100k.fna.gz"
 OUT = REPO / "docs" / "tutorials" / "data" / "sim100k_peptides.tsv.gz"
@@ -34,7 +34,7 @@ MAX_BYTES = 100_000
 
 def generate() -> bytes:
     """The uncompressed peptide table; fails if the simulated genome is not the committed one."""
-    with tempfile.TemporaryDirectory(prefix="giap-demo-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="gippa-demo-") as tmp:
         res = simulate(CONFIG, SEED, tmp)
         if res.genome_fasta.read_bytes() != gzip.decompress(GENOME.read_bytes()):
             raise SystemExit(f"simulated genome differs from {GENOME.relative_to(REPO)}")

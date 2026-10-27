@@ -1,4 +1,4 @@
-"""Statistics-only calibration of the de novo precision estimator (M3-11; GIAP_SPEC.md §7.2.5, §8.4
+"""Statistics-only calibration of the de novo precision estimator (M3-11; GIPPA_SPEC.md §7.2.5, §8.4
 "De novo precision | known precision per bin | |bias| ≤ 0.05 | 50 | 300").
 
 Generator under the estimator's own model: 10 score bins with known precision p_b; two length
@@ -17,7 +17,7 @@ k = ``se_multiplier``:
    of peptides' bins with π̂ = 1 - ci_low ≥ 1 - p_b is ≥ 0.975 - k·sqrt(.975·.025/N), and the
    mean π̂ per bin is ≥ 1 - p_b.
 
-The genome-level version with giapsim de novo errors is M3-21.
+The genome-level version with gippasim de novo errors is M3-21.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.mapping.denovo_precision import denovo_precision, pi_wrong_denovo, score_bins
-from giap.rng import for_step
+from gippa.mapping.denovo_precision import denovo_precision, pi_wrong_denovo, score_bins
+from gippa.rng import for_step
 
 P_BIN = np.linspace(0.2, 0.85, 10)
 N_PER_BIN = 400

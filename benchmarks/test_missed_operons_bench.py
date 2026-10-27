@@ -20,7 +20,7 @@ from ._unit_helpers import timed
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 from helpers import missed_data as md
 
-from giap.operons.missed import missed_operons
+from gippa.operons.missed import missed_operons
 
 N_TARGET = 20_000
 N_DECOY = 10_000  # per decoy set, two sets

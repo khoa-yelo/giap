@@ -1,16 +1,16 @@
 """Attack C through the step: the one-detected P(miss) arm of M6-05H under structured nulls
-(GIAP_SPEC.md §7.4.3 "One detected, one not", §8.1 row "Operon discordance", §8.5; M6-09 attack C,
+(GIPPA_SPEC.md §7.4.3 "One detected, one not", §8.1 row "Operon discordance", §8.5; M6-09 attack C,
 which ``test_attack_operons.py`` records with the *oracle* P(miss); M6-index lead decision 1).
 
 Statistician's attack. ``test_attack_operons.py::test_attack_c_through_the_step`` only probes that
 the step makes ``one_detected_pmiss`` rows; here the M6-02 model is *fitted* and P(miss) comes from
-the step's own chain: ``giap.steps.operons.detection_limit`` (``fit_detection_limit`` with the
+the step's own chain: ``gippa.steps.operons.detection_limit`` (``fit_detection_limit`` with the
 ``operons.detection_limit`` RNG stream, ``p_miss_for_genes``: the out-of-fold model of the seen
-partner v's TU) feeding ``giap.operons.discordance.discordance`` with the step's ``n_seen`` /
+partner v's TU) feeding ``gippa.operons.discordance.discordance`` with the step's ``n_seen`` /
 ``k_min`` one-detected event - the call ``run_operons`` makes. Only ``pair_frame`` is
 bypassed: the simulated pair table is used directly, as everywhere in the M6-09 gate.
 
-Data. Replicate ``i`` draws one 1,800-gene genome with ``giapsim.simulate_operons`` (TU blocks,
+Data. Replicate ``i`` draws one 1,800-gene genome with ``gippasim.simulate_operons`` (TU blocks,
 the ``OPERON_T`` within-TU walk, so the operon Delta are exactly the generating t) and redraws
 detection at the *peptide* level so that M6-02's model family can hold:
 
@@ -71,7 +71,7 @@ import pandas as pd
 import pytest
 from scipy.special import log_expit, logit
 
-from giapsim.scenarios import OPERON_T
+from gippasim.scenarios import OPERON_T
 
 MODES = [
     pytest.param(False, marks=pytest.mark.calibration, id="fast"),
@@ -101,7 +101,7 @@ def _oracle_delta() -> np.ndarray:
 
 
 def _observable(aa: Any, lo: int, hi: int, enzyme: str) -> list[str]:
-    from giap.genetable.covariates import digest
+    from gippa.genetable.covariates import digest
 
     if not isinstance(aa, str) or not aa:
         return []
@@ -109,7 +109,7 @@ def _observable(aa: Any, lo: int, hi: int, enzyme: str) -> list[str]:
 
 
 def _gravy(pep: str) -> float:
-    from giap.operons.detection_limit import _KD
+    from gippa.operons.detection_limit import _KD
 
     v = [_KD[c] for c in pep if c in _KD]
     return sum(v) / len(v) if v else 0.0
@@ -145,18 +145,18 @@ def _arm_cfgs(arm: str) -> Any:
 
 
 def step_replicate(arm: str, i: int) -> StepRep:
-    from giap.config import GiapConfig
-    from giap.operons import detection_limit as dl
-    from giap.operons.discordance import discordance
-    from giap.steps.operons import detection_limit
-    from giapsim.expression import detection_terms
+    from gippa.config import GippaConfig
+    from gippa.operons import detection_limit as dl
+    from gippa.operons.discordance import discordance
+    from gippa.steps.operons import detection_limit
+    from gippasim.expression import detection_terms
 
     stream = f"{DI}.attack_c.step.{arm}"
     seed = C.suite_seed(stream, i)
     cfgs = _arm_cfgs(arm)
     sim = G.simulate(cfgs, seed)
     rng = C.replicate_rng(f"{stream}.peptides", i)
-    cfg = GiapConfig(seed=int(seed % (2**31 - 1)))
+    cfg = GippaConfig(seed=int(seed % (2**31 - 1)))
     lo, hi = cfg.abundance.observable_len
     lg = sim.layout.genes.reset_index(drop=True)
     eg = sim.expression.genes.set_index("locus_tag").loc[lg["locus_tag"]]
@@ -260,7 +260,7 @@ def _recal(miss: np.ndarray, pi: np.ndarray) -> tuple[float, float]:
 
 
 def summarise(reps: list[StepRep], levels: tuple[float, ...]) -> dict[str, Any]:
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     lv = np.asarray(levels)
     pm = np.concatenate([r.pmiss for r in reps])

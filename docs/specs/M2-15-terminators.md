@@ -26,7 +26,7 @@ Milestone M2 · depends on: M2-04 · estimate ≈ 390 code lines (tests not coun
 
 ## Public interface
 
-`src/giap/annotate/terminators.py`, `terminatornet_cmd.py`, `transtermhp_cmd.py`, `bactermfinder_cmd.py`;
+`src/gippa/annotate/terminators.py`, `terminatornet_cmd.py`, `transtermhp_cmd.py`, `bactermfinder_cmd.py`;
 steps `transterm_input`, `terminator_layer`.
 ```python
 Source = Literal["TerminatorNet", "TransTermHP", "BacTermFinder"]

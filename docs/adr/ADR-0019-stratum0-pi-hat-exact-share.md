@@ -50,9 +50,9 @@ peptides).
    0.001 binomial quantile of n × (row-level mean PEP) × (1 − r): an input already filtered to genome
    matches cannot be calibrated by any genome-based π̂.
 5. **De novo precision estimand (§8.4 "known precision per bin").** The estimand is the correct share among
-   distinct de novo peptides per GIAP score bin (bins on the aggregated, max score); a distinct peptide is
+   distinct de novo peptides per GIPPA score bin (bins on the aggregated, max score); a distinct peptide is
    correct when its string (I = L) equals the `true_peptide` of at least one of its reads. Calibration gates
-   against that realised share; giapsim's per-read `truth/denovo_precision.tsv` is the per-spectrum design
+   against that realised share; gippasim's per-read `truth/denovo_precision.tsv` is the per-spectrum design
    precision, a different quantity.
 
 ## Evidence
@@ -74,7 +74,7 @@ FDP = mean over replicates; failing = some level with mean FDP > q + 2 SE.
   Power at δ = 0 relative to mean PEP: 0.984–1.0 (N = 4,000), 0.85–0.97 (N = 300); π̂ = 1 instead gives
   0.43–0.84 and 0.25. An oracle using the true unweighted no-origin share fails the short-peptide and
   padding scenarios (2.19×, 2.02×), so no pooled π̂ can work there.
-- **Genome level, real chain** (Slurm 1860123; giapsim 100 kb / 1 Mb, R = 300; 5 Mb, R = 100; tryptic,
+- **Genome level, real chain** (Slurm 1860123; gippasim 100 kb / 1 Mb, R = 300; 5 Mb, R = 100; tryptic,
   7-mer and M3-18 strain arms with realised δ 0.03–0.24). Stratum-0 FDP ≤ 0.0022 for every rule, but the
   estimated/true false count is 0.03–0.46 under mean PEP (q-values 6–30× too small) and 0.96–2.4 under this
   estimator. FDP exceeds q once the list binds: short-peptide-heavy input, very large genomes, or q < ~0.005.
@@ -92,7 +92,7 @@ FDP = mean over replicates; failing = some level with mean FDP > q + 2 SE.
   `known_pi` / `calibrated_pep` / `max_q` expectations in tests/calibration/test_placement_fdr_lists.py; the
   reference rule in tests/calibration/attacks/test_attack_placement_same_db.py; re-verify
   test_placement_fdr_genome.py. New attack: tests/calibration/attacks/test_attack_placement_strain_span.py. Strict xfails to flip: the 1-Mb related_dbstrain estimate check and `test_database_stressed_stratum0_estimate_covers_false_placements` (1-Mb stressed arm; W0/V0 ≈ 0.2 under mean PEP, ≈ 1.04 under this rule, statistician review of #113 round 2).
-- GIAP_SPEC.md §7.2.5 step 4 is superseded by this ADR; docs/methods/placement-fdr.md (new section
+- GIPPA_SPEC.md §7.2.5 step 4 is superseded by this ADR; docs/methods/placement-fdr.md (new section
   "Cross-strain input and run collapse") and docs/methods/denovo-precision.md (estimand) are updated.
 
 ## Alternatives

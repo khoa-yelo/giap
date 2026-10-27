@@ -1,7 +1,7 @@
 """M7-10 in the ``variants`` step: ``class_error_rate`` / ``class_error_n`` on every
 ``variants.tsv`` ALT row and ``CLASS_ERR`` in the VCF, from C17 ``peptide_spectra``
 (docs/specs/M7-10-class-error-rates.md rules 1-4, examples 1-6 at step level, degenerate rows;
-lead decision 1; GIAP_SPEC.md §7.5.4, §7.5.5).
+lead decision 1; GIPPA_SPEC.md §7.5.4, §7.5.5).
 
 Interface pinned here (test-author reading; see the report to the lead):
 
@@ -10,14 +10,14 @@ Interface pinned here (test-author reading; see the report to the lead):
 * With it, the rates are pooled per class ``(alt_type, mass_equivalent)``, where a site's
   ``mass_equivalent`` is its M7-05 flag, and every row of a class carries the same value.
   The expected values come from ``helpers.class_error_chain.oracle_rates``: a brute-force count
-  of rules 1-3 on the raw giapsim tables (de novo reads, reference peptides with q and decoy
+  of rules 1-3 on the raw gippasim tables (de novo reads, reference peptides with q and decoy
   status), with the sites' supporting peptides from the merged M7-02 ``sites``.
 * ``reference_peptides`` without ``spectrum_id``: every row ``unestimated`` and a WARNING naming
   ``no_spectrum_pairing``, either as a preflight check (rule id or message) or in the step's log.
 * A C17 table without de novo rows (database-only input): every row ``unestimated``.
 
-The fixture is a 50-kb giapsim genome, M3-19 database peptides (pi_wrong 0.05) and their M3-20
-de novo reads as the input, with giapsim's paired ``reference_peptides.tsv`` (183 of ~3,000
+The fixture is a 50-kb gippasim genome, M3-19 database peptides (pi_wrong 0.05) and their M3-20
+de novo reads as the input, with gippasim's paired ``reference_peptides.tsv`` (183 of ~3,000
 reference rows have q > 0.01 at this size, so rule 1's threshold is exercised).
 """
 
@@ -77,8 +77,8 @@ def _all_unestimated(variants: pd.DataFrame) -> None:
 
 
 def test_step_declares_peptide_spectra_optional() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("variants")

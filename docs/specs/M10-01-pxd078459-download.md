@@ -10,12 +10,12 @@ private, or the run selection is ambiguous.
 - §15.1 "Three wild-type runs from **PXD078459** (iProX; Nissle 1917; timsTOF HT). The deposited
   Spectronaut file suggests diaPASEF; confirm the acquisition mode on the first run. The download
   is about 5–10 GB (estimate)."
-- §15.2 step 4: "Download the 3 wild-type runs of PXD078459 to `$GIAP_DATA_DIR/pxd078459/` (a
+- §15.2 step 4: "Download the 3 wild-type runs of PXD078459 to `$GIPPA_DATA_DIR/pxd078459/` (a
   batch job; record checksums). Confirm the acquisition mode on the first run."
 - §3.2 source row "iProX / ProteomeXchange (`proteomecentral.proteomexchange.org`, `www.iprox.cn`
   and the FTP host the dataset page names)"; R6 (pinned official sources, checksums, one retry,
   Blocked row, no mirrors, never TLS off); R11 (raw MS data never committed; ≤ 5 MB per file);
-  R14 and §3.8 (batch job, `giap-*` name, job ID in PROGRESS); §3.9 (raw data 5–10 GB budget line).
+  R14 and §3.8 (batch job, `gippa-*` name, job ID in PROGRESS); §3.9 (raw data 5–10 GB budget line).
 - §15.5 metric 8 "Only wild-type runs count, because engineered strains may carry K-12-derived
   constructs": the selection rule must be explicit and recorded.
 - §17 rows "PXD078459 acquisition mode differs" and "Download source down or changed".
@@ -35,7 +35,7 @@ on 2026-10-23 returned **404** for the base URL. The ProteomeXchange record
 
 The M3-24 tests (`tests/unit/test_m3_24_pilot_kit.py`, `tests/unit/test_m3_24_diann_pilot_run.py`)
 run the script with no arguments against stubbed `curl`/`wget`. They expect at least three https
-URLs, `SHA256SUMS` listing every created file, writes only under `$GIAP_DATA_DIR/pxd078459/`, and
+URLs, `SHA256SUMS` listing every created file, writes only under `$GIPPA_DATA_DIR/pxd078459/`, and
 no TLS-off flag. **They must keep passing unchanged.** The sandbox (`tests/helpers/pilot_kit.py`)
 copies `validation/`, so a committed manifest can provide the defaults.
 
@@ -56,12 +56,12 @@ Nothing else is committed: no archive, no `.d` content, no XML record (index que
 
 1. **Resolve** (`sbatch --qos=dev scripts/slurm/fetch_pxd078459.sbatch --resolve`; 1 CPU, 2 GB,
    30 min). It fetches `https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID=PXD078459&outputMode=XML`
-   (a small file from a §3.2 host) into `$GIAP_DATA_DIR/pxd078459/record/PXD078459.xml`, records
+   (a small file from a §3.2 host) into `$GIPPA_DATA_DIR/pxd078459/record/PXD078459.xml`, records
    its sha256 and the UTC date, runs `px_record.py`, and writes the draft manifest next to it. It
    downloads no raw data. The agent reads the draft, checks the selection, and commits it as
    deliverable 3.
 2. **Download** (`sbatch scripts/slurm/fetch_pxd078459.sbatch`; 2 CPU, 8 GB, 24 h). It reads
-   deliverable 3, downloads every row into `$GIAP_DATA_DIR/pxd078459/`, verifies, unpacks, and
+   deliverable 3, downloads every row into `$GIPPA_DATA_DIR/pxd078459/`, verifies, unpacks, and
    writes `SHA256SUMS`. Then `acquisition_mode.py` runs on the three `.d` directories (dev QOS,
    1 CPU, 4 GB, 30 min; reading SQLite metadata takes seconds).
 
@@ -72,7 +72,7 @@ committed manifest. With neither, the script exits 2 with "no file list: run --r
 
 | Column | Meaning |
 |---|---|
-| `run` | `WT_1`, `WT_2`, `WT_3`: GIAP's run label, in selection order |
+| `run` | `WT_1`, `WT_2`, `WT_3`: GIPPA's run label, in selection order |
 | `file_name` | the name in the record (basename of the URI) |
 | `url` | the URL the job downloads (https or ftps) |
 | `url_record` | the URI exactly as the record gives it (may be `ftp://`, question Q1) |
@@ -113,7 +113,7 @@ instrument cvParam goes into the README; if it names no timsTOF instrument, the 
 - Scheme: `https://` or `ftps://` only. An `ftp://` or `http://` URL in the manifest is exit 2
   ("R6 / M3-24 decision 11: plain FTP or HTTP is refused"), naming the file. Never
   `--insecure`/`-k`/`--no-check-certificate`.
-- Disk: before the first byte, free space under `$GIAP_DATA_DIR` must be ≥ 3 × the sum of
+- Disk: before the first byte, free space under `$GIPPA_DATA_DIR` must be ≥ 3 × the sum of
   `bytes` (archive + unpacked + margin); else exit 2. With `bytes` `NA`, assume 5 GB per run.
 - Resume: `curl --continue-at -` on a partial file; a file whose size equals `bytes` and whose
   record checksum matches is skipped.
@@ -122,7 +122,7 @@ instrument cvParam goes into the README; if it names no timsTOF instrument, the 
   row. `sha256` is computed for every file into `SHA256SUMS` (as M3 does) and into the manifest.
 - Unpack: `.zip` (`unzip -t` first), `.tar`, `.tar.gz`. An archive member with an absolute path
   or a `..` component is refused (exit 1, "unsafe archive member"): the archives are untrusted.
-  The run ends up at `$GIAP_DATA_DIR/pxd078459/<run>.d/`, whatever folder nesting the archive
+  The run ends up at `$GIPPA_DATA_DIR/pxd078459/<run>.d/`, whatever folder nesting the archive
   had; exactly one `analysis.tdf` per run. Any other format (`.7z`, `.rar`) is exit 2 with a
   question for the lead. The archive is deleted after a successful unpack (§3.9).
 - Exit codes: 0 done; 1 download or verification failed after the retry; 2 a precondition
@@ -254,4 +254,4 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
 
 Every lead question L1–L14 takes its default. Khoa, 2026-10-24 (M10-04/05 Q-K1): aggregate numbers (counts, shares, ρ, Jaccards, TE results) and named example genes may be committed in REPORT.md / metrics.json; no row-level DIA-NN content. The spec is stacked on M10-05 (branch m10/spec-05 is merged into m10/spec-06).
 
-L1–L7 take their defaults; S1–S6 go to the statistician's spec review before tests. Khoa, 2026-10-24: aggregates (N_T, N_E, r, the estimate and bounds) may be committed; row-level discoveries stay under $GIAP_ROOT.
+L1–L7 take their defaults; S1–S6 go to the statistician's spec review before tests. Khoa, 2026-10-24: aggregates (N_T, N_E, r, the estimate and bounds) may be committed; row-level discoveries stay under $GIPPA_ROOT.

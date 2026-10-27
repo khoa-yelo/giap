@@ -1,4 +1,4 @@
-"""LOESS detrending with circular padding (issue M5-01; GIAP_SPEC.md §7.3.5(c), §7.3.5(d) step 3).
+"""LOESS detrending with circular padding (issue M5-01; GIPPA_SPEC.md §7.3.5(c), §7.3.5(d) step 3).
 
 Lead decisions 4-7 (2026-10-20): k = 3 on equal spacing gives fit == y (documented degeneracy);
 y / pos length mismatch -> ValueError; ``loess_matrix(pos, frac, *, circular, period=None,
@@ -36,8 +36,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-from giap.rng import for_step
-from giap.stats.smooth import LoessFit, loess_detrend, loess_matrix, loess_span_points
+from gippa.rng import for_step
+from gippa.stats.smooth import LoessFit, loess_detrend, loess_matrix, loess_span_points
 
 FAST = settings(max_examples=60, deadline=None)
 

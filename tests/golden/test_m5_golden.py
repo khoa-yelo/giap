@@ -1,4 +1,4 @@
-"""The committed M5 tables of the two golden fixtures (GIAP_SPEC.md §11.4; M5-11 examples 1-2).
+"""The committed M5 tables of the two golden fixtures (GIPPA_SPEC.md §11.4; M5-11 examples 1-2).
 
 Cases (tests/helpers/m5_chain.py):
 
@@ -18,7 +18,7 @@ tests/golden/test_m4_golden.py and, minus the three M5 columns, by
 tests/integration/test_m5_pipeline.py.
 
 **Decision 39: the island golden is checked against l' before it is frozen.** With
-``GIAP_UPDATE_GOLDEN=1`` the files are written only when the run passes the l' check
+``GIPPA_UPDATE_GOLDEN=1`` the files are written only when the run passes the l' check
 (``m5_chain.l_prime_problems``: chr1 ``block_len: auto``, l' = min(20, 2 l-hat + 1) and shorter
 than the planted island) and the example 2 check (one ``high`` island overlapping the planted TUs);
 otherwise the regeneration fails and writes nothing. The same checks also run on every comparison.
@@ -34,7 +34,7 @@ count); every other cell -- flags, every Moran row, islands.tsv and genes_contex
 for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
 
 Regenerating (on purpose, reviewed in the PR diff as data):
-``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m5_golden.py`` writes the files and skips.
+``GIPPA_UPDATE_GOLDEN=1 pytest tests/golden/test_m5_golden.py`` writes the files and skips.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Lead decisions from the M1-06 code review (generic peptide table; GIAP_SPEC.md §5.3; ADR-0006).
+"""Lead decisions from the M1-06 code review (generic peptide table; GIPPA_SPEC.md §5.3; ADR-0006).
 
 1. rows with an error-level issue are dropped from the evidence (aggregate and ``peptide_runs``);
 2. ``nan``/``inf`` text in q_value/pep/intensity is an error (``NA``/empty stay plain missing);
@@ -19,8 +19,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config.model import InputConfig
-from giap.io.peptides import Issue, aggregate_peptides, read_peptide_table, validate_peptides
+from gippa.config.model import InputConfig
+from gippa.io.peptides import Issue, aggregate_peptides, read_peptide_table, validate_peptides
 
 
 def _tsv(*lines: str) -> str:

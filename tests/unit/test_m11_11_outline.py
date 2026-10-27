@@ -65,7 +65,7 @@ def _numbers(text: str) -> set[str]:
 def test_no_invented_numbers() -> None:  # M10-15 notes rule
     text = OUTLINE.read_text(encoding="utf-8")
     cited = {p for p in _paths(text) if (ROOT / p).is_file()}
-    corpus = (ROOT / "GIAP_SPEC.md").read_text(encoding="utf-8") + " ".join(cited)
+    corpus = (ROOT / "GIPPA_SPEC.md").read_text(encoding="utf-8") + " ".join(cited)
     for p in cited:
         corpus += (ROOT / p).read_text(encoding="utf-8", errors="replace")
     known = _numbers(corpus)

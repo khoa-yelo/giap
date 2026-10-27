@@ -9,7 +9,7 @@ Interface fixed here (the spec names ``summarize(report_cols, peptides, abundanc
   ``Global.Q.Value`` (as ``pq.read_table(report, columns=…).to_pandas()`` gives them);
 * ``peptides``: the converted table **read back** from the written TSV (``read_peptide_table``);
 * ``abundance``: the MaxLFQ table read back as a DataFrame (``protein_id``, ``maxlfq``);
-* ``issues``: a list of ``giap.io.issues.Issue``;
+* ``issues``: a list of ``gippa.io.issues.Issue``;
 * returns a dict with ``counts`` (the fields below), ``issues`` (code → ``{"severity", "rows"}``)
   and ``failures`` (a list of strings; empty when every summary rule holds).
 
@@ -32,7 +32,7 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.diann_convert_m10 import (
     SUMMARY,
-    giap_convert,
+    gippa_convert,
     load_summary_module,
     row,
     sha256,
@@ -40,8 +40,8 @@ from helpers.diann_convert_m10 import (
     write_parquet,
 )
 
-from giap.io.issues import Issue
-from giap.io.peptides import read_peptide_table
+from gippa.io.issues import Issue
+from gippa.io.peptides import read_peptide_table
 
 
 def _r(
@@ -110,7 +110,7 @@ def converted(tmp_path: Path) -> dict[str, Any]:
     """The fixture report converted by this checkout's CLI and read back."""
     rep = write_parquet(tmp_path / "A1_report.parquet", table(ROWS))
     pep, ab = tmp_path / "a1.tsv.gz", tmp_path / "a1_abundance.tsv.gz"
-    res = giap_convert(rep, pep, ab, "other")
+    res = gippa_convert(rep, pep, ab, "other")
     assert res.returncode == 0, res.stderr
     log = tmp_path / "a1.convert.log"
     log.write_text(res.stderr)
@@ -176,7 +176,7 @@ def test_rule2_no_decoy_fails(mod, tmp_path: Path) -> None:  # type: ignore[no-u
     rows = [{**r, "Decoy": 0} for r in ROWS]
     rep = write_parquet(tmp_path / "r.parquet", table(rows))
     pep, ab = tmp_path / "p.tsv", tmp_path / "ab.tsv"
-    assert giap_convert(rep, pep, ab, "other").returncode == 0
+    assert gippa_convert(rep, pep, ab, "other").returncode == 0
     peptides, _ = read_peptide_table(pep)
     out = mod.summarize(pq.read_table(rep).to_pandas(), peptides, pd.read_csv(ab, sep="\t"), [])
     assert out["counts"]["decoy_rows"] == 0
@@ -229,7 +229,7 @@ def test_cli_writes_convert_json(converted: dict[str, Any], tmp_path: Path) -> N
     assert SUMMARY.is_file(), "validation/pilot/diann_convert.py does not exist (M10-03)"
     p = converted["paths"]
     p["log"].write_text(
-        p["log"].read_text() + "giap convert: warn: decoy_without_protein_ids: "
+        p["log"].read_text() + "gippa convert: warn: decoy_without_protein_ids: "
         "decoy rows without protein IDs (2 rows) (e.g. rows 1, 2)\n"
     )
     out = tmp_path / "a1.convert.json"
@@ -241,7 +241,7 @@ def test_cli_writes_convert_json(converted: dict[str, Any], tmp_path: Path) -> N
         "search_db",
         "report",
         "outputs",
-        "giap",
+        "gippa",
         "command",
         "job",
         "issues",
@@ -265,7 +265,7 @@ def test_cli_writes_convert_json(converted: dict[str, Any], tmp_path: Path) -> N
 def test_cli_exits_1_on_a_failed_rule(converted: dict[str, Any], tmp_path: Path) -> None:
     assert SUMMARY.is_file(), "validation/pilot/diann_convert.py does not exist (M10-03)"
     p = converted["paths"]
-    p["log"].write_text("giap convert: error: bad_type:PEP: PEP: invalid value (1 rows)\n")
+    p["log"].write_text("gippa convert: error: bad_type:PEP: PEP: invalid value (1 rows)\n")
     out = tmp_path / "a1.convert.json"
     res = _cli(converted, out)
     assert res.returncode == 1, (res.returncode, res.stderr)

@@ -1,6 +1,6 @@
-# M9-22: `giap compare`: genome check and the three comparison tables
+# M9-22: `gippa compare`: genome check and the three comparison tables
 
-Milestone M9 · **pass 2** · depends on: none (reads `OUT/` trees; uses `giap.stats`) · estimate
+Milestone M9 · **pass 2** · depends on: none (reads `OUT/` trees; uses `gippa.stats`) · estimate
 ≈ 380 code lines (+ ≈ 380 test lines) · **stats** (Spearman ρ with a TU-block bootstrap CI,
 Bland–Altman limits, Jaccard indices) · writes **ADR-M9-B**
 
@@ -13,12 +13,12 @@ Bland–Altman limits, Jaccard indices) · writes **ADR-M9-B**
   `compare_stability.tsv`: Jaccard overlap of island gene sets, operon-flag pairs, enriched
   categories (q ≤ 0.05), novel ORFs and ALT sites; `plots/V16_compare.*`; `report/compare.html`."
   (V16 and the HTML are M9-23.)
-- §5.1 `giap compare OUT_A OUT_B [OUT_C ...] --outdir CMP [--labels A1,A2,A3]`, exit codes; §8.2
+- §5.1 `gippa compare OUT_A OUT_B [OUT_C ...] --outdir CMP [--labels A1,A2,A3]`, exit codes; §8.2
   (CIs, R4), §8.3 (`tu_block_bootstrap`, `percentile_ci`), §5.2 `stats.bootstrap`,
-  `stats.alpha.enrichment`, `stats.alpha.context`; §6.6 (`giap.rng.for_step("compare", seed)`);
+  `stats.alpha.enrichment`, `stats.alpha.context`; §6.6 (`gippa.rng.for_step("compare", seed)`);
   §9.2 conventions; §9.5 schemas; §15 (M10 runs A1/A2/A3 through this command).
 
-## ADR-M9-B (written by this issue): `giap compare` output layout
+## ADR-M9-B (written by this issue): `gippa compare` output layout
 
 1. All three tables live under `CMP/tables/` (§7.9.3 places only the first there explicitly).
 2. `compare_detection.tsv` is **long**: `section` enum{matrix, intersection}. Per-run columns would
@@ -29,8 +29,8 @@ Bland–Altman limits, Jaccard indices) · writes **ADR-M9-B**
 
 ## Public interface
 
-`src/giap/compare/` (pure): `detection.py`, `abundance.py`, `stability.py`; `src/giap/io/compare_io.py`
-(read runs, write tables); schemas `src/giap/schemas/tables/compare_{detection,abundance,stability}.schema.json`;
+`src/gippa/compare/` (pure): `detection.py`, `abundance.py`, `stability.py`; `src/gippa/io/compare_io.py`
+(read runs, write tables); schemas `src/gippa/schemas/tables/compare_{detection,abundance,stability}.schema.json`;
 `cli.compare` replaces `_not_implemented`. Methods note `docs/methods/compare.md`.
 
 ```python
@@ -38,7 +38,7 @@ def detection_matrix(runs: Mapping[str, pd.DataFrame]) -> pd.DataFrame
 def intersections(matrix: pd.DataFrame, labels: Sequence[str]) -> pd.DataFrame
 def abundance_pairs(runs: Mapping[str, pd.DataFrame], tus: pd.Series, B: int,
                     rng: np.random.Generator) -> pd.DataFrame
-def stability(runs: Mapping[str, RunView], labels: Sequence[str], cfg: GiapConfig) -> pd.DataFrame
+def stability(runs: Mapping[str, RunView], labels: Sequence[str], cfg: GippaConfig) -> pd.DataFrame
 ```
 
 ## Tables
@@ -107,7 +107,7 @@ flag `missing_in:<label>`.
   1–4, 7; ties in Spearman; ddof.
 - [ ] `tests/unit/test_cli_compare.py`: examples 5, 6 and every exit-1 row.
 - [ ] Calibration (statistician): `tests/calibration/test_compare_rho_ci.py` — coverage of the
-  TU-block bootstrap CI for ρ on giapsim pairs with a known common abundance and TU-correlated
+  TU-block bootstrap CI for ρ on gippasim pairs with a known common abundance and TU-correlated
   noise; R from a new `tolerances.yaml` entry **proposed** to Khoa (protected file; Q2), recorded
   until then.
 - [ ] Schemas validate; ADR-M9-B committed; `docs/methods/compare.md` signed off.
@@ -143,8 +143,8 @@ flag `missing_in:<label>`.
    the TUs of the pair's first run (label order).
 8. **Existing CLI tests.** If `tests/unit/test_cli.py` or `test_cli_exit_codes.py` assume
    `compare` exits 5, the implementer reports it and the lead edits them.
-9. **Calibration world.** Simulated TU pairs at giapsim sizes are accepted for this PR; full
-   giapsim pairs go to the hardening backlog.
+9. **Calibration world.** Simulated TU pairs at gippasim sizes are accepted for this PR; full
+   gippasim pairs go to the hardening backlog.
 10. **Section order.** The matrix section first, then intersections; among equal counts `none`
     sorts last (untested; backlog).
 

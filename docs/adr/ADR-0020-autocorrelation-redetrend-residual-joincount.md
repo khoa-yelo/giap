@@ -7,7 +7,7 @@
 - Spec sections: §7.3.5(c), §8.1, §8.2, §8.3
 
 ## Context
-Simulations on giapsim M4-07/08 truth (B = 499–1,000):
+Simulations on gippasim M4-07/08 truth (B = 499–1,000):
 - Permuting the LOESS residuals without recomputing the trend (§7.3.5(c) "detrend then permute", M5-05's
   "no re-detrending per permutation") is anti-conservative. At 1,000 genes, R = 1,000: gene-label null
   pooled rejection over 20 lags 0.026 / 0.096 / 0.162 at α 0.01 / 0.05 / 0.10, BH-family FDR 0.136;
@@ -48,7 +48,7 @@ Simulations on giapsim M4-07/08 truth (B = 499–1,000):
 
 ## Consequences
 - Runtime: one (B × n)·(n × n) smoother product per null (≈ 6 × 10⁹ flops at 4,500 genes, inside M5-05's
-  30 s budget). `giap.stats.smooth.loess_detrend` must accept positions 0…n−1 so the smoother matrix is
+  30 s budget). `gippa.stats.smooth.loess_detrend` must accept positions 0…n−1 so the smoother matrix is
   shared by every replicate.
 - p-values on real data drop for lag-k structure the detrend created. Interpretation note: at ρ 0.9 the
   10 % detrend creates a real negative I₂₀ (effect −0.195 at 1,000 genes); large-lag negative values are a

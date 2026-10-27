@@ -1,4 +1,4 @@
-# Pilot validation kit: E. coli Nissle 1917 (GIAP_SPEC.md §15)
+# Pilot validation kit: E. coli Nissle 1917 (GIPPA_SPEC.md §15)
 
 The kit for the light pilot of §15: three arms (A1 generic reference, A2 matched strain, A3 de
 novo) over three wild-type runs of **PXD078459** (iProX; Nissle 1917; timsTOF HT, diaPASEF
@@ -9,16 +9,16 @@ thing M3 executed is a `--version` smoke check of the DIA-NN container (M3-24 de
 |---|---|
 | `diann_A1.cfg` | DIA-NN settings for arm A1 (UniProt K-12 UP000000625 + contaminants) |
 | `diann_A2.cfg` | the same settings for arm A2; only `--fasta` differs |
-| `db_a2/strain_db.faa.gz` | the A2 database built by `giap makedb` from the recorded Nissle Bakta JSON |
+| `db_a2/strain_db.faa.gz` | the A2 database built by `gippa makedb` from the recorded Nissle Bakta JSON |
 | `db_a2/db_id_map.tsv` | one row per database record (1-based closed coordinates) |
 | `db_a2/makedb_manifest.json` | inputs with their SHA-256, options and counts |
-| `../../scripts/slurm/fetch_pxd078459.sbatch` | step 4: download the runs to `$GIAP_DATA_DIR/pxd078459/` |
+| `../../scripts/slurm/fetch_pxd078459.sbatch` | step 4: download the runs to `$GIPPA_DATA_DIR/pxd078459/` |
 | `../../scripts/slurm/diann_pilot.sbatch` | step 5: DIA-NN for A1 and A2 |
 | `../../scripts/slurm/denovo_pilot.sbatch` | step 6: Cascadia (A3), with the Casanovo fallback |
 
 ## DIA-NN: the container, not an unpacked binary
 
-Khoa supplied DIA-NN as an Apptainer image instead of the unpacked `$GIAP_TOOLS_DIR/diann-2.7.0`
+Khoa supplied DIA-NN as an Apptainer image instead of the unpacked `$GIPPA_TOOLS_DIR/diann-2.7.0`
 build of §15.2 step 3 (reference invocation:
 `/farmshare/home/classes/bios/270/jordan/run_2step.sh`, which this kit follows).
 
@@ -35,7 +35,7 @@ build of §15.2 step 3 (reference invocation:
 The image is **never copied into the repository** (532 MB, R11; decision 3): the repository keeps
 only the two cfg files, this README, `db_a2/` and the sbatch scripts.
 `scripts/slurm/diann_image.sbatch` verifies the image above against the pin and installs a
-read-only copy at `$GIAP_ROOT/images/diann_2.3.1.sif` (M10-02); `scripts/slurm/diann_pilot.sbatch`
+read-only copy at `$GIPPA_ROOT/images/diann_2.3.1.sif` (M10-02); `scripts/slurm/diann_pilot.sbatch`
 reads `DIANN_SIF`, defaults to that copy and exits 2 when it is missing, writable or off the pin.
 The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; the scripts read it from
 `validation/pilot/diann_image.sha256`, and the test fakes use `DIANN_SIF_SHA256`
@@ -67,22 +67,22 @@ digest. The pilot therefore runs two calls in order (decision 4), both in `diann
 
 Step 1 is skipped when its library already exists, so a re-queued job resumes. `--f`, `--lib`,
 `--fasta`, `--out`, `--out-lib` and `--threads` (= `$SLURM_CPUS_PER_TASK`) are supplied by the
-sbatch script; everything else comes from the cfg file, one flag per line, with `$GIAP_*`
+sbatch script; everything else comes from the cfg file, one flag per line, with `$GIPPA_*`
 variables expanded at submission time. A2's database is committed gzipped and DIA-NN reads plain
 FASTA, so the script unpacks `strain_db.faa.gz` into `$OUT_DIR/<arm>/fasta/`, outside the
 repository.
 
-### Digest flags = GIAP's digest (decision 5)
+### Digest flags = GIPPA's digest (decision 5)
 
 `--cut K*,R*`, `--missed-cleavages 1`, `--min-pep-len 7`, `--max-pep-len 30` and `--unimod4` are
-exactly the defaults of `giap.mapping.digest` (M3-22); the tests derive them from that module, so
+exactly the defaults of `gippa.mapping.digest` (M3-22); the tests derive them from that module, so
 the two cannot drift apart.
 
 ### §15.2 template flags that the cfg files do not use
 
 | Flag | Why |
 |---|---|
-| `--met-excision` | **left out** (decision 7). GIAP's digest keeps the initiator Met (`src/giap/mapping/digest.py` decision 1), so letting DIA-NN excise it would produce peptides GIAP never proposes and break the A1/A2 comparison. |
+| `--met-excision` | **left out** (decision 7). GIPPA's digest keeps the initiator Met (`src/gippa/mapping/digest.py` decision 1), so letting DIA-NN excise it would produce peptides GIPPA never proposes and break the A1/A2 comparison. |
 | `--lib ""` | not needed: step 1 builds no library of its own, and step 2 gets `--lib <predicted>` from the script. |
 | `--f`, `--fasta`, `--out`, `--out-lib`, `--threads` | supplied by `scripts/slurm/diann_pilot.sbatch` (run paths, output names and the Slurm CPU count). |
 
@@ -101,7 +101,7 @@ FDR control, so the identifications are no longer the single-pass q ≤ 0.01 set
 ## How `db_a2` was built
 
 ```bash
-giap makedb --annotation tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz \
+gippa makedb --annotation tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz \
             --genome local/data/genomes/nissle1917/GCA_043228065.1_ASM4322806v1_genomic.fna.gz \
             --outdir validation/pilot/db_a2 --no-contaminants
 gzip -9n validation/pilot/db_a2/strain_db.faa
@@ -114,7 +114,7 @@ The recorded Bakta JSON carries no nucleotides (R11), so `--genome` is required;
 passes it through to the Bakta parser (decision 8). The genome is **GCA_043228065.1**
 (`ASM4322806v1`: chromosome CP171242.1, plasmids CP171243.1, CP171244.1, CP171245.1) and is not
 committed. Fetch it with `sbatch scripts/slurm/fetch_resources.sbatch` (it lands in
-`$GIAP_DATA_DIR/genomes/nissle1917/`, md5 `ff062688cf999ade769f4a27c2cb0949`), or directly from
+`$GIPPA_DATA_DIR/genomes/nissle1917/`, md5 `ff062688cf999ade769f4a27c2cb0949`), or directly from
 NCBI:
 
 ```bash
@@ -156,7 +156,7 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
 - **Manifest:** `validation/pilot/inputs/pxd078459_files.tsv`. The record gives no checksums, so integrity rests on
   TLS only; `sha256` is filled by the download job (`SHA256SUMS` next to the data).
 - **Download:** Slurm job 1879859 (2026-10-24, 23 min, COMPLETED) fetched the three archives over
-  HTTPS (about 2.9 GB), unpacked them to `$GIAP_DATA_DIR/pxd078459/` as WT_1.d, WT_2.d and WT_3.d and wrote
+  HTTPS (about 2.9 GB), unpacked them to `$GIPPA_DATA_DIR/pxd078459/` as WT_1.d, WT_2.d and WT_3.d and wrote
   `SHA256SUMS`; the archive sha256s are in the manifest.
 - **Acquisition mode:** diaPASEF for all three runs (`acquisition_mode.py`, Slurm job 1879882):
   734 MS1 frames and 8804–8805 diaPASEF frames (MsMsType 9) per run.
@@ -164,7 +164,7 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
 
 ## Searches (M10-02)
 
-DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1.sif`.
+DIA-NN 2.3.1 Academia ran from the read-only copy `$GIPPA_ROOT/images/diann_2.3.1.sif`.
 - **The install:** `scripts/slurm/diann_image.sbatch`, Slurm 1879883, copied and hashed the image
   but ended FAILED with exit 2: it ran before the banner fix (e7edc457), and its banner check read
   the blank line the binary prints first. The copy was verified afterwards: mode 444, sha256 equal
@@ -188,7 +188,7 @@ DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1
 | A1 | 1879955 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.6 GiB |
 | A2 | 1879956 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.4 GiB |
 
-- **Outputs:** they stay under `$GIAP_ROOT/pilot/<arm>/`: report, library, `provenance.json`,
+- **Outputs:** they stay under `$GIPPA_ROOT/pilot/<arm>/`: report, library, `provenance.json`,
   `outputs.sha256`, and both command lines. Nothing derived from the reports is committed (Khoa,
   2026-10-23). Report row counts wait for Q-K1; the default is that they are not committed.
 - **Superseded attempts:**
@@ -200,16 +200,16 @@ DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1
 
 ## Conversion (M10-03)
 
-`scripts/slurm/diann_convert.sbatch <arm>` ran `giap convert --from diann` on each arm's DIA-NN
+`scripts/slurm/diann_convert.sbatch <arm>` ran `gippa convert --from diann` on each arm's DIA-NN
 2.3.1 report, at commit `fdf586be` of `m10/diann-convert-tests` from a clean worktree. The job
 converts twice and compares the hashes (determinism), then runs the five contract checks
 (`tests/contract/test_m10_03_diann_contract.py`, 0 skipped).
 
 ```
-giap convert --from diann $GIAP_ROOT/pilot/A1/A1_report.parquet --out $GIAP_ROOT/pilot/inputs/a1.tsv.gz \
-  --abundance-out $GIAP_ROOT/pilot/inputs/a1_abundance.tsv.gz --search-db other
-giap convert --from diann $GIAP_ROOT/pilot/A2/A2_report.parquet --out $GIAP_ROOT/pilot/inputs/a2.tsv.gz \
-  --abundance-out $GIAP_ROOT/pilot/inputs/a2_abundance.tsv.gz --search-db same
+gippa convert --from diann $GIPPA_ROOT/pilot/A1/A1_report.parquet --out $GIPPA_ROOT/pilot/inputs/a1.tsv.gz \
+  --abundance-out $GIPPA_ROOT/pilot/inputs/a1_abundance.tsv.gz --search-db other
+gippa convert --from diann $GIPPA_ROOT/pilot/A2/A2_report.parquet --out $GIPPA_ROOT/pilot/inputs/a2.tsv.gz \
+  --abundance-out $GIPPA_ROOT/pilot/inputs/a2_abundance.tsv.gz --search-db same
 ```
 
 | arm | Slurm job | node | state | elapsed | MaxRSS |
@@ -229,7 +229,7 @@ sha256 of each input report and of the two tables written from it:
 | A2 | `a2_abundance.tsv.gz` | `c61122f3afc9aa31986de8bbfef1c542719627d3d632ec9113e7719582b41c19` |
 
 - **Where the tables live:** they are derived from the DIA-NN reports, so they stay under
-  `$GIAP_ROOT/pilot/inputs/` and are not committed (Khoa, 2026-10-23). This departs from §15.2
+  `$GIPPA_ROOT/pilot/inputs/` and are not committed (Khoa, 2026-10-23). This departs from §15.2
   step 7; the amendment goes to ADR-0051.
 - **Row counts** (data rows, header excluded; aggregates are allowed, Khoa 2026-10-24):
 
@@ -258,12 +258,12 @@ CONDA_OVERRIDE_CUDA=11.8 sbatch scripts/slurm/build_envs.sbatch cascadia timscon
 A3_WEIGHTS_HOST_OK=1 sbatch scripts/slurm/fetch_a3_assets.sbatch     # verified copies (R6)
 sbatch scripts/slurm/mzml_pilot.sbatch WT_1                          # .d -> mzML, then mzml-check
 RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # 1 GPU, offline Unimod
-python validation/pilot/a3_feasibility.py evaluate $GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl \
+python validation/pilot/a3_feasibility.py evaluate $GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl \
   --run WT_1 --out validation/pilot/metrics/a3_feasibility.json \
   --route B2 --route-version <commit> --weights-sha256 <sha> --mzml-sha256 <sha> \
-  --mzml-check $GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzml_check.json --job-id <id> \
+  --mzml-check $GIPPA_DATA_DIR/pxd078459/mzml/WT_1.mzml_check.json --job-id <id> \
   --date <YYYY-MM-DD> \
-  --detail $GIAP_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv
+  --detail $GIPPA_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv
 ```
 
 The verdict is rule L6 on WT_1 (spec M10-08): fail when fewer than 500 distinct 7-30-mers pass
@@ -275,24 +275,24 @@ rerun is byte-identical.
 
 ## Pass-1 runs (M10-04)
 
-§15.2 step 8 for arms A1 and A2, then `giap compare` (the first and third §15.6 criteria; spec
+§15.2 step 8 for arms A1 and A2, then `gippa compare` (the first and third §15.6 criteria; spec
 `docs/specs/M10-04-pilot-runs.md`). This section holds provenance only: job IDs, commits, states,
 exit codes, runtimes, memory, sha256s and byte sizes. No biological number is committed here (Q-K1);
 those belong to M10-05's `REPORT.md`. The run directories, the comparison, the evidence JSON and
-`ATTEMPTS.tsv` stay under `$GIAP_ROOT/runs/pilot/pass1/` and are not committed (Khoa,
+`ATTEMPTS.tsv` stay under `$GIPPA_ROOT/runs/pilot/pass1/` and are not committed (Khoa,
 2026-10-23). Pass-1 outputs may carry `uncalibrated` flags; that is expected, because the
 M6/M7/M8 hardening is still open.
 
 ```bash
-P=$GIAP_ROOT/pilot/inputs; R=$GIAP_ROOT/runs/pilot/pass1
-G=$GIAP_REPO/tests/data/genomes/nissle1917.fna.gz
-sbatch -J giap-run-pilot-a2 scripts/slurm/giap_run.sbatch \
+P=$GIPPA_ROOT/pilot/inputs; R=$GIPPA_ROOT/runs/pilot/pass1
+G=$GIPPA_REPO/tests/data/genomes/nissle1917.fna.gz
+sbatch -J gippa-run-pilot-a2 scripts/slurm/gippa_run.sbatch \
   --genome $G --annotation $P/nissle1917.bakta.json --peptides $P/a2.tsv.gz \
-  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
-sbatch -J giap-run-pilot-a1 scripts/slurm/giap_run.sbatch \
+  --db-dir $GIPPA_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
+sbatch -J gippa-run-pilot-a1 scripts/slurm/gippa_run.sbatch \
   --genome $G --annotation $P/nissle1917.bakta.json --peptides $P/a1.tsv.gz \
-  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
-sbatch -J giap-pilot-compare scripts/slurm/pilot_compare.sbatch $R/out_a1 $R/out_a2 $R/cmp_a1_a2
+  --db-dir $GIPPA_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
+sbatch -J gippa-pilot-compare scripts/slurm/pilot_compare.sbatch $R/out_a1 $R/out_a2 $R/cmp_a1_a2
 python validation/pilot/run_evidence.py arm $R/out_a1 --arm A1 --job JOBID \
   --expect-commit SHA --expect-input genome=SHA --expect-input annotation=SHA \
   --expect-input peptides=SHA --out $R/evidence/a1.json
@@ -301,7 +301,7 @@ python validation/pilot/run_evidence.py arm $R/out_a1 --arm A1 --job JOBID \
 Both arms ran with the profile `farmshare,apptainer`, the default modules (`modules_off` empty),
 the default seed 20261014, the default `--genome-relation related`, no `--abundance` and no
 `--strict`. Both used the recorded Bakta 1.12.2 annotation (DB 6.0, full), decompressed once to
-`$GIAP_ROOT/pilot/inputs/nissle1917.bakta.json` (read-only), with no live `BAKTA` task. Both
+`$GIPPA_ROOT/pilot/inputs/nissle1917.bakta.json` (read-only), with no live `BAKTA` task. Both
 used detection tier `decoy_picked`. The accepted attempts ran at commit
 `6f969ee79d579d4bdb429be6f156679d644b2b51` from the clean pinned worktree `pilot-6f969ee7`
 (`git_dirty` false).
@@ -331,18 +331,18 @@ as committed, and M10-05 reports plasmid genes per replicon, not per plasmid nam
 
 - **A2 attempt 1 (job 1892236):** a main merge landed between the two arms, so this attempt ran at
   `0667e366` while A1 ran at `6f969ee7`. Rule A3 fails, so the attempt is superseded.
-- **A2 attempt 2 (job 1892882):** `giap_run.sbatch` set `GIAP_REPO` to the pinned worktree, but it
-  imported the shared venv's editable `giap` from the main checkout, so the manifest records
+- **A2 attempt 2 (job 1892882):** `gippa_run.sbatch` set `GIPPA_REPO` to the pinned worktree, but it
+  imported the shared venv's editable `gippa` from the main checkout, so the manifest records
   `1549a930`. The diff `6f969ee7..1549a930` touches only the cascadia and timsconvert lock files,
-  but the gate stands (R3) and rule A3 fails. Since this run, `giap_run.sbatch` on main pins
-  `PYTHONPATH` to `GIAP_REPO`.
+  but the gate stands (R3) and rule A3 fails. Since this run, `gippa_run.sbatch` on main pins
+  `PYTHONPATH` to `GIPPA_REPO`.
 - **A2 attempt 3 (job 1893676):** `PYTHONPATH` pinned to the worktree; rule set A passes.
 - A2 used all three of its R9 attempts (two commit mismatches, then a pass); A1 used one. No
   attempt was a `--resume`.
 - Both superseded directories were renamed from `out_a2` after their runs (their manifests'
   `command_line` says `out_a2`). Their rule set A evidence is `evidence/a2_0667e366.json` and
   `evidence/a2_1549a930.json`.
-- The compare job was submitted from the `spec-m10-04` worktree with `GIAP_REPO` exported. Its
+- The compare job was submitted from the `spec-m10-04` worktree with `GIPPA_REPO` exported. Its
   head was `5d1cf8d3` at submission; the job itself does not record a commit.
 
 ### Resources (§15.5, the runtime and memory metric)
@@ -367,7 +367,7 @@ MVP-04's expected range of 3 h to 8 h; TerminatorNet dominates the wall time.
 | compare | `cmp_a1_a2/tables/compare_abundance.tsv` | `3aa654ebe3228517b27e8988e6ec551752cc0d034923f6504031e2467992e418` | 214 bytes |
 | compare | `cmp_a1_a2/tables/compare_stability.tsv` | `ba83f391498ee8206c64b40ed0f1b3351731208090500a7a1b0d594b3a3bcc81` | 230 bytes |
 
-The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+The second `gippa compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
 
 ### Evidence verdicts
 
@@ -383,26 +383,26 @@ Warnings are recorded, not failed:
 
 ## A3 run (M10-10)
 
-§15.2 steps 6-8 for arm A3 (Cascadia 0.0.7 de novo), then the three-way `giap compare` (the A3
+§15.2 steps 6-8 for arm A3 (Cascadia 0.0.7 de novo), then the three-way `gippa compare` (the A3
 part of the first §15.6 criterion; spec `docs/specs/M10-10-a3-run.md`). As in the pass-1 section,
 this section holds provenance and A3-only aggregates: job IDs, commits, states, runtimes, memory,
 sha256s, byte sizes, `.ssl` row counts and the per-run L6 numbers. Metric 6 (the A2/A3 overlap)
 and hypothesis 4 involve A2 data and live in `metrics.json`/`REPORT.md` (M10-05's Q-K1, spec Q10).
 The `.ssl` files, `a3.tsv.gz`, `a3.convert.*`, the per-run `feasibility.json`, `out_a3/`,
-`cmp_a1_a2_a3/`, the evidence JSON and the `pass2/` attempts table stay under `$GIAP_ROOT` and are not
+`cmp_a1_a2_a3/`, the evidence JSON and the `pass2/` attempts table stay under `$GIPPA_ROOT` and are not
 committed.
 
 ### Deviation: CPU-route `.ssl`, no GPU jobs
 
 The spec plans three fresh GPU Cascadia jobs (steps 1-2, `gpu` partition, written to
-`$GIAP_ROOT/pilot/A3/`). They were **not run**. A3 instead uses the `.ssl` files that M10-08's
+`$GIPPA_ROOT/pilot/A3/`). They were **not run**. A3 instead uses the `.ssl` files that M10-08's
 CPU route (B2, Slurm work queue, no GPU) had already produced for all three runs, under
-`$GIAP_ROOT/pilot/A3_cascadia_cpu/` (`A3_OUT_DIR` of the convert job). The command, weights
+`$GIPPA_ROOT/pilot/A3_cascadia_cpu/` (`A3_OUT_DIR` of the convert job). The command, weights
 (sha256 `0f5e9141…`, `a3_assets.tsv`), Unimod table, batch size and the default cut-off 0.8 are
 M10-08's, and no other checkpoint or threshold was tried (R3). The deviation is recorded in the
 `convert` row of the `pass2/` attempts table and again in the A3 row. The consequences:
 
-- The GPU sizing rule (step 2) and the GPU model were not exercised: no `giap-denovo-WT_*` job and
+- The GPU sizing rule (step 2) and the GPU model were not exercised: no `gippa-denovo-WT_*` job and
   no `nvidia-smi` line.
 - WT_1 was not re-run, so there is no smoke-vs-rerun comparison. The WT_1 input is the M10-08
   smoke `.ssl` itself: its L6 aggregates below equal `metrics/a3_feasibility.json`, including
@@ -412,26 +412,26 @@ M10-08's, and no other checkpoint or threshold was tried (R3). The deviation is 
   later work-queue jobs, merged by 1891845 and 1892227.
 
 ```bash
-A3=$GIAP_ROOT/pilot/A3_cascadia_cpu; P=$GIAP_ROOT/pilot/inputs; R2=$GIAP_ROOT/runs/pilot/pass2
-A3_OUT_DIR=$A3 sbatch -J giap-cascadia-convert scripts/slurm/cascadia_convert.sbatch
-sbatch -J giap-run-pilot-a3 scripts/slurm/giap_run.sbatch \
-  --genome $GIAP_REPO/tests/data/genomes/nissle1917.fna.gz --annotation $P/nissle1917.bakta.json \
+A3=$GIPPA_ROOT/pilot/A3_cascadia_cpu; P=$GIPPA_ROOT/pilot/inputs; R2=$GIPPA_ROOT/runs/pilot/pass2
+A3_OUT_DIR=$A3 sbatch -J gippa-cascadia-convert scripts/slurm/cascadia_convert.sbatch
+sbatch -J gippa-run-pilot-a3 scripts/slurm/gippa_run.sbatch \
+  --genome $GIPPA_REPO/tests/data/genomes/nissle1917.fna.gz --annotation $P/nissle1917.bakta.json \
   --peptides $P/a3.tsv.gz --reference-peptides $P/a2.tsv.gz \
-  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R2/out_a3
+  --db-dir $GIPPA_DB_DIR --threads 14 --memory 54.GB --outdir $R2/out_a3
 python validation/pilot/run_evidence.py arm $R2/out_a3 --arm A3 --job 1894682 \
   --expect-commit 242ce506396b2f03f54d70efd90309efe8cd8bc7 --expect-input genome=SHA \
   --expect-input annotation=SHA --expect-input peptides=SHA --expect-input reference_peptides=SHA \
-  --a2 $GIAP_ROOT/runs/pilot/pass1/out_a2 --out $R2/evidence/a3.json
-sbatch -J giap-pilot-compare3 --cpus-per-task=2 --mem=8000M --time=01:00:00 \
-  scripts/slurm/pilot_compare.sbatch $GIAP_ROOT/runs/pilot/pass1/out_a1 \
-  $GIAP_ROOT/runs/pilot/pass1/out_a2 $R2/out_a3 $R2/cmp_a1_a2_a3
+  --a2 $GIPPA_ROOT/runs/pilot/pass1/out_a2 --out $R2/evidence/a3.json
+sbatch -J gippa-pilot-compare3 --cpus-per-task=2 --mem=8000M --time=01:00:00 \
+  scripts/slurm/pilot_compare.sbatch $GIPPA_ROOT/runs/pilot/pass1/out_a1 \
+  $GIPPA_ROOT/runs/pilot/pass1/out_a2 $R2/out_a3 $R2/cmp_a1_a2_a3
 ```
 
 The A3 run used the same settings as A1 and A2: profile `farmshare,apptainer`, default modules
 (`modules_off` empty), seed 20261014, `--genome-relation related`, no `--abundance`, no
 `--strict`, the same decompressed Bakta JSON, and no `--resume`. It ran at commit
 `242ce506396b2f03f54d70efd90309efe8cd8bc7` from the clean pinned worktree `pilot-242ce506`
-(`git_dirty` false; `PYTHONPATH` pinned by `giap_run.sbatch`). Its detection tier is
+(`git_dirty` false; `PYTHONPATH` pinned by `gippa_run.sbatch`). Its detection tier is
 `two_peptide`, because de novo rows carry no decoys. A1 and A2 used `decoy_picked`.
 
 ### mzML and `.ssl` (per run)
@@ -475,7 +475,7 @@ The job completed (exit 0:0) in 00:00:25 on wheat-07 (2 CPUs, MaxRSS 237376K) at
 | compare3 | 1 | 1895328 | fresh | `242ce506` | completed | 0:0 | 00:00:19 | 317544K | wheat-06 | C: pass | **accepted**, `cmp_a1_a2_a3` |
 
 A3 used one of its three R9 attempts. Before each submission, the R14 check summed the CPUs of
-running and pending `giap-*` jobs: at the compare submission they held 18 CPUs, and 18 + 2 ≤ 128.
+running and pending `gippa-*` jobs: at the compare submission they held 18 CPUs, and 18 + 2 ≤ 128.
 The compare job was submitted from the main checkout at `242ce506`.
 
 ### Inputs (sha256 from `run_manifest.json`)
@@ -508,7 +508,7 @@ This is a runtime finding, not a rule.
 | compare | `cmp_a1_a2_a3/tables/compare_abundance.tsv` | `64732f1a1baa67b923dd2a50a390b77506c8629e5e6b01a7ead069c6854a7e70` | 354 bytes |
 | compare | `cmp_a1_a2_a3/tables/compare_stability.tsv` | `8cbadf2f151fb1a07eeb823cbfc21ab8bc9474050c022774e64ea7858419c8da` | 599 bytes |
 
-The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+The second `gippa compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
 
 ### Evidence verdicts
 
@@ -535,17 +535,17 @@ Passes 1 and 2 used **GCA_043228065.1** as the Nissle reference. That assembly i
 chassis XTC004-ILA (BioSample SAMN44054533), not wild-type Nissle 1917. Khoa decided on
 2026-10-25 ("go with your recommendation") to re-run the pilot against an official wild-type
 assembly. Passes 1 and 2 stay as earlier attempts. Pass 3 re-did every genome-dependent step
-(Bakta, the A2 database, the A2 search and conversion), then the GIAP runs of A1 and A2 and their
-`giap compare`. A3 was not re-run in pass 3.
+(Bakta, the A2 database, the A2 search and conversion), then the GIPPA runs of A1 and A2 and their
+`gippa compare`. A3 was not re-run in pass 3.
 
 Like the pass-1 section, this section holds provenance only. The run directories, the evidence
-JSON, the compare, the attempts table and the interim metrics stay under `$GIAP_ROOT` and are not
+JSON, the compare, the attempts table and the interim metrics stay under `$GIPPA_ROOT` and are not
 committed:
 
-- runs: `$GIAP_ROOT/runs/pilot/pass3/`;
-- inputs: `$GIAP_ROOT/pilot/pass3/`;
+- runs: `$GIPPA_ROOT/runs/pilot/pass3/`;
+- inputs: `$GIPPA_ROOT/pilot/pass3/`;
 - the interim `metrics.json` and `REPORT.md` (rendered without `--final`):
-  `$GIAP_ROOT/pilot/metrics/pass3/`.
+  `$GIPPA_ROOT/pilot/metrics/pass3/`.
 
 M10-15 owns the committed `metrics/metrics.json` and `REPORT.md`.
 
@@ -558,18 +558,18 @@ M10-15 owns the committed `metrics/metrics.json` and `REPORT.md`.
 | source | NCBI (`ftp.ncbi.nlm.nih.gov/genomes/all/GCF/021/559/835/`), R6 |
 | GCA download | md5 `3c1d874a2172b3bfd63a05fb651ab7d2`, equal to NCBI's `md5checksums.txt` |
 | GCF copy | re-gzipped; decompressed, it is byte-identical to NCBI's GCF file (NCBI md5 `eaa414c72e26fc9dd49dacd4ca256283`, re-checked 2026-10-26). Its sequences equal the GCA download's |
-| GIAP input | `nissle1917_wt.fna.gz`: the GCF records with ` [topology=circular]` appended to each header, sha256 `1a654e6b83292353f15be4e7a7973b896d728761a4c9dfde533953f76e7961ad` |
+| GIPPA input | `nissle1917_wt.fna.gz`: the GCF records with ` [topology=circular]` appended to each header, sha256 `1a654e6b83292353f15be4e7a7973b896d728761a4c9dfde533953f76e7961ad` |
 
 The two plasmids are the pMUT1 and pMUT2 that §15.1 names, so the pass-1 note about three unnamed
 plasmid records does not apply to pass 3. The genome is not committed. A circular-tagged copy sits
-untracked in the staging worktree, and the reference copy is `$GIAP_ROOT/pilot/pass3/genome/`.
+untracked in the staging worktree, and the reference copy is `$GIPPA_ROOT/pilot/pass3/genome/`.
 
 ### Annotation, strain database, A2 search and conversion
 
 | step | Slurm job | node | state | elapsed | CPUs |
 |---|---|---|---|---|---|
 | Bakta 1.12.2 full DB 6.0 (`record_bakta_full.sbatch`) | 1895437 | rye-02 | COMPLETED, exit 0 | 01:42:40 | 18 CPUs |
-| strip, decompress, `giap makedb`, L6 on WT_1 | 1895583 | wheat-05 | COMPLETED, exit 0 | 00:00:23 | 2 CPUs |
+| strip, decompress, `gippa makedb`, L6 on WT_1 | 1895583 | wheat-05 | COMPLETED, exit 0 | 00:00:23 | 2 CPUs |
 | DIA-NN 2.3.1 A2, steps 1 and 2 | 1895586 | rye-02 | COMPLETED, exit 0 | 00:42:00 | 16 CPUs |
 | `diann_report.sbatch A2` checks | 1895667 | wheat-08 | COMPLETED, exit 0 | 00:00:08 | 4 CPUs |
 | `diann_convert.sbatch A2` | 1895670 | wheat-01 | COMPLETED, exit 0 | 00:00:28 | 4 CPUs |
@@ -602,19 +602,19 @@ untracked in the staging worktree, and the reference copy is `$GIAP_ROOT/pilot/p
   `3970344b9c0edc0fcf756b267063a1d1c30c05f6b6bdb6654d973eae1e6f888e`.
 - **A1** reuses the pass-1 `a1.tsv.gz`. The K-12 search does not depend on the Nissle genome.
 - **A3 L6 on the wild-type genome:** WT_1's `.ssl` was re-evaluated against the GCF genome and the
-  pass-3 Bakta JSON, and the verdict is **pass** (`$GIAP_ROOT/pilot/pass3/a3_feasibility.json`).
+  pass-3 Bakta JSON, and the verdict is **pass** (`$GIPPA_ROOT/pilot/pass3/a3_feasibility.json`).
   Its aggregates equal the pass-2 WT_1 row above.
 
-### GIAP runs
+### GIPPA runs
 
 ```bash
-P=$GIAP_ROOT/pilot/pass3; R=$GIAP_ROOT/runs/pilot/pass3
+P=$GIPPA_ROOT/pilot/pass3; R=$GIPPA_ROOT/runs/pilot/pass3
 G=$P/genome/nissle1917_wt.fna.gz; J=$P/inputs/nissle1917_wt.bakta.json
-sbatch -J giap-run-pilot3-a2 --time=12:00:00 scripts/slurm/giap_run.sbatch --genome $G --annotation $J \
-  --peptides $P/inputs/a2.tsv.gz --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
-sbatch -J giap-run-pilot3-a1 --time=12:00:00 scripts/slurm/giap_run.sbatch --genome $G --annotation $J \
-  --peptides $GIAP_ROOT/pilot/inputs/a1.tsv.gz --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
-sbatch -J giap-pilot3-compare --cpus-per-task=2 --mem=8000M scripts/slurm/pilot_compare.sbatch \
+sbatch -J gippa-run-pilot3-a2 --time=12:00:00 scripts/slurm/gippa_run.sbatch --genome $G --annotation $J \
+  --peptides $P/inputs/a2.tsv.gz --db-dir $GIPPA_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
+sbatch -J gippa-run-pilot3-a1 --time=12:00:00 scripts/slurm/gippa_run.sbatch --genome $G --annotation $J \
+  --peptides $GIPPA_ROOT/pilot/inputs/a1.tsv.gz --db-dir $GIPPA_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
+sbatch -J gippa-pilot3-compare --cpus-per-task=2 --mem=8000M scripts/slurm/pilot_compare.sbatch \
   $R/out_a1 $R/out_a2 $R/cmp_a1_a2
 ```
 
@@ -627,8 +627,8 @@ Both arms ran with the pass-1 settings:
 - detection tier `decoy_picked`.
 
 Both ran at commit `4ccce8a532c365c9e657c981a3f61b3d0d5c3aa6` from the clean pinned worktree
-`pilot-4ccce8a532c3` (`git_dirty` false), with `GIAP_REPO` exported and `PYTHONPATH` pinned by
-`giap_run.sbatch`. The compare job was submitted from the same worktree.
+`pilot-4ccce8a532c3` (`git_dirty` false), with `GIPPA_REPO` exported and `PYTHONPATH` pinned by
+`gippa_run.sbatch`. The compare job was submitted from the same worktree.
 
 | role | file | sha256 |
 |---|---|---|
@@ -649,7 +649,7 @@ Both ran at commit `4ccce8a532c365c9e657c981a3f61b3d0d5c3aa6` from the clean pin
 | compare | 2 | 1897034 | fresh | `8b6e93d4` | COMPLETED | 0:0 | 00:00:45 | 452932K | wheat-04 | C: pass | **accepted**, `o390/cmp_a1_a2` |
 
 Attempt 1 of each arm passed rule set A, and attempt 2 is the #390 resume below. Neither attempt is a failed iteration, which is what R9 counts. While A2 1895673 was pending, its head time limit was
-lowered from 2 days to 12 h so that it could backfill. R14 sums of the running and pending `giap-*`
+lowered from 2 days to 12 h so that it could backfill. R14 sums of the running and pending `gippa-*`
 CPUs were 1 + 72 at the A2 submission, 50 + 72 at A1 and 1 + 2 at the compare, all within 128.
 
 #### Resources (§15.5)
@@ -674,7 +674,7 @@ as it did in passes 1 and 2.
 | compare | `cmp_a1_a2/tables/compare_abundance.tsv` | `6a0aac4a5b77f00af8f1954ec9a4dd005db205c13ee13b6bf43cc06049300822` | 214 bytes |
 | compare | `cmp_a1_a2/tables/compare_stability.tsv` | `1a60b9a2f747c55225b9f66f982bc953d432d0b8de7f8b4f4f71964c8125bf03` | 230 bytes |
 
-The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+The second `gippa compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
 
 #### Evidence verdicts
 
@@ -738,7 +738,7 @@ gene-level TIR changes by up to about 65x.
 - **The post-rerun job:** job 1897034 runs after both reruns. It re-applies rule set A at
   `8b6e93d4` (`evidence/a1_o390.json`, `a2_o390.json`) and re-runs the compare into
   `o390/cmp_a1_a2` (rule set C), checking the tables against the pre-fix compare. It then
-  regenerates the interim `metrics.json` and `REPORT.md` into `$GIAP_ROOT/pilot/metrics/pass3/`;
+  regenerates the interim `metrics.json` and `REPORT.md` into `$GIPPA_ROOT/pilot/metrics/pass3/`;
   the pre-fix render moves to `pass3_pre390/`.
 - **The reruns:** the A2 and A1 directories were copied to `out_a2_pre390` and `out_a1_pre390`,
   then resumed in place at the post-fix commit `8b6e93d4` (#390), so the unchanged tasks are reused
@@ -761,7 +761,7 @@ The post-processing job 1897034 recorded the following.
 - **Rule sets:** A passes on both arms at `8b6e93d4` (`evidence/a1_o390.json`, `a2_o390.json`).
   The re-compare passes rule set C (`o390/evidence/compare.json`). Its detection, abundance and
   stability tables are byte-identical to the pre-fix compare.
-- **Interim metrics:** `$GIAP_ROOT/pilot/metrics/pass3/` was regenerated, and the pre-fix render
+- **Interim metrics:** `$GIPPA_ROOT/pilot/metrics/pass3/` was regenerated, and the pre-fix render
   moved to `pass3_pre390/`. No metric key changed apart from paths, hashes and runtimes.
 
 | subject | file | sha256 |
@@ -782,7 +782,7 @@ determinant (#397). This is the minimal rerun:
   `workflow/` differs from the pass-3 commit only in the OSTIR module, `nextflow.config` (the env
   scope) and `images.json`.
 - OSTIR re-runs because its module changed. Its dependants re-run only where their inputs' content
-  changed, because `GIAP_STEP` uses `cache 'deep'`.
+  changed, because `GIPPA_STEP` uses `cache 'deep'`.
 - For the older commits, the changed container strings (`genomad`, `transtermhp`) and, for MVP-04,
   the `sixframe_index`/`loci` inputs also re-run.
 - Each submission sources `farmshare_env.sh` from that worktree, which exports
@@ -811,7 +811,7 @@ values. The changed outputs are `rbs.parquet`, `genes.tsv`, `sensitivity.tsv` an
 `determinants_*` tables. `detection_summary.tsv` also changed, but only by gaining the QC rows
 that later code writes (`placement_flag` `pyl_site`/`sec_site`, all 0); no existing row changed.
 
-**MVP-04 A2 (job 1897031):** the evidence is `$GIAP_ROOT/runs/mvp04/evidence/a2_o390.json`. Two
+**MVP-04 A2 (job 1897031):** the evidence is `$GIPPA_ROOT/runs/mvp04/evidence/a2_o390.json`. Two
 of the pilot rules do not apply to MVP-04, whose recorded command is `--threads 16 --modules
 core,mobile,bgc`:
 
@@ -826,7 +826,7 @@ changed. `detection_summary.tsv` gained the newer QC rows (`placement_flag`, `pl
 `tolerant_diff_type`), and no existing row changed.
 
 **MVP-04 A1 (job 1897030) was cancelled, and its orphaned tasks (jobs 1897137 and 1897139) too.**
-The file `$GIAP_ROOT/mvp04/20261023/peptides.tsv` was regenerated by #326 (sha256 `3a65981d…`,
+The file `$GIPPA_ROOT/mvp04/20261023/peptides.tsv` was regenerated by #326 (sha256 `3a65981d…`,
 the MVP-04 A2 input). The original A1 input is `20261023.pre326/peptides.tsv` (sha256
 `0b6b2fd4…`). The resume therefore re-mapped A1 on A2's peptides, and its rule A5 input check would
 fail. The partial directory was kept as `20261023_a1_o390_wronginput`, and `20261023_a1` was
@@ -835,14 +835,14 @@ superseded A1 when #326 regenerated the inputs. The decision can be reversed: a 
 pass `--peptides …/20261023.pre326/peptides.tsv` (and the matching abundance and config).
 
 The first submission of these runs (jobs 1896986, 1897005, 1897008, 1897010, 1897011 and 1897014)
-failed in 4 s with `uv: command not found`, before any run directory was touched. `GIAP_ROOT` was
+failed in 4 s with `uv: command not found`, before any run directory was touched. `GIPPA_ROOT` was
 not exported, so the worktree's `farmshare_env.sh` defaulted it to `<worktree>/local`. The wrapper
 now exports it.
 
 The superseded pass-1 A2 attempts (`out_a2_0667e366`, `out_a2_1549a930`) are not rerun: they
 failed rule A3, and no metric reads them.
 
-The table of jobs is `$GIAP_ROOT/runs/ostir390/JOBS.tsv`. Rule set A was re-applied to each rerun
+The table of jobs is `$GIPPA_ROOT/runs/ostir390/JOBS.tsv`. Rule set A was re-applied to each rerun
 with `--expect-commit 8b6e93d4`, and each verdict is in that pass's attempts table. Every rerun
 completed with exit 0.
 
@@ -851,25 +851,25 @@ completed with exit 0.
 Every step is a batch job; nothing runs on a login node or in the session allocation.
 
 ```bash
-# step 4 - the three wild-type runs (~5-10 GB) into $GIAP_DATA_DIR/pxd078459/, with SHA256SUMS
+# step 4 - the three wild-type runs (~5-10 GB) into $GIPPA_DATA_DIR/pxd078459/, with SHA256SUMS
 sbatch scripts/slurm/fetch_pxd078459.sbatch
 # step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64000 MB, two calls each)
-sbatch -J giap-diann-A1 scripts/slurm/diann_pilot.sbatch A1
-sbatch -J giap-diann-A2 scripts/slurm/diann_pilot.sbatch A2
+sbatch -J gippa-diann-A1 scripts/slurm/diann_pilot.sbatch A1
+sbatch -J gippa-diann-A2 scripts/slurm/diann_pilot.sbatch A2
 # step 6 - A3 de novo on one GPU (Cascadia 0.0.7; `casanovo` selects the fallback)
 sbatch scripts/slurm/denovo_pilot.sbatch
-# step 7 - the generic peptide tables (the large reports stay under $GIAP_DATA_DIR)
-giap convert --from diann    $GIAP_ROOT/pilot/A1/A1_report.parquet --out a1.tsv.gz
-giap convert --from diann    $GIAP_ROOT/pilot/A2/A2_report.parquet --out a2.tsv.gz
-giap convert --from cascadia $GIAP_ROOT/pilot/A3_cascadia/a3_cascadia --out a3.tsv.gz
+# step 7 - the generic peptide tables (the large reports stay under $GIPPA_DATA_DIR)
+gippa convert --from diann    $GIPPA_ROOT/pilot/A1/A1_report.parquet --out a1.tsv.gz
+gippa convert --from diann    $GIPPA_ROOT/pilot/A2/A2_report.parquet --out a2.tsv.gz
+gippa convert --from cascadia $GIPPA_ROOT/pilot/A3_cascadia/a3_cascadia --out a3.tsv.gz
 ```
 
 ```bash
-# step 8 - the three GIAP runs (as batch jobs: sbatch scripts/slurm/giap_run.sbatch <args>)
-giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a1.tsv.gz --outdir out_a1
-giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a2.tsv.gz --outdir out_a2
-giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a3.tsv.gz --reference-peptides a2.tsv.gz --outdir out_a3
-giap compare out_a1 out_a2 out_a3 --labels A1,A2,A3
+# step 8 - the three GIPPA runs (as batch jobs: sbatch scripts/slurm/gippa_run.sbatch <args>)
+gippa run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a1.tsv.gz --outdir out_a1
+gippa run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a2.tsv.gz --outdir out_a2
+gippa run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a3.tsv.gz --reference-peptides a2.tsv.gz --outdir out_a3
+gippa compare out_a1 out_a2 out_a3 --labels A1,A2,A3
 # step 9 - the measured runtimes that replace the estimates in the docs
 sbatch scripts/slurm/benchmark_standard.sbatch
 ```
@@ -890,10 +890,10 @@ rather than failing. Reason-only blocks need this, so check template paths by ey
 |---|---|---|
 | 1-2 | agent | done in M2/M3: the recorded Bakta JSON and `db_a2/` above |
 | 3 | **Khoa** | the DIA-NN licence. Khoa accepted it and supplied the 2.3.1 Academia image above, and checks the flag table of this README against the DIA-NN documentation before the first real run |
-| 3b | **Khoa** | DIA-NN 2.7.0 under `$GIAP_TOOLS_DIR/diann-2.7.0`, if the pilot should use the version the spec names |
+| 3b | **Khoa** | DIA-NN 2.7.0 under `$GIPPA_TOOLS_DIR/diann-2.7.0`, if the pilot should use the version the spec names |
 | 4-9 | agent | the batch jobs above, then `validation/pilot/REPORT.md` |
 
-Also needed before step 5: `$GIAP_DATA_DIR/proteomes/UP000000625.fasta` (the A1 database, from
-`sbatch scripts/slurm/fetch_resources.sbatch`) and `$GIAP_DB_DIR/contaminants/contaminants.fasta`
-(from `giap setup --contaminants`) — the same contaminant library GIAP itself uses, so GIAP and
+Also needed before step 5: `$GIPPA_DATA_DIR/proteomes/UP000000625.fasta` (the A1 database, from
+`sbatch scripts/slurm/fetch_resources.sbatch`) and `$GIPPA_DB_DIR/contaminants/contaminants.fasta`
+(from `gippa setup --contaminants`) — the same contaminant library GIPPA itself uses, so GIPPA and
 DIA-NN share one set.

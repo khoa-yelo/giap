@@ -1,4 +1,4 @@
-"""Preflight framework and genome rules (issue M1-09; GIAP_SPEC.md §7.0, §2.1 decision 12, §5.2,
+"""Preflight framework and genome rules (issue M1-09; GIPPA_SPEC.md §7.0, §2.1 decision 12, §5.2,
 §7.1.2; ADR-0005 item 3).
 
 T-PRE-01 … T-PRE-10 map 1:1 to the genome ``rule_id`` values, each with a passing and a failing
@@ -17,12 +17,12 @@ from pathlib import Path
 
 import pytest
 
-import giapsim
-from giap.config import GiapConfig, resolve_config
-from giap.io.fasta import GenomeRecord, read_genome_fasta, sanitize_id
-from giap.model import Replicon
-from giap.preflight.checks import Check, worst
-from giap.preflight.genome import (
+import gippasim
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.fasta import GenomeRecord, read_genome_fasta, sanitize_id
+from gippa.model import Replicon
+from gippa.preflight.checks import Check, worst
+from gippa.preflight.genome import (
     GenomeSummary,
     classify_replicons,
     genome_checks,
@@ -77,11 +77,11 @@ def acgt(n: int) -> str:
     return ("ACGT" * (n // 4 + 1))[:n]
 
 
-def cfg(*overrides: str) -> GiapConfig:
+def cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
-def small_cfg(*overrides: str) -> GiapConfig:
+def small_cfg(*overrides: str) -> GippaConfig:
     return cfg(*SMALL, *overrides)
 
 
@@ -91,7 +91,7 @@ def summary(records: Sequence[GenomeRecord], n_run_min_bp: int = 10) -> GenomeSu
 
 def checks_for(
     records: Sequence[GenomeRecord],
-    config: GiapConfig | None = None,
+    config: GippaConfig | None = None,
     parse_error: str | None = None,
 ) -> dict[str, Check]:
     config = config if config is not None else small_cfg()
@@ -109,7 +109,7 @@ def checks_for(
     return {c.rule_id: c for c in out}
 
 
-def check(records: Sequence[GenomeRecord], rule_id: str, config: GiapConfig | None = None) -> Check:
+def check(records: Sequence[GenomeRecord], rule_id: str, config: GippaConfig | None = None) -> Check:
     return checks_for(records, config)[rule_id]
 
 
@@ -119,7 +119,7 @@ def write_fa(tmp_path: Path, text: str, name: str = "g.fa") -> Path:
     return p
 
 
-def from_file(tmp_path: Path, text: str, config: GiapConfig | None = None) -> dict[str, Check]:
+def from_file(tmp_path: Path, text: str, config: GippaConfig | None = None) -> dict[str, Check]:
     return checks_for(read_genome_fasta(write_fa(tmp_path, text)), config)
 
 
@@ -612,12 +612,12 @@ def test_topology_check_value_uses_min_largest_contig_warn_for_chromosome() -> N
     assert "chromosome" not in hi
 
 
-# ---------------------------------------------------------------- realistic genome (giapsim)
+# ---------------------------------------------------------------- realistic genome (gippasim)
 
 
-def test_giapsim_genome_passes(tmp_path: Path) -> None:
-    sim = giapsim.simulate(
-        giapsim.SimConfig(genome_length=120_000), seed=7, outdir=tmp_path / "sim"
+def test_gippasim_genome_passes(tmp_path: Path) -> None:
+    sim = gippasim.simulate(
+        gippasim.SimConfig(genome_length=120_000), seed=7, outdir=tmp_path / "sim"
     )
     records = read_genome_fasta(sim.genome_fasta)
     config = cfg("preflight.min_largest_contig_warn=100000", "preflight.small_replicon_bp=100000")

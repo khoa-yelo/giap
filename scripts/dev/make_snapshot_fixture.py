@@ -2,11 +2,11 @@
 
 Usage: python scripts/dev/make_snapshot_fixture.py [--work DIR] [--dest DIR]
 
-Simulates one giapsim genome (SIM100K's signals at 300 kb, a SNV-only strain, de novo peptides,
+Simulates one gippasim genome (SIM100K's signals at 300 kb, a SNV-only strain, de novo peptides,
 planted novel ORFs, synthetic GO/KEGG/COG xrefs), plants an abundance island, low prophage/BGC
-detection and in-operon terminators, and runs ``giap run --executor local`` on it twice (run_b
-on two thirds of the spectra) with every module and a synthetic test ``$GIAP_DB_DIR`` (never
-the real one), then ``giap compare`` on the two runs. It writes, under ``DEST`` (default
+detection and in-operon terminators, and runs ``gippa run --executor local`` on it twice (run_b
+on two thirds of the spectra) with every module and a synthetic test ``$GIPPA_DB_DIR`` (never
+the real one), then ``gippa compare`` on the two runs. It writes, under ``DEST`` (default
 ``tests/data/snapshot``):
 
 * ``sim_plots/OUT/``: the ``OUT/`` subset ``RunView`` reads, from the first run, with
@@ -15,7 +15,7 @@ the real one), then ``giap compare`` on the two runs. It writes, under ``DEST`` 
 * ``sim_empty/``: the same tree with every TSV cut to its header.
 
 TSVs over 16 kB are gzipped in place (the readers detect gzip by magic bytes). Deterministic:
-the same giapsim seed and run seeds give the same bytes (paths, time stamps and timings are
+the same gippasim seed and run seeds give the same bytes (paths, time stamps and timings are
 scrubbed). Details: tests/data/snapshot/PROVENANCE.md. Regenerate only in a PR that says why.
 """
 
@@ -72,13 +72,13 @@ MEASURED = re.compile(r'"(cpu_time_s|wall_time_s|free_disk_bytes)": [-+.0-9eE]+'
 
 
 def sim_config() -> Any:
-    import giapsim
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.strain import StrainConfig
+    import gippasim
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.strain import StrainConfig
 
     return dataclasses.replace(
-        giapsim.SIM100K,
+        gippasim.SIM100K,
         genome_length=GENOME_LENGTH,
         strain=StrainConfig(snv_rate_per_kb=1.0, indel_rate_per_kb=0.0),
         proteomics=ProteomicsConfig(),
@@ -123,13 +123,13 @@ def write_db(root: Path, bakta: Path) -> Path:
 def invoke(args: list[str]) -> None:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
         raise res.exception
     if res.exit_code != 0:
-        raise SystemExit(f"giap {args[0]} exited {res.exit_code}:\n{res.output[-4000:]}")
+        raise SystemExit(f"gippa {args[0]} exited {res.exit_code}:\n{res.output[-4000:]}")
 
 
 def thin(src: Path, dest: Path) -> Path:
@@ -200,7 +200,7 @@ def plant_terminators(sim: Any, dest: Path) -> Path:
     return dest
 
 
-def giap_run(sim: Any, work: Path, out: Path, seed: int, peptides: dict[str, Path]) -> Path:
+def gippa_run(sim: Any, work: Path, out: Path, seed: int, peptides: dict[str, Path]) -> Path:
     from helpers.m7_chain import run_config
 
     bakta = work / "reference_xrefs.json"
@@ -224,7 +224,7 @@ def giap_run(sim: Any, work: Path, out: Path, seed: int, peptides: dict[str, Pat
 
 def subset(out: Path, dest: Path) -> None:
     """Copy the files ``RunView`` reads (and ``KEEP_DIRS``) of ``out`` into ``dest``."""
-    from giap.io.run_view import PATHS
+    from gippa.io.run_view import PATHS
 
     rels = {rel for k, rel in PATHS.items() if k not in DROP and (out / rel).is_file()}
     for d in KEEP_DIRS:
@@ -249,7 +249,7 @@ def write_config(out: Path) -> None:
     (no input paths; the plots read only these keys)."""
     import yaml
 
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     sets = [*SETS, f"modules=[{MODULES}]", "genome_relation=related"]
     cfg = resolve_config(overrides=sets).model_dump(mode="json")
@@ -282,16 +282,16 @@ def header_only(root: Path) -> None:
 
 
 def build(work: Path, dest: Path) -> None:
-    import giapsim
+    import gippasim
 
-    sim = giapsim.simulate(sim_config(), SIM_SEED, work / "sim")
+    sim = gippasim.simulate(sim_config(), SIM_SEED, work / "sim")
     add_xrefs(Path(sim.reference_json), work / "reference_xrefs.json")
     db = write_db(work / "db", work / "reference_xrefs.json")
-    os.environ["GIAP_DB_DIR"] = str(db)
+    os.environ["GIPPA_DB_DIR"] = str(db)
     planted = plant(sim, work)
     thinned = {k: thin(p, work / f"{k}_b.tsv") for k, p in planted.items()}
     peptides = {"run_a": planted, "run_b": thinned}
-    runs = {lab: giap_run(sim, work, work / lab / "OUT", s, peptides[lab])
+    runs = {lab: gippa_run(sim, work, work / lab / "OUT", s, peptides[lab])
             for lab, s in RUN_SEEDS.items()}  # fmt: skip
     invoke(["compare", *map(str, runs.values()), "--labels", ",".join(runs),
             "--outdir", str(work / "CMP")])  # fmt: skip

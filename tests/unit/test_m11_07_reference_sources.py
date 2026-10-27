@@ -1,6 +1,6 @@
 """The generated references walk the real sources (M11-07 acceptance 3, examples 1, 3, 4).
 
-Every ``giap`` subcommand and non-hidden option is in ``cli.md``; every ``defaults.yaml`` key in
+Every ``gippa`` subcommand and non-hidden option is in ``cli.md``; every ``defaults.yaml`` key in
 ``configuration.md``; every datapackage resource and every ``schemas/tables/*.schema.json`` in
 ``tables.md``; the §9.4 vocabulary in ``flags.md``; and the committed pages are current
 (``gen_reference.py --check`` exits 0).
@@ -23,12 +23,12 @@ import markdown
 import pytest
 import yaml
 
-from giap.cli import cli
+from gippa.cli import cli
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "docs" / "gen_reference.py"
-SCHEMAS = REPO / "src" / "giap" / "schemas"
-DEFAULTS = REPO / "src" / "giap" / "config" / "defaults.yaml"
+SCHEMAS = REPO / "src" / "gippa" / "schemas"
+DEFAULTS = REPO / "src" / "gippa" / "config" / "defaults.yaml"
 DOCS = REPO / "docs"
 
 
@@ -97,7 +97,7 @@ def _sections(md: str) -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def cli_md(gr: ModuleType) -> str:
-    text: str = gr.render_cli(cli, "giap")
+    text: str = gr.render_cli(cli, "gippa")
     return text
 
 
@@ -108,22 +108,22 @@ def _visible_commands() -> list[str]:
 
 
 def test_example1_sections(cli_md: str) -> None:
-    heads = [h for h in _sections(cli_md) if h.startswith("giap ")]
+    heads = [h for h in _sections(cli_md) if h.startswith("gippa ")]
     expected = ["compare", "convert", "makedb", "preflight", "report", "run", "setup"]
-    assert set(expected) <= {h.removeprefix("giap ") for h in heads}
-    assert heads == [f"giap {n}" for n in _visible_commands()]  # command order
+    assert set(expected) <= {h.removeprefix("gippa ") for h in heads}
+    assert heads == [f"gippa {n}" for n in _visible_commands()]  # command order
 
 
 def test_hidden_commands_absent(cli_md: str) -> None:
     heads = set(_sections(cli_md))
     for name, cmd in cli.commands.items():
         if cmd.hidden:
-            assert f"giap {name}" not in heads
+            assert f"gippa {name}" not in heads
 
 
 @pytest.mark.parametrize("name", _visible_commands())
 def test_every_visible_option_documented(cli_md: str, name: str) -> None:
-    body = _sections(cli_md)[f"giap {name}"]
+    body = _sections(cli_md)[f"gippa {name}"]
     for p in cli.commands[name].params:
         if isinstance(p, click.Option):
             if p.hidden:
@@ -135,7 +135,7 @@ def test_every_visible_option_documented(cli_md: str, name: str) -> None:
 
 
 def test_example1_run_rows(cli_md: str) -> None:
-    rows = {r[0]: r for r in _rows(_sections(cli_md)["giap run"])}
+    rows = {r[0]: r for r in _rows(_sections(cli_md)["gippa run"])}
     assert rows["--genome"][1:3] == ["FILE", "required"]
     assert rows["--profile"][2] == "farmshare,apptainer"
 

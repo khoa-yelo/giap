@@ -1,0 +1,19 @@
+{
+  "name": "operon_flags",
+  "description": "Flagged pairs only, with the evidence behind each flag (GIPPA_SPEC.md §9.3, §7.4.5; M6-07, M6-08).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "pair_id", "type": "string", "description": "Pair ID of pairs.tsv", "constraints": {"required": true, "unique": true, "pattern": "PAIR_[1-9][0-9]*"}},
+    {"name": "gene_a", "type": "string", "description": "Upstream gene", "constraints": {"required": true}},
+    {"name": "gene_b", "type": "string", "description": "Downstream gene", "constraints": {"required": true}},
+    {"name": "uniop_class", "type": "string", "description": "Pair class (pairs.tsv class)", "constraints": {"required": true, "enum": ["OP", "NO", "CV", "DV", "SW"]}},
+    {"name": "promoter_between_yes", "type": "boolean", "description": "promoter_between at or above the promoter cut-off", "constraints": {"required": true}},
+    {"name": "terminator_between_yes", "type": "boolean", "description": "terminator_between at or above the terminator cut-off", "constraints": {"required": true}},
+    {"name": "abundance_pattern", "type": "string", "description": "Abundance pattern of the pair", "constraints": {"required": true, "enum": ["downstream_higher", "upstream_higher", "discordant", "concordant", "coabundant", "none"]}},
+    {"name": "flag", "type": "string", "description": "Operon flag (§7.4.5)", "constraints": {"required": true, "enum": ["internal_promoter_supported", "internal_terminator_supported", "unexplained_discordance", "conflict_terminator_in_operon", "novel_operon_candidate", "coabundant_despite_terminator", "other"]}},
+    {"name": "q_value", "type": "number", "description": "q-value of the pair's test", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "lfdr", "type": "number", "description": "Local false discovery rate of the pair's test", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "evidence_note", "type": "string", "description": "Evidence behind the flag; never asserts that an element is absent", "constraints": {"required": true}}
+  ]
+}

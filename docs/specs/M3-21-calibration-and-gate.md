@@ -55,7 +55,7 @@ All seeds derive from `seeds.calibration_base`; each replicate uses `base + r`.
   together take < 6 minutes on 4 CPUs (leaving room for other milestones' suites in the 10-minute
   budget); timings in `benchmarks/baseline.json`.
 - [ ] `-m calibration_full` versions run as tasks of the nightly Slurm array
-  (`scripts/slurm/calibration_nightly.sbatch`, job name `giap-cal-placement` etc., R14 caps).
+  (`scripts/slurm/calibration_nightly.sbatch`, job name `gippa-cal-placement` etc., R14 caps).
 - [ ] Recall gate and golden tests pass; failures print the missed peptides with their truth
   loci (first 20).
 - [ ] The statistician's sign-off (PR review) cites the suite outputs (FDP table per q, per
@@ -87,7 +87,7 @@ All seeds derive from `seeds.calibration_base`; each replicate uses `base + r`.
    from the truth (mean ≥ 1 wrong or non-origin peptide with a target hit in that stratum per
    replicate); a claimed stratum that is not exercised is a suite-configuration error, not a skip.
 5. Pooled FDP: over the union of accepted peptides per replicate, each peptide once (its best-cost list).
-6. ADR-0010's PEP–length correlation: giapsim has Cov = 0 by construction; record in the methods note
+6. ADR-0010's PEP–length correlation: gippasim has Cov = 0 by construction; record in the methods note
    that the measurement moves to A2/M3-24 (no new simulator variant here).
 7. PENDING (needs an ADR from Khoa): the related-genome suite with `search_db = other` and correct
    peptides drawn from the database strain underestimates stratum-0 false placements (statistician B2).

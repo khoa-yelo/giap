@@ -1,9 +1,9 @@
-"""giapsim M7-12 round 3: lead decisions 21 and 22 after the statistician's round-2 block on
-PR #225 (comment 6358601933; docs/specs/M7-12-sim-variant-novel-scenarios.md; GIAP_SPEC.md §7.6.6,
+"""gippasim M7-12 round 3: lead decisions 21 and 22 after the statistician's round-2 block on
+PR #225 (comment 6358601933; docs/specs/M7-12-sim-variant-novel-scenarios.md; GIPPA_SPEC.md §7.6.6,
 §7.9.2, §8.4).
 
-The oracle is tests/helpers/m7_round3_oracle.py (no giapsim import). Decoy IDs are checked against
-the database GIAP's own ``giap makedb --six-frame-orfs`` builds from the simulator's
+The oracle is tests/helpers/m7_round3_oracle.py (no gippasim import). Decoy IDs are checked against
+the database GIPPA's own ``gippa makedb --six-frame-orfs`` builds from the simulator's
 ``bakta_like.json`` and genome (``min_orf_aa = 7``), because that is what M7-11's picked class FDR
 pairs against. The 1-Mb case is ``slow``; the pooled distribution checks are in
 tests/calibration/test_sim_m7_decoy_calibration.py.
@@ -13,7 +13,7 @@ bytes):
 
 * **Decision 21.**
   - A six-frame decoy row of ``peptides.tsv`` has ``is_decoy = true`` and ``protein_ids`` =
-    ``rev_GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}``. With ``rev_`` stripped, that is the
+    ``rev_GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}``. With ``rev_`` stripped, that is the
     ``db_id`` of a makedb entry: the stop-to-stop six-frame ORF the product lies in, or for
     ``nterm_extension`` the gene's makedb N-terminal entry (upstream part + first 30 codons). The
     entry's protein contains the reversed decoy peptide, and the ID's class is the entry's makedb
@@ -27,13 +27,13 @@ bytes):
   - Each null PSM is a wrong target row or a six-frame decoy row with probability 1/2 (pooled
     check in the calibration file).
   - The ``rev_<locus_tag>`` protein decoys stay (reversed products of annotated proteins), so
-    GIAP's gene-level ``pair_decoys`` / ``choose_tier`` still give ``decoy_picked`` with no
+    GIPPA's gene-level ``pair_decoys`` / ``choose_tier`` still give ``decoy_picked`` with no
     ``decoy_pairing_low``.
 * **Decision 22.** The six-frame wrong peptides come from four territories, drawn in turn:
   intergenic, cds_outframe, antisense (round 2) and ``nterm_extension``, the products in frame
   with an annotated CDS/sORF upstream of its true start with no in-frame stop in between. The test
   classes peptides with the round-2 ``wrong_class`` rule, after an ``nterm_extension`` check placed
-  first (oracle ``wrong_class4``). GIAP's ``LocusClassifier`` must class the nterm-territory
+  first (oracle ``wrong_class4``). GIPPA's ``LocusClassifier`` must class the nterm-territory
   products ``nterm_extension``.
 * Configs that do not use the six-frame source (``variant_f1``, ``isobaric_attack``,
   ``novel_orf_power`` with ``wrong_source = "shuffled"``) are byte-identical to 9bd0b7a6. So are
@@ -56,7 +56,7 @@ from helpers import m7_round3_oracle as Q
 from helpers import m7_sim_oracle as O
 from scipy import stats
 
-import giapsim
+import gippasim
 
 SEED = 20261022
 KS_MIN_P = 0.001  # tests/calibration/tolerances.yaml ks_min_p
@@ -133,9 +133,9 @@ NOVEL_NONPROTEOMICS_SHA256 = {
 
 
 def sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def sha(path: Path) -> str:
@@ -161,7 +161,7 @@ def outs(tmp_path_factory: pytest.TempPathFactory) -> Any:
     def make(seed: int = SEED, size: str = "100k") -> Out:
         if (seed, size) not in cache:
             d = tmp_path_factory.mktemp(f"r3_{seed}_{size}")
-            giapsim.simulate(sc().novel_orf_power(seed, size), seed, d)
+            gippasim.simulate(sc().novel_orf_power(seed, size), seed, d)
             ent = Q.makedb_entries(d, tmp_path_factory.mktemp(f"r3db_{seed}_{size}"))
             cache[(seed, size)] = Out(d, ent, Q.EntryIndex(ent, Q.lengths(d)))
         return cache[(seed, size)]
@@ -182,7 +182,7 @@ def classes4(out: Path) -> dict[str, str]:
 def test_sixframe_decoys_carry_makedb_class_tagged_ids(outs: Any) -> None:
     o = outs()
     _, d6, dp = Q.split_rows(o.dir)
-    assert d6, "no rev_GIAPORF_ decoy rows in six-frame mode"
+    assert d6, "no rev_GIPPAORF_ decoy rows in six-frame mode"
     for r in d6:
         for pid in Q.ids(r["protein_ids"]):
             assert Q.DECOY_ID.match(pid), r
@@ -279,12 +279,12 @@ def test_protein_decoys_stay(outs: Any) -> None:
             assert r["peptide"][::-1] in prot[pid[4:]], r
 
 
-def test_gene_tier_is_mayu_while_giapsim_decoys_are_unscored(outs: Any) -> None:
-    """GIAP's own gene-level pairing on ``peptides.tsv``: the ``rev_<locus>`` decoys pair, but
-    giapsim writes them with no q, PEP or score, so M4-24 rule 4 gives ``mayu`` +
-    ``decoy_unscored``. The giapsim scored-null-decoys backlog item restores ``decoy_picked``."""
-    from giap.config.model import InputConfig
-    from giap.genetable.detection import choose_tier, pair_decoys
+def test_gene_tier_is_mayu_while_gippasim_decoys_are_unscored(outs: Any) -> None:
+    """GIPPA's own gene-level pairing on ``peptides.tsv``: the ``rev_<locus>`` decoys pair, but
+    gippasim writes them with no q, PEP or score, so M4-24 rule 4 gives ``mayu`` +
+    ``decoy_unscored``. The gippasim scored-null-decoys backlog item restores ``decoy_picked``."""
+    from gippa.config.model import InputConfig
+    from gippa.genetable.detection import choose_tier, pair_decoys
 
     o = outs()
     pep = pd.read_csv(o.dir / "peptides.tsv", sep="\t", na_values=["NA"], keep_default_na=False)
@@ -312,11 +312,11 @@ def test_four_territories_split_evenly_100k(outs: Any) -> None:
         assert by[c] >= n // 4 - 2, by
 
 
-def test_nterm_territory_is_giap_nterm_extension(outs: Any) -> None:
-    """GIAP's M3-14 classifier calls the nterm-territory wrong peptides ``nterm_extension``."""
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.mapping.loci import LocusClassifier
-    from giap.model.coords import Interval
+def test_nterm_territory_is_gippa_nterm_extension(outs: Any) -> None:
+    """GIPPA's M3-14 classifier calls the nterm-territory wrong peptides ``nterm_extension``."""
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.mapping.loci import LocusClassifier
+    from gippa.model.coords import Interval
 
     o = outs()
     genome = O.receiving_genome(o.dir)
@@ -358,7 +358,7 @@ def test_sixframe_false_candidates_four_classes_1mb(outs: Any) -> None:
                                            ("isobaric_attack", ISOBARIC_SHA256)])  # fmt: skip
 def test_non_sixframe_scenarios_byte_identical(name: str, want: dict[str, str],
                                                tmp_path: Path) -> None:  # fmt: skip
-    giapsim.simulate(getattr(sc(), name)(SEED), SEED, tmp_path)
+    gippasim.simulate(getattr(sc(), name)(SEED), SEED, tmp_path)
     assert files(tmp_path) == want
 
 
@@ -366,7 +366,7 @@ def test_novel_orf_power_shuffled_source_byte_identical(tmp_path: Path) -> None:
     cfg = sc().novel_orf_power(SEED)
     prot = dataclasses.replace(cfg.proteomics, wrong_source="shuffled")
     cfg = dataclasses.replace(cfg, proteomics=prot)
-    giapsim.simulate(cfg, SEED, tmp_path)
+    gippasim.simulate(cfg, SEED, tmp_path)
     got = files(tmp_path)
     assert {k: got.get(k) for k in NOVEL_SHUFFLED_SHA256} == NOVEL_SHUFFLED_SHA256
 

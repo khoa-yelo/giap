@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-golden-wallenius
+#SBATCH --job-name=gippa-golden-wallenius
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=4
@@ -12,10 +12,10 @@
 #   the two files are byte-identical, then writes tests/data/golden/wallenius/{exact_tails.tsv.gz,
 #   PROVENANCE.md}. GOLDEN_WALLENIUS_REASON (optional) is recorded as the reason.
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-WT="$(cd "${1:-$GIAP_REPO}" && pwd)"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+WT="$(cd "${1:-$GIPPA_REPO}" && pwd)"
 : "${SLURM_JOB_ID:?run through sbatch: PROVENANCE.md records the job}"
-export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
+export TMPDIR="$(mktemp -d /tmp/gippa.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$WT"
 PY="$UV_PROJECT_ENVIRONMENT/bin/python"
 GEN=scripts/golden/make_wallenius_exact.py
@@ -60,7 +60,7 @@ dirty=""
 mkdir -p "$DEST"
 cp "$TMPDIR/exact1.tsv.gz" "$DEST/exact_tails.tsv.gz"
 cat > "$DEST/PROVENANCE.md" <<MD
-# Exact Wallenius reference (M8-12b; ADR-0044 decision 1; GIAP_SPEC.md §7.7.5, §11.4)
+# Exact Wallenius reference (M8-12b; ADR-0044 decision 1; GIPPA_SPEC.md §7.7.5, §11.4)
 
 - Command: \`sbatch scripts/slurm/golden_wallenius.sbatch\` (runs \`$GEN --workers 4\` twice).
 - Slurm job: $SLURM_JOB_ID on $(hostname), $(date -u +%Y-%m-%d) ($(date -u +%H:%M) UTC).

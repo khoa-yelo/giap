@@ -6,12 +6,12 @@
 //
 // Run only by the docker-smoke workflow's bakta-db-visibility job (.github/workflows/docker-smoke.yml),
 // from workflow/ so that projectDir (the ps shim path) is the pipeline's:
-//   cd workflow && GIAP_SMOKE_DB_DIR=<dir with version.json> nf-test test tests/docker_db.nf.test --profile test,docker
-// Without GIAP_SMOKE_DB_DIR a fixture is written to a fresh temporary directory.
+//   cd workflow && GIPPA_SMOKE_DB_DIR=<dir with version.json> nf-test test tests/docker_db.nf.test --profile test,docker
+// Without GIPPA_SMOKE_DB_DIR a fixture is written to a fresh temporary directory.
 // The nf-test-stub job in ci.yml leaves this file out: a real image, no stubs.
 def smokeDb() {
-    def env = System.getenv('GIAP_SMOKE_DB_DIR')
-    def dir = env ? new File(env) : File.createTempDir('giap-db-', '')
+    def env = System.getenv('GIPPA_SMOKE_DB_DIR')
+    def dir = env ? new File(env) : File.createTempDir('gippa-db-', '')
     def version = new File(dir, 'version.json')
     if (!version.exists()) { dir.mkdirs(); version.text = '{"type": "light"}\n' }
     return dir.canonicalPath

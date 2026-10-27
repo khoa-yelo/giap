@@ -9,18 +9,18 @@ dictionaries), §9.4 (the flag vocabulary), §9.5 (Frictionless resources), §6.
 
 | Table | Rows | Producer |
 |---|---|---|
-| `tables/autocorrelation.tsv` | Moran's I and join counts per replicon, lag and null | `giap.context.autocorrelation.autocorrelation_rows` (M5-05) |
-| | the pooled / right / left ori–ter slopes per circular chromosome | `giap.context.oriter.oriter_rows` (M5-08) |
-| `tables/islands.tsv` | one row per merged significant window | `giap.context.islands.islands_frame` (M5-06) |
+| `tables/autocorrelation.tsv` | Moran's I and join counts per replicon, lag and null | `gippa.context.autocorrelation.autocorrelation_rows` (M5-05) |
+| | the pooled / right / left ori–ter slopes per circular chromosome | `gippa.context.oriter.oriter_rows` (M5-08) |
+| `tables/islands.tsv` | one row per merged significant window | `gippa.context.islands.islands_frame` (M5-06) |
 | `work/context/gene_context.parquet` | `island_id`, `replichore`, `replichore_position` per gene | `gene_island_map` + `gene_replichores` |
-| `work/context/island_diagnostics.parquet` | l-hat, l′ and the lag-1 Moran's I per replicon | `giap.context.diagnostics.island_diagnostics` |
+| `work/context/island_diagnostics.parquet` | l-hat, l′ and the lag-1 Moran's I per replicon | `gippa.context.diagnostics.island_diagnostics` |
 
-`giap.context.tables` only concatenates and sorts: autocorrelation by contig (C1 order),
+`gippa.context.tables` only concatenates and sorts: autocorrelation by contig (C1 order),
 `statistic` and `null_model` in §9.3 enum order, `lag` (NA last) and `stat`; islands by contig,
 `start`, `end` and the `ISL_<n>` number. Both sorts are stable, so rows that tie keep the order
 their producer gave them, and no island is renumbered.
 
-`giap.context.oriter` emits `lag` as the schema's nullable `Int64` rather than `float64`, so the
+`gippa.context.oriter` emits `lag` as the schema's nullable `Int64` rather than `float64`, so the
 concatenation of the two row sources keeps integer lags (`1`, not `1.0`) in the written table.
 
 ## `stat` is a name, in all three tables
@@ -29,21 +29,21 @@ concatenation of the two row sources keeps integer lags (`1`, not `1.0`) in the 
 for `regions_stats`), and `autocorrelation` follows it (`morans_i`, `join_count_bb`,
 `oriter_slope_pooled`, …). M5-06 originally shipped islands' `stat` as a float equal to `scan_s`,
 which both broke the convention and duplicated a column the same row already carries; M5-09 lead
-decision 6 fixed it, so islands' `stat` is the string `"scan_max"` (`giap.context.islands.STAT`)
+decision 6 fixed it, so islands' `stat` is the string `"scan_max"` (`gippa.context.islands.STAT`)
 and `scan_s` keeps the value. A generic reader of the three test tables can therefore treat `stat`
 as a string everywhere.
 
 ## Random streams (§6.6)
 
 `context_stats.autocorrelation`, `context_stats.islands` and `context_stats.oriter`, each from
-`giap.rng.for_step(..., cfg.seed)`. The island stream is shared by `scan_replicons` and then
+`gippa.rng.for_step(..., cfg.seed)`. The island stream is shared by `scan_replicons` and then
 `islands_frame`, in that order. The M4 parts keep their own streams, so changing an M5-only knob
 (the detrend span, the block length, the presence of an oriC) leaves `regions_stats.tsv` and
 `detection_summary.tsv` byte-identical.
 
 ## Writer conventions
 
-`giap.io.context_tsv` hands cells to M1-04 `write_tsv` **by value**: `%.6g` for floats, integers
+`gippa.io.context_tsv` hands cells to M1-04 `write_tsv` **by value**: `%.6g` for floats, integers
 as integers, `NA` for missing (including a row with no flag), `;` for the `flags` and `genes`
 lists. Nothing is coerced to its schema type on the way out, so a frame that violates the schema
 is written as it stands and caught by `frictionless validate` rather than silently rewritten.
@@ -55,7 +55,7 @@ The readers are the inverses and type each column from the shipped schema: `inte
 nullable `Int64`, `number` → `float64`, `string` → `object` of `str`, and the list cells → tuples
 of `str`.
 
-`flags` is checked against `giap.context.vocab.CONTEXT_FLAGS` (§9.4 is closed) and an unknown flag
+`flags` is checked against `gippa.context.vocab.CONTEXT_FLAGS` (§9.4 is closed) and an unknown flag
 raises `ValueError` naming it. Note that `pandas.Series.flags` shadows the `flags` *column*: a
 writer reaching for `row.flags` on an `iterrows` row gets a `Flags` object, so every access is by
 name or by position.

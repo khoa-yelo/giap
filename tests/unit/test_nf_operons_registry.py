@@ -1,12 +1,12 @@
-"""OPERONS wiring follows the step registry (M6-08 items 6 and 7; GIAP_SPEC.md §6.2, §9.1).
+"""OPERONS wiring follows the step registry (M6-08 items 6 and 7; GIPPA_SPEC.md §6.2, §9.1).
 
 These are static checks of ``workflow/subworkflows/local/operons.nf``, ``annotate.nf`` and
-``main.nf`` against ``giap.steps`` (no Nextflow needed), in the style of
+``main.nf`` against ``gippa.steps`` (no Nextflow needed), in the style of
 ``test_nf_annotate_registry.py``. ``workflow/tests/operons.nf.test`` checks the staged keys at
 run time.
 
 * operons.nf defines ``workflow OPERONS``. It calls the ``operons`` step once, through a
-  ``GIAP_STEP`` alias, as ``ALIAS(v.files, v.keys, [...])`` with ``v = stepIn('operons', ...)``.
+  ``GIPPA_STEP`` alias, as ``ALIAS(v.files, v.keys, [...])`` with ``v = stepIn('operons', ...)``.
   The alias name is free, because ``OPERONS`` is the subworkflow's own name.
 * The out spec is exactly ``pairs=tables/pairs.tsv``, ``operons=tables/operons.tsv`` and
   ``operon_flags=tables/operon_flags.tsv``. Only tables/*.tsv are published, never work Parquet
@@ -25,8 +25,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 REPO = Path(__file__).resolve().parents[2]
 LOCAL = REPO / "workflow" / "subworkflows" / "local"
@@ -99,14 +99,14 @@ def test_operons_nf_defines_the_subworkflow() -> None:
     assert re.search(r"\bworkflow\s+OPERONS\s*\{", _text(SUBWF))
 
 
-def test_operons_step_called_once_through_giap_step() -> None:
+def test_operons_step_called_once_through_gippa_step() -> None:
     text = _text(SUBWF)
     var, _ = _step_in(text)
     calls = re.findall(rf"\b([A-Z_]+)\(\s*{var}\.files\s*,\s*{var}\.keys\s*,", text)
     assert len(calls) == 1, f"operons step called {len(calls)}x"
     alias = calls[0]
-    inc = re.search(rf"GIAP_STEP\s+as\s+{alias}\b", text)
-    assert inc, f"{alias} is not a GIAP_STEP alias"
+    inc = re.search(rf"GIPPA_STEP\s+as\s+{alias}\b", text)
+    assert inc, f"{alias} is not a GIPPA_STEP alias"
 
 
 def test_out_spec_is_the_three_tables_only() -> None:

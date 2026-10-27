@@ -1,5 +1,5 @@
 """Toy genomes and gene models of docs/specs/M7-16-stop-codon-readthrough.md (examples 1-8, edge
-cases). Test tooling only: no ``giap.mapping.readthrough`` import, so the helpers build inputs
+cases). Test tooling only: no ``gippa.mapping.readthrough`` import, so the helpers build inputs
 before the implementation exists.
 
 - :func:`toy_c1`: contig ``c1`` (linear, 126 nt, frame ``+0`` reads
@@ -21,9 +21,9 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 #: one fixed codon per residue (table 11); ``*`` is chosen per stop
 CODON: Mapping[str, str] = {

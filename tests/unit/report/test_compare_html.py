@@ -1,16 +1,16 @@
 # ruff: noqa: RUF001, RUF003  (ρ is the spec's own character)
-"""``CMP/report/compare.html`` and the V16 files written by ``giap compare`` (M9-23
-"report/compare.html", example 4, acceptance criterion 2; GIAP_SPEC.md §7.9.3, §10.2 V16
-"written only by ``giap compare``", §10.3 self-contained rules).
+"""``CMP/report/compare.html`` and the V16 files written by ``gippa compare`` (M9-23
+"report/compare.html", example 4, acceptance criterion 2; GIPPA_SPEC.md §7.9.3, §10.2 V16
+"written only by ``gippa compare``", §10.3 self-contained rules).
 
 Structure checks with html.parser only (``helpers.report_fixtures.parse``), the M9-14 external-load
 checker (``helpers.interactive_fixtures.external_loads``) and the run-report link rule
 (tests/unit/test_cli_report.py): every non-fragment link is relative and names a file under
-``CMP/``. Never touches the real ``$GIAP_DB_DIR``; no network.
+``CMP/``. Never touches the real ``$GIPPA_DB_DIR``; no network.
 
 Interface assumed where the spec leaves it open (M9-23 test author):
 
-- ``giap compare`` writes, besides ``CMP/tables/``, ``CMP/plots/V16_compare.svg`` (``svg`` is in
+- ``gippa compare`` writes, besides ``CMP/tables/``, ``CMP/plots/V16_compare.svg`` (``svg`` is in
   the default ``report.formats``), ``CMP/plots/data/V16_compare.tsv`` and
   ``CMP/report/compare.html``;
 - the page's sections are exactly ``<section id="runs|detection|abundance|stability|
@@ -18,8 +18,8 @@ Interface assumed where the spec leaves it open (M9-23 test author):
 - tables are ``<table data-table="compare_detection|compare_abundance|compare_stability">`` in
   the ``detection``, ``abundance`` and ``stability`` sections; the abundance table's header holds
   the Bland-Altman columns;
-- V16 has a Plotly twin (``giap.viz.interactive.has_twin("V16")`` after importing
-  ``giap.viz.compare``); its figure JSON sits in a ``<script data-plotly=...>`` inside the
+- V16 has a Plotly twin (``gippa.viz.interactive.has_twin("V16")`` after importing
+  ``gippa.viz.compare``); its figure JSON sits in a ``<script data-plotly=...>`` inside the
   ``abundance`` section (the M9-14 embedding);
 - the ``runs`` section names every label and the genome SHA-256.
 """
@@ -36,7 +36,7 @@ from helpers.compare_data import SHA_A, gene, write_run
 from helpers.interactive_fixtures import EXTERNAL, external_loads
 from helpers.report_fixtures import Page, parse, table_rows
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 SECTIONS = ["runs", "detection", "abundance", "stability", "provenance"]
 LABELS = ("A1", "A2", "A3")
@@ -52,7 +52,7 @@ def _genes(shift: float, detected_upto: int) -> list[dict[str, object]]:
 
 @pytest.fixture(scope="module")
 def cmp(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     tmp = tmp_path_factory.mktemp("compare_html")
     (tmp / "db_empty").mkdir()
@@ -60,8 +60,8 @@ def cmp(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
             for lab, s, d in zip(LABELS, (0.0, 0.5, 1.0), (12, 10, 6), strict=True)]  # fmt: skip
     out = tmp / "CMP"
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(tmp / "db_empty"))
-        mp.setenv("GIAP_ROOT", str(tmp / "db_empty"))
+        mp.setenv("GIPPA_DB_DIR", str(tmp / "db_empty"))
+        mp.setenv("GIPPA_ROOT", str(tmp / "db_empty"))
         res = CliRunner().invoke(
             cli,
             [
@@ -142,8 +142,8 @@ def test_detection_section_embeds_v16(page: Page) -> None:
 
 
 def test_abundance_section_has_the_concordance_twin(page: Page) -> None:
-    import giap.viz.compare  # noqa: F401  (registers V16 and its twin)
-    from giap.viz.interactive import has_twin
+    import gippa.viz.compare  # noqa: F401  (registers V16 and its twin)
+    from gippa.viz.interactive import has_twin
 
     assert has_twin("V16")
     scripts = page.section("abundance").by_attr("data-plotly")
@@ -159,10 +159,10 @@ def test_runs_section_names_labels_and_genome(page: Page) -> None:
 
 def test_rerun_is_byte_identical(cmp: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Same runs, same seed, a sibling outdir: the same page and V16 data (§7.9.4 determinism)."""
-    from giap.cli import cli
+    from gippa.cli import cli
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(cmp.parent / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(cmp.parent / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(cmp.parent / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(cmp.parent / "db_empty"))
     runs = [cmp.parent / f"run{lab}" for lab in LABELS]
     again = cmp.parent / "CMP2"
     res = CliRunner().invoke(

@@ -1,4 +1,4 @@
-"""Engine calibration through the harness (issue M4-05; GIAP_SPEC.md §8.4).
+"""Engine calibration through the harness (issue M4-05; GIPPA_SPEC.md §8.4).
 
 Each test runs fast (``calibration``, ``replicates_fast``) and full (``calibration_full``,
 ``replicates_full``). Engine tests reuse the R of the closest consumer suite (M4-index lead
@@ -30,7 +30,7 @@ Autocorrelation engine (issue M5-02, suite ``autocorrelation``; docs/specs/M5-02
 - ``test_example11_iid_block_len_one`` / ``test_example12_ar09_block_len_twenty``: spec examples
   11-12 on 100 seeds (``replicate_rng``), n = 2,000, B = 199, circular (example 12 as amended by
   lead decision 9: l-hat >= 15 in >= 95 %).
-- ``test_decision8_giapsim_tu_scores_block_len`` (suite ``islands``, lead decision 8): giapsim
+- ``test_decision8_gippasim_tu_scores_block_len`` (suite ``islands``, lead decision 8): gippasim
   chromosome at AR(1) rho 0.9 -> Blom scores (left-censored) -> TU means -> 10 % LOESS detrend
   (circular padding, statsmodels as M5-01 specifies) -> ``choose_block_len`` with B = 500 gives
   mean l-hat ≈ 8 at 4,500 genes and ≈ 1.3 at 1,000 genes (statistician, Slurm 1860281 / 1860318:
@@ -49,8 +49,8 @@ import numpy as np
 import pytest
 from _gate import Gate, calibrate_levels
 
-from giap.stats.multitest import bh
-from giap.stats.permutation import (
+from gippa.stats.multitest import bh
+from gippa.stats.permutation import (
     apply_shift,
     besag_clifford,
     choose_shifts,
@@ -163,8 +163,8 @@ AUTOCORR = pytest.mark.calsuite("autocorrelation")
 
 
 def _ac() -> ModuleType:
-    """giap.stats.autocorr, imported per test so the M4 engine tests above still collect."""
-    return importlib.import_module("giap.stats.autocorr")
+    """gippa.stats.autocorr, imported per test so the M4 engine tests above still collect."""
+    return importlib.import_module("gippa.stats.autocorr")
 
 
 N_AC, B_AC = 500, 199
@@ -251,14 +251,14 @@ def test_example12_ar09_block_len_twenty() -> None:
 
 
 def _tu_score_series(rng: np.random.Generator, n_genes: int, rho: float) -> np.ndarray:
-    """Detrended TU scores of the giapsim chromosome (M5-06 steps 1-3, built here from scipy and
+    """Detrended TU scores of the gippasim chromosome (M5-06 steps 1-3, built here from scipy and
     statsmodels so the test does not depend on M5-01)."""
     from scipy.special import ndtri
     from scipy.stats import rankdata
     from statsmodels.nonparametric.smoothers_lowess import lowess
 
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=n_genes), rng)
     expr = ex.simulate_expression(lay, ex.ExpressionConfig(ar1_rho=rho), rng)
@@ -291,14 +291,14 @@ def _tu_score_series(rng: np.random.Generator, n_genes: int, rho: float) -> np.n
 
 @pytest.mark.calsuite("islands")
 @pytest.mark.calibration
-def test_decision8_giapsim_tu_scores_block_len() -> None:
+def test_decision8_gippasim_tu_scores_block_len() -> None:
     """Lead decision 8: l-hat ≈ 8 at 4,500 genes and ≈ 1.3 at 1,000 genes (rho 0.9). Bands are
     ±3.5 SE of a 30-replicate mean (SD ≈ 2.0 and ≈ 0.65 in the statistician's runs)."""
     means = {}
     for n_genes in (1_000, 4_500):
         ells = []
         for i in range(30):
-            rng = C.replicate_rng(f"islands.engine_block_len_giapsim_{n_genes}", i)
+            rng = C.replicate_rng(f"islands.engine_block_len_gippasim_{n_genes}", i)
             det = _tu_score_series(rng, n_genes, 0.9)
             ells.append(_ac().choose_block_len(det, True, 500, rng))
         means[n_genes] = float(np.mean(ells))

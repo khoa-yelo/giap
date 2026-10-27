@@ -18,12 +18,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 
 from fs_genomes import SENSE_RESIDUES, background, codons_for, join_split, rc
 
-from giap.config.model import TolerantConfig
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.sixframe import Frame, build_sixframe
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.config.model import TolerantConfig
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.sixframe import Frame, build_sixframe
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 NEVER = 10**12
 SEGS = [("N", "GG"), ("GG", "N"), ("AG", "Q"), ("Q", "AG"), ("AS", "GT"), ("W", "AD"), ("GV", "R")]

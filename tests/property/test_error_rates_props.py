@@ -1,5 +1,5 @@
 """M7-10 properties (docs/specs/M7-10-class-error-rates.md rules 1-4): the class error rates of
-``giap.variants.error_rates`` against a brute-force oracle, and their invariants.
+``gippa.variants.error_rates`` against a brute-force oracle, and their invariants.
 
 Interface as pinned in tests/unit/variants/test_error_rates.py. Random inputs: de novo rows on a
 few runs and spectrum IDs (some NA), reference rows (q around the 0.01 threshold, some decoys,
@@ -35,7 +35,7 @@ SETTINGS = settings(max_examples=150, deadline=None,
 
 
 def er() -> ModuleType:
-    return importlib.import_module("giap.variants.error_rates")
+    return importlib.import_module("gippa.variants.error_rates")
 
 
 def fold(p: str) -> str:

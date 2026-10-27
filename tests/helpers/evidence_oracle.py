@@ -1,11 +1,11 @@
 """Independent oracle and frame builders for M4-11 accepted evidence (docs/specs/M4-11-...).
 
-Written from the spec text (GIAP_SPEC.md §7.3.1, §7.2.6, §7.2.7, §9.3, §9.4 and the M4-11 public
-interface), not from ``giap.genetable.evidence``. Coverage is the union of ALL accepted placement
+Written from the spec text (GIPPA_SPEC.md §7.3.1, §7.2.6, §7.2.7, §9.3, §9.4 and the M4-11 public
+interface), not from ``gippa.genetable.evidence``. Coverage is the union of ALL accepted placement
 intervals of a gene, repeats of one peptide inside the gene included (M4-11 lead decision 5 after
 the PR #74 review); it uses explicit position sets taken
 modulo the replicon length, so origin-crossing genes and placements (``end > length``, §6.5) need
-no interval splitting here. Nothing in this module imports ``giap``.
+no interval splitting here. Nothing in this module imports ``gippa``.
 
 Builders return frames in the M4-06 internal representation (0-based half-open, list cells).
 """

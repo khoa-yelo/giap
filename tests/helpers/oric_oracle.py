@@ -1,6 +1,6 @@
-"""Independent checks for giapsim's oriC, ori-ter gradient and null scenarios (issue M5-04).
+"""Independent checks for gippasim's oriC, ori-ter gradient and null scenarios (issue M5-04).
 
-Written from docs/specs/M5-04-sim-oric-gradient.md (GIAP_SPEC.md §7.3.5(e), §11.3), without reading
+Written from docs/specs/M5-04-sim-oric-gradient.md (GIPPA_SPEC.md §7.3.5(e), §11.3), without reading
 the simulator: the replichore truth, the gradient shapes, circular interval overlap, the chr1
 intergenic gaps, Moran's I at lag 1 and a hand-built ``Layout`` for the spec's coordinate examples.
 Coordinates are 0-based half-open; ``end`` may pass the replicon length (unwrapped, §6.5).
@@ -118,10 +118,10 @@ def hand_layout(
     tus: Sequence[Sequence[int]] | None = None,
     plasmid: tuple[int, Sequence[tuple[int, int]]] | None = None,
 ) -> Any:
-    """A ``giapsim.layout.Layout`` by hand: chr1 of ``length`` with ``genes`` (start, end) on ``+``
+    """A ``gippasim.layout.Layout`` by hand: chr1 of ``length`` with ``genes`` (start, end) on ``+``
     (``end > length`` marks an origin-crossing gene), TUs ``tus`` (gene index lists, default
     singletons), an optional plasmid ``p1`` (length, genes) and an optional oriC (start, end)."""
-    from giapsim.layout import Layout
+    from gippasim.layout import Layout
 
     rows: list[tuple[Any, ...]] = []
     contigs = [("chr1", length, genes)]

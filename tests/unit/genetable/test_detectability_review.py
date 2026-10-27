@@ -1,6 +1,6 @@
 """M4-13 lead decisions 10-14 after the code review of PR #83 (docs/specs/M4-13-detectability.md).
 
-Spec: GIAP_SPEC.md §7.3.3 (detectability model, edge cases), §5.2, §8.2, §9.3 (detection_summary
+Spec: GIPPA_SPEC.md §7.3.3 (detectability model, edge cases), §5.2, §8.2, §9.3 (detection_summary
 columns), §6.6. Decisions pinned here:
 
 - (10) Real-contract inputs. ``fit_detectability(detected, cov, tus, cfg, rng)``:
@@ -46,15 +46,15 @@ import detectability_data as dd
 import detectability_oracle as O
 import evidence_oracle as eo
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 C_GRID = {0.01, 0.1, 1.0, 10.0}
 SEED = 7
 
 
 def _mod() -> Any:
-    from giap.genetable import detectability
+    from gippa.genetable import detectability
 
     return detectability
 
@@ -91,19 +91,19 @@ class Contract:
     detected: pd.Series  # boolean, index locus_tag, NA = partial / pseudogene
     cov: pd.DataFrame  # M4-10 covariate_table output (locus_tag column, RangeIndex)
     tus: pd.DataFrame  # C6 layers table (locus_tag, tu_id columns)
-    cfg: Any  # GiapConfig
+    cfg: Any  # GippaConfig
 
 
 @functools.lru_cache(maxsize=1)
 def _contract() -> Contract:
-    """giapsim M4-07 layout + M4-08 ``covariates_only`` detection → perfect C9/C11 evidence →
+    """gippasim M4-07 layout + M4-08 ``covariates_only`` detection → perfect C9/C11 evidence →
     M4-11 ``gene_evidence`` (``detected_2pep``), M4-10 ``covariate_table``, C6 ``layers``."""
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giap.config import GiapConfig
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
-    from giapsim.contract_tables import layers_frame
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippa.config import GippaConfig
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
+    from gippasim.contract_tables import layers_frame
 
     rng = np.random.default_rng(1313)
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=500), rng)
@@ -115,7 +115,7 @@ def _contract() -> Contract:
         zip(expr.genes["locus_tag"], expr.genes["detected_true"].astype(bool), strict=True)
     )
     peps, hits = eo.perfect_evidence(genes, lay.replicons, truth, rng, n_false=10)
-    cfg = GiapConfig()
+    cfg = GippaConfig()
     acc = accepted_peptides(hits, peps, cfg)
     ev = gene_evidence(genes, hits, acc, lay.replicons)
     det = pd.Series(

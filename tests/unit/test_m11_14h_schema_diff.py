@@ -15,11 +15,11 @@ Interface pinned here (test-author reading, beyond the spec text):
   release``) when no ``v*`` tag is reachable, and returns a problem containing ``fetch tags:
   actions/checkout with fetch-depth: 0`` when ``git rev-parse --is-shallow-repository`` prints
   ``true`` (checked first: a shallow clone has no tags either).
-- Compared: the ``fields[].name`` of every ``src/giap/schemas/tables/*.schema.json`` (a table
+- Compared: the ``fields[].name`` of every ``src/gippa/schemas/tables/*.schema.json`` (a table
   file that disappears removes its columns, a new one adds them) and the top-level
-  ``properties`` keys of ``src/giap/schemas/run_manifest.schema.json``. The package version is
-  ``__version__`` of ``src/giap/__init__.py``; ``output_schema_version`` is read from
-  ``src/giap/schemas/datapackage.json``.
+  ``properties`` keys of ``src/gippa/schemas/run_manifest.schema.json``. The package version is
+  ``__version__`` of ``src/gippa/__init__.py``; ``output_schema_version`` is read from
+  ``src/gippa/schemas/datapackage.json``.
 - A removal (a rename is a removal plus an addition) needs a larger ``__version__`` major; an
   addition needs a larger ``output_schema_version`` (minor, or major). Each problem names the
   table (file stem, or ``run_manifest``) and the column.
@@ -57,11 +57,11 @@ _GIT_ENV = {
 }
 
 GENES = ["locus_tag", "contig", "start", "end"]
-MANIFEST_KEYS = ["schema_version", "output_schema_version", "giap_version", "operon_source"]
+MANIFEST_KEYS = ["schema_version", "output_schema_version", "gippa_version", "operon_source"]
 
 
 def _load() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("giap_release_schema_diff", SCRIPT)
+    spec = importlib.util.spec_from_file_location("gippa_release_schema_diff", SCRIPT)
     assert spec is not None and spec.loader is not None, f"{SCRIPT} missing"
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -96,22 +96,22 @@ def write_tree(
 ) -> None:
     """The four files the check reads; ``tables`` maps a stem to its column names."""
     tables = {"genes": GENES, "islands": ["island_id", "p_value"]} if tables is None else tables
-    _write(root, "src/giap/__init__.py", f'"""GIAP."""\n\n__version__ = "{version}"\n')
-    tdir = root / "src" / "giap" / "schemas" / "tables"
+    _write(root, "src/gippa/__init__.py", f'"""GIPPA."""\n\n__version__ = "{version}"\n')
+    tdir = root / "src" / "gippa" / "schemas" / "tables"
     if tdir.is_dir():
         for old in tdir.glob("*.schema.json"):
             old.unlink()
     for stem, cols in tables.items():
         doc = {"name": stem, "fields": [{"name": c, "type": "string"} for c in cols]}
-        _write(root, f"src/giap/schemas/tables/{stem}.schema.json", json.dumps(doc, indent=2))
+        _write(root, f"src/gippa/schemas/tables/{stem}.schema.json", json.dumps(doc, indent=2))
     props = {k: {"type": "string"} for k in (MANIFEST_KEYS if manifest is None else manifest)}
     _write(
         root,
-        "src/giap/schemas/run_manifest.schema.json",
+        "src/gippa/schemas/run_manifest.schema.json",
         json.dumps({"type": "object", "required": sorted(props), "properties": props}),
     )
-    package = {"name": "giap-run", "output_schema_version": output, "resources": []}
-    _write(root, "src/giap/schemas/datapackage.json", json.dumps(package, indent=2))
+    package = {"name": "gippa-run", "output_schema_version": output, "resources": []}
+    _write(root, "src/gippa/schemas/datapackage.json", json.dumps(package, indent=2))
 
 
 def commit(root: Path, msg: str, tag: str | None = None) -> None:
@@ -237,7 +237,7 @@ def test_manifest_key_removed_or_added(tmp_path: Path) -> None:
     added = head(root, version="1.1.0", output="1.0", manifest=MANIFEST_KEYS)
     assert any("operon_source" in p for p in added), added
     removed = head(root, version="1.1.0", output="1.1", manifest=MANIFEST_KEYS[:-2])
-    assert any("giap_version" in p and "removed" in p for p in removed), removed  # [:-2] drops it
+    assert any("gippa_version" in p and "removed" in p for p in removed), removed  # [:-2] drops it
     ok = head(root, version="2.0.0", output="2.0", manifest=MANIFEST_KEYS[:-2])
     assert ok == [], ok
 

@@ -13,9 +13,9 @@ reviews the flagged-set definition · **off the gate path** (like M4-19) · no t
 
 ## Public interface
 
-`src/giap/context/sensitivity.py` (M4-19) gains
+`src/gippa/context/sensitivity.py` (M4-19) gains
 ```python
-def islands_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Generator,
+def islands_family(genes: pd.DataFrame, cfg: GippaConfig, rng: np.random.Generator,
                    *, tus: pd.DataFrame, replicons: pd.DataFrame) -> frozenset[str]: ...
 FAMILIES["islands"] = ...   # bound to the context inputs by run_sensitivity (Q1)
 ```
@@ -72,7 +72,7 @@ variants.
    - **B = 199** for both `stats.permutations` and `stats.bootstrap`;
    - **every island:** the flagged set uses every gene of every `islands_frame` row;
    - **`tus` is required;**
-   - **M5-06 is reached** through `giap.context.islands`.
+   - **M5-06 is reached** through `gippa.context.islands`.
 2. **Existing pins.** The lead filtered three existing sensitivity tests to `family == "regions"` and widened the FAMILIES pin. The implementer:
    - adds `tus` to the registry pin and to context.nf's `stepIn('sensitivity', ...)`;
-   - regenerates the golden `sensitivity.tsv` files with GIAP_UPDATE_GOLDEN=1, noting it in the PR.
+   - regenerates the golden `sensitivity.tsv` files with GIPPA_UPDATE_GOLDEN=1, noting it in the PR.

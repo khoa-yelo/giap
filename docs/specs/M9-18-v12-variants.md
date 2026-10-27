@@ -13,12 +13,12 @@ lines) · not statistical
   rates), §9.3 `variants.tsv` (branch `origin/m7/variant-flags`: `call` enum{ALT, mixed},
   `alt_type` enum{substitution, swap, block, frameshift}), `peptide_hits.tsv`; §6.5.
 
-## Support: `plots/support/variant_windows.tsv` (written by the `plots` step under `giap run`)
+## Support: `plots/support/variant_windows.tsv` (written by the `plots` step under `gippa run`)
 
 The reference protein around each of the top-30 sites is not in `OUT/` (`genes.parquet` with its
 `aa` column is an intermediate). The `plots` step, given `genes` (`genes.parquet`) as an input,
 writes `variant_id`, `gene`, `aa_pos`, `window_start_aa` (1-based), `ref_window` (the gene's
-protein from `aa_pos − 10` to `aa_pos + 10`, clipped to the protein). Under `giap report` the file
+protein from `aa_pos − 10` to `aa_pos + 10`, clipped to the protein). Under `gippa report` the file
 is read back; when absent, panel (b) shows peptides only.
 
 ## Panel (a)

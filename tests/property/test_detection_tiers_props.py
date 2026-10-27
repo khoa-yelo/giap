@@ -1,5 +1,5 @@
 """Hypothesis properties of M4-12 detection tiers (docs/specs/M4-12-detection-tiers.md, acceptance
-criterion 2; GIAP_SPEC.md §7.3.2).
+criterion 2; GIPPA_SPEC.md §7.3.2).
 
 - adding a decoy never turns a ``not_detected`` gene into ``detected``. Scope (ADR-0009): every
   decoy is paired before and after, so the paired share f stays 1 and the tier stays

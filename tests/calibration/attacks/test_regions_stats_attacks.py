@@ -1,4 +1,4 @@
-"""Attack null 4 for the M4-18 plasmid rows (GIAP_SPEC.md §8.5 attack 4 "High-copy plasmids → region
+"""Attack null 4 for the M4-18 plasmid rows (GIPPA_SPEC.md §8.5 attack 4 "High-copy plasmids → region
 tests, reported as replicon-level effects only"; docs/specs/M4-18-regions-stats-table.md acceptance
 "Attack null 4" and lead decisions 2 and 6).
 
@@ -46,8 +46,8 @@ def _sim(seed: int, copy_log2: float, B: int = 50) -> tuple[pd.DataFrame, float]
     consume the generator exactly as ``rd.sim_tables`` does. The realised shift (lead decision 16)
     is the HL of the simulator's ``abundance_log2_true`` over all eligible genes, plasmid against
     the reference replicons: the dosage-plus-regulation shift the CI estimates."""
-    from giap.context import regions_table as T
-    from giap.rng import for_step
+    from gippa.context import regions_table as T
+    from gippa.rng import for_step
 
     rng = np.random.default_rng(seed)
     kw = {"ar1_rho": 0.5, "plasmid_copy_log2": {"p1": copy_log2}}

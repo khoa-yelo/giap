@@ -4,7 +4,7 @@ Spec: docs/specs/M10-01-pxd078459-download.md, deliverables 3, 5 and 6, acceptan
 question Q5 (two commits: the reviewed selection with ``sha256 = NA``, then the filled hashes);
 R11 (no raw MS data, no file above 5 MB); index question L4 (the record XML is not committed).
 
-These tests read only files tracked in this checkout; nothing reads ``$GIAP_DATA_DIR``.
+These tests read only files tracked in this checkout; nothing reads ``$GIPPA_DATA_DIR``.
 No statistical claim is made in this module, so it has no calibration test (spec §8.4).
 """
 

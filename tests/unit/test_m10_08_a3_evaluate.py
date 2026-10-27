@@ -7,9 +7,9 @@ acceptance criteria 1, 2, 3 and 5.
 
 Every ``.ssl``, genome, Bakta JSON and contaminant FASTA is synthetic and written under
 ``tmp_path`` (``helpers.a3_eval_kit``); nothing reads Nissle, the network, a GPU or
-``$GIAP_ROOT``. The direct-``match_exact`` oracle reuses ``giap.mapping`` exactly as the spec's
+``$GIPPA_ROOT``. The direct-``match_exact`` oracle reuses ``gippa.mapping`` exactly as the spec's
 steps 9-11 prescribe. The one statistical claim (the Wilson 95 % interval of ``share``, R4) is
-checked here for equality with ``giap.stats.cutoffs.wilson_ci`` and calibrated through the
+checked here for equality with ``gippa.stats.cutoffs.wilson_ci`` and calibrated through the
 evaluator in ``tests/calibration/test_m10_08_share_ci_calibration.py``.
 """
 
@@ -56,7 +56,7 @@ from helpers.slurm_sandbox import REPO
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.cutoffs import wilson_ci
+from gippa.stats.cutoffs import wilson_ci
 
 
 def _ok(res: Any) -> str:
@@ -75,11 +75,11 @@ def _close(x: float | None, want: float, tol: float = 5e-5) -> bool:
 
 def _oracle(genome: Genome, top: list[str]) -> dict[str, Any]:
     """Steps 9-12 by direct calls: target matches, decoy matches, matches per replicon."""
-    from giap.config import resolve_config
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.exact import match_exact
-    from giap.mapping.sixframe import build_sixframe
-    from giap.rng import for_step
+    from gippa.config import resolve_config
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.exact import match_exact
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.rng import for_step
 
     cfg = resolve_config()
     seqs, reps = genome.as_inputs()
@@ -125,7 +125,7 @@ def test_example1_pass(tmp_path: Path) -> None:
 
 def _genome_of(case: Case) -> Genome:
     """Re-read the case's genome files into a :class:`Genome` (for the oracle)."""
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     meta = {r["id"]: r for r in json.loads(case.bakta.read_text())["sequences"]}
     return Genome([Contig(r.id, r.sequence, meta[r.id]["topology"], meta[r.id]["type"])
@@ -488,13 +488,13 @@ def _imports(path: Path) -> dict[str, set[str]]:
     return out
 
 
-def test_module_reuses_giap_matching_and_wilson() -> None:
+def test_module_reuses_gippa_matching_and_wilson() -> None:
     imp = _imports(require(A3_FEASIBILITY, "deliverable 9"))
-    names = {n for mod, ns in imp.items() if mod.startswith("giap.") for n in ns}
+    names = {n for mod, ns in imp.items() if mod.startswith("gippa.") for n in ns}
     mods = set(imp)
     for need in ("build_sixframe", "build_decoys", "match_exact", "wilson_ci", "for_step"):
         assert need in names or any(m.endswith(need) for m in mods), f"must import {need}"
-    assert "match_contaminant_peptides" in names, "contaminant_share uses the GIAP matcher"
+    assert "match_contaminant_peptides" in names, "contaminant_share uses the GIPPA matcher"
     assert "parse_bakta_json" in names, "replicons come from the Bakta JSON (step 8)"
     assert not {"ahocorasick", "cascadia", "pyteomics", "re2"} & {m.split(".")[0] for m in mods}
     src = A3_FEASIBILITY.read_text()
@@ -566,7 +566,7 @@ def test_property_counts_match_an_independent_oracle(rows: list[tuple[str, float
     in_len = [(f, sc) for f, sc in kept if 7 <= len(f) <= 30]
     passing = {f for f, sc in in_len if sc > 0.8}
     oracle = _oracle(_PROP_GENOME, sorted(passing))
-    with tempfile.TemporaryDirectory(prefix="giap-a3-prop-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="gippa-a3-prop-") as tmp:
         d = Path(tmp)
         case = make_case(d / "a", [Row(s, sc) for s, sc in rows], _PROP_GENOME)
         res = case.evaluate()
@@ -609,12 +609,12 @@ def test_minimal_cli_defaults_to_the_nissle_genome(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     has_subcommand("evaluate")
-    db = tmp_path / "db"  # never the real $GIAP_DB_DIR
+    db = tmp_path / "db"  # never the real $GIPPA_DB_DIR
     (db / "contaminants").mkdir(parents=True)
     from helpers.a3_eval_kit import write_contaminants, write_ssl
 
     write_contaminants(db / "contaminants" / "contaminants.fasta")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     ssl = write_ssl(tmp_path / "WT_1.ssl", [])
     out = tmp_path / "J.json"
     res = call(["evaluate", str(ssl), "--run", "WT_1", "--out", str(out)], out)
@@ -783,7 +783,7 @@ def test_n8_detail_inside_the_checkout_not_git_ignored_is_refused(tmp_path: Path
 
 def test_n8_detail_outside_the_checkout_is_written(tmp_path: Path) -> None:
     case = ranked_case(tmp_path, 30, range(10), seed=50)
-    detail = tmp_path / "giap_root" / "pilot" / "feasibility_top1000.tsv"
+    detail = tmp_path / "gippa_root" / "pilot" / "feasibility_top1000.tsv"
     res = case.evaluate("--detail", str(detail))
     j = _j(res)
     lines = detail.read_text().splitlines()

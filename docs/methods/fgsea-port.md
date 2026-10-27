@@ -1,15 +1,15 @@
-# fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+# fgsea port (G15; GIPPA_SPEC.md §7.7.4) — superseded by ADR-0038
 
 > **Superseded.** Since M8-17b, `enrichment_gsea.tsv` comes from R fgsea 1.36.2
 > (`fgsea::fgseaMultilevel`), run as a separate process (ADR-0038; docs/methods/function-gsea.md).
 > The port below no longer produces any pipeline output. This note is kept as the history of
 > M8-02 and as a reference: its function map names the fgsea 1.36.2 source behind each column of
 > the recorded R calls that `ReplayEngine` replays (tests/helpers/fgsea_switch_data.py), and it
-> documents `SIMPLE_ENGINE`, the in-process stand-in that unit tests inject in place of R. The hardening pass removes `giap.stats.fgsea` and its
+> documents `SIMPLE_ENGINE`, the in-process stand-in that unit tests inject in place of R. The hardening pass removes `gippa.stats.fgsea` and its
 > kernels unless Khoa keeps a no-R fallback (ADR-0038 item 6). Its 1/(1 + modeFraction) floor and
 > the evidence below describe the port only, not the shipped engine.
 
-GIAP's former preranked GSEA engine is a Python/numba port of **fgsea 1.36.2** (MIT, © 2016-2019
+GIPPA's former preranked GSEA engine is a Python/numba port of **fgsea 1.36.2** (MIT, © 2016-2019
 Alexey Sergushichev; licence text in NOTICE.md), the version the golden environment runs (M8-12).
 
 ## Source
@@ -19,17 +19,17 @@ Alexey Sergushichev; licence text in NOTICE.md), the version the golden environm
   `git_url https://git.bioconductor.org/packages/fgsea`, `git_branch RELEASE_3_22`,
   `git_last_commit b7862b7` (2026-01-05).
 - Only scoreType `std` and gseaParam 1 are ported (M8-02 lead decision 2). No fgsea file is
-  committed to GIAP.
+  committed to GIPPA.
 
 ## Function map (part I, M8-02)
 
-| GIAP | fgsea 1.36.2 |
+| GIPPA | fgsea 1.36.2 |
 |---|---|
-| `giap.stats.fgsea.prepare` | `R/fgsea.R` `preparePathwaysAndStats` (finite check, `sort(decreasing = TRUE)`, `abs`) and `R/util.R` `preparePathways` (`minSize >= 1`, `maxSize <= N - 1`, `unique(na.omit(fmatch(...)))`, duplicate-name check) |
-| `giap.stats.fgsea.gsea_es`, `_fgsea_kernels.es_walk` | `R/fgsea.R` `calcGseaStat` (std, `returnLeadingEdge = TRUE`) |
+| `gippa.stats.fgsea.prepare` | `R/fgsea.R` `preparePathwaysAndStats` (finite check, `sort(decreasing = TRUE)`, `abs`) and `R/util.R` `preparePathways` (`minSize >= 1`, `maxSize <= N - 1`, `unique(na.omit(fmatch(...)))`, duplicate-name check) |
+| `gippa.stats.fgsea.gsea_es`, `_fgsea_kernels.es_walk` | `R/fgsea.R` `calcGseaStat` (std, `returnLeadingEdge = TRUE`) |
 | `_fgsea_kernels.random_es_prefixes` | `src/fastGSEA.cpp` `calcGseaStatCumulative` (std; statEps weighting of zero stats) |
 | `_fgsea_kernels.random_es_batch` + the count loop of `fgsea_simple` | `src/fastGSEA.cpp` `calcGseaStatCumulativeBatch` |
-| `giap.stats.fgsea.fgsea_simple` (NES, p, nMoreExtreme) | `R/fgsea.R` `fgseaSimpleImpl` |
+| `gippa.stats.fgsea.fgsea_simple` (NES, p, nMoreExtreme) | `R/fgsea.R` `fgseaSimpleImpl` |
 | `fgsea_simple` (modeFraction, NaN rule, simple `log2err`, `needs_multilevel`) | `R/fgseaMultilevel.R` `fgseaMultilevel` up to the split into `dtSimpleFgsea` / `dtMultilevel`, and `multilevelError` |
 
 ## Behaviours reproduced and deviations
@@ -43,7 +43,7 @@ Alexey Sergushichev; licence text in NOTICE.md), the version the golden environm
 - An even `sampleSize` is raised by one, as fgseaMultilevel does; `sample_size < 3` raises
   instead of being silently raised to 3.
 - **Prefix walk instead of the convex hull.** fgsea's C++ finds each prefix's extremes with a
-  block convex hull; GIAP walks every prefix directly (O(K²) per sample) with `calcGseaStat`'s
+  block convex hull; GIPPA walks every prefix directly (O(K²) per sample) with `calcGseaStat`'s
   arithmetic, so a random ES of size k equals `gsea_es` on the same ranks. R's random stream is
   not reproduced: each chunk of 100 permutations draws from a child of `rng.spawn`
   (`Generator.choice(N, K, replace = FALSE)`, random order like fgsea's shuffled `combination`).
@@ -66,7 +66,7 @@ the Beta borders, `multilevelError`, the simple `log2err`). The port matches the
   the sets that are kept stay conditionally valid, and BH over them (fgsea's `p.adjust` on non-NA)
   is not biased.
 - **Evidence** (seeded simulations, not committed; scripts in
-  `$GIAP_ROOT/stat/m802/`): N = 2,500 iid stats, 40 random sets per replicate, 500 replicates,
+  `$GIPPA_ROOT/stat/m802/`): N = 2,500 iid stats, 40 random sets per replicate, 500 replicates,
   `n_perm` 1,000, set sizes 10/15/50/200/500, under six nulls (normal, centred lognormal,
   uncentred lognormal, half-integer ties, 40 % zeros, t₂). All 30 cells are at level, with the
   rejection rate ≤ 0.0117 / 0.0521 / 0.1046 at α = 0.01 / 0.05 / 0.10 (20,000 p-values per cell).

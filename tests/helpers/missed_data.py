@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 from helpers.pairs_data import PAIR_COLS, TEST_COLS
 
 #: one ``intergenic_bp`` inside each of the five default distance bins
@@ -88,9 +88,9 @@ def example_frame(sandwich: bool = True) -> pd.DataFrame:
     return stack(*parts)
 
 
-def cfg(**operons: Any) -> GiapConfig:
+def cfg(**operons: Any) -> GippaConfig:
     """Default config with ``operons`` overrides (``decoys``, ``pi0``, ``distance_bins_bp``)."""
-    return GiapConfig.model_validate({"seed": 1, "operons": operons} if operons else {"seed": 1})
+    return GippaConfig.model_validate({"seed": 1, "operons": operons} if operons else {"seed": 1})
 
 
 def genes_for(pairs: pd.DataFrame, **cols: Mapping[str, Any]) -> pd.DataFrame:

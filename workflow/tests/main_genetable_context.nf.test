@@ -1,5 +1,5 @@
-// MVP-01: main.nf runs ANNOTATE, MAPPING, GENETABLE and CONTEXT in one stub run, so `giap run`
-// produces the gene table, the detectability diagnostics and the §9.4 tables (GIAP_SPEC.md
+// MVP-01: main.nf runs ANNOTATE, MAPPING, GENETABLE and CONTEXT in one stub run, so `gippa run`
+// produces the gene table, the detectability diagnostics and the §9.4 tables (GIPPA_SPEC.md
 // §6.3, §7.3, §8.6, §9.3, §9.4). Stub runs only; ci.yml runs:
 // nf-test test workflow/tests --profile test,stub.
 //
@@ -7,7 +7,7 @@
 // contract tables come from ANNOTATE (parse_bakta, operon_pairs, context_layers, region_layer)
 // and the M3 tables from MAPPING's loci directory, with no path given by hand; the COG 2020
 // table is <db_dir>/cog/cog-20.def.tab when the db_dir manifest lists cog2020_def (M4-15
-// decision 5), as giap.setupdb.installed.cog_table resolves it.
+// decision 5), as gippa.setupdb.installed.cog_table resolves it.
 
 nextflow_pipeline {
 
@@ -42,7 +42,7 @@ nextflow_pipeline {
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             // the contract tables come from ANNOTATE's tasks, the M3 tables from loci
             def gtDir = H.stepDirs(work, 'gene_table')[0]
@@ -76,7 +76,7 @@ nextflow_pipeline {
 
         // MVP-02 example 2 (supersedes the MVP-01 "CONTEXT does not" pin): region_layer turns the
         // precomputed M2-02 TSV into C7/C8 (M4-21 lead decision 2), so Nextflow runs CONTEXT
-        // like `giap run --executor local` does: one plan, two executors (GIAP_SPEC.md §6.4).
+        // like `gippa run --executor local` does: one plan, two executors (GIPPA_SPEC.md §6.4).
         when {
             params {
                 def a = "${moduleTestDir}/data/annotate"
@@ -106,7 +106,7 @@ nextflow_pipeline {
                 assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             // C7/C8 reach both CONTEXT steps from region_layer's task, not the M2-02 TSV
             def rl = H.stepDirs(work, 'region_layer')[0].canonicalPath
@@ -131,7 +131,7 @@ nextflow_pipeline {
 
     test("no precomputed layer, every module: the process list is unchanged (MVP-02 example 3)") {
 
-        // The non-precomputed path as of MVP-01 / M4-21, one task per process (GIAP_STEP tasks by
+        // The non-precomputed path as of MVP-01 / M4-21, one task per process (GIPPA_STEP tasks by
         // step name). MVP-02 must not add, drop or repeat a process on this path.
         when {
             params {
@@ -152,7 +152,7 @@ nextflow_pipeline {
             assert workflow.trace.failed().size() == 0
             def got = H.names(workflow.trace).collect { n ->
                 def p = H.procOf(n)
-                p == 'GIAP_STEP' ? H.tagOf(n).toUpperCase() : p
+                p == 'GIPPA_STEP' ? H.tagOf(n).toUpperCase() : p
             }.sort()
             def want = ['ANTISMASH', 'BAKTA', 'CODON_USAGE', 'CONTEXT_LAYERS', 'CONTEXT_STATS', 'DETERMINANTS_STEP',
                         'DETECTABILITY', 'FUNCTION_STEP', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',

@@ -1,6 +1,6 @@
 """M4-13 lead decision 7 after the statistician's review (docs/specs/M4-13-detectability.md):
 the detectability diagnostics (``detection_summary`` rows, section ``detectability``; column
-contract of M4-16 / GIAP_SPEC.md §9.3: ``value``, ``ci_low``, ``ci_high``) carry Wald 95 % CIs for
+contract of M4-16 / GIPPA_SPEC.md §9.3: ``value``, ``ci_low``, ``ci_high``) carry Wald 95 % CIs for
 the recalibration slope and intercept.
 
 Oracle: unpenalised MLE (a, b) of d ~ a + b·logit(clip(p)) (tests/helpers/detectability_oracle.py),
@@ -24,15 +24,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import detectability_data as dd
 import detectability_oracle as O
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 Z975 = float(norm.ppf(0.975))
 CI_METRICS = ("calibration_intercept", "calibration_slope")
 
 
 def _mod() -> Any:
-    from giap.genetable import detectability
+    from gippa.genetable import detectability
 
     return detectability
 

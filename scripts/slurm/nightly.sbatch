@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-nightly
+#SBATCH --job-name=gippa-nightly
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --signal=B:TERM@600
@@ -11,7 +11,7 @@
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
 # --exclude=rye-02 is a stopgap: on that node Python/JVM start-up stalls 50-250x (nightly 1870584,
 # 1896018); a slow-node guard replaces it.
-# Nightly job array on the latest origin/main (GIAP_SPEC.md §12; M2-21 lead decisions 3-5):
+# Nightly job array on the latest origin/main (GIPPA_SPEC.md §12; M2-21 lead decisions 3-5):
 #   0  tests/integration + tests/contract with --require-capabilities <ci/gates.yaml farmshare_nightly>
 #      (a missing DB fails, never skips), then nf-test test workflow/tests --profile $NF_PROFILE
 #      (default test,stub: the suites assert fake-tool argv logs and stub outputs; under
@@ -20,15 +20,15 @@
 #      resubmits itself with --constraint and exits; > 15 % slower than benchmarks/baseline.json fails
 #   2  the whole fast suite, i.e. the fast calibration tier including calibration_nightly, with the
 #      coverage gate (ci/gates.yaml coverage_min): moved here from PR CI by ADR-0052
-#   3  real `giap run` on sim100k (giapsim SIM100K + its proteins): Bakta with the light DB, and
+#   3  real `gippa run` on sim100k (gippasim SIM100K + its proteins): Bakta with the light DB, and
 #      with the recorded full-DB JSON (annotation.precomputed.bakta_json; its GBFF feeds
 #      antiSMASH); measured runtimes via scripts/measure_runtimes.py
 # MODE=test (default) | record: record runs the scripts/slurm/record_tools.sbatch logic in task 0
-# (sim100k into a fresh directory, compared with $GIAP_ROOT/recordings: identical / changed); the
+# (sim100k into a fresh directory, compared with $GIPPA_ROOT/recordings: identical / changed); the
 # other tasks only log "skipped". Submit: sbatch --array=0 --export=ALL,MODE=record nightly.sbatch
 # Each task checks out NIGHTLY_REF (default origin/main; decision 5: main only) in its own detached
-# worktree $GIAP_ROOT/ci/<ref>-t<task>; work dirs in $GIAP_ROOT/ci/runs/<job>_<task> (kept 7 days).
-# Every task writes one line to $GIAP_ROOT/logs/nightly.tsv (date, job_task, commit, exit,
+# worktree $GIPPA_ROOT/ci/<ref>-t<task>; work dirs in $GIPPA_ROOT/ci/runs/<job>_<task> (kept 7 days).
+# Every task writes one line to $GIPPA_ROOT/logs/nightly.tsv (date, job_task, commit, exit,
 # summary), also when it fails early or is killed (SIGTERM at the time limit; decision 14: EXIT and
 # TERM traps), then calls scripts/ci/post_summary.py, which posts the table to the "Nightly
 # (FarmShare)" issue once every task has a line (NIGHTLY_POST=dry: print it instead). The 1-CPU
@@ -39,7 +39,7 @@
 # exit 2, decisions 12 and 22), NIGHTLY_NF_PROFILE, NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
 # Runs nightly from scripts/slurm/nightly_launch.sh (scrontab: scripts/slurm/nightly.scrontab) or by
 # hand: sbatch scripts/slurm/nightly.sbatch (then nothing posts for a task that is SIGKILLed).
-# Slow-node guard: a task whose `python -c 'import giap'` takes longer than NIGHTLY_SLOW_NODE_SECS
+# Slow-node guard: a task whose `python -c 'import gippa'` takes longer than NIGHTLY_SLOW_NODE_SECS
 # (default 60) resubmits itself with --exclude=<NIGHTLY_EXCLUDE, the #SBATCH excludes, this host>
 # and writes no row; at most NIGHTLY_SLOW_MAX_HOPS (default 2) hops; NIGHTLY_SLOW_NODE_GUARD=0 off.
 # --signal=B:TERM@600 and `cmd & wait $!` for the long steps: the TERM trap writes the row in time.
@@ -58,7 +58,7 @@
 # checkout's spooled copy, as the benchmark resubmission: the protocol is the same unless the main
 # checkout is stale.
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
 module load apptainer 2>/dev/null || true
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"   # python for report() even before the checkout
@@ -71,20 +71,20 @@ JOB="${NIGHTLY_ARRAY_JOB:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}}"
 EXPECT="${NIGHTLY_EXPECT:-${SLURM_ARRAY_TASK_COUNT:-1}}"
 N="${SLURM_CPUS_PER_TASK:-16}"
 SHARD="${NIGHTLY_CAL_SHARD:-1}"; SHARDS_N="${NIGHTLY_CAL_SHARDS:-1}"
-SHARDS="$GIAP_ROOT/ci/runs/${JOB}_2.shards"
+SHARDS="$GIPPA_ROOT/ci/runs/${JOB}_2.shards"
 sharded=""   # set once this task-2 run is one of several shards (shard 1: after submitting the rest)
-TSV="$GIAP_ROOT/logs/nightly.tsv"
-CI="$GIAP_ROOT/ci"
-W="${NIGHTLY_WORKTREE:-$GIAP_ROOT/ci/$(echo "${REF#origin/}" | tr '/' '-')-t$TASK}"
+TSV="$GIPPA_ROOT/logs/nightly.tsv"
+CI="$GIPPA_ROOT/ci"
+W="${NIGHTLY_WORKTREE:-$GIPPA_ROOT/ci/$(echo "${REF#origin/}" | tr '/' '-')-t$TASK}"
 RUN="$CI/runs/${JOB}_$TASK"
 if [ "$TASK" = 2 ] && [ "$SHARD" != 1 ]; then RUN="$RUN-s$SHARD"; sharded=1; fi
-commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
+commit=$(git -C "$GIPPA_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
 stage="setup"; reported=""; numba_tmp=""; tmp_dir=""
 # M11-03b Q5: task 2's early-exit and killed rows are failing calibration_nightly rows, so readiness
 # R3 cannot fall back to an older pass; the MODE=record skip row keeps "task 2" (exit 0)
 trap_label="task $TASK:"
 if [ "$TASK" = 2 ] && [ "$MODE" != record ]; then trap_label="calibration_nightly: task $TASK"; fi
-mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
+mkdir -p "$CI/runs" "$GIPPA_ROOT/logs"
 
 tsv_line() {  # tsv_line <job_task> <exit> <summary>
   printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "$1" "$commit" "$2" "$3" >> "$TSV"
@@ -94,14 +94,14 @@ report() {  # report <exit> <sub-task: summary>: this task's nightly.tsv line, t
   tsv_line "${JOB}_$TASK" "$1" "$2"
   echo "NIGHTLY_EXIT=$1 $2"
   local dry=() ps="$W/scripts/ci/post_summary.py"
-  [ -f "$ps" ] || ps="$GIAP_REPO/scripts/ci/post_summary.py"   # the checkout may have failed
+  [ -f "$ps" ] || ps="$GIPPA_REPO/scripts/ci/post_summary.py"   # the checkout may have failed
   [ "${NIGHTLY_POST:-yes}" = dry ] && dry=(--dry-run)
   python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" ${dry[@]+"${dry[@]}"}
 }
 finish() {  # finish <exit> <summary>: the task's row, or (a task-2 shard) its shard record
   [ -n "$sharded" ] || { report "$@"; return; }
   local ns="$W/scripts/ci/nightly_shards.py" merged mrc msum
-  [ -f "$ns" ] || ns="$GIAP_REPO/scripts/ci/nightly_shards.py"
+  [ -f "$ns" ] || ns="$GIPPA_REPO/scripts/ci/nightly_shards.py"
   echo "shard $SHARD/$SHARDS_N: exit $1 $2"
   mkdir -p "$SHARDS"
   # reported only once recorded (or the row written): SIGTERM during combine still gets a row
@@ -122,7 +122,7 @@ coverage_gate() {  # the last shard: combine the shards' coverage data, then ci/
   if [ -z "$min" ] || [ "${#files[@]}" != "$SHARDS_N" ]; then
     cov_rc=1; cov_note="; coverage not measured (${#files[@]} of $SHARDS_N shard data files)"; return
   fi
-  printf '[paths]\ngiap =\n    %s/src/giap\n    */src/giap\n' "$PWD" > "$rc_file"
+  printf '[paths]\ngippa =\n    %s/src/gippa\n    */src/gippa\n' "$PWD" > "$rc_file"
   rm -f "$data"
   python -m coverage combine --keep --rcfile="$rc_file" --data-file="$data" "${files[@]}" &&
     python -m coverage report --keep-combined --rcfile="$rc_file" --data-file="$data" \
@@ -167,8 +167,8 @@ rm -rf "$RUN"; mkdir -p "$RUN"
 stage="checkout of $REF"
 (
   flock 9   # the array tasks share one repository: fetch and worktree add one at a time
-  git -C "$GIAP_REPO" fetch -q origin
-  target=$(git -C "$GIAP_REPO" rev-parse -q --verify "$REF^0") || exit 1
+  git -C "$GIPPA_REPO" fetch -q origin
+  target=$(git -C "$GIPPA_REPO" rev-parse -q --verify "$REF^0") || exit 1
   if [ -d "$W" ]; then
     # a killed task can leave index.lock behind; under this flock no other git runs in $W
     gd=$(git -C "$W" rev-parse --absolute-git-dir 2>/dev/null) && rm -f "$gd/index.lock"
@@ -177,18 +177,18 @@ stage="checkout of $REF"
          ! git -C "$W" diff --quiet HEAD --; } &&
        ! git -C "$W" checkout -q -f --detach "$target"; then
       echo "checkout in $W failed: removing and re-adding the worktree" >&2
-      git -C "$GIAP_REPO" worktree remove --force "$W" || rm -rf "$W"
-      git -C "$GIAP_REPO" worktree prune
+      git -C "$GIPPA_REPO" worktree remove --force "$W" || rm -rf "$W"
+      git -C "$GIPPA_REPO" worktree prune
     fi
   fi
-  [ -d "$W" ] || git -C "$GIAP_REPO" worktree add -q --detach "$W" "$target"
+  [ -d "$W" ] || git -C "$GIPPA_REPO" worktree add -q --detach "$W" "$target"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
-numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
-tmp_dir="$(mktemp -d /tmp/giap.XXXXXX)"   # node-local, as test_branch.sbatch (not NFS under $RUN)
+numba_tmp="$(mktemp -d /tmp/gippa-numba.XXXXXX)"
+tmp_dir="$(mktemp -d /tmp/gippa.XXXXXX)"   # node-local, as test_branch.sbatch (not NFS under $RUN)
 export TMPDIR="$tmp_dir" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
-export GIAP_PROBE_TIMEOUT="${GIAP_PROBE_TIMEOUT:-180}"   # tests/conftest.py's tool probes (cold NFS)
+export GIPPA_PROBE_TIMEOUT="${GIPPA_PROBE_TIMEOUT:-180}"   # tests/conftest.py's tool probes (cold NFS)
 commit=$(git -C "$W" rev-parse --short HEAD)
 stage="task $TASK"
 echo "nightly task=$TASK mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
@@ -202,7 +202,7 @@ pyt() {  # pyt <label> <pytest args...>: sets rc and summary
 
 task_integration() {
   local caps r0 s0 s
-  # Warm the giap-wf JVM first, as test_branch.sbatch (M9-13 decision 5): a cold `nextflow
+  # Warm the gippa-wf JVM first, as test_branch.sbatch (M9-13 decision 5): a cold `nextflow
   # -version` from NFS outlasts tests/conftest.py's 30 s probe and every needs_nextflow test skips.
   # Not `nf-test version`: decision 23 pins that nf-test never starts before pytest ends.
   s=$SECONDS; nextflow -version >/dev/null 2>&1; echo "warm-up: nextflow -version rc=$? $((SECONDS - s))s"
@@ -227,7 +227,7 @@ task_record() {
     [ -f "$d/SHA256SUMS" ] || continue
     local ts; ts=$(basename "$(dirname "$d")")/$(basename "$d")
     if [ "$(grep -vE '\./(run\.log|runtime\.txt)$' "$d/SHA256SUMS")" = \
-         "$(grep -vE '\./(run\.log|runtime\.txt)$' "$GIAP_ROOT/recordings/$ts/SHA256SUMS" 2>/dev/null)" ]; then
+         "$(grep -vE '\./(run\.log|runtime\.txt)$' "$GIPPA_ROOT/recordings/$ts/SHA256SUMS" 2>/dev/null)" ]; then
       same=$((same + 1))
     else changed+=("$ts"); fi
   done
@@ -237,7 +237,7 @@ task_record() {
 
 extend_summary() {  # extend_summary <job>: decision 19, the night's summary also waits for <job>
   local sid
-  sid=$(squeue -u "${USER:-$(id -un)}" -h -t PENDING -n giap-nightly-summary -o '%i %k' 2>/dev/null \
+  sid=$(squeue -u "${USER:-$(id -un)}" -h -t PENDING -n gippa-nightly-summary -o '%i %k' 2>/dev/null \
     | awk -v c="nightly:$JOB" '$2 == c {print $1; exit}')
   [ -n "$sid" ] || return 1
   # scontrol replaces the whole dependency list: keep every hop of the night in one file (flock)
@@ -262,7 +262,7 @@ task_benchmarks() {
          j=${j%%;*}
          echo "not a wheat node ($(hostname -s)): benchmarks resubmitted as job $j"
          extend_summary "$j" || tsv_line "${JOB}_note" 0 \
-           "benchmarks resubmitted as job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before them"
+           "benchmarks resubmitted as job $j; no pending gippa-nightly-summary job of $JOB to extend: it may post before them"
          reported=1; exit 0
        fi
        rc=1; summary="benchmarks: not on a wheat node ($(hostname -s))"; return ;;
@@ -285,7 +285,7 @@ task_calibration() {
           scripts/slurm/nightly.sbatch); then
           j=${j%%;*}; echo "task 2 shard $k/$SHARDS_N submitted as job $j"; echo "$k $j" >> "$SHARDS/jobs"
           extend_summary "$j" || tsv_line "${JOB}_note" 0 \
-            "task 2 shard $k/$SHARDS_N is job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before it"
+            "task 2 shard $k/$SHARDS_N is job $j; no pending gippa-nightly-summary job of $JOB to extend: it may post before it"
         else   # the night's row still comes: a refused shard is a failed shard
           python scripts/ci/nightly_shards.py record --dir "$SHARDS" --shard "$k" --exit 2 \
             --summary "calibration_nightly: shard submission refused by sbatch"
@@ -297,27 +297,27 @@ task_calibration() {
     [ "${#sel[@]}" -gt 0 ] || { rc=2; summary="calibration_nightly: no test files in shard $SHARD/$SHARDS_N"; return; }
     export COVERAGE_FILE="$SHARDS/coverage.s$SHARD"
     pyt calibration_nightly "${sel[@]}" -v -n "$N" \
-      -m "not slow and not calibration_full and not e2e" --cov=giap --cov-report= \
+      -m "not slow and not calibration_full and not e2e" --cov=gippa --cov-report= \
       --durations=30 --junitxml="$RUN/junit.xml"
     return
   fi
   pyt calibration_nightly "${sel[@]}" -v -n "$N" -m "not slow and not calibration_full and not e2e" \
-    --cov=giap --cov-report=term-missing:skip-covered --cov-fail-under="$min" --durations=30 \
+    --cov=gippa --cov-report=term-missing:skip-covered --cov-fail-under="$min" --durations=30 \
     --junitxml="$RUN/junit.xml"
 }
 
-task_giap_run() {
-  local sim="$RUN/sim" full="$GIAP_ROOT/recordings/bakta_full/sim100k/bakta/sim100k.json" r out
-  python -c 'import dataclasses, pathlib, sys, giapsim; from giapsim.proteomics import ProteomicsConfig
-giapsim.simulate(dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfig()), giapsim.SIM100K_SEED, pathlib.Path(sys.argv[1]))' "$sim" || { rc=2; summary="giap run: giapsim failed"; return; }
+task_gippa_run() {
+  local sim="$RUN/sim" full="$GIPPA_ROOT/recordings/bakta_full/sim100k/bakta/sim100k.json" r out
+  python -c 'import dataclasses, pathlib, sys, gippasim; from gippasim.proteomics import ProteomicsConfig
+gippasim.simulate(dataclasses.replace(gippasim.SIM100K, proteomics=ProteomicsConfig()), gippasim.SIM100K_SEED, pathlib.Path(sys.argv[1]))' "$sim" || { rc=2; summary="gippa run: gippasim failed"; return; }
   local common=(--genome "$sim/genome.fasta" --proteins "$sim/proteins.faa" --threads "$N" --memory 56.GB --profile "$PROFILE")
-  rc=0; summary="giap run sim100k:"
+  rc=0; summary="gippa run sim100k:"
   for variant in bakta_light bakta_full_json; do
     out="$RUN/$variant"
     if [ "$variant" = bakta_light ]; then
-      giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=light &
+      gippa run "${common[@]}" --outdir "$out" --set annotation.bakta.db=light &
     else
-      giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$full" &
+      gippa run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$full" &
     fi
     wait $!; r=$?
     [ "$r" -gt "$rc" ] && rc=$r
@@ -334,12 +334,12 @@ slow_node_guard() {  # resubmits this task off a node where Python start-up stal
   local secs="${NIGHTLY_SLOW_NODE_SECS:-60}" hops="${NIGHTLY_SLOW_HOPS:-0}" t0 took host excl j
   [ "${NIGHTLY_SLOW_NODE_GUARD:-1}" = 0 ] && return 0
   t0=$(date +%s%N)
-  timeout "$((secs + 60))" python -c 'import giap' >/dev/null 2>&1   # timed whether or not it imports
+  timeout "$((secs + 60))" python -c 'import gippa' >/dev/null 2>&1   # timed whether or not it imports
   took=$(( ($(date +%s%N) - t0) / 1000000 ))
-  echo "slow-node probe: import giap took ${took} ms on $(hostname -s) (limit ${secs} s, hop $hops)"
+  echo "slow-node probe: import gippa took ${took} ms on $(hostname -s) (limit ${secs} s, hop $hops)"
   [ "$took" -le $((secs * 1000)) ] && return 0
   if [ "$hops" -ge "${NIGHTLY_SLOW_MAX_HOPS:-2}" ]; then
-    slow_note=" [slow node $(hostname -s): import giap ${took} ms; hop limit reached]"; return 0
+    slow_note=" [slow node $(hostname -s): import gippa ${took} ms; hop limit reached]"; return 0
   fi
   host=$(hostname -s)
   # --exclude on the command line replaces the #SBATCH one: carry those hosts over
@@ -352,12 +352,12 @@ slow_node_guard() {  # resubmits this task off a node where Python start-up stal
   if ! j=$(NIGHTLY_EXCLUDE="$excl" sbatch --parsable --array="$TASK" --exclude="$excl" "${pin[@]}" \
     --export="ALL,MODE=$MODE,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT,NIGHTLY_SLOW_HOPS=$((hops + 1)),NIGHTLY_REF=$commit,NIGHTLY_WORKTREE=$W" \
     scripts/slurm/nightly.sbatch); then
-    slow_note=" [slow node $host: import giap ${took} ms; the resubmission failed]"; return 0
+    slow_note=" [slow node $host: import gippa ${took} ms; the resubmission failed]"; return 0
   fi
   j=${j%%;*}
-  echo "slow node $host (import giap ${took} ms > ${secs} s): task $TASK resubmitted as job $j, excluding $excl"
+  echo "slow node $host (import gippa ${took} ms > ${secs} s): task $TASK resubmitted as job $j, excluding $excl"
   extend_summary "$j" || tsv_line "${JOB}_note" 0 \
-    "task $TASK resubmitted off slow node $host as job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before it"
+    "task $TASK resubmitted off slow node $host as job $j; no pending gippa-nightly-summary job of $JOB to extend: it may post before it"
   reported=1; exit 0
 }
 
@@ -368,7 +368,7 @@ case "${SLURM_ARRAY_TASK_ID:-0}" in
   0) if [ "$MODE" = record ]; then task_record; else task_integration; fi ;;
   1) task_benchmarks ;;
   2) task_calibration ;;
-  3) task_giap_run ;;
+  3) task_gippa_run ;;
 esac
 finish "$rc" "$summary$slow_note"
 exit "$rc"

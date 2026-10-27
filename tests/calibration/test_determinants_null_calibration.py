@@ -1,4 +1,4 @@
-"""Calibration of the M8-09 TU-size-preserving permutation null (GIAP_SPEC.md §7.8.2 step 4,
+"""Calibration of the M8-09 TU-size-preserving permutation null (GIPPA_SPEC.md §7.8.2 step 4,
 §8.1 row "Determinant model", §8.4 level criterion; suite ``determinants``;
 docs/specs/M8-09-determinants-attribution-null.md rule 6, decision 16; M8-index decisions 23-24).
 
@@ -57,7 +57,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import determinants_attrib_data as a
 import determinants_models_data as d
 
-from giap.config.model import DeterminantsConfig, LightgbmConfig
+from gippa.config.model import DeterminantsConfig, LightgbmConfig
 
 SUITE = "determinants"
 N = 400

@@ -1,17 +1,17 @@
-"""MVP-03c content blocks through ``giap run --executor local`` and ``giap _step manifest``
+"""MVP-03c content blocks through ``gippa run --executor local`` and ``gippa _step manifest``
 (docs/specs/MVP-03-manifest-finalize.md D-B step 5, D-C rows marked c, edge cases "No --db-dir",
 "A step skipped", acceptance 03c; lead decision 10; ADR-0017 KEGG date read by M9-16).
 
-A toy registry (``tests/unit/conftest.py::registry`` plus a reload of ``giap.steps.manifest``):
+A toy registry (``tests/unit/conftest.py::registry`` plus a reload of ``gippa.steps.manifest``):
 ``ctx`` writes the work keys ``island_diagnostics`` and ``sensitivity`` (published by
-``giap.runner.local.publish`` to ``OUT/context/island_diagnostics.parquet`` and
+``gippa.runner.local.publish`` to ``OUT/context/island_diagnostics.parquet`` and
 ``OUT/tables/sensitivity.tsv``), logs an ``operons.missed_operons`` and a
-``mapping.search_db_resolved`` event and calls ``giap.context.oriter.oric_position`` on two oriC
+``mapping.search_db_resolved`` event and calls ``gippa.context.oriter.oric_position`` on two oriC
 calls (the real ``multiple_oric`` event). Preflight and the CLI are real. The database directory
-is a tmp ``db_manifest.json`` in the ``giap setup`` item form with one ``retrieved`` date per
-item (never the real ``$GIAP_DB_DIR``).
+is a tmp ``db_manifest.json`` in the ``gippa setup`` item form with one ``retrieved`` date per
+item (never the real ``$GIPPA_DB_DIR``).
 
-The run tail is expected to read those files and pass ``giap.data.calibration.load()`` and the
+The run tail is expected to read those files and pass ``gippa.data.calibration.load()`` and the
 db manifest to the builder; ``databases`` is also in ``OUT/work/provenance.json`` (D-D).
 """
 
@@ -32,7 +32,7 @@ import pytest
 from click.testing import CliRunner
 from helpers.manifest_data import validate
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import oriter_data as od
@@ -91,7 +91,7 @@ def _toy(reg: ModuleType, *, with_content: bool = True) -> None:
         Path(ctx.outputs["b.txt"]).write_text("b\n")
 
     def content(ctx: Any) -> None:
-        from giap.context import oriter
+        from gippa.context import oriter
 
         _write_diag(Path(ctx.outputs["island_diagnostics"]))
         Path(ctx.outputs["sensitivity"]).write_text(SENS_TSV)
@@ -104,7 +104,7 @@ def _toy(reg: ModuleType, *, with_content: bool = True) -> None:
     reg.step("x", inputs=[], outputs=["b.txt"])(x)
     if with_content:
         reg.step("ctx", inputs=[], outputs=["island_diagnostics", "sensitivity"])(content)
-    importlib.reload(importlib.import_module("giap.steps.manifest"))
+    importlib.reload(importlib.import_module("gippa.steps.manifest"))
 
 
 @pytest.fixture
@@ -114,11 +114,11 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     genome.write_text(">chr1 [topology=circular]\n" + "ACGT" * 50 + "\n")
     pep = tmp_path / "in" / "p.tsv"
     pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
-    from helpers.fake_env import fake_giap_root
+    from helpers.fake_env import fake_gippa_root
 
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = _db(tmp_path / "test_db")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     return {"genome": genome, "peptides": pep, "db": db}
 
 
@@ -129,7 +129,7 @@ def _argv(env: dict[str, Path], out: Path, *extra: str) -> list[str]:
 
 
 def _invoke(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, argv)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -158,7 +158,7 @@ def ok_run(registry: ModuleType, env: dict[str, Path], tmp_path: Path) -> Iterat
 
 
 def _calibration() -> dict[str, Any]:
-    from giap.data.calibration import load
+    from gippa.data.calibration import load
 
     return load()
 
@@ -209,7 +209,7 @@ def test_operons_and_mapping_blocks(ok_run: Path) -> None:
 
 
 def test_calibration_block_and_flags(ok_run: Path) -> None:
-    from giap.data.calibration import load
+    from gippa.data.calibration import load
 
     m = _manifest(ok_run)
     cal = load()
@@ -259,8 +259,8 @@ def test_db_dir_flag_overrides_the_environment(
 def test_no_db_dir_gives_no_databases(
     registry: ModuleType, env: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Edge case "No --db-dir and no $GIAP_DB_DIR": ``databases == []`` (M9-16: not recorded)."""
-    monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    """Edge case "No --db-dir and no $GIPPA_DB_DIR": ``databases == []`` (M9-16: not recorded)."""
+    monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
     _toy(registry, with_content=False)
     out = tmp_path / "OUT"
     code, log = _invoke(_argv(env, out))
@@ -304,7 +304,7 @@ def test_sensitivity_off_recorded(
 def test_two_runs_have_equal_content_blocks(
     registry: ModuleType, env: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     _toy(registry)
     a, b = tmp_path / "A" / "OUT", tmp_path / "B" / "OUT"
@@ -323,7 +323,7 @@ def test_two_runs_have_equal_content_blocks(
 def test_step_manifest_reads_the_optional_content_inputs(
     ok_run: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``giap _step manifest`` with ``sensitivity`` and ``island_diagnostics`` (its declared
+    """``gippa _step manifest`` with ``sensitivity`` and ``island_diagnostics`` (its declared
     optional inputs) fills the same blocks as the run tail, calibration included."""
     task = tmp_path / "task"
     task.mkdir()

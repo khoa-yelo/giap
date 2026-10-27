@@ -21,7 +21,7 @@ import determinants_models_data as d
 from determinants_models_data import flags_of, mod
 from test_models import _example_6
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 
 def _planted(n: int = 120, seed: int = 4) -> tuple[pd.DataFrame, np.ndarray, list[str], Any, Any]:

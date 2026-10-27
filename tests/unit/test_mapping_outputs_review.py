@@ -36,7 +36,7 @@ from test_mapping_outputs import (  # type: ignore[import-not-found]
     write,
 )
 
-from giap.model import Interval
+from gippa.model import Interval
 
 L = 10_000
 FS_PEP = "PEPTIDEKLLR"
@@ -187,8 +187,8 @@ def test_match_part_strand_equals_parent(
 def _tied_peps() -> list[dict[str, Any]]:
     # Identical contig/start/end/strand/peptide: only the full-row tie-break orders them.
     return [
-        pep(score_input=55.5, placement_q=0.002, gene="GIAP_00010"),
-        pep(score_input=1.0, placement_q=0.004, gene="GIAP_00020", flags="low_score"),
+        pep(score_input=55.5, placement_q=0.002, gene="GIPPA_00010"),
+        pep(score_input=1.0, placement_q=0.004, gene="GIPPA_00020", flags="low_score"),
         pep(score_input=30.0, placement_q=0.001, gene=None, uniqueness="shared"),
     ]
 

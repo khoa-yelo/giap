@@ -1,4 +1,4 @@
-"""Committed test genomes (M2-10; GIAP_SPEC.md §11.4, R11).
+"""Committed test genomes (M2-10; GIPPA_SPEC.md §11.4, R11).
 
 §11.4: "The K-12 and Nissle FASTA files (gzipped, < 2 MB each) are committed under
 `tests/data/genomes/`, with a provenance note." M2-10 `scripts/fetch_test_genomes.py` writes
@@ -8,7 +8,7 @@ Bakta ``--replicons``) mark the chromosomes and Nissle's plasmids circular; the 
 recordings lacked it and annotated every replicon as linear (backlog, M3-23 review).
 
 Sequence SHA-256s (upper-case sequence, no header/newlines) were computed by the test author from
-the NCBI Datasets downloads GCA_000005845.2 and GCA_043228065.1 (``$GIAP_DATA_DIR/genomes``,
+the NCBI Datasets downloads GCA_000005845.2 and GCA_043228065.1 (``$GIPPA_DATA_DIR/genomes``,
 fetched 2026-10-14 by ``fetch_resources.sbatch``).
 """
 
@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pytest
 
-from giap.config.model import PreflightConfig
-from giap.io.fasta import read_genome_fasta
-from giap.preflight.genome import classify_replicons, resolve_topology, summarize_genome
+from gippa.config.model import PreflightConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.preflight.genome import classify_replicons, resolve_topology, summarize_genome
 
 GENOMES = Path(__file__).resolve().parents[1] / "data" / "genomes"
 FILES = ("k12_mg1655.fna.gz", "nissle1917.fna.gz", "sim100k.fna.gz")
@@ -69,7 +69,7 @@ def _sha(data: bytes) -> str:
 
 
 def _replicons(path: Path) -> dict[str, tuple[str, str]]:
-    """id -> (topology, kind) exactly as `giap preflight` classifies them."""
+    """id -> (topology, kind) exactly as `gippa preflight` classifies them."""
     cfg = PreflightConfig()
     summary = summarize_genome(read_genome_fasta(path), cfg.n_run_min_bp)
     reps = classify_replicons(
@@ -126,7 +126,7 @@ def test_preflight_lists_nissle_plasmids_as_circular_plasmids() -> None:
 
 
 def test_sim100k_genome_is_the_simulator_genome(tmp_path: Path) -> None:
-    from giapsim import SIM100K, SIM100K_SEED, simulate
+    from gippasim import SIM100K, SIM100K_SEED, simulate
 
     path = GENOMES / "sim100k.fna.gz"
     assert path.is_file(), f"missing {path}"

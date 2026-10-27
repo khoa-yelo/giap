@@ -6,16 +6,16 @@ Usage:
         [--config workflow/conf/containers.config] [--nextflow-config workflow/nextflow.config]
         --date YYYY-MM-DD --source-commit <git sha> [--provenance prov.json]
 
-``digests.json`` maps process names to ``ghcr.io/khoa-yelo/giap-<tool>@sha256:<64 hex>``. For each
+``digests.json`` maps process names to ``ghcr.io/khoa-yelo/gippa-<tool>@sha256:<64 hex>``. For each
 entry the ``withName: '<PROCESS>' { container = '<ref>' }`` line inside ``process { }`` (a bare
 ``<ref>``, no ``docker://`` prefix; ADR-0059) is replaced in place, or added before the block's
 closing brace; the tool leaves the "Conda-only for now" comment list; one
-``//   ghcr.io/khoa-yelo/giap-<tool>:<sha7> (built <date> from <commit>)`` line per image is added
+``//   ghcr.io/khoa-yelo/gippa-<tool>:<sha7> (built <date> from <commit>)`` line per image is added
 to (or replaced in) the "Tags the digests were resolved from" comment.
 Every other line stays byte-identical, and a second run with the same input changes nothing.
 
 ``workflow/conf/images.json`` (``--images``, default next to ``--config``) gets one entry per
-pinned tool (M11-14 item 2): ``key``/``tag`` from ``giap.io.image_key`` over ``--root`` (default the
+pinned tool (M11-14 item 2): ``key``/``tag`` from ``gippa.io.image_key`` over ``--root`` (default the
 repository), the bare ``ref``, the ``processes`` whose ``withName`` line carries that ref,
 ``built_from`` (``--source-commit``) and the registry ``licence``; other entries are kept.
 ``FGSEA`` has no Nextflow process: its ref goes to ``images.json`` only (``"processes": []``).
@@ -94,7 +94,7 @@ def validate(digests: Mapping[str, object]) -> dict[str, str]:
             raise DigestError(f"unknown process {process} (pinnable: {known})")
         if not isinstance(ref, str) or not _DIGEST.fullmatch(ref):
             raise DigestError(f"bad digest for {process}: {ref!r} (need <image>@sha256:<64 hex>)")
-        expected = f"{REGISTRY}/giap-{tool}@sha256:"
+        expected = f"{REGISTRY}/gippa-{tool}@sha256:"
         if not ref.startswith(expected):
             raise DigestError(f"wrong image for {process}: {ref} (need {expected}<64 hex>)")
     refs: dict[str, set[str]] = {}
@@ -161,7 +161,7 @@ def _record_tags(
     if header is None:
         raise DigestError("no `Tags the digests were resolved from` comment in the config")
     for tool in tools:
-        prefix = f"{_CONT}{REGISTRY}/giap-{tool}:"
+        prefix = f"{_CONT}{REGISTRY}/gippa-{tool}:"
         c, d = prov.get(tool, (commit, date))
         line = f"{prefix}{c[:7]} (built {d} from {c})"
         end = header + 1
@@ -227,8 +227,8 @@ def update_images(
     ``built_from`` is ``commit``, or the commit in ``provenance`` for an image built earlier.
     """
     prov = provenance or {}
-    from giap.annotate.tools import TOOLS
-    from giap.io.image_key import key, tag
+    from gippa.annotate.tools import TOOLS
+    from gippa.io.image_key import key, tag
 
     images: dict[str, object] = json.loads(text) if text else {}
     pinned = re.compile(r"^\s*withName: '([A-Z0-9_]+)' \{ container = '([^']+)' \}$")

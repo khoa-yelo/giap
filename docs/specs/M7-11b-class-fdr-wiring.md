@@ -1,7 +1,7 @@
 # M7-11b: Novel-ORF class FDR wiring: `class_fdr`, the class-q call rule and the q-floor warning
 
 Milestone M7 · track S (statistics) / P (pipeline) · **pass 2** · depends on: M7-11 (#237, the
-pure `giap.novel.fdr`; must merge first), M7-09 (the wired `novel_orfs` step and `apply_evidence`),
+pure `gippa.novel.fdr`; must merge first), M7-09 (the wired `novel_orfs` step and `apply_evidence`),
 M3-10 (`placement`, π̂ per de novo peptide), M3-14 (`LocusClassifier`), M3-23 (makedb IDs) ·
 blocks: M7-13b (G3, G4 and G4-k3 in docs/specs/M7-13-calibration-gate.md) · estimate ≈ 330 counted
 code lines (+ ≈ 450 test lines, not gated) · **stats** label (statistician reviews the call rule
@@ -27,14 +27,14 @@ and the floor rule, not the arithmetic, which M7-11 already owns)
   ≥ `min_peptides_without_decoys` peptides and meets the class rule (`evidence.py`, M7-09 rule 8).
 - `orf_table` already adds `class_fdr_unestimated` exactly when the cell is `unestimated`, and it
   formats a float cell with `%.6g` (`outputs._class_fdr`).
-- `giap.novel.fdr` (#237) provides `orf_regimes`, `picked_class_fdr` (q, reason, `class_mismatch`,
+- `gippa.novel.fdr` (#237) provides `orf_regimes`, `picked_class_fdr` (q, reason, `class_mismatch`,
   `ClassStats`) and `denovo_class_q`, but nothing calls them.
 - The `novel_orfs` step takes no `peptides`, `features`, hit tables or π̂. `placement` computes
   π̂ per de novo peptide and E at the best target and decoy cost, but persists neither.
 
 ## Public interface
 
-### `src/giap/novel/class_call.py` (new, pure)
+### `src/gippa/novel/class_call.py` (new, pure)
 
 ```python
 Reason = Literal["no_decoys", "decoys_not_makedb", "untagged_class", "no_makedb_pair",
@@ -44,7 +44,7 @@ Reason = Literal["no_decoys", "decoys_not_makedb", "untagged_class", "no_makedb_
 @dataclass(frozen=True)
 class OrfClassFdr:
     orf_id: str
-    regime: Regime                 # giap.novel.fdr.Regime
+    regime: Regime                 # gippa.novel.fdr.Regime
     fdr_class: str                 # the list it competed in: the entry tag (picked), else ORF class
     q: float                       # NaN unless estimated and won (picked) / has a target hit (de novo)
     reason: Reason | None          # None iff q is finite
@@ -69,7 +69,7 @@ class DenovoInputs:
     target_hits: pd.DataFrame      # peptide, e_target (de novo peptides with a finite e_target)
     decoy_hits: pd.DataFrame       # HIT_COLUMNS rows, search = decoy, de novo peptides, + e_decoy
     pi: Mapping[str, float]        # de novo peptide -> pi_denovo (NaN dropped: missing = 1)
-    classifier: Classifier         # giap.mapping.loci.LocusClassifier
+    classifier: Classifier         # gippa.mapping.loci.LocusClassifier
 
 @dataclass(frozen=True)
 class ClassFdrResult:
@@ -82,23 +82,23 @@ def makedb_id_map(peptides: pd.DataFrame, gm: GeneModel, genome: Mapping[str, st
                   decoy_prefixes: Sequence[str]) -> pd.DataFrame: ...
 def denovo_inputs(costs: pd.DataFrame, hits: pd.DataFrame, classifier: Classifier) -> DenovoInputs: ...
 def class_fdr(orfs: Sequence[Orf], peptides: pd.DataFrame, *, gm: GeneModel,
-              genome: Mapping[str, str], cfg: GiapConfig,
+              genome: Mapping[str, str], cfg: GippaConfig,
               denovo: DenovoInputs | None) -> ClassFdrResult: ...
 def class_fdr_cell(r: OrfClassFdr) -> float | str: ...   # q | 1.0 (lost_pick) | "unestimated"
 ```
 
 ### Changes to existing modules
 
-- `giap.novel.fdr`: add `denovo_class_fdr(...) -> DenovoClassFdr(q, classes)`, where
+- `gippa.novel.fdr`: add `denovo_class_fdr(...) -> DenovoClassFdr(q, classes)`, where
   `classes[cls] = DenovoClassStats(n_targets, n_decoys, w_decoys, c)`. It is computed from the
   same lists as today. `denovo_class_q` becomes `denovo_class_fdr(...).q`, so its results do not
   change. `picked_class_fdr` is not changed.
-- `giap.makedb.build`: add a public `nterm_entries(gm, genome)`, an alias of `_nterm_entries`.
-- `giap.novel.evidence`: factor out `class_rules(table, orfs, *, gene_table, gm, genome, cfg,
+- `gippa.makedb.build`: add a public `nterm_entries(gm, genome)`, an alias of `_nterm_entries`.
+- `gippa.novel.evidence`: factor out `class_rules(table, orfs, *, gene_table, gm, genome, cfg,
   peptide_intervals) -> dict[str, bool]` (the M7-09 rule-4 `ok`), which `apply_evidence` uses.
   `apply_evidence` stops overwriting `class_fdr`: it keeps the cell it receives. It then applies
   the call rule below.
-- `giap.novel.outputs.FLAG_ORDER` and `schemas/tables/novel_orfs.schema.json` (flag pattern) gain
+- `gippa.novel.outputs.FLAG_ORDER` and `schemas/tables/novel_orfs.schema.json` (flag pattern) gain
   `class_mismatch`, placed after `class_fdr_unestimated` (Q3).
 - `steps.mapping.placement` gains the output `placement_costs` (`placement_costs.parquet`). It is
   the `best_costs` frame that the step already builds, with `pi_denovo` filled, written as is.
@@ -234,17 +234,17 @@ rule unless stated. "Event" means `novel_orfs.class_fdr` data.
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | makedb run; 150 `intergenic` ORFs, each paired with its own `GIAPORF_intergenic_c1_…_p` entry, ranks 1–150; 30 decoy-only entries `rev_GIAPORF_intergenic_…`, ranks 151–180 | all 150: `class_fdr` **`0.00666667`**, `called` true, no `class_fdr_unestimated`; event `{regime: picked_decoy, class: intergenic, estimated: true, n_targets: 150, n_target_wins: 150, n_decoys: 30, paired_share: 1.0, q_floor: 0.006666…, floor_above_alpha: false, n_called: 150}`; no WARNING |
+| 1 | makedb run; 150 `intergenic` ORFs, each paired with its own `GIPPAORF_intergenic_c1_…_p` entry, ranks 1–150; 30 decoy-only entries `rev_GIPPAORF_intergenic_…`, ranks 151–180 | all 150: `class_fdr` **`0.00666667`**, `called` true, no `class_fdr_unestimated`; event `{regime: picked_decoy, class: intergenic, estimated: true, n_targets: 150, n_target_wins: 150, n_decoys: 30, paired_share: 1.0, q_floor: 0.006666…, floor_above_alpha: false, n_called: 150}`; no WARNING |
 | 2 | as 1 with 50 targets and no decoys | all 50: **`0.02`**, `called` false; one WARNING `novel_orfs.class_q_floor_above_alpha` `{regime: picked_decoy, class: intergenic, n_targets: 50, q_floor: 0.02, alpha: 0.01}` |
 | 3 | as 2 with exactly 100 targets | all 100: **`0.01`**, `called` true; no WARNING (0.01 > 0.01 is false) |
-| 4 | `cds_outframe` ORF, + strand, stop codon at 0-based 400 (`GIAPORF_cds_outframe_c1_101_400_p`), 3 peptides, best target rank 2; decoy row `rev_GIAPORF_cds_outframe_c1_101_400_p` at rank 1 (or tied: same q and score) | `class_fdr` **`1`**, `called` false, `reason` `lost_pick`, flags without `class_fdr_unestimated` (the ≥ 2-peptide rule is **not** applied) |
+| 4 | `cds_outframe` ORF, + strand, stop codon at 0-based 400 (`GIPPAORF_cds_outframe_c1_101_400_p`), 3 peptides, best target rank 2; decoy row `rev_GIPPAORF_cds_outframe_c1_101_400_p` at rank 1 (or tied: same q and score) | `class_fdr` **`1`**, `called` false, `reason` `lost_pick`, flags without `class_fdr_unestimated` (the ≥ 2-peptide rule is **not** applied) |
 | 5 | search against Bakta proteins, decoys `rev_b0001`, `rev_b0002` only (7 decoy rows); one `cds_outframe` ORF with 2 peptides and one `intergenic` ORF with 1 peptide | both `unestimated` + `class_fdr_unestimated`, `reason` `decoys_not_makedb`; cds_outframe `called` true, intergenic `called` false; one WARNING `novel_orfs.decoys_not_makedb` `{n_decoy_rows: 7}`; no `novel_orfs.class_fdr` event |
 | 6 | database input with no decoy row (the M7-09 step fixture) | `novel_orfs.tsv`, `.gff3`, `.faa` and patch **byte-identical** to main; every side-table row `regime` `unestimated`, `reason` `no_decoys`; no new WARNING |
 | 7 | makedb run; a `sorf` ORF with 2 peptides and a `pseudogene` ORF with 1 peptide | both `unestimated`, `reason` `untagged_class`; sorf `called` true, pseudogene `called` false |
-| 8 | reconstructed `intergenic` ORF, c1 +, stop codon at 0-based 400, matched to entry `GIAPORF_cds_outframe_c1_101_400_p` | side table `class` `intergenic`, `fdr_class` `cds_outframe`; TSV `class` `intergenic`, flags contain `class_mismatch`; its q comes from the `cds_outframe` list; its class rule is the intergenic one |
+| 8 | reconstructed `intergenic` ORF, c1 +, stop codon at 0-based 400, matched to entry `GIPPAORF_cds_outframe_c1_101_400_p` | side table `class` `intergenic`, `fdr_class` `cds_outframe`; TSV `class` `intergenic`, flags contain `class_mismatch`; its q comes from the `cds_outframe` list; its class rule is the intergenic one |
 | 9 | de novo only; 120 `intergenic` ORFs, one target peptide each; no decoy hit classifies as intergenic; `pi_denovo` = 0.5 for every de novo peptide | c = 0.5; all 120: **`0.00416667`**, `called` true; event `{regime: denovo_subgroup, class: intergenic, n_targets: 120, n_decoys: 0, c: 0.5, q_floor: 0.004166…}` |
 | 10 | de novo only; 40 `antisense` target peptides (20 ORFs × 2), `pi_denovo` missing for all (= 1) | c = 1, q_floor 0.025 > 0.01: WARNING `class_q_floor_above_alpha` `{regime: denovo_subgroup, class: antisense, n_targets: 40, q_floor: 0.025, alpha: 0.01}`; no antisense ORF called |
-| 11 | makedb run; gene `b0002` (c1, +) whose `nterm_entries` record is `GIAPORF_nterm_extension_c1_<s1>_<e1>_p`; an `nterm_extension` ORF with `overlapping_gene = b0002` and peptides on that entry; a second run whose gene model lacks `b0002` | run 1: paired by locus tag, numeric `class_fdr`; run 2: `unestimated`, `reason` `no_makedb_pair` |
+| 11 | makedb run; gene `b0002` (c1, +) whose `nterm_entries` record is `GIPPAORF_nterm_extension_c1_<s1>_<e1>_p`; an `nterm_extension` ORF with `overlapping_gene = b0002` and peptides on that entry; a second run whose gene model lacks `b0002` | run 1: paired by locus tag, numeric `class_fdr`; run 2: `unestimated`, `reason` `no_makedb_pair` |
 | 12 | mixed run (makedb decoys and de novo rows); ORF A has database peptides, ORF B only de novo, both `intergenic` | A `regime` `picked_decoy`, B `denovo_subgroup`; two `novel_orfs.class_fdr` events for `intergenic`, one per regime; B's de novo list holds only de novo ORFs' peptides (lists not pooled, decision 1) |
 | 13 | as 1 with `stats.alpha.novel_orfs = 0.005` | all 150 `0.00666667`, `called` false; WARNING with `alpha: 0.005` |
 
@@ -265,7 +265,7 @@ rule unless stated. "Event" means `novel_orfs.class_fdr` data.
 | two ORFs paired to one entry | both get the entry's q (one list member) |
 | origin-crossing ORF on a circular replicon | key wrapped with the replicon length (decision 8), paired normally |
 | open-3′ ORF on a linear contig, + and − | key `stop ± 3` (decision 13), wrapped (decision 14) |
-| minus-strand ORF | key = lowest 0-based coordinate of the stop codon, `GIAPORF_…_m` ID: same rule as + |
+| minus-strand ORF | key = lowest 0-based coordinate of the stop codon, `GIPPAORF_…_m` ID: same rule as + |
 | `cterm_extension` | untagged → `unestimated`; its class rule is false, so never called |
 | α changed in config | every comparison uses `stats.alpha.novel_orfs` (example 13) |
 | `--strict` with a floor or `decoys_not_makedb` warning | exit 3 (warnings were raised) |
@@ -305,7 +305,7 @@ only the TSV and the work-dir side table.
    `frictionless validate` against the updated schema. The manifest with the `novel_orfs` block
    validates against `run_manifest.schema.json`.
 5. `workflow/tests/novel.nf.test` and `main_novel.nf.test` (stub) see `novel_class_fdr` published.
-   The local-vs-Nextflow test is extended to a giapsim `novel_orf_power` 100k run with makedb
+   The local-vs-Nextflow test is extended to a gippasim `novel_orf_power` 100k run with makedb
    decoys: the four tables and the side table are byte-identical between the executors.
 6. Smoke check (integration, `slow`), one `novel_orf_power(seed, "100k")` run, database input:
    - `intergenic`, `cds_outframe`, `antisense` and `nterm_extension` have no `unestimated` ORF
@@ -320,7 +320,7 @@ only the TSV and the work-dir side table.
      cannot be called at α");
    - the v1 paired share = 1 consequence (rule 2).
    The statistician signs off.
-8. Backlog: the M7-11b line, line 688 (the GIAP-warning half; the gate-record half stays with
+8. Backlog: the M7-11b line, line 688 (the GIPPA-warning half; the gate-record half stays with
    M7-13c), and M7-11 nit 1 are closed or re-pointed. Q5 and Q10 go to the backlog.
 9. Lint, format, mypy clean; ruff passes on the new module; `check_imports.py` clean.
 
@@ -360,7 +360,7 @@ only the TSV and the work-dir side table.
 8. **M7-13 runs and `--strict`.** Floor warnings are expected at 1M for intergenic and for small
    de novo classes. **Proposed default:** M7-13 never passes `--strict`, and the gate harness
    ignores the warning (it computes vacuity itself, M7-13 rule 6).
-9. **TSV `class` of a mismatched ORF.** **Proposed default:** keep the reconstructed class (GIAP's
+9. **TSV `class` of a mismatched ORF.** **Proposed default:** keep the reconstructed class (GIPPA's
    classification, used by the class rule, ranking and patch). The entry class appears only as
    `fdr_class`. M7-13 rule 5 then counts it as FP + FN, as decided there.
 10. **Report caveat** (MVP-04 gate 15 mentions a q-floor caveat in the report). **Proposed
@@ -426,13 +426,13 @@ only the TSV and the work-dir side table.
 9. **Review-fix tests (dbcc1ede).** B1 and B2 are covered (mutants M11 and M8 are killed) and item 5
    passes (Slurm 1873184). Item 6's first bullet fails: 25 of 49 tagged-class ORFs are
    `no_makedb_pair`, in intergenic, antisense and cds_outframe.
-   - Cause (giapsim, not `src`): in `novel_orf_power` database runs, target rows carry `NOVEL_…`
-     and `sixframe:…` protein IDs, and only the decoys are makedb-tagged (`rev_GIAPORF_…`). A
-     search against the `giap makedb --six-frame-orfs` FASTA reports the entry IDs for targets too.
+   - Cause (gippasim, not `src`): in `novel_orf_power` database runs, target rows carry `NOVEL_…`
+     and `sixframe:…` protein IDs, and only the decoys are makedb-tagged (`rev_GIPPAORF_…`). A
+     search against the `gippa makedb --six-frame-orfs` FASTA reports the entry IDs for targets too.
      `makedb_id_map` builds entries from the IDs in the peptides, so an ORF pairs only when a decoy
      happened to hit its entry.
-   - Fix: an implementer round in `tests/sim/giapsim/proteomics.py`. When the search database is
-     the makedb FASTA, every target row's `protein_ids` names its makedb entry (`GIAPORF_…`, or the
+   - Fix: an implementer round in `tests/sim/gippasim/proteomics.py`. When the search database is
+     the makedb FASTA, every target row's `protein_ids` names its makedb entry (`GIPPAORF_…`, or the
      gene's nterm_extension entry), the same `entry` naming its decoys use. Truth tables keep the
      planted `NOVEL_…` IDs. Item 6 is the acceptance test; its assertions stay as written.
    - If existing tests pin the old IDs or hashes, the implementer lists them and the lead edits
@@ -440,8 +440,8 @@ only the TSV and the work-dir side table.
    - B2 finding, to the backlog: `no_target_score` is unreachable from the step, since
      `orf_regimes` and `picked_class_fdr` read the same target rows. The test forces it with a
      monkeypatch.
-10. **giapsim fix (a0526b4d): accepted.** In six-frame mode (`wrong_source = sixframe_noncoding`)
-    target rows now name their makedb entry: `GIAPORF_…` for wrong six-frame peptides and planted
+10. **gippasim fix (a0526b4d): accepted.** In six-frame mode (`wrong_source = sixframe_noncoding`)
+    target rows now name their makedb entry: `GIPPAORF_…` for wrong six-frame peptides and planted
     novel ORFs, and the gene's `nterm_extension` entry for residues upstream of the annotated
     start. Annotated CDS peptides keep the bare locus tag, which is makedb's own entry name. The
     other modes are byte-identical.
@@ -455,14 +455,14 @@ only the TSV and the work-dir side table.
     - #256 has had its review round. It merges after #237 and #253 (stacked: merge the old base
       tip, then main).
 11. **Implementer (635fde34): nterm `no_makedb_pair` fixed; accepted.**
-   - Cause: giapsim's `OrfEntries.of` missed makedb's `NTERM_MIN_UPSTREAM_AA` = 7 rule (M3-23), so
+   - Cause: gippasim's `OrfEntries.of` missed makedb's `NTERM_MIN_UPSTREAM_AA` = 7 rule (M3-23), so
      5–6-codon upstream parts got IDs with no makedb entry.
    - In six-frame mode an occurrence without a makedb entry is not in the search database, so a
      peptide with no other occurrence is no longer reported. This replaces decision 10's
      planted-ID fallback; it is what a real search does, so the lead accepts it. Truth rows keep
      every occurrence.
-   - The new test `tests/unit/test_sim_m7_nterm_makedb_ids.py` (the implementer wrote it, as giapsim
+   - The new test `tests/unit/test_sim_m7_nterm_makedb_ids.py` (the implementer wrote it, as gippasim
      tooling; it edits no existing test) is accepted by the lead.
    - Evidence: Slurm 1874355 (M7-13b fast tier on this source: nterm `no_makedb_pair` 0, fallback
      0; only G4-k3 fails, as M7-13b decision 4 foresaw), 1874356 (fast suite passed), 1874358
-     (108 slow giapsim/integration tests passed).
+     (108 slow gippasim/integration tests passed).

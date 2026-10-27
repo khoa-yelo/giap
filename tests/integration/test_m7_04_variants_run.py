@@ -1,8 +1,8 @@
-"""M7-04 through a real ``giap run`` on sim100k (docs/specs/M7-04-variants-step-and-run.md
+"""M7-04 through a real ``gippa run`` on sim100k (docs/specs/M7-04-variants-step-and-run.md
 examples 1-4 and 7, degenerate rows "two runs, same seed" and "the step fails", lead decisions 1
-and 2; GIAP_SPEC.md §6.4 "byte-identical tables", §7.5.5, §9.1, §9.5).
+and 2; GIPPA_SPEC.md §6.4 "byte-identical tables", §7.5.5, §9.1, §9.5).
 
-Inputs: the giapsim SIM100K genome with M3-19 proteomics, M3-20 de novo reads and every
+Inputs: the gippasim SIM100K genome with M3-19 proteomics, M3-20 de novo reads and every
 precomputed layer (as in tests/integration/test_m2_21_local_vs_nextflow.py), ``--modules core``
 and one seed. The test DB comes from tests/helpers/mapping_steps.py, never the real one.
 
@@ -17,7 +17,7 @@ and one seed. The test DB comes from tests/helpers/mapping_steps.py, never the r
 * TE7: a second run with the same seed gives byte-identical files.
 * Example 3: the database table (``search_db: same``, the genome's own proteins) gives
   ``variants.tsv`` rows only at annotated non-ATG starts (M read at a GTG/TTG codon).
-* A failing ``variants`` step: ``giap run`` exits 4 and names ``variants`` and
+* A failing ``variants`` step: ``gippa run`` exits 4 and names ``variants`` and
   ``logs/variants.log``.
 * Example 2: ``--executor nextflow --profile farmshare_local`` gives byte-identical files
   (needs Nextflow).
@@ -40,25 +40,25 @@ pytestmark = [pytest.mark.slow]
 
 SEED = 7
 TABLES = ("tables/pileup.tsv.gz", "tables/variants.tsv", "tables/variants.vcf")
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
-    cfg = dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfig(),
+    cfg = dataclasses.replace(gippasim.SIM100K, proteomics=ProteomicsConfig(),
                               denovo=DenovoConfig(), write_precomputed=True)  # fmt: skip
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 @pytest.fixture(scope="module")
 def run_a(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The de novo table, gzipped, under the name ``run_A.tsv.gz`` (example 4)."""
     src = Path(sim.outdir) / "peptides_denovo.tsv"
-    assert src.is_file(), "giapsim writes peptides_denovo.tsv with SimConfig.denovo"
+    assert src.is_file(), "gippasim writes peptides_denovo.tsv with SimConfig.denovo"
     dst = tmp_path_factory.mktemp("in") / "run_A.tsv.gz"
     dst.write_bytes(gzip.compress(src.read_bytes(), mtime=0))
     return dst
@@ -72,13 +72,13 @@ def db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _invoke(sim: Any, peptides: Path, out: Path, db: Path, *extra: str) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(peptides)]
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
     args += ["--outdir", str(out), "--modules", "core", "--seed", str(SEED), *extra]
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -123,8 +123,8 @@ def test_example_1_three_tables_published(local: Path) -> None:
         assert (local / rel).is_file(), f"{rel} not published"
     raw = (local / "tables" / "pileup.tsv.gz").read_bytes()
     assert raw[:2] == b"\x1f\x8b", "tables/pileup.tsv.gz is not gzip"
-    from giap.variants.pileup import PILEUP_COLUMNS
-    from giap.variants.vcf_records import VARIANTS_COLUMNS
+    from gippa.variants.pileup import PILEUP_COLUMNS
+    from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
     pile = gzip.decompress(raw).decode("utf-8").splitlines()
     assert pile[0].split("\t") == list(PILEUP_COLUMNS)
@@ -210,9 +210,9 @@ def test_example_3_same_strain_database_peptides(sim: Any, db: Path, tmp_path: P
 def test_failing_variants_step_exits_4_naming_it(
     sim: Any, run_a: Path, db: Path, tmp_path: Path
 ) -> None:
-    from giap.exitcodes import ExitCode
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.exitcodes import ExitCode
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("variants")

@@ -2,7 +2,7 @@
 
 Rows are written with ``helpers.viz_out_tree.write_schema_table`` under the M3 schemas
 (``peptide_hits``, ``protein_hits``, ``unmapped``, ``mapping_fdr``); coordinates are the 1-based
-closed ones of the published TSVs. Nothing here touches ``$GIAP_DB_DIR`` or the network.
+closed ones of the published TSVs. Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations

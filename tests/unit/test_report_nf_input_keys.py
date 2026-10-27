@@ -1,5 +1,5 @@
 """PR #205 review round B4: under Nextflow, REPORT receives every published key that the local
-executor hands to the ``plots`` and ``report`` steps (GIAP_SPEC.md §6.4 executor equality; M9-02
+executor hands to the ``plots`` and ``report`` steps (GIPPA_SPEC.md §6.4 executor equality; M9-02
 behaviour 8). Static parse of ``workflow/main.nf`` and ``workflow/subworkflows/local/*.nf``
 against the step registry, in the style of test_report_wiring.py / test_nf_operons_registry.py;
 no Nextflow needed.
@@ -11,7 +11,7 @@ step: the local runner stages each of them from ``work/`` whenever its producer 
 * main.nf adds ``kv('<key>', ...)`` or ``outs('<key>', ...)`` to the ``pub`` list given to
   ``REPORT``;
 * when that channel is ``SUB.out.<name>`` (optionally inside ``pick(...)``), the subworkflow
-  ``SUB`` emits ``<name>``; if a subworkflow's GIAP_STEP out spec publishes ``'<key>=...'``,
+  ``SUB`` emits ``<name>``; if a subworkflow's GIPPA_STEP out spec publishes ``'<key>=...'``,
   ``SUB`` is that subworkflow; and the published file's name is picked, in the emit line or in
   main.nf (so the channel carries that file, not another output of the same task).
 
@@ -26,9 +26,9 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from giap.runner.local import PUBLISHED, PUBLISHED_FILES
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.runner.local import PUBLISHED, PUBLISHED_FILES
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 REPO = Path(__file__).resolve().parents[2]
 MAIN = REPO / "workflow" / "main.nf"
@@ -88,7 +88,7 @@ def _emits(path: Path) -> dict[str, str]:
 
 
 def _out_spec_owner(key: str) -> list[str]:
-    """Subworkflows whose text publishes ``'<key>=`` (a GIAP_STEP out spec)."""
+    """Subworkflows whose text publishes ``'<key>=`` (a GIPPA_STEP out spec)."""
     found = []
     for name, path in _includes().items():
         if re.search(rf"['\"]{key}=", _strip(path.read_text(encoding="utf-8"))):

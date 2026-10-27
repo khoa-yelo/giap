@@ -22,8 +22,8 @@ SCRIPT = textwrap.dedent(
     """
     import json, resource, sys, time
     import numpy as np
-    from giap.mapping.sixframe import build_sixframe
-    from giap.model import Replicon
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.model import Replicon
 
     def peak_bytes():
         rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss

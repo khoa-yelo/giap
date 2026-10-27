@@ -1,5 +1,5 @@
 """In-pipeline output checks ``check_tsv`` and ``check_vcf`` (M7-15 item 2; review #278 B2, lead
-decision 11; GIAP_SPEC.md §6.3, §9.5).
+decision 11; GIPPA_SPEC.md §6.3, §9.5).
 
 One hand-made file per branch. The cases kill the review's surviving mutants: POS >= 1, the
 undeclared contig, required-NA and the enum check. The decision-11 nits are pinned too:
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.output_checks import check_tsv, check_vcf
+from gippa.io.output_checks import check_tsv, check_vcf
 
 # ---------------------------------------------------------------- TSV (real schemas)
 
@@ -216,7 +216,7 @@ def test_values_matching_the_pattern_pass(tmp_path: Path) -> None:
 
 HEADER = [
     "##fileformat=VCFv4.3",
-    "##source=GIAP",
+    "##source=GIPPA",
     "##contig=<ID=chr1,length=100>",
     "##contig=<ID=plasmid_2,length=50>",
     "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample",
@@ -258,7 +258,7 @@ def test_gzipped_vcf_is_read(tmp_path: Path) -> None:
 
 
 def test_non_vcf_first_line_fails(tmp_path: Path) -> None:
-    _vcf_fails(_vcf(tmp_path, ["##source=GIAP", *HEADER[2:], _record()]), "fileformat")
+    _vcf_fails(_vcf(tmp_path, ["##source=GIPPA", *HEADER[2:], _record()]), "fileformat")
 
 
 def test_empty_file_fails(tmp_path: Path) -> None:

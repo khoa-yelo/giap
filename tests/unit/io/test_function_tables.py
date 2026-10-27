@@ -1,7 +1,7 @@
 """M8-06a item 4: writers of ``tables/category_summary.tsv``, ``enrichment_detection.tsv`` and
-``enrichment_gsea.tsv`` (docs/specs/M8-06-function-step-and-run.md; GIAP_SPEC.md §9.2, ADR-0006).
+``enrichment_gsea.tsv`` (docs/specs/M8-06-function-step-and-run.md; GIPPA_SPEC.md §9.2, ADR-0006).
 
-Pinned: cells through ``giap.io.tsv`` (``NA``, ``%.6g``, ``true``/``false``, ``;``-joined
+Pinned: cells through ``gippa.io.tsv`` (``NA``, ``%.6g``, ``true``/``false``, ``;``-joined
 ``leading_edge`` and ``flags``, an empty list is ``NA``); a None ``parent_group`` and a NA
 ``redundant`` are ``NA``; columns in each module's ``COLUMNS`` order whatever the frame's order;
 GSEA rows sorted stably by (collection in ``COLLECTIONS`` order, term); a header-only frame writes
@@ -60,8 +60,8 @@ def _frame(rows: list[dict[str, Any]], columns: tuple[str, ...], kind: str) -> p
 
 
 def _mods():  # type: ignore[no-untyped-def]
-    from giap.function import gsea, ora, summary
-    from giap.io import function_tables as ft
+    from gippa.function import gsea, ora, summary
+    from gippa.io import function_tables as ft
 
     return {
         "summary": (ft.write_category_summary_tsv, tuple(summary.COLUMNS), _summary_row),
@@ -201,7 +201,7 @@ def test_gsea_bytes_do_not_depend_on_input_row_order(
 ) -> None:
     """Property: with unique (collection, term), any permutation of the rows writes the same
     file, and the rows come out in (COLLECTIONS order, term) order."""
-    from giap.function.collections import COLLECTIONS
+    from gippa.function.collections import COLLECTIONS
 
     rows = [_gsea_row(collection=c, term=t, es=0.1 * i) for i, (c, t) in enumerate(keys)]
     perm = data.draw(st.permutations(rows))

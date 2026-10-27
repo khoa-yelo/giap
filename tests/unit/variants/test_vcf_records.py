@@ -1,4 +1,4 @@
-"""M7-03 VCF records (docs/specs/M7-03-variant-tables-and-vcf.md; GIAP_SPEC.md §7.5.5, G14,
+"""M7-03 VCF records (docs/specs/M7-03-variant-tables-and-vcf.md; GIPPA_SPEC.md §7.5.5, G14,
 Appendix B.7, §6.5; ADR-0005 item 1).
 
 Examples 1-11 and the degenerate rows of the spec, on the fixture genome of
@@ -10,7 +10,7 @@ detail (lead decision 2). Records are written with the merged M1-05 ``write_vcf`
 Interface reading (test author; see the report to the lead):
 
 * ``vcf_records(sites, pile, genome, replicons) -> (records, table)``: ``records`` are
-  ``giap.io.vcf.VcfRecord``\\ s (any order); ``table`` holds one row per ``sites`` row, same
+  ``gippa.io.vcf.VcfRecord``\\ s (any order); ``table`` holds one row per ``sites`` row, same
   ``variant_id``\\ s in the same order, with ``nt_changes``, ``alt_codon_vcf`` and ``flags``.
 * M7-05 flags reach ``vcf_records`` as a ``flags`` column of tuples on ``sites``; a missing
   column means no flags. A ``class_error_rate`` column (float or ``unestimated``) feeds
@@ -66,7 +66,7 @@ from helpers.variant_tables_fixture import (
     write,
 )
 
-from giap.model import Replicon
+from gippa.model import Replicon
 
 # --------------------------------------------------------------------------- minimal_alt_codon
 
@@ -463,7 +463,7 @@ def test_unsafe_contig_id_raises_in_the_writer(tmp_path: Path) -> None:
     v = vr()
     with pytest.raises(ValueError):
         vcf_io().write_vcf(
-            tmp_path / "v.vcf", [], [Replicon("chr 1", 10, "linear")], giap_version=VERSION,
+            tmp_path / "v.vcf", [], [Replicon("chr 1", 10, "linear")], gippa_version=VERSION,
             genome_sha256=SHA, sample=SAMPLE, info_fields=v.INFO_FIELDS,
             format_fields=v.FORMAT_FIELDS,
         )  # fmt: skip
@@ -519,7 +519,7 @@ def test_example11_pysam_round_trip(tmp_path: Path, capfd: pytest.CaptureFixture
     assert all(x.info["CLASS_ERR"] == tuple("unestimated" for _ in x.alts) for x in got)
     text = path.read_text(encoding="utf-8")
     assert text.startswith("##fileformat=VCFv4.3\n")
-    assert f"##source=giap-{VERSION}\n" in text and f"##reference=sha256:{SHA}\n" in text
+    assert f"##source=gippa-{VERSION}\n" in text and f"##reference=sha256:{SHA}\n" in text
 
 
 def test_every_written_ref_matches_the_genome(tmp_path: Path) -> None:

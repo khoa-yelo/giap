@@ -1,4 +1,4 @@
-"""Statistics-only calibration of placement q-values (issue M3-10; GIAP_SPEC.md §7.2.5, §8.4 "FDR").
+"""Statistics-only calibration of placement q-values (issue M3-10; GIPPA_SPEC.md §7.2.5, §8.4 "FDR").
 
 Criterion: mean FDP over R replicates <= q + k SE(FDP) for q in ``levels``; R =
 ``replicates_fast.placement``, k = ``se_multiplier`` (tests/calibration/tolerances.yaml). Gated by
@@ -45,8 +45,8 @@ import pandas as pd
 import pytest
 from _gate import calibrate_levels
 
-from giap.config import GiapConfig
-from giap.mapping.placement_fdr import placement
+from gippa.config import GippaConfig
+from gippa.mapping.placement_fdr import placement
 
 pytestmark = pytest.mark.calibration
 
@@ -113,7 +113,7 @@ def _check_fdr(
     name: str, make: Callable[[np.random.Generator], tuple[pd.DataFrame, np.ndarray]]
 ) -> None:
     levels = C.load_tolerances().levels
-    cfg = GiapConfig()
+    cfg = GippaConfig()
     n_acc: list[float] = []  # accepted at the loosest level, per replicate run here
 
     def fdp(rng: np.random.Generator) -> np.ndarray:

@@ -1,10 +1,10 @@
 """Inputs and an oracle for the M5-08 origin-to-terminus gradient (docs/specs/M5-08-oriter.md).
 
-Nothing here reads ``giap.context.oriter``: the oracle is written from the spec text (§7.3.5(e),
+Nothing here reads ``gippa.context.oriter``: the oracle is written from the spec text (§7.3.5(e),
 lead decisions 31-35, ADR-0021 decision 1 with Amendment 1) on top of the *merged* engines
-``giap.stats.autocorr.choose_block_len`` / ``block_len_prime`` (M5-02),
-``giap.stats.bootstrap.circular_block_bootstrap`` / ``percentile_ci`` (M4-04) and
-``giap.context.regions.replicon_index`` (M4-17), each tested by its own issue. The replichore
+``gippa.stats.autocorr.choose_block_len`` / ``block_len_prime`` (M5-02),
+``gippa.stats.bootstrap.circular_block_bootstrap`` / ``percentile_ci`` (M4-04) and
+``gippa.context.regions.replicon_index`` (M4-17), each tested by its own issue. The replichore
 geometry is taken from the independent M5-04 helper ``oric_oracle.replichore``.
 
 Inputs. Hand-built gene tables reuse the M4-17 builder (``region_tests_data.gene_table``, §9.3
@@ -13,7 +13,7 @@ Inputs. Hand-built gene tables reuse the M4-17 builder (``region_tests_data.gene
 parses the committed Bakta 1.12.2 JSONs (``tests/data/recorded/bakta/1.12.2-full/``) with
 ``parse_bakta_json`` -- no tool run.
 
-Interface assumed of ``giap.context.oriter`` (spec "Public interface"):
+Interface assumed of ``gippa.context.oriter`` (spec "Public interface"):
 
 ``oric_position(features, contig, length) -> float | None``
 ``replichore(mid, oric, length) -> (labels, positions)``
@@ -82,10 +82,10 @@ def config(
     block_len: int | str = "auto",
     seed: int = 7,
 ) -> Any:
-    """A ``GiapConfig`` with the §5.2 knobs the ori-ter part reads."""
-    from giap.config.model import GiapConfig
+    """A ``GippaConfig`` with the §5.2 knobs the ori-ter part reads."""
+    from gippa.config.model import GippaConfig
 
-    return GiapConfig.model_validate(
+    return GippaConfig.model_validate(
         {
             "seed": seed,
             "stats": {"bootstrap": int(bootstrap), "permutations": int(permutations)},
@@ -288,7 +288,7 @@ def recorded(name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     decision 4), so the committed genome FASTA supplies the replicon lengths.
     """
     stem = {"k12": "k12_mg1655", "nissle": "nissle1917", "sim100k": "sim100k"}[name]
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     ann = parse_bakta_json(
         RECORDED / name / f"{stem}.json.gz", genome=_fasta(GENOMES / f"{stem}.fna.gz")
@@ -362,7 +362,7 @@ class OracleTus:
 
 def tu_values(genes: pd.DataFrame, contig: str) -> dict[str, float]:
     """y_t per TU: mean ``abundance_log2`` of the TU's detected eligible genes with a value."""
-    from giap.context.regions import replicon_index
+    from gippa.context.regions import replicon_index
 
     ix = replicon_index(genes, contig)
     out: dict[str, float] = {}
@@ -454,7 +454,7 @@ def _na_row(contig: str, arm: str, flags: Sequence[str]) -> dict[str, Any]:
 
 def block_length(ell: int | str, l_hat: int, t: int) -> int:
     """ADR-0021 decision 1: an integer config wins (clamped to T), else l' = min(20, 2 l + 1, T)."""
-    from giap.stats.autocorr import block_len_prime
+    from gippa.stats.autocorr import block_len_prime
 
     if isinstance(ell, int):
         return int(min(ell, t))
@@ -465,8 +465,8 @@ def oracle_replicon(
     ot: OracleTus, cfg: Any, rng: np.random.Generator
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Rows of one circular chromosome plus a diagnostics dict (``l_hat``, ``block_len``)."""
-    from giap.stats.autocorr import choose_block_len
-    from giap.stats.bootstrap import circular_block_bootstrap, percentile_ci
+    from gippa.stats.autocorr import choose_block_len
+    from gippa.stats.bootstrap import circular_block_bootstrap, percentile_ci
 
     diag: dict[str, Any] = {"l_hat": None, "block_len": {}}
     if ot.oric is None:
@@ -542,7 +542,7 @@ def oracle_rows(
     seed: int | None = None,
 ) -> pd.DataFrame:
     """The expected ori-ter rows of the whole genome (replicons in C1 order)."""
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = for_step(STEP, cfg.seed if seed is None else seed)
     out: list[dict[str, Any]] = []
@@ -590,9 +590,9 @@ def rows(
     cfg: Any,
     seed: int | None = None,
 ) -> pd.DataFrame:
-    """``giap.context.oriter.oriter_rows`` with the spec's stream."""
-    from giap.context.oriter import oriter_rows
-    from giap.rng import for_step
+    """``gippa.context.oriter.oriter_rows`` with the spec's stream."""
+    from gippa.context.oriter import oriter_rows
+    from gippa.rng import for_step
 
     rng = for_step(STEP, cfg.seed if seed is None else seed)
     return oriter_rows(genes, tus, replicons, feats, cfg, rng)  # type: ignore[no-any-return]
@@ -601,8 +601,8 @@ def rows(
 def gene_columns(
     genes: pd.DataFrame, replicons: pd.DataFrame, feats: pd.DataFrame | None
 ) -> pd.DataFrame:
-    """``giap.context.oriter.gene_replichores``."""
-    from giap.context.oriter import gene_replichores
+    """``gippa.context.oriter.gene_replichores``."""
+    from gippa.context.oriter import gene_replichores
 
     return gene_replichores(genes, replicons, feats)  # type: ignore[no-any-return]
 
@@ -620,7 +620,7 @@ def row_of(frame: pd.DataFrame, arm: str, contig: str | None = None) -> Mapping[
 def scenario_frames(
     rng: np.random.Generator, pair: Any
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """(genes, tus, replicons, features) drawn from a giapsim ``scenarios`` pair.
+    """(genes, tus, replicons, features) drawn from a gippasim ``scenarios`` pair.
 
     Unlike the island helper this keeps the simulator's real coordinates (the ori-ter geometry
     is the whole point): the gene table carries ``lay.genes`` intervals, the C5 frame is
@@ -629,8 +629,8 @@ def scenario_frames(
     ``abundance_log2_true``), as ``region_tests_data.tables_from`` does with ``p_source =
     "true"``.
     """
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lcfg, ecfg = pair
     lay = la.simulate_layout(lcfg, rng)
@@ -676,7 +676,7 @@ def planted_slope(ot: OracleTus, amplitude: float) -> float:
     """OLS slope of the planted cosine curve (a/2) cos(pi x) over the TUs of the pooled fit.
 
     This is the estimand of the coverage check (spec example 7): the simulator shifts every chr1
-    TU by ``(a / 2) cos(pi p)`` at its replichore position p (giapsim ``_gradient``), so the
+    TU by ``(a / 2) cos(pi p)`` at its replichore position p (gippasim ``_gradient``), so the
     descriptive slope the analysis targets is the OLS slope of that deterministic curve on the
     TUs that enter the fit.
     """

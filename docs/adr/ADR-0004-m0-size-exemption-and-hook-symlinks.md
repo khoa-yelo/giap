@@ -7,7 +7,7 @@
 ## Context
 1. **PR size.** The guard in `ci.yml` fails a PR above 800 changed lines (`ci/gates.yaml`,
    `pr_lines_fail`), excluding lock files and fixtures. The M0 scaffold PR (#1) changes about
-   4,800 lines plus the 3,262-line `GIAP_SPEC.md`: the spec itself, the Appendix A templates, CI,
+   4,800 lines plus the 3,262-line `GIPPA_SPEC.md`: the spec itself, the Appendix A templates, CI,
    the probe, the full CLI option surface of §5.1, the config model of §5.2 and the simulator.
    Splitting it into 6+ PRs would add review overhead without adding review value, because most
    of it is verbatim spec content.

@@ -15,14 +15,14 @@ islands: Sequence[IslandSpec] = ())``):
   the empty path).
 * the island golden -- ``ISLAND`` below: one chromosome with an oriC at ``ORIC_FRAC`` and one
   planted high island of ``n_tus`` TUs shifted by ``effect_sd`` stationary SDs, starting at
-  ``giapsim.scenarios.island_first_tu(n_genes)``.
+  ``gippasim.scenarios.island_first_tu(n_genes)``.
 
 **Which island case (lead decision 40).** The spec and
-decision 39 name ``sim1000_island``: 1,000 genes, +3 SD, 20 TUs, giapsim default detection
+decision 39 name ``sim1000_island``: 1,000 genes, +3 SD, 20 TUs, gippasim default detection
 (``SPEC_ISLAND``). Checked against l' before freezing (decision 39) with the merged M5 code on a
 prototype of the fixture (default config, B = 1,000), that case reports **no island at all**:
 
-* giapsim default detection (``covariates_only``, about 45 % of genes censored independently of
+* gippasim default detection (``covariates_only``, about 45 % of genes censored independently of
   abundance) -- no island at +3, +5 or +10 SD on fixture seeds 1-4 or ``GOLDEN_SEED`` (l-hat 1,
   l' 3): the censored genes score lowest whatever their abundance, so the island's TU means stay
   near the genome's.
@@ -90,24 +90,24 @@ class IslandCase:
     n_genes: int
     n_tus: int
     effect_sd: float
-    detection: str  # giapsim ExpressionConfig.detection
+    detection: str  # gippasim ExpressionConfig.detection
 
     @property
     def first_tu(self) -> int:
-        from giapsim.scenarios import island_first_tu
+        from gippasim.scenarios import island_first_tu
 
         return int(island_first_tu(self.n_genes))
 
     def island(self) -> Any:
-        from giapsim.expression import IslandSpec
+        from gippasim.expression import IslandSpec
 
         return IslandSpec("chr1", self.first_tu, self.n_tus, self.effect_sd)
 
     def expression(self) -> dict[str, Any] | None:
-        """``expression=`` for the builder (None: giapsim defaults)."""
+        """``expression=`` for the builder (None: gippasim defaults)."""
         if self.detection == "covariates_only":
             return None
-        from giapsim.scenarios import ABUNDANCE_BETA
+        from gippasim.scenarios import ABUNDANCE_BETA
 
         return {"detection": self.detection, "beta": dict(ABUNDANCE_BETA)}
 
@@ -130,7 +130,7 @@ def build_sim50k(work: Path, seed: int) -> Path:
 
 def build_island(work: Path, seed: int, case: IslandCase = ISLAND) -> Path:
     """``build_m4_fixture`` with the oriC and the planted island of ``case``."""
-    from giapsim.fixtures import build_m4_fixture
+    from gippasim.fixtures import build_m4_fixture
 
     kw: dict[str, Any] = {"oric_frac": ORIC_FRAC, "islands": (case.island(),)}
     expr = case.expression()
@@ -228,7 +228,7 @@ def write_golden(path: Path, data: bytes) -> None:
 
 
 def updating() -> bool:
-    return os.environ.get("GIAP_UPDATE_GOLDEN") == "1"
+    return os.environ.get("GIPPA_UPDATE_GOLDEN") == "1"
 
 
 def first_diff(want: bytes, got: bytes) -> list[tuple[int, str, str]]:

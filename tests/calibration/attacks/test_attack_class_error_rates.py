@@ -1,4 +1,4 @@
-"""Attack nulls for the M7-10 class false-ALT rate (GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is
+"""Attack nulls for the M7-10 class false-ALT rate (GIPPA_SPEC.md §7.5.4, §8.1 row "ALT call is
 real", §8.5; docs/specs/M7-10-class-error-rates.md rules 1-5; statistician review of PR #239).
 
 The M7-10 calibration gate (tests/calibration/test_variant_class_error.py) first ran only on a
@@ -46,7 +46,7 @@ import pandas as pd
 import pytest
 import yaml
 
-from giap.variants.error_rates import class_rates, paired_observations
+from gippa.variants.error_rates import class_rates, paired_observations
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("variants")]
 

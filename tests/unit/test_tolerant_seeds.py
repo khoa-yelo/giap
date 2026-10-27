@@ -23,13 +23,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config.model import TolerantConfig
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.hits import HIT_COLUMNS
-from giap.mapping.qgram import QGramIndex, build_qgram_index, candidate_diagonals, choose_q
-from giap.mapping.sixframe import (
+from gippa.config.model import TolerantConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.mapping.qgram import QGramIndex, build_qgram_index, candidate_diagonals, choose_q
+from gippa.mapping.sixframe import (
     Frame,
     SixFrameIndex,
     build_sixframe,
@@ -37,12 +37,12 @@ from giap.mapping.sixframe import (
     encode_query,
     encode_target,
 )
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
-from giap.rng import for_step
-from giapsim.codons import CODE_11
-from giapsim.simulate import SimConfig, simulate
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Interval, Replicon
+from gippa.model.genes import gene_model_from_bakta_json
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
+from gippasim.simulate import SimConfig, simulate
 
 CFG = TolerantConfig()
 SENSE = sorted(c for c, a in CODE_11.items() if a != "*")
@@ -294,7 +294,7 @@ def test_candidate_diagonals_skip_nomatch_qgrams() -> None:
 
 @cache
 def _sim50(tmp: str) -> tuple[SixFrameIndex, list[tuple[str, Interval]]]:
-    """50-kb giapsim genome and its genes: (protein aa from offset 1, gene-origin interval)."""
+    """50-kb gippasim genome and its genes: (protein aa from offset 1, gene-origin interval)."""
     res = simulate(SimConfig(genome_length=50_000), seed=7, outdir=Path(tmp))
     (rec,) = read_genome_fasta(res.genome_fasta)
     rep = Replicon(rec.id, len(rec.sequence), "circular")
@@ -723,7 +723,7 @@ def test_candidate_diagonals_accept_any_integer_dtype_and_stride() -> None:
 
 
 def _batch_api():  # type: ignore[no-untyped-def]
-    from giap.mapping import tolerant_dp
+    from gippa.mapping import tolerant_dp
 
     for name in ("verify_batch", "exchange_lookup", "decode_key"):
         assert name in tolerant_dp.__all__, name
@@ -738,8 +738,8 @@ def test_verify_batch_is_a_public_numba_dispatcher() -> None:
 
 
 def test_verify_batch_agrees_with_verify_row_by_row() -> None:
-    from giap.mapping.diffops import block_tables
-    from giap.mapping.tolerant_dp import verify
+    from gippa.mapping.diffops import block_tables
+    from gippa.mapping.tolerant_dp import verify
 
     td = _batch_api()
     tables = block_tables()
@@ -780,7 +780,7 @@ def test_verify_batch_agrees_with_verify_row_by_row() -> None:
 def test_verify_batch_is_callable_from_jitted_code() -> None:
     from numba import njit, prange
 
-    from giap.mapping.diffops import block_tables
+    from gippa.mapping.diffops import block_tables
 
     td = _batch_api()
     vb = td.verify_batch
@@ -806,7 +806,7 @@ def test_verify_batch_is_callable_from_jitted_code() -> None:
 
 
 def test_verify_batch_rejects_queries_of_at_most_four_residues() -> None:
-    from giap.mapping.diffops import block_tables
+    from gippa.mapping.diffops import block_tables
 
     td = _batch_api()
     ex = td.exchange_lookup(block_tables())
@@ -825,7 +825,7 @@ def test_driver_passes_uint8_contiguous_codes_to_the_kernels(
 ) -> None:
     """Lead decision 3 after review: argument types seen at the Python boundary of
     ``_search_many`` / ``_search_one`` (independent of a cold or warm numba cache)."""
-    from giap.mapping import tolerant
+    from gippa.mapping import tolerant
 
     genome, *_ = _example10_genome()
     idx = _index(genome)

@@ -1,4 +1,4 @@
-"""Level of the fgsea simple-stage p (issue M8-02; GIAP_SPEC.md §7.7.4, §8.4 level criterion).
+"""Level of the fgsea simple-stage p (issue M8-02; GIPPA_SPEC.md §7.7.4, §8.4 level criterion).
 
 Claim checked: the simple-stage p, min((1 + nLeEs)/(1 + nLeZero), (1 + nGeEs)/(1 + nGeZero)), is a
 valid (+1, sign-conditional) permutation p. Under the null the tested set is a uniform random set
@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.fgsea import fgsea_simple, prepare
+from gippa.stats.fgsea import fgsea_simple, prepare
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("gsea")]
 

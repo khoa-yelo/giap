@@ -1,5 +1,5 @@
 // M6-08: stub run of the OPERONS subworkflow (workflow/subworkflows/local/operons.nf;
-// GIAP_SPEC.md §6.2 step row "operons", §9.1, §9.3; docs/specs/M6-08-operons-step-and-run.md
+// GIPPA_SPEC.md §6.2 step row "operons", §9.1, §9.3; docs/specs/M6-08-operons-step-and-run.md
 // example 7). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here
 // as well.
 //
@@ -12,7 +12,7 @@
 //                           when ANNOTATE wrote them)
 //   emit: pairs, operons, operon_flags (tables/pairs.tsv, tables/operons.tsv,
 //         tables/operon_flags.tsv), versions
-// The operons py step runs through a GIAP_STEP alias with the tag `operons`. The alias name is
+// The operons py step runs through a GIPPA_STEP alias with the tag `operons`. The alias name is
 // left free: `OPERONS` is the subworkflow's own name, so this test finds the task by its tag.
 // Only tables/*.tsv are published; no work Parquet (spec item 7). The required keys
 // reach stepIn's `need` explicitly, so the step does not run when a required channel is empty.
@@ -59,9 +59,9 @@ nextflow_workflow {
 
             assert ran('operons') == 1 : "operons ran ${ran('operons')}x; tasks: ${H.names(workflow.trace)}"
             def dirs = byTag('operons')
-            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "operons did not run through GIAP_STEP"
+            assert dirs.size() == 1 && new File(dirs[0], '.gippa_inputs').isFile() : "operons did not run through GIPPA_STEP"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def oin = H.stepInputs(dirs[0])
             def keys = oin.collect { it[0] }
@@ -120,7 +120,7 @@ nextflow_workflow {
             assert workflow.success
             assert ran('operons') == 1 : "operons ran ${ran('operons')}x; tasks: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
             def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def d = H.taskDirs(work).find { H.tagOf(nameOf(it)) == 'operons' }
             def keys = H.stepInputs(d).collect { it[0] }

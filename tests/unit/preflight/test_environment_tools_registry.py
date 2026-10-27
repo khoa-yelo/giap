@@ -1,28 +1,28 @@
-"""``environment.tools`` from the tool registry and the ``giap setup`` manifest (run-wiring lead
-decision 4 a-c, docs/specs/M2-07-nextflow-tool-processes.md; GIAP_SPEC.md §7.0 Environment rows).
+"""``environment.tools`` from the tool registry and the ``gippa setup`` manifest (run-wiring lead
+decision 4 a-c, docs/specs/M2-07-nextflow-tool-processes.md; GIPPA_SPEC.md §7.0 Environment rows).
 
-a. Binaries/environments come from the M2-01 registry (``giap.annotate.tools``), not from the DB
+a. Binaries/environments come from the M2-01 registry (``gippa.annotate.tools``), not from the DB
    manifest: a tool is present when its pinned image (``workflow/conf/containers.config``) exists
-   under ``$GIAP_ROOT/containers`` (apptainer profiles) or, for a conda-only tool, its prebuilt env
-   ``$GIAP_ROOT/micromamba/envs/giap-<tool>`` holds ``.giap-built`` equal to the sha256 of
+   under ``$GIPPA_ROOT/containers`` (apptainer profiles) or, for a conda-only tool, its prebuilt env
+   ``$GIPPA_ROOT/micromamba/envs/gippa-<tool>`` holds ``.gippa-built`` equal to the sha256 of
    ``workflow/envs/<tool>.yml``. Under the ``test``/``stub`` profiles no tool is required.
-b. Databases and models come from the ``giap setup`` manifest with item names mapped to
+b. Databases and models come from the ``gippa setup`` manifest with item names mapped to
    requirement names: ``cog2020_def``+``cog2020_fun`` → ``cog``, ``go_basic``+``goslim_generic`` →
    ``go``, ``kegg_*`` → ``kegg``, ``promotech_models`` → ``promotech`` (model), ``contaminants`` →
    ``contaminants``; every part of a group must be ``ok``.
-c. A manifest in the real ``giap setup`` format (tests/data/db_manifest/db_manifest.json, versions
-   and paths faked) and fake container/env directories; never the real $GIAP_DB_DIR / $GIAP_ROOT.
+c. A manifest in the real ``gippa setup`` format (tests/data/db_manifest/db_manifest.json, versions
+   and paths faked) and fake container/env directories; never the real $GIPPA_DB_DIR / $GIPPA_ROOT.
 
 Interface pinned here (implementer):
-- ``giap.preflight.environment.missing_tools(tools, profile, image_cache, env_root, local_tools)
-  -> list[str]`` (14f1; called here with a fake ``$GIAP_ROOT``'s two directories): sorted
+- ``gippa.preflight.environment.missing_tools(tools, profile, image_cache, env_root, local_tools)
+  -> list[str]`` (14f1; called here with a fake ``$GIPPA_ROOT``'s two directories): sorted
   registry names of ``tools`` (``Sequence[ToolSpec]``) not found for the comma-joined ``profile``
   under the fake root; ``[]`` when ``profile`` names ``test`` or ``stub``.
 - ``requirements(modules, mode)`` lists databases and models only (kinds ``db``/``model``).
 - ``read_manifest(db_dir)`` maps setup item names to requirement names (groups all-``ok``).
-- ``run_preflight(..., giap_root=<Path>, profile=<str>)`` keywords; with ``probe=None`` the
+- ``run_preflight(..., gippa_root=<Path>, profile=<str>)`` keywords; with ``probe=None`` the
   ``environment.tools`` check reports missing tools and databases by name (exit 2).
-- ``giap run`` reads ``$GIAP_ROOT`` and passes ``--profile`` to that check.
+- ``gippa run`` reads ``$GIPPA_ROOT`` and passes ``--profile`` to that check.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ from helpers.fake_env import (
     SETUP_MANIFEST,
     conda_only_tools,
     env_yml_sha256,
-    fake_giap_root,
+    fake_gippa_root,
     image_file_name,
     pinned_images,
     setup_manifest,
@@ -51,10 +51,10 @@ from helpers.fake_env import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.tools import TOOLS, ToolSpec, required_tools
-from giap.config import resolve_config
-from giap.exitcodes import ExitCode
-from giap.preflight.environment import (
+from gippa.annotate.tools import TOOLS, ToolSpec, required_tools
+from gippa.config import resolve_config
+from gippa.exitcodes import ExitCode
+from gippa.preflight.environment import (
     GIB,
     EnvProbe,
     environment_checks,
@@ -76,10 +76,10 @@ DB_REQS = {"bakta_db", "promotech", "genomad_db", "antismash_db", "go", "kegg", 
 
 
 def _missing_tools() -> Any:
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     fn = getattr(environment, "missing_tools", None)
-    assert fn is not None, "giap.preflight.environment.missing_tools is not implemented"
+    assert fn is not None, "gippa.preflight.environment.missing_tools is not implemented"
 
     def under_root(tools: list[ToolSpec], profile: str, root: Path) -> list[str]:
         """Images in ``<root>/containers``, envs in ``<root>/micromamba/envs`` (14f1)."""
@@ -119,8 +119,8 @@ def test_fixture_helpers_match_the_repo_configs(tmp_path: Path) -> None:
     assert image_file_name(ref).startswith("oschwengers-bakta@sha256-") and ref.endswith(
         image_file_name(ref).split("@sha256-")[1].removesuffix(".img")
     )
-    root = fake_giap_root(tmp_path / "root")
-    assert (root / "micromamba" / "envs" / "giap-uniop" / MARKER).read_text().strip() == (
+    root = fake_gippa_root(tmp_path / "root")
+    assert (root / "micromamba" / "envs" / "gippa-uniop" / MARKER).read_text().strip() == (
         env_yml_sha256("uniop")
     )
 
@@ -138,20 +138,20 @@ def _no_conda(profile: str) -> list[str]:
 
 @pytest.mark.parametrize("profile", APPTAINER_PROFILES)
 def test_a_all_tools_present_in_fake_root(tmp_path: Path, profile: str) -> None:
-    root = fake_giap_root(tmp_path / "root")
+    root = fake_gippa_root(tmp_path / "root")
     assert _missing_tools()(external_tools(), profile, root) == _no_conda(profile)
 
 
 @pytest.mark.parametrize("profile", APPTAINER_PROFILES)
 def test_a_missing_image_reported_by_name(tmp_path: Path, profile: str) -> None:
-    root = fake_giap_root(tmp_path / "root", skip=["bakta", "miniprot"])
+    root = fake_gippa_root(tmp_path / "root", skip=["bakta", "miniprot"])
     want = sorted(["bakta", "miniprot", *_no_conda(profile)])
     assert _missing_tools()(external_tools(), profile, root) == want
 
 
 def test_a_image_must_match_the_pinned_digest(tmp_path: Path) -> None:
     """An image of the same tool under another digest is not the pinned one."""
-    root = fake_giap_root(tmp_path / "root", skip=["bakta"])
+    root = fake_gippa_root(tmp_path / "root", skip=["bakta"])
     ref = pinned_images()["bakta"]
     other = ref.split("@sha256:")[0] + "@sha256:" + "f" * 64
     (root / "containers" / image_file_name(other)).write_bytes(b"other image\n")
@@ -160,18 +160,18 @@ def test_a_image_must_match_the_pinned_digest(tmp_path: Path) -> None:
 
 
 def test_a_missing_conda_env_reported_by_name(tmp_path: Path) -> None:
-    root = fake_giap_root(tmp_path / "root", skip=["uniop"])
+    root = fake_gippa_root(tmp_path / "root", skip=["uniop"])
     assert _missing_tools()(external_tools(), "farmshare,apptainer", root) == ["uniop"]
 
 
 def test_a_env_with_stale_or_no_build_marker_is_missing(tmp_path: Path) -> None:
-    root = fake_giap_root(tmp_path / "root", stale=["promotech"], no_marker=["ostir"])
+    root = fake_gippa_root(tmp_path / "root", stale=["promotech"], no_marker=["ostir"])
     assert _missing_tools()(external_tools(), "farmshare,apptainer", root) == ["ostir", "promotech"]
 
 
 def test_a_only_the_given_tools_are_checked(tmp_path: Path) -> None:
     """Tools a run does not need (e.g. opt-in BacTermFinder, antiSMASH with bgc off) never count."""
-    root = fake_giap_root(tmp_path / "root", skip=["bactermfinder", "antismash", "genomad"])
+    root = fake_gippa_root(tmp_path / "root", skip=["bactermfinder", "antismash", "genomad"])
     cfg = resolve_config(overrides=["modules=[core]"])
     tools = required_tools(cfg)
     names = {t.name for t in tools}
@@ -201,7 +201,7 @@ def test_a_empty_root_lists_every_tool(tmp_path: Path) -> None:
 @given(st.sets(st.sampled_from(sorted(t.name for t in TOOLS.values() if not t.in_process))))
 def test_a_property_missing_is_exactly_the_skipped_tools(skipped: set[str]) -> None:
     with tempfile.TemporaryDirectory() as d:
-        root = fake_giap_root(Path(d) / "root", skip=skipped)
+        root = fake_gippa_root(Path(d) / "root", skip=skipped)
         got = _missing_tools()(external_tools(), "farmshare,apptainer", root)
     assert got == sorted(skipped)
 
@@ -278,7 +278,7 @@ def test_b_fixture_is_the_committed_file() -> None:
     json.loads(SETUP_MANIFEST.read_text())
 
 
-# ---------------------------------------------------------------- run_preflight and giap run
+# ---------------------------------------------------------------- run_preflight and gippa run
 
 
 PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
@@ -290,7 +290,7 @@ def _acgt(n: int, seed: int = 0) -> str:
 
 
 def _inputs(tmp_path: Path) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     g = tmp_path / "in" / "g.fa"
     g.parent.mkdir(parents=True, exist_ok=True)
@@ -302,17 +302,17 @@ def _inputs(tmp_path: Path) -> Any:
 
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never the real $GIAP_DB_DIR / $GIAP_ROOT, even through a fallback."""
-    for var in ("GIAP_DB_DIR", "GIAP_ROOT", "MAMBA_ROOT_PREFIX", "NXF_APPTAINER_CACHEDIR"):
+    """Never the real $GIPPA_DB_DIR / $GIPPA_ROOT, even through a fallback."""
+    for var in ("GIPPA_DB_DIR", "GIPPA_ROOT", "MAMBA_ROOT_PREFIX", "NXF_APPTAINER_CACHEDIR"):
         empty = tmp_path / f"unset_{var.lower()}"
         empty.mkdir()
         monkeypatch.setenv(var, str(empty))
-    # 14f1: a set cache directory wins over $GIAP_ROOT/containers; unset, never the session's
+    # 14f1: a set cache directory wins over $GIPPA_ROOT/containers; unset, never the session's
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR")
 
 
 def _run_preflight(tmp_path: Path, root: Path, db: Path, profile: str) -> Any:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     low = [
         "preflight.min_n50_warn=1",
@@ -321,20 +321,20 @@ def _run_preflight(tmp_path: Path, root: Path, db: Path, profile: str) -> Any:
     ]  # 14d2: the default is auto; pin the true path
     cfg = resolve_config(overrides=low)
     report, _ = run_preflight(
-        _inputs(tmp_path), cfg, None, "run", tmp_path / "OUT", db, giap_root=root, profile=profile
+        _inputs(tmp_path), cfg, None, "run", tmp_path / "OUT", db, gippa_root=root, profile=profile
     )
     return [c for c in report.checks if c.rule_id == "environment.tools"]
 
 
 def test_run_preflight_ok_with_fake_root_and_setup_manifest(tmp_path: Path) -> None:
-    root = fake_giap_root(tmp_path / "root")
+    root = fake_gippa_root(tmp_path / "root")
     db = write_setup_manifest(tmp_path / "db")
     tools = _run_preflight(tmp_path, root, db, "farmshare,apptainer")
     assert [c.level for c in tools] == ["ok"], tools
 
 
 def test_run_preflight_reports_missing_tools_and_databases_by_name(tmp_path: Path) -> None:
-    root = fake_giap_root(tmp_path / "root", skip=["uniop", "bakta"])
+    root = fake_gippa_root(tmp_path / "root", skip=["uniop", "bakta"])
     db = write_setup_manifest(tmp_path / "db", drop=["promotech_models"])
     tools = _run_preflight(tmp_path, root, db, "farmshare,apptainer")
     assert len(tools) == 1 and tools[0].level == "error" and tools[0].exit_code == 2, tools
@@ -372,8 +372,8 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return args
 
 
-def _giap_run(tmp_path: Path, *extra: str) -> tuple[int, str]:
-    from giap.cli import cli
+def _gippa_run(tmp_path: Path, *extra: str) -> tuple[int, str]:
+    from gippa.cli import cli
 
     inp = _inputs(tmp_path)
     argv = ["run", "--genome", str(inp.genome), "--proteins", str(inp.proteins)]
@@ -385,22 +385,22 @@ def _giap_run(tmp_path: Path, *extra: str) -> tuple[int, str]:
 
 
 @pytest.mark.parametrize("profile", ["farmshare,apptainer", "farmshare_local,apptainer"])
-def test_giap_run_launches_with_fake_root(
+def test_gippa_run_launches_with_fake_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_nf: Path, profile: str
 ) -> None:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "root")))
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
-    code, text = _giap_run(tmp_path, "--profile", profile)
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "root")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
+    code, text = _gippa_run(tmp_path, "--profile", profile)
     assert code == ExitCode.SUCCESS, text
     assert fake_nf.is_file(), "nextflow not launched"
 
 
-def test_giap_run_missing_env_exits_2_naming_it_without_launch(
+def test_gippa_run_missing_env_exits_2_naming_it_without_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_nf: Path
 ) -> None:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "root", skip=["ostir"])))
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
-    code, text = _giap_run(tmp_path)
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "root", skip=["ostir"])))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
+    code, text = _gippa_run(tmp_path)
     assert code == ExitCode.ENVIRONMENT, text
     assert "ostir" in text
     assert not fake_nf.exists(), "nextflow launched despite a missing tool"

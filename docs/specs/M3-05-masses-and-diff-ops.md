@@ -1,7 +1,7 @@
 # M3-05: Residue masses, the generated mass-equivalence list, and the difference-operation table
 
-Milestone M3 · depends on: none (M0 only) · creates `src/giap/data/residue_masses.tsv`,
-`src/giap/data/modifications.tsv`, `src/giap/mapping/masses.py`, `src/giap/mapping/diffops.py` ·
+Milestone M3 · depends on: none (M0 only) · creates `src/gippa/data/residue_masses.tsv`,
+`src/gippa/data/modifications.tsv`, `src/gippa/mapping/masses.py`, `src/gippa/mapping/diffops.py` ·
 pure Python · estimate ≈ 200 code lines (data files excluded)
 
 ## Spec sections implemented

@@ -1,14 +1,14 @@
-"""Attack nulls for the M7-12 six-frame decoys under a picked class FDR (GIAP_SPEC.md §7.6.4,
+"""Attack nulls for the M7-12 six-frame decoys under a picked class FDR (GIPPA_SPEC.md §7.6.4,
 §8.1 row "Novel ORF", §8.2 "decoys mimic targets", §8.5; M7-11 rule 2; statistician, PR #225
 round 3).
 
 M7-11 scores a target ORF and its makedb decoy entry by their best PSM, keeps the winner and
-estimates the class FDR as (D + 1) / T (``giap.stats.tda.picked_fdr``). That is the knockoff+
+estimates the class FDR as (D + 1) / T (``gippa.stats.tda.picked_fdr``). That is the knockoff+
 estimator, valid when the label of each null entry's winner is a fair coin independent of its
 score. These attacks check that the simulator's decoys (lead decisions 21, 24) give exactly that,
-with an oracle that does not use GIAP's novel-ORF code:
+with an oracle that does not use GIPPA's novel-ORF code:
 
-- **Fair label** (fast): per six-frame wrong peptide, the side (target or ``rev_GIAPORF_`` decoy)
+- **Fair label** (fast): per six-frame wrong peptide, the side (target or ``rev_GIPPAORF_`` decoy)
   holding its best PSM is a fair coin, pooled exact binomial p >= ``ks_min_p``. A mutant whose
   decoys do not mimic the targets (decoy scores shifted by -0.5 SD) must fail the same test, so
   the check has power.
@@ -42,11 +42,11 @@ from helpers import m7_round3_oracle as Q
 from helpers import m7_sim_oracle as O
 from scipy import stats
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
-ALPHA_NOVEL = 0.01  # stats.alpha.novel_orfs (src/giap/config/defaults.yaml)
+ALPHA_NOVEL = 0.01  # stats.alpha.novel_orfs (src/gippa/config/defaults.yaml)
 QS = (0.01, 0.05, 0.10)
 CLASSES3 = ("intergenic", "cds_outframe", "antisense")
 DENSE = 200
@@ -55,14 +55,14 @@ SHIFT = -0.5  # mutant: decoy scores moved down by half a null SD
 
 def _simulate(out: Path, seed: int, size: str, per_class: int | None = None,
               monkeypatch: pytest.MonkeyPatch | None = None) -> Path:  # fmt: skip
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     if per_class is not None:
         assert monkeypatch is not None
         monkeypatch.setattr(
             sc, "NOVEL_PER_CLASS", MappingProxyType({**sc.NOVEL_PER_CLASS, size: per_class})
         )
-    giapsim.simulate(sc.novel_orf_power(seed, size), seed, out)
+    gippasim.simulate(sc.novel_orf_power(seed, size), seed, out)
     return out
 
 
@@ -164,13 +164,13 @@ def test_attack_picked_label_is_fair_coin(
 def test_attack_default_scenario_can_reach_class_alpha(
     tmp_path_factory: pytest.TempPathFactory, base: int
 ) -> None:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     # Lead decision 26: G3/G4 plant NOVEL_PER_CLASS_GATE per class at 1 Mb; decision 28: the
     # gap-limited intergenic class is not asserted
     out = tmp_path_factory.mktemp("m7floor")
     cfg = sc.novel_orf_power(base + 7100, "1M", n_per_class=sc.NOVEL_PER_CLASS_GATE)
-    giapsim.simulate(cfg, base + 7100, out)
+    gippasim.simulate(cfg, base + 7100, out)
     n = defaultdict(int)
     for r in O.rows(out / "truth" / "novel_orfs.tsv"):
         n[r["class"]] += int(r["n_true_peptides"]) >= 1

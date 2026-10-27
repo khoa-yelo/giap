@@ -1,8 +1,8 @@
 """Fake plots, small ``OUT/`` trees and an HTML tree reader for the M9-02 tests (the ``plots`` and
-``report`` steps, ``giap.report.build`` and ``giap report``).
+``report`` steps, ``gippa.report.build`` and ``gippa report``).
 
-Fake plots register into a swapped ``giap.viz.base._REGISTRY`` (``fake_registry``), as
-tests/unit/viz/test_registry.py does. Every ``giap.steps`` and ``giap.viz`` / ``giap.report``
+Fake plots register into a swapped ``gippa.viz.base._REGISTRY`` (``fake_registry``), as
+tests/unit/viz/test_registry.py does. Every ``gippa.steps`` and ``gippa.viz`` / ``gippa.report``
 module is imported first, so a real plot module imported for the first time while the registry is
 swapped can never register into the temporary dict (the ``registry`` fixture of
 tests/unit/conftest.py does the same for steps).
@@ -111,18 +111,18 @@ def _import_tree(package: str) -> None:
 
 def preload() -> None:
     """Import every step, viz and report module, so none registers while a registry is swapped."""
-    from giap.steps import load_step_modules
+    from gippa.steps import load_step_modules
 
     load_step_modules()
-    for package in ("giap.viz", "giap.report"):
+    for package in ("gippa.viz", "gippa.report"):
         _import_tree(package)
 
 
 def swap_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    """Give ``giap.viz.base`` an empty plot registry for one test (each test module wraps this in
+    """Give ``gippa.viz.base`` an empty plot registry for one test (each test module wraps this in
     its own ``fake_registry`` fixture)."""
     preload()
-    from giap.viz import base
+    from gippa.viz import base
 
     monkeypatch.setattr(base, "_REGISTRY", {})
     return base
@@ -130,7 +130,7 @@ def swap_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 def figure(kind: str = "line") -> Any:
     """A small matplotlib figure; two calls give byte-identical SVGs with the same internal ids."""
-    from giap.viz import style
+    from gippa.viz import style
 
     fig = style.new_figure("single", 1.5)
     ax = fig.add_subplot()
@@ -157,7 +157,7 @@ def register_fake(
     calls: list[str] | None = None,
 ) -> None:
     """Register a fake plot ``pid`` drawing one instance per suffix (identical figures)."""
-    from giap.viz import base
+    from gippa.viz import base
 
     @base.plot(pid, name or NAMES.get(pid, "fake"), needs=list(needs), module=module)
     def _fake(view: Any, cfg: Any) -> Any:
@@ -178,7 +178,7 @@ def write_preflight(out: Path, inputs: Sequence[Mapping[str, Any]] = INPUTS) -> 
     path.parent.mkdir(parents=True, exist_ok=True)
     body = {
         "schema_version": "1",
-        "giap_version": "0.0.0",
+        "gippa_version": "0.0.0",
         "inputs": [dict(i) for i in inputs],
         "replicons": [{"id": "chr1", "length": 10000, "topology": "circular"}],
     }
@@ -219,7 +219,7 @@ def sha256(path: Path) -> str:
 
 def cfg(*overrides: str) -> Any:
     """Defaults with small, fast plot output (SVG only, 50 dpi) unless overridden."""
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(overrides=["report.formats=[svg]", "report.dpi=50", *overrides])
 

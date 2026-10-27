@@ -1,5 +1,5 @@
 """M7-14 rule 5 and lead decision 2: the TE2 proxy entry in ``scripts/slurm/weekly.sbatch``
-(docs/specs/M7-14-te2-proxy-and-id-mixups.md; GIAP_SPEC.md §12, R14).
+(docs/specs/M7-14-te2-proxy-and-id-mixups.md; GIPPA_SPEC.md §12, R14).
 
 Static checks only: nothing is submitted and nothing runs (the script is parsed with ``bash -n``
 and read as text). Conventions pinned here (test-author reading, following the TE8 entry):
@@ -11,7 +11,7 @@ and read as text). Conventions pinned here (test-author reading, following the T
 * Its result is reported through ``step`` with a summary naming ``TE2``, so a failing proxy turns
   the weekly line red (degenerate row "TE2 violation | the gate is red").
 * A ``te2`` result JSON (CLI route) goes to ``$CI/validation/<date>_te2_<job>.json`` as TE8's does.
-* R14 (decision 2): the job stays ``giap-*``, ≤ 16 CPUs per task, no Slurm-executor profile.
+* R14 (decision 2): the job stays ``gippa-*``, ≤ 16 CPUs per task, no Slurm-executor profile.
 """
 
 from __future__ import annotations
@@ -102,6 +102,6 @@ def test_r14_caps_unchanged() -> None:
     text = WEEKLY.read_text()
     name = re.search(r"^#SBATCH\s+--job-name[= ](\S+)", text, re.M)
     cpus = re.search(r"^#SBATCH\s+--cpus-per-task[= ](\d+)", text, re.M)
-    assert name and name.group(1).startswith("giap-")
+    assert name and name.group(1).startswith("gippa-")
     assert cpus and int(cpus.group(1)) <= 16
     assert not re.search(r"te2[^\n]*-profile[^\n]*\bfarmshare\b(?!_local)", _te2_block())

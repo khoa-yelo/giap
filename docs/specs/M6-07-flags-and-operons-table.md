@@ -19,15 +19,15 @@ claims become words
 
 ## Public interface
 
-`src/giap/operons/flags.py`, `src/giap/operons/tu_table.py` (pure)
+`src/gippa/operons/flags.py`, `src/gippa/operons/tu_table.py` (pure)
 ```python
 FLAGS = ("internal_promoter_supported", "internal_terminator_supported", "unexplained_discordance",
          "conflict_terminator_in_operon", "novel_operon_candidate", "coabundant_despite_terminator",
          "other")
 
-def evidence_yes(pairs: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...   # two bool columns
+def evidence_yes(pairs: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame: ...   # two bool columns
 def abundance_pattern(pairs: pd.DataFrame, alpha: float) -> pd.Series: ...    # see step 2
-def flag_pairs(pairs: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...     # operon_flags.tsv
+def flag_pairs(pairs: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame: ...     # operon_flags.tsv
 def operons_table(tus: pd.DataFrame, pairs: pd.DataFrame, genes: pd.DataFrame) -> pd.DataFrame: ...
 ```
 

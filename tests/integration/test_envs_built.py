@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.tools import TOOLS
+from gippa.annotate.tools import TOOLS
 
 pytestmark = pytest.mark.needs_conda
 
 REPO = Path(__file__).resolve().parents[2]
-_GIAP_REPO = Path(os.environ.get("GIAP_REPO", REPO))
-_ROOT = Path(os.environ.get("GIAP_ROOT", _GIAP_REPO / "local"))
+_GIPPA_REPO = Path(os.environ.get("GIPPA_REPO", REPO))
+_ROOT = Path(os.environ.get("GIPPA_ROOT", _GIPPA_REPO / "local"))
 PREFIX = Path(os.environ.get("MAMBA_ROOT_PREFIX", _ROOT / "micromamba"))
 LOCKS = REPO / "workflow" / "envs" / "locks"
 CONDA_TOOLS = sorted(n for n, t in TOOLS.items() if not t.in_process)
@@ -64,7 +64,7 @@ def test_lock_files_present(tool: str) -> None:
 @pytest.mark.parametrize("tool", CONDA_TOOLS)
 def test_build_marker_matches_env_file(tool: str) -> None:
     env = _env_dir(tool)
-    marker = env / ".giap-built"
+    marker = env / ".gippa-built"
     assert marker.is_file(), marker
     sha = hashlib.sha256((REPO / TOOLS[tool].env_file).read_bytes()).hexdigest()
     assert sha in marker.read_text()

@@ -2,9 +2,9 @@
 
 docs/specs/M4-17-region-tests.md.
 
-GIAP_SPEC.md §7.3.5(b), §8.1, Appendix B.4. Inputs are hand-built §9.3 gene tables
+GIPPA_SPEC.md §7.3.5(b), §8.1, Appendix B.4. Inputs are hand-built §9.3 gene tables
 (tests/helpers/region_tests_data.py); expected values come from the spec table, cross-checked
-against the naive oracles there. ``giap.context.regions`` is imported as a module so pytest never
+against the naive oracles there. ``gippa.context.regions`` is imported as a module so pytest never
 collects its ``test_region`` / ``test_all_regions`` functions.
 """
 
@@ -26,7 +26,7 @@ from region_tests_data import Contig, flag_set, gene_table, pick, region_frames,
 
 
 def _regions() -> Any:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R
 
@@ -221,7 +221,7 @@ def test_example_5_linear_no_valid_shift() -> None:
 @pytest.fixture
 def shift_spy(monkeypatch: pytest.MonkeyPatch) -> list[tuple[np.ndarray, bool]]:
     """Records every ``choose_shifts`` result the region tests use (spec "Shifts")."""
-    import giap.stats.permutation as perm
+    import gippa.stats.permutation as perm
 
     R = _regions()
     orig = perm.choose_shifts

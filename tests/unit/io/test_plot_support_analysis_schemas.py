@@ -1,7 +1,7 @@
 """M9-17 support schemas and descriptor (docs/specs/M9-17-plot-support-analysis.md "Support
 files"; ADR-0043 rules 3 and 6).
 
-Each of the six files has ``src/giap/schemas/plot_support/<name>.json`` with the spec's columns in
+Each of the six files has ``src/gippa/schemas/plot_support/<name>.json`` with the spec's columns in
 order and ``NA`` as a missing value, and one ``datapackage.json`` resource with ``role:
 plot_support`` and a ``path`` under ``plots/support/``. Contract: tests/helpers/
 support_analysis_data.py.
@@ -16,9 +16,9 @@ from typing import Any
 import pytest
 from helpers import support_analysis_data as sa
 
-import giap.schemas
+import gippa.schemas
 
-SCHEMAS = Path(giap.schemas.__file__).resolve().parent
+SCHEMAS = Path(gippa.schemas.__file__).resolve().parent
 NAMES = tuple(sa.COLUMNS)
 
 

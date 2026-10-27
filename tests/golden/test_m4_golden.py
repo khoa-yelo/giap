@@ -1,4 +1,4 @@
-"""The committed M4 tables of the 50-kb fixture (GIAP_SPEC.md §11.4; M4-20 example 2).
+"""The committed M4 tables of the 50-kb fixture (GIPPA_SPEC.md §11.4; M4-20 example 2).
 
 Fixture: ``build_m4_fixture(work, seed=GOLDEN_SEED, size="sim50k")`` (the M0 50-kb genome of
 ``simulate(SimConfig(), GOLDEN_SEED)`` as an M4-07 layout, plus the synthetic prophage block and
@@ -9,7 +9,7 @@ byte, with one exception.
 
 **Lead decision 9: the four float columns of ``regions_stats.tsv`` named in ``NUMERIC_COLUMNS``
 are compared numerically, everything else in that file byte for byte.**
-``giap.context.regions.residualise`` (ADR-0018) solves its least squares with ``np.linalg.lstsq``,
+``gippa.context.regions.residualise`` (ADR-0018) solves its least squares with ``np.linalg.lstsq``,
 a LAPACK SVD that is not bit-portable: one fixed 51x4 design gives ``beta[0]`` =
 ``0x1.85e19f7a40364p-6`` on iron and ``...377p-6`` on wheat, the three CI legs disagree with each
 other, and thread pinning does not help (probe 1863133), so no recording machine can make the
@@ -17,9 +17,9 @@ matrix green. Everything the claim is really about -- every count, p-value, q-va
 other three tables and TE7 (two runs on one machine) -- stays byte-identical. Writer-level
 rounding is deferred to the M6 writers (decision 10).
 
-``$GIAP_DB_DIR`` is a test database with the fixture ``cog-20.def.tab`` (tests/helpers/
+``$GIPPA_DB_DIR`` is a test database with the fixture ``cog-20.def.tab`` (tests/helpers/
 gene_table_fixture.py), never the installed one: otherwise ``cog_category`` -- and so the golden
-genes table -- would depend on whether ``giap setup --cog`` has run on the machine.
+genes table -- would depend on whether ``gippa setup --cog`` has run on the machine.
 
 Detection on 50 kb: the genome has 51 genes, 30 of them with peptide evidence, and the smallest
 attainable picked gene q-value is 1/29 = 0.0345. At the default ``stats.alpha.identification`` =
@@ -29,18 +29,18 @@ run 1861972 hit on sim100k); the golden therefore runs at ``alpha.identification
 29 of the 51 genes are detected (lead decision 1).
 
 **M4-21: a second case, ``sim100k_real``,** runs the same four steps on the outputs of the real
-M2/M3 steps instead of the giapsim contract fixture: giapsim SIM100K with its precomputed layers
-and proteomics -> ``giap run --executor local`` (``parse_bakta``, TUs, the regions layer,
+M2/M3 steps instead of the gippasim contract fixture: gippasim SIM100K with its precomputed layers
+and proteomics -> ``gippa run --executor local`` (``parse_bakta``, TUs, the regions layer,
 ``context_layers``, the M3 mapping steps; tests/helpers/m4_real.py) -> the M4 chain on that
 ``OUT/work``. Its files live in ``tests/data/golden/sim100k_real/m4/``; ``sim50k/`` stays the
-M4-only regression. The spec calls the directory ``sim50k_real``, but the 50-kb giapsim genome
+M4-only regression. The spec calls the directory ``sim50k_real``, but the 50-kb gippasim genome
 plants no region at all (its precomputed ``regions.tsv`` is header-only), so its
 ``regions_stats.tsv`` would be empty; SIM100K plants a prophage, a BGC, a CRISPR array and a
 plasmid and is the genome of every sim100k recording and of the MVP-01 run. Same golden config
 (alpha 0.05: SIM100K's picked-q floor is 1/85 = 0.0118 > 0.01), same decision 9 tolerance.
 
 Regenerating (on purpose, reviewed in the PR diff as data, with the statistician's note):
-``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m4_golden.py`` writes the files and skips.
+``GIPPA_UPDATE_GOLDEN=1 pytest tests/golden/test_m4_golden.py`` writes the files and skips.
 """
 
 from __future__ import annotations
@@ -106,11 +106,11 @@ def run(tmp_path_factory: pytest.TempPathFactory, golden_seed: int, case: str) -
     if case == "sim100k_real":
         import m4_real as mr
 
-        work = mr.giap_run(mr.sim100k(root / "sim"), root / "OUT", db, golden_seed)
+        work = mr.gippa_run(mr.sim100k(root / "sim"), root / "OUT", db, golden_seed)
     else:
         work = mc.build(root / "work", seed=golden_seed, size="sim50k")
     out = mc.run_m4(work, golden_config(golden_seed), db)
-    if os.environ.get("GIAP_UPDATE_GOLDEN") == "1":
+    if os.environ.get("GIPPA_UPDATE_GOLDEN") == "1":
         dest = CASES[case]
         dest.mkdir(parents=True, exist_ok=True)
         for name, path in out.items():

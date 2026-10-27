@@ -23,7 +23,7 @@ Slurm
 
 ## Public interface
 
-`src/giap/stats/autocorr.py` (pure; randomness only from the generator passed in)
+`src/gippa/stats/autocorr.py` (pure; randomness only from the generator passed in)
 ```python
 def max_lag(n: int, circular: bool) -> int: ...          # circular (n-1)//2, linear n-1, n < 2 → 0
 def lag_pairs(n: int, lag: int, circular: bool) -> tuple[I64, I64]: ...  # (i, j = i + lag [mod n]); empty if lag ∉ [1, max_lag]
@@ -138,14 +138,14 @@ rule implemented here.
 7. Residual join count (ADR-0020, accepted): `join_count(d, lag, circular, p=None)` and
    `join_count_matrix(D, lags, circular, P=None)` return Σ(d − p)(d − p) when p is given; p moves with d
    under both nulls; all p equal and all d equal → constant null → NA.
-8. Example 12 stays; add a test that giapsim TU-score series at ρ 0.9 give ℓ̂ ≈ 8 (4,500 genes) and ≈ 1.3
+8. Example 12 stays; add a test that gippasim TU-score series at ρ 0.9 give ℓ̂ ≈ 8 (4,500 genes) and ≈ 1.3
    (1,000 genes), pinning the dilution.
 
 ## Lead decisions after the test-author's report (2026-10-20)
 9. Example 12 amended: AR(1) ρ = 0.9, n = 2,000 gives ℓ̂ ≥ 15 in ≥ 95 % of runs (measured 100 %; ℓ̂ = 20
    in 0.85–0.92 because the sampling SD of I₁₇…I₂₀ ≈ ρ²⁰). The test-author updates the test.
 10. `choose_block_len` returns ℓ̂ only. ADR-0021's ℓ' = min(20, 2ℓ̂ + 1, T) is a shared helper
-    `giap.stats.autocorr.block_len_prime(l_hat, T)` (M5-06 and M5-08 call it); the test-author adds tests.
+    `gippa.stats.autocorr.block_len_prime(l_hat, T)` (M5-06 and M5-08 call it); the test-author adds tests.
 11. `lag_test` with NaN obs: `n_valid` is the count of finite null values; every other field NaN.
 12. The < 5 s performance target goes to benchmarks/ (implementer adds the benchmark, no assertion in tests/).
 13. Decision 11 wording: "finite" reads "non-NaN", matching `perm_p` (±inf null entries count as valid).

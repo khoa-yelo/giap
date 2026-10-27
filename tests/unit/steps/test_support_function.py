@@ -10,7 +10,7 @@ support_analysis_data.py (output key ``function_support``, a directory).
 Reading of the spec pinned here: the top 6 sets are the ``enrichment_gsea.tsv`` rows with a
 ``p_value``, by ``q_value``, then |``nes``| descending, then ``collection``, ``term``; each set has
 one row per ranked TU in the engine's rank order (``rank_position`` 1..n, ``score`` the centred
-TU score of ``giap.function.gsea.tu_ranking``, non-increasing), ``in_set`` true on the set's
+TU score of ``gippa.function.gsea.tu_ranking``, non-increasing), ``in_set`` true on the set's
 TUs, and ``running_es`` fgsea's running sum, whose max deviation is the row's ``es``.
 """
 
@@ -28,7 +28,7 @@ from helpers.function_step_data import world_pre, write_gene_table, write_replic
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 KEY = sa.SUPPORT_KEYS["function"]
 NAME = "gsea_running"
@@ -41,16 +41,16 @@ TABLES = {
 
 @pytest.fixture(autouse=True, scope="module")
 def _simple_gsea_engine() -> Iterator[None]:
-    import giap.steps.function as fn
-    from giap.function.gsea import SIMPLE_ENGINE
+    import gippa.steps.function as fn
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(fn, "_LazyRFgsea", lambda log: SIMPLE_ENGINE)
         yield
 
 
-def _cfg(seed: int = 7) -> GiapConfig:
-    return GiapConfig.model_validate({"seed": seed, "stats": {"bootstrap": 100},
+def _cfg(seed: int = 7) -> GippaConfig:
+    return GippaConfig.model_validate({"seed": seed, "stats": {"bootstrap": 100},
                                       "function": {"gsea": {"n_perm_simple": 200}}})  # fmt: skip
 
 
@@ -58,8 +58,8 @@ class World:
     """The M8-06a world: detectability-fitted gene table, folds, replicons, function DB."""
 
     def __init__(self, root: Path) -> None:
-        from giap.steps import load_step_modules
-        from giap.steps import registry as reg
+        from gippa.steps import load_step_modules
+        from gippa.steps import registry as reg
 
         load_step_modules()
         self.root = root
@@ -79,9 +79,9 @@ class World:
                "tu_folds": self.tu_folds}  # fmt: skip
         return ins | self.db.inputs(FUNCTION_RESOURCES) | over
 
-    def run(self, name: str, *, support: bool = True, cfg: GiapConfig | None = None,
+    def run(self, name: str, *, support: bool = True, cfg: GippaConfig | None = None,
             **over: Path) -> dict[str, Path]:  # fmt: skip
-        from giap.steps import registry as reg
+        from gippa.steps import registry as reg
 
         out = self.root / name
         outputs = {k: out / "tables" / v for k, v in TABLES.items()}
@@ -169,10 +169,10 @@ def test_validates_against_its_schema(full: dict[str, Path]) -> None:
     import json
 
     frictionless = pytest.importorskip("frictionless")
-    import giap.schemas
+    import gippa.schemas
 
     path = sa.need(full[KEY], NAME)
-    d = json.loads((Path(giap.schemas.__file__).parent / "plot_support" / f"{NAME}.json")
+    d = json.loads((Path(gippa.schemas.__file__).parent / "plot_support" / f"{NAME}.json")
                    .read_text(encoding="utf-8"))  # fmt: skip
     d = {k: v for k, v in d.items() if k != "coordinates"}
     res = frictionless.Resource(path=path.name, basepath=str(path.parent), format="tsv",
@@ -197,8 +197,8 @@ def test_the_top_6_sets_in_rule_order(running: pd.DataFrame, gsea: pd.DataFrame)
 
 
 def test_one_row_per_ranked_tu_per_set(running: pd.DataFrame, world: World) -> None:
-    from giap.function.gsea import tu_ranking
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.function.gsea import tu_ranking
+    from gippa.io.genes_tsv import read_genes_parquet
 
     rank = tu_ranking(read_genes_parquet(world.gene_table))
     n = len(rank.tu_ids)
@@ -255,7 +255,7 @@ def test_example_5_same_run_twice_byte_identical(world: World, full: dict[str, P
 
 
 def test_no_abundance_no_gsea_running_file(world: World) -> None:
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     genes = read_genes_parquet(world.gene_table)
     genes["abundance_log2"] = float("nan")
@@ -269,10 +269,10 @@ def test_no_abundance_no_gsea_running_file(world: World) -> None:
 
 def test_function_module_off_plans_no_support() -> None:
     """Function off: the step is not planned, so nothing writes ``gsea_running``."""
-    from giap.runner.local import _enabled
+    from gippa.runner.local import _enabled
 
     spec = sa.step_spec("function")
-    off = GiapConfig.model_validate({"seed": 1, "modules": ["core"]})
+    off = GippaConfig.model_validate({"seed": 1, "modules": ["core"]})
     assert not _enabled(off, spec)
     assert KEY in spec.outputs
 
@@ -295,8 +295,8 @@ def _ranking_inputs(
     given."""
     from types import SimpleNamespace
 
-    from giap.function.gsea import TuRanking
-    from giap.stats.fgsea import gsea_es
+    from gippa.function.gsea import TuRanking
+    from gippa.stats.fgsea import gsea_es
 
     n = len(scores)
     ids = tuple(f"TU_{i}" for i in range(1, n + 1))
@@ -316,7 +316,7 @@ def _call(
     monkeypatch: pytest.MonkeyPatch, scores: np.ndarray, members: np.ndarray,
     es: float | None = None,
 ) -> pd.DataFrame | None:  # fmt: skip
-    import giap.function.running as R
+    import gippa.function.running as R
 
     rank, colls, gsea = _ranking_inputs(scores, members, es)
     monkeypatch.setattr(R, "tu_ranking", lambda genes: rank)
@@ -326,8 +326,8 @@ def _call(
 def test_near_tie_fixture_is_a_near_tie() -> None:
     """The brief's example: the walk's max deviation sits on the maxP = -minP tie and its sign
     is the opposite of the engine's ES (fails if the fixture loses its teeth)."""
-    from giap.function.running import _max_dev
-    from giap.stats.fgsea import gsea_es, running_es
+    from gippa.function.running import _max_dev
+    from gippa.stats.fgsea import gsea_es, running_es
 
     s, S = np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)
     es, _ = gsea_es(s, S)
@@ -340,7 +340,7 @@ def test_gsea_running_accepts_the_engine_side_of_a_near_tie(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Decision 8 tie rule: no raise; the rows are the walk and the set's ranks."""
-    from giap.stats.fgsea import running_es
+    from gippa.stats.fgsea import running_es
 
     s, S = np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)
     out = _call(monkeypatch, s, S)
@@ -352,7 +352,7 @@ def test_gsea_running_accepts_the_engine_side_of_a_near_tie(
 
 def test_gsea_running_accepts_an_exact_tie_with_es_zero(monkeypatch: pytest.MonkeyPatch) -> None:
     """fgsea's exact tie (ES 0, side 0): accepted, as before (kills M17 with the near tie)."""
-    from giap.stats.fgsea import gsea_es
+    from gippa.stats.fgsea import gsea_es
 
     s, S = np.ones(4), np.array([1, 4], dtype=np.int64)  # walk 0.5, 0, -0.5, 0
     assert gsea_es(s, S)[0] == 0.0
@@ -408,7 +408,7 @@ def test_function_step_writes_support_at_a_near_tie(
     """On the step: every top set's walk is forced onto the maxP = -minP tie (an extra dip to
     -maxP, the side the engine did not take for a positive ES); the step neither raises nor
     drops the file."""
-    import giap.function.running as R
+    import gippa.function.running as R
 
     real = R.running_es
     tied: list[bool] = []
@@ -429,7 +429,7 @@ def test_function_step_writes_support_at_a_near_tie(
 
 
 def _publish_twice(root: Path, first: int, second: int) -> tuple[Path, object]:
-    from giap.io.plot_support import write_support
+    from gippa.io.plot_support import write_support
 
     out = root / "OUT"
     for tag, n in (("run1", first), ("run2", second)):

@@ -1,4 +1,4 @@
-"""CLI and config edge cases (GIAP_SPEC.md §5.1, §5.2)."""
+"""CLI and config edge cases (GIPPA_SPEC.md §5.1, §5.2)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 
 def _exit_code(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -26,24 +26,24 @@ def _setup_argv(tmp_path: Path, *extra: str) -> list[str]:
 def test_unexpected_exception_becomes_exit_5_with_report_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import giap.cli
+    import gippa.cli
 
     def boom(*_: object, **__: object) -> None:
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr(giap.cli, "resolve_config", boom)
+    monkeypatch.setattr(gippa.cli, "resolve_config", boom)
     assert _exit_code(_setup_argv(tmp_path)) == ExitCode.INTERNAL == 5
     err = capsys.readouterr().err
     assert "report" in err.lower()
     assert "internal error" in err.lower()
 
 
-# `giap setup` is real since M2-08: tests that only check option parsing skip every resource.
+# `gippa setup` is real since M2-08: tests that only check option parsing skip every resource.
 _NO_DOWNLOADS = ["--bakta", "skip", "--no-genomad", "--no-antismash", "--no-promotech-models"]
 
 
 def test_empty_config_file_is_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = tmp_path / "empty.yaml"
     cfg.write_text("")
@@ -78,7 +78,7 @@ def test_set_without_equals_exits_1(tmp_path: Path) -> None:
 
 
 def test_set_nested_key_is_accepted(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = resolve_config(None, ["annotation.promoters.mode=targeted"])
     assert cfg.annotation.promoters.mode == "targeted"
@@ -87,7 +87,7 @@ def test_set_nested_key_is_accepted(tmp_path: Path) -> None:
 
 
 def test_set_value_may_contain_equals() -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config(None, ["sample_name=a=b"]).sample_name == "a=b"
 

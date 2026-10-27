@@ -2,7 +2,7 @@
 
 docs/specs/M4-18-regions-stats-table.md "Public interface", edge cases (depth <= 0 is an error
 issue; header-only table; origin-crossing regions keep ``end > length`` in the 1-based TSV) and
-acceptance (schema; flags are a controlled vocabulary "defined in the schema", GIAP_SPEC.md §9.2,
+acceptance (schema; flags are a controlled vocabulary "defined in the schema", GIPPA_SPEC.md §9.2,
 §9.4, §9.5). §5.3: the depth TSV has columns ``contig``, ``mean_depth``.
 """
 
@@ -20,7 +20,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import regions_stats_data as sd
 
-TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 
 
 def _errors(issues: list[Any]) -> list[Any]:
@@ -36,7 +36,7 @@ def _write(path: Path, text: str) -> Path:
 
 
 def test_read_replicon_depth_valid(tmp_path: Path) -> None:
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     p = _write(tmp_path / "depth.tsv", "contig\tmean_depth\nchr1\t50\np1\t400.5\n")
     df, issues = read_replicon_depth(p)
@@ -49,7 +49,7 @@ def test_read_replicon_depth_valid(tmp_path: Path) -> None:
 @pytest.mark.parametrize("value", ["0", "-3.5"])
 def test_read_replicon_depth_nonpositive_is_error(tmp_path: Path, value: str) -> None:
     """Edge case: depth <= 0 -> error issue (log2 undefined)."""
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     p = _write(tmp_path / "depth.tsv", f"contig\tmean_depth\nchr1\t50\np1\t{value}\n")
     _, issues = read_replicon_depth(p)
@@ -57,7 +57,7 @@ def test_read_replicon_depth_nonpositive_is_error(tmp_path: Path, value: str) ->
 
 
 def test_read_replicon_depth_missing_column_is_error(tmp_path: Path) -> None:
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     p = _write(tmp_path / "depth.tsv", "contig\tdepth\nchr1\t50\n")
     df, issues = read_replicon_depth(p)
@@ -66,7 +66,7 @@ def test_read_replicon_depth_missing_column_is_error(tmp_path: Path) -> None:
 
 
 def test_read_replicon_depth_non_numeric_is_error(tmp_path: Path) -> None:
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     p = _write(tmp_path / "depth.tsv", "contig\tmean_depth\nchr1\thigh\n")
     _, issues = read_replicon_depth(p)
@@ -76,7 +76,7 @@ def test_read_replicon_depth_non_numeric_is_error(tmp_path: Path) -> None:
 @pytest.mark.parametrize("value", ["inf", "-inf", "nan", "1e400"])
 def test_read_replicon_depth_non_finite_is_error(tmp_path: Path, value: str) -> None:
     """Decision 19: non-finite depths are errors and give no frame."""
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     p = _write(tmp_path / "depth.tsv", f"contig\tmean_depth\nchr1\t50\np1\t{value}\n")
     df, issues = read_replicon_depth(p)
@@ -91,7 +91,7 @@ def test_read_replicon_depth_non_finite_is_error(tmp_path: Path, value: str) -> 
     ids=["duplicate", "na_contig", "empty_contig"],
 )  # fmt: skip
 def test_read_replicon_depth_bad_contig_is_error(tmp_path: Path, text: str) -> None:
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     df, issues = read_replicon_depth(_write(tmp_path / "depth.tsv", text))
     assert _errors(issues) and df is None
@@ -103,14 +103,14 @@ def test_read_replicon_depth_bad_contig_is_error(tmp_path: Path, text: str) -> N
 )  # fmt: skip
 def test_read_replicon_depth_unreadable_returns_issues(tmp_path: Path, text: str) -> None:
     """Decision 19: empty / ragged files give (None, issues), never an exception."""
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     df, issues = read_replicon_depth(_write(tmp_path / "depth.tsv", text))
     assert df is None and _errors(issues)
 
 
 def test_read_replicon_depth_missing_file_returns_issues(tmp_path: Path) -> None:
-    from giap.io.depth import read_replicon_depth
+    from gippa.io.depth import read_replicon_depth
 
     df, issues = read_replicon_depth(tmp_path / "absent.tsv")
     assert df is None and _errors(issues)
@@ -129,8 +129,8 @@ def _origin_genome() -> tuple[sd.Genome, int]:
 
 
 def _written(tmp_path: Path, df: pd.DataFrame) -> tuple[list[str], list[dict[str, str | None]]]:
-    from giap.io.regions_tsv import write_regions_stats
-    from giap.io.tsv import read_tsv
+    from gippa.io.regions_tsv import write_regions_stats
+    from gippa.io.tsv import read_tsv
 
     out = tmp_path / "regions_stats.tsv"
     write_regions_stats(out, df)
@@ -178,7 +178,7 @@ def test_writer_na_and_flags(tmp_path: Path) -> None:
 
 
 def test_writer_empty_table_is_header_only(tmp_path: Path) -> None:
-    from giap.io.regions_tsv import write_regions_stats
+    from gippa.io.regions_tsv import write_regions_stats
 
     T = sd.module()
     g = sd.genome([sd.chr_contig()])
@@ -229,7 +229,7 @@ def _validate(path: Path) -> Any:
 
 
 def test_written_table_validates(tmp_path: Path) -> None:
-    from giap.io.regions_tsv import write_regions_stats
+    from gippa.io.regions_tsv import write_regions_stats
 
     g, _ = _origin_genome()
     out = tmp_path / "regions_stats.tsv"
@@ -239,8 +239,8 @@ def test_written_table_validates(tmp_path: Path) -> None:
 
 
 def _with_flags(tmp_path: Path, value: str) -> Path:
-    from giap.io.regions_tsv import write_regions_stats
-    from giap.io.tsv import read_tsv, write_tsv
+    from gippa.io.regions_tsv import write_regions_stats
+    from gippa.io.tsv import read_tsv, write_tsv
 
     src = tmp_path / "src.tsv"
     write_regions_stats(src, sd.table(sd.mixed_genome()))

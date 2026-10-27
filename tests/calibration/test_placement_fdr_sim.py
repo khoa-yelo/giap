@@ -1,9 +1,9 @@
-"""Genome-level placement FDR on giapsim through the mapping steps (issue M3-21; GIAP_SPEC.md
+"""Genome-level placement FDR on gippasim through the mapping steps (issue M3-21; GIPPA_SPEC.md
 §7.2.9 "Calibration: placement FDR <= q + Monte Carlo error on simulated wrong peptides (database
 and de novo error models)", §8.4 "Placement FDR" row; docs/specs/M3-21 lead decisions 1-12;
 ADR-0019).
 
-Every replicate: a giapsim genome (100 kb fast / 1 Mb full), M3-19 proteomics, ``giap
+Every replicate: a gippasim genome (100 kb fast / 1 Mb full), M3-19 proteomics, ``gippa
 preflight`` and the registered mapping steps (helpers.placement_sims). FDP per list (decoy type x
 m) and pooled, false placement = no accepted locus overlaps a true origin (helpers.placement_truth),
 criterion mean FDP <= q + 2 SE at every level (``_placement_suite.run_fdr_suite``).
@@ -75,13 +75,13 @@ def _length(full: bool) -> int:
 
 
 def _proteomics(**kw: object) -> object:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     return ProteomicsConfig(search_db="other", **kw)  # type: ignore[arg-type]
 
 
 def _strain(snv: float = 5.0) -> object:
-    from giapsim.strain import StrainConfig
+    from gippasim.strain import StrainConfig
 
     return StrainConfig(snv_rate_per_kb=snv)
 
@@ -227,7 +227,7 @@ def test_related_other_strain_placement_fdr_full(tmp_path: Path) -> None:
 
 
 def _denovo(full: bool, tmp: Path) -> None:
-    from giapsim.denovo import DenovoConfig
+    from gippasim.denovo import DenovoConfig
 
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
         ch = run_chain(

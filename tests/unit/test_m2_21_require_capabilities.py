@@ -1,8 +1,8 @@
-"""``--require-capabilities`` with the nightly gate (M2-21 example 2; GIAP_SPEC.md §3.6).
+"""``--require-capabilities`` with the nightly gate (M2-21 example 2; GIPPA_SPEC.md §3.6).
 
 "same with ``local/db/genomad_db`` renamed away → the job fails (not skips): ``required capability
 needs_genomad_db is missing``". The capability plugin (``tests/conftest.py``) probes the database
-directory live (``$GIAP_DB_DIR``), not ``.giap/capabilities.json``; the test builds a tmp DB
+directory live (``$GIPPA_DB_DIR``), not ``.gippa/capabilities.json``; the test builds a tmp DB
 directory holding every nightly database layout (and a tmp ``capabilities.json`` claiming
 everything present, which must not mask the live probe) and runs a pytester session with the full
 ``farmshare_nightly`` list of ``ci/gates.yaml``.
@@ -54,11 +54,11 @@ def _db(root: Path, genomad: bool) -> Path:
 def _session(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, genomad: bool,
              *args: str) -> pytest.RunResult:  # fmt: skip
     db = _db(pytester.path, genomad)
-    caps = pytester.path / ".giap" / "capabilities.json"
+    caps = pytester.path / ".gippa" / "capabilities.json"
     caps.parent.mkdir()
     caps.write_text(json.dumps({c: True for c in GATES["farmshare_nightly"]}))
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
-    monkeypatch.setenv("GIAP_ROOT", str(pytester.path))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_ROOT", str(pytester.path))
     pytester.makeconftest(CONFTEST)
     pytester.makeini("[pytest]\nmarkers =\n" + "".join(f"    {c}: x\n" for c in DB_CAPS))
     pytester.makepyfile(TESTS)

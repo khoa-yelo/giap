@@ -260,7 +260,7 @@
     }
   ],
   "evidence_tier": "two_peptide",
-  "giap_version": "0.0.1",
+  "gippa_version": "0.0.1",
   "inputs": [
     {
       "file": "reference.fasta",

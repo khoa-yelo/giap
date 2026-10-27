@@ -6,16 +6,16 @@ The M3-24 assertions on this script (``tests/unit/test_m3_24_pilot_kit.py``) mus
 unchanged; they are not repeated here.
 
 The script runs with ``bash`` in ``helpers.a3_kit.a3_sandbox`` (fake Slurm tools, fake
-``micromamba`` that logs every call with its cwd, an unreachable proxy). The ``giap-cascadia`` env
+``micromamba`` that logs every call with its cwd, an unreachable proxy). The ``gippa-cascadia`` env
 is a real venv holding the 08a stub ``cascadia``/``pyteomics``/``psims`` packages plus, added
 here, a stub ``torch`` (``$STUB_CUDA`` decides ``torch.cuda.is_available()``) and a stub
 ``cascadia`` executable for ``--help``. A fake ``nvidia-smi`` logs its calls. The real 08a
 launcher ``scripts/pilot/cascadia_offline.py`` runs against the stubs. No GPU, no Cascadia, no
-network, no real ``$GIAP_ROOT``. No statistical claim, so no calibration test.
+network, no real ``$GIPPA_ROOT``. No statistical claim, so no calibration test.
 
 Conventions settled by the test author: the run comes from ``$A3_RUN`` or the second argument
 (``denovo_pilot.sbatch cascadia WT_2``); the expected sha256 values come from
-``$GIAP_REPO/validation/pilot/a3_assets.tsv`` (as in ``fetch_a3_assets.sbatch``); a missing mzML
+``$GIPPA_REPO/validation/pilot/a3_assets.tsv`` (as in ``fetch_a3_assets.sbatch``); a missing mzML
 for a requested run is a precondition (exit 2).
 """
 
@@ -171,8 +171,8 @@ def test_one_run_calls_cascadia_through_the_offline_launcher(box: A3Sandbox) -> 
     assert len(calls) == 1, calls
     argv = calls[0]["argv"]
     i = argv.index("sequence")
-    assert argv[:3] == ["run", "-n", "giap-cascadia"] or (
-        "-n" in argv and argv[argv.index("-n") + 1] == "giap-cascadia"
+    assert argv[:3] == ["run", "-n", "gippa-cascadia"] or (
+        "-n" in argv and argv[argv.index("-n") + 1] == "gippa-cascadia"
     ), argv
     pre = argv[:i]
     assert "python" in [Path(a).name for a in pre] and "-I" in pre, argv
@@ -308,7 +308,7 @@ def test_cascadia_failure_propagates(box: A3Sandbox) -> None:
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "slurm" / "denovo_pilot.sbatch"
 MAX_MEM_PER_CPU_MB = 4000  # `scontrol show partition gpu`: DefMemPerCPU = MaxMemPerCPU = 4000
 UNIMOD_URL = "http://www.unimod.org/obo/unimod.obo"
-_SCRATCH = re.compile(r"giap-a3\.[A-Za-z0-9]{6,}")
+_SCRATCH = re.compile(r"gippa-a3\.[A-Za-z0-9]{6,}")
 
 
 def _directive(path: Path, key: str) -> str | None:
@@ -356,10 +356,10 @@ def test_s2_scratch_is_a_fresh_per_job_mktemp_dir(box: A3Sandbox) -> None:
     assert len(roots) == 1, f"one scratch root per job: {roots}"
     (root,) = roots
     assert root.parent == tmpdir and _SCRATCH.fullmatch(root.name), (
-        f"the scratch must be mktemp -d $TMPDIR/giap-a3.XXXXXX, not {root}"
+        f"the scratch must be mktemp -d $TMPDIR/gippa-a3.XXXXXX, not {root}"
     )
     assert not root.exists(), "the scratch root is removed on exit"
-    assert not list(tmpdir.glob("giap-a3.*")), "nothing left under $TMPDIR"
+    assert not list(tmpdir.glob("gippa-a3.*")), "nothing left under $TMPDIR"
 
 
 def test_s2_a_foreign_tmpdir_run_directory_is_untouched(box: A3Sandbox) -> None:

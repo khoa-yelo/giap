@@ -1,5 +1,5 @@
 """Hypothesis properties of the Poisson-binomial DP and the chance-hit model (issue M3-09;
-GIAP_SPEC.md §7.2.5, §8.3).
+GIPPA_SPEC.md §7.2.5, §8.3).
 
 - pmf sums to 1 (<= 1e-12), is non-negative, equals the binomial pmf for constant p, and is
   invariant to permuting p; cdf(k) = sum pmf[:k+1]; sf(k) = sum pmf[k:];
@@ -16,9 +16,9 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.chance import ResidueFreqs, expected_hits, expected_hits_uniform
-from giap.mapping.sixframe import ALPHABET
-from giap.stats.poisson_binomial import (
+from gippa.mapping.chance import ResidueFreqs, expected_hits, expected_hits_uniform
+from gippa.mapping.sixframe import ALPHABET
+from gippa.stats.poisson_binomial import (
     poisson_binomial_cdf,
     poisson_binomial_pmf,
     poisson_binomial_sf,

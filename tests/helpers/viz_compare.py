@@ -2,7 +2,7 @@
 """Builders for the M9-23 V16 ``compare`` tests (docs/specs/M9-23-v16-compare-plot.md).
 
 ``inputs(genes)`` turns per-run ``genes.tsv`` frames (``helpers.compare_data.genes_frame``) into
-the two ``giap compare`` tables V16 reads, through the real M9-22 functions:
+the two ``gippa compare`` tables V16 reads, through the real M9-22 functions:
 ``compare_detection`` (matrix + intersection sections) and ``compare_abundance`` (one row per
 unordered pair, TUs of the pair's first run, lead decision 7 of M9-22). Tests that need exact
 ρ / CI values overwrite cells of the abundance frame (``set_rho``).
@@ -39,9 +39,9 @@ def detect_runs(
 
 
 def inputs(genes: Mapping[str, pd.DataFrame], B: int = 20) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """``(compare_detection, compare_abundance)`` as ``giap compare`` builds them."""
-    from giap.compare.abundance import abundance_pairs
-    from giap.compare.detection import detection_matrix, intersections
+    """``(compare_detection, compare_abundance)`` as ``gippa compare`` builds them."""
+    from gippa.compare.abundance import abundance_pairs
+    from gippa.compare.detection import detection_matrix, intersections
 
     labels = list(genes)
     matrix = detection_matrix(genes)

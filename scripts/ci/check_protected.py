@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fail when a protected file changes without Khoa's approval (GIAP_SPEC.md R3, §14.6, A.4).
+"""Fail when a protected file changes without Khoa's approval (GIPPA_SPEC.md R3, §14.6, A.4).
 
 Creating a protected file is allowed. Modifying, deleting or renaming one needs a commit trailer
 ``Gate-Change-Approved: ADR-NNNN`` naming an ADR whose status on the *base* branch is
 ``accepted-by-khoa`` (an ADR added in the same PR cannot approve it).
-For src/giap/config/defaults.yaml, a diff that only adds keys passes with any ADR reference.
+For src/gippa/config/defaults.yaml, a diff that only adds keys passes with any ADR reference.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ADDITIVE_OK = "src/giap/config/defaults.yaml"
+ADDITIVE_OK = "src/gippa/config/defaults.yaml"
 
 
 def git(*args: str) -> str:

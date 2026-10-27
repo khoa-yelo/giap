@@ -1,4 +1,4 @@
-"""Monte Carlo reproduction of the B.2 chance-hit table (issue M3-09; GIAP_SPEC.md §7.2.5,
+"""Monte Carlo reproduction of the B.2 chance-hit table (issue M3-09; GIPPA_SPEC.md §7.2.5,
 §7.2.9, Appendix B.2: "A Monte Carlo simulation on random sequences with these frequencies MUST
 reproduce the <= 1 column for L = 8-10 within 20 %").
 
@@ -8,7 +8,7 @@ exactly); random peptides of length L are drawn from the same vector. Hits with 
 substitution per peptide are counted exactly (one sorted key array per wildcard position:
 count(<= 1) = sum_j count(match except j) - (L - 1) * count(exact)), and the mean, scaled to
 N = 10^7, must be within 20 % of the B.2 <= 1 column and of ``expected_hits_uniform``, with a
-Monte Carlo SE <= 5 %. Seeds: ``giap.rng.for_step(..., seeds.calibration_base)``.
+Monte Carlo SE <= 5 %. Seeds: ``gippa.rng.for_step(..., seeds.calibration_base)``.
 
 The full suite (L = 8, 9, 10) takes ~10 s; a fast L = 8 version runs on every commit.
 """
@@ -18,9 +18,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.mapping.chance import ResidueFreqs, expected_hits, expected_hits_uniform
-from giap.mapping.sixframe import ALPHABET
-from giap.rng import for_step
+from gippa.mapping.chance import ResidueFreqs, expected_hits, expected_hits_uniform
+from gippa.mapping.sixframe import ALPHABET
+from gippa.rng import for_step
 
 S = 0.069
 B2_LE1 = {8: 0.56, 9: 0.043, 10: 0.0033}

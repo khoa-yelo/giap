@@ -1,7 +1,7 @@
 """Live download of the M2-09 resources (docs/specs/M2-09, lead decision 2 after code review).
 
 Each group (``--go``, ``--kegg``, ``--cog``, ``--contaminants``) is downloaded from its official
-host with the real ``HttpsFetcher`` into ``tmp_path`` (never $GIAP_DB_DIR), must verify (``ok``,
+host with the real ``HttpsFetcher`` into ``tmp_path`` (never $GIPPA_DB_DIR), must verify (``ok``,
 pinned sha256 where pinned), and ``--check`` must then pass offline. Marked ``needs_net(<host>)``
 for every host the group contacts (GO: purl.obolibrary.org redirects to release.geneontology.org)
 and ``slow``; it runs only in the weekly Slurm job. Sizes are printed for PROGRESS.md.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.setupdb import SOURCES, HttpsFetcher, SetupOptions, read_records, run_setup
+from gippa.setupdb import SOURCES, HttpsFetcher, SetupOptions, read_records, run_setup
 
 pytestmark = pytest.mark.slow
 

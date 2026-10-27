@@ -1,5 +1,5 @@
 """M4-15 ``genes.tsv`` assembly: examples 2-9 and the edge cases of
-docs/specs/M4-15-gene-table-assembly.md (GIAP_SPEC.md §6.5, §7.3, §9.2-§9.4).
+docs/specs/M4-15-gene-table-assembly.md (GIPPA_SPEC.md §6.5, §7.3, §9.2-§9.4).
 
 Inputs are the hand-made M4-06 contract frames of ``m4_contract_fixture`` run through the merged
 M4-10 ... M4-14 producers (tests/helpers/gene_table_fixture.py), so ``assemble_genes`` sees exactly
@@ -8,7 +8,7 @@ what its producers return.
 Pinned by the test author (spec gaps, see the hand-back report):
 - ``assemble_genes`` returns the internal representation: 0-based half-open ``start``/``end``,
   Python lists (or arrays) in list columns, NaN/None for missing; columns exactly
-  ``GENES_COLUMNS``. The TSV conversion is only in ``giap.io.genes_tsv.write_genes_tsv``.
+  ``GENES_COLUMNS``. The TSV conversion is only in ``gippa.io.genes_tsv.write_genes_tsv``.
 - ``function_columns(xrefs, cog_def)`` takes the COG table as a frame with columns ``cog_id`` and
   ``cog_category`` (extra columns ignored); list cells (``go_terms``, ``kegg_ko``, ``ec``) are
   sorted and de-duplicated; xrefs of other databases are ignored.
@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import gene_table_fixture as gt
 from gene_table_fixture import as_list, is_na, row, tag
 
-ASSEMBLE = Path(__file__).resolve().parents[3] / "src" / "giap" / "genetable" / "assemble.py"
+ASSEMBLE = Path(__file__).resolve().parents[3] / "src" / "gippa" / "genetable" / "assemble.py"
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +50,7 @@ def table(world: gt.World) -> pd.DataFrame:
 
 def _tsv(tmp_path: Path, df: pd.DataFrame) -> pd.DataFrame:
     """Write with ``write_genes_tsv`` and read back the raw cells (strings, ``NA`` kept)."""
-    from giap.io.genes_tsv import write_genes_tsv
+    from gippa.io.genes_tsv import write_genes_tsv
 
     path = tmp_path / "genes.tsv"
     write_genes_tsv(path, df)
@@ -61,27 +61,27 @@ def _tsv(tmp_path: Path, df: pd.DataFrame) -> pd.DataFrame:
 
 
 def test_genes_columns_follow_section_9_3() -> None:
-    from giap.genetable.assemble import GENES_COLUMNS
+    from gippa.genetable.assemble import GENES_COLUMNS
 
     assert tuple(GENES_COLUMNS) == gt.GENES_COLUMNS
     assert "aa" not in GENES_COLUMNS and "nt" not in GENES_COLUMNS
 
 
 def test_gene_flags_vocabulary_order() -> None:
-    from giap.genetable.assemble import GENE_FLAGS
+    from gippa.genetable.assemble import GENE_FLAGS
 
     assert tuple(GENE_FLAGS) == gt.GENE_FLAGS
 
 
 def test_no_column_says_expressed() -> None:
     """§1.2 rule 6: say "detected", never "expressed"."""
-    from giap.genetable.assemble import GENE_FLAGS, GENES_COLUMNS
+    from gippa.genetable.assemble import GENE_FLAGS, GENES_COLUMNS
 
     assert not [c for c in (*GENES_COLUMNS, *GENE_FLAGS) if "express" in c.lower()]
 
 
 def test_gene_flags_union_in_vocabulary_order() -> None:
-    from giap.genetable.assemble import gene_flags
+    from gippa.genetable.assemble import gene_flags
 
     parts = {
         "layers": ["pseudogene"],
@@ -98,7 +98,7 @@ def test_gene_flags_union_in_vocabulary_order() -> None:
 
 @pytest.mark.parametrize("bad", ["expressed", "same_db", "layer_missing:cog", ""])
 def test_gene_flags_vocabulary_is_closed(bad: str) -> None:
-    from giap.genetable.assemble import gene_flags
+    from gippa.genetable.assemble import gene_flags
 
     with pytest.raises(ValueError, match="flag"):
         gene_flags({"layers": ["partial", bad]})
@@ -313,7 +313,7 @@ def test_example_5_region_ids_list(tmp_path: Path, table: pd.DataFrame) -> None:
 
 
 def test_example_6_function_pivot() -> None:
-    from giap.genetable.assemble import function_columns
+    from gippa.genetable.assemble import function_columns
 
     xrefs = pd.DataFrame(
         [("G1", "COG", "COG0593"), ("G1", "GO", "GO:0005524"), ("G1", "EC", "3.6.4.12"),
@@ -449,7 +449,7 @@ def test_assemble_module_is_pure() -> None:
     import ast
 
     tree = ast.parse(ASSEMBLE.read_text(encoding="utf-8"))
-    banned_mod = {"os", "pathlib", "shutil", "io", "pyarrow.parquet", "giap.steps"}
+    banned_mod = {"os", "pathlib", "shutil", "io", "pyarrow.parquet", "gippa.steps"}
     banned_call = {"open", "read_parquet", "to_parquet", "read_csv", "to_csv", "read_text",
                    "write_text", "read_bytes", "write_bytes", "read_tsv", "write_tsv"}  # fmt: skip
     for node in ast.walk(tree):

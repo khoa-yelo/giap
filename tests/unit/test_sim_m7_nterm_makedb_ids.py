@@ -1,14 +1,14 @@
-"""giapsim six-frame target rows name only real makedb entries, ``nterm_extension`` included
+"""gippasim six-frame target rows name only real makedb entries, ``nterm_extension`` included
 (docs/specs/M7-11b-class-fdr-wiring.md lead decisions 9-10; the M7-13b fast-tier run, Slurm
 1873888, still had 22 ``nterm_extension`` ``no_makedb_pair`` ORFs over R = 10 at 1M).
 
-``giap makedb`` keeps an ``nterm_extension`` entry only when the upstream part is >= 7 aa
-(``giap.makedb.build.NTERM_MIN_UPSTREAM_AA``). A planted N-terminal extension of 5-6 codons with
+``gippa makedb`` keeps an ``nterm_extension`` entry only when the upstream part is >= 7 aa
+(``gippa.makedb.build.NTERM_MIN_UPSTREAM_AA``). A planted N-terminal extension of 5-6 codons with
 a stop right before its true start therefore has no entry, and a search against that FASTA cannot
 report a peptide reaching upstream of the gene's annotated start. In ``novel_orf_power(30,
-"100k")`` one such gene has a detected upstream peptide (giapsim before this fix named it
-``GIAPORF_nterm_extension_chr1_18104_18208_m``, an entry makedb does not build). Checked against
-the database GIAP itself builds (``m7_round3_oracle``).
+"100k")`` one such gene has a detected upstream peptide (gippasim before this fix named it
+``GIPPAORF_nterm_extension_chr1_18104_18208_m``, an entry makedb does not build). Checked against
+the database GIPPA itself builds (``m7_round3_oracle``).
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from pathlib import Path
 from helpers import m7_round3_oracle as Q
 from helpers import m7_sim_oracle as O
 
-import giapsim
-import giapsim.scenarios as S
+import gippasim
+import gippasim.scenarios as S
 
 SEED = 30  # 100k: a detected upstream peptide of an N-terminal extension without an entry
 
@@ -28,7 +28,7 @@ def test_target_ids_are_makedb_entries_and_entryless_extensions_are_unsearched(
     tmp_path: Path,
 ) -> None:
     out = tmp_path / "sim"
-    giapsim.simulate(S.novel_orf_power(SEED, "100k"), SEED, out)
+    gippasim.simulate(S.novel_orf_power(SEED, "100k"), SEED, out)
     entries = Q.makedb_entries(out, tmp_path / "db")
     tags = {e.locus_tag for e in entries.values() if e.cls == "nterm_extension"}
     feats = {r["feature_id"]: r for r in O.rows(out / "truth" / "features.tsv")}
@@ -37,7 +37,7 @@ def test_target_ids_are_makedb_entries_and_entryless_extensions_are_unsearched(
 
     rows = O.rows(out / "peptides.tsv")
     orf_ids = {i.removeprefix("rev_") for r in rows for i in Q.ids(r["protein_ids"])}
-    bad = sorted(i for i in orf_ids if i.startswith("GIAPORF_") and i not in entries)
+    bad = sorted(i for i in orf_ids if i.startswith("GIPPAORF_") and i not in entries)
     assert not bad, f"{len(bad)} protein IDs name no makedb entry: {bad[:5]}"
 
     targets = {r["peptide"] for r in rows if r["is_decoy"] != "true"}

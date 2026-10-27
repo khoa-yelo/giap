@@ -27,7 +27,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from giap.annotate.terminators import (
+from gippa.annotate.terminators import (
     Terminator,
     crosscheck,
     parse_terminatornet,
@@ -35,9 +35,9 @@ from giap.annotate.terminators import (
     terminator_conf_downstream,
     terminators_bed,
 )
-from giap.config import GiapConfig, resolve_config
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.config import GippaConfig, resolve_config
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 CHR1 = Replicon("chr1", 100_000, "circular", "chromosome")
 CIRC = Replicon("c", 10_000, "circular", "chromosome")
@@ -191,14 +191,14 @@ BTF_ZETA = "1_zeta_chr_4000_4040_+,0.9,0.9,0.9,0.9,0.95\n"
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -259,7 +259,7 @@ def _key_file(key: str, avail: dict[str, Path]) -> Path | None:
 
 
 def _run(
-    reg: ModuleType, avail: dict[str, Path], out: Path, cfg: GiapConfig
+    reg: ModuleType, avail: dict[str, Path], out: Path, cfg: GippaConfig
 ) -> tuple[list[dict[str, Any]], list[list[str]]]:
     spec = reg.get("terminator_layer")
     ins: dict[str, Path] = {}
@@ -280,7 +280,7 @@ def _run(
     return pq.read_table(outs[pq_key]).to_pylist(), xc_rows
 
 
-def _cfg(*over: str) -> GiapConfig:
+def _cfg(*over: str) -> GippaConfig:
     return resolve_config(None, ["seed=1", *over])
 
 
@@ -361,7 +361,7 @@ def test_bactermfinder_empty_directory_means_no_calls(
 def test_bactermfinder_several_csvs_raise_naming_them(
     steps: ModuleType, files: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     d = _btf_dir(
         tmp_path,

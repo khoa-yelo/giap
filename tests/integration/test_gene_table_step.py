@@ -1,12 +1,12 @@
-"""M4-15 examples 1 and 10 on the giapsim default fixture (docs/specs/M4-15-gene-table-assembly.md;
-GIAP_SPEC.md §6.6/R7, §7.3.3, §9.5).
+"""M4-15 examples 1 and 10 on the gippasim default fixture (docs/specs/M4-15-gene-table-assembly.md;
+GIPPA_SPEC.md §6.6/R7, §7.3.3, §9.5).
 
 The M4-07/08/09 simulator writes the contract tables of a 1,000-gene layout to ``tmp_path`` (C1-C8
 flat, C9/C10 flat, C11-C13 under ``mapping/``, as the producers do); the registered steps
 ``gene_table`` and ``detectability`` run through ``run_step``; ``genes.tsv`` is written with
 ``write_genes_tsv`` and validated with frictionless against ``schemas/tables/genes.schema.json``.
 
-Lead decision 7: giapsim writes ``annotation_source = "bakta_full"``, so its output validates as
+Lead decision 7: gippasim writes ``annotation_source = "bakta_full"``, so its output validates as
 written (no rewrite here). The detectability output parquet is the declared output of
 ``detectability`` that holds a ``p_detect`` column.
 """
@@ -32,14 +32,14 @@ KEYS = {
     "regions": "regions.parquet", "region_genes": "region_genes.parquet",
     "peptides": "peptides.norm.parquet", "abundance": "abundance.norm.parquet",
 }  # fmt: skip
-TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 
 
 def _simulate(work: Path) -> dict[str, Path]:
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giapsim.contract_tables import write_contract_tables
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippasim.contract_tables import write_contract_tables
 
     rng = np.random.default_rng(SEED)
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=1000), rng)
@@ -53,13 +53,13 @@ def _simulate(work: Path) -> dict[str, Path]:
 
 def _pipeline(root: Path) -> tuple[Path, pd.DataFrame, pd.DataFrame]:
     """gene_table -> detectability -> genes.tsv; returns (tsv, genes_pre, genes)."""
-    from giap.config import GiapConfig
-    from giap.io.genes_tsv import write_genes_tsv
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import GippaConfig
+    from gippa.io.genes_tsv import write_genes_tsv
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
-    cfg = GiapConfig(seed=SEED)
+    cfg = GippaConfig(seed=SEED)
     keys = _simulate(root / "work")
     spec = reg.get("gene_table")
     ins = {k: p for k, p in keys.items() if k in (*spec.inputs, *spec.optional_inputs)}
@@ -109,15 +109,15 @@ def test_p_detect_is_the_cross_fitted_m4_13_prediction(
 ) -> None:
     """Methods note: ``p_detect`` is attached only from the cross-fitted M4-13 predictions (the
     ``detectability`` step's own stream ``for_step("detectability", seed)``)."""
-    from giap.config import GiapConfig
-    from giap.genetable.detectability import fit_detectability
-    from giap.rng import for_step
+    from gippa.config import GippaConfig
+    from gippa.genetable.detectability import fit_detectability
+    from gippa.rng import for_step
 
     _, pre, genes = run_a
     pre = pre.set_index("locus_tag")
     detected = pre["detected"].astype("boolean").where(~pre["partial"].astype(bool), pd.NA)
     cov = pre[["length_aa", "n_observable_peptides", "gravy", "pi", "mw_da", "tm_segments"]]
-    cfg = GiapConfig(seed=SEED)
+    cfg = GippaConfig(seed=SEED)
     want = fit_detectability(detected, cov.reset_index(), pre["tu_id"], cfg.detectability,
                              for_step("detectability", SEED))  # fmt: skip
     got = genes.set_index("locus_tag")["p_detect"].astype(float)

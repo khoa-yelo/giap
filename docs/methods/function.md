@@ -1,6 +1,6 @@
 # Function module: detection enrichment primitives
 
-Implements `giap.stats.wallenius` and `giap.function.elim` (GIAP_SPEC.md §7.7.3, §7.7.5, §8.1 row
+Implements `gippa.stats.wallenius` and `gippa.function.elim` (GIPPA_SPEC.md §7.7.3, §7.7.5, §8.1 row
 "Category detection", §8.2, §8.3; issue M8-01, docs/specs/M8-01-stats-wallenius-elim.md, lead
 decisions 1–4; M8-index lead decision 5). The families, the effect size and `parent_group` are
 M8-04's: see "Detection enrichment" below, which replaces the Wallenius p with the TU-counted
@@ -47,7 +47,7 @@ is non-finite or does not sum to 1 ± 1e-6 also raises `ValueError`. M8-04 repor
   the run's detection rate (about 0.3–0.7), so ω > 1e6 cannot occur. With fewer than 50 detected
   genes, `detectability_constant` sets ω = 1.
 - **Lower bound.** ω < 1e-6 needs every member of C to have p_detect below 1e-6 × the outside mean.
-- **Simulation.** I used 300 giapsim genomes (M ≈ 4,450, M4-13 cross-fitted p̂). The smallest p̂
+- **Simulation.** I used 300 gippasim genomes (M ≈ 4,450, M4-13 cross-fitted p̂). The smallest p̂
   was 2.7e-4. The worst possible size-5 category (the five smallest p̂) had ω ≥ 1.1e-3, with a
   median of 1.1e-2.
 - **Accuracy inside the range.** Against an exact forward urn DP, the tails at ω ∈ {1e-6, 1e-4,
@@ -133,7 +133,7 @@ the issue asks the note to name. Swapping it in is an ADR for Khoa (see Sign-off
 
 ### Calibration evidence (statistician simulations, 2026-10-21)
 
-**Where to reproduce.** Scripts are in `$GIAP_ROOT/stat/m8-01/` (`part_a.py`, `part_b.py`,
+**Where to reproduce.** Scripts are in `$GIPPA_ROOT/stat/m8-01/` (`part_a.py`, `part_b.py`,
 `part_c.py`, `elim_sim.py`, `acc.py`). Slurm jobs were 1865116 (A and B), 1865118 (elim) and
 1865148 (C).
 
@@ -165,7 +165,7 @@ rejection rate at α = 0.01, with α = 0.05 in brackets. Rates above the bound a
 n = 20 behaves like n = 60, with smaller excesses. Weighting helps compared with H, but W stays
 anti-conservative wherever ω ≠ 1 and detection is not rare.
 
-**B. giapsim layout with `short_genes_in = "prophage"` and `covariates_only` detection.** This
+**B. gippasim layout with `short_genes_in = "prophage"` and `covariates_only` detection.** This
 uses the M4-13 cross-fitted p̂ (W/CPB "hat") and the true p ("true"), M ≈ 4,450, N/M ≈ 0.55,
 R = 300. The table shows the under tail; the over tails are at level unless stated.
 
@@ -180,7 +180,7 @@ The tm ≥ 2 category lies above the size cap of 500, but categories near the ca
 behave the same way. **The §7.7.5 attack ("stays at level with weights and fails without them")
 therefore fails for mean-odds Wallenius and passes for CPB.**
 
-**C. Detection driven by TU-shared abundance.** giapsim `detection = "abundance"` with the
+**C. Detection driven by TU-shared abundance.** gippasim `detection = "abundance"` with the
 log2-abundance logit coefficient b₄ ∈ {0.7, 1.5}; p̂ from physicochemical covariates; N/M ≈ 0.53;
 R = 320. Categories are random whole TUs, so the category-level null holds.
 
@@ -276,7 +276,7 @@ They compute what the spec defines:
 
 **Not approved: mean-odds Wallenius as the calibrated ORA claim of §8.1.**
 - It fails the §8.4 ORA null (independent detection with p_detect) and the §7.7.5/§8.5 attack 2,
-  both in synthetic urns and in giapsim with cross-fitted p̂.
+  both in synthetic urns and in gippasim with cross-fitted p̂.
 - Every gene-level null, the exact one included, fails the new TU-packing attack.
 
 **Forwarded:**
@@ -290,8 +290,8 @@ They compute what the spec defines:
 
 ## Detection enrichment
 
-Implements `giap.function.ora`, `giap.function.summary` and `tilt_pair(comp=)` in
-`giap.stats.poisson_binomial` (GIAP_SPEC.md §7.7.2, §7.7.3, §8.1 row "Category detection", §8.2;
+Implements `gippa.function.ora`, `gippa.function.summary` and `tilt_pair(comp=)` in
+`gippa.stats.poisson_binomial` (GIPPA_SPEC.md §7.7.2, §7.7.3, §8.1 row "Category detection", §8.2;
 issue M8-04, docs/specs/M8-04-category-summary-ora.md, lead decisions 1–13; ADR-0029, ADR-0035).
 Outputs: the rows of `enrichment_detection.tsv` and `category_summary.tsv` (§9.3).
 
@@ -411,7 +411,7 @@ from M4-13 are therefore never treated as certain.
   H⁻¹g at the current iterate, which is a stationarity test. A concave log-likelihood has exactly
   one stationary point, the MLE. The slack can only let a near-optimal step through, or use up
   iterations and end in a skipped fit; it cannot stop the fit away from the MLE.
-- **Checked against scipy** (statistician re-check at c1e3ca0, `$GIAP_ROOT/stat/m804b/recheck/`
+- **Checked against scipy** (statistician re-check at c1e3ca0, `$GIPPA_ROOT/stat/m804b/recheck/`
   `newton_check.py`, `newton_summary.txt`): 9 worlds × 40 seeds × 5 folds = 1,800 fits against
   scipy `trust-exact` plus Newton polishing. 0 fits failed. Max |Δβ| was 5.3e-15, and the max
   gradient at the returned β was 9.7e-13. The slack branch was taken in 74 folds, and every one
@@ -462,7 +462,7 @@ Every tested term gives one row per direction, `over` and `under`.
   same detection event twice (spec example 7).
 - **Empty remainder:** `p_value` NA, flags `unestimated;elim_empty`; `p_noelim` and `p_classic`
   are kept.
-- **Evidence** (statistician, `$GIAP_ROOT/stat/m804b/probe_elim.py` and `elim.log`, 12,000
+- **Evidence** (statistician, `$GIPPA_ROOT/stat/m804b/probe_elim.py` and `elim.log`, 12,000
   parents, R = 600): the elim test, with N fixed, is conservative relative to the exact law that
   also conditions on the removed child's count. Rates at α 0.01 / 0.05 / 0.10:
 
@@ -474,7 +474,7 @@ Every tested term gives one row per direction, `over` and `under`.
 - **R4 label:** "BH on elim p; conditional on removing elim-significant descendants; FDR control is
   empirical."
 
-**BH (decision 5).** One family per (collection, direction), on `p_value`, with `giap.stats.bh`.
+**BH (decision 5).** One family per (collection, direction), on `p_value`, with `gippa.stats.bh`.
 - A NaN p stays out of its family and the row gets `unestimated`.
 - `p_classic` and `p_noelim` are never adjusted.
 
@@ -550,7 +550,7 @@ under, and the unweighted CPB on q-rank blocks. Their rates are not logged; owed
 The implementer's first log (Slurm 1867826 at dcce9e7, R = 100, 15 of 15 passed) had 4b c = 2.5
 large under at 0.015 against 0.0163. That R does not resolve the cell.
 
-**B. Resolving runs (statistician, #179 review).** Files are in `$GIAP_ROOT/stat/m804b/`
+**B. Resolving runs (statistician, #179 review).** Files are in `$GIPPA_ROOT/stat/m804b/`
 (`probe.py`, `repo_arm.py`, `summ.py`, `res_*.jsonl`). The PR model was at 3f82e0f, before the
 damped Newton, in Slurm 1867861, 1867862 and 1867888 (R = 3,000). Every cell also carries the
 oracle q (the exact TU marginal, same detections), which is at level in every cell below. The
@@ -589,7 +589,7 @@ The other recalibrated cells at R = 3,000, at α 0.01 / 0.05 / 0.10:
 - The 4b + 4c combination world skipped 2,898 of 3,000 at 3f82e0f. With the damped fit it is
   measured in the re-check below, and it fails.
 
-**B′. Re-check at c1e3ca0 (statistician; `$GIAP_ROOT/stat/m804b/recheck/summ_blocks.txt`, Slurm
+**B′. Re-check at c1e3ca0 (statistician; `$GIPPA_ROOT/stat/m804b/recheck/summ_blocks.txt`, Slurm
 1867941, 1867942).** R = 2,000 per world, split into the ADR-0015 blocks 0–999 and 1,000–1,999.
 0 replicates skipped in any world. These are the fallback-free p, with the flag ignored. A cell
 fails when it is above the bound in both blocks. The oracle q is at level in every cell of all 13
@@ -678,12 +678,12 @@ whole-TU and single-gene categories in every world.
   - `median_abundance_log2` over detected members with a finite abundance (imputed values
     included);
   - the collection's `coverage`.
-- **CI:** a percentile TU block bootstrap (`giap.stats.tu_block_bootstrap`, M4-16 `basic_rows`
+- **CI:** a percentile TU block bootstrap (`gippa.stats.tu_block_bootstrap`, M4-16 `basic_rows`
   construction). Per-TU sums of d − p̂ over the category's members are resampled as whole TUs and
   summed. B is the caller's (`stats.bootstrap`), and the draws come from the step's rng in row
   order.
 - **Few units:** below 10 TUs (`CI_MIN_UNITS`) the CI is NA with `ci_few_units`.
-- **Coverage is low for small categories** (statistician, `$GIAP_ROOT/stat/m804b/probe_boot.py`
+- **Coverage is low for small categories** (statistician, `$GIPPA_ROOT/stat/m804b/probe_boot.py`
   and `boot.log`; B = 999, 1,200 CIs per cell, true O − E = 0):
 
 | category | coverage, c = 0 | coverage, c = 2.5 |
@@ -704,10 +704,10 @@ whole-TU and single-gene categories in every world.
 
   Raising `CI_MIN_UNITS` to about 30, or a BCa or studentized bootstrap, is owed (backlog).
 
-## Simulator worlds for the M8-15 gate (giapsim, M8-14)
+## Simulator worlds for the M8-15 gate (gippasim, M8-14)
 
-`tests/sim/giapsim/function_sim.py` and the `giapsim.scenarios` function pairs (issue M8-14, PR
-#251; GIAP_SPEC.md §8.4, §8.5 attacks 2 and 3, §11.3). Statistician review of PR #251
+`tests/sim/gippasim/function_sim.py` and the `gippasim.scenarios` function pairs (issue M8-14, PR
+#251; GIPPA_SPEC.md §8.4, §8.5 attacks 2 and 3, §11.3). Statistician review of PR #251
 (2026-10-23); the attack arms are in `tests/calibration/attacks/test_attack_sim_function.py`.
 
 **Annotations.** A random GO-shaped DAG in the reserved range `GO:9000000`–`GO:9999998` (three
@@ -730,7 +730,7 @@ observable-peptide count gives the logit shift nearest `member_shift`. Compositi
 GRAVY and length are unchanged. Short sORFs that cannot lose a peptide keep shift 0. The mean shift
 over movable members is −1.44 to −1.50 at −1.5; about [−2, +0.5] is reachable, and a draw whose
 mean misses `member_shift` by more than `SHIFT_TOL` = 0.15 raises (M8-14 decision 9).
-- *Visibility:* over 200 worlds, GIAP's `covariates()` recomputed `n_observable_peptides` equal to
+- *Visibility:* over 200 worlds, GIPPA's `covariates()` recomputed `n_observable_peptides` equal to
   `n_obs_true` for every gene, and GRAVY was unchanged exactly. A side effect: 66 % of members
   change `tm_segments` (+1.56 on average) and pI moves by up to 0.22. These are not in the truth
   logit.

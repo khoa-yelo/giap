@@ -1,18 +1,18 @@
-"""MVP-03c content blocks through ``giap run`` with the Nextflow executor (a fake ``nextflow``)
+"""MVP-03c content blocks through ``gippa run`` with the Nextflow executor (a fake ``nextflow``)
 (docs/specs/MVP-03-manifest-finalize.md D-C rows marked c, D-B step 5, acceptance 03c "the
 oriter event reaches events.jsonl under both executors", "``context.replicons`` equals
 ``island_diagnostics.parquet`` row for row"; lead decisions 9 and 10; ADR-0017 / M9-16 KEGG date).
 
 The fake ``nextflow`` (as ``test_manifest_cli_nextflow.py``) exits ``$FAKE_NF_RC``, copies
 ``$FAKE_NF_TRACE`` to the ``-with-trace`` path, publishes ``$FAKE_NF_STEP_EVENTS`` as
-``OUT/logs/steps/context_stats.events.jsonl`` (what the CONTEXT_STATS ``GIAP_STEP`` task
+``OUT/logs/steps/context_stats.events.jsonl`` (what the CONTEXT_STATS ``GIPPA_STEP`` task
 publishes; ``append_step_events`` copies it into ``OUT/logs/events.jsonl``) and copies the tree
 ``$FAKE_NF_FILES`` into ``OUT`` (the published ``context/island_diagnostics.parquet`` and
-``tables/sensitivity.tsv``, the ``GIAP_STEP`` publishDir names). The step events file is the
-lines a fixed ``giap _step context_stats`` would write: the real ``multiple_oric`` event,
-captured through ``giap.cli._record_step_events``, plus an ``operons.missed_operons`` line with
+``tables/sensitivity.tsv``, the ``GIPPA_STEP`` publishDir names). The step events file is the
+lines a fixed ``gippa _step context_stats`` would write: the real ``multiple_oric`` event,
+captured through ``gippa.cli._record_step_events``, plus an ``operons.missed_operons`` line with
 the ``-Infinity`` token a pre-fix task wrote, and a ``mapping.search_db_resolved`` line. Nothing
-real is launched; ``$GIAP_ROOT`` and ``$GIAP_DB_DIR`` are fakes from ``helpers.fake_env``.
+real is launched; ``$GIPPA_ROOT`` and ``$GIPPA_DB_DIR`` are fakes from ``helpers.fake_env``.
 """
 
 from __future__ import annotations
@@ -31,10 +31,10 @@ import pyarrow as pa  # type: ignore[import-untyped]
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, setup_manifest
+from helpers.fake_env import fake_gippa_root, setup_manifest
 from helpers.manifest_data import validate
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import oriter_data as od
@@ -96,9 +96,9 @@ def _write_diag(path: Path) -> None:
 
 
 def _oric_lines(tmp_path: Path) -> list[str]:
-    """What ``giap _step context_stats`` writes to the task's ``logs/events.jsonl``."""
-    from giap.cli import _record_step_events
-    from giap.context import oriter
+    """What ``gippa _step context_stats`` writes to the task's ``logs/events.jsonl``."""
+    from gippa.cli import _record_step_events
+    from gippa.context import oriter
 
     logs = tmp_path / "task_logs"
     restore = _record_step_events(logs)
@@ -112,8 +112,8 @@ def _oric_lines(tmp_path: Path) -> list[str]:
 
 @pytest.fixture
 def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
-    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_db(tmp_path / "db")))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
@@ -141,7 +141,7 @@ def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     (files / "tables" / "sensitivity.tsv").write_text(SENS_TSV)
     task = tmp_path / "tasks" / "cs"
     task.mkdir(parents=True)
-    (task / "versions.yml").write_text('"CONTEXT:CONTEXT_STATS":\n    giap: 0.1.0\n')
+    (task / "versions.yml").write_text('"CONTEXT:CONTEXT_STATS":\n    gippa: 0.1.0\n')
     trace = tmp_path / "trace_src.tsv"
     row = {c: "-" for c in COLS} | {"task_id": "1", "attempt": "1", "exit": "0",
                                     "name": "CONTEXT:CONTEXT_STATS (context_stats)",
@@ -157,7 +157,7 @@ def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
 
 
 def _run(nf: dict[str, Path], out: Path, *extra: str) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["run", "--genome", str(nf["genome"]), "--proteins", str(nf["proteins"]),
             "--outdir", str(out), *extra]  # fmt: skip
@@ -187,7 +187,7 @@ def ok(nf: dict[str, Path], tmp_path: Path) -> Path:
 
 
 def _calibration() -> dict[str, Any]:
-    from giap.data.calibration import load
+    from gippa.data.calibration import load
 
     return load()
 
@@ -199,7 +199,7 @@ def _uncalibrated_flags() -> set[str]:
 
 def test_the_step_events_file_holds_the_oriter_event(nf: dict[str, Path]) -> None:
     """The Nextflow half of "the oriter event reaches events.jsonl": the task-local handler that
-    ``giap _step`` installs records it."""
+    ``gippa _step`` installs records it."""
     evs = [json.loads(ln) for ln in nf["events"].read_text().splitlines()[:-2]]
     assert [e["event"] for e in evs] == ["context_stats.oriter.multiple_oric"], evs
     assert evs[0]["step"] == "context_stats"
@@ -262,7 +262,7 @@ def test_databases_with_kegg_dates(ok: Path) -> None:
     assert core["databases"] == m["databases"]
 
 
-def test_giap_only_versions_give_no_tools(ok: Path) -> None:
+def test_gippa_only_versions_give_no_tools(ok: Path) -> None:
     assert _manifest(ok)["tools"] == []
 
 

@@ -1,12 +1,12 @@
 # Releasing
 
-How a GIAP release is prepared, approved and published. Agents prepare everything and run dry
+How a GIPPA release is prepared, approved and published. Agents prepare everything and run dry
 runs. Khoa is the only one who approves, publishes and sets up accounts.
 
 !!! danger "Two rules for every agent"
     Agents never push tags, and never dispatch `release.yml` with `dry_run=false`.
     Tags and GitHub releases come only from the `github-release` job of `release.yml`, run by
-    Khoa's dispatch (GIAP_SPEC.md §3.10). An agent that finds a step it cannot do without breaking
+    Khoa's dispatch (GIPPA_SPEC.md §3.10). An agent that finds a step it cannot do without breaking
     one of these rules stops and asks Khoa through PROGRESS › Questions for Khoa.
 
 Each numbered step names one actor in bold:
@@ -25,7 +25,7 @@ The workflow inputs, from `.github/workflows/release.yml`:
 
 | input | type | default | meaning |
 |---|---|---|---|
-| `version` | string, required | none | must equal `giap.__version__` on the dispatched commit |
+| `version` | string, required | none | must equal `gippa.__version__` on the dispatched commit |
 | `dry_run` | boolean | `true` | verify, build, smoke and notes only: no upload, no tag |
 | `target` | choice `testpypi`, `pypi` | `testpypi` | the index for an upload when `dry_run` is false |
 
@@ -33,7 +33,7 @@ The workflow refuses to run in these cases:
 
 - it was dispatched on any ref other than `refs/heads/main`;
 - the version does not match the pattern above;
-- the version input differs from `giap.__version__`;
+- the version input differs from `gippa.__version__`;
 - tag `v<v>` already exists.
 
 The `publish` job needs three things: `dry_run` false, `github.actor == 'khoa-yelo'`, and approval
@@ -45,16 +45,16 @@ upload therefore never creates a tag.
 ### 1. PyPI and TestPyPI pending publishers (**Khoa**)
 
 - PyPI: <https://pypi.org/manage/account/publishing/> → "Add a new pending publisher" → GitHub.
-  Enter PyPI project name `giap`, owner `khoa-yelo`, repository `giap`, workflow name
+  Enter PyPI project name `gippa`, owner `khoa-yelo`, repository `gippa`, workflow name
   `release.yml`, environment name `pypi`.
 - TestPyPI: <https://test.pypi.org/manage/account/publishing/> → the same form. Enter PyPI
-  project name `giap`, owner `khoa-yelo`, repository `giap`, workflow name `release.yml`,
+  project name `gippa`, owner `khoa-yelo`, repository `gippa`, workflow name `release.yml`,
   environment name `testpypi`.
 - Evidence: PROGRESS line "Q-K1 done: pending publishers on PyPI and TestPyPI (date)".
 
 ### 2. GitHub environments `pypi` and `testpypi` (**Khoa**)
 
-- GitHub → `khoa-yelo/giap` → Settings → Environments → New environment. Create `pypi`, then
+- GitHub → `khoa-yelo/gippa` → Settings → Environments → New environment. Create `pypi`, then
   `testpypi`. For each one:
     - Deployment protection rules → Required reviewers → `khoa-yelo`.
     - Leave "Prevent self-review" off: Khoa both dispatches and approves.
@@ -64,7 +64,7 @@ upload therefore never creates a tag.
 
 ### 3. Zenodo GitHub integration (**Khoa**)
 
-- <https://zenodo.org> → log in with GitHub → account menu → GitHub → switch on `khoa-yelo/giap`.
+- <https://zenodo.org> → log in with GitHub → account menu → GitHub → switch on `khoa-yelo/gippa`.
   Zenodo lists only public repositories, so this needs §14.8 item 7 (making the repository public)
   done first. Zenodo reads its metadata from `CITATION.cff`. There is no `.zenodo.json`.
 - From then on, every published GitHub release (step 13) is archived and gets a DOI.
@@ -86,8 +86,8 @@ upload therefore never creates a tag.
 
 ### 5. GHCR publishing and package visibility (**Khoa**)
 
-The M11-14 checklist (14j). Start it only after the GIAP → GIPPA rename PR and 14b are merged,
-so that no image is ever published under the `giap-` prefix (`containers.yml` derives the prefix
+The M11-14 checklist (14j). Start it only after the GIPPA rename PR and 14b are merged,
+so that no image is ever published under the `gippa-` prefix (`containers.yml` derives the prefix
 from `pyproject.toml` `[project] name`). Until item 2, every `containers.yml` run stops after its
 plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built or pushed`.
 
@@ -106,7 +106,7 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
    fails on FarmShare (401 or 403), and `release.yml` verify fails with `not public: <ref>`.
 
 - There is never a UniOP package. UniOP is unlicensed (R5, R11): users build it locally with
-  `giap setup --uniop`, and `update_digests.py` refuses it.
+  `gippa setup --uniop`, and `update_digests.py` refuses it.
 - Agents never create or set `GHCR_PUBLISH`, create or approve `ghcr`, change package visibility
   or delete packages.
 - After item 4 (**agents**): merge the digest PR `ci/digests-<sha7>` once its FarmShare Apptainer
@@ -120,18 +120,18 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
 ### 6. Release-prep PR `m11/release-<v>` (**agent**)
 
 - Role: docs. The lead merges the PR after CI. Changes on the branch:
-    - `src/giap/__init__.py`: `__version__ = "<v>"`.
+    - `src/gippa/__init__.py`: `__version__ = "<v>"`.
     - `changelog.d/+known-limitations.misc.md`: update it before the build. It lists the open
       non-gate issues (Q-K12). It must also carry the licence limit "geNOMAD is for non-commercial
       use only", which the fragment does not have today.
     - Run `towncrier build --version <base> --date <YYYY-MM-DD> --yes`. This turns the fragments
-      into `## GIAP <base> (<YYYY-MM-DD>)` in `CHANGELOG.md` and removes them.
+      into `## GIPPA <base> (<YYYY-MM-DD>)` in `CHANGELOG.md` and removes them.
     - `CITATION.cff`: set `version: <v>` and `date-released: <YYYY-MM-DD>`.
 - **The rc path**: the towncrier `--version` is always `<base>`, never `<v>` with `rc`.
-    - `notes.py 1.0.0rc1` reads the `## GIAP 1.0.0 (` section and adds "Release candidate
-      1.0.0rc1 of GIAP 1.0.0." in front of it. A `## GIAP 1.0.0rc1 (…)` heading is never read, and
+    - `notes.py 1.0.0rc1` reads the `## GIPPA 1.0.0 (` section and adds "Release candidate
+      1.0.0rc1 of GIPPA 1.0.0." in front of it. A `## GIPPA 1.0.0rc1 (…)` heading is never read, and
       the build job would exit 1.
-    - So one `## GIAP 1.0.0 (…)` section serves `1.0.0rc1` and the final `1.0.0`.
+    - So one `## GIPPA 1.0.0 (…)` section serves `1.0.0rc1` and the final `1.0.0`.
     - The final `1.0.0` prep PR after an rc changes only `__version__` and `CITATION.cff`
       (`version`, `date-released`). It builds no changelog: the fragments are already consumed,
       and the section stays as the rc PR wrote it.
@@ -155,19 +155,19 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
 
 - Role: validation, on FarmShare. Fast-forward the main checkout to R first. Source
   `scripts/farmshare_env.sh`. Before each `sbatch`, add up the running and pending CPUs of the
-  `giap-*` jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).
+  `gippa-*` jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).
     - `bash scripts/slurm/calibration_full_launch.sh origin/main`: pins a worktree at R, checks the
       worktree's `calibration_plan.tsv` and the R14 budget (a launch queues 16 jobs and Σ = 98
       CPUs; it refuses when its worst-case end, the longest suite time plus 20 min, reaches the
       01:30 nightly), then submits one `calibration_suite.sbatch` job per suite and an `afterany`
       aggregator that writes the `calibration_full` and `calibration_attacks` rows to
-      `$GIAP_ROOT/logs/nightly.tsv`. It prints `jobs=<j0>,…,<j14> rows=<id> log=<dir> cpus=<Σ>`.
+      `$GIPPA_ROOT/logs/nightly.tsv`. It prints `jobs=<j0>,…,<j14> rows=<id> log=<dir> cpus=<Σ>`.
     - `sbatch --array=2 scripts/slurm/nightly.sbatch`: the fast suite with the
-      `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIAP_ROOT/logs/nightly.tsv`,
+      `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIPPA_ROOT/logs/nightly.tsv`,
       labelled `calibration_nightly`. A single task also posts a one-task table to the "Nightly
       (FarmShare)" issue. Add `--export=ALL,NIGHTLY_POST=dry` to print the table instead.
     - `sbatch scripts/slurm/weekly.sbatch`: K-12 and Nissle end to end with TE6, TE8 and TE2, on
-      `origin/main`. Its rows go to `$GIAP_ROOT/logs/weekly.tsv`.
+      `origin/main`. Its rows go to `$GIPPA_ROOT/logs/weekly.tsv`.
     - `sbatch scripts/slurm/test_branch.sbatch "$PWD"`: the full fast suite on 16 CPUs. The last log
       line is `PYTEST_EXIT=<code>`.
 - Poll with `squeue -j <id>` and `sacct -j <id>`.
@@ -188,7 +188,7 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
 - In that worktree, run:
 
     ```bash
-    python scripts/release/readiness.py compute --version <v> --logs "$GIAP_ROOT/logs" \
+    python scripts/release/readiness.py compute --version <v> --logs "$GIPPA_ROOT/logs" \
         --freeze-run <A2 freeze run dir> --out validation/release/<base>/
     ```
 
@@ -255,7 +255,7 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 - Check the install in a fresh venv:
 
     ```bash
-    pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ giap==<v>
+    pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gippa==<v>
     ```
 
 - This occupies `<v>` on TestPyPI only. PyPI is a separate index, so step 13 is unaffected.
@@ -270,7 +270,7 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 - The workflow then:
     - uploads the wheel and sdist;
     - tags `v<v>` on the dispatched commit;
-    - creates the GitHub release "GIAP `<v>`" with `notes.md`. (The workflow would mark an
+    - creates the GitHub release "GIPPA `<v>`" with `notes.md`. (The workflow would mark an
       `rc` as a pre-release, but an `rc` never reaches this step: see below.)
 - Zenodo mints the DOI.
 - **Release candidates stop at step 12.** An `rc` goes to TestPyPI only; PyPI gets finals only
@@ -287,18 +287,18 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
   files):
 
     ```bash
-    smoke=$(mktemp -d /tmp/giap-smoke.XXXXXX)
+    smoke=$(mktemp -d /tmp/gippa-smoke.XXXXXX)
     uv venv "$smoke/venv" --python 3.12
-    VIRTUAL_ENV="$smoke/venv" uv pip install giap==<v>
-    "$smoke/venv/bin/giap" --version
-    "$smoke/venv/bin/giap" version --json
-    "$smoke/venv/bin/giap" preflight --genome tests/data/genomes/sim100k.fna.gz \
+    VIRTUAL_ENV="$smoke/venv" uv pip install gippa==<v>
+    "$smoke/venv/bin/gippa" --version
+    "$smoke/venv/bin/gippa" version --json
+    "$smoke/venv/bin/gippa" preflight --genome tests/data/genomes/sim100k.fna.gz \
         --proteins tests/data/recorded/miniprot/0.18/sim100k/proteins.faa
     ```
 
 - The expected results:
-    - `giap --version` prints `giap, version <v>`;
-    - the JSON has `"giap": "<v>"`;
+    - `gippa --version` prints `gippa, version <v>`;
+    - the JSON has `"gippa": "<v>"`;
     - preflight exits 0.
 - Evidence: a PROGRESS line with the three outputs.
 
@@ -315,10 +315,10 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 ### 16. Bioconda recipe (**agent**)
 
 - Render the recipe with M11-10's `scripts/release/bioconda_recipe.py`, using the PyPI sdist sha256
-  (`https://pypi.org/pypi/giap/<v>/json`) and the DOI. This script is not merged yet; take its
-  options from M11-10 once it is. Its spec writes `<out>/giap/meta.yaml`, so `--out recipes`
-  gives `recipes/giap/meta.yaml`.
-- Hand `recipes/giap/meta.yaml` to Khoa.
+  (`https://pypi.org/pypi/gippa/<v>/json`) and the DOI. This script is not merged yet; take its
+  options from M11-10 once it is. Its spec writes `<out>/gippa/meta.yaml`, so `--out recipes`
+  gives `recipes/gippa/meta.yaml`.
+- Hand `recipes/gippa/meta.yaml` to Khoa.
 - Khoa then forks `bioconda/bioconda-recipes`, adds the recipe and opens the PR from their own
   account. Agents never open PRs in other organisations' repositories. The bioconda CI does the
   lint and build checks there.
@@ -341,7 +341,7 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
         - A new dispatch rebuilds from main's HEAD at that moment. If main has moved past the
           paperwork set, readiness is stale and verify fails.
         - The tag does not exist yet, so the tag check passes.
-        - `publish` reads `https://pypi.org/pypi/giap/<v>/json`. It skips the upload when every
+        - `publish` reads `https://pypi.org/pypi/gippa/<v>/json`. It skips the upload when every
           file already on the index has the same sha256 as the new build.
         - It stops with `<file> is on the index with a different sha256` when the rebuild is not
           byte-identical. Then ask Khoa: the options are a patch release, or Khoa creating the
@@ -381,7 +381,7 @@ true iff all of these hold:
    so a widening commit never certifies itself);
 3. every listed path lies under an entry of `NON_STATS_PATHS`, on whole path components: an entry
    ending in `/` matches by prefix, any other entry only itself;
-4. except `src/giap/__init__.py`, which is allowed only when its `git diff -U0` is one hunk of
+4. except `src/gippa/__init__.py`, which is allowed only when its `git diff -U0` is one hunk of
    exactly one `-` and one `+` line, both `__version__ = "<v>"`.
 
 R3 and R4 additionally require C to be R or an ancestor of R (`reusable_ancestor`). A reused row
@@ -390,10 +390,10 @@ says `reused from <C7> (reusable: diff ⊆ NON_STATS_PATHS)` in its value.
 `NON_STATS_PATHS`: `docs/`, `changelog.d/`, `README.md`, `CHANGELOG.md`, `CITATION.cff`,
 `mkdocs.yml`, `PROGRESS.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.github/`,
 `scripts/dev/approval_packet.py`, `scripts/dev/progress_bars.py`, `scripts/dev/replant.sh`,
-`scripts/dev/waitmerge.sh`, `scripts/docs/`, `src/giap/report/`, `src/giap/viz/`,
+`scripts/dev/waitmerge.sh`, `scripts/docs/`, `src/gippa/report/`, `src/gippa/viz/`,
 `validation/release/`. The never list (`NEVER_PATHS`, disjoint from it by a unit test):
-`src/giap/preflight/`, `src/giap/runner/`, `src/giap/setupdb/`, `src/giap/cli.py`,
-`src/giap/data/`, `src/giap/config/`, `src/giap/rng.py`, `src/giap/io/`, `workflow/`,
+`src/gippa/preflight/`, `src/gippa/runner/`, `src/gippa/setupdb/`, `src/gippa/cli.py`,
+`src/gippa/data/`, `src/gippa/config/`, `src/gippa/rng.py`, `src/gippa/io/`, `workflow/`,
 `pyproject.toml`, `uv.lock`, `tests/sim/`, `tests/calibration/`, `ci/`,
 `scripts/release/readiness.py`, `scripts/dev/island_power.py`. Changing either list needs `stats`
 review (Q-L15).
@@ -423,7 +423,7 @@ These options are read from the argparse definitions in `scripts/release/`.
 |---|---|---|
 | `--version V` | yes | version recorded in the JSON |
 | `--repo DIR` | no, default `.` | checkout read at HEAD (the readiness commit) |
-| `--logs DIR` | no | directory with `nightly.tsv` and `weekly.tsv` (`$GIAP_ROOT/logs`) |
+| `--logs DIR` | no | directory with `nightly.tsv` and `weekly.tsv` (`$GIPPA_ROOT/logs`) |
 | `--freeze-run DIR` | no | A2 freeze run; R2 falls back to `mapping/mapping_fdr.tsv` there |
 | `--out DIR` | yes | writes `readiness.json` and `READINESS.md` |
 | `--offline` | no | touches no network; H6 becomes `pending` |
@@ -441,14 +441,14 @@ It exits 0 on `pass` and 1 otherwise.
 Other scripts:
 
 - `notes.py VERSION [--draft]`: run from the repository root. It reads the
-  `## GIAP <version> (...)` section of `CHANGELOG.md` (the base version's section for an `rc`) and
+  `## GIPPA <version> (...)` section of `CHANGELOG.md` (the base version's section for an `rc`) and
   writes `notes.md`. `--draft` falls back to `towncrier build --draft` and heads the notes `DRAFT`.
   It exits 1 when the section is missing (without `--draft`) or empty.
 - `check_dist.py DIST_DIR [--version V]`: checks the wheel and sdist. It prints `ok <artefact>` or
   `FAIL <artefact>: <rule>: <path>`. Exit codes: 0 clean, 1 violations, 2 when DIST_DIR has no
   wheel or no sdist.
 - `update_digests.py --digests FILE --date YYYY-MM-DD --source-commit SHA [--config FILE]
-  [--nextflow-config FILE]`: used by `containers.yml`. It pins `ghcr.io/khoa-yelo/giap-<tool>@sha256:…`
+  [--nextflow-config FILE]`: used by `containers.yml`. It pins `ghcr.io/khoa-yelo/gippa-<tool>@sha256:…`
   in `workflow/conf/containers.config`. With `--nextflow-config`, it also adds the pinned processes
   to the one `conda = ''` selector, found by following that file's `includeConfig` lines (it lives
   in `workflow/conf/container_common.config`, shared by the `apptainer` and `docker` profiles).
@@ -488,13 +488,13 @@ The `release.yml` step summary has two tables:
   and release results.
 - `artefact | sha256`, one row per file in `dist/`.
 
-## Licences of the tools GIAP runs
+## Licences of the tools GIPPA runs
 
-GIAP is MIT-licensed. This section follows `NOTICE.md`, which is the authoritative list, and
-readiness row H5 checks the registry against it. `scripts/ci/check_imports.py` fails CI if GIAP
+GIPPA is MIT-licensed. This section follows `NOTICE.md`, which is the authoritative list, and
+readiness row H5 checks the registry against it. `scripts/ci/check_imports.py` fails CI if GIPPA
 imports a GPL, AGPL or unlicensed tool.
 
-| Tool | Licence (as in `NOTICE.md`) | How GIAP uses it |
+| Tool | Licence (as in `NOTICE.md`) | How GIPPA uses it |
 |---|---|---|
 | Bakta | GPL-3.0 | separate process |
 | Promotech | GPL-3.0 | separate process |
@@ -507,15 +507,15 @@ imports a GPL, AGPL or unlicensed tool.
 | UniOP | unlicensed (no licence file) | fetched at a pinned commit when environments are built; never vendored |
 | TerminatorNet, miniprot | MIT | separate process |
 | BLAST+ | public-domain (NCBI) | separate process |
-| fgsea | MIT | run by `workflow/bin/giap_fgsea.R` in R 4.5 (GPL-2) as a separate process; R and fgsea are never imported |
+| fgsea | MIT | run by `workflow/bin/gippa_fgsea.R` in R 4.5 (GPL-2) as a separate process; R and fgsea are never imported |
 | codon-bias | MIT | imported in-process (PyPI) |
 | DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
 
 What this means for a release:
 
-- **GPL and AGPL tools run as separate programs.** GIAP never imports or vendors their code (R5).
+- **GPL and AGPL tools run as separate programs.** GIPPA never imports or vendors their code (R5).
   The wheel and sdist carry none of their code.
-- **fgsea is also ported.** Its MIT code is ported to Python in `src/giap/stats/fgsea.py`, which
+- **fgsea is also ported.** Its MIT code is ported to Python in `src/gippa/stats/fgsea.py`, which
   runs in-process. `NOTICE.md` carries the MIT licence text, and no fgsea file is vendored.
 - **Four GHCR images contain GPL-3.0 tools**, fetched from upstream unmodified:
     - Promotech;
@@ -529,11 +529,11 @@ What this means for a release:
 - **geNOMAD: non-commercial use only.** Step 6 adds this to the known-limitations fragment, so the
   release notes say it.
 - **Data resources:**
-    - KEGG: academic use; `giap setup --kegg` downloads it on the user's machine;
+    - KEGG: academic use; `gippa setup --kegg` downloads it on the user's machine;
     - RegulonDB: not redistributed;
     - Gene Ontology: CC BY 4.0;
     - NCBI COG 2020: NCBI FTP.
-- **The contaminant library** (Frankenfield et al. 2022) has no licence file. `giap setup
+- **The contaminant library** (Frankenfield et al. 2022) has no licence file. `gippa setup
   --contaminants` downloads it, and it is never vendored (R11).
 - **plotly.js** (MIT) is inlined once in `report.html` when interactive figures are shown.
 

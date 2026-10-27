@@ -1,5 +1,5 @@
 """Novel-ORF candidates, ORF reconstruction, grouping, IDs, second-round windows, OSTIR rows and the
-pass-1 minimal call (issue M7-06; GIAP_SPEC.md §7.6.1, §7.6.2, §7.6.4 "Neither", §7.1.4, §6.5).
+pass-1 minimal call (issue M7-06; GIPPA_SPEC.md §7.6.1, §7.6.2, §7.6.4 "Neither", §7.1.4, §6.5).
 
 Examples 1-10, the degenerate cases and the acceptance criteria of
 docs/specs/M7-06-novel-candidates-and-orfs.md, with the lead decisions of M7-index.md (M7-06
@@ -45,12 +45,12 @@ from helpers.novel_oracle import (
     wrapped,
 )
 
-from giap.annotate.ostir import OstirRow
-from giap.annotate.promoters import Window, gene_windows
-from giap.config.model import GiapConfig
-from giap.io.protein_fasta import LetterCounts, ProteinRecord
-from giap.model.coords import Replicon
-from giap.novel.candidates import (
+from gippa.annotate.ostir import OstirRow
+from gippa.annotate.promoters import Window, gene_windows
+from gippa.config.model import GippaConfig
+from gippa.io.protein_fasta import LetterCounts, ProteinRecord
+from gippa.model.coords import Replicon
+from gippa.novel.candidates import (
     Orf,
     candidate_rows,
     minimal_call,
@@ -86,8 +86,8 @@ P3_CODONS = ["GAC", "TAC", "AAG", "CGC", "GTT", "GAG", "CAC", "TTT", "ACC", "ATC
 P3 = translate("".join(P3_CODONS))  # DYKRVEHFTI
 
 
-def cfg(**kw: object) -> GiapConfig:
-    return GiapConfig(seed=1, **kw)  # type: ignore[arg-type]
+def cfg(**kw: object) -> GippaConfig:
+    return GippaConfig(seed=1, **kw)  # type: ignore[arg-type]
 
 
 def ex1_seq(*, atg: bool = True, gtg: bool = True, m_first: bool = False) -> Seq:
@@ -164,7 +164,7 @@ def wrap_case() -> Case:
     return Case({"c1": seq}, dict(C1), hits)
 
 
-def run(case: Case, config: GiapConfig | None = None, contaminants=None) -> list[Orf]:
+def run(case: Case, config: GippaConfig | None = None, contaminants=None) -> list[Orf]:
     rows = candidate_rows(case.hits_df(), case.peptides_df(), contaminants)
     return reconstruct(rows, case.gm, case.genome, config or cfg())
 

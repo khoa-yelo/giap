@@ -1,6 +1,6 @@
 # Target–decoy q-values and picked FDR
 
-Implements `giap.stats.tda.{monotone_q, tda_qvalues, picked_fdr}` (GIAP_SPEC.md §7.2.5, §7.3.2,
+Implements `gippa.stats.tda.{monotone_q, tda_qvalues, picked_fdr}` (GIPPA_SPEC.md §7.2.5, §7.3.2,
 §8.3, Appendix B.6; issue M4-01). Used by placement FDR (M3-10, per stratum) and the
 `decoy_picked` gene-detection tier (M4-11/12).
 
@@ -119,9 +119,9 @@ N = 2000, π₀ = 0.8):
 
 ## Six-frame ORF decoys in the simulator and the class q floor (M7-12, M7-11)
 
-The `novel_orf_power` scenario writes the decoys a search against `giap makedb --six-frame-orfs`
+The `novel_orf_power` scenario writes the decoys a search against `gippa makedb --six-frame-orfs`
 would give. Each null PSM of a six-frame wrong peptide goes to its target row or to the
-`rev_GIAPORF_…` decoy of its makedb entry with probability ½ (stream `[seed, 8]`). The decoy keeps
+`rev_GIPPAORF_…` decoy of its makedb entry with probability ½ (stream `[seed, 8]`). The decoy keeps
 the null score, and its q and PEP come from the same score function (M7-12 decisions 21, 24).
 Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixframe_picked.py`) found:
 
@@ -131,7 +131,7 @@ Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixfram
   monotone function of the score for targets and decoys alike, so ranking by q and then by score
   keeps the exchangeability. Under M7-11 rule 2 the procedure is therefore knockoff+.
 - **Oracle class FDP is at level.** The oracle picks at entry level, within each class, with no
-  GIAP novel code. With 200 ORFs planted per class at 1 Mb, over 15 replicates:
+  GIPPA novel code. With 200 ORFs planted per class at 1 Mb, over 15 replicates:
 
   | Class | q = 0.01 | q = 0.05 | q = 0.10 |
   |---|---|---|---|
@@ -156,8 +156,8 @@ Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixfram
 
 ## Scored null decoys on the real K-12 genome (MVP-04, PR #247)
 
-`decoys = "scored_null"` (giapsim, MVP-04 step 6) models a DIA-NN `--report-decoys` search
-against `giap makedb --six-frame-orfs`. Every null PSM row goes to its target or to its entry's
+`decoys = "scored_null"` (gippasim, MVP-04 step 6) models a DIA-NN `--report-decoys` search
+against `gippa makedb --six-frame-orfs`. Every null PSM row goes to its target or to its entry's
 decoy on an independent ½ coin (stream `[seed, 8]`; scores come from stream `[seed, 3]`). The
 decoy keeps the row's score, q and PEP. Protein-entry nulls are real tryptic products of loci
 with no true peptide, with the locus drawn uniformly (lead decision 9). Statistician review of
@@ -191,9 +191,9 @@ PR #247 (Slurm 1871592: K-12, 10 seeds; 1871626: attack file):
   - The Q2 fallback (50/50 when there are fewer than 50 gene-level null PSMs) is not monotone. On
     the 200-kb excerpt, π_wrong 0.05 gives 47 protein nulls (50/50), while π_wrong 0.10 gives 26
     (search space).
-- **A second gene-level channel.** Six-frame nulls on `GIAPORF_nterm_extension_*` entries place
+- **A second gene-level channel.** Six-frame nulls on `GIPPAORF_nterm_extension_*` entries place
   in a gene's `nterm_extension` class, which assigns to the gene (about 11 undetected genes per
-  K-12 run, next to the ~21 protein nulls). Their `rev_GIAPORF_*` decoys pair with the gene only
+  K-12 run, next to the ~21 protein nulls). Their `rev_GIPPAORF_*` decoys pair with the gene only
   when a target row of the entry was accepted, so that the entry is voted to the gene (M7-12
   decision 28). If every row went to the decoy side, the gene vanishes instead of being a decoy
   win. With k rows, P(target wins | the gene is seen) = ½ / (1 − 2^−k), which is 4/7 for k = 3:
@@ -210,7 +210,7 @@ PR #247 (Slurm 1871592: K-12, 10 seeds; 1871626: attack file):
 - **Fixed 50/50 split** (decision 10): half the null peptides, rounded down, go to protein
   entries, capped by the pool. The search-space share (0.125) is recorded for information only.
   The pool also holds the loci that the sample strain makes pseudo through a premature stop
-  (decision 16). GIAP sees them as intact, eligible genes. Products that span the stop are skipped.
+  (decision 16). GIPPA sees them as intact, eligible genes. Products that span the stop are skipped.
   No protein null lands on a recorded pseudo or truncated locus.
 - **K-12, seeds 1–10, oracle with the nterm-extension and `multi_identical` channels:**
   - 80–89 protein nulls per run and 81–95 genes with null evidence. Collisions: 0.
@@ -234,7 +234,7 @@ PR #247 (Slurm 1871592: K-12, 10 seeds; 1871626: attack file):
 
 ## Convergent and sandwich decoys (operons, M6-01)
 
-`giap.stats.decoy_fdr` reuses `monotone_q` for the missed-operon family (§7.4.4); the full method
+`gippa.stats.decoy_fdr` reuses `monotone_q` for the missed-operon family (§7.4.4); the full method
 and its power analysis are in `docs/methods/operons.md`. What differs from the separate search
 above:
 
@@ -276,5 +276,5 @@ this (M7-13), and M7-12 gates use `NOVEL_PER_CLASS_GATE = 300` at 1M (M7-12 lead
 ## Sign-off
 
 Statistician (M4-01 review, 2026-10-14): **approved** for `tda_qvalues`, `picked_fdr` and
-`monotone_q` as implemented in `src/giap/stats/tda.py`, with the decoy-loss finding forwarded to
+`monotone_q` as implemented in `src/gippa/stats/tda.py`, with the decoy-loss finding forwarded to
 M4-11/12.

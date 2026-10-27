@@ -1,19 +1,19 @@
 """M9-26 example 2 and work item 4: two renders give byte-identical ``.svg``, ``.pdf`` and ``.png``
-files, and two ``giap report`` calls give a byte-identical ``report.html`` and ``plots/``
-(docs/specs/M9-26-scale-and-determinism.md; M9-01 item 7; GIAP_SPEC.md R7/TE7, §7.9.4).
+files, and two ``gippa report`` calls give a byte-identical ``report.html`` and ``plots/``
+(docs/specs/M9-26-scale-and-determinism.md; M9-01 item 7; GIPPA_SPEC.md R7/TE7, §7.9.4).
 
 Identity is asserted within one environment only (degenerate row "PNG bytes differ across
 matplotlib patch versions": expected).
 
 - Every registered plot is rendered on ``helpers.byte_identity.golden_out`` (the committed
-  giapsim sim50k golden tables) in two fresh interpreters with different ``PYTHONHASHSEED``s;
+  gippasim sim50k golden tables) in two fresh interpreters with different ``PYTHONHASHSEED``s;
   the trees of images and data TSVs must be equal byte for byte. The M9-25 snapshot fixture runs
   the same comparison in tests/snapshot/test_snapshot_byte_identity.py once it is committed.
 - V07 (the spec's example 2) is also rendered twice in one process.
-- A Hypothesis property: for small giapsim layouts (``helpers.scale_fixture.stress_out``), V1 and
+- A Hypothesis property: for small gippasim layouts (``helpers.scale_fixture.stress_out``), V1 and
   V2 rendered twice in one process are byte-identical in all three formats (the layouts carry
   two origin-crossing genes; no shrink phase, M9-26 lead decision 4).
-- ``giap report OUT`` is run in two fresh interpreters (different hash seeds) on two copies of
+- ``gippa report OUT`` is run in two fresh interpreters (different hash seeds) on two copies of
   one ``OUT/``: ``report/report.html`` and every file under ``plots/`` are equal. Marked
   ``slow``.
 """
@@ -90,29 +90,29 @@ def test_property_v01_v02_two_renders_identical(
     assert differing(tree_bytes(tmp / "a"), tree_bytes(tmp / "b")) == []
 
 
-def _giap_report(out: Path, hashseed: int, db: Path) -> None:
+def _gippa_report(out: Path, hashseed: int, db: Path) -> None:
     env = {**os.environ, "PYTHONHASHSEED": str(hashseed), "MPLBACKEND": "Agg"}
-    env["GIAP_DB_DIR"] = str(db)
+    env["GIPPA_DB_DIR"] = str(db)
     paths = [str(REPO / "src"), str(REPO / "tests" / "sim"), str(REPO / "tests")]
     env["PYTHONPATH"] = os.pathsep.join([*paths, env.get("PYTHONPATH", "")])
-    cmd = [sys.executable, "-c", "from giap.cli import cli; cli()", "report", str(out)]
+    cmd = [sys.executable, "-c", "from gippa.cli import cli; cli()", "report", str(out)]
     res = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=1800)
     assert res.returncode == 0, f"{res.stdout[-4000:]}\n{res.stderr[-4000:]}"
 
 
 @pytest.mark.slow
-def test_giap_report_twice_byte_identical_report_and_images(golden: Path, tmp_path: Path) -> None:
-    db = tmp_path / "no_db"  # never the real $GIAP_DB_DIR; giap report reads no database
+def test_gippa_report_twice_byte_identical_report_and_images(golden: Path, tmp_path: Path) -> None:
+    db = tmp_path / "no_db"  # never the real $GIPPA_DB_DIR; gippa report reads no database
     db.mkdir()
     outs = []
     for i, seed in enumerate((11, 12)):
         out = tmp_path / f"run{i}" / "OUT"
         shutil.copytree(golden, out)
-        _giap_report(out, seed, db)
+        _gippa_report(out, seed, db)
         outs.append(out)
     pages = [(o / "report" / "report.html").read_bytes() for o in outs]
     assert pages[0], "empty report.html"
-    assert pages[0] == pages[1], "report.html differs between two giap report calls"
+    assert pages[0] == pages[1], "report.html differs between two gippa report calls"
     pa, pb = tree_bytes(outs[0] / "plots"), tree_bytes(outs[1] / "plots")
     assert any(k.endswith(".pdf") for k in pa) and any(k.endswith(".png") for k in pa)
     assert differing(pa, pb) == []

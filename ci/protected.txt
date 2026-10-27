@@ -1,10 +1,10 @@
 # Changing an existing protected file needs an ADR with status accepted-by-khoa and the
-# commit trailer "Gate-Change-Approved: ADR-NNNN" (GIAP_SPEC.md R3, §14.6). Creating them is allowed.
-GIAP_SPEC.md
+# commit trailer "Gate-Change-Approved: ADR-NNNN" (GIPPA_SPEC.md R3, §14.6). Creating them is allowed.
+GIPPA_SPEC.md
 ci/gates.yaml
 ci/protected.txt
 tests/calibration/tolerances.yaml
-src/giap/data/calibration.yaml
-src/giap/config/defaults.yaml        # adding new keys is allowed with an ADR; changing values needs Khoa
+src/gippa/data/calibration.yaml
+src/gippa/config/defaults.yaml        # adding new keys is allowed with an ADR; changing values needs Khoa
 .claude/settings.json
 .claude/hooks/*

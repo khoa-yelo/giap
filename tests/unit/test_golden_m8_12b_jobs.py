@@ -1,5 +1,5 @@
 """The two M8-12b Slurm jobs, run against stubs (docs/specs/M8-12b-golden-median-exact.md §2.1,
-§3.6, §4.2, example 6, B4, B8; GIAP_SPEC.md §3.8, R14).
+§3.6, §4.2, example 6, B4, B8; GIPPA_SPEC.md §3.8, R14).
 
 Nothing reaches Slurm, micromamba, R or the real checkout: each job runs in a
 ``helpers.slurm_sandbox`` checkout with a fake ``micromamba`` (it answers the version check and
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from helpers.slurm_sandbox import Sandbox, assert_honours_giap_repo, make_sandbox, write_exe
+from helpers.slurm_sandbox import Sandbox, assert_honours_gippa_repo, make_sandbox, write_exe
 
 REPO = Path(__file__).resolve().parents[2]
 GOLDEN_R = REPO / "scripts" / "slurm" / "golden_r.sbatch"
@@ -91,10 +91,10 @@ def _sandbox(tmp: Path, *, committed: bool = True) -> Sandbox:
         shutil.copytree(COMMITTED, sb.repo / DEST_R)
     _commit_all(sb, "golden data")
     mamba = tmp / "mamba"
-    prefix = mamba / "envs" / "giap-golden-r"
+    prefix = mamba / "envs" / "gippa-golden-r"
     prefix.mkdir(parents=True)
     yml = sb.repo / "scripts" / "golden" / "golden_r.yml"
-    (prefix / ".giap-built").write_text(hashlib.sha256(yml.read_bytes()).hexdigest() + "\n")
+    (prefix / ".gippa-built").write_text(hashlib.sha256(yml.read_bytes()).hexdigest() + "\n")
     shutil.copytree(COMMITTED / "outputs", tmp / "fake_r_outputs")
     write_exe(sb.bin / "micromamba", _MICROMAMBA.replace("{python}", sys.executable))
     sb.env.update(
@@ -110,7 +110,7 @@ def _sandbox(tmp: Path, *, committed: bool = True) -> Sandbox:
 
 def _run_golden_r(sb: Sandbox, **env: str) -> subprocess.CompletedProcess[str]:
     script = sb.repo / "scripts" / "slurm" / "golden_r.sbatch"
-    assert_honours_giap_repo(script.read_text(), "golden_r.sbatch")
+    assert_honours_gippa_repo(script.read_text(), "golden_r.sbatch")
     return sb.run(["bash", str(script), str(sb.repo)], env=env)
 
 
@@ -212,7 +212,7 @@ def test_wallenius_job_header_and_house_rules() -> None:
     proc = subprocess.run(["bash", "-n", str(WALLENIUS)], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     assert text.splitlines()[0] == "#!/bin/bash"
-    assert re.search(r"^#SBATCH --job-name=giap-golden-wallenius$", text, re.M)
+    assert re.search(r"^#SBATCH --job-name=gippa-golden-wallenius$", text, re.M)
     assert re.search(r"^#SBATCH --output=\S*/local/logs/%x\.%j\.out$", text, re.M)
     cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
     assert cpus and int(cpus.group(1)) <= 4, "ADR-0044: <= 4 CPUs"
@@ -229,7 +229,7 @@ def test_wallenius_job_header_and_house_rules() -> None:
     assert re.search(r"--workers[ =]4\b", text)
     assert re.search(r"\bcmp\b", text), "the run-twice byte check"
     assert "tests/data/golden/wallenius" in text
-    assert_honours_giap_repo(text, "golden_wallenius.sbatch")
+    assert_honours_gippa_repo(text, "golden_wallenius.sbatch")
 
 
 # --- golden_wallenius.sbatch: runs against a stand-in generator ----------------------------------
@@ -276,7 +276,7 @@ def _run_wallenius(
     sb: Sandbox, *, unset: tuple[str, ...] = (), timeout: float = 180
 ) -> subprocess.CompletedProcess[str]:
     script = sb.repo / "scripts" / "slurm" / "golden_wallenius.sbatch"
-    assert_honours_giap_repo(script.read_text(), "golden_wallenius.sbatch")
+    assert_honours_gippa_repo(script.read_text(), "golden_wallenius.sbatch")
     return sb.run(["bash", str(script), str(sb.repo)], unset=unset, timeout=timeout)
 
 

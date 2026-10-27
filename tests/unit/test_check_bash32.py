@@ -288,7 +288,7 @@ def test_regression_pr255_declare_A_shards_is_flagged(tmp_path: Path) -> None:
     slurm.mkdir(parents=True)
     path = slurm / "calibration_full.sbatch"
     path.write_text(
-        "#!/bin/bash\n#SBATCH --job-name=giap-calibration-full\nset -euo pipefail\n"
+        "#!/bin/bash\n#SBATCH --job-name=gippa-calibration-full\nset -euo pipefail\n"
         "declare -A SHARDS=([13]=2)\n"
         'n="${SHARDS[$SLURM_ARRAY_TASK_ID]:-1}"\n'
     )

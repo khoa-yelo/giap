@@ -1,4 +1,4 @@
-"""Performance budget for the banded verifier (issue M3-06 acceptance; GIAP_SPEC.md §7.2.4).
+"""Performance budget for the banded verifier (issue M3-06 acceptance; GIPPA_SPEC.md §7.2.4).
 
 10**6 ``verify`` calls on 12-aa queries (k = 2, a mix of exact, planted 1-2 difference and
 random candidates on a 100,000-aa random frame) <= 5 s on one core, numba warmed up first. Run
@@ -21,8 +21,8 @@ SCRIPT = textwrap.dedent(
     """
     import json, time
     import numpy as np
-    from giap.mapping.diffops import block_tables
-    from giap.mapping.tolerant_dp import verify
+    from gippa.mapping.diffops import block_tables
+    from gippa.mapping.tolerant_dp import verify
 
     tables = block_tables()
     rng = np.random.default_rng(0)

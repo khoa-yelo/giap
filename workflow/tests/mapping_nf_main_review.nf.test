@@ -6,10 +6,10 @@
 // params.inputs.proteins_long (protein route: MINIPROT, protein_leftovers, TBLASTN) and
 // params.inputs.reference_peptides (placement) to MAPPING, never channel.empty().
 // Decision 18: main.nf's contaminant fallback (no params.inputs.contaminants) reads the current
-// `giap setup` manifest, {"schema_version", "items": [{"name", ..., "path", "status"}, ...]}
-// (giap.preflight.environment.read_manifest: `ok` items only). The tmp db_dir here is a copy of
+// `gippa setup` manifest, {"schema_version", "items": [{"name", ..., "path", "status"}, ...]}
+// (gippa.preflight.environment.read_manifest: `ok` items only). The tmp db_dir here is a copy of
 // tests/data/db_manifest/db_manifest.json (the real structure, values faked) with the contaminants
-// item's path set as `giap setup --contaminants` writes it; the real $GIAP_DB_DIR is never read.
+// item's path set as `gippa setup --contaminants` writes it; the real $GIPPA_DB_DIR is never read.
 
 nextflow_pipeline {
 
@@ -62,7 +62,7 @@ nextflow_pipeline {
         }
     }
 
-    test("decision 18: contaminant library from a db_dir with the giap setup manifest format") {
+    test("decision 18: contaminant library from a db_dir with the gippa setup manifest format") {
 
         when {
             params {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release readiness table (issue M11-03; GIAP_SPEC.md §13.2, §12 ``release.yml``, §11).
+"""Release readiness table (issue M11-03; GIPPA_SPEC.md §13.2, §12 ``release.yml``, §11).
 
 ``compute`` reads the working tree of ``--repo`` (commit = HEAD), the FarmShare logs and an
 optional A2 freeze run, and writes ``readiness.json`` plus ``READINESS.md`` (``render`` of the
@@ -51,18 +51,18 @@ NON_STATS_PATHS: tuple[str, ...] = (
     "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/", ".github/",
     # single files: scripts/dev/island_power.py feeds a calibration test (never list)
     "scripts/dev/approval_packet.py", "scripts/dev/progress_bars.py", "scripts/dev/replant.sh",
-    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/giap/report/", "src/giap/viz/",
+    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/gippa/report/", "src/gippa/viz/",
     "validation/release/",
 )  # fmt: skip
 # Never reusable; disjoint from NON_STATS_PATHS (a unit test asserts it).
 NEVER_PATHS: tuple[str, ...] = (
-    "src/giap/preflight/", "src/giap/runner/", "src/giap/setupdb/", "src/giap/cli.py",
-    "src/giap/data/", "src/giap/config/", "src/giap/rng.py", "src/giap/io/", "workflow/",
+    "src/gippa/preflight/", "src/gippa/runner/", "src/gippa/setupdb/", "src/gippa/cli.py",
+    "src/gippa/data/", "src/gippa/config/", "src/gippa/rng.py", "src/gippa/io/", "workflow/",
     "pyproject.toml", "uv.lock", "tests/sim/", "tests/calibration/", "ci/",
     "scripts/release/readiness.py", "scripts/dev/island_power.py",
 )  # fmt: skip
 SELF_PATH = "scripts/release/readiness.py"  # self-protection: a widening commit never certifies
-VERSION_FILE = "src/giap/__init__.py"
+VERSION_FILE = "src/gippa/__init__.py"
 _VERSION_LINE = re.compile(r'__version__ = "[^"]+"')
 REUSED_NOTE = "(reusable: diff ⊆ NON_STATS_PATHS)"
 IMAGES = "workflow/conf/images.json"
@@ -96,7 +96,7 @@ CRITERIA = {
     "H2": "version agreement; release tag not yet created",
     "H3": "changelog built for the version",
     "H4": "containers pinned by digest",
-    "H5": "licences listed; GIAP is MIT",
+    "H5": "licences listed; GIPPA is MIT",
     "H6": "CI check runs on the commit",
 }
 SOURCES = {"R2": "farmshare", "R3": "farmshare", "R4": "farmshare", "H6": "farmshare"}
@@ -187,7 +187,7 @@ def _version_line_only(repo: Path, c: str, r: str) -> bool:
 def reusable(repo: Path, c: str, r: str) -> bool:
     """Evidence from commit ``c`` stands at ``r`` (M11-14 item 4): every path of ``git diff
     --name-only --no-renames c r`` is a ``non_stats_path``, except a one-hunk ``__version__``
-    change of ``src/giap/__init__.py``; never if ``scripts/release/readiness.py`` changed or
+    change of ``src/gippa/__init__.py``; never if ``scripts/release/readiness.py`` changed or
     either commit is unknown. Reads ``NON_STATS_PATHS`` at call time."""
     cc, rr = _resolve(repo, c), _resolve(repo, r)
     if cc is None or rr is None:
@@ -385,7 +385,7 @@ def _te(te: Any, status: Callable[[dict[str, Any]], Any], doc: dict[str, Any]) -
 
 def _te7(m: dict[str, Any]) -> str:
     te7 = m.get("te7") or {}
-    return _te(te7, lambda t: (t.get("giap") or {}).get("status", "missing"), te7)
+    return _te(te7, lambda t: (t.get("gippa") or {}).get("status", "missing"), te7)
 
 
 def r5(c: Ctx) -> Row:
@@ -418,7 +418,7 @@ def r6(c: Ctx) -> Row:
     te7 = _te7(m)
     st = overall([calib["status"], te7.split(" ", 1)[0]])
     val = f"TE7 {te7}; integration: {calib['value']}"
-    return _row("R6", st, val, "te7.giap.status pass and the integration run",
+    return _row("R6", st, val, "te7.gippa.status pass and the integration run",
                 [METRICS, *calib["evidence"]])  # fmt: skip
 
 
@@ -514,19 +514,19 @@ def h1(c: Ctx) -> Row:
 
 
 def h2(c: Ctx) -> Row:
-    init = re.search(r"(?m)^__version__\s*=\s*['\"]([^'\"]+)", c.text("src/giap/__init__.py") or "")
+    init = re.search(r"(?m)^__version__\s*=\s*['\"]([^'\"]+)", c.text("src/gippa/__init__.py") or "")
     cff = re.search(r"(?m)^version:\s*['\"]?([^'\"\s]+)", c.text("CITATION.cff") or "")
-    got = {"giap.__version__": init and init.group(1), "CITATION.cff": cff and cff.group(1)}
+    got = {"gippa.__version__": init and init.group(1), "CITATION.cff": cff and cff.group(1)}
     bad = [f"{k} = {v}" for k, v in got.items() if v != c.version]
     if _git(c.repo, "tag", "-l", f"v{c.version}"):
         bad.append(f"tag v{c.version} exists")
     val = "; ".join(bad) if bad else f"{c.version} everywhere; no tag v{c.version}"
     return _row("H2", "fail" if bad else "pass", val, f"= {c.version}",
-                ["src/giap/__init__.py", "CITATION.cff", "git tag -l"])  # fmt: skip
+                ["src/gippa/__init__.py", "CITATION.cff", "git tag -l"])  # fmt: skip
 
 
 def h3(c: Ctx) -> Row:
-    head = f"## GIAP {c.version} ("
+    head = f"## GIPPA {c.version} ("
     d = c.repo / "changelog.d"
     frags = (
         sorted(p.name for p in d.rglob("*") if p.is_file() and p.name != ".gitkeep")
@@ -563,7 +563,7 @@ def _h4_reason(name: str, img: str) -> str | None:
 
 
 def h4(c: Ctx) -> Row:
-    cfg_rel, tools_rel = "workflow/conf/containers.config", "src/giap/annotate/tools.py"
+    cfg_rel, tools_rel = "workflow/conf/containers.config", "src/gippa/annotate/tools.py"
     cfg, reg = c.text(cfg_rel), registry(c.text(tools_rel) or "")
     if cfg is None or not reg:
         return _missing("H4", cfg_rel if cfg is None else f"{tools_rel} registry")
@@ -583,11 +583,11 @@ def h4(c: Ctx) -> Row:
 
 
 def _image_key(tool: str, root: Path) -> str:
-    """``giap.io.image_key.key`` of the checkout next to this script (ValueError: no inputs)."""
+    """``gippa.io.image_key.key`` of the checkout next to this script (ValueError: no inputs)."""
     src = str(Path(__file__).resolve().parents[2] / "src")
     if src not in sys.path:
-        sys.path.insert(0, src)  # the checkout's image_key, not an installed giap's
-    from giap.io.image_key import key
+        sys.path.insert(0, src)  # the checkout's image_key, not an installed gippa's
+    from gippa.io.image_key import key
 
     return key(tool, root)
 
@@ -633,7 +633,7 @@ def _norm(s: str) -> str:
 def h5(c: Ctx) -> Row:
     notice, lic = c.text("NOTICE.md") or "", (c.text("LICENSE") or "").strip()
     listed = {_norm(x) for x in re.findall(r"(?m)^\|\s*([^|]+?)\s*\|", notice)}
-    bad = [f"not in NOTICE.md: {n}" for n in registry(c.text("src/giap/annotate/tools.py") or "")
+    bad = [f"not in NOTICE.md: {n}" for n in registry(c.text("src/gippa/annotate/tools.py") or "")
            if _norm(n) not in listed]  # fmt: skip
     if not lic.startswith("MIT License"):
         bad.append("LICENSE is not MIT")
@@ -738,7 +738,7 @@ def _cell(s: object) -> str:
 def render(doc: dict[str, Any]) -> str:
     """``READINESS.md``: a pure function of ``readiness.json``; text verbatim but ``redact``-ed,
     line by line (process names only in the H4 row); no row-level data is ever read (R11)."""
-    out = [f"# GIAP {doc['version']} release check", "", f"- Commit: `{doc['commit']}`",
+    out = [f"# GIPPA {doc['version']} release check", "", f"- Commit: `{doc['commit']}`",
            f"- Computed: {doc['computed']}", f"- Overall: **{doc['overall']}**", "",
            "| id | criterion | status | value | threshold | evidence | source |",
            "|---|---|---|---|---|---|---|"]  # fmt: skip

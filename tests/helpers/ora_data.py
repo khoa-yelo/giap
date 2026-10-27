@@ -18,7 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from giap.stats.poisson_binomial import CpbTails, conditional_poisson_binomial
+from gippa.stats.poisson_binomial import CpbTails, conditional_poisson_binomial
 from helpers.gsea_data import Gene, as_list, frame, gene_sets
 
 __all__ = [
@@ -126,13 +126,13 @@ def singletons(
 
 
 def ora():  # type: ignore[no-untyped-def]
-    from giap.function import ora as mod
+    from gippa.function import ora as mod
 
     return mod
 
 
 def summary():  # type: ignore[no-untyped-def]
-    from giap.function import summary as mod
+    from gippa.function import summary as mod
 
     return mod
 

@@ -1,4 +1,4 @@
-"""Hypothesis properties of giapsim evidence (issue M4-09; GIAP_SPEC.md §11.3, §7.2.6, §7.3.2).
+"""Hypothesis properties of gippasim evidence (issue M4-09; GIPPA_SPEC.md §11.3, §7.2.6, §7.3.2).
 
 For any small layout (plasmids, linear contigs, origin crossing), any expression seed and any valid
 ``EvidenceConfig`` (pi_wrong, false source, decoy count, emit subset, protein IDs, uniqueness
@@ -31,9 +31,9 @@ EMIT_FIELDS = ("q_value", "pep", "score", "is_decoy", "intensity", "protein_ids"
 
 
 def _mods() -> tuple[Any, Any, Any]:
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     return ev, ex, la
 
@@ -79,8 +79,8 @@ def _run(lay: Any, expr: Any, cfg: Any, seed: int) -> Any:
 @SETTINGS
 @given(scenarios())
 def test_contract_valid_and_loadable(sc: tuple[Any, Any, Any, int]) -> None:
-    from giap.genetable.contract import validate_inputs, validate_table
-    from giapsim.contract_tables import write_contract_tables
+    from gippa.genetable.contract import validate_inputs, validate_table
+    from gippasim.contract_tables import write_contract_tables
 
     lay, expr, cfg, seed = sc
     ev = _run(lay, expr, cfg, seed)

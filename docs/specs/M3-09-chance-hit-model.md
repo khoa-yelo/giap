@@ -1,7 +1,7 @@
 # M3-09: Chance-hit model: E(L, m), Poisson-binomial ranking score
 
 Milestone M3 · depends on: M3-02 (residue codes, frame lengths), M4-02 (`stats/poisson_binomial.py`;
-whichever merges first creates it with the signatures below) · creates `src/giap/mapping/chance.py` · pure Python (+ numba for the Monte
+whichever merges first creates it with the signatures below) · creates `src/gippa/mapping/chance.py` · pure Python (+ numba for the Monte
 Carlo helper in tests) · estimate ≈ 160 code lines · **statistical**: section "Chance hits and the
 ranking score" of `docs/methods/placement-fdr.md`, signed off by the statistician (§14.1)
 

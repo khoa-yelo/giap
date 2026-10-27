@@ -17,13 +17,13 @@ estimate ≈ 160 code lines (+ ≈ 250 test lines) · statistical (light)
 
 ## Public interface
 
-`src/giap/function/sensitivity.py`, `src/giap/determinants/sensitivity.py` — two `Family`
-callables registered in M4-19's `FAMILIES` (`giap.context.sensitivity`), keyword-only tables bound
+`src/gippa/function/sensitivity.py`, `src/gippa/determinants/sensitivity.py` — two `Family`
+callables registered in M4-19's `FAMILIES` (`gippa.context.sensitivity`), keyword-only tables bound
 by name (M4-19 decisions 5, 13).
 ```python
-def enriched_categories_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Generator,
+def enriched_categories_family(genes: pd.DataFrame, cfg: GippaConfig, rng: np.random.Generator,
                                *, collections: Sequence[GeneSets], tus: pd.DataFrame) -> set[str]: ...
-def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Generator,
+def determinants_family(genes: pd.DataFrame, cfg: GippaConfig, rng: np.random.Generator,
                         *, features: pd.DataFrame) -> DeterminantsSensitivity: ...
 ```
 
@@ -34,7 +34,7 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
    **ORA** (detection-driven; analytical, no B) and GSEA; `top3` (full) reruns GSEA. ORA under
    `min`/`exclude` is unchanged by construction (detection does not change) and is not rerun.
    **Amendment (M8-17b, ADR-0038; statistician, PR #214 N3):** every GSEA rerun goes through
-   `gsea_table`'s engine, which is R fgsea (`RFgseaEngine`, a separate process in the `giap-fgsea`
+   `gsea_table`'s engine, which is R fgsea (`RFgseaEngine`, a separate process in the `gippa-fgsea`
    env). Each variant therefore makes its own R calls (a main call and, with GO re-tests, a second
    call) at `n_perm_simple = 199`, and the `sensitivity` step needs the fgsea env whenever it
    reruns GSEA. Its tests inject a fake or `SIMPLE_ENGINE`; a `requires_r` test on Slurm should cover the

@@ -1,4 +1,4 @@
-"""Hypothesis properties for the Bakta layers (M2-04; GIAP_SPEC.md §7.1.2, §11.6 TE6).
+"""Hypothesis properties for the Bakta layers (M2-04; GIPPA_SPEC.md §7.1.2, §11.6 TE6).
 
 - ``anti_sd`` always returns a 9-nt DNA string; without the default flag it is the tail of a
   copy and contains ``CCTCC``; with it, it is ``ACCTCCTTA``; a unique majority tail is order-free.
@@ -14,8 +14,8 @@ from collections import Counter
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model import Interval, Replicon
-from giap.model.genes import Gene, NcFeature
+from gippa.model import Interval, Replicon
+from gippa.model.genes import Gene, NcFeature
 
 DNA = st.text(alphabet="ACGT", min_size=0, max_size=30)
 
@@ -23,7 +23,7 @@ DNA = st.text(alphabet="ACGT", min_size=0, max_size=30)
 @settings(max_examples=200, deadline=None)
 @given(st.lists(DNA, max_size=8))
 def test_anti_sd_shape(copies: list[str]) -> None:
-    from giap.annotate.bakta_layers import DEFAULT_ANTI_SD, anti_sd
+    from gippa.annotate.bakta_layers import DEFAULT_ANTI_SD, anti_sd
 
     seq, flags = anti_sd(copies)
     assert len(seq) == 9 and set(seq) <= set("ACGT")
@@ -42,7 +42,7 @@ def test_anti_sd_shape(copies: list[str]) -> None:
     st.randoms(use_true_random=False),
 )
 def test_anti_sd_unique_majority_is_order_free(prefixes: list[str], pad: str, rnd: object) -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     tail = "AC" + "CCTCC" + pad[:2]
     others = [p + "T" * 9 for p in prefixes[: max(0, len(prefixes) // 2)]]
@@ -90,7 +90,7 @@ def _scene(draw: st.DrawFn) -> tuple[Replicon, NcFeature, list[Gene], int]:
 def test_nearest_genes_matches_brute_force(
     scene: tuple[Replicon, NcFeature, list[Gene], int],
 ) -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     rep, feat, genes, n = scene
     got = nearest_genes(feat, genes, rep, n=n)
@@ -122,7 +122,7 @@ def test_nearest_genes_matches_brute_force(
     )
 )
 def test_split_xrefs_reconstructs(per_gene: list[list[tuple[str, str]]]) -> None:
-    from giap.annotate.bakta_layers import split_xrefs
+    from gippa.annotate.bakta_layers import split_xrefs
 
     genes = [
         Gene(
@@ -148,7 +148,7 @@ def test_split_xrefs_reconstructs(per_gene: list[list[tuple[str, str]]]) -> None
 @settings(max_examples=100, deadline=None)
 @given(st.lists(st.sampled_from(["CAG", "GCC", "TTC", "AAA", "CAT"]), max_size=20))
 def test_trna_counts_total(anticodons: list[str]) -> None:
-    from giap.annotate.bakta_layers import trna_counts
+    from gippa.annotate.bakta_layers import trna_counts
 
     feats = [
         NcFeature(

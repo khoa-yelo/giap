@@ -11,9 +11,9 @@ import pandas as pd
 import pytest
 from test_variants_step import _cfg, _chain
 
-from giap.io.fasta import read_genome_fasta
-from giap.steps.mapping import read_gene_model
-from giap.steps.variants import _peptide_hits, run_variants, support_of
+from gippa.io.fasta import read_genome_fasta
+from gippa.steps.mapping import read_gene_model
+from gippa.steps.variants import _peptide_hits, run_variants, support_of
 
 
 @pytest.fixture(scope="module")

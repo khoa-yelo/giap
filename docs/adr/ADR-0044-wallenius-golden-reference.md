@@ -6,7 +6,7 @@
   `tests/calibration/tolerances.yaml`)
 
 ## Context
-§7.7.5 criterion 1 compares GIAP's Wallenius p-values with goseq's at relative 1e-6
+§7.7.5 criterion 1 compares GIPPA's Wallenius p-values with goseq's at relative 1e-6
 (`golden_r.wallenius_rel_tol`). On the committed M8-12 golden data (goseq 1.62.0, BiasedUrn
 2.0.12, default `precision = 1e-7`), 36 of the 300 tails differ by more than that (M8-13 F3). The
 counts match for all 150 categories, and the odds match goseq's weight identity to 9e-16.
@@ -38,12 +38,12 @@ On the 300 golden tails:
 
 | | > 1e-6 against the exact reference | max relative error | max absolute error |
 |---|---|---|---|
-| GIAP (`wallenius_tails`, scipy 1.18.1 pmf + `fsum`) | **0** | **7.1e-12** | 5.8e-12 |
+| GIPPA (`wallenius_tails`, scipy 1.18.1 pmf + `fsum`) | **0** | **7.1e-12** | 5.8e-12 |
 | goseq / BiasedUrn | **36** | 0.49 (and 1.0 where it returns 0) | **2.6e-6** |
 
 The failing tails, reference against goseq:
 
-| tail | exact | GIAP | goseq | goseq rel. error |
+| tail | exact | GIPPA | goseq | goseq rel. error |
 |---|---|---|---|---|
 | CAT_004 over | 4.169558e-07 | 4.169558e-07 | 2.141283e-07 | 0.49 |
 | CAT_011 over | 4.437464e-27 | 4.437464e-27 | 3.746333e-27 | 0.16 |
@@ -68,16 +68,16 @@ What goes wrong in goseq, from its outputs alone (goseq computes over = `dWNCHyp
 - goseq is not uniformly bad. CAT_010's 6.07e-46 tail agrees to 5.5e-8. The error depends on
   BiasedUrn's internal method choice, which this ADR does not need to identify.
 
-Conclusion: no GIAP change can satisfy "relative 1e-6 against goseq" on these data. The
-reference fails it, by up to a factor of 2, and it says 0 where the truth is 1e-17. **GIAP is
+Conclusion: no GIPPA change can satisfy "relative 1e-6 against goseq" on these data. The
+reference fails it, by up to a factor of 2, and it says 0 where the truth is 1e-17. **GIPPA is
 right on every golden tail.**
 
 ## Decision
 1. **Criterion 1's reference becomes the exact Wallenius distribution**, computed from the
-   definition and never by the method GIAP uses in the same regime:
-   - **Tails < 1e-3:** by R2. These have few support points, so this is cheap. GIAP's ADR-0045
+   definition and never by the method GIPPA uses in the same regime:
+   - **Tails < 1e-3:** by R2. These have few support points, so this is cheap. GIPPA's ADR-0045
      path for tails < 1e-6 is R1, so R2 keeps the comparison independent.
-   - **Tails ≥ 1e-3:** by R1 in 80-bit precision. GIAP uses scipy's pmf there.
+   - **Tails ≥ 1e-3:** by R1 in 80-bit precision. GIPPA uses scipy's pmf there.
    - **Larger tails:** taken as 1 − smaller tail + pmf(k), with pmf(k) by R2. This is exact
      because Σ f = 1, which is verified on ≥ 3 categories.
    - **R2 spot checks:** on ≥ 10 tails ≥ 1e-3, recorded.
@@ -89,7 +89,7 @@ right on every golden tail.**
    integers, numpy long double), with no R and no scipy. It runs once on Slurm (≤ 4 CPUs, ≤ 1 h) and has a
    PROVENANCE entry. The comparison is
    `|p − p_exact| ≤ wallenius_rel_tol · p_exact` on all 300 tails, with the tolerance unchanged at
-   1e-6. Today GIAP passes this with a margin of 1.4e5.
+   1e-6. Today GIPPA passes this with a margin of 1.4e5.
 2. **goseq stays as a second reference, at its demonstrated accuracy.** A new key
    `golden_r.wallenius_goseq_abs_tol: 1.0e-5` is added. The rule is
    `|p − p_goseq| ≤ max(wallenius_rel_tol · p_goseq, wallenius_goseq_abs_tol)`. The value is
@@ -109,8 +109,8 @@ right on every golden tail.**
 - **Rerun goseq with a tighter BiasedUrn `precision`.** goseq's interface has no precision
   argument, so this needs a patched goseq call (a fork of the reference). Its accuracy would then have to be
   proved against the exact reference anyway.
-- **Compare against R1 for every tail.** R1 is the algorithm proposed for GIAP's far tails (ADR-0045).
-  If ADR-0045 is adopted, R1 would test GIAP against itself. R2 is a different method (closed
+- **Compare against R1 for every tail.** R1 is the algorithm proposed for GIPPA's far tails (ADR-0045).
+  If ADR-0045 is adopted, R1 would test GIPPA against itself. R2 is a different method (closed
   form) and stays independent.
 
 ## Consequences
@@ -120,4 +120,4 @@ right on every golden tail.**
 - §7.7.5 criterion 1 reads "against the exact distribution (and against goseq within its
   documented accuracy)". The spec text is not edited; this ADR overrides it.
 - docs/methods/function.md "M8-13 golden" is updated: the 1e-6 comparison against goseq cannot
-  hold *because of goseq*, while GIAP's scipy pmf is within 1e-11 on every golden tail.
+  hold *because of goseq*, while GIPPA's scipy pmf is within 1e-11 on every golden tail.

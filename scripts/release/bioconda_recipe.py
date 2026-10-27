@@ -1,8 +1,8 @@
-"""Render the Bioconda recipe for GIAP from ``pyproject.toml`` (M11-10).
+"""Render the Bioconda recipe for GIPPA from ``pyproject.toml`` (M11-10).
 
 Usage: python scripts/release/bioconda_recipe.py --version V --sha256 H [--doi D] --out DIR
 
-Renders ``packaging/bioconda/meta.yaml.j2`` into ``DIR/giap/meta.yaml``. The runtime dependencies
+Renders ``packaging/bioconda/meta.yaml.j2`` into ``DIR/gippa/meta.yaml``. The runtime dependencies
 come from ``[project].dependencies`` of the repository's ``pyproject.toml`` (located relative to
 this script), each mapped to its conda name. ``--sha256 auto`` reads the sdist digest from PyPI
 (network; only after the release). Exit 1 on a bad sha256, an unmapped dependency or an
@@ -86,14 +86,14 @@ def check_sha256(sha: str) -> str:
 
 
 def pypi_sha256(version: str) -> str:
-    """The sdist sha256 of ``giap==version`` on PyPI (network)."""
-    url = f"https://pypi.org/pypi/giap/{version}/json"
+    """The sdist sha256 of ``gippa==version`` on PyPI (network)."""
+    url = f"https://pypi.org/pypi/gippa/{version}/json"
     with urllib.request.urlopen(url, timeout=60) as resp:
         data = json.load(resp)
     for f in data["urls"]:
         if f["packagetype"] == "sdist":
             return str(f["digests"]["sha256"])
-    raise RecipeError(f"no sdist for giap {version} on PyPI")
+    raise RecipeError(f"no sdist for gippa {version} on PyPI")
 
 
 def render(
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     except RecipeError as exc:
         print(f"bioconda_recipe: {exc}", file=sys.stderr)
         return 1
-    out = args.out / "giap" / "meta.yaml"
+    out = args.out / "gippa" / "meta.yaml"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text)
     print(out)

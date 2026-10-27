@@ -33,7 +33,7 @@ def _text(rel: str) -> str:
 
 def _cli_options() -> dict[str, set[str]]:
     opts: dict[str, set[str]] = {}
-    for block in _text("reference/cli.md").split("\n## giap ")[1:]:
+    for block in _text("reference/cli.md").split("\n## gippa ")[1:]:
         name, _, body = block.partition("\n")
         rows = [ln.split("|")[1] for ln in body.splitlines() if ln.startswith("| `")]
         found = {o for r in rows for o in re.findall(r"`(--[a-z0-9-]+)`", r)}
@@ -65,7 +65,7 @@ def test_pages_exist_and_are_in_nav() -> None:
 
 @pytest.mark.parametrize("rel", CHECKED)
 def test_options_exist_in_cli_reference(rel: str) -> None:
-    """Option drift: every `--option` and every `giap <cmd> ...` line names options of cli.md."""
+    """Option drift: every `--option` and every `gippa <cmd> ...` line names options of cli.md."""
     cli, text = _cli_options(), _text(rel)
     every = set().union(*cli.values())
     for raw in re.findall(r"`([^`]+)`", FENCE.sub("", text)):  # a span may wrap a line
@@ -73,10 +73,10 @@ def test_options_exist_in_cli_reference(rel: str) -> None:
         if span.startswith("--"):
             assert re.match(r"--[a-z0-9-]+", span)[0] in every, (rel, span)  # type: ignore[index]
     lines = [m for b in FENCE.findall(text) for m in b.replace("\\\n", " ").splitlines()]
-    spans = [" ".join(s.split()) for s in re.findall(r"`(giap\s[^`]+)`", FENCE.sub("", text))]
+    spans = [" ".join(s.split()) for s in re.findall(r"`(gippa\s[^`]+)`", FENCE.sub("", text))]
     for cmdline in [ln.split(" #")[0].strip() for ln in lines] + spans:
         words = cmdline.split()
-        if len(words) > 1 and words[0] == "giap" and words[1] in cli:
+        if len(words) > 1 and words[0] == "gippa" and words[1] in cli:
             for opt in re.findall(r"(?<![\w-])--[a-z0-9-]+", cmdline):
                 assert opt in cli[words[1]], (rel, words[1], opt)
 
@@ -129,8 +129,8 @@ def test_install_setup_run_outputs_contents() -> None:
 
 
 def test_plot_catalogue_matches_registry() -> None:
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
 
     load_plot_modules()
     assert {k: s.name for k, s in base.registered().items()} == PLOTS
@@ -141,7 +141,7 @@ def test_plot_catalogue_matches_registry() -> None:
 
 
 def test_install_pins_and_profiles_match_the_code() -> None:
-    from giap.cli import _PROFILES
+    from gippa.cli import _PROFILES
 
     install = _text("get-started/install.md")
     boot = (REPO / "scripts" / "bootstrap_farmshare.sh").read_text(encoding="utf-8")
@@ -154,7 +154,7 @@ def test_install_pins_and_profiles_match_the_code() -> None:
 
 
 def test_exit_code_meanings_match_exitcodes() -> None:
-    from giap.exitcodes import ExitCode
+    from gippa.exitcodes import ExitCode
 
     words = {"SUCCESS": "success", "INVALID_INPUT": "invalid input",
              "ENVIRONMENT": "environment error", "WARNINGS_STRICT": "`--strict`",

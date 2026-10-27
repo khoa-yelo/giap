@@ -1,6 +1,6 @@
-"""`giap setup` adopts the databases the prefetch job left in $GIAP_DB_DIR (issue M2-08; §3.9).
+"""`gippa setup` adopts the databases the prefetch job left in $GIPPA_DB_DIR (issue M2-08; §3.9).
 
-Read-only: only ``verify`` runs (no download, no manifest written, $GIAP_ROOT untouched). The
+Read-only: only ``verify`` runs (no download, no manifest written, $GIPPA_ROOT untouched). The
 layouts are the real ones (``bakta/db-light``, ``bakta/db``, ``genomad_db``,
 ``promotech/RF-HOT.model``), so ``SOURCES[...].path`` must point at them.
 The live Promotech download test of the acceptance list is left out: tests never download (lead).
@@ -15,12 +15,12 @@ from typing import Any
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-ROOT = Path(os.environ.get("GIAP_ROOT", REPO / "local"))
-DB = Path(os.environ.get("GIAP_DB_DIR", ROOT / "db"))
+ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
+DB = Path(os.environ.get("GIPPA_DB_DIR", ROOT / "db"))
 
 
 def _verify(name: str) -> Any:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     return verify(SOURCES[name], DB)
 
@@ -41,7 +41,7 @@ def test_prefetched_bakta_full_verifies() -> None:
 
 @pytest.mark.needs_genomad_db
 def test_prefetched_genomad_verifies() -> None:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     assert SOURCES["genomad"].path == "genomad_db"
     rec = _verify("genomad")

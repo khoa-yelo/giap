@@ -1,7 +1,7 @@
-"""Attack (GIAP_SPEC.md §8.4, §8.5, statistician): hypothesis 4's verdict rule (M10-10b;
+"""Attack (GIPPA_SPEC.md §8.4, §8.5, statistician): hypothesis 4's verdict rule (M10-10b;
 docs/specs/M10-10-a3-run.md, "Statistician review (2026-10-24)" > "Attack plan", S2 and S3).
 
-H4 compares GIAP's genome-anchored de novo precision per score bin with the A2-confirmed share
+H4 compares GIPPA's genome-anchored de novo precision per score bin with the A2-confirmed share
 ``L_b``, a lower bound on the bin's realised precision. The verdict is ``not_supported`` when any
 reportable bin has ``relation_adj = below_lower_bound`` (U_b, the genome CI's upper half-width
 rescaled to 1 - 0.025/B, below the Wilson lower limit at 1 - 0.05/B). Under H4 (the genome
@@ -16,21 +16,21 @@ exactly with probability c_true, a wrong one with r; every peptide matches the s
 r. The reference c_l comes from ``c_by_class`` on n_ref = 2,000 reference peptides (half of each
 length) matching at c_ref. A2 (D2) confirms each correct peptide with probability φ and each wrong
 one with probability ε; half of D2's strings are written with I for L (DIA-NN), and D2 also holds
-1,000 unrelated peptides. GIAP's side is the real ``denovo_precision`` (1,000 bootstrap
+1,000 unrelated peptides. GIPPA's side is the real ``denovo_precision`` (1,000 bootstrap
 resamples, values rounded to ``%.6g`` as the TSV writer does) on the aggregated (score = max)
 queries; H4's side is the real ``hypothesis4`` (and, in ``ties_and_reps``, the real
 ``denovo_queries`` on a written Cascadia-style table).
 
 Scenarios (plan table): gated at FWER — ``worst_case``, ``small_bins``, ``low_denominator``,
 ``partial_confirm``, ``a2_false_confirm``, ``ties_and_reps`` (plus: every peptide's bin equals
-GIAP's, S1), ``contaminants``; reported, not gated — ``clustered`` (the documented CI limit, S3:
+GIPPA's, S1), ``contaminants``; reported, not gated — ``clustered`` (the documented CI limit, S3:
 runs of 5 dependent, nested peptides); power reported — ``power_easy_reference``,
 ``power_one_bin``. Every scenario also asserts that the verdict is never ``supported`` and that
 ``relation_95 ⊇ relation_adj``. Reported values go to ``compare_attack_h4_recorded.jsonl`` and the
 gates to ``compare.jsonl`` (``_criteria.log_result``).
 
 R = 200 (marker ``calibration``) or 1,000 (``calibration_full``, Slurm). Seeds:
-``giap.rng.for_step("attack_h4", seed)`` with seed = ``seeds.calibration_base`` + 1010 + 10,000 ·
+``gippa.rng.for_step("attack_h4", seed)`` with seed = ``seeds.calibration_base`` + 1010 + 10,000 ·
 (scenario index) + replicate, one generator per replicate for the simulation and the bootstrap,
 so the fast replicates are the first 200 of the full run. If a gated scenario fails, the merge
 blocks (§8.5); the fallback, fixed in the spec, is ``relation_adj`` in two adjacent bins.
@@ -61,10 +61,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig
-from giap.mapping.denovo_precision import c_by_class, denovo_precision, score_bins
-from giap.rng import for_step
-from giap.steps.mapping import length_label
+from gippa.config import GippaConfig
+from gippa.mapping.denovo_precision import c_by_class, denovo_precision, score_bins
+from gippa.rng import for_step
+from gippa.steps.mapping import length_label
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from helpers.pilot_metrics_m10 import load_metrics
@@ -84,7 +84,7 @@ LENGTHS = (9, 12)
 N_REF = 2_000
 N_D2_OTHER = 1_000
 N_BOOT = 1_000
-CFG = GiapConfig(seed=7)
+CFG = GippaConfig(seed=7)
 CLASSES = CFG.mapping.length_classes
 
 
@@ -208,7 +208,7 @@ def _g6(v: float | None) -> float | None:
 def _mapping_fdr(
     df: pd.DataFrame, c: Mapping[str, float], rng: np.random.Generator
 ) -> pd.DataFrame:
-    """GIAP's ``denovo_precision`` rows as ``mapping_fdr.tsv`` carries them."""
+    """GIPPA's ``denovo_precision`` rows as ``mapping_fdr.tsv`` carries them."""
     frame = pd.DataFrame({"peptide": df["peptide"], "score": df["score"],
                           "length_class": [length_label(len(p), CLASSES) for p in df["peptide"]],
                           "target_exact": df["target"], "decoy_exact": df["decoy"]})  # fmt: skip
@@ -249,17 +249,17 @@ def _queries(rng: np.random.Generator, s: Scenario, df: pd.DataFrame) -> pd.Data
     M = load_metrics()
     if not s.reps:
         return pd.DataFrame({"peptide": df["peptide"], "score": df["score"], "source": "denovo"})
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     with tempfile.TemporaryDirectory() as tmp:
         P, _ = read_peptide_table(_cascadia_table(rng, df, Path(tmp) / "a3.tsv.gz"))
     q = M.denovo_queries(P, CFG)
-    # S1: every query in the bin GIAP's step gives it (score = max over the peptide's rows)
-    giap_bin = dict(zip(df["peptide"], score_bins(df["score"].to_numpy(dtype=float)), strict=True))
+    # S1: every query in the bin GIPPA's step gives it (score = max over the peptide's rows)
+    gippa_bin = dict(zip(df["peptide"], score_bins(df["score"].to_numpy(dtype=float)), strict=True))
     ours = score_bins(pd.to_numeric(q["score"]).to_numpy(dtype=float))
     assert len(q) == len(df), (len(q), len(df))
-    bad = sum(giap_bin[p] != b for p, b in zip(q["peptide"].astype(str), ours, strict=True))
-    assert bad == 0, f"{bad} queries in another bin than GIAP's (S1)"
+    bad = sum(gippa_bin[p] != b for p, b in zip(q["peptide"].astype(str), ours, strict=True))
+    assert bad == 0, f"{bad} queries in another bin than GIPPA's (S1)"
     return q
 
 

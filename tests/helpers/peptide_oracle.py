@@ -1,6 +1,6 @@
-"""Independent oracle for the giapsim proteomics tests (issue M3-19; test-author code).
+"""Independent oracle for the gippasim proteomics tests (issue M3-19; test-author code).
 
-Not part of ``giapsim``: it re-derives everything the simulated peptide tables claim from the
+Not part of ``gippasim``: it re-derives everything the simulated peptide tables claim from the
 genome itself (FASTA + ``truth/features.tsv`` + ``truth/novel_orfs.tsv``), so that the tests check
 the simulator against the genome rather than against its own internals.
 
@@ -326,18 +326,18 @@ def fnum(v: Any) -> float | None:
     return None if empty(v) else float(v)
 
 
-# ---------------------------------------------------------------- GIAP's own exact matcher
+# ---------------------------------------------------------------- GIPPA's own exact matcher
 
 
-def giap_exact_counts(run: Run, peptides: list[str]) -> dict[str, int]:
-    """Distinct target loci per peptide as GIAP's merged exact matcher (M3-02 six-frame index +
-    ``giap.mapping.exact``, I = L) finds them; origin copies are counted once."""
+def gippa_exact_counts(run: Run, peptides: list[str]) -> dict[str, int]:
+    """Distinct target loci per peptide as GIPPA's merged exact matcher (M3-02 six-frame index +
+    ``gippa.mapping.exact``, I = L) finds them; origin copies are counted once."""
     import numpy as np
 
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.exact import match_exact
-    from giap.mapping.sixframe import build_sixframe
-    from giap.model.coords import Replicon
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.exact import match_exact
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.model.coords import Replicon
 
     reps = {}
     for s in run.bakta["sequences"]:

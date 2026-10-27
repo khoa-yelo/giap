@@ -1,4 +1,4 @@
-"""proBed 1.0 writer (issue M1-04; GIAP_SPEC.md §7.2.9, §6.5; ADR-0005 item 1).
+"""proBed 1.0 writer (issue M1-04; GIPPA_SPEC.md §7.2.9, §6.5; ADR-0005 item 1).
 
 Always BED12 + 13 columns (25 fields); missing proBed values are ``.`` (not ``NA``).
 """
@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from giap.io.bed import BedRecord
-from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
-from giap.model import Interval, Replicon
+from gippa.io.bed import BedRecord
+from gippa.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
+from gippa.model import Interval, Replicon
 
 C = Replicon("c1", 1000, "circular")
 L = Replicon("c1", 1000, "linear")

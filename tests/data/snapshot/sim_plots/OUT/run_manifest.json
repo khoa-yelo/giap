@@ -20,7 +20,7 @@
     }
   },
   "command_line": [
-    "giap",
+    "gippa",
     "run",
     "--genome",
     "WORK/sim/reference.fasta",
@@ -496,7 +496,7 @@
     "cai_reference_missing",
     "tu_recal_skipped"
   ],
-  "giap_version": "0.0.1",
+  "gippa_version": "0.0.1",
   "git_commit": "e75e4b63f2970841c284076dea9337adab31544a",
   "git_dirty": false,
   "inputs": [

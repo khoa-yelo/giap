@@ -1,7 +1,7 @@
-"""``giap.viz.style``: the §10.1 palettes, widths and rcParams (M9-01 behaviour 1-2, examples 1-2).
+"""``gippa.viz.style``: the §10.1 palettes, widths and rcParams (M9-01 behaviour 1-2, examples 1-2).
 
 Interface assumed beyond the spec text: ``COG_SUPER`` maps every letter A-Z to a super-category
-key (the key names are the implementer's); ``src/giap/data/cog_categories.tsv`` has a ``#``
+key (the key names are the implementer's); ``src/gippa/data/cog_categories.tsv`` has a ``#``
 provenance line naming NCBI COG, then a header with at least ``letter`` and ``description``.
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 import matplotlib
 import pytest
 
-from giap.viz import style
+from gippa.viz import style
 
 ROOT = Path(__file__).resolve().parents[3]
 GENES_SCHEMA_STATUS = {"detected", "not_detected", "single_peptide_unestimated", "partial_excluded"}
@@ -106,7 +106,7 @@ def test_unknown_cog_letter_is_poorly_characterised_grey(letter: str) -> None:
 
 
 def test_bundled_cog_categories_table() -> None:
-    path = ROOT / "src" / "giap" / "data" / "cog_categories.tsv"
+    path = ROOT / "src" / "gippa" / "data" / "cog_categories.tsv"
     lines = path.read_text(encoding="utf-8").splitlines()
     comments = [x for x in lines if x.startswith("#")]
     assert comments and any("NCBI" in x and "COG" in x for x in comments)

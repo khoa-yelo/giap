@@ -34,7 +34,7 @@ the full tier on main and writes down what they say.
    evidence is collected:
    - **G1:** scored on *unflagged* `high` substitution calls against *identifiable* truth. A truth
      row leaves the recall denominator when
-     `giap.variants.flags.mass_equivalent(ref_aa, alt_aa, variants.mass_equivalent_tol_da)` is
+     `gippa.variants.flags.mass_equivalent(ref_aa, alt_aa, variants.mass_equivalent_tol_da)` is
      true. Flagged calls are reported and not scored. `f1_min.variants_high` stays 0.90 (R3).
    - **A6a:** every isobaric non-swap ALT is flagged `mass_equivalent`. This now includes the left
      2→1 block reads.
@@ -59,16 +59,16 @@ the full tier on main and writes down what they say.
 
 ## Inputs
 
-| # | Run | Command (from the main checkout at commit C, `GIAP_CALIBRATION_LOG_DIR=$GIAP_ROOT/logs/calibration/m7-gate-<C>`) | Size and R | Expected cost |
+| # | Run | Command (from the main checkout at commit C, `GIPPA_CALIBRATION_LOG_DIR=$GIPPA_ROOT/logs/calibration/m7-gate-<C>`) | Size and R | Expected cost |
 |---|---|---|---|---|
 | E1 | variants gate, full | `sbatch --array=13 scripts/slurm/calibration_full.sbatch` (runs in-task shards 0/2 and 1/2 side by side, then `--merge`) | G1 `variant_f1` 1M, R = 100; G2, A6a–c and the reference-proteome arm at 100k, R = 100; M7-10's full tests | ≈ 40 min of shards plus ≈ 70–80 min of merge and block 2 on 4 CPUs, inside `--time=04:00:00` (M7-13a decisions 6–7) |
 | E2 | novel gate, full, block 1 | ten jobs `sbatch --array=<T> scripts/slurm/calibration_full.sbatch --shard K/10`, K = 0…9, where T is 11 now and 15 after ADR-0048 | `novel_orf_power(…, "1M", n_per_class=NOVEL_PER_CLASS_GATE)`, R = 300; G3, the 24 G4 checks, G4-k3 | ≈ 45–90 min per shard (statistician's shard of 30 replicates: G3 record 2,458 s); 40 CPUs |
-| E2b | novel gate, block 2 | only for checks that are `pending` after E2: list them with `grep '"status": "pending"' <log>/novel_orfs.merged.jsonl` after a first `--merge`, then `GIAP_CALIBRATION_CONFIRM=<checks> … --shard K/10 --block 2` (without `GIAP_CALIBRATION_CONFIRM` every check reruns block 2, ≈ 60 CPU-h more) | R = 300, replicates 300–599 | as E2 |
+| E2b | novel gate, block 2 | only for checks that are `pending` after E2: list them with `grep '"status": "pending"' <log>/novel_orfs.merged.jsonl` after a first `--merge`, then `GIPPA_CALIBRATION_CONFIRM=<checks> … --shard K/10 --block 2` (without `GIPPA_CALIBRATION_CONFIRM` every check reruns block 2, ≈ 60 CPU-h more) | R = 300, replicates 300–599 | as E2 |
 | E2m | novel merge | `sbatch --array=<T> scripts/slurm/calibration_full.sbatch --merge`, after E2 (and E2b) | none | minutes, because no block 2 is left to run |
 | E3 | fast tier, timings | the fast gate tests of both halves, through `scripts/slurm/test_branch.sbatch` on C | `variants` 20, `novel_orfs` gate 10 | for `benchmarks/baseline.json` |
 | E4 | TE2 proxy | the M7-14 weekly Nissle run on C, or a hand-submitted one if no weekly run has used a C at or after the ADR-0049 flag merge | Nissle same-strain peptides | as Slurm 1871578 |
 
-Before each submission, add up the CPUs of running and pending `giap-*` jobs (R14: ≤ 128 CPUs and
+Before each submission, add up the CPUs of running and pending `gippa-*` jobs (R14: ≤ 128 CPUs and
 ≤ 20 jobs). E2 alone takes 40 CPUs and 10 jobs. Record every job ID in PROGRESS.md when it is
 submitted, not after it finishes.
 
@@ -188,7 +188,7 @@ the origin.
    which contains every dependency. This follows M4 decision 7 and M5-11 Q2. Branch-snapshot runs
    (the statistician's `local/stat/m713b-full`, Slurm 1874972) are cited as the branch run, as
    in the M5-07 note's "Branch run / Main run" pairing. They never stand in for the main run.
-2. **A fresh log directory per run.** Each run writes to `$GIAP_ROOT/logs/calibration/m7-gate-<C>`.
+2. **A fresh log directory per run.** Each run writes to `$GIPPA_ROOT/logs/calibration/m7-gate-<C>`.
    Records from another commit, from the fast tier or from a partial attempt are never merged
    into it. A failed attempt keeps its own directory and its job ID in PROGRESS.md.
 3. **Evidence is a full-R record.** A record counts only when `R` equals the full count (variants
@@ -207,7 +207,7 @@ the origin.
    - **not met:** anything else.
    - The record never says "met" while a strict xfail other than a Khoa-accepted known failure
      remains in the gate tests.
-6. **Determinism.** Seeds are fixed. If C's `src/giap/variants`, `src/giap/novel`, `tests/sim`
+6. **Determinism.** Seeds are fixed. If C's `src/gippa/variants`, `src/gippa/novel`, `tests/sim`
    and gate tests match the code of a branch run file for file, the main numbers must equal the
    branch numbers exactly. A difference is a bug, found before the record is written.
 7. **No tolerance change (R3).** If a failure turns up here, the record shows it and an ADR goes
@@ -236,7 +236,7 @@ the origin.
 | Situation | Behaviour |
 |---|---|
 | **circular replicon, origin-crossing keys** | none are planted (the M7-12 pool excludes them); O3 says so. The indel mask across the origin stays a backlog line (code review N5 on #255), cited in O2 |
-| **linear contig** | the giapsim gate genomes are circular, so the open-3′ `stop ± 3` rule (M7-11 decision 13) is not exercised; O3 lists this under Limitations as not calibrated |
+| **linear contig** | the gippasim gate genomes are circular, so the open-3′ `stop ± 3` rule (M7-11 decision 13) is not exercised; O3 lists this under Limitations as not calibrated |
 | **minus strand** | both strands are planted (antisense by construction); coordinates are lowest-base keys in every record. The evidence is not split by strand (Q4) |
 | **empty arm** | an empty A6a or A6c arm, or a G1 guard miss, raises `RuntimeError` or gives a merged `fail` (M7-13a decisions 5, 7–8): never evidence, never shown as a known failure |
 | **empty or missing shard** | a range gap in E2's records → merge error → no evidence; rerun that shard into the same directory |
@@ -251,7 +251,7 @@ the origin.
 ## Acceptance criteria
 
 - [ ] E1, E2 (+ E2b if needed) and E2m ran on one main commit C. Every job ID is in PROGRESS.md,
-  and the merged records are under `$GIAP_ROOT/logs/calibration/m7-gate-<C>`.
+  and the merged records are under `$GIPPA_ROOT/logs/calibration/m7-gate-<C>`.
 - [ ] Every gated check in § O1.2 has a full-R record or a pytest outcome on C (rule 3). Q1's
   ledger test, if accepted, checks this from the logs.
 - [ ] PROGRESS.md › Done holds the `Gate M7` block (O1). It has the status line under rule 5, the
@@ -263,7 +263,7 @@ the origin.
 - [ ] `benchmarks/baseline.json` has the fast-tier entries (O4).
 - [ ] TE2 has a passing run on C or later (E4).
 - [ ] The §14.9 checklist for M7 is in the gate block. It covers:
-  - coverage of `giap.variants` and `giap.novel` ≥ 90 %, from the latest main CI run;
+  - coverage of `gippa.variants` and `gippa.novel` ≥ 90 %, from the latest main CI run;
   - the methods notes, signed off;
   - the schema, validated;
   - the benchmark;
@@ -292,8 +292,8 @@ All of these are merged to main before E1 and E2 are submitted:
 1. **#255 M7-13a** (variants gate harness; queued).
 2. **M7-13b** (`m7/calibration-gate-novel`), after the statistician's full tier on the branch
    rules on G4-k3 (decision 4). That full tier is the branch run of rule 1.
-3. **#237 M7-11** (pure `giap.novel.fdr`, `docs/methods/novel-orfs.md`) and **#267 M7-11b**
-   (step wiring and the giapsim makedb-ID fix, replacing the closed #256).
+3. **#237 M7-11** (pure `gippa.novel.fdr`, `docs/methods/novel-orfs.md`) and **#267 M7-11b**
+   (step wiring and the gippasim makedb-ID fix, replacing the closed #256).
 4. **The ADR-0049 PRs:**
    - the ADR set to accepted-by-khoa (lead queue: `docs/adr-0049-decision`);
    - the flag change (`m7/variant-flags-adr49`, 67421421);
@@ -310,7 +310,7 @@ All of these are merged to main before E1 and E2 are submitted:
    - a list of required streams and keys;
    - the records at full R;
    - a `KNOWN_FAILURES` map from stream to ADR, holding A6c;
-   - a `GIAP_M7_GATE=1` switch;
+   - a `GIPPA_M7_GATE=1` switch;
    - G2 and A6a read from their diagnostics.
    It goes in its own small PR before the record, so the acceptance criteria can be checked by a
    test.
@@ -346,7 +346,7 @@ All of these are merged to main before E1 and E2 are submitted:
 
 ## Lead decisions (2026-10-23)
 1. **Q1 yes:** the test-author adds `tests/integration/test_m7_gate.py` (known-failures map naming
-   the ADR for A6c; `GIAP_M7_GATE=1` switch) in a small PR before the evidence PR.
+   the ADR for A6c; `GIPPA_M7_GATE=1` switch) in a small PR before the evidence PR.
 2. **Q2 yes:** A6c stays a strict xfail, recorded as a known failure accepted by Khoa (ADR-0049
    decision 5); the gate can read `met` with A6c listed as open. Record the flagged share of
    systematic swaps. Pending Khoa (reversible): confirm that this reading of decision 5 against §8.5
@@ -363,12 +363,12 @@ All of these are merged to main before E1 and E2 are submitted:
 8. **ADR-0048 seeds:** if accepting ADR-0048 renames the streams, redo E2.
 9. **Ledger test (0a3a25e4): gaps 1–7 accepted as proposed.** A6b moves to a replicates check in
    M7-13a2 if that PR moves it out of the harness; the novel suite name comes from
-   `GIAP_M7_NOVEL_SUITE` (default `novel_orfs`); the ledger test leaves the `GIAP_M7_GATE` switch in
+   `GIPPA_M7_NOVEL_SUITE` (default `novel_orfs`); the ledger test leaves the `GIPPA_M7_GATE` switch in
    a follow-up once #255 and M7-13b merge; vacuous G4-k3 cells count as failures; attacks a/b/d/GC,
    TE2 and the reference-proteome arm stay in the PROGRESS record; G4-k3 gets a known-failure entry
    only with an ADR. Backlog: a commit field in calibration records.
 10. **#268 review (one round):** B1, B2 and nits 1, 2, 3 and 5 are fixed in the ledger test (477ee87c).
-    The lead fixed nit 6 (the E2b command sets `GIAP_CALIBRATION_CONFIRM` and lists the pending
+    The lead fixed nit 6 (the E2b command sets `GIPPA_CALIBRATION_CONFIRM` and lists the pending
     checks first). Nits 4 and 7 go to the backlog. The G4-k3 cells stay hard checks in the ledger:
     with ADR-0050 proposed, a G4-k3 fail makes the gate `partially met` (status rule), not a
     known failure.

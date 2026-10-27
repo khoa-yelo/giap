@@ -1,10 +1,10 @@
 """Inputs and oracles for the M6-10 ``operon_flags`` sensitivity family
-(docs/specs/M6-10-sensitivity-operon-flags.md, lead decisions 2026-10-22; GIAP_SPEC.md §8.6, G9;
+(docs/specs/M6-10-sensitivity-operon-flags.md, lead decisions 2026-10-22; GIPPA_SPEC.md §8.6, G9;
 M4-19 lead decisions 2 and 5; test author).
 
 Interface assumed (spec Behaviour 1-3 and lead decision 1, test-author reading):
 
-* ``giap.context.sensitivity.operon_flags_family(genes, cfg, rng, *, pairs_raw, tus, replicons,
+* ``gippa.context.sensitivity.operon_flags_family(genes, cfg, rng, *, pairs_raw, tus, replicons,
   gene_models, features, promoter_windows=None, terminators=None, tx_rates=None)
   -> frozenset[str]`` registered as ``FAMILIES["operon_flags"]``. ``genes`` is the M4-15 gene
   table (the M4-19 positional argument), so the C2 gene model, which the step's contract calls
@@ -12,13 +12,13 @@ Interface assumed (spec Behaviour 1-3 and lead decision 1, test-author reading):
   step key -> family keyword in one place). An evidence layer left at ``None`` is a missing layer
   (``layer_missing:<layer>``), as an absent optional input of the ``operons`` step.
 * The flagged set is the ``pair_id`` column of the ``operon_flags`` frame that the merged M6-08
-  chain (``giap.steps.operons.run_operons``) gives on the same tables and config.
+  chain (``gippa.steps.operons.run_operons``) gives on the same tables and config.
 * ``Variant`` gains ``config_patch`` (dotted keys, falsy by default); ``variants(cfg, tier)``
   under ``full`` appends ``pair_threshold=<t>`` for ``t`` in (0.3, 0.7) not equal to the primary
   ``annotation.uniop.pair_threshold``, each with ``config_patch =
   {"annotation.uniop.pair_threshold": t}`` and no ``overrides``.
 
-Tables: ``build_chain`` (``helpers.layers_chain``, the merged producers on giapsim SIM100K) with
+Tables: ``build_chain`` (``helpers.layers_chain``, the merged producers on gippasim SIM100K) with
 ``pairs_raw`` probabilities respread over (0, 1) by ``spread_pairs_raw`` (the recorded UniOP run
 puts every pair near 0.73, so no threshold in [0.3, 0.7] would move a class). ``gene_table``
 builds a §9.3 gene table over the C2 genes whose abundances are constant on each same-strand run
@@ -35,7 +35,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 FAMILY = "operon_flags"
 #: M4-19 decision 2 (common random numbers): one stream per family
@@ -62,16 +62,16 @@ def variant_name(t: float) -> str:
     return f"pair_threshold={t:g}"
 
 
-def config(**sections: Mapping[str, Any]) -> GiapConfig:
-    """``GiapConfig(seed=1)`` with ``abundance.missing = min`` (sensitivity ``[min, exclude]``
+def config(**sections: Mapping[str, Any]) -> GippaConfig:
+    """``GippaConfig(seed=1)`` with ``abundance.missing = min`` (sensitivity ``[min, exclude]``
     then reruns only ``missing=exclude``) and the given sections merged in."""
     raw: dict[str, Any] = {"seed": 1, "abundance": {"missing": "min"}}
     for k, v in sections.items():
         raw[k] = {**raw.get(k, {}), **dict(v)}
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
-def with_threshold(cfg: GiapConfig, t: float) -> GiapConfig:
+def with_threshold(cfg: GippaConfig, t: float) -> GippaConfig:
     ann = cfg.annotation
     uniop = ann.uniop.model_copy(update={"pair_threshold": t})
     return cfg.model_copy(update={"annotation": ann.model_copy(update={"uniop": uniop})})
@@ -120,7 +120,7 @@ def gene_table(
     ``imputed_abundance``); ``single_peptide`` genes are ``single_peptide_unestimated`` (not
     detected) with an observed abundance, which the ``single_peptide_detected`` variant uses.
     """
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
 
     n = len(c2)
     default = {"list": lambda: [], "bool": lambda: False, "int": lambda: None,
@@ -166,7 +166,7 @@ def gene_table(
 
 def roundtrip(df: pd.DataFrame, path: Path) -> pd.DataFrame:
     """``df`` written with the M4-15 writer and read back (the dtypes the step sees)."""
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     path.parent.mkdir(parents=True, exist_ok=True)
     write_genes_parquet(path, df)
@@ -181,9 +181,9 @@ def tables(chain: Any, *, pairs_raw: pd.DataFrame | None = None,
     return out
 
 
-def call_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Generator,
+def call_family(genes: pd.DataFrame, cfg: GippaConfig, rng: np.random.Generator,
                 t: Mapping[str, pd.DataFrame]) -> frozenset[str]:  # fmt: skip
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S.operon_flags_family(genes, cfg, rng, **{FAMILY_KW[k]: v for k, v in t.items()})  # type: ignore[no-any-return]
 
@@ -192,10 +192,10 @@ def call_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Generator,
 
 
 def oracle_frames(
-    genes: pd.DataFrame, cfg: GiapConfig, t: Mapping[str, pd.DataFrame]
+    genes: pd.DataFrame, cfg: GippaConfig, t: Mapping[str, pd.DataFrame]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(merged pair frame, ``operon_flags`` frame) of the merged M6-08 chain on ``t``."""
-    from giap.steps.operons import run_operons
+    from gippa.steps.operons import run_operons
 
     layers = {k: t[k] for k in LAYER_KEYS if k in t}
     merged, _, flagged, *_ = run_operons(genes, t["genes"], t["replicons"], t["tus"],
@@ -204,7 +204,7 @@ def oracle_frames(
 
 
 def oracle_flagged(
-    genes: pd.DataFrame, cfg: GiapConfig, t: Mapping[str, pd.DataFrame]
+    genes: pd.DataFrame, cfg: GippaConfig, t: Mapping[str, pd.DataFrame]
 ) -> frozenset[str]:
     return frozenset(str(p) for p in oracle_frames(genes, cfg, t)[1]["pair_id"])
 
@@ -216,7 +216,7 @@ def write_inputs(chain: Any, root: Path, gt: pd.DataFrame, *,
                  drop: Sequence[str] = ()) -> dict[str, Path]:  # fmt: skip
     """Explicit ``sensitivity`` step inputs: the gene table, C1 / C5 / C7 / C8 and the pair
     tables (the spread ``pairs_raw`` written next to the gene table)."""
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.io.genes_tsv import write_genes_parquet
 
     root.mkdir(parents=True, exist_ok=True)
     gt_path = root / "genes_table.parquet"

@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from giap.stats.autocorr import label_permutations, morans_i_matrix
+from gippa.stats.autocorr import label_permutations, morans_i_matrix
 
 from ._unit_helpers import timed
 

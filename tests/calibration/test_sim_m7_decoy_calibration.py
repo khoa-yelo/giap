@@ -1,5 +1,5 @@
 """Calibration of the M7-12 round-3 six-frame decoys and territories (lead decisions 21 and 22 on
-the statistician's round-2 block on PR #225; GIAP_SPEC.md §7.6.6, §8.4 suite "Novel-ORF class
+the statistician's round-2 block on PR #225; GIPPA_SPEC.md §7.6.6, §8.4 suite "Novel-ORF class
 FDR"). The interface is the one in tests/unit/test_sim_m7_round3.py, and the oracle is
 tests/helpers/m7_round3_oracle.py.
 
@@ -7,7 +7,7 @@ Claims checked, each pooled over replicates of ``novel_orf_power(seed, size)`` w
 ``seeds.calibration_base + 5000 + r`` (fast) and ``+ 6000 + r`` (full; ``+ 6500 + r`` at
 300 kb):
 
-* **Decoy null (decision 21).** The six-frame decoy scores (``rev_GIAPORF_`` rows) are
+* **Decoy null (decision 21).** The six-frame decoy scores (``rev_GIPPAORF_`` rows) are
   N(mu0, sd0) of ``score_mixture``: one-sample KS, p >= ``ks_min_p``. They are also one
   distribution with the wrong-target scores: two-sample KS, p >= ``ks_min_p``.
 * **Coin (decision 21).** Each null PSM is a wrong target row or a six-frame decoy row with
@@ -39,7 +39,7 @@ from helpers import m7_round3_oracle as Q
 from helpers import m7_sim_oracle as O
 from scipy import stats
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
@@ -57,10 +57,10 @@ class Rep:
 
 
 def _rep(tmp: Path, seed: int, size: str) -> Rep:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     out = tmp / "sim"
-    giapsim.simulate(sc.novel_orf_power(seed, size), seed, out)
+    gippasim.simulate(sc.novel_orf_power(seed, size), seed, out)
     entries = Q.makedb_entries(out, tmp / "db")
     index = Q.EntryIndex(entries, Q.lengths(out))
     loci = Q.wrong_loci(out)
@@ -116,7 +116,7 @@ def _check(reps: list[Rep], ks_min_p: float, mix: tuple[float, ...]) -> None:
 
 
 def _mix() -> tuple[float, ...]:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return tuple(float(x) for x in sc.novel_orf_power(0).proteomics.score_mixture)
 

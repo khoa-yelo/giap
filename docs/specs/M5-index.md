@@ -1,6 +1,6 @@
 # M5 "Autocorrelation and islands": issue index
 
-Spec: GIAP_SPEC.md §13 row M5. Deliverables: "Moran's I and join counts with both nulls, islands,
+Spec: GIPPA_SPEC.md §13 row M5. Deliverables: "Moran's I and join counts with both nulls, islands,
 ori–ter". **Gate:** "island FWER ≤ 5 % under simulated nulls; power curve recorded", i.e. the `islands`
 calibration suite (R = 50 per PR / 500 nightly, `tests/calibration/tolerances.yaml`, unchanged) passes the
 §8.4 FWER check under AR(1) backgrounds without islands, and the power grid of §7.3.6 (islands of 5, 10,
@@ -25,7 +25,7 @@ and simulations before the code (§14.1).
 | 1 | [M5-01](M5-01-stats-blom-loess.md) | S | `stats/`: `blom_scores` (left-censored), `loess_detrend` (circular padding) | none | 200 | yes | none |
 | 2 | [M5-02](M5-02-stats-moran-joincount.md) | S | `stats/`: `morans_i`, `join_count`, matrices, label and TU-block permutations, `lag_test`, `choose_block_len` | none | 300 | yes | none |
 | 3 | [M5-03](M5-03-stats-scan.md) | S | `stats/`: `scan_max`, `scan_null_max`, `fwer_p`, `merge_windows` (numba allowed) | none | 240 | yes | none |
-| 4 | [M5-04](M5-04-sim-oric-gradient.md) | F | C15 `features` contract entry; giapsim oriC, ori–ter gradient, replichore truth, null/power scenarios | none | 50 (+200 sim) | no | none |
+| 4 | [M5-04](M5-04-sim-oric-gradient.md) | F | C15 `features` contract entry; gippasim oriC, ori–ter gradient, replichore truth, null/power scenarios | none | 50 (+200 sim) | no | none |
 | 5 | [M5-05](M5-05-autocorrelation.md) | R | Moran + join count per replicon, both nulls, BH across lags; **autocorrelation calibration**, attack 1 | 01, 02 (cal: 04) | 330 | yes | full calibration on Slurm |
 | 6 | [M5-06](M5-06-islands.md) | R | scores → TU means → detrend → ℓ → bootstrap max → FWER → merged islands, effect CI, gene map | 01, 02, 03 | 380 | yes | none |
 | 7 | [M5-07](M5-07-island-calibration-power.md) | C | **island FWER gate** (fast + full), attack 1 variants, **power grid** recorder | 04, 06 | 40 (+tests) | yes | **Slurm** (R = 500 × 3 ρ; 18-cell power grid) |
@@ -63,17 +63,17 @@ issues merge; only calibration files wait for 04. Only 09–11 wait for unmerged
 
 | ID | Artefact | Producer (status) | What M5 relies on |
 |---|---|---|---|
-| G | gene table `work/genetable/genes.parquet` | M4-15 (**not merged**) | `locus_tag`, `contig`, `start`, `end`, `partial`, `tu_id`, `detected`, `p_detect`, `abundance_log2` — exactly the columns `giap.context.regions.replicon_index` (merged, M4-17) reads; M5 reuses that index |
+| G | gene table `work/genetable/genes.parquet` | M4-15 (**not merged**) | `locus_tag`, `contig`, `start`, `end`, `partial`, `tu_id`, `detected`, `p_detect`, `abundance_log2` — exactly the columns `gippa.context.regions.replicon_index` (merged, M4-17) reads; M5 reuses that index |
 | C1 | `replicons.parquet` | M2-04 `parse_bakta` (merged) | `contig`, `length`, `topology`, `kind` (row order = FASTA order) |
 | C5 | `tus.parquet` | M2-12 (merged) | `tu_id`, `contig`, `start`, `end`, `genes`; every gene in exactly one TU (M4-17 decision 13: missing `tu_id` raises) |
 | **C15** | `features.parquet` | M2-04 `parse_bakta` (merged; **new in the contract**, M5-04) | rows `type = oric`: `contig`, `start`, `end`. K-12 has 2 oriC calls, Nissle 1, sim100k 0 (recorded Bakta 1.12.2 JSONs) |
-| E | `giap.stats` | M4-01/03/04 (merged) | `perm_p` (two-sided centred, "greater"), `bh`, `circular_block_bootstrap`, `tu_block_bootstrap`, `percentile_ci` |
+| E | `gippa.stats` | M4-01/03/04 (merged) | `perm_p` (two-sided centred, "greater"), `bh`, `circular_block_bootstrap`, `tu_block_bootstrap`, `percentile_ci` |
 | S | `context_stats` step, `run_context_stats` | M4-18 (**not merged**) | M5-09 extends the step; regions/detection-summary outputs must stay byte-identical |
 | Z | sensitivity `FAMILIES` | M4-19 (**not merged**) | M5-10 registers `islands` |
 | X | fixture builder, golden `sim50k` | M4-20 (**not merged**) | M5-09/M5-11 integration and golden |
 | K | config | merged `ContextConfig`: `moran_lags [1, 20]`, `islands {min_tus 2, max_tus 20, detrend_span_frac 0.10, block_len auto}`; `stats.permutations/bootstrap/alpha.context` | no `defaults.yaml` change needed |
 | T | calibration harness | M4-05 (merged): `calibrate`, `check_fwer`, `check_level_pooled`, `replicates_fast/full.{autocorrelation, islands}`, nightly array tasks | `tolerances.yaml` unchanged (protected) |
-| Sim | giapsim | M4-07/08 (merged): AR(1) per replicon (restarts per replicon, does not wrap at the origin), `IslandSpec`, island truth, `tu_sd`, `detection` modes | M5-04 adds oriC, gradient, scenarios |
+| Sim | gippasim | M4-07/08 (merged): AR(1) per replicon (restarts per replicon, does not wrap at the origin), `IslandSpec`, island truth, `tu_sd`, `detection` modes | M5-04 adds oriC, gradient, scenarios |
 
 Columns M5 fills that M4-15 leaves NA: genes.tsv `island_id`, `replichore`, `replichore_position`.
 
@@ -129,7 +129,7 @@ No silent fallbacks (the M4-17 rule): every NA carries a flag, and no NA p enter
 
 Nothing in the M5 spec is infeasible: no external tool, database or network access; memory < 4 GB;
 the full calibration (≈ 1,500 + 2,000 replicates) and the 18-cell power grid fit one or two
-`giap-calibration` array tasks within R14. The only operational dependency is the nightly scrontab
+`gippa-calibration` array tasks within R14. The only operational dependency is the nightly scrontab
 entry (Khoa, §14.8 item 7); until it exists the gate is one green full run submitted by hand, as in M4.
 
 ## Decisions taken in these specs (for the lead to confirm)

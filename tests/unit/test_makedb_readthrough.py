@@ -1,4 +1,4 @@
-"""``giap makedb --patch`` with a ``cterm_extension`` row (M7-16b rule 13; ADR-0058 item 5; spec
+"""``gippa makedb --patch`` with a ``cterm_extension`` row (M7-16b rule 13; ADR-0058 item 5; spec
 examples 7 and 7b).
 
 For a patch CDS with ``Note=cterm_extension`` and a ``locus_tag`` naming a CDS/sORF on the same
@@ -25,7 +25,7 @@ from makedb_checks import by_id, fasta_records, id_map
 from makedb_genomes import Contig, feature, write_bakta_json
 from readthrough_toys import rc, toy_c1
 
-from giap.makedb.build import MakedbOptions, build_strain_db
+from gippa.makedb.build import MakedbOptions, build_strain_db
 
 G1_AA = "MSDKPLTEAGRWQLNEFK"
 PATCHED = "MSDKPLTEAGRWQLNEFKXVPAGHTLDMRK"
@@ -51,7 +51,7 @@ def _patch(tmp: Path, lines: list[str]) -> Path:
 def _cds(
     start1: int, end: int, strand: str = "+", attrs: str = "ID=G1;locus_tag=G1;Note=cterm_extension"
 ) -> str:
-    return f"c1\tGIAP\tCDS\t{start1}\t{end}\t.\t{strand}\t0\t{attrs}"
+    return f"c1\tGIPPA\tCDS\t{start1}\t{end}\t.\t{strand}\t0\t{attrs}"
 
 
 def _build(tmp: Path, lines: list[str], strand: str = "+") -> Path:

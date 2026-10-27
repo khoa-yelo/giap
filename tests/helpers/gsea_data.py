@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from giap.function.collections import GeneSets
+from gippa.function.collections import GeneSets
 
 #: the §9.3 columns of enrichment_gsea.tsv (+ the §9.2 test columns and the ADR-A ``flags``)
 GSEA_COLUMNS = (

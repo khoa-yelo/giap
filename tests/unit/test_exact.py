@@ -1,4 +1,4 @@
-"""Route 1: exact Aho-Corasick peptide matching (issue M3-04; GIAP_SPEC.md §7.2.2, §7.2.9).
+"""Route 1: exact Aho-Corasick peptide matching (issue M3-04; GIPPA_SPEC.md §7.2.2, §7.2.9).
 
 Genomes ``G`` (linear ``c1``) and ``R`` (circular ``r``, ``wrap_nt=12``) are those of M3-02.
 ``match_exact`` takes the length window as keyword arguments ``min_len``/``max_len`` (defaults 7
@@ -11,16 +11,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import DecoyType, build_decoys, mirror_aa
-from giap.mapping.exact import match_exact
-from giap.mapping.hits import HIT_COLUMNS
-from giap.mapping.sixframe import SixFrameIndex, build_sixframe, decode
-from giap.model import Interval, Replicon, to_one_based_closed
-from giap.model.genes import gene_model_from_bakta_json
-from giap.rng import for_step
-from giapsim.codons import CODE_11
-from giapsim.simulate import SimConfig, simulate
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import DecoyType, build_decoys, mirror_aa
+from gippa.mapping.exact import match_exact
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.mapping.sixframe import SixFrameIndex, build_sixframe, decode
+from gippa.model import Interval, Replicon, to_one_based_closed
+from gippa.model.genes import gene_model_from_bakta_json
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
+from gippasim.simulate import SimConfig, simulate
 
 G = "ATGGCTAAAATTCTGTGGTAACGTNNA"  # frames: MAKLLW*RX WLKFCGNX G*NSVVTX XTLPQNFSH XRYHRLLA XVTTEF*P
 R = "AAAGAACTGTAAGGCTCCATGCCG"  # circular, wrap 12: +0 = KEL*GSMPKEL*

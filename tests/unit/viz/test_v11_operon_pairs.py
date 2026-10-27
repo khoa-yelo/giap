@@ -1,4 +1,4 @@
-"""V11 ``operon_pairs``: do operon partners look alike? (M9-11; GIAP_SPEC.md §10.2 V11, §7.4,
+"""V11 ``operon_pairs``: do operon partners look alike? (M9-11; GIPPA_SPEC.md §10.2 V11, §7.4,
 §7.4.5, §9.3 ``pairs.tsv`` / ``operon_flags.tsv``; M9-index decision 16).
 
 Tests the plotted data (the ``Instance`` data frame = ``plots/data/V11_operon_pairs.tsv``), the
@@ -7,7 +7,7 @@ panel structure, the title, the degenerate cases, determinism and the colours th
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.operon_pairs``; importing it registers ``V11`` (name
+- The plot lives in ``gippa.viz.operon_pairs``; importing it registers ``V11`` (name
   ``operon_pairs``, module ``core``, ``needs=("pairs",)``, ``optional`` ⊇ {``operon_flags``}). It
   returns one ``Instance`` with ``suffix=None`` and ``coords=()``. The module exports
   ``FLAG_MARKERS``: the 7 §7.4.5 flag values -> 7 distinct matplotlib marker codes.
@@ -22,7 +22,7 @@ Interface assumed where the spec leaves it open:
   ``operon_flags.tsv`` (``flag`` NA for a pair that has no flag row).
 - **Upstream** in panel (c) is ``gene_a`` on both strands: ``pairs.tsv`` already orients OP / NO
   pairs in transcription order (schema: "gene_a: Upstream gene in transcription order"; M6-04
-  ``giap.operons.pairs`` swaps the genes of a ``-`` pair). The spec's examples 2-3 swap again on
+  ``gippa.operons.pairs`` swaps the genes of a ``-`` pair). The spec's examples 2-3 swap again on
   ``-``; that conflict is reported to the lead (``test_upstream_is_gene_a_on_both_strands``).
 - Panel (c) draws its points with ``scatter`` (``PathCollection``); flagged pairs at
   ``q_value <= stats.alpha.operon_flags`` are the points drawn with a marker size larger than the
@@ -53,14 +53,14 @@ from matplotlib.collections import PathCollection
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = [
     "panel",
     "pair_id",
@@ -95,7 +95,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -206,12 +206,12 @@ def _full_flags(pairs: Sequence[Mapping[str, object]]) -> list[dict[str, object]
 
 
 def _v11() -> base.PlotSpec:
-    import giap.viz.operon_pairs  # noqa: F401  (registers V11)
+    import gippa.viz.operon_pairs  # noqa: F401  (registers V11)
 
     return base.registered()["V11"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v11().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -334,13 +334,13 @@ def test_v11_is_registered_as_operon_pairs_needing_pairs() -> None:
     assert spec.module == "core"
 
 
-def test_no_pairs_table_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_pairs_table_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path, None, flags=[])
     assert _v11().fn(RunView.from_outdir(out), cfg) == Skip("input_absent:pairs")
 
 
 def test_flag_markers_cover_the_seven_flags_with_distinct_shapes() -> None:
-    import giap.viz.operon_pairs as v11
+    import gippa.viz.operon_pairs as v11
 
     assert set(v11.FLAG_MARKERS) == set(FLAGS)
     assert len(set(v11.FLAG_MARKERS.values())) == 7
@@ -350,7 +350,7 @@ def test_flag_markers_cover_the_seven_flags_with_distinct_shapes() -> None:
 
 
 def test_one_instance_double_width_with_three_labelled_panels(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
@@ -362,7 +362,7 @@ def test_one_instance_double_width_with_three_labelled_panels(
     assert set(inst.data["panel"]) == {"a", "b", "c"}
 
 
-def test_panel_c_axis_labels_name_upstream_and_downstream(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_axis_labels_name_upstream_and_downstream(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     c = _ax(inst, "c")
@@ -373,7 +373,7 @@ def test_panel_c_axis_labels_name_upstream_and_downstream(tmp_path: Path, cfg: G
         assert _ax(inst, label).get_ylabel()
 
 
-def test_example1_title_states_medians_and_flag_count(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_title_states_medians_and_flag_count(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE1), cfg)
     expected = "Median |Δ| OP 0.4 vs NO 1.3 log2; 0 pairs flagged at q ≤ 0.1"
     assert inst.title == expected
@@ -381,7 +381,7 @@ def test_example1_title_states_medians_and_flag_count(tmp_path: Path, cfg: GiapC
     assert "express" not in inst.title.lower()
 
 
-def test_title_counts_flags_at_or_below_alpha(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_counts_flags_at_or_below_alpha(tmp_path: Path, cfg: GippaConfig) -> None:
     """Examples 4-5: PAIR_3 (q 0.04) counts, PAIR_4 (q 0.2) does not."""
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
@@ -401,7 +401,7 @@ def test_title_and_threshold_follow_the_configured_alpha(tmp_path: Path) -> None
     assert _outlined(_ax(strict, "c")) == []
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
@@ -409,7 +409,7 @@ def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
     assert min(sizes) >= 6
 
 
-def test_rows_are_sorted_by_panel_class_bin(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rows_are_sorted_by_panel_class_bin(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     data = inst.data
@@ -430,7 +430,7 @@ def test_rows_are_sorted_by_panel_class_bin(tmp_path: Path, cfg: GiapConfig) -> 
 # --- panel (a): Δ densities -------------------------------------------------------------------
 
 
-def test_example1_medians_bins_and_densities(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_medians_bins_and_densities(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE1), cfg)
     width = 1.6 / N_BINS  # max |Δ| over the four classes
     for cls, n in (("OP", 3), ("NO", 2)):
@@ -450,7 +450,7 @@ def test_example1_medians_bins_and_densities(tmp_path: Path, cfg: GiapConfig) ->
     assert len(_bin_rows(inst)) == 2 * N_BINS  # CV and SW absent
 
 
-def test_count_rows_for_all_five_classes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_count_rows_for_all_five_classes(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE1), cfg)
     assert _counts(inst) == {"OP": 3, "NO": 2, "CV": 0, "SW": 0, "DV": 0}
     a = _rows(inst, "a")
@@ -459,7 +459,7 @@ def test_count_rows_for_all_five_classes(tmp_path: Path, cfg: GiapConfig) -> Non
         assert all(_isna(v) for v in count_rows[col]), col
 
 
-def test_example6_dv_is_counted_but_not_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_dv_is_counted_but_not_drawn(tmp_path: Path, cfg: GippaConfig) -> None:
     dv = [_pair(10 + i, "DV", 20.0, 20.0 + d) for i, d in enumerate([5.0, -4.0, 7.0])]
     with_dv = _render(_out(tmp_path / "dv", [*EXAMPLE1, *dv]), cfg)
     without = _render(_out(tmp_path / "no_dv", EXAMPLE1), cfg)
@@ -473,7 +473,7 @@ def test_example6_dv_is_counted_but_not_drawn(tmp_path: Path, cfg: GiapConfig) -
     assert not any(t.startswith("DV") for t in _legend_texts(_ax(with_dv, "a")))
 
 
-def test_shared_bins_span_the_largest_class(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_shared_bins_span_the_largest_class(tmp_path: Path, cfg: GippaConfig) -> None:
     """CV's |Δ| = 3 sets the range: OP's |Δ| = 0.1 and 0.2 fall in the first two bins."""
     pairs = [
         *_delta_pairs("OP", [0.05, 0.15], 1),
@@ -497,7 +497,7 @@ def test_shared_bins_span_the_largest_class(tmp_path: Path, cfg: GiapConfig) -> 
     assert sum(op[2:]) == pytest.approx(0.0)
 
 
-def test_zero_max_delta_bins_over_unit_interval(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_zero_max_delta_bins_over_unit_interval(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [*_delta_pairs("OP", [0.0, 0.0], 1), *_delta_pairs("NO", [0.0], 3)]
     inst = _render(_out(tmp_path, pairs), cfg)
     width = 1.0 / N_BINS
@@ -509,7 +509,7 @@ def test_zero_max_delta_bins_over_unit_interval(tmp_path: Path, cfg: GiapConfig)
     assert inst.title.startswith("Median |Δ| OP 0 vs NO 0 log2;")
 
 
-def test_single_pair_class_is_a_single_bin_histogram(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_single_pair_class_is_a_single_bin_histogram(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [*_delta_pairs("OP", [0.3, 0.9, -1.2], 1), *_delta_pairs("NO", [0.6], 4)]
     inst = _render(_out(tmp_path, pairs), cfg)
     dens = [_num(d) for d in _bin_rows(inst, "NO")["density"]]
@@ -517,7 +517,7 @@ def test_single_pair_class_is_a_single_bin_histogram(tmp_path: Path, cfg: GiapCo
     assert max(dens) == pytest.approx(N_BINS / 1.2, rel=1e-5)
 
 
-def test_panel_a_draws_class_colours_and_a_legend_with_n(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_draws_class_colours_and_a_legend_with_n(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     ax = _ax(inst, "a")
@@ -531,7 +531,7 @@ def test_panel_a_draws_class_colours_and_a_legend_with_n(tmp_path: Path, cfg: Gi
     assert not any(t.startswith("DV") for t in legend)
 
 
-def test_panel_a_omits_absent_classes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_omits_absent_classes(tmp_path: Path, cfg: GippaConfig) -> None:
     """Single-strand genome: no CV, no SW pairs."""
     inst = _render(_out(tmp_path, EXAMPLE1), cfg)
     ax = _ax(inst, "a")
@@ -546,7 +546,7 @@ def test_panel_a_omits_absent_classes(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (b): local fdr ---------------------------------------------------------------------
 
 
-def test_panel_b_rows_are_the_pairs_with_an_lfdr(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_rows_are_the_pairs_with_an_lfdr(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     b = _by_pair(_rows(inst, "b"))
@@ -558,7 +558,7 @@ def test_panel_b_rows_are_the_pairs_with_an_lfdr(tmp_path: Path, cfg: GiapConfig
     assert all(str(r["class"]) == "NO" for r in b.values())
 
 
-def test_panel_b_curve_is_joined_in_x_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_curve_is_joined_in_x_order(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [
         *_delta_pairs("OP", [0.1, 0.3], 1),
         _pair(3, "NO", 20.0, 21.5, lfdr=0.95),
@@ -578,7 +578,7 @@ def test_panel_b_curve_is_joined_in_x_order(tmp_path: Path, cfg: GiapConfig) -> 
     assert np.allclose(np.asarray(curves[0].get_ydata(), dtype=float), want_y)
 
 
-def test_panel_b_threshold_line_and_note(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_threshold_line_and_note(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     ax = _ax(inst, "b")
@@ -589,7 +589,7 @@ def test_panel_b_threshold_line_and_note(tmp_path: Path, cfg: GiapConfig) -> Non
     assert "lfdr ranks pairs; flags use q" in texts
 
 
-def test_panel_b_without_lfdr_says_so(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_without_lfdr_says_so(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE1), cfg)
     assert len(_rows(inst, "b")) == 0
     assert "no lfdr values" in _texts(_ax(inst, "b"))
@@ -598,7 +598,7 @@ def test_panel_b_without_lfdr_says_so(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (c): partner scatter ---------------------------------------------------------------
 
 
-def test_example2_plus_strand_upstream_is_gene_a(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_plus_strand_upstream_is_gene_a(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     row = _by_pair(_rows(inst, "c"))["PAIR_1"]
@@ -606,7 +606,7 @@ def test_example2_plus_strand_upstream_is_gene_a(tmp_path: Path, cfg: GiapConfig
     assert _num(row["downstream_log2"]) == 22.0
 
 
-def test_upstream_is_gene_a_on_both_strands(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_upstream_is_gene_a_on_both_strands(tmp_path: Path, cfg: GippaConfig) -> None:
     """``pairs.tsv`` gene_a is already the upstream gene in transcription order (schema; M6-04
     swaps a ``-`` pair). Spec example 3 (upstream 22 for a ``-`` pair with a = 20, b = 22) would
     swap twice; this pins the schema reading pending the lead's decision."""
@@ -617,7 +617,7 @@ def test_upstream_is_gene_a_on_both_strands(tmp_path: Path, cfg: GiapConfig) -> 
     assert _num(row["downstream_log2"]) == 22.0
 
 
-def test_panel_c_rows_are_measured_same_strand_pairs(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_rows_are_measured_same_strand_pairs(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [*_full_pairs(), _pair(10, "OP", 20.0, None), _pair(11, "NO", None, None)]
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     c = _by_pair(_rows(inst, "c"))
@@ -627,7 +627,7 @@ def test_panel_c_rows_are_measured_same_strand_pairs(tmp_path: Path, cfg: GiapCo
     assert len(_points(_ax(inst, "c"))) >= 6
 
 
-def test_example4_flagged_pair_is_outlined(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_flagged_pair_is_outlined(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     c = _by_pair(_rows(inst, "c"))
@@ -637,7 +637,7 @@ def test_example4_flagged_pair_is_outlined(tmp_path: Path, cfg: GiapConfig) -> N
     assert [(x, y) for x, y, _ in outlined] == [(18.0, 21.0)]
 
 
-def test_example5_flag_above_alpha_is_not_outlined(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_flag_above_alpha_is_not_outlined(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     c = _by_pair(_rows(inst, "c"))
@@ -646,7 +646,7 @@ def test_example5_flag_above_alpha_is_not_outlined(tmp_path: Path, cfg: GiapConf
     assert all(_isna(c[p]["flag"]) for p in ("PAIR_1", "PAIR_2", "PAIR_5", "PAIR_6"))
 
 
-def test_different_flags_get_different_marker_shapes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_different_flags_get_different_marker_shapes(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     flags = [
         _flag_row(pairs[2], "unexplained_discordance", 0.04),
@@ -663,7 +663,7 @@ def test_different_flags_get_different_marker_shapes(tmp_path: Path, cfg: GiapCo
     assert paths[(18.0, 21.0)] != paths[(20.0, 22.0)]
 
 
-def test_no_flags_table_draws_no_flag_markers(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_flags_table_draws_no_flag_markers(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, flags=None), cfg)
     assert _outlined(_ax(inst, "c")) == []
@@ -671,7 +671,7 @@ def test_no_flags_table_draws_no_flag_markers(tmp_path: Path, cfg: GiapConfig) -
     assert len(_rows(inst, "c")) == 6
 
 
-def test_panel_c_colours_by_class_and_draws_identity(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_colours_by_class_and_draws_identity(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     ax = _ax(inst, "c")
@@ -691,7 +691,7 @@ def test_panel_c_colours_by_class_and_draws_identity(tmp_path: Path, cfg: GiapCo
 # --- degenerate cases -------------------------------------------------------------------------
 
 
-def test_validation_like_unmeasured_pairs_empty_states(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_validation_like_unmeasured_pairs_empty_states(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [_pair(1, "OP"), _pair(2, "NO"), _pair(3, "CV"), _pair(4, "DV"), _pair(5, "SW")]
     inst = _render(_out(tmp_path, pairs, flags=[]), cfg)
     assert inst.title == "0 pairs flagged at q ≤ 0.1; too few measured pairs for densities"
@@ -705,14 +705,14 @@ def test_validation_like_unmeasured_pairs_empty_states(tmp_path: Path, cfg: Giap
     assert _points(_ax(inst, "c")) == []
 
 
-def test_no_no_pairs_uses_the_too_few_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_no_pairs_uses_the_too_few_title(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = [*_delta_pairs("OP", [0.2, 0.5], 1), *_delta_pairs("CV", [1.0], 3)]
     pairs_flags = [_flag_row(pairs[0], "unexplained_discordance", 0.01)]
     inst = _render(_out(tmp_path, pairs, pairs_flags), cfg)
     assert inst.title == "1 pairs flagged at q ≤ 0.1; too few measured pairs for densities"
 
 
-def test_header_only_pairs_is_the_framework_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_pairs_is_the_framework_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, [], flags=[]), cfg)
     assert len(inst.data) == 0
     assert list(inst.data.columns) == COLUMNS
@@ -722,9 +722,9 @@ def test_header_only_pairs_is_the_framework_empty_state(tmp_path: Path, cfg: Gia
 # --- an M6 fixture with flags (the real flag_pairs) ---------------------------------------------
 
 
-def test_renders_on_an_m6_flag_fixture(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.io.operon_tables import write_operon_flags_tsv, write_pairs_tsv
-    from giap.operons.flags import flag_pairs
+def test_renders_on_an_m6_flag_fixture(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.io.operon_tables import write_operon_flags_tsv, write_pairs_tsv
+    from gippa.operons.flags import flag_pairs
 
     r = flags_data.row
     pairs = flags_data.frame(
@@ -847,7 +847,7 @@ def test_property_panel_b_and_c_row_sets(
 # --- files and determinism --------------------------------------------------------------------
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     out = _out(tmp_path / "run", pairs, _full_flags(pairs))
     written = []
@@ -869,7 +869,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert "c\tPAIR_3\tOP\t" in "\n".join(tsv)
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     pairs = _full_pairs()
     view = RunView.from_outdir(_out(tmp_path, pairs, _full_flags(pairs)))
     first = _v11().fn(view, cfg)
@@ -886,7 +886,7 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
 @pytest.mark.skipif(
     not (VAL_OUT / "tables" / "pairs.tsv").is_file(), reason=f"validation run absent: {VAL_OUT}"
 )
-def test_renders_on_the_validation_run(cfg: GiapConfig) -> None:
+def test_renders_on_the_validation_run(cfg: GippaConfig) -> None:
     """87 genes; every pair untested, ``operon_flags.tsv`` header-only; most pairs have a finite
     ``delta_log2`` (OP 65, NO 1, CV 8, SW 5, DV 8 on 2026-10-22)."""
     inst = _render(VAL_OUT, cfg)

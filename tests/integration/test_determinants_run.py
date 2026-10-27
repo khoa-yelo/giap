@@ -1,7 +1,7 @@
-"""M8-10 through ``giap run``: examples 1 and 2 of docs/specs/M8-10-determinants-step-and-run.md
-(GIAP_SPEC.md §6.2, §6.4, §7.8.3, §9.1, §9.5).
+"""M8-10 through ``gippa run``: examples 1 and 2 of docs/specs/M8-10-determinants-step-and-run.md
+(GIPPA_SPEC.md §6.2, §6.4, §7.8.3, §9.1, §9.5).
 
-Example 1: ``giap run --executor local`` on giapsim SIM100K (tests/helpers/m4_real.py, the MVP-01
+Example 1: ``gippa run --executor local`` on gippasim SIM100K (tests/helpers/m4_real.py, the MVP-01
 harness) writes ``tables/determinants_{features,model,attribution}.tsv``; the model table has
 univariate rows and exactly one ``too_few_rows`` row per model (sim100k is below the 100-row
 minimum); every attribution row (if any gene is a model row) has an NA prediction; exit 0. The
@@ -9,8 +9,8 @@ three tables validate against their schemas and the caveats reach ``OUT/logs/eve
 
 Both runs use ``--modules core,mobile,bgc`` and the M4 test database (``m4_chain.test_db``).
 
-Example 2: the same ``giap run`` with ``--executor nextflow`` gives byte-identical tables. Real
-Nextflow on the prebuilt GIAP env (``--profile farmshare_local``, as
+Example 2: the same ``gippa run`` with ``--executor nextflow`` gives byte-identical tables. Real
+Nextflow on the prebuilt GIPPA env (``--profile farmshare_local``, as
 test_m2_21_local_vs_nextflow.py: every annotation layer is precomputed, so no tool runs). The
 spec says ``-profile test``; ``farmshare_local`` is the profile the existing local-vs-Nextflow
 test uses for a real (non-stub) run on FarmShare, so it is used here too.
@@ -35,17 +35,17 @@ SETS = ("determinants.permutations=19", "stats.bootstrap=49")
 
 
 def _sim(root: Path) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, root / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, root / "sim")
 
 
 def _run(sim: Any, out: Path, *extra: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
             "--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml),
@@ -65,7 +65,7 @@ def local_out(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("m810_local")
     mp = pytest.MonkeyPatch()
     try:
-        mp.setenv("GIAP_DB_DIR", str(s.mc.test_db(root / "db")))
+        mp.setenv("GIPPA_DB_DIR", str(s.mc.test_db(root / "db")))
         out = root / "OUT"
         _run(_sim(root), out, "--executor", "local")
     finally:
@@ -116,7 +116,7 @@ def test_example_2_nextflow_byte_identical(
     root = tmp_path_factory.mktemp("m810_nf")
     mp = pytest.MonkeyPatch()
     try:
-        mp.setenv("GIAP_DB_DIR", str(s.mc.test_db(root / "db")))
+        mp.setenv("GIPPA_DB_DIR", str(s.mc.test_db(root / "db")))
         mp.setenv("NXF_ANSI_LOG", "false")
         out = root / "OUT"
         _run(_sim(root), out, "--executor", "nextflow", "--profile", "farmshare_local")

@@ -1,4 +1,4 @@
-"""Properties of the M7-12 giapsim scenarios over random seeds (GIAP_SPEC.md §11.3; issue M7-12).
+"""Properties of the M7-12 gippasim scenarios over random seeds (GIPPA_SPEC.md §11.3; issue M7-12).
 
 For any seed: the variant truth agrees with ``strain_differences.tsv`` and its rule-2 counts with
 a brute-force recount; every planted novel ORF reads start..stop on the receiving genome with its
@@ -16,7 +16,7 @@ from helpers import m7_sim_oracle as O
 from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
-import giapsim
+import gippasim
 
 seeds = st.integers(min_value=0, max_value=2**31 - 1)
 _SETTINGS = settings(max_examples=3, deadline=None,
@@ -24,9 +24,9 @@ _SETTINGS = settings(max_examples=3, deadline=None,
 
 
 def _sim(name: str, seed: int, d: Path) -> Path:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
-    giapsim.simulate(getattr(sc, name)(seed), seed, d)
+    gippasim.simulate(getattr(sc, name)(seed), seed, d)
     return d
 
 

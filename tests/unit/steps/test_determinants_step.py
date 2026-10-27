@@ -1,6 +1,6 @@
 """M8-10 step ``determinants``: registry entry, the three tables, flags, streams and threads
 (docs/specs/M8-10-determinants-step-and-run.md examples 1 (below the minimum), 3, 4, 5, 6 and
-steps 1-8; GIAP_SPEC.md §6.2, §7.8.2, §7.8.3, §9.3, §9.4, §6.6).
+steps 1-8; GIPPA_SPEC.md §6.2, §7.8.2, §7.8.3, §9.3, §9.4, §6.6).
 
 The fixture is the 1,000-gene M4-07 layout with M4-08 expression (``build_m4_fixture``
 ``sim1000``) through the M4 chain, so the step reads the real C1/C2/C5/C6/C7/C8 tables, the M4
@@ -8,8 +8,8 @@ gene table and M5-09's gene context. Example 3 runs with B = 49 (the spec's unit
 small CV (2 repeats x 3 folds, 30 boosting rounds): every row kind is produced, in seconds.
 
 Example 1 (sim100k, ~90 genes, below the 100-row minimum) is checked here on the same fixture
-with abundance kept on 60 detected genes (same code path, no 40-s ``giap run``); the real
-``giap run --executor local`` on sim100k is tests/integration/test_determinants_run.py.
+with abundance kept on 60 detected genes (same code path, no 40-s ``gippa run``); the real
+``gippa run --executor local`` on sim100k is tests/integration/test_determinants_run.py.
 Contract choices: tests/helpers/determinants_step_data.py.
 """
 
@@ -51,7 +51,7 @@ def _events(records: list[logging.LogRecord], name: str) -> list[dict[str, Any]]
 
 
 class _Capture(logging.Handler):
-    """Every record of ``giap.steps`` (module-scoped fixtures cannot use ``caplog``)."""
+    """Every record of ``gippa.steps`` (module-scoped fixtures cannot use ``caplog``)."""
 
     def __init__(self) -> None:
         super().__init__(logging.DEBUG)
@@ -63,7 +63,7 @@ class _Capture(logging.Handler):
 
 def _run_captured(cfg: Any, ins: dict[str, Path], out: Path) -> tuple[dict[str, Path], list]:
     cap = _Capture()
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(cap)
     log.setLevel(logging.DEBUG)
@@ -97,8 +97,8 @@ def attribution(full: dict[str, Any]) -> pd.DataFrame:
 @pytest.fixture(scope="module")
 def expected(full: dict[str, Any]) -> dict[str, Any]:
     """What the M8-07/M8-08 functions give on the same inputs (rows, encoded columns, blocks)."""
-    from giap.determinants.features import model_matrix
-    from giap.determinants.models import model_rows
+    from gippa.determinants.features import model_matrix
+    from gippa.determinants.models import model_rows
 
     f = s.expected_features(full["ins"])
     X, blocks = model_matrix(f)
@@ -110,8 +110,8 @@ def expected(full: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_registry_entry(step_mod: ModuleType) -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("determinants")
@@ -127,8 +127,8 @@ def test_registry_entry(step_mod: ModuleType) -> None:
 def test_runs_after_gene_table_and_context_stats(step_mod: ModuleType) -> None:
     """Step 1: ``gene_context`` is published by CONTEXT, so ``determinants`` runs after
     ``context_stats`` locally too (topological order)."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     order = reg.topo_order(["determinants", "context_stats", "gene_table", "detectability"])
@@ -138,7 +138,7 @@ def test_runs_after_gene_table_and_context_stats(step_mod: ModuleType) -> None:
 
 def test_local_executor_publishes_the_three_tables(step_mod: ModuleType) -> None:
     """Step 7: ``tables/determinants_*.tsv`` only, under the names Nextflow uses."""
-    from giap.runner.local import PUBLISHED, PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED, PUBLISHED_FILES
 
     for key, rel in s.PUBLISHED.items():
         assert PUBLISHED_FILES.get(key) == rel, (key, PUBLISHED_FILES.get(key))
@@ -149,7 +149,7 @@ def test_local_executor_publishes_the_three_tables(step_mod: ModuleType) -> None
 
 def test_caveats_are_the_spec_text_verbatim() -> None:
     """Step 8 / §7.8.2: three strings, verbatim, for the M9 report."""
-    from giap.determinants import CAVEATS
+    from gippa.determinants import CAVEATS
 
     assert tuple(CAVEATS) == s.CAVEATS
 
@@ -169,7 +169,7 @@ def test_schema_fields_are_the_table_columns(stem: str, columns: tuple[str, ...]
 
 
 def test_features_schema_fields_are_the_feature_columns() -> None:
-    from giap.determinants.features import FEATURE_COLUMNS
+    from gippa.determinants.features import FEATURE_COLUMNS
 
     assert tuple(s.field_names("determinants_features")) == tuple(FEATURE_COLUMNS)
 
@@ -197,9 +197,9 @@ def test_example_3_tables_validate(full: dict[str, Any], key: str) -> None:
 
 
 def test_writers_round_trip_na_and_empty_flags(tmp_path: Path) -> None:
-    """The three writers (``giap.io.determinants_tables``): NA CI, empty flags and booleans
+    """The three writers (``gippa.io.determinants_tables``): NA CI, empty flags and booleans
     written so the table validates; header-only attribution validates too."""
-    from giap.io import determinants_tables as w
+    from gippa.io import determinants_tables as w
 
     tbl = pd.DataFrame(
         {"model": ["lightgbm", "univariate"], "feature_or_block": ["all", "cai"],
@@ -226,7 +226,7 @@ def test_writers_round_trip_na_and_empty_flags(tmp_path: Path) -> None:
 
 
 def test_example_3_features_table(full: dict[str, Any], expected: dict[str, Any]) -> None:
-    from giap.determinants.features import FEATURE_COLUMNS
+    from gippa.determinants.features import FEATURE_COLUMNS
 
     path = full["paths"]["determinants_features"]
     assert s.header(path) == list(FEATURE_COLUMNS)
@@ -308,8 +308,8 @@ def test_example_3_univariate_stream(model: pd.DataFrame, full: dict[str, Any],
                                      expected: dict[str, Any]) -> None:  # fmt: skip
     """§6.6: the univariate rows come from ``for_step("determinants.bootstrap", seed)`` with
     ``stats.bootstrap`` draws, on the M8-07 feature frame (no other stream consumed first)."""
-    from giap.determinants.models import univariate
-    from giap.rng import for_step
+    from gippa.determinants.models import univariate
+    from gippa.rng import for_step
 
     cfg = full["cfg"]
     want = univariate(expected["features"], cfg.stats.bootstrap,
@@ -388,7 +388,7 @@ def test_example_3_events(full: dict[str, Any]) -> None:
     names = dropped[0]["features"]
     assert isinstance(names, list) and all(isinstance(n, str) for n in names)
     tsv = s.read(full["paths"]["determinants_features"])
-    from giap.determinants.features import FEATURE_BLOCKS
+    from gippa.determinants.features import FEATURE_BLOCKS
 
     all_na = [f for fs in FEATURE_BLOCKS.values() for f in fs if (tsv[f] == "NA").all()]
     assert set(all_na) <= set(names), (all_na, names)
@@ -464,7 +464,7 @@ def no_abundance(work: Path, step_mod: ModuleType,
 
 
 def test_example_5_features_and_auroc_rows_only(no_abundance: dict[str, Any]) -> None:
-    from giap.determinants.features import FEATURE_COLUMNS, model_matrix
+    from gippa.determinants.features import FEATURE_COLUMNS, model_matrix
 
     p = no_abundance["paths"]
     feats = s.read(p["determinants_features"])
@@ -514,7 +514,7 @@ def test_context_skipped_still_runs(work: Path, step_mod: ModuleType, tmp_path: 
 def test_publication_sets_the_null_to_10000_permutations() -> None:
     """Lead decision 3: ``--publication`` follows §8.2 (B = 10,000) for the determinants null,
     whose B is ``determinants.permutations``; ``--set`` still wins."""
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     assert resolve_config().determinants.permutations == 1000
     assert resolve_config(publication=True).determinants.permutations == 10_000
@@ -526,7 +526,7 @@ def test_publication_help_states_the_runtime() -> None:
     """Degenerate cases: "the run takes ~10x longer, stated in the CLI help"."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["run", "--help"])
     assert res.exit_code == 0
@@ -536,17 +536,17 @@ def test_publication_help_states_the_runtime() -> None:
     assert "longer" in m.group(1).lower(), m.group(1)
 
 
-# ---------------------------------------------------------------------------- giap _step
+# ---------------------------------------------------------------------------- gippa _step
 
 
-def test_giap_step_writes_events(
+def test_gippa_step_writes_events(
     work: Path, step_mod: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Nextflow's path (``giap _step determinants``): the caveats event reaches
+    """Nextflow's path (``gippa _step determinants``): the caveats event reaches
     ``logs/events.jsonl`` (§6.7) for the M9 report."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     gt = s.gene_table_variant(work, tmp_path / "in" / "genes.parquet", keep_abundance=None)
     monkeypatch.chdir(tmp_path)
@@ -572,16 +572,16 @@ def test_base_config_gives_determinants_process_high_resources() -> None:
     """Lead decision 2: ``withName`` at ``process_high`` (16 CPU, 48 GB x attempt) in
     workflow/conf/base.config, so the null's permutations run in parallel.
 
-    The spec's ``withName: 'DETERMINANTS'`` cannot be literal: a GIAP_STEP alias named
+    The spec's ``withName: 'DETERMINANTS'`` cannot be literal: a GIPPA_STEP alias named
     DETERMINANTS inside the DETERMINANTS subworkflow is a Nextflow error ("`DETERMINANTS` is
     already included"). So the selector must match the process determinants.nf runs the step
-    under -- its GIAP_STEP alias, or GIAP_STEP itself -- by simple or fully qualified name
+    under -- its GIPPA_STEP alias, or GIPPA_STEP itself -- by simple or fully qualified name
     (``DETERMINANTS:<process>``), and must not match another py step's process."""
     nf = REPO / "workflow" / "subworkflows" / "local" / "determinants.nf"
     assert nf.is_file(), "workflow/subworkflows/local/determinants.nf missing"
-    aliases = re.findall(r"GIAP_STEP\s+as\s+(\w+)", nf.read_text(encoding="utf-8"))
-    assert len(aliases) <= 1, f"one GIAP_STEP process expected in determinants.nf: {aliases}"
-    proc = aliases[0] if aliases else "GIAP_STEP"
+    aliases = re.findall(r"GIPPA_STEP\s+as\s+(\w+)", nf.read_text(encoding="utf-8"))
+    assert len(aliases) <= 1, f"one GIPPA_STEP process expected in determinants.nf: {aliases}"
+    proc = aliases[0] if aliases else "GIPPA_STEP"
     conf = (REPO / "workflow" / "conf" / "base.config").read_text(encoding="utf-8")
     sel = re.findall(r"withName\s*:\s*['\"]([^'\"]+)['\"]\s*\{([^}]*(?:\}[^}]*)?)\}", conf)
 
@@ -593,7 +593,7 @@ def test_base_config_gives_determinants_process_high_resources() -> None:
         f"no withName selector for DETERMINANTS:{proc} in base.config: {[p for p, _ in sel]}"
     )
     for pat, _ in hits:
-        for other in ("CONTEXT_STATS", "GIAP_STEP"):
+        for other in ("CONTEXT_STATS", "GIPPA_STEP"):
             assert not matches(pat, other, f"CONTEXT:{other}"), f"{pat} also matches {other}"
     body = hits[0][1]
     assert re.search(r"cpus\s*=\s*16\b", body), body

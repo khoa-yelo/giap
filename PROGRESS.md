@@ -1,7 +1,7 @@
-# GIAP progress
+# GIPPA progress
 
 > **Resuming after a timeout:** start an allocation, run `bash scripts/resume_status.sh`, then use the
-> resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
+> resume prompt (GIPPA_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
 _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01PrvuX9xr7fWwMTpHJxPSjm_
@@ -64,7 +64,7 @@ decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
   - merge 1890902, evaluate 1890903;
   - verdict pass (`validation/pilot/metrics/a3_feasibility.json`, c9d01876);
   - `PROVENANCE.md` f6689615;
-  - the sample at `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` (first 1,000 rows in file order, re-recorded 2026-10-25,
+  - the sample at `$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` (first 1,000 rows in file order, re-recorded 2026-10-25,
     sha256 2a5e03d6…946e, not committed).
 - **M7-16b (#335):**
   - full fast suite 1892218 green;
@@ -75,10 +75,10 @@ decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
   - snapshot regeneration 1891435;
   - observer reconciliation 1891223 (`local/stat/m7-16-observer-reconcile.md`).
 - **WT_2 and WT_3** were merged (1891845, 1892227) into
-  `$GIAP_ROOT/pilot/A3_cascadia_cpu/WT_{2,3}/WT_{2,3}.ssl`. They are inputs for M10-10a.
+  `$GIPPA_ROOT/pilot/A3_cascadia_cpu/WT_{2,3}/WT_{2,3}.ssl`. They are inputs for M10-10a.
 
 **Running:**
-- **M10-04 (#296) pass-1 runs** (`R=$GIAP_ROOT/runs/pilot/pass1`): every gate passed; the PR is in
+- **M10-04 (#296) pass-1 runs** (`R=$GIPPA_ROOT/runs/pilot/pass1`): every gate passed; the PR is in
   the merge queue.
   - A1 **1892719** (01:37:08) and A2 **1893676** (01:43:45), both at **6f969ee7**; rule set A
     `failures: []` (`$R/evidence/a1.json`, `$R/evidence/a2.json`).
@@ -110,15 +110,15 @@ pilot arms end and CPUs are free, or let the 2026-10-26 01:30 run cover the curr
 post-MVP hardening pass.
 
 ## In progress
-M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
-M7-02 pileup and calls (branch m7/calls, stacked on m7/alignment; implementer step done 2026-10-21): `giap.variants.pileup` (Support, eligible, pileup, sites; 242 non-blank code lines). Unit 68 passed, property 5 passed, fast suite 9253 passed (Slurm 1865145). Frameshift events travel in `pile.attrs["frameshifts"]`; per-codon ALT detail in internal `_ref_codon`/`_alts` columns (writers drop `_` columns, M7-03). Next: code review.
-- M8-02 (m8/fgsea, implementer step done, 103ebe6): fgsea 1.36.2 port I — `giap.stats.fgsea`
-  (`prepare`, `gsea_es`, `fgsea_simple`) + numba kernels `giap.stats._fgsea_kernels`; NOTICE.md
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `gippa.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
+M7-02 pileup and calls (branch m7/calls, stacked on m7/alignment; implementer step done 2026-10-21): `gippa.variants.pileup` (Support, eligible, pileup, sites; 242 non-blank code lines). Unit 68 passed, property 5 passed, fast suite 9253 passed (Slurm 1865145). Frameshift events travel in `pile.attrs["frameshifts"]`; per-codon ALT detail in internal `_ref_codon`/`_alts` columns (writers drop `_` columns, M7-03). Next: code review.
+- M8-02 (m8/fgsea, implementer step done, 103ebe6): fgsea 1.36.2 port I — `gippa.stats.fgsea`
+  (`prepare`, `gsea_es`, `fgsea_simple`) + numba kernels `gippa.stats._fgsea_kernels`; NOTICE.md
   fgsea MIT row; docs/methods/fgsea-port.md. Contract tests 49 passed; fast suite 9184 passed
   (Slurm 1864796); fgsea calibration 2 passed (1865099); whole calibration dir job 1864797 still
   running at handoff. Benchmark 0.61 s vs 20 s budget (2,500 TUs x 1,500 sets x 1,000 perms, 4
   CPUs, wheat-01, 1864798). Next: code + statistician review.
-M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `gippa.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
 
 Session 2026-10-20 (lead + up to 6 subagents in parallel, Khoa's instruction). Merged today: #107 M2-21
 (nightly array, weekly, measured runtimes), #108 M5 design, #109 one-subprocess step-load test (52.6 s →
@@ -142,29 +142,29 @@ bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2
 M6-08 (branch `m6/operons-step`, stacked on `m6/flags`, implementer step done, 2026-10-21): the
 `operons` step (core, py) chains pair_frame → discordance (pass 1) → missed_operons(genes=) →
 merge_tests (absent layers named) → flag_pairs → operons_table and writes `tables/pairs.tsv`,
-`operons.tsv`, `operon_flags.tsv` (`giap.io.operon_tables`, three Frictionless resources with the
+`operons.tsv`, `operon_flags.tsv` (`gippa.io.operon_tables`, three Frictionless resources with the
 decision 7 vocabulary); WARNING `layer_missing:<layer>` per absent layer, §6.7 event
 `operons.missed_operons` (π₀, bin_counts). `operons.nf` (OPERONS), `annotate.nf` emit
 `layers_for_pairs`, `main.nf` calls OPERONS beside CONTEXT. `_path/_genes/_replicons` moved to
-`giap.steps.common`. No test changed. Fast suite **9332 passed** (Slurm 1864791); nf-test operons /
+`gippa.steps.common`. No test changed. Fast suite **9332 passed** (Slurm 1864791); nf-test operons /
 main_operons / main_genetable_context 10/10 (session); slow `test_m6_08_operons_run.py` **4 passed**
 (Slurm 1864795, on a throwaway merge with #145 plus the three `PUBLISHED_FILES` keys — the lead adds
-those keys at merge). **Real run** Slurm **1864792** (`giap_run.sbatch`, farmshare,apptainer, sim100k,
+those keys at merge). **Real run** Slurm **1864792** (`gippa_run.sbatch`, farmshare,apptainer, sim100k,
 real tools incl. Bakta light, 45 tasks, 41 min, exit 0): pairs.tsv 88 rows (70 OP, 1 NO, 7 CV, 7 DV,
 3 SW; every test `none`, `too_few_op_pairs`), operons.tsv 16 TUs, operon_flags.tsv header-only.
 Example 1 "every test none" holds on sim100k.
 
 M6-07 (branch `m6/flags`, stacked on M6-04/05/06, implementer step done, 2026-10-21):
-`giap.operons.flags` — `flag_for` (the §7.4.5 table, first match wins), `evidence_yes` (config
+`gippa.operons.flags` — `flag_for` (the §7.4.5 table, first match wins), `evidence_yes` (config
 cut-offs, inclusive; NA, `layer_missing:<layer>` or an exact `unestimated` token is never "yes"),
 `abundance_pattern` (`stats.alpha.operon_flags`), `flag_pairs` (`operon_flags.tsv`, by pair number,
 generated `evidence_note` that says "layer missing" / "no call", never absence) and `merge_tests`
 (M6-05/06 rows into the pair frame, `which` dropped, `abundance_imputed`, `layer_missing:*` on OP/NO);
-`giap.operons.tu_table.operons_table` (one row per C5 TU, C1 contig order then start). No test changed;
+`gippa.operons.tu_table.operons_table` (one row per C5 TU, C1 contig order then start). No test changed;
 tests/unit/operons 217 passed; fast suite 9257 passed (Slurm 1864716). Simplifications in docs/backlog.md.
 
 M6-05 (branch `m6/discordance`, stacked on #144, implementer step done, 2026-10-21):
-`giap.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
+`gippa.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
 within-operon t fit (`fit_student_t`, `MIN_OP_PAIRS` = 20), two-sided t p for both-detected OP pairs,
 one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `too_few_op_pairs`,
 `relative_scale` and `no_detection_limit_model` paths; partial genes ineligible. Lead fixed two test
@@ -177,7 +177,7 @@ TSV from the config) and its C7/C8 Parquet go to context_layers and CONTEXT, so 
 context_stats and sensitivity like `--executor local`. nf-tests annotate / main_genetable_context /
 context: 16 passed (stub). Fast suite Slurm 1864441: 8977 passed, 30 skipped, 2 xfailed. Example 4
 (Slurm **1864515**, SIM100K real-path config, seed 50000, local vs Nextflow `farmshare_local`; run dir
-`$GIAP_ROOT/runs/mvp02-example4`): the same `tables/*.tsv` set {detection_summary, regions_stats,
+`$GIPPA_ROOT/runs/mvp02-example4`): the same `tables/*.tsv` set {detection_summary, regions_stats,
 sensitivity}; regions_stats and sensitivity byte-identical; **detection_summary differs**: Nextflow
 lacks the 18 `tier` rows because main.nf does not pass GENETABLE.out.tier_summary to CONTEXT (M4-20
 decision 3 is wired only in the local executor). Open for the lead (needs a CONTEXT `take:` change and
@@ -185,11 +185,11 @@ so a context.nf.test update by the test-author). Job 1864452 ran before 0e95e14 
 
 M4-21 (branch m4/conformance, implementer step done): the real M2/M3 path conforms to M4-06 with no
 contract change. Decision 2: `region_layer` still runs under `annotation.precomputed.regions` and writes
-C7/C8 Parquet from the layer TSV (`giap.annotate.regions.precomputed_members`; prophage subsets from the
+C7/C8 Parquet from the layer TSV (`gippa.annotate.regions.precomputed_members`; prophage subsets from the
 Bakta product only, `core_biosynthetic` false: the TSV has neither marker descriptions nor core flags).
 Decision 3: `run_context_stats` / `run_sensitivity` read through `contract_paths` (= `work_inputs`).
 Decision 4: the local executor keeps `region_layer` planned (`LAYER_CONVERTERS`) and maps
-`peptide_hits`/`protein_hits`/`unmapped` to loci's `mapping/` (`MEMBER_KEYS`), so `giap run --executor
+`peptide_hits`/`protein_hits`/`unmapped` to loci's `mapping/` (`MEMBER_KEYS`), so `gippa run --executor
 local` now plans and runs `context_stats` and `sensitivity`. Golden `tests/data/golden/sim100k_real/m4/`
 recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow path still skips
 `region_layer`/CONTEXT with a precomputed regions layer, pinned by workflow/tests/annotate.nf.test
@@ -197,15 +197,15 @@ recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow
 aligning annotate.nf needs those nf-tests changed by the test-author first. Fast suite Slurm 1864317:
 8977 passed, 30 skipped, 2 xfailed.
 M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
-tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
+tables, the gene context columns and the step extension. New `gippa.io.context_tsv` (writers by value
 through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
-unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
+unwrapped), `gippa.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `gippa.context.diagnostics`
 (lead decision 1: l-hat / l' / lag-1 Moran's I as NA-never-0, `render_l_hat`,
-`calibration_applies`), `giap.context.tables` (the spec's row assembly), the two Frictionless
+`calibration_applies`), `gippa.context.tables` (the spec's row assembly), the two Frictionless
 schemas, and `context_stats` gaining C15 `features` (run flag `layer_missing:features`) and the
 outputs `autocorrelation`, `islands`, `gene_context`, `island_diagnostics` and `genes_tsv`
-(lead decision 3). `giap.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
-concatenated table keeps integer lags. `giap.steps.registry` gained `optional_outputs` so the new
+(lead decision 3). `gippa.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
+concatenated table keeps integer lags. `gippa.steps.registry` gained `optional_outputs` so the new
 keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
 CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
 takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
@@ -217,7 +217,7 @@ decisions 6-8 closed the two test bugs the first run exposed (Slurm 1863383: 905
 `lint`, `nf-test-stub` and `summary` green). Decision 6 (**Khoa authorised the merged-code
 change**): §9.2 makes the test column `stat` an enum of statistic *names*, which `regions_stats`
 and `autocorrelation` both follow, so M5-06's float `stat` (a copy of `scan_s`) was the slip —
-`giap.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
+`gippa.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
 is a `string` enum, and the one merged oracle (`tests/unit/context/test_islands.py:134`) asserts
 the name. Decision 7: `context_tables_data.flag_set` now reads the `NA` cell of a flagless row as
 empty (it contradicted `test_empty_flags_are_na` in the same file), and `ISLAND_FLOATS` drops
@@ -234,10 +234,10 @@ schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`
 `tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
 / `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
 an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
-l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
+l-hat / l' / lag-1 Moran's I live — **decided**: `gippa.context.diagnostics` and
 `work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
 report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
-M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
+M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `gippa.operons.pairs` — the adjacent
 chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
 classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
 ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_between_tracks`,
@@ -245,7 +245,7 @@ ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_betw
 baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
 the spec.
 
-M6-02 (branch `m6/detlimit`, implementer step done, 27a0292): `giap.operons.detection_limit`, with
+M6-02 (branch `m6/detlimit`, implementer step done, 27a0292): `gippa.operons.detection_limit`, with
 the peptide model and the replicate model fitted by the conditional (truncated) likelihood (lead
 decision 5). The fit is unpenalised damped Newton on standardised features; the peptide model is
 cross-fitted by TU folds, and the replicate model is not fitted at R = 2 (`replicate_two_runs`).
@@ -259,14 +259,14 @@ before the commit. The other 5 are `tests/unit/genetable/test_contract.py`: `tes
 C16, so they conflict with the new C16 test. This is test-author work. Rerun on 27a0292 (Slurm 1864799): 9203 passed;
 the same 5 failed.
 M6-06 (branch `m6/missed-operons`, stacked on #144, implementer step done, 2026-10-21):
-`giap.operons.missed` — `missed_operons(pairs, cfg, *, genes=None)` scores eligible both-detected NO
+`gippa.operons.missed` — `missed_operons(pairs, cfg, *, genes=None)` scores eligible both-detected NO
 pairs `-|Δ|` against CV/SW decoys through the merged engine `max_decoy_fdr` (distance-reweighted,
 larger FDR, monotone q, lfdr for ranking); `p_value` NA; `too_few_no_pairs` / `relative_scale` paths;
 `bin_counts` for the report. 30/30 unit tests (2 slow) pass; fast suite 9102 passed (Slurm 1864518);
 baseline `missed_operons_20k_targets_20k_decoys` = 0.23 s of 2 s (iron-15 session). Near-powerless at
 realistic effects (M6-01 decision 12), stated in the docstring and docs/methods/operons.md.
 
-M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
+M4-20 (PR #133, implementer step done, branch m4/integration-golden): `gippasim.fixtures.build_m4_fixture`
 (sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),
 decision 2 `tables/genes.tsv` written by `run_detectability` (`write_genes_tsv` had no caller at all),
 decision 3 `gene_table` output `tier_summary` → optional `context_stats` input (the `tier` section and
@@ -288,7 +288,7 @@ benchmarks/baseline.json (3.81 / 5.36 / 9.94 s of 120 / 300 / 600 s budgets, whe
   run: the fast calibration suite itself creates `local/logs/calibration/`, so the gate test stops
   skipping and then demands the nightly full-R records a fast run never writes (decision 6 keeps the
   gate on the nightly full run).
-M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (circular mean inside
+M5-08 (#132, implementer step done): `gippa.context.oriter` — oriC resolution (circular mean inside
 0.05·L, `multiple_oric` event on both branches), replichore geometry, the two genes.tsv columns and the
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
 fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
@@ -296,7 +296,7 @@ property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 ski
 6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96 at R = 50 — corrected to 0.943 at R = 300, Slurm 1863166; the 0.96 was a fluctuation**, estimable 1.00,
 mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
 docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
-M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
+M5-06 (**PR #131**, implementer step done, 2026-10-21): `gippa.context.islands` on the merged M5-01/02/03
 engines — one **genome-wide** M_b over the scanned replicons (decisions 21/46), ℓ' = min(20, 2ℓ̂+1, T),
 the best window as the reported span (decision 42), the `flags` column with `ci_few_units` only, and
 ADR-0021 Amendment 1 (no `uncalibrated`; `IslandScan` carries ℓ̂, ℓ' and the lag-1 Moran's I per replicon
@@ -307,7 +307,7 @@ non-nightly attack arms 6 passed (the decision-50 ceiling 3.35–3.42 against M_
 p 1.000 at 10/20/40 silenced TUs). CI all green: 8760 passed, coverage 96.25 % (islands.py 95 %).
 Benchmark baseline `islands_4500_genes_b1000` = 1.79 s of a 20 s budget (4,500 genes, 2,482 TUs,
 B = 1,000 + 1,000). **No Slurm run**: the shared account sat at its 512-CPU QOS cap all day
-(`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIAP `n1170_tools` array), so jobs 1863043/1863044 never
+(`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIPPA `n1170_tools` array), so jobs 1863043/1863044 never
 started and were cancelled; CI covers the fast suite, the fast calibration tier and the coverage gate.
 M5-06 post-merge fix (branch `fix/islands-origin`, 2026-10-21): `tu_series` now orders TUs by C5
 (`start`, `tu_id`) as spec step 2 says, so an origin-crossing TU sorts last and islands get
@@ -327,7 +327,7 @@ intermediate RegulonDB omits, refuses it unless its SHA-256 equals the pin
 `openssl verify` that it is signed by `GlobalSign Root R46` (already in the trust store), and only then
 adds it to the CA bundle; verification is never disabled (a test greps the source for `verify=False`,
 `CERT_NONE` and friends). Real fetch, twice, identical hashes: **RegulonDB 14.5.0** (release 2026-01-28,
-EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
+EcoCyc 29.5, genome NC_000913.3) into `$GIPPA_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
 (sha256 c96c8a3b…), `TerminatorSet.txt` 60,282 B (9d916ffe…), `GeneProductSet.txt` 1,290,719 B
 (3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
 about two seconds, as the spec predicted).
@@ -344,8 +344,8 @@ ncRNA/tRNA/rRNA features); **CDS share 0.923** (4,217 / 4,570); both above the 0
 occur twice and are kept per gene id (decision 5). The summary carries release 14.5.0 and the three
 SHA-256s. Unit tests 91 passed, nothing touches the network. Release of record: **14.5.0**
 (decision 8; Khoa, 2026-10-21: 'cite RegulonDB 14.5.0').
-M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
-(`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
+M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `gippa.stats.tdist`
+(`StudentT`, `fit_student_t`, `student_t_two_sided`) and `gippa.stats.decoy_fdr` (`bin_index`,
 `reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
 decoy sets first then `tda.monotone_q`, the empty-set skip only in `max_decoy_fdr`, `lfdr` the same
 "larger wins" rule with the per-bin weights, scipy `gaussian_kde(bw_method="silverman")` from the
@@ -414,17 +414,17 @@ Lessons (keep):
   GCA_043228065.1 has 3 plasmids (p15A, pMUT1, pMUT2).
 - Generated golden outputs (tests/data/golden/) are exempt from the role check, like recorded fixtures.
 - Shared test files across tool-layer PRs: scratchpad merge_main_nf.sh resolves BUILDERS + step_registry.
-- Real `giap run` (SIM100K, farmshare_local,apptainer, real $GIAP_DB_DIR): preflight ok, BAKTA (13.5 min),
+- Real `gippa run` (SIM100K, farmshare_local,apptainer, real $GIPPA_DB_DIR): preflight ok, BAKTA (13.5 min),
   GENOMAD, TERMINATORNET ok, `--resume` caches; stops at the first unregistered py step (codon_usage, M2-17).
 - Tests built on invented fixtures hid contract bugs (M4-13, M4-14): fixtures must come from the real
   producers' outputs. Test module basenames must be unique (scripts/ci/check_test_names.py in CI).
-- Slurm "user env retrieval failed / requeued held" happens repeatedly on batch nodes: release held giap-*
+- Slurm "user env retrieval failed / requeued held" happens repeatedly on batch nodes: release held gippa-*
   jobs (`scontrol release <id>`); a 2-min watchdog does this during sessions.
 - Shared files across tool-layer PRs (tests/unit/test_nf_cmd_sync.py BUILDERS,
   workflow/tests/data/annotate/step_registry.json): merge main, keep both builders, regenerate the registry.
 - Never rebase + force-push: merge origin/main into the branch and push plainly (force-push is blocked;
   Khoa, 2026-10-15). Recover a locally rebased branch by cherry-picking onto origin's branch.
-- Slurm work dirs live under $GIAP_ROOT (scratch/…), never node-local /tmp or the session scratchpad.
+- Slurm work dirs live under $GIPPA_ROOT (scratch/…), never node-local /tmp or the session scratchpad.
 - Rebuilding a shared micromamba env from one branch breaks `test_envs_built` on all other branches until
   that branch merges (promotech/PyQt5, #65).
 - Every tool wrapper gets a real-tool run before code review; stub fixtures hid ~10 bugs in M2-07.
@@ -432,9 +432,9 @@ Lessons (keep):
 - Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
 
-M8-01 (branch `m8/wallenius`, implementer step done, 2026-10-21; no PR yet): `giap.stats.wallenius`
+M8-01 (branch `m8/wallenius`, implementer step done, 2026-10-21; no PR yet): `gippa.stats.wallenius`
 (`OraResult`, `category_odds`, `wallenius_tails` as direct pmf sums with ω = 1 via the hypergeometric
-and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.function.elim`
+and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `gippa.function.elim`
 (deepest-first, strict `<`, cycles named before any test). Contract tests at 8b34ffa: 61 passed,
 3 far-tail xfails (non-strict, lead decision 2). Fast suite on Slurm 1864745: 9194 passed, 31 skipped,
 4 xfailed. Benchmark `wallenius_tails_3000_categories_m4500` = 2.30 s of a 5 s budget (iron-15, EPYC
@@ -497,10 +497,10 @@ Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
-| 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
+| 1 | GIPPA_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
 
 | 2 | MVP/golden evidence runs at α 0.01 cannot detect genes on sim100k: the 1/T floor with T = 74–91 (Slurm 1869554). The q-floor "flag it" answer stands. | (a) evidence runs on a genome with ≥ ~110 eligible target-won genes; (b) keep sim100k at α 0.05 | (a) | 2026-10-22 (reworded 23:40) — **RESOLVED 2026-10-22**: real E. coli K-12 MG1655 genome, simulated peptides until M10 |
-| 3 | ADR-0044 Wallenius golden reference (goseq is wrong on 36 tails; GIAP is right), #220 | accept / revise | — | 2026-10-22 — **RESOLVED 2026-10-23**: accepted (exact reference) |
+| 3 | ADR-0044 Wallenius golden reference (goseq is wrong on 36 tails; GIPPA is right), #220 | accept / revise | — | 2026-10-22 — **RESOLVED 2026-10-23**: accepted (exact reference) |
 | 4 | ADR-0045 Wallenius far tails by urn recursion, #220 | accept (lead recommends) / revise | accept | 2026-10-22 — **RESOLVED 2026-10-23**: accepted |
 | 5 | M6-09 SW decoy floor: a method ADR, or record the gate as a vacuous pass | method ADR / vacuous pass | — | 2026-10-22 — **RESOLVED 2026-10-22**: vacuous pass (option 1) |
 | 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 — **RESOLVED 2026-10-22**: reworded under ADR-0047 (#242) |
@@ -525,11 +525,11 @@ Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50
 ## Measured numbers
 | Step | Genome | Wall | Peak RSS | Node class (Slurm job ID) |
 |---|---|---|---|---|
-| bootstrap (micromamba env giap-wf) | — | ~3 min | — | iron-01 (session) |
+| bootstrap (micromamba env gippa-wf) | — | ~3 min | — | iron-01 (session) |
 | uv sync --all-extras | — | 1 min 48 s | — | iron-01 (session) |
 | Bakta full DB | Nissle 1917 | 13.5 min | — | wheat (1846846) |
 | TerminatorNet (-n 17) | K-12 MG1655 | 60 min | — | wheat-04 (1847778) |
-| giap setup GO/KEGG/COG/contaminants | — | — | go-basic 32.2 MB, KEGG links 2.3 MB | session (review #67) |
+| gippa setup GO/KEGG/COG/contaminants | — | — | go-basic 32.2 MB, KEGG links 2.3 MB | session (review #67) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged, `--replicons` (M2-10) | K-12 MG1655 | 9.9 min (592 s) | 20.6 GB (job, with SIM100K) | barley-01, 16 CPU (1849096) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | SIM100K | 5.3 min (317 s) | (same job) | barley-01, 16 CPU (1849096) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | Nissle 1917 | 9.9 min (595 s) | 20.5 GB | barley-01, 16 CPU (1849097) |
@@ -543,4 +543,4 @@ Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50
 | Pilot pass-1 arm A1 head job, at 6f969ee7 (M10-04; tool jobs run separately) | Nissle 1917 pilot | 1 h 37 min (01:37:08) | 1.3 GB (head) | wheat-02, 4 CPU (1892719) |
 | Pilot pass-1 arm A2 head job, at 0667e366, superseded by the re-run 1893676 (M10-04) | Nissle 1917 pilot | 1 h 52 min (01:52:31) | 1.1 GB (head) | barley-03, 4 CPU (1892236) |
 | Pilot pass-1 arm A2 head job, at 6f969ee7 (M10-04; accepted) | Nissle 1917 pilot | 1 h 44 min (01:43:45) | 1.2 GB (head) | wheat-08, 4 CPU (1893676) |
-| Pilot pass-1 compare (`giap compare` + rule set C, M10-04) | A1 vs A2 | 17 s | 0.3 GB | wheat-08 (1894360) |
+| Pilot pass-1 compare (`gippa compare` + rule set C, M10-04) | A1 vs A2 | 17 s | 0.3 GB | wheat-08 (1894360) |

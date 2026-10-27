@@ -1,4 +1,4 @@
-"""Runtime of the determinants univariate bootstrap and permutation null (GIAP_SPEC.md §7.8.2
+"""Runtime of the determinants univariate bootstrap and permutation null (GIPPA_SPEC.md §7.8.2
 steps 1 and 4; docs/specs/M8-08-determinants-models.md, M8-09-determinants-attribution-null.md).
 
 Inputs are the spec example 1 world of ``tests/helpers/determinants_models_data.py`` (400 genes in
@@ -47,8 +47,8 @@ def world() -> tuple[Any, ...]:
 
 
 def test_determinants_univariate_b1000_n400_budget(benchmark: Any, world: tuple[Any, ...]) -> None:
-    from giap.determinants.models import univariate
-    from giap.rng import for_step
+    from gippa.determinants.models import univariate
+    from gippa.rng import for_step
 
     feats = world[4]
 
@@ -65,8 +65,8 @@ def test_determinants_univariate_b1000_n400_budget(benchmark: Any, world: tuple[
 
 
 def test_determinants_null_b50_n400_budget(benchmark: Any, world: tuple[Any, ...]) -> None:
-    from giap.config.model import DeterminantsConfig
-    from giap.determinants.null import null_p
+    from gippa.config.model import DeterminantsConfig
+    from gippa.determinants.null import null_p
 
     X, y, tu, _, _ = world
     cfg = DeterminantsConfig()

@@ -1,24 +1,24 @@
-"""Hand-made ``giap run`` output trees, ``sacct`` rows and a job sandbox for the M10-04 tests.
+"""Hand-made ``gippa run`` output trees, ``sacct`` rows and a job sandbox for the M10-04 tests.
 
 Spec: docs/specs/M10-04-pilot-runs.md (rule sets A and C, acceptance criteria 1-7, lead decisions
 of 2026-10-24). Nothing here runs a pipeline, touches the network or reads the real
-``$GIAP_ROOT``: every value is invented (Khoa's 2026-10-23 rule: nothing derived from the DIA-NN
+``$GIPPA_ROOT``: every value is invented (Khoa's 2026-10-23 rule: nothing derived from the DIA-NN
 reports is committed).
 
-* ``write_arm(out, ...)`` builds an ``OUT/`` tree as ``giap run`` leaves it: a
-  ``run_manifest.json`` produced by the real ``giap.manifest.build_manifest`` (Nextflow executor,
+* ``write_arm(out, ...)`` builds an ``OUT/`` tree as ``gippa run`` leaves it: a
+  ``run_manifest.json`` produced by the real ``gippa.manifest.build_manifest`` (Nextflow executor,
   the trace rows below, the recorded-annotation metadata), ``logs/trace.tsv`` with the
   ``nextflow.config`` trace fields and Slurm ``native_id``s, ``report/report.html`` and a
   ``tables/genes.tsv`` written through the ``genes`` schema (``helpers.compare_data``). The same
-  tree is a valid ``giap compare`` input (the genome digest is the manifest's ``genome`` row).
+  tree is a valid ``gippa compare`` input (the genome digest is the manifest's ``genome`` row).
 * ``sacct_rows(...)`` is what ``sacct -P -n`` prints for the head job (``JobID``, ``State``,
   ``ExitCode``, ``Elapsed``, ``MaxRSS``, ``NodeList``; plus its ``.batch`` step) and for each
   task job (``JobID`` = the trace ``native_id``, ``AllocCPUS``, ``MaxRSS``, ``State``).
 * ``arm_doc``, ``run_evidence_cli`` and ``arm_cli_args`` call ``arm_evidence`` and the CLI (the
   CLI with a fake ``sacct`` serving ``sacct_rows``; ``sacct_script`` replaces the fake).
 * ``compare_job_sandbox`` builds on ``helpers.slurm_sandbox.make_sandbox`` and adds ``src/`` and
-  ``validation/`` to the sandbox checkout (committed), so ``PYTHONPATH=$GIAP_REPO/src`` runs this
-  branch's ``giap compare`` and ``repo_is_clean`` means "the job wrote nothing into the checkout".
+  ``validation/`` to the sandbox checkout (committed), so ``PYTHONPATH=$GIPPA_REPO/src`` runs this
+  branch's ``gippa compare`` and ``repo_is_clean`` means "the job wrote nothing into the checkout".
 
 Interface assumed (test-author reading of the spec; deliverable 1):
 
@@ -29,7 +29,7 @@ Interface assumed (test-author reading of the spec; deliverable 1):
     column). ``expect``: ``{"arm": "A1"|"A2", "job": str, "commit": str, "inputs": {role: sha}}``
     (the CLI's ``--arm``, ``--job``, ``--expect-commit`` and ``--expect-input role=sha``).
 ``compare_evidence(cmp, cmp2, labels, genes=PATH) -> dict``
-    ``cmp`` and ``cmp2``: the two ``giap compare`` output directories; ``labels``: ``("A1", "A2")``;
+    ``cmp`` and ``cmp2``: the two ``gippa compare`` output directories; ``labels``: ``("A1", "A2")``;
     ``genes``: ``out_a1/tables/genes.tsv`` (the CLI's required ``--genes``; lead decision on B4).
 
 Both return a JSON-serialisable dict with a ``failures`` list of the spec's exact rule strings.
@@ -100,14 +100,14 @@ def trace_task(
 def default_trace() -> list[dict[str, str]]:
     """Two task jobs (criterion 1): gene table and detection, with Slurm ``native_id``s."""
     return [
-        trace_task("GIAP:CORE:GENE_TABLE (gene_table)", TASK_JOBS[0], task_id=1),
-        trace_task("GIAP:CORE:DETECTION (detection)", TASK_JOBS[1], task_id=2),
+        trace_task("GIPPA:CORE:GENE_TABLE (gene_table)", TASK_JOBS[0], task_id=1),
+        trace_task("GIPPA:CORE:DETECTION (detection)", TASK_JOBS[1], task_id=2),
     ]
 
 
 def bakta_task(native_id: str = "1900009") -> dict[str, str]:
     """The task a live Bakta annotation leaves in the trace (rule A4)."""
-    return trace_task("GIAP:ANNOTATION:BAKTA (genome)", native_id, task_id=9)
+    return trace_task("GIPPA:ANNOTATION:BAKTA (genome)", native_id, task_id=9)
 
 
 def arm_genes(*, shift: float = 0.0, detected: bool = True) -> list[dict[str, object]]:
@@ -134,9 +134,9 @@ def manifest_doc(
     events: Sequence[Mapping[str, Any]] = (),
     tier: str = "peptides",
 ) -> dict[str, Any]:
-    """A manifest exactly as ``giap.manifest.build_manifest`` writes it for a Nextflow run."""
-    from giap.config import GiapConfig
-    from giap.manifest import ManifestSources, build_manifest
+    """A manifest exactly as ``gippa.manifest.build_manifest`` writes it for a Nextflow run."""
+    from gippa.config import GippaConfig
+    from gippa.manifest import ManifestSources, build_manifest
     from helpers.manifest_data import preflight_doc
 
     log = None if failed_step is None else str(outdir / "work" / "ab" / "x" / ".command.log")
@@ -146,14 +146,14 @@ def manifest_doc(
     rows = [{"role": r, "file": files[r], "sha256": shas[r], "size": 1000 + i}
             for i, r in enumerate(("genome", "annotation", "peptides"))]  # fmt: skip
     src = ManifestSources(
-        cfg=GiapConfig(seed=SEED, modules=list(modules)),
+        cfg=GippaConfig(seed=SEED, modules=list(modules)),
         preflight=preflight_doc(inputs=rows, tier=tier),
         registered=[],
         executor="nextflow",
         profile="farmshare,apptainer",
         resume=False,
         outdir=str(outdir),
-        command_line=["giap", "run", "--outdir", str(outdir)],
+        command_line=["gippa", "run", "--outdir", str(outdir)],
         started_at="2026-10-24T08:00:00+00:00",
         finished_at="2026-10-24T14:00:00+00:00",
         exit_code=exit_code,
@@ -187,7 +187,7 @@ def write_arm(
     *,
     genes: Sequence[Mapping[str, object]] | None = None,
     trace: Sequence[Mapping[str, str]] | None = None,
-    report: str | None = "<!doctype html><html><body>GIAP report</body></html>\n",
+    report: str | None = "<!doctype html><html><body>GIPPA report</body></html>\n",
     manifest: bool = True,
     novel_orfs_empty: bool = False,
     **manifest_kw: Any,
@@ -254,7 +254,7 @@ def expect(**over: Any) -> dict[str, Any]:
 def load_run_evidence() -> ModuleType:
     """Import ``validation/pilot/run_evidence.py`` (deliverable 1)."""
     assert RUN_EVIDENCE.is_file(), f"{RUN_EVIDENCE.relative_to(REPO)} does not exist (M10-04)"
-    spec = importlib.util.spec_from_file_location("giap_pilot_run_evidence", RUN_EVIDENCE)
+    spec = importlib.util.spec_from_file_location("gippa_pilot_run_evidence", RUN_EVIDENCE)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -287,7 +287,7 @@ def fake_sacct_env(
     (state / "sacct_rows.json").write_text(json.dumps(list(rows)))
     return {"PATH": f"{bindir}:/usr/bin:/bin", "HOME": str(tmp), "LANG": "C.UTF-8",
             "FAKE_SLURM_DIR": str(state), "PYTHONPATH": str(REPO / "src"),
-            "GIAP_ROOT": str(tmp / "no_root"), "PYTHONDONTWRITEBYTECODE": "1"}  # fmt: skip
+            "GIPPA_ROOT": str(tmp / "no_root"), "PYTHONDONTWRITEBYTECODE": "1"}  # fmt: skip
 
 
 def run_evidence_cli(
@@ -314,19 +314,19 @@ def arm_cli_args(out: Path, dest: Path, **kw: str) -> list[str]:
             "--out", str(dest)]  # fmt: skip
 
 
-# ------------------------------------------------------------------ giap compare
+# ------------------------------------------------------------------ gippa compare
 
 
-def giap_compare(
+def gippa_compare(
     a: Path, b: Path, cmp: Path, *, env_root: Path, bootstrap: int = 200
 ) -> subprocess.CompletedProcess[str]:
-    """The real ``giap compare a b --outdir cmp --labels A1,A2`` of this checkout."""
+    """The real ``gippa compare a b --outdir cmp --labels A1,A2`` of this checkout."""
     env_root.mkdir(parents=True, exist_ok=True)
     env = {"PATH": "/usr/bin:/bin", "HOME": str(env_root), "LANG": "C.UTF-8",
-           "PYTHONPATH": str(REPO / "src"), "GIAP_DB_DIR": str(env_root),
-           "GIAP_ROOT": str(env_root), "PYTHONDONTWRITEBYTECODE": "1",
+           "PYTHONPATH": str(REPO / "src"), "GIPPA_DB_DIR": str(env_root),
+           "GIPPA_ROOT": str(env_root), "PYTHONDONTWRITEBYTECODE": "1",
            "MPLCONFIGDIR": str(env_root / "mpl")}  # fmt: skip
-    cmd = [sys.executable, "-c", "from giap.cli import cli; cli()", "compare", str(a), str(b),
+    cmd = [sys.executable, "-c", "from gippa.cli import cli; cli()", "compare", str(a), str(b),
            "--outdir", str(cmp), "--labels", "A1,A2", "--set",
            f"stats.bootstrap={bootstrap}"]  # fmt: skip
     return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=300, check=False)
@@ -347,7 +347,7 @@ def two_arms(tmp: Path, *, detected: bool = True, sha_b: str | None = None) -> t
 
 _RECORDING_PYTHON = r"""#!/bin/bash
 # Records every call (argv as one JSON line), then runs the real interpreter.
-{python} - "$@" <<'PY' >> "$FAKE_SLURM_DIR/giap_python.jsonl"
+{python} - "$@" <<'PY' >> "$FAKE_SLURM_DIR/gippa_python.jsonl"
 import json, sys
 print(json.dumps(sys.argv[1:]))
 PY
@@ -370,10 +370,10 @@ class CompareJobSandbox:
         return self.sb.run(["bash", str(self.script), *args], env=env, timeout=600)
 
     def python_calls(self) -> list[list[str]]:
-        return self.sb.jsonl("giap_python.jsonl")
+        return self.sb.jsonl("gippa_python.jsonl")
 
     def recording_python(self) -> Path:
-        return self.sb.bin / "giap_python"
+        return self.sb.bin / "gippa_python"
 
     def repo_is_clean(self) -> bool:
         res = subprocess.run(
@@ -392,10 +392,10 @@ def compare_job_sandbox(tmp: Path) -> CompareJobSandbox:
         subprocess.run(
             ["git", "-C", str(sb.repo), *args], check=True, capture_output=True, env=sb.env
         )
-    write_exe(sb.bin / "giap_python", _RECORDING_PYTHON.replace("{python}", sys.executable))
+    write_exe(sb.bin / "gippa_python", _RECORDING_PYTHON.replace("{python}", sys.executable))
     sb.env.update({"PYTHONDONTWRITEBYTECODE": "1", "MPLCONFIGDIR": str(tmp / "mpl"),
                    "SLURM_JOB_ID": "1900100"})  # fmt: skip
-    sb.env.pop("GIAP_PYTHON", None)
+    sb.env.pop("GIPPA_PYTHON", None)
     sb.env.pop("PYTHONPATH", None)
     runs = tmp / "runs"
     runs.mkdir()
