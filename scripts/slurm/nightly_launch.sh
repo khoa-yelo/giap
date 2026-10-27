@@ -8,11 +8,12 @@
 #      --comment nightly:<array> lets a resubmitted benchmark task find it and extend its dependency.
 # A refused array submission exits 1 and submits no summary job. NIGHTLY_POST=dry: the summary job
 # prints the comment instead of posting. Other NIGHTLY_* variables reach the array (--export=ALL).
-# R14: 4 x 16 + 1 CPUs (+ this launcher's 1 CPU, which ends before the array starts).
+# R14: 4 x 16 + 1 CPUs + 16 per extra task-2 shard (+ this launcher's 1 CPU, which ends before the array starts).
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 REPO="$GIAP_REPO"
 mkdir -p "$REPO/local/logs" "$GIAP_ROOT/logs"
+export NIGHTLY_CAL_SHARDS="${NIGHTLY_CAL_SHARDS:-2}"   # task 2 in 2 shards: + 16 CPUs (nightly.sbatch)
 array=$(sbatch --parsable --array=0-3 "$REPO/scripts/slurm/nightly.sbatch") || {
   echo "nightly_launch: the nightly array was not submitted" >&2; exit 1; }
 array=${array%%;*}
