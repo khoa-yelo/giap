@@ -215,6 +215,24 @@ def _annotation_check(path: Path) -> Check:
     )
 
 
+def _translation_table_check(table: int) -> Check:
+    ok = table == 11
+    return Check(
+        "config.translation_table",
+        "inputs",
+        "ok" if ok else "error",
+        "annotation.translation_table == 11 → ok; else error (1.0 supports genetic code 11 only)",
+        table,
+        ""
+        if ok
+        else (
+            f"annotation.translation_table={table}: only genetic code 11 is supported in this "
+            "release; genetic code 4 (Mycoplasma) support is planned"
+        ),
+        0 if ok else int(ExitCode.INVALID_INPUT),
+    )
+
+
 def _short_protein_rows(
     records: Sequence[ProteinRecord], routes: Sequence[Route], cfg: GiapConfig
 ) -> pd.DataFrame:
@@ -434,6 +452,7 @@ def run_preflight(
             inp.peptides is not None, inp.proteins is not None, n_usable_peptides=n_usable
         ),
         *([_annotation_check(inp.annotation)] if inp.annotation is not None else []),
+        _translation_table_check(cfg.annotation.translation_table),
         *checks_genome,
         *checks_proteins,
         *checks_peptides,
