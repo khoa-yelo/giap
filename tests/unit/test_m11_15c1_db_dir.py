@@ -25,6 +25,11 @@ Interface pinned here (readings chosen where the spec leaves room):
   ``gippa preflight --profile`` to ``gippa.preflight.run.run_preflight`` (6th positional
   argument, ``db_dir``), as today.
 - An empty or unreadable pointer file: a warning naming the file on stderr, then the default.
+- Lead decision (2026-10-27): for ``run``, ``preflight`` and ``makedb`` the default
+  ``<data dir>/db`` counts only when it exists; an absent default means "no DB directory"
+  (``db_dir`` ``None``, no ``DB directory`` line, nothing created), as today. ``setup`` creates
+  the default. ``resolve_db_dir`` itself still returns the default path with source
+  ``"default"`` (setup needs it); the readers apply the existence rule.
 
 Every test runs with ``HOME``, ``XDG_CONFIG_HOME`` and ``XDG_DATA_HOME`` inside ``tmp_path``; the
 real ``$GIPPA_DB_DIR`` is unset, no network, no tool (``setup_guard``).
@@ -258,28 +263,43 @@ def test_makedb_uses_recorded_db_dir_and_says_so(
     assert "no --db-dir" not in r.output
 
 
-def test_makedb_without_anything_uses_default_db_dir(tmp_path: Path, _home: Path) -> None:
-    r = CliRunner().invoke(
-        cli, ["makedb", "--annotation", str(_bakta_json(tmp_path)), "--outdir", str(tmp_path / "o")]
-    )
-    default = _home / ".local" / "share" / "gippa" / "db"
-    assert str(default / "contaminants" / "contaminants.fasta") in r.output, r.output
+def _default(home: Path) -> Path:
+    return home / ".local" / "share" / "gippa" / "db"
+
+
+def _makedb(tmp_path: Path) -> Any:
+    argv = ["makedb", "--annotation", str(_bakta_json(tmp_path)), "--outdir", str(tmp_path / "o")]
+    return CliRunner().invoke(cli, argv)
+
+
+def test_makedb_uses_existing_default_db_dir(tmp_path: Path, _home: Path) -> None:
+    """Lead rule: for the readers the default counts only when it exists."""
+    _default(_home).mkdir(parents=True)
+    r = _makedb(tmp_path)
+    assert str(_default(_home) / "contaminants" / "contaminants.fasta") in r.output, r.output
     assert FROM_SETUP not in r.output
 
 
+def test_makedb_absent_default_means_no_db_dir(tmp_path: Path, _home: Path) -> None:
+    r = _makedb(tmp_path)
+    assert "contaminant library not found (no --db-dir)" in r.output, r.output
+    assert str(_default(_home)) not in r.output
+    assert "DB directory" not in r.output
+    assert not _default(_home).exists(), "a reader must not create the default DB directory"
+
+
 @pytest.mark.parametrize("content", ["", "\n"])
-def test_makedb_empty_pointer_warns_and_uses_default(
+def test_makedb_empty_pointer_warns_and_uses_existing_default(
     tmp_path: Path, _home: Path, monkeypatch: pytest.MonkeyPatch, content: str
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     ptr = _pointer(tmp_path / "cfg", content)
-    r = CliRunner().invoke(
-        cli, ["makedb", "--annotation", str(_bakta_json(tmp_path)), "--outdir", str(tmp_path / "o")]
-    )
+    _default(_home).mkdir(parents=True)
+    r = _makedb(tmp_path)
     warn = [ln for ln in r.output.splitlines() if "warning" in ln.lower() and str(ptr) in ln]
     assert warn, f"no warning naming {ptr}:\n{r.output}"
-    default = _home / ".local" / "share" / "gippa" / "db"
-    assert str(default / "contaminants" / "contaminants.fasta") in r.output
+    assert str(_default(_home) / "contaminants" / "contaminants.fasta") in r.output
+    assert FROM_SETUP not in r.output
 
 
 def test_makedb_env_beats_pointer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -330,14 +350,71 @@ def test_run_uses_recorded_db_dir_and_says_so(
     assert f"gippa run: DB directory {rec} {FROM_SETUP}" in r.output
 
 
-def test_run_default_db_dir_without_pointer(
+def test_run_uses_existing_default_db_dir(
     tmp_path: Path, _home: Path, captured_run: dict[str, Any]
 ) -> None:
+    _default(_home).mkdir(parents=True)
     r = CliRunner().invoke(cli, ["run", *_run_inputs(tmp_path)])
     assert isinstance(r.exception, _Stop), r.output
-    assert captured_run["db_dir"] is not None, "gippa run did not default the DB directory"
-    assert Path(captured_run["db_dir"]) == _home / ".local" / "share" / "gippa" / "db"
+    assert captured_run["db_dir"] is not None, "gippa run did not use the existing default"
+    assert Path(captured_run["db_dir"]) == _default(_home)
     assert FROM_SETUP not in r.output
+
+
+def test_run_absent_default_means_no_db_dir(
+    tmp_path: Path, _home: Path, captured_run: dict[str, Any]
+) -> None:
+    """Lead rule: a nonexistent default is "no DB directory", as today."""
+    r = CliRunner().invoke(cli, ["run", *_run_inputs(tmp_path)])
+    assert isinstance(r.exception, _Stop), r.output
+    assert captured_run["db_dir"] is None
+    assert "DB directory" not in r.output
+    assert not _default(_home).exists()
+
+
+@pytest.fixture
+def captured_preflight(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    import gippa.preflight.run as pr
+
+    seen: dict[str, Any] = {}
+
+    def stub(*a: Any, **k: Any) -> Any:
+        seen["db_dir"] = k["db_dir"] if "db_dir" in k else a[5]
+        raise _Stop
+
+    monkeypatch.setattr(pr, "run_preflight", stub)
+    return seen
+
+
+def _preflight(tmp_path: Path) -> Any:
+    args = [a for a in _run_inputs(tmp_path) if a not in ("--outdir", str(tmp_path / "OUT"))]
+    return CliRunner().invoke(cli, ["preflight", *args, "--profile", "apptainer"])
+
+
+def test_preflight_uses_existing_default_db_dir(
+    tmp_path: Path, _home: Path, captured_preflight: dict[str, Any]
+) -> None:
+    _default(_home).mkdir(parents=True)
+    r = _preflight(tmp_path)
+    assert isinstance(r.exception, _Stop), r.output
+    assert captured_preflight["db_dir"] is not None
+    assert Path(captured_preflight["db_dir"]) == _default(_home)
+
+
+def test_preflight_absent_default_means_no_db_dir(
+    tmp_path: Path, _home: Path, captured_preflight: dict[str, Any]
+) -> None:
+    r = _preflight(tmp_path)
+    assert isinstance(r.exception, _Stop), r.output
+    assert captured_preflight["db_dir"] is None
+    assert "DB directory" not in r.output
+
+
+def test_setup_creates_the_default_db_dir(_home: Path) -> None:
+    """``setup`` itself creates the default (it is the writer), even with nothing to download."""
+    r = _setup(*NOTHING)
+    assert r.exit_code == 0, r.output
+    assert _default(_home).is_dir()
 
 
 def test_run_env_beats_pointer(
