@@ -9,14 +9,17 @@ Pure functions, no file I/O.
 
 from __future__ import annotations
 
+import multiprocessing
 import zlib
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from threadpoolctl import threadpool_limits  # type: ignore[import-untyped]
 
 from giap.config.model import DeterminantsConfig
 from giap.determinants.models import MODELS, ModelName, refit_r2
@@ -33,10 +36,52 @@ DEGENERATE = "null_degenerate"
 #: pass 1 (ADR-0034): the permutation p is valid only for exchangeable TUs; on every result
 UNCALIBRATED = "null_uncalibrated"
 UNESTIMATED = "unestimated"
-#: models refitted serially, with no pool running: the elastic net's path holds the GIL, so
-#: threading it -- or overlapping it with the LightGBM pool (GIL convoy on a loaded node) -- is
-#: slower than one thread (2.5x at 4 threads)
-_SERIAL: frozenset[ModelName] = frozenset({"elastic_net"})
+#: with threads > 1 the refits run on spawned worker processes, never threads: the elastic net's
+#: path holds the GIL, so threading it -- or overlapping it with a LightGBM thread pool (GIL convoy
+#: on a loaded node) -- is slower than one thread (2.5x at 4 threads; ADR-0053, ADR-0063)
+#: below this B the spawn of the worker processes (about 2 s each, in parallel) outweighs the
+#: refits: LightGBM's refits run on a thread pool and the elastic net's serially (ADR-0053)
+_PROCESS_MIN_B = 200
+#: permutations per task sent to a worker process (amortises the pickling of the response)
+_CHUNK = 8
+
+#: the fixed refit arguments of one worker process (set once by ``_init_worker``)
+_WORKER: dict[str, Any] = {}
+
+
+def _init_worker(X: pd.DataFrame, folds: I64, cfg: DeterminantsConfig, seed: int,
+                 tus: list[str]) -> None:  # fmt: skip
+    _WORKER.update(X=X, folds=folds, cfg=cfg, seed=seed, tus=tus)
+    # one fit per worker process: BLAS/OpenMP pools of one thread (threads workers in all)
+    threadpool_limits(1)
+
+
+def _worker_r2(args: tuple[ModelName, F64]) -> float:
+    m, yb = args
+    w = _WORKER
+    return float(refit_r2(m, w["X"], yb, w["folds"], w["cfg"], w["seed"], 1, tu=w["tus"])[0])
+
+
+def _process_columns(
+    models: Sequence[ModelName], ys: Sequence[F64], X: pd.DataFrame, folds: I64,
+    cfg: DeterminantsConfig, seed: int, tus: list[str], threads: int,
+) -> list[list[float]]:  # fmt: skip
+    """``[[one(m, yb) for yb in ys] for m in models]`` on one pool of ``threads`` spawned worker
+    processes, model by model, each column in b order."""
+    ctx = multiprocessing.get_context("spawn")  # never fork a process with live BLAS threads
+    pool = ProcessPoolExecutor(
+        max_workers=min(threads, len(ys)), mp_context=ctx, initializer=_init_worker,
+        initargs=(X, folds, cfg, seed, tus),
+    )  # fmt: skip
+    try:
+        return [
+            list(pool.map(_worker_r2, [(m, yb) for yb in ys], chunksize=_CHUNK)) for m in models
+        ]
+    except BaseException:
+        pool.shutdown(wait=True, cancel_futures=True)  # a failed refit: drop the queued chunks
+        raise
+    finally:
+        pool.shutdown(wait=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,8 +144,10 @@ def null_p(
 
     Permutation b draws from child b of ``SeedSequence([seed, crc32(NULL_STREAM)]).spawn(B)``
     (independent of B), so results are reproducible and identical for any ``threads``: each fit
-    is single-threaded and independent; model by model, LightGBM refits run on ``threads``
-    workers and the elastic net's (GIL-bound) serially, collected in b order.
+    is single-threaded and independent; with ``threads`` > 1 and B >= ``_PROCESS_MIN_B`` they
+    run model by model on one pool of ``threads`` spawned worker processes (one BLAS/OpenMP
+    thread each); with a smaller B LightGBM's run on ``threads`` threads and the elastic net's
+    serially; with ``threads`` = 1 all serially; collected in b order.
     Every TU size unique: every permutation is the identity, so no refit is made, each null R²
     is the observed value, b = B, p = 1 and the result is flagged ``null_degenerate``."""
     if B < 1:
@@ -126,12 +173,19 @@ def null_p(
         return [one(m, yb) for yb in ys]
 
     null = np.empty((B, len(models)), dtype=np.float64)
-    for j, m in enumerate(models):
-        if threads > 1 and m not in _SERIAL:
-            with ThreadPoolExecutor(max_workers=threads) as pool:
-                null[:, j] = list(pool.map(lambda yb, m=m: one(m, yb), ys))
-        else:
-            null[:, j] = column(m)
+    # Bit identity across the three paths rests on each refit being deterministic and
+    # independent of the BLAS/OpenMP thread count: the parent's serial and threaded refits use
+    # the process's default BLAS threads, the workers one; the tests and ADR-0063 pin it.
+    if threads > 1 and B >= _PROCESS_MIN_B:
+        for j, col in enumerate(_process_columns(models, ys, X, folds, cfg, seed, tus, threads)):
+            null[:, j] = col
+    else:
+        for j, m in enumerate(models):
+            if threads > 1 and m != "elastic_net":
+                with ThreadPoolExecutor(max_workers=threads) as pool:
+                    null[:, j] = list(pool.map(lambda yb, m=m: one(m, yb), ys))
+            else:
+                null[:, j] = column(m)
     out: dict[str, NullResult] = {}
     for j, m in enumerate(models):
         obs = float(observed_mean_r2[m])

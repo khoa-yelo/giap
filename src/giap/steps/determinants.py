@@ -210,17 +210,20 @@ def _determinants(
     att = attribution_table(features, rows, cv.get("lightgbm"), shap)
     write_determinants_attribution(outputs["determinants_attribution"], att)
     if SUPPORT in outputs and cv:
-        _support(outputs[SUPPORT], cv["lightgbm"], X, blocks, features.loc[rows], nulls, table)
+        _support(
+            outputs[SUPPORT], cv["lightgbm"], X, blocks, features.loc[rows], nulls, table,
+            _threads(cfg),
+        )  # fmt: skip
 
 
 def _support(
     out: Path, cv: CvResult, X: pd.DataFrame, blocks: Mapping[str, str], model: pd.DataFrame,
-    nulls: Mapping[str, NullResult], table: pd.DataFrame,
+    nulls: Mapping[str, NullResult], table: pd.DataFrame, threads: int = 1,
 ) -> None:  # fmt: skip
     """``determinants_shap``, ``determinants_pd`` and ``null_determinants`` (M9-17)."""
     tags = model["locus_tag"].astype(str).tolist()
     write_support("determinants_shap", shap_rows(shap_features(cv, X, blocks), X, tags), out)
-    write_support("determinants_pd", pd_rows(cv, X, model), out)
+    write_support("determinants_pd", pd_rows(cv, X, model, threads), out)
     mean = table[table["metric"] == "cv_r2_mean"]
     observed = dict(zip(mean["model"].astype(str), mean["value"].astype(float), strict=True))
     write_support("null_determinants", null_rows(nulls, observed), out)

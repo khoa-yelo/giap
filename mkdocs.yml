@@ -163,6 +163,7 @@ nav:
       - adr/ADR-0060-release-versioning-and-image-keys.md
       - adr/ADR-0061-distance-model-fallback-scope.md
       - adr/ADR-0062-terminatornet-promotech-resources.md
+      - adr/ADR-0063-determinants-null-processes-pd-threads.md
   - Developer guide:
       - developer.md
       - release.md

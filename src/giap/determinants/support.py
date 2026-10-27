@@ -13,6 +13,7 @@ the column set to the grid value (ln for ``LOG_FEATURES``); ``pd_mean`` the mean
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -41,26 +42,54 @@ def shap_rows(per: pd.DataFrame, X: pd.DataFrame, tags: Sequence[str]) -> pd.Dat
     })  # fmt: skip
 
 
-def pd_rows(cv: CvResult, X: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-    """``determinants_pd`` of the LightGBM ``cv`` over the model rows ``X`` (``features``: the
-    same rows of the features frame, own scale)."""
-    base = [(bst, X[[str(c) for c in bst.feature_name_]].astype(float))  # type: ignore[attr-defined]
-            for bst in cv.boosters]  # fmt: skip
-    rows: list[tuple[str, float, float, float, float]] = []
+def _grids(features: pd.DataFrame) -> list[tuple[str, list[float]]]:
+    """Per PD feature with a finite value: the written (§9.2 %.6g) grid values, ascending."""
+    out: list[tuple[str, list[float]]] = []
     for feat in PD_FEATURES:
         v = pd.to_numeric(features[feat], errors="coerce").to_numpy(float, na_value=np.nan)
         v = v[np.isfinite(v)]
         if not v.size:
             continue  # e.g. layer_missing:ostir
         grid = np.sort(np.concatenate([[v.min()], np.quantile(v, PD_QUANTILES), [v.max()]]))
-        for g in (float(f"{q:.6g}") for q in grid):  # the written (§9.2 %.6g) grid value
+        out.append((feat, [float(f"{q:.6g}") for q in grid]))
+    return out
+
+
+def _booster_means(
+    bst: object, Z: pd.DataFrame, grids: Sequence[tuple[str, list[float]]]
+) -> list[float]:
+    """One booster's mean prediction over the model rows per (feature, grid value), in order."""
+    means: list[float] = []
+    for feat, grid in grids:
+        for g in grid:
             x = (np.log(g) if g > 0 else np.nan) if feat in LOG_FEATURES else g
-            per = []
-            for bst, Z in base:
-                if feat in Z.columns:
-                    Z = Z.assign(**{feat: x})
-                per.append(float(np.mean(bst.predict(Z))))  # type: ignore[attr-defined]
+            W = Z.assign(**{feat: x}) if feat in Z.columns else Z
+            means.append(float(np.mean(bst.predict(W))))  # type: ignore[attr-defined]
+    return means
+
+
+def pd_rows(
+    cv: CvResult, X: pd.DataFrame, features: pd.DataFrame, threads: int = 1
+) -> pd.DataFrame:
+    """``determinants_pd`` of the LightGBM ``cv`` over the model rows ``X`` (``features``: the
+    same rows of the features frame, own scale). With ``threads`` > 1 the boosters predict on a
+    pool of ``threads`` threads (LightGBM releases the GIL; each predict keeps the booster's
+    single thread), collected in booster order: the rows are identical for any ``threads``."""
+    base = [(bst, X[[str(c) for c in bst.feature_name_]].astype(float))  # type: ignore[attr-defined]
+            for bst in cv.boosters]  # fmt: skip
+    grids = _grids(features)
+    if threads > 1 and len(base) > 1:
+        with ThreadPoolExecutor(max_workers=min(threads, len(base))) as pool:
+            per_booster = list(pool.map(lambda bz: _booster_means(bz[0], bz[1], grids), base))
+    else:
+        per_booster = [_booster_means(bst, Z, grids) for bst, Z in base]
+    rows: list[tuple[str, float, float, float, float]] = []
+    i = 0
+    for feat, grid in grids:
+        for g in grid:
+            per = [m[i] for m in per_booster]
             rows.append((feat, g, float(np.mean(per)), min(per), max(per)))
+            i += 1
     return pd.DataFrame(rows, columns=["feature", "grid_value", "pd_mean", "pd_low", "pd_high"])
 
 

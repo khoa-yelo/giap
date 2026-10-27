@@ -1,0 +1,1 @@
+The determinants step refits the permutation null of both models on one pool of `threads` worker processes instead of a LightGBM thread pool and a serial elastic net; the null values, p and b are bit-identical (ADR-0063).
