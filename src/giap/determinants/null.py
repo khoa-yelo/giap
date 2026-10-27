@@ -69,13 +69,19 @@ def _process_columns(
     """``[[one(m, yb) for yb in ys] for m in models]`` on one pool of ``threads`` spawned worker
     processes, model by model, each column in b order."""
     ctx = multiprocessing.get_context("spawn")  # never fork a process with live BLAS threads
-    with ProcessPoolExecutor(
+    pool = ProcessPoolExecutor(
         max_workers=min(threads, len(ys)), mp_context=ctx, initializer=_init_worker,
         initargs=(X, folds, cfg, seed, tus),
-    ) as pool:  # fmt: skip
+    )  # fmt: skip
+    try:
         return [
             list(pool.map(_worker_r2, [(m, yb) for yb in ys], chunksize=_CHUNK)) for m in models
         ]
+    except BaseException:
+        pool.shutdown(wait=True, cancel_futures=True)  # a failed refit: drop the queued chunks
+        raise
+    finally:
+        pool.shutdown(wait=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +173,9 @@ def null_p(
         return [one(m, yb) for yb in ys]
 
     null = np.empty((B, len(models)), dtype=np.float64)
+    # Bit identity across the three paths rests on each refit being deterministic and
+    # independent of the BLAS/OpenMP thread count: the parent's serial and threaded refits use
+    # the process's default BLAS threads, the workers one; the tests and ADR-0063 pin it.
     if threads > 1 and B >= _PROCESS_MIN_B:
         for j, col in enumerate(_process_columns(models, ys, X, folds, cfg, seed, tus, threads)):
             null[:, j] = col
