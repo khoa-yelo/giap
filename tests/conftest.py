@@ -187,6 +187,53 @@ def golden_seed(tolerances: dict[str, object]) -> int:
     return int(seeds["GOLDEN_SEED"])
 
 
+_REAL_SUBPROCESS_RUN = subprocess.run  # captured before any test patches it
+MOUNTINFO_FIXTURE = REPO / "tests" / "data" / "mountinfo" / "root_ext4.txt"
+
+
+def _faked_by_the_test(run: object) -> bool:
+    """Whether ``subprocess.run`` is a test's fake (not the real one, not ``setup_guard``'s
+    deny, which would turn a quota query into a guard hit)."""
+    if run is _REAL_SUBPROCESS_RUN:
+        return False
+    return not str(getattr(run, "__qualname__", "")).startswith("_deny.")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_user_dirs(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No test reads or writes the real XDG config/data homes, the host's mount table or the
+    real user quota (PR #440 review B1).
+
+    - ``XDG_CONFIG_HOME`` and ``XDG_DATA_HOME`` point into a fresh directory per test (not
+      ``tmp_path``, so tests that list ``tmp_path`` see nothing new): ``gippa setup``'s pointer
+      file (``<config home>/gippa/db_dir``) and its default DB directory
+      (``<data home>/gippa/db``) can never land in the real home. Subprocesses inherit both.
+    - ``gippa.setupdb.space.MOUNTINFO`` is ``tests/data/mountinfo/root_ext4.txt`` (one ``ext4``
+      root), so the plan never reads the host's mounts.
+    - ``gippa.setupdb.space.user_quota`` answers ``None`` (no quota) without running anything,
+      unless the test has faked ``subprocess.run`` itself (then the real function runs against
+      the fake, as the quota tests need): no real ``quota -w`` (an NFS RPC) or ``lfs quota``.
+
+    A test that sets these variables or attributes itself overrides the fixture.
+    """
+    base = tmp_path_factory.mktemp("xdg")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(base / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(base / "data"))
+    from gippa.setupdb import space
+
+    monkeypatch.setattr(space, "MOUNTINFO", MOUNTINFO_FIXTURE)
+    real_quota = space.user_quota
+
+    def user_quota(*args: object, **kwargs: object) -> int | None:
+        if not _faked_by_the_test(subprocess.run):
+            return None
+        return real_quota(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(space, "user_quota", user_quota)
+
+
 @pytest.fixture(autouse=True)
 def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Preflight's UniOP probe (14d) reports success unless a test opts in with

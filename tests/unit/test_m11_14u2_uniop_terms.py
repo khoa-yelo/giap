@@ -193,7 +193,8 @@ def test_example_18c_tty_refusal_under_uniop_exits_2(
     assert item["status"] == "absent" and item["message"] == TERMS_NOT_ACCEPTED
 
 
-@pytest.mark.parametrize("answer", ["n\n", "\n"], ids=["n", "enter"])
+# Lead decision (PR #440): Proceed? [Y/n] comes first, then the UniOP terms prompt.
+@pytest.mark.parametrize("answer", ["y\nn\n", "\n\n"], ids=["n", "enter"])
 def test_example_18c_tty_refusal_under_images_exits_0(
     archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, answer: str
 ) -> None:
