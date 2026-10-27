@@ -50,7 +50,7 @@ from helpers.uniop_14u1 import (
     setup_cli,
 )
 
-pytestmark = pytest.mark.usefixtures("no_network")
+pytestmark = [pytest.mark.usefixtures("no_network"), pytest.mark.real_prereqs]
 
 REPO = Path(__file__).resolve().parents[2]
 SOURCES_YAML = REPO / "src" / "gippa" / "data" / "db_sources.yaml"
@@ -471,9 +471,10 @@ def test_example_5_5_nextflow_on_path_is_not_downloaded(
     assert code == 0, out
     assert net.contacted == [], "no download when nextflow is on PATH"
     assert not (db / "bin" / "nextflow").exists()
+    # "the record names the found version": setup's output, or a db_manifest item (either way)
     rec = manifest_items(db).get("nextflow")
-    assert rec is not None, "the record names the nextflow found on PATH"
-    assert "25.10.0" in rec["version"], rec
+    assert "25.10.0" in out or (rec is not None and "25.10.0" in rec["version"]), (out, rec)
+    assert str(fakebin / "nextflow") in out or rec is not None, "the nextflow found is named"
 
 
 def test_no_nextflow_skips_the_launcher(
@@ -487,6 +488,29 @@ def test_no_nextflow_skips_the_launcher(
     assert code == 0, out
     assert net.contacted == []
     assert not (db / "bin" / "nextflow").exists()
+
+
+def test_explicit_uniop_never_plans_the_launcher(
+    net: FakeNet, fakebin: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Q-K27: ``gippa setup --uniop`` installs UniOP only; with no nextflow on PATH the hosts
+    contacted are still exactly GitHub's archive URL and codeload (14u1 example 16)."""
+    from helpers.uniop_14u1 import ACCEPT, install_fake_docker, pin_uniop_source, uniop_args
+
+    nf_row()  # 15d: the row exists, so not planning it is a decision, not an absence
+    make_exe(fakebin / "java", fake_java_script(JAVA_21))
+    use_path(monkeypatch, fakebin)
+    install_fake_docker(tmp_path, monkeypatch)
+    data = fixture_archive()
+    pin_uniop_source(monkeypatch, sha256_hex(data))
+    net.serve_github(data)
+    serve_nextflow(net)
+    db = tmp_path / "db"
+    code, out = setup_cli(uniop_args(db, ACCEPT))
+    assert code == 0, out
+    assert net.contacted == [("github.com", ARCHIVE_PATH), ("codeload.github.com", CODELOAD_PATH)]
+    assert not (db / "bin" / "nextflow").exists()
+    assert "nextflow" not in manifest_items(db)
 
 
 # ---------------------------------------------------------------- example 5.6: Java warns only

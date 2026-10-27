@@ -92,6 +92,14 @@ def _have(name: str) -> bool:
     return _cache[name]
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_prereqs: no fake java/nextflow on PATH (tests/unit/conftest.py fakes them otherwise; "
+        "M11-15d)",
+    )
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--require-capabilities",

@@ -56,6 +56,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 from helpers.fake_env import write_setup_manifest
+from helpers.prereqs import link_prereqs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -147,6 +148,7 @@ def apptainer_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     bindir.mkdir()
     _exe(bindir / "apptainer", FAKE_APPTAINER)
     (bindir / "mkdir").symlink_to(mkdir)
+    link_prereqs(bindir)  # M11-15d: setup checks java and finds nextflow (no launcher download)
     monkeypatch.setenv("PATH", str(bindir))
     assert shutil.which("docker") is None
     usage = namedtuple("usage", "total used free")
@@ -617,13 +619,15 @@ def test_run_without_nextflow_points_at_the_install_docs(
     import gippa.cli
 
     monkeypatch.setattr(gippa.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
-    empty = tmp_path / "emptybin"
-    empty.mkdir()
-    monkeypatch.setenv("PATH", str(empty))
+    bindir = tmp_path / "javaonly"
+    link_prereqs(bindir, ("java",))  # Java 21, no nextflow anywhere (M11-15d)
+    monkeypatch.setenv("PATH", str(bindir))
     db = write_setup_manifest(tmp_path / "db")
     code, text = _gippa_run(tmp_path, "docker", "--db-dir", str(db))
     assert code == 2, text
     assert "nextflow" in text.lower()
     assert "AGENTS.md" not in text, text
     assert "get-started/install" in text, text
-    assert f"{PKG} setup --images" in text, text
+    # M11-15d: the lookup is PATH, then <db_dir>/bin/nextflow, which `gippa setup` installs
+    assert str(db / "bin" / "nextflow") in text, text
+    assert f"{PKG} setup" in text, text

@@ -33,6 +33,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+pytestmark = pytest.mark.real_prereqs  # these tests build their own PATH
+
 REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 ADVICE = f"install it, e.g.: micromamba create -n {PKG}-java -c conda-forge openjdk=21"

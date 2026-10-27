@@ -28,6 +28,8 @@ from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
 from gippa.exitcodes import ExitCode
 
+pytestmark = pytest.mark.real_prereqs  # these tests build their own PATH
+
 REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 JAVA_HEAD = "Java 17 or newer is needed for Nextflow"

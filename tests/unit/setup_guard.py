@@ -11,6 +11,10 @@ first, so a missing environment/image surfaces as ``ToolUnavailable`` as in prod
 start of the tool is blocked. Tests that exercise the real ``HttpsFetcher.fetch`` against fake
 ``http.client`` connections request the ``real_https_fetch`` fixture, which restores only that
 method (sockets and DNS stay blocked).
+
+The fake ``java`` and ``nextflow`` of ``tests/unit/conftest.py`` (``helpers.prereqs``) may start
+through ``subprocess.run``: from M11-15d on, setup runs ``java -version`` (a warning) and finds
+``nextflow`` on ``PATH``, so the launcher is not downloaded. Every other command stays blocked.
 """
 
 from __future__ import annotations
@@ -30,6 +34,22 @@ class GuardError(AssertionError):
     """A setup test tried to reach the network or start a tool."""
 
 
+def _allow_fake_prereqs(what: str) -> Any:
+    """``subprocess.run`` of a conftest fake ``java``/``nextflow`` runs; anything else is denied."""
+    from helpers.prereqs import is_fake_prereq
+
+    deny = _deny(what)
+
+    def run(*args: Any, **kw: Any) -> Any:
+        argv = args[0] if args else kw.get("args")
+        first = argv[0] if isinstance(argv, (list, tuple)) and argv else None
+        if first is not None and is_fake_prereq(first):
+            return _REAL["run"](*args, **kw)
+        return deny(*args, **kw)
+
+    return run
+
+
 def _deny(what: str) -> Any:
     def deny(*args: Any, **_kw: Any) -> Any:
         BLOCKED.append(f"{what}: {args[1:] if args else ()}")
@@ -44,6 +64,7 @@ def setup_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
     BLOCKED.clear()
     _REAL.setdefault("fetch", HttpsFetcher.fetch)
+    _REAL.setdefault("run", subprocess.run)
 
     def guarded_run(self: Any, tool: str, argv: Sequence[str]) -> int:
         self.command(tool, argv)  # ToolUnavailable propagates as in production
@@ -52,7 +73,7 @@ def setup_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
     monkeypatch.setattr(ToolRunner, "run", guarded_run)
     monkeypatch.setattr(HttpsFetcher, "fetch", _deny("HttpsFetcher.fetch"))
-    monkeypatch.setattr(subprocess, "run", _deny("subprocess.run"))
+    monkeypatch.setattr(subprocess, "run", _allow_fake_prereqs("subprocess.run"))
     monkeypatch.setattr(subprocess, "Popen", _deny("subprocess.Popen"))
     monkeypatch.setattr(socket, "create_connection", _deny("socket.create_connection"))
     monkeypatch.setattr(socket.socket, "connect", _deny("socket.connect"))
