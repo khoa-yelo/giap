@@ -174,22 +174,22 @@ exists among today's 436 full-tier nodeids (#378 review).
 | Suite | shards | groups | group_select | lanes × CPUs | mem/lane | time | Estimate per job |
 |---|---|---|---|---|---|---|---|
 | placement | 2 | 8 | `direct` | 10 × 2 | 4000 | 06:00:00 | ≈ 2.5–3.5 h (attack5 → 1.7 h per shard lane; 28 group tests ≈ 15–20 h / 8, largest ≥ 1.2 h) |
-| gene_fdr | 0 | 2 | `*` | 2 × 2 | 4000 | 04:00:00 | 1.9 h |
+| gene_fdr | 0 | 2 | `*` | 2 × 2 | 4000 | 06:00:00 (was 04:00:00, see note) | 1.9 h |
 | detectability | 0 | 1 | `*` | 1 × 2 | 4000 | 02:00:00 | 0.25 h |
 | regions | 0 | 5 | `*` | 5 × 2 | 4000 | 06:00:00 | ≈ 2.4 h (largest test 1.2 h) |
-| autocorrelation | 0 | 1 | `*` | 1 × 4 | 4000 | 04:00:00 | 1.4 h |
-| islands | 0 | 1 | `*` | 1 × 2 | 4000 | 04:00:00 | 1.8 h |
-| discordance | 0 | 2 | `*` | 2 × 2 | 16000 | 04:00:00 | 1.2 h |
+| autocorrelation | 0 | 1 | `*` | 1 × 4 | 4000 | 06:00:00 (was 04:00:00, see note) | 1.4 h |
+| islands | 0 | 1 | `*` | 1 × 2 | 4000 | 06:00:00 (was 04:00:00, see note) | 1.8 h |
+| discordance | 0 | 2 | `*` | 2 × 2 | 16000 | 06:00:00 (was 04:00:00, see note) | 1.2 h |
 | missed_operons | 0 | 1 | `*` | 1 × 2 | 8000 | 02:00:00 | 0.3 h |
 | ora | 0 | 2 | `*` | 2 × 4 | 4000 | 06:00:00 (was 04:00:00, see note) | 1.7 h (53-min test) |
-| gsea | 0 | 2 | `*` | 2 × 2 | 4000 | 04:00:00 | 1.7 h |
+| gsea | 0 | 2 | `*` | 2 × 2 | 4000 | 06:00:00 (was 04:00:00, see note) | 1.7 h |
 | determinants | 0 | 5 | `*` | 5 × 2 | 4000 | 06:00:00 | ≈ 2.3 h (largest test ≈ 1.7 h) |
 | novel_orfs | 6 | 3 | `direct` | 9 × 2 | 4000 | 06:00:00 | ≈ 2–2.5 h: group lanes 4.5–6 h / 3; shard lanes ≈ 1.1 h, then block 2 (`gc` 3.6 h and the other pending checks) on 6 lanes ≈ 0.7 h |
 | denovo_precision | 0 | 1 | `*` | 1 × 2 | 4000 | 02:00:00 | 0.25 h |
 | variants | 2 | 1 | `direct` | 3 × 2 | 4000 | 06:00:00 (was 04:00:00, see note) | ≈ 1.5 h: shard lanes ≈ 0.6 h, then block 2 on 2 lanes ≈ 0.9 h; group lane ≈ 1 h |
 | compare | 0 | 1 | `*` | 1 × 2 | 4000 | 02:00:00 | 0.45 h |
 
-Note (2026-10-27, lead): ora and variants measured 3 h 17 m and 2 h 47 m on rye-01 (full run 1894441_8, _13) and passed 3 h 50 m on wheat (1900073, 1900078, killed at the 4 h limit), so both now get the 6 h of the longest suite; the launch window (max time) is unchanged.
+Note (2026-10-27, lead): ora and variants measured 3 h 17 m and 2 h 47 m on rye-01 (full run 1894441_8, _13) and passed 3 h 50 m on wheat (1900073, 1900078, killed at the 4 h limit), so both now get the 6 h of the longest suite; the launch window (max time) is unchanged. The same run also killed autocorrelation at 4 h on wheat (1900069) and gene_fdr finished at 3 h 48 m on wheat (1900066), so every 4 h suite (gene_fdr, autocorrelation, islands, discordance, gsea) now gets 6 h as well.
 
 Total 46 lanes, **98 CPUs** + 1 for the aggregator. The longest `time` is 6 h. The run's expected
 wall time is about 3–3.5 h, set by placement and novel_orfs. A one-lane `*` row is exactly
