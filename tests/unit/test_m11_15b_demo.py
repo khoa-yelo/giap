@@ -253,7 +253,11 @@ def test_make_demo_layers_rewrites_a_removed_layer(fake_checkout: Path) -> None:
     script = fake_checkout / "scripts" / "docs" / SCRIPT.name
     res = _script(script=script)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert (demo / "layers" / "promoters.tsv.gz").read_bytes() == want
+    got = (demo / "layers" / "promoters.tsv.gz").read_bytes()
+    # the gzip OS byte (offset 9) is forced to 0xff, RFC 1952 "unknown" (review B2): Python 3.12
+    # writes 0x03 and 3.13 writes 0xff, so without it the raw bytes depend on the interpreter
+    assert got[9] == 0xFF and want[9] == 0xFF, (got[9], want[9])
+    assert got == want, "regenerated layer differs byte for byte from the committed one"
     again = _script("--check", script=script)
     assert again.returncode == 0, again.stdout + again.stderr
 
