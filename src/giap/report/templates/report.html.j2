@@ -17,6 +17,9 @@
 <section id="{{ s.id }}">
 <h2>{{ s.heading }}</h2>
 {% if s.id == "summary" %}
+{% for w in warnings %}
+<div class="alert" data-warning="{{ w.rule_id }}">{{ w.message }}</div>
+{% endfor %}
 {% if cards %}
 <div class="cards">
 {% for c in cards %}

@@ -353,7 +353,8 @@ def build_report(
     return _ENV.get_template("report.html.j2").render(
         sections=sections, cards=summary, notes=notes, version=giap.__version__,
         provenance=content.provenance(view, doc, note), extras=content.extras(view, doc),
-        snippets=content.snippets(), plotlyjs=plotlyjs and Markup(plotlyjs),
+        warnings=content.summary_warnings(view), snippets=content.snippets(),
+        plotlyjs=plotlyjs and Markup(plotlyjs),
         plotly_version=version and version.group(1),
     )  # fmt: skip
 
