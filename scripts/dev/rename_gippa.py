@@ -59,6 +59,8 @@ KEEP_PATHS: tuple[tuple[str, str], ...] = (
     ("validation/pilot/metrics/", "pilot-artefact"),
     ("validation/pilot/db_a2/", "pilot-artefact"),
     ("validation/pilot/inputs/", "pilot-artefact"),
+    ("validation/pilot/diann_A1.cfg", "pilot-artefact"),  # sha256-pinned in reproduce.md
+    ("validation/pilot/diann_A2.cfg", "pilot-artefact"),
     ("validation/reports/", "validation-report"),
     ("validation/release/", "validation-report"),
     ("docs/validation/", "validation-report"),
