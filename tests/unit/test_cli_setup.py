@@ -64,7 +64,9 @@ def test_adopting_present_db_writes_manifest(tmp_path: Path) -> None:
     r = invoke("--db-dir", str(tmp_path), "--bakta", "light", *NOTHING_ELSE)
     assert r.exit_code == 0, r.output
     data = json.loads((tmp_path / "db_manifest.json").read_text())
-    assert data["schema_version"] == "1.0"
+    # every non---check setup records the set it installed (M11-15c2), so the manifest is 1.1
+    assert data["schema_version"] == "1.1"
+    assert data["setup"] == {"set": "default"}
     assert [(i["name"], i["status"]) for i in data["items"]] == [("bakta_light", "ok")]
 
 

@@ -183,6 +183,15 @@ def empty_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
 
 
+def no_runtime_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Override the autouse FarmShare probe (tests/conftest.py): no runtime, not FarmShare."""
+    from gippa.runner import profiles
+
+    probe = profiles.Probe(on_path=frozenset(), docker_ok=False, slurm_job_id=None,
+                           cluster_name=None, setup_runtime=None)  # fmt: skip
+    monkeypatch.setattr(profiles, "probe_host", lambda *_a, **_k: probe)
+
+
 def manifest(db: Path) -> dict[str, Any]:
     import json
 
@@ -305,6 +314,7 @@ def test_no_runtime_skips_images_with_a_warning_and_exits_by_the_dbs(
 ) -> None:
     """Item 1 edge case (c) / example 1.14: DBs downloaded, images skipped, exit 0."""
     empty_path(monkeypatch, tmp_path)
+    no_runtime_host(monkeypatch)
     r = setup(tmp_path)
     assert NO_RUNTIME in r.output
     assert calls.images == [] and calls.uniop == []
