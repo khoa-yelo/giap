@@ -444,7 +444,9 @@ def run_preflight(
         tool_reasons.pop("uniop", None)
     tools_missing = sorted(tool_reasons)
     where = Path.cwd() if outdir is None else outdir
-    env, resources = _environment(cfg, probe, mode, where, db, tools_missing, tool_reasons)
+    # With a profile, preflight checks the tools as giap run would: a missing manifest is an error.
+    tools_mode: Mode = "run" if profile is not None else mode
+    env, resources = _environment(cfg, probe, tools_mode, where, db, tools_missing, tool_reasons)
     env = _with_uniop(env, uniop)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)

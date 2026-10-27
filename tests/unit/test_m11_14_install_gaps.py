@@ -514,6 +514,25 @@ def test_preflight_profile_finds_the_db_dir_cache(tmp_path: Path, pf_db: Path) -
     assert not set(pins()) & missing, missing
 
 
+@pytest.mark.parametrize("db_dir", ["unset", "no-manifest"])
+def test_preflight_profile_without_a_manifest_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_dir: str
+) -> None:
+    """With ``--profile`` a missing ``db_manifest.json`` is the run-mode error, missing tools
+    included, not the plain-preflight info."""
+    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
+    if db_dir == "unset":
+        monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    else:
+        (tmp_path / "db").mkdir()
+        monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db"))
+    code, text, out = _preflight_cli(tmp_path, "--profile", "apptainer")
+    assert code == 2, text
+    checks = _tools(out)
+    assert len(checks) == 1 and checks[0]["level"] == "error", checks
+    assert "bakta" in checks[0]["value"]["missing"]
+
+
 @pytest.mark.parametrize("profile", ["apptainer", "docker", "farmshare,apptainer"])
 def test_preflight_profile_matches_run_mode(
     tmp_path: Path, pf_db: Path, monkeypatch: pytest.MonkeyPatch, profile: str
