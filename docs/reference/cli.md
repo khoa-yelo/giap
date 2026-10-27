@@ -135,15 +135,17 @@ Download databases and models (writes DIR/db_manifest.json).
 |---|---|---|---|---|
 | `--db-dir` | `PATH` | required | — | Database directory. |
 | `--bakta` | `CHOICE` | `light` | `light`, `full`, `skip` | — |
-| `--genomad` / `--no-genomad` | flag | `true` | — | — |
-| `--antismash` / `--no-antismash` | flag | `false` | — | — |
+| `--genomad` / `--no-genomad` | flag | `true` | — | geNOMAD database (non-commercial use). |
+| `--antismash` / `--no-antismash` | flag | `true` | — | antiSMASH databases. |
 | `--promotech-models` / `--no-promotech-models` | flag | `true` | — | — |
-| `--go` | flag | — | — | Gene Ontology and GO slims. |
-| `--kegg` | flag | — | — | KEGG resources. |
-| `--cog` | flag | — | — | COG categories. |
-| `--contaminants` | flag | — | — | Contaminant protein sequences. |
+| `--go` / `--no-go` | flag | `true` | — | Gene Ontology and GO slims. |
+| `--kegg` / `--no-kegg` | flag | `true` | — | KEGG resources (academic use). |
+| `--cog` / `--no-cog` | flag | `true` | — | COG categories. |
+| `--contaminants` / `--no-contaminants` | flag | `true` | — | Contaminant proteins. |
+| `--minimal` | flag | — | — | Small disks: no geNOMAD and no antiSMASH; images for modules core,function. |
 | `--check` | flag | — | — | Only verify what is installed. |
-| `--images` | `[all]` | — | — | Pull the pinned container images the config needs (with 'all': every pinned image). |
+| `--images` | `[all]` | — | — | Pull the pinned container images the config needs (the default when --profile names a runtime; with 'all': every pinned image). |
+| `--no-images` | flag | — | — | Do not pull container images. |
 | `--profile` | `apptainer|docker` | — | — | Container runtime for --images (a comma-joined Nextflow profile is accepted). |
 | `--cache-dir` | `PATH` | — | — | Apptainer image cache and UniOP build context [default: NXF_APPTAINER_CACHEDIR, $GIPPA_ROOT/containers, DIR/containers]. |
 | `--uniop` | flag | — | — | Fetch UniOP from its authors and build it locally. |

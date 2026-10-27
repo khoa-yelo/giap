@@ -68,8 +68,7 @@ gippa --version
 
 # 3. pinned images, databases and the local UniOP build
 export NXF_APPTAINER_CACHEDIR=/big/disk/gippa-images     # optional, apptainer only (below)
-gippa setup --db-dir /path/to/db --antismash --go --kegg --cog --contaminants \
-    --images --profile apptainer                         # or: --profile docker
+gippa setup --db-dir /path/to/db --profile apptainer   # or: --profile docker
 
 # 4. check the inputs and the installed tools
 GIPPA_DB_DIR=/path/to/db gippa preflight --genome genome.fna --peptides peptides.tsv \
@@ -84,11 +83,15 @@ gippa run --genome genome.fna --peptides peptides.tsv --db-dir /path/to/db \
 MkDocs Material for building this site. **Bioconda:** the recipe is pending (M11-10); until it
 is merged, use PyPI.
 
-**Step 3.** `gippa setup` pulls the images, then downloads the databases (the flags are on
-[Set up the databases](setup-databases.md)):
+**Step 3.** `gippa setup` pulls the images, then downloads the databases. Every item is on by
+default; each has a `--no-<item>` opt-out (the flags are on
+[Set up the databases](setup-databases.md)). Before downloading, setup prints the licence terms
+of geNOMAD (non-commercial use only) and KEGG (academic use only).
 
-- `--images` pulls the pinned images that the configuration's modules need, and `--images all`
-  every pinned image. `--config` and `--set` select the configuration, as for `gippa run`.
+- With `--profile`, setup pulls the pinned images that the configuration's modules need;
+  `--images all` pulls every pinned image and `--no-images` none. Without `--profile` the images
+  are skipped with a warning. `--config` and `--set` select the configuration, as for
+  `gippa run`.
 - `--profile apptainer` runs `apptainer pull <cache>/<name>.img docker://<ref>`, where `<name>` is
   the file name Nextflow looks for ([ADR-0059](../adr/ADR-0059-bare-image-refs.md)).
   `--profile docker` runs `docker pull <ref>` and checks that the pulled digest equals the pin.

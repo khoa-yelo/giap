@@ -6,12 +6,13 @@ from gippa.setupdb.items import (
     DbRecord,
     SetupOptions,
     count_fasta_records,
+    licence_lines,
     plan,
     verify,
     verify_go,
     verify_kegg_links,
 )
-from gippa.setupdb.manifest import MANIFEST, read_records, write_manifest
+from gippa.setupdb.manifest import MANIFEST, read_records, read_setup, write_manifest
 from gippa.setupdb.run import (
     CommandRunner,
     Fetcher,
@@ -37,8 +38,10 @@ __all__ = [
     "ToolUnavailable",
     "count_fasta_records",
     "install",
+    "licence_lines",
     "plan",
     "read_records",
+    "read_setup",
     "run_setup",
     "verify",
     "verify_go",

@@ -19,13 +19,24 @@ from urllib.parse import urlparse
 from gippa.setupdb.items import DbRecord
 
 __all__ = ["MANIFEST", "PREFETCH_LOG", "SCHEMA_VERSION", "read_prefetch", "read_records",
-           "write_manifest"]  # fmt: skip
+           "read_setup", "write_manifest"]  # fmt: skip
 
 MANIFEST = "db_manifest.json"
 PREFETCH_LOG = "prefetch_manifest.tsv"
 SCHEMA_VERSION = "1.0"
 _FIELDS = {f.name for f in dataclasses.fields(DbRecord)}
 LOCAL_BUILD = "local_build"  # optional object of a locally built image (M11-14 item 1b)
+SETUP = "setup"  # optional object: how the directory was set up, e.g. {"set": "minimal"} (15c2)
+
+
+def read_setup(db_dir: Path) -> dict[str, object]:
+    """The manifest's ``setup`` object; ``{}`` when missing or unreadable."""
+    try:
+        data = json.loads((db_dir / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    block = data.get(SETUP) if isinstance(data, dict) else None
+    return dict(block) if isinstance(block, dict) else {}
 
 
 def _read_items(db_dir: Path) -> dict[str, tuple[DbRecord, dict[str, str] | None]]:
@@ -64,16 +75,21 @@ def write_manifest(
     db_dir: Path,
     records: Sequence[DbRecord],
     local_builds: Mapping[str, Mapping[str, str]] | None = None,
+    setup: Mapping[str, str] | None = None,
 ) -> None:
     """Merge ``records`` into ``db_dir/db_manifest.json`` (same name: the new record wins).
-    ``local_builds`` gives a record its ``local_build`` object; a kept item keeps its own."""
+    ``local_builds`` gives a record its ``local_build`` object; a kept item keeps its own.
+    ``setup`` keys update the ``setup`` object; without it the existing object is kept."""
     builds = local_builds or {}
     merged: dict[str, tuple[DbRecord, Mapping[str, str] | None]] = {
         **_read_items(db_dir), **{r.name: (r, builds.get(r.name)) for r in records}}  # fmt: skip
-    doc = {
+    doc: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "items": [_item(*merged[n]) for n in sorted(merged)],
     }
+    block = read_setup(db_dir) | dict(setup or {})
+    if block:
+        doc[SETUP] = block
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     fd, tmp = tempfile.mkstemp(prefix=f".{MANIFEST}.", suffix=".tmp", dir=db_dir)
     try:

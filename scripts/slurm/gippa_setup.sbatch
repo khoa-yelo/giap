@@ -13,5 +13,5 @@ set -euo pipefail
 source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export TMPDIR="$(mktemp -d /tmp/gippa.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$GIPPA_REPO"
-if [ $# -eq 0 ]; then set -- --bakta full --genomad --promotech-models --go --kegg --cog --contaminants; fi
+if [ $# -eq 0 ]; then set -- --bakta full --genomad --no-antismash --promotech-models --go --kegg --cog --contaminants; fi
 uv run --no-sync gippa setup --db-dir "$GIPPA_DB_DIR" "$@"

@@ -388,6 +388,30 @@ def _operon_source(meta: Mapping[str, Any] | None) -> dict[str, Any]:
             "operon_source_reason": reason if isinstance(reason, str) else None}  # fmt: skip
 
 
+GENOMAD_NOTE = "geNOMAD: non-commercial"
+KEGG_NOTE = "KEGG: academic use"
+UNIOP_NOTE = "UniOP: no licence file (fetched from its authors, not distributed)"
+_KEGG_ITEMS = ("kegg_ko_pathway", "kegg_pathway_names")
+
+
+def licence_notes(src: ManifestSources, executed: set[str]) -> list[str]:
+    """Licence notes of what the run used (M11-15c2, Q-K35): geNOMAD when module ``mobile`` ran
+    geNOMAD, KEGG when the ``function`` step ran with the DB directory's KEGG, UniOP when the
+    operons came from UniOP."""
+    mods = set(src.cfg.modules)
+    genomad = "genomad" in executed or any(t.get("name") == "genomad" for t in src.tool_reports)
+    kegg = any(i.get("name") in _KEGG_ITEMS and i.get("status") == "ok"
+               for i in _list((src.db_manifest or {}).get("items")))  # fmt: skip
+    notes = [GENOMAD_NOTE] if "mobile" in mods and genomad else []
+    notes += [KEGG_NOTE] if "function" in mods and "function" in executed and kegg else []
+    notes += [UNIOP_NOTE] if (src.operon_meta or {}).get("operon_source") == "uniop" else []
+    return notes
+
+
+def _list(value: Any) -> list[Mapping[str, Any]]:
+    return [v for v in value if isinstance(v, Mapping)] if isinstance(value, list) else []
+
+
 def build_manifest(src: ManifestSources) -> dict[str, Any]:
     """The manifest (D-C) of ``src``; pure and deterministic."""
     cfg = src.cfg
@@ -415,6 +439,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "databases": _databases(src.db_manifest),
         "annotation": _annotation(src.annotation_meta),
         **_operon_source(src.operon_meta),
+        "licence_notes": licence_notes(src, executed),
         "detection_tier": src.detection_tier or src.preflight.get("evidence_tier"),
         "seeds": seeds,
         "steps": steps,

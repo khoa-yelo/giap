@@ -304,6 +304,11 @@ def _command_line(doc: Mapping[str, Any]) -> str:
     return " ".join(_local_path(str(a), outdir) for a in doc.get("command_line") or [])
 
 
+def licence_notes(doc: Mapping[str, Any] | None) -> list[str]:
+    """The run manifest's ``licence_notes`` (M11-15c2), for the Methods section."""
+    return [str(n) for n in _list((doc or {}).get("licence_notes")) if isinstance(n, str)]
+
+
 def provenance(view: RunView, doc: Mapping[str, Any] | None, note: str | None) -> dict[str, Any]:
     """Provenance (M9-16 behaviour 6; lead decisions 1, 7, 8): from ``run_manifest.json`` when it
     is readable, else the pass-1 subset (preflight SHA-256s) with a note."""

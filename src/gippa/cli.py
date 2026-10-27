@@ -111,13 +111,18 @@ def cli() -> None:
 @cli.command()
 @click.option("--db-dir", type=_out_path, required=True, help="Database directory.")
 @click.option("--bakta", type=click.Choice(["light", "full", "skip"]), default="light")
-@click.option("--genomad/--no-genomad", default=True)
-@click.option("--antismash/--no-antismash", default=False)
+@click.option("--genomad/--no-genomad", default=True, help="geNOMAD database (non-commercial use).")
+@click.option("--antismash/--no-antismash", default=True, help="antiSMASH databases.")
 @click.option("--promotech-models/--no-promotech-models", default=True)
-@click.option("--go", is_flag=True, help="Gene Ontology and GO slims.")
-@click.option("--kegg", is_flag=True, help="KEGG resources.")
-@click.option("--cog", is_flag=True, help="COG categories.")
-@click.option("--contaminants", is_flag=True, help="Contaminant protein sequences.")
+@click.option("--go/--no-go", default=True, help="Gene Ontology and GO slims.")
+@click.option("--kegg/--no-kegg", default=True, help="KEGG resources (academic use).")
+@click.option("--cog/--no-cog", default=True, help="COG categories.")
+@click.option("--contaminants/--no-contaminants", default=True, help="Contaminant proteins.")
+@click.option(
+    "--minimal",
+    is_flag=True,
+    help="Small disks: no geNOMAD and no antiSMASH; images for modules core,function.",
+)
 @click.option("--check", is_flag=True, help="Only verify what is installed.")
 @click.option(
     "--images",
@@ -125,8 +130,10 @@ def cli() -> None:
     flag_value="config",
     default=None,
     metavar="[all]",
-    help="Pull the pinned container images the config needs (with 'all': every pinned image).",
+    help="Pull the pinned container images the config needs (the default when --profile names "
+    "a runtime; with 'all': every pinned image).",
 )
+@click.option("--no-images", is_flag=True, help="Do not pull container images.")
 @click.option(
     "--profile",
     default=None,
@@ -153,6 +160,7 @@ def setup(
     sets: tuple[str, ...],
     log_level: str,
     images: str | None,
+    no_images: bool,
     profile: str | None,
     cache_dir: Path | None,
     uniop: bool,
@@ -164,13 +172,18 @@ def setup(
     from gippa.annotate.tools import required_tools
     from gippa.io.image_key import image_cache
     from gippa.preflight.environment import container_runtime
-    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
+    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, licence_lines, plan, run_setup
     from gippa.setupdb.images import image_set, install_images
     from gippa.setupdb.uniop_build import setup_uniop
 
     if uniop and no_uniop:
         raise click.UsageError("--uniop and --no-uniop exclude each other")
-    cfg = _resolve(config_file, sets, log_level)
+    if images is not None and no_images:
+        raise click.UsageError("--images and --no-images exclude each other")
+    minimal = bool(opts["minimal"])
+    # --minimal: the images the core,function modules need (a --set modules=... still wins)
+    cfg = _resolve(config_file, sets, log_level, {"modules": ["core", "function"]} if minimal
+                   else None)  # fmt: skip
     runtime = container_runtime(profile or "")
     if images not in (None, "config", "all"):
         raise click.BadParameter(
@@ -180,22 +193,38 @@ def setup(
         raise click.UsageError("--images needs --profile apptainer or --profile docker")
     db_dir: Path = opts["db_dir"]
     check = bool(opts["check"])
+    # images are on by default (15c2); an explicit --uniop installs UniOP only (Q-K27)
+    pull = None if no_images else images or (None if uniop else "config")
+    if pull is not None and runtime is None:
+        if not check:
+            click.echo(f"{_PKG} setup: warning: images: no container runtime found here; rerun "
+                       f"{_PKG} setup --images --profile apptainer|singularity|docker on a host "
+                       "that has one (same --db-dir)", err=True)  # fmt: skip
+        pull = None
     fetcher = HttpsFetcher()
     # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b).
     # An explicit --uniop installs UniOP only (Q-K27): no database is planned.
-    dbs = SetupOptions(db_dir, bakta="skip", genomad=False, promotech_models=False, check=check,
-                       uniop=check) if uniop else SetupOptions(**opts)  # fmt: skip
+    if uniop:
+        dbs = SetupOptions(db_dir, bakta="skip", genomad=False, antismash=False,
+                           promotech_models=False, go=False, kegg=False, cog=False,
+                           contaminants=False, check=check, uniop=check)  # fmt: skip
+    else:
+        off = {"genomad": False, "antismash": False} if minimal else {}
+        dbs = SetupOptions(**(opts | off))
+    if not check:  # the plan's licence lines, before any download (15c2, Q-K35)
+        for line in licence_lines(plan(dbs), _PKG):
+            click.echo(f"{_PKG} setup: {line}")
     # one cache for the pull, the downloaders that run in an image, preflight and Nextflow
     cache = cache_dir or image_cache(os.environ, db_dir)
     code = ExitCode.SUCCESS
-    if images is not None and runtime is not None and not check:  # before the downloaders
-        tools = image_set(cfg, images == "all")
+    if pull is not None and runtime is not None and not check:  # before the downloaders
+        tools = image_set(cfg, pull == "all")
         if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
     dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
     if dbs_code != ExitCode.SUCCESS:
         code = dbs_code
-    needed = images is not None and not no_uniop and "uniop" in {
+    needed = pull is not None and not no_uniop and "uniop" in {
         t.name for t in required_tools(cfg)}  # fmt: skip
     if (uniop or needed) and not check:
         step = setup_uniop(profile or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
@@ -386,6 +415,13 @@ def run(
         "annotation.precomputed.bakta_json": _bakta_json(_.get("annotation")),
     }
     cfg = _resolve(config_file, sets, log_level, flags, publication)
+    env_db = os.environ.get("GIPPA_DB_DIR")
+    db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
+    if _minimal_db_dir(db_dir) and cfg.modules == GippaConfig().modules:  # Q-L25
+        cfg = _resolve(config_file, sets, log_level, flags | {"modules": ["core", "function"]},
+                       publication)  # fmt: skip
+        click.echo(f"{_PKG} run: modules core,function (DB directory set up with --minimal; "
+                   f"mobile and bgc need {_PKG} setup without --minimal)", err=True)  # fmt: skip
     from gippa.config import resolve_sample_name
 
     # §5.2 sample_name: auto is resolved once, before any step (M7-04 lead decision 1)
@@ -401,8 +437,6 @@ def run(
     from gippa.io.manifest_sources import rotate_events
 
     rotate_events(outdir.absolute() / "logs")  # one events.jsonl per run (MVP-03 D-B step 1)
-    env_db = os.environ.get("GIPPA_DB_DIR")
-    db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
     given = {k: _.get(k) for k in _RUN_INPUTS}
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
@@ -443,6 +477,13 @@ def run(
     hit = failed_step(trace) if code != ExitCode.SUCCESS and trace.is_file() else None
     failed = {"failed_step": hit[0], "failed_log": f"{hit[1]}/.command.log"} if hit else {}
     sys.exit(_run_tail(outdir, base, code, **failed))
+
+
+def _minimal_db_dir(db_dir: Path | None) -> bool:
+    """``db_dir`` was set up with ``gippa setup --minimal`` (its manifest's ``setup.set``)."""
+    from gippa.setupdb.manifest import read_setup
+
+    return db_dir is not None and read_setup(db_dir).get("set") == "minimal"
 
 
 def _launch_sources(

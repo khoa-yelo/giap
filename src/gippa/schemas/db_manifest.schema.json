@@ -7,6 +7,11 @@
   "required": ["schema_version", "items"],
   "properties": {
     "schema_version": {"const": "1.0"},
+    "setup": {
+      "description": "How gippa setup filled the directory (M11-15c2): set is minimal (--minimal) or default.",
+      "type": "object",
+      "properties": {"set": {"enum": ["default", "minimal"]}}
+    },
     "items": {
       "type": "array",
       "items": {
