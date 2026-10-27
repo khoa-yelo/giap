@@ -84,20 +84,36 @@ upload therefore never creates a tag.
 - GitHub creates the `github-pages` environment itself. Leave it as GitHub sets it up.
 - Evidence: PROGRESS line "Q-K9 done", and the URL of the first green `deploy` job.
 
-### 5. GHCR package visibility (**Khoa**)
+### 5. GHCR publishing and package visibility (**Khoa**)
 
-- Do this after all five packages exist: `ghcr.io/khoa-yelo/giap-<tool>` for `promotech`,
-  `promoter_calculator`, `terminatornet`, `bactermfinder` and `ostir`. A `containers.yml` run
-  started by a push builds only the tools whose `workflow/containers/<tool>/` or
-  `workflow/envs/<tool>.yml` changed. To build all five, the lead dispatches
-  `gh workflow run containers.yml -f tools=all`. Packages are private on first push.
-- For each of the five: GitHub → profile → Packages → `giap-<tool>` → Package settings → Danger
-  Zone → Change visibility → Public (Q-K8).
-- There is never a `giap-uniop` package. UniOP is unlicensed and `containers.yml` refuses to build
-  it (R5, R11).
-- Until a package is public, Apptainer pulls it on FarmShare with 401 or 403, the M11-06 smoke
-  reports `private package`, and the digest PR stays a draft.
-- Evidence: PROGRESS line "Q-K8 done: five GHCR packages public".
+The M11-14 checklist (14j). Start it only after the GIAP → GIPPA rename PR and 14b are merged,
+so that no image is ever published under the `giap-` prefix (`containers.yml` derives the prefix
+from `pyproject.toml` `[project] name`). Until item 2, every `containers.yml` run stops after its
+plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built or pushed`.
+
+1. GitHub → Settings → Environments → New environment `ghcr`: Required reviewers → `khoa-yelo`;
+   Deployment branches and tags → Selected branches → `main`.
+2. GitHub → Settings → Secrets and variables → Actions → Variables → New repository variable
+   `GHCR_PUBLISH` = `true`.
+3. Actions → containers → Run workflow (branch `main`) with `tools=all`; from Khoa's shell,
+   `gh workflow run containers.yml -f tools=all`. On the run page, approve the `ghcr`
+   deployment. Each tool whose `<version>-<key>` tag is not in the registry yet is built and
+   pushed once; a tag is never overwritten (ADR-0060 §1). The reviewer stays on `ghcr`, so every
+   later build needs the same approval until Khoa removes it (Q-K18).
+4. For each package `ghcr.io/khoa-yelo/<pkg>-<tool>` (Promotech, Promoter Calculator,
+   TerminatorNet, BacTermFinder, OSTIR, fgsea): profile → Packages → Package settings → Danger
+   Zone → Change visibility → Public (Q-K8). Until then, an Apptainer pull of a private package
+   fails on FarmShare (401 or 403), and `release.yml` verify fails with `not public: <ref>`.
+
+- There is never a UniOP package. UniOP is unlicensed (R5, R11): users build it locally with
+  `giap setup --uniop`, and `update_digests.py` refuses it.
+- Agents never create or set `GHCR_PUBLISH`, create or approve `ghcr`, change package visibility
+  or delete packages.
+- After item 4 (**agents**): merge the digest PR `ci/digests-<sha7>` once its FarmShare Apptainer
+  smoke job IDs are in the PR, then run M11-14 AC 16 (wheel-only `setup --images`, `preflight` and
+  a 100-kb `run` in one Slurm job; job ID in PROGRESS).
+- Evidence: PROGRESS line "14j done: ghcr environment, GHCR_PUBLISH, packages public (date)", the
+  `containers.yml` run URL and the digest PR.
 
 ## B. Each release: agent and lead
 
@@ -254,8 +270,12 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 - The workflow then:
     - uploads the wheel and sdist;
     - tags `v<v>` on the dispatched commit;
-    - creates the GitHub release "GIAP `<v>`" with `notes.md` (a pre-release for an `rc`).
+    - creates the GitHub release "GIAP `<v>`" with `notes.md`. (The workflow would mark an
+      `rc` as a pre-release, but an `rc` never reaches this step: see below.)
 - Zenodo mints the DOI.
+- **Release candidates stop at step 12.** An `rc` goes to TestPyPI only; PyPI gets finals only
+  (M11-14 Q-K15). `release.yml` itself does not refuse an `rc` with `target=pypi`; the rule is this
+  runbook's.
 - Evidence: the run URL, which the lead records.
 
 ## D. After the release
@@ -333,6 +353,65 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 - **Tag `v<v>` already exists** (someone made it by hand): `release.yml` refuses to run. Ask Khoa.
 - **Any non-paperwork PR merged after R** (see the release freeze in step 6): `readiness.py verify`
   fails with `fail (stale: <path>)`. Repeat steps 6–8 on the new commit.
+
+## Cutting 1.x.y
+
+Every release after 1.0.0 follows steps 6–17. What changes with the bump is which evidence must
+be rerun. The bump itself follows [ADR-0060](adr/ADR-0060-release-versioning-and-image-keys.md)
+§3 (the table is also on [Upgrade](get-started/upgrade.md#what-each-version-number-means)).
+Release candidates `1.y.0rc1`, `1.y.0rc2`, … are cut on main by the same release-prep PR as step
+6; the final `1.y.0` follows on the commit of the last rc plus the version line.
+
+| Gate (readiness rows) | patch | minor | major |
+|---|---|---|---|
+| unit, lint, types, package smoke (CI; H1, H6) | rerun | rerun | rerun |
+| `image_key.py --check`, H4, the static schema diff test | rerun | rerun | rerun |
+| calibration: nightly subset, attacks, `calibration_full` (R3, R4) | reuse iff `reusable(C, R)`, else rerun (subset; full if `stats`-labelled code, `calibration.yaml` or a tool feeding a statistic changed) | same rule | full rerun |
+| weekly e2e (K-12, Nissle, TE8; R5) | rerun K-12 standard | rerun | rerun |
+| A2 pilot gate (TE1, mapping FDR; R1, R2) | see below | see below | rerun |
+| benchmark `k12_standard` window (R7) | see below | see below | rerun |
+| Khoa approval (§14.8 item 5) | yes | yes | yes |
+
+**The reuse predicate, as `scripts/release/readiness.py` implements it.** `reusable(C, R)` is
+true iff all of these hold:
+
+1. both commits resolve, and `git diff --name-only --no-renames C R` succeeds (a move lists both
+   paths, a deletion the deleted path);
+2. `scripts/release/readiness.py` is not in that list (self-protection: the file holds the lists,
+   so a widening commit never certifies itself);
+3. every listed path lies under an entry of `NON_STATS_PATHS`, on whole path components: an entry
+   ending in `/` matches by prefix, any other entry only itself;
+4. except `src/giap/__init__.py`, which is allowed only when its `git diff -U0` is one hunk of
+   exactly one `-` and one `+` line, both `__version__ = "<v>"`.
+
+R3 and R4 additionally require C to be R or an ancestor of R (`reusable_ancestor`). A reused row
+says `reused from <C7> (reusable: diff ⊆ NON_STATS_PATHS)` in its value.
+
+`NON_STATS_PATHS`: `docs/`, `changelog.d/`, `README.md`, `CHANGELOG.md`, `CITATION.cff`,
+`mkdocs.yml`, `PROGRESS.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.github/`,
+`scripts/dev/approval_packet.py`, `scripts/dev/progress_bars.py`, `scripts/dev/replant.sh`,
+`scripts/dev/waitmerge.sh`, `scripts/docs/`, `src/giap/report/`, `src/giap/viz/`,
+`validation/release/`. The never list (`NEVER_PATHS`, disjoint from it by a unit test):
+`src/giap/preflight/`, `src/giap/runner/`, `src/giap/setupdb/`, `src/giap/cli.py`,
+`src/giap/data/`, `src/giap/config/`, `src/giap/rng.py`, `src/giap/io/`, `workflow/`,
+`pyproject.toml`, `uv.lock`, `tests/sim/`, `tests/calibration/`, `ci/`,
+`scripts/release/readiness.py`, `scripts/dev/island_power.py`. Changing either list needs `stats`
+review (Q-L15).
+
+What the code does for the other rows (it does not know the bump):
+
+- **R5** (weekly TE8) takes the newest `k12_mg1655` row of `weekly.tsv` whose commit is
+  code-equal to R on `src`, `workflow`, `ci` and `validation/proxies`; **R6** (integration) is
+  code-equal on `src`, `workflow`, `ci`, `tests/integration` and `tests/contract`. A docs-only
+  patch can reuse those rows; any `src/` change, even the version line, needs a new run.
+- **R1, R2** (pilot) and **R7** (benchmark) read the files committed at R
+  (`validation/pilot/metrics/metrics.json`, `benchmarks/baseline.json`); no commit predicate
+  applies to them yet (the M11-14 follow-up: their evidence files do not record a commit).
+- "Full rerun" for a major, subset versus full calibration, and the patch-only "rerun K-12
+  standard" are this runbook's rules: readiness accepts any qualifying row.
+
+The release freeze of step 6 uses a different, narrower set: `readiness.py verify` accepts a
+readiness commit only if everything after it is paperwork (`paperwork_path`).
 
 ## Script reference
 

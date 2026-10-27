@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-26 18:54 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-27 11:23 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -441,26 +441,27 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-(2026-10-26 evening) Merged today: #387, #395, #396, #399–#410 and #413. 14u1, 14u2, 14d, 14d2,
-14s2 and 14h are done (the `annotation.uniop.enabled` default is now `auto`). Pilot pass 3 and the
-#390 OSTIR reruns are written up (#405). Q-K28 has been answered (ADR-0061 and the ADR-0022
-addendum are accepted-by-khoa).
-1. Full calibration launch (criterion 10), via `scripts/slurm/calibration_full_launch.sh`. It needs
-   ≤ 4 giap-* jobs (it queues 16) and about 6.5 h before the 01:30 nightly. Then the M11-13
-   readiness check.
-2. #412 (determinants null on processes, about 2×): the statistician signed off; code review
-   B1 (merge conflict) and B2 (process-switch tests) are with the performance agent.
-3. antiSMASH on a deployed run (Nissle pks, both precomputed and live Bakta; validation agent);
-   then the H1 GBFF sensitivity run (Q-K29, recorded deviation).
-4. More datasets (#411 draft): mhyo, gsulf and msmeg are running. mhyo found that genetic code 4
-   runs silently as 11 (Q-K30): #413 makes preflight refuse a table other than 11; a heuristic for
-   the default-11 case is in the backlog.
-5. 14i docs, then the GIPPA rename, then the M11-13 readiness check, then Khoa publishes.
+(2026-10-27 midday) Merged since last night: #415 (determinants null on processes, about 2x), #416
+(antiSMASH runs in the deployed pipeline: Q-K29 condition met), #417 (antiSMASH version capture and
+sizing, exit-140 retry, 4000 MB per CPU on FarmShare), #418 (barley-03 excluded), #419 and #423
+(M11-14w: preflight warns when a genome probably uses genetic code 4; statistician threshold 0.55
+on 61 RefSeq assemblies), #420 (nightly task 2 in 2 shards, one merged row), #421 and #422 (every
+4 h full-tier suite gets 6 h). Q-K30 answered: 1.0 is code 11 only; code 4 support is post-1.0.
+1. Full calibration rerun at 45bc3599 (jobs 1900336-1900350, rows 1900351, 98 CPUs), launched
+   11:22, done by about 17:45. The 04:50 run at ed3cbbe5 failed: ora, variants and autocorrelation
+   were killed at 4 h on wheat nodes (fixed by #421/#422).
+2. Tonight's nightly is the first sharded one (#420): check both shards, the merged
+   calibration_nightly row and shard balance (backlog #420 N6).
+3. M11-13 readiness check once 1 and 2 pass.
+4. 14i docs (docs agent), then the GIPPA rename, then Khoa publishes.
+5. More datasets (#411 draft): mhyo and gsulf done; msmeg failed (TerminatorNet exit 140 at 12 h,
+   pre-#417); resume after the calibration rerun. gsulf novel ORFs: all 14 match RefSeq genes that
+   Bakta got wrong (ileS missed, a wrong strand, ~8 starts, 3 selenoproteins at UGA).
 
-Slurm jobs this session (2026-10-26): 1897230, 1897239, 1897241, 1897263, 1897264, 1897280 (14u2 AC 9b), 1897399 (14d2 suite, cancelled: CI), 1897025–1897031, 1897034 (#390 pilot reruns), 1897042, 1897048, 1897054, 1897433, 1897434 (more datasets), 1897403 (perf test, released from hold), 1895369, 1895398, 1895399, 1895506, 1895507 (14s1 attacks),
-1895712, 1895849, 1895856, 1895857, 1896088 (branch fast suites), 1895723, 1895730, 1895738,
-1895829, 1895830, 1895897, 1895961 (14b envs, BacTermFinder smoke, podman, lock install),
-1895673 (pilot pass3 A2), 1896018/1896019 (nightly re-run), 1896079 (OSTIR re-record).
+Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50), 1900003
+(summary), 1900065-1900080 (full calibration at ed3cbbe5, failed: 1900069/1900073/1900078 timeouts,
+1900075 cancelled while pending), 1900336-1900351 (full calibration rerun), 1897054, 1897433,
+1897434 (more datasets: mhyo, gsulf, msmeg), 1897203, 1897099, 1898463 (antiSMASH deployed cases).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |

@@ -32,6 +32,10 @@ no proteins were given.
 - **Genetic code.** This release supports genetic code 11 (bacteria and archaea) only. Any other
   `annotation.translation_table` stops the run in preflight with the input error
   `config.translation_table`. Support for genetic code 4 (Mycoplasma) is planned.
+  A genome left at table 11 that probably uses code 4 (TGA read as tryptophan) gets the preflight
+  warning `genome.genetic_code`: long open reading frames (at least 300 codons, six frames) cover
+  less than 0.55 times as many bases with TGA as a stop as with TGA as a sense codon (evaluated
+  with at least 20 such frames). It is a warning only, so `--strict` turns it into exit code 3.
 
 Topology matters. On a circular replicon, a gene or peptide can cross the origin, and the
 statistics wrap around it. On a linear contig, nothing wraps. A gene cut by a contig end is
