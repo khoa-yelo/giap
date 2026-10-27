@@ -389,7 +389,9 @@ def _repo_tree(root: Path) -> Path:
 
 def _ghcr_tools(root: Path) -> list[str]:
     return sorted(
-        p.name for p in (root / "workflow/containers").iterdir() if p.is_dir() and p.name != "uniop"
+        p.name
+        for p in (root / "workflow/containers").iterdir()
+        if p.is_dir() and p.name not in {"uniop", "step", "step-r"}
     )
 
 
