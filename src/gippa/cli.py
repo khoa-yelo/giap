@@ -417,7 +417,7 @@ def run(
     cfg = _resolve(config_file, sets, log_level, flags, publication)
     env_db = os.environ.get("GIPPA_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
-    if _minimal_db_dir(db_dir) and cfg.modules == GippaConfig().modules:  # Q-L25
+    if modules is None and cfg.modules == GippaConfig().modules and _minimal_db_dir(db_dir):
         cfg = _resolve(config_file, sets, log_level, flags | {"modules": ["core", "function"]},
                        publication)  # fmt: skip
         click.echo(f"{_PKG} run: modules core,function (DB directory set up with --minimal; "

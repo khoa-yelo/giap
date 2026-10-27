@@ -15,7 +15,8 @@ gippa setup --db-dir /path/to/db --profile apptainer   # or --profile docker
 
 That is the Bakta light database, the geNOMAD database, the antiSMASH databases, the Promotech
 models, GO, KEGG, COG, the contaminant library and, with `--profile`, the container images. Each
-item has a `--no-<item>` opt-out (`--no-antismash`, `--no-go`, `--no-images`, ...).
+item has an opt-out: `--no-genomad`, `--no-antismash`, `--no-go`, `--no-kegg`, `--no-cog`,
+`--no-contaminants`, `--no-images`.
 
 `--minimal` is for small disks: it leaves out geNOMAD and antiSMASH and pulls only the images of
 the `core` and `function` modules. It is recorded as `setup.set: minimal` in `db_manifest.json`;

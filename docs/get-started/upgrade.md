@@ -26,7 +26,7 @@ gippa setup --db-dir /path/to/db --profile apptainer   # or --profile docker
 
 `gippa setup` turns every item on by default, images included when `--profile` names a runtime,
 so this also installs antiSMASH, GO, KEGG, COG and the contaminants if they are missing; pass
-`--no-<item>` (for example `--no-antismash`) to leave one out.
+its opt-out (for example `--no-antismash`) to leave one out.
 
 - An image whose pin is unchanged is kept: under Apptainer its `.img` file is already in the
   cache, and its `image:<tool>` record in `db_manifest.json` stays as it was.

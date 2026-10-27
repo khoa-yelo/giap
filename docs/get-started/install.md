@@ -84,7 +84,7 @@ MkDocs Material for building this site. **Bioconda:** the recipe is pending (M11
 is merged, use PyPI.
 
 **Step 3.** `gippa setup` pulls the images, then downloads the databases. Every item is on by
-default; each has a `--no-<item>` opt-out (the flags are on
+default; each has an opt-out such as `--no-antismash` (the flags are on
 [Set up the databases](setup-databases.md)). Before downloading, setup prints the licence terms
 of geNOMAD (non-commercial use only) and KEGG (academic use only).
 
