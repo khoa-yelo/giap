@@ -22,11 +22,16 @@ suffix such as ``.gz``/``.parquet``/``.png``/``.pdf``/``.sif``) and sequence fil
 Protected spans inside renamed files (kept as written; ``--check`` reports them by category):
 ``GIAP_SPEC`` (the read-only spec keeps its name), the checkout path ``bios/270/khoa/giap`` (it
 does not move, decision 5), the recording marker ``.giap-complete`` (on-disk under ``$GIAP_ROOT``,
-whose contents do not move), the SVG salt ``"giap"`` (decision 7), uppercase ``GIAP`` inside a
-longer uppercase run (a possible peptide; ``GIAPORF``/``GIAPNOVEL``/``GIAPSIM`` are identifiers and
-are renamed), sequence-like cells of ``seq``/``peptide`` columns in TSV/CSV, and the ADR-0064
-transition aliases that ``TRANSITIONS`` adds (old ``GIAP_*`` exports in farmshare_env.sh,
-``giap-*`` job counting in the R14 checks, ``.giap/`` in .gitignore).
+whose contents do not move), the setup lock ``.giap_setup.lock`` (old and new ``setup`` must lock
+each other out on a shared ``$GIAP_DB_DIR``), the SVG salt ``"giap"`` (decision 7), uppercase
+``GIAP`` inside a longer uppercase run (a possible peptide; ``GIAPORF``/``GIAPNOVEL``/``GIAPSIM``
+are identifiers and are renamed), sequence-like cells of ``seq``/``peptide`` columns in TSV/CSV,
+and the ADR-0064 transition aliases that ``TRANSITIONS`` adds (old ``GIAP_*`` exports in
+farmshare_env.sh, ``giap-*`` job counting in the R14 checks and probe_env.py, ``.giap/`` in
+.gitignore).
+
+Every transition asserts its end state and raises ``TransitionError`` when its anchor no longer
+matches (a later main changed the line), so ``--apply`` refuses and ``--check`` reports it.
 """
 
 from __future__ import annotations
@@ -110,6 +115,7 @@ GLOBAL_PROTECT: tuple[Protect, ...] = (
     Protect(_p(r"GIAP_SPEC"), "GIAP_SPEC token"),
     Protect(_p(r"bios([/-])270\1khoa\1giap(?![A-Za-z0-9_])"), "checkout path (does not move)"),
     Protect(_p(r"\.giap-complete"), "recording marker under $GIAP_ROOT (does not move)"),
+    Protect(_p(r"\.giap_setup\.lock"), "setup lock (old and new setup exclude each other)"),
     Protect(PEPTIDE, "possible peptide (review)"),
 )
 
@@ -117,6 +123,7 @@ PLOT_FILES = "src/gippa/io/plot_files.py"
 STYLE = "src/gippa/viz/style.py"
 SALT_COMMENT = "#: the pre-rename salt stays: a new salt changes every SVG id (ADR-0064 item 7)"
 FARMSHARE = "scripts/farmshare_env.sh"
+PROBE = "scripts/probe_env.py"
 ALIAS_MARK = "# ADR-0064 decision 4: the old names, same values, for jobs in flight, old worktrees"
 ALIAS_MARK2 = "# and the installed scrontab; removed after the first publish."
 R14_NOTE = "(R14 counts `giap-*` jobs too until none is left, ADR-0064)"
@@ -140,17 +147,29 @@ FILE_PROTECT: tuple[Protect, ...] = (
     Protect(_p(r"giap-\*\|gippa-\*\)"), "transition: R14 counts giap-* too",
             ("scripts/slurm/calibration_full_launch.sh", "scripts/slurm/calibration_sharded.sh")),
     Protect(_p(re.escape(R14_NOTE)), "transition: R14 counts giap-* too", ("AGENTS.md",)),
+    Protect(_p(r'\(" giap-", " gippa-"\)'), "transition: R14 counts giap-* too", (PROBE,)),
     Protect(_p(r"^\.giap/$", re.M), "transition: old probe dir stays ignored", (".gitignore",)),
 )  # fmt: skip
 
 # ---------------------------------------------------------------- transitions (idempotent edits)
 
 
+class TransitionError(ValueError):
+    """A transition's anchor no longer matches and its end state is absent."""
+
+
+def _require(text: str, *posts: str) -> str:
+    for post in posts:
+        if post not in text:
+            raise TransitionError(f"end state missing (anchor changed? update TRANSITIONS): {post}")
+    return text
+
+
 def _salt_comment(text: str) -> str:
     line = 'HASHSALT = "giap"'
     if line in text and SALT_COMMENT not in text:
         text = text.replace(line, f"{SALT_COMMENT}\n{line}", 1)
-    return text
+    return _require(text, f"{SALT_COMMENT}\n{line}")
 
 
 def _style_comment(text: str) -> str:
@@ -158,11 +177,12 @@ def _style_comment(text: str) -> str:
     note = "  # the pre-rename salt stays (ADR-0064 item 7)"
     if line in text and line + note not in text:
         text = text.replace(line, line + note, 1)
-    return text
+    return _require(text, line + note)
 
 
-_DEFAULT = re.compile(r'^(export GIPPA_([A-Z_]+)=")\$\{GIPPA_\2:-(?!\$\{GIAP_)(.*)\}"', re.M)
-_EXPORT = re.compile(r"^export (GIPPA_[A-Z_]+)=", re.M)
+_DEFAULT = re.compile(r'^([ \t]*export GIPPA_([A-Z_]+)=")\$\{GIPPA_\2:-(?!\$\{GIAP_)(.*)\}"', re.M)
+_EXPORT = re.compile(r"^[ \t]*export (GIPPA_[A-Z_]+)=", re.M)
+_ANY_DEFAULT = re.compile(r"\$\{GIPPA_([A-Z_]+):-(?!\$\{GIAP_\1:-)")
 
 
 def _farmshare(text: str) -> str:
@@ -184,12 +204,17 @@ def _farmshare(text: str) -> str:
     block += [f'export {n.replace("GIPPA_", "GIAP_", 1)}="${n}"' for n in names]
     end = len(lines) - 1 if lines and lines[-1] == "" else len(lines)
     lines[end:end] = block
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    if m := _ANY_DEFAULT.search(text):
+        raise TransitionError(f"GIPPA_{m[1]} default without the old GIAP_{m[1]} fallback")
+    return _require(text, wf + old) if wf in text else text
 
 
-def _replace_once(old: str, new: str) -> Callable[[str], str]:
+def _ensure(old: str, new: str) -> Callable[[str], str]:
+    """Replace ``old`` by ``new`` unless ``new`` is there; raise when neither is."""
+
     def edit(text: str) -> str:
-        return text.replace(old, new) if new not in text else text
+        return _require(text.replace(old, new) if new not in text else text, new)
 
     return edit
 
@@ -198,28 +223,39 @@ def _gitignore(text: str) -> str:
     lines = text.split("\n")
     if ".gippa/" not in lines and ".giap/" in lines:
         lines.insert(lines.index(".giap/"), ".gippa/")
+    if ".gippa/" not in lines or ".giap/" not in lines:
+        raise TransitionError("end state missing: .gippa/ and .giap/ both ignored")
     return "\n".join(lines)
 
 
-#: new path -> idempotent edit applied after the substring map (ADR-0064 decisions 4, 5, 7)
+_R14_GREP = _ensure("grep ' gippa-'", "grep -E ' (giap|gippa)-'")
+_R14_CASE = _ensure('case "$name" in gippa-*)', 'case "$name" in giap-*|gippa-*)')
+_PROBE_OLD = (
+    """    gippa_jobs = [line for line in queue.splitlines() """
+    """if " gippa-" in f" {line.split(' ', 1)[-1]}"]"""
+)
+_PROBE_NEW = """\
+    gippa_jobs = [  # ADR-0064: R14 counts the old job prefix too until none is left
+        line
+        for line in queue.splitlines()
+        if any(p in f" {line.split(' ', 1)[-1]}" for p in (" giap-", " gippa-"))
+    ]"""
+
+#: new path -> idempotent edit applied after the substring map (ADR-0064 decisions 4, 5, 7);
+#: each one raises ``TransitionError`` when its end state cannot be reached
 TRANSITIONS: dict[str, Callable[[str], str]] = {
     PLOT_FILES: _salt_comment,
     STYLE: _style_comment,
     FARMSHARE: _farmshare,
-    "scripts/resume_status.sh": lambda t: _replace_once(
+    "scripts/resume_status.sh": lambda t: _ensure(
         '"$GIPPA_LOG_DIR"/gippa-*.out ', '"$GIPPA_LOG_DIR"/gippa-*.out "$GIPPA_LOG_DIR"/giap-*.out '
-    )(_replace_once("grep ' gippa-'", "grep -E ' (giap|gippa)-'")(t)),
-    "scripts/session_start.sh": _replace_once("grep ' gippa-'", "grep -E ' (giap|gippa)-'"),
-    "scripts/slurm/benchmark_standard.sbatch": _replace_once(
-        "$2 ~ /^gippa-/", "$2 ~ /^(giap|gippa)-/"
-    ),
-    "scripts/slurm/calibration_full_launch.sh": _replace_once(
-        'case "$name" in gippa-*)', 'case "$name" in giap-*|gippa-*)'
-    ),
-    "scripts/slurm/calibration_sharded.sh": _replace_once(
-        'case "$name" in gippa-*)', 'case "$name" in giap-*|gippa-*)'
-    ),
-    "AGENTS.md": _replace_once("jobs named `gippa-*`,", f"jobs named `gippa-*` {R14_NOTE},"),
+    )(_R14_GREP(t)),
+    "scripts/session_start.sh": _R14_GREP,
+    "scripts/slurm/benchmark_standard.sbatch": _ensure("$2 ~ /^gippa-/", "$2 ~ /^(giap|gippa)-/"),
+    "scripts/slurm/calibration_full_launch.sh": _R14_CASE,
+    "scripts/slurm/calibration_sharded.sh": _R14_CASE,
+    PROBE: _ensure(_PROBE_OLD, _PROBE_NEW),
+    "AGENTS.md": _ensure("jobs named `gippa-*`,", f"jobs named `gippa-*` {R14_NOTE},"),
     ".gitignore": _gitignore,
 }  # fmt: skip
 
@@ -364,6 +400,7 @@ class Report:
     kept_files: dict[str, list[tuple[str, int, str]]] = field(default_factory=dict)
     skipped_binary: list[str] = field(default_factory=list)  # binary files with giap inside
     github: list[tuple[str, int, str, str]] = field(default_factory=list)
+    broken: list[tuple[str, str]] = field(default_factory=list)  # (new path, TransitionError)
 
 
 def _line_hits(text: str) -> list[tuple[int, str]]:
@@ -378,7 +415,7 @@ def survey(repo: Path) -> Report:
         if new_path != path:
             rep.moves.append((path, new_path))
         data = (repo / path).read_bytes()
-        if not ANY.search(data.decode("latin-1")):
+        if not ANY.search(data.decode("latin-1")) and new_path not in TRANSITIONS:
             continue
         kind = file_kind(path, data)
         cat = keep_category(path)
@@ -396,7 +433,11 @@ def survey(repo: Path) -> Report:
                         rep.github.append((path, no, ln, mapped))
             continue
         text = data.decode("utf-8")
-        new = transform(new_path, text)
+        try:
+            new = transform(new_path, text)
+        except TransitionError as e:
+            rep.broken.append((new_path, str(e)))
+            continue
         if new != text:
             rep.changes[path] = (text, new)
         for start, end, label in protected_spans(new_path, new):
@@ -411,6 +452,13 @@ def survey(repo: Path) -> Report:
 def apply(repo: Path) -> int:
     """Content first (at the old paths), then ``git mv``. Returns the number of files written."""
     rep = survey(repo)
+    if rep.broken:
+        raise SystemExit("\n".join(f"rename_gippa: {p}: {e}" for p, e in rep.broken))
+    collisions = [(p, d) for p, d in rep.moves if (repo / d).is_file()]
+    if collisions:
+        raise SystemExit(
+            "\n".join(f"rename_gippa: {d} exists, cannot move {p}" for p, d in collisions)
+        )
     for path, (_, new) in sorted(rep.changes.items()):
         (repo / path).write_bytes(new.encode("utf-8"))
     move_paths(repo)
@@ -434,8 +482,10 @@ def move_paths(repo: Path) -> list[tuple[str, str]]:
             if (repo / dst).exists():  # never nest a directory into an existing one
                 for p in (q for q in todo if q == src or q.startswith(src + "/")):
                     d = dst + p[len(src) :]
+                    if (repo / d).exists():  # git mv -k would skip it and loop forever
+                        raise SystemExit(f"rename_gippa: {d} exists, cannot move {p}")
                     (repo / d).parent.mkdir(parents=True, exist_ok=True)
-                    git(repo, "mv", "-k", p, d) if (repo / d).exists() else git(repo, "mv", p, d)
+                    git(repo, "mv", p, d)
                     done.append((p, d))
             else:
                 (repo / dst).parent.mkdir(parents=True, exist_ok=True)
@@ -498,6 +548,8 @@ def print_plan(rep: Report, repo: Path, verbose: bool) -> None:
         dirs["/".join(sp[: i + 1]), "/".join(dp[: i + 1])] += 1
     for (s_dir, d_dir), n in sorted(dirs.items()):
         print(f"git mv {s_dir} {d_dir}" + (f"   ({n} files)" if n > 1 else ""))
+    for path, err in rep.broken:
+        print(f"TRANSITION BROKEN {path}: {err}")
     print("\n## .github/ lines for Khoa (agents never edit .github/)")
     for path, no, old, new in rep.github:
         print(f"{path}:{no}:\n  - {old.strip()}\n  + {new.strip()}")
@@ -522,6 +574,9 @@ def check(repo: Path, verbose: bool) -> int:
             bad += 1
     for src, dst in rep.moves:
         print(f"LEFTOVER path {src} (should be {dst})")
+        bad += 1
+    for path, err in rep.broken:
+        print(f"LEFTOVER transition {path}: {err}")
         bad += 1
     print("## giap left after the rename, by keep category (occurrences)")
     for cat, n in sorted(rep.kept.items()):
