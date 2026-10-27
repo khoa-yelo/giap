@@ -9,27 +9,22 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
+from helpers.genetic_code_fixture import synthetic_genome
 
 from giap.preflight.genetic_code import genetic_code_check
 
 from ._unit_helpers import timed
 
 
-def _genome(n: int, gc: float, seed: int) -> str:
-    p = [(1 - gc) / 2, gc / 2, gc / 2, (1 - gc) / 2]
-    codes = np.random.default_rng(seed).choice(4, size=n, p=p)
-    return np.frombuffer(b"ACGT", dtype=np.uint8)[codes].tobytes().decode("ascii")
-
-
 def test_genetic_code_10mb_budget(benchmark: Any) -> None:
-    # three records (a chromosome and two plasmids) at low GC, where S4 runs are longest
-    seq = _genome(10_000_000, 0.30, 7)
+    # ~10 Mb code-4 fixture (8,000 genes x 400 codons + spacers): thousands of long runs, so the
+    # coverage path is exercised (random DNA has no 300-codon runs and returns early; #423 N2)
+    seq = synthetic_genome(7, 0.30, 4, n_genes=8_000)
     records = [seq[:9_000_000], seq[9_000_000:9_800_000], seq[9_800_000:]]
 
     def run() -> float:
         secs, check = timed(lambda: genetic_code_check(records, 11))
-        assert check.level in {"ok", "info", "warn"}
+        assert check.level == "warn"
         return secs
 
     secs = benchmark.pedantic(run, rounds=1, iterations=1)

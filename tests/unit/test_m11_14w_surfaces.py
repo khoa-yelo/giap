@@ -81,6 +81,8 @@ def test_ac7_warning_alert_in_summary(tmp_path: Path) -> None:
     alerts = summary.by_attr("data-warning", RULE_ID)
     assert len(alerts) == 1
     assert alerts[0].tag == "div" and alerts[0].has_class("alert")
+    # styled inline so reports without the warning stay byte-identical (#423 review N1)
+    assert "border-left" in (alerts[0].attrs.get("style") or "")
     assert words(alerts[0].text()) == words(c.message)
     assert len(p.root.by_attr("data-warning")) == 1
 

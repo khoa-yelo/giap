@@ -101,7 +101,7 @@ def summary_warnings(view: RunView) -> list[dict[str, str]]:
     except Exception:
         return []
     checks = (doc or {}).get("checks") if isinstance(doc, Mapping) else None
-    return [{"rule_id": str(c["rule_id"]), "message": str(c.get("message", ""))}
+    return [{"rule_id": str(c["rule_id"]), "message": str(c.get("message") or "")}
             for c in _list(checks)
             if isinstance(c, Mapping) and c.get("rule_id") in SUMMARY_WARNINGS
             and c.get("level") == "warn"]  # fmt: skip
