@@ -215,7 +215,7 @@ def parse_profiles(text: str) -> tuple[str, ...]:
 @functools.cache
 def accepted_profiles() -> tuple[str, ...]:
     """The bundled ``workflow/nextflow.config`` profiles a user may pass (not ``test``/``stub``)."""
-    from gippa.runner.nextflow import workflow_main
+    from gippa.runner.workflow_path import workflow_main
 
     try:
         text = (workflow_main().parent / "nextflow.config").read_text(encoding="utf-8")
