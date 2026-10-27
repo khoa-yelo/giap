@@ -57,7 +57,7 @@ Build an optional strain search database (no FDR is built on it).
 
 ## giap preflight
 
-Validate inputs only (seconds).
+Validate inputs only (seconds); with --profile also the installed tools.
 
 | Option | Type | Default | Choices | Help |
 |---|---|---|---|---|
@@ -68,6 +68,7 @@ Validate inputs only (seconds).
 | `--annotation` | `FILE` | — | — | bakta.json(.gz), GFF3 or GenBank. |
 | `--outdir` | `PATH` | — | — | Output directory. |
 | `--strict` | flag | — | — | Treat warnings as errors (exit code 3). |
+| `--profile` | `TEXT` | — | — | Also check the tools a run under these profiles needs, as 'giap run' does (DB directory: $GIAP_DB_DIR). Comma-joined from: farmshare, farmshare_local, apptainer, conda, docker, standard. |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |

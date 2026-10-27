@@ -214,18 +214,29 @@ def append_step_events(outdir: Path) -> int:
 RUNTIME_ENV = "GIAP_CONTAINER_RUNTIME"
 
 
+CACHE_ENV = "NXF_APPTAINER_CACHEDIR"
+
+
 def launch_env(
     environ: Mapping[str, str], runtime: str | None, db_dir: Path | None
 ) -> dict[str, str]:
     """``environ`` for ``nextflow run``: ``GIAP_CONTAINER_RUNTIME`` set to ``runtime`` (an inherited
     value is dropped when ``runtime`` is ``None``) and ``GIAP_DB_DIR`` to the absolute ``db_dir``
     when given, so the function step finds the fgsea image where preflight checked it (M11-14
-    14c). ``environ`` itself is not modified."""
+    14c). With ``db_dir`` and no non-empty inherited ``NXF_APPTAINER_CACHEDIR``, that variable is
+    set to :func:`giap.io.image_key.image_cache` of ``environ`` and the absolute ``db_dir``, so
+    Nextflow's ``apptainer.cacheDir`` is the cache setup pulled into and preflight checked.
+    ``environ`` itself is not modified."""
+    from giap.io.image_key import image_cache
+
     env = {k: v for k, v in environ.items() if k != RUNTIME_ENV}
     if runtime is not None:
         env[RUNTIME_ENV] = runtime
     if db_dir is not None:
-        env["GIAP_DB_DIR"] = str(Path(db_dir).absolute())
+        db = Path(db_dir).absolute()
+        env["GIAP_DB_DIR"] = str(db)
+        if not env.get(CACHE_ENV):
+            env[CACHE_ENV] = str(image_cache(environ, db))
     return env
 
 
