@@ -27,22 +27,34 @@ inputs that include the wheel itself).
    reverses M11-06 Q-L8.
 2. **Names and tags (amends ADR-0060 decision 1).** The names follow ADR-0060:
    `ghcr.io/<owner>/<pkg>-step` and `ghcr.io/<owner>/<pkg>-step-r`. The tag is the package
-   version alone, `<version>` = `gippa.__version__`, not `<version>-<key>`. The image is a
-   function of the release wheel and the committed lock, and a PyPI version is immutable, so the
-   version is the content key. The wheel names the tag; it cannot pin the digest of an image that
+   version alone, `<version>` = `gippa.__version__`, not `<version>-<key>`. The image's Python
+   content is a function of the release wheel and the committed locks, and a PyPI version is
+   immutable, so the version is the content key. The apt packages (`procps`, `ca-certificates`)
+   are not pinned: they come from the Debian mirror on build day, on top of the digest-pinned
+   base, so the label and digest (not a rebuild) identify an image. The wheel names the tag; it cannot pin the digest of an image that
    contains it. `gippa setup` pulls by tag, checks the `org.opencontainers.image.version` label,
    verifies the digest against the release asset `step-images-<version>.json` (else records it
-   on first use with a warning) and records it in `db_manifest.json`; `gippa run` passes
-   `<ref>:<version>@<digest>`, so every run is still pinned by digest (§12). ADR-0060's no-retag
+   on first use with a warning; trust on first use weakens §12 when the asset is missing, flagged
+   under Q-K39) and records it in `db_manifest.json`. Step refs travel as pipeline params as
+   `<ref>@<digest>`, never through `containers.config`, so ADR-0059's bare `name@sha256:` form
+   holds; the version is checked from the label separately, and every run is still pinned by
+   digest (§12). ADR-0060's no-retag
    rule applies unchanged. Dev builds (`scripts/dev/build_step_image.sh`) use the same names
    with the tag `dev-<sha12 of the wheel>`. The step images are not keyed tool images:
    `scripts/release/image_key.py` and the readiness H4 check skip them.
 3. **Contents (GIPPA stays MIT, Q-K34).** `<pkg>-step` holds GIPPA and its permissive Python
    dependencies only, installed with `pip install --require-hashes -r requirements.lock`
    (`uv export --frozen --no-dev --no-emit-project`, checked against `uv.lock` by a test), then
-   the wheel with `--no-deps`. `scripts/release/check_image_licences.py` runs inside the built
+   the wheel with `--no-deps` after `sha256sum -c` against the `WHEEL_SHA256` build arg. The
+   sdist-only `pandarallel` and `upsetplot` are built with `--no-build-isolation` on the locked
+   setuptools, installed first from `build-requirements.lock` with its `uv.lock` hashes, so no
+   unhashed build backend is fetched (ADR-0060 decision 1). `scripts/release/check_image_licences.py` runs inside the built
    image and fails on any Python `dist-info` whose licence is not in
-   `workflow/containers/step/licences.allow`. MPL-2.0 (certifi) is allowed: file-level
+   `workflow/containers/step/licences.allow`: `License-Expression` is authoritative, else every
+   present signal must pass, and GPL-like `License` prose fails unless the allowlist overrides
+   the distribution by name with a reason (matplotlib, pandas, scipy: bundled texts of
+   separately run libraries). A missing site directory, an empty run or a missing
+   `--require NAME` fails. MPL-2.0 (certifi) is allowed: file-level
    copyleft, shipped unmodified. GPL, LGPL, AGPL, non-commercial and unlicensed Python packages
    are not. No bioinformatics tool and no conda in `<pkg>-step`.
 4. **OS packages are aggregated, not linked.** The Debian `python:3.12-slim` base (pinned by

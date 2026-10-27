@@ -27,3 +27,11 @@ License :: OSI Approved :: Apache Software License
 License :: OSI Approved :: Python Software Foundation License
 License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 License :: Public Domain
+# By-name overrides of the GPL-prose check (the licence signals are still checked); each bundled
+# component runs as a separate library, the same position as today.
+# matplotlib: its License text includes bundled FreeType (FTL OR GPL-2.0+; used under the FTL).
+name:matplotlib
+# pandas: its License text includes the Python licence history, which says "GPL-compatible".
+name:pandas
+# scipy: License text of bundled libgfortran (GPL-3.0+ WITH GCC-exception), libquadmath (LGPL-2.1).
+name:scipy
