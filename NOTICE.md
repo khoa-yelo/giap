@@ -42,6 +42,17 @@ only as a separate process (`docker run` / `apptainer exec`) and never imports R
 source is available from CRAN, Bioconductor and conda-forge/bioconda at those versions. Its ref is pinned in
 `workflow/conf/images.json` only.
 
+The step images (`ghcr.io/khoa-yelo/gippa-step` and `ghcr.io/khoa-yelo/gippa-step-r`, tagged with the GIPPA
+version; ADR-0065) run GIPPA's own steps. `gippa-step` contains GIPPA (MIT) and its permissive Python
+dependencies from the hashed lock `workflow/containers/step/requirements.lock` (every licence checked against
+`workflow/containers/step/licences.allow` by `scripts/release/check_image_licences.py`), on a Debian
+`python:3.12-slim` base with `procps` (GPL-2) and `ca-certificates` as separate system programs. The
+`gippa-step-r` image (`workflow/containers/step-r/Dockerfile`) adds R 4.5.3 (GPL-2, https://www.r-project.org/),
+fgsea 1.36.2 (MIT, Bioconductor) and data.table 1.18.6.1 (MPL-2.0), installed unmodified from the conda packages
+of the committed lock `workflow/envs/locks/fgsea.explicit.txt`. GIPPA starts R only as a separate process
+(`subprocess`) and never imports R or fgsea; the corresponding source is available from CRAN, Bioconductor and
+conda-forge/bioconda at those versions, and Debian's from https://sources.debian.org.
+
 Data resources: KEGG (academic use), RegulonDB (not redistributed), Gene Ontology (CC BY 4.0), NCBI COG 2020
 (NCBI FTP).
 

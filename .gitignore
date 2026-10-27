@@ -16,3 +16,4 @@ htmlcov/
 
 # mkdocs build output
 site/
+/dist/
