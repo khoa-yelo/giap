@@ -63,3 +63,4 @@
 - [ADR-0059: Bare image references in `containers.config` (no `docker://` prefix)](ADR-0059-bare-image-refs.md): proposed
 - [ADR-0060: Release versioning and immutable, content-addressed tool images](ADR-0060-release-versioning-and-image-keys.md): proposed
 - [ADR-0061: Scope of the TU-blocked claims under the distance-model operon fallback](ADR-0061-distance-model-fallback-scope.md): accepted-by-khoa (2026-10-26, in session: "I approve", Q-K28)
+- [ADR-0062: TerminatorNet gets the process_high CPUs; Promotech gets 2 CPUs and 10 GB](ADR-0062-terminatornet-promotech-resources.md): proposed
