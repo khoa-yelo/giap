@@ -65,3 +65,4 @@
 - [ADR-0061: Scope of the TU-blocked claims under the distance-model operon fallback](ADR-0061-distance-model-fallback-scope.md): accepted-by-khoa (2026-10-26, in session: "I approve", Q-K28)
 - [ADR-0062: TerminatorNet gets the process_high CPUs; Promotech gets 2 CPUs and 10 GB](ADR-0062-terminatornet-promotech-resources.md): proposed
 - [ADR-0063: The determinants null on worker processes and partial dependence on threads; one new benchmark baseline](ADR-0063-determinants-null-processes-pd-threads.md): proposed
+- [ADR-0064: Rename GIAP to GIPPA](ADR-0064-rename-giap-to-gippa.md): proposed
