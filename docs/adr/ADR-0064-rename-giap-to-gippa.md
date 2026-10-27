@@ -1,5 +1,5 @@
 # ADR-0064: Rename GIAP to GIPPA
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-27, in session, Q-K31: accept as proposed; rename all output names now; one-off PR-size exception granted; Khoa-only steps handed over when the rename PR is ready)
 - Date: 2026-10-27
 - Spec sections: title and every section that names GIAP (§0.2 R3, R14; §3; §5.1; §6.3; §7.9.2;
   §9.4; §12; §14.6); M11-13; M11-14 §6 ("Sequencing with the rebrand"); ADR-0004, ADR-0007;
