@@ -44,7 +44,11 @@ def _allow_fake_prereqs(what: str) -> Any:
         argv = args[0] if args else kw.get("args")
         first = argv[0] if isinstance(argv, (list, tuple)) and argv else None
         if first is not None and is_fake_prereq(first):
-            return _REAL["run"](*args, **kw)
+            guard, subprocess.Popen = subprocess.Popen, _REAL["Popen"]  # run() starts Popen
+            try:
+                return _REAL["run"](*args, **kw)
+            finally:
+                subprocess.Popen = guard
         return deny(*args, **kw)
 
     return run
@@ -65,6 +69,7 @@ def setup_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     BLOCKED.clear()
     _REAL.setdefault("fetch", HttpsFetcher.fetch)
     _REAL.setdefault("run", subprocess.run)
+    _REAL.setdefault("Popen", subprocess.Popen)
 
     def guarded_run(self: Any, tool: str, argv: Sequence[str]) -> int:
         self.command(tool, argv)  # ToolUnavailable propagates as in production

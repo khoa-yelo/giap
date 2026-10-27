@@ -495,7 +495,10 @@ def test_explicit_uniop_never_plans_the_launcher(
 ) -> None:
     """Q-K27: ``gippa setup --uniop`` installs UniOP only; with no nextflow on PATH the hosts
     contacted are still exactly GitHub's archive URL and codeload (14u1 example 16)."""
-    from helpers.uniop_14u1 import ACCEPT, install_fake_docker, pin_uniop_source, uniop_args
+    from helpers.uniop_14u1 import ACCEPT, SKIP_DBS, install_fake_docker, pin_uniop_source
+
+    def uniop_args(db: Path, *extra: str) -> list[str]:  # as in test_m11_14u1_uniop_fetch.py
+        return ["--db-dir", str(db), *SKIP_DBS, "--uniop", "--profile", "docker", *extra]
 
     nf_row()  # 15d: the row exists, so not planning it is a decision, not an absence
     make_exe(fakebin / "java", fake_java_script(JAVA_21))
