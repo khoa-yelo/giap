@@ -29,6 +29,9 @@ no proteins were given.
   `--set annotation.bakta.complete=true`, which declares every contig a complete, circular
   replicon.
 - Gzipped FASTA is accepted.
+- **Genetic code.** This release supports genetic code 11 (bacteria and archaea) only. Any other
+  `annotation.translation_table` stops the run in preflight with the input error
+  `config.translation_table`. Support for genetic code 4 (Mycoplasma) is planned.
 
 Topology matters. On a circular replicon, a gene or peptide can cross the origin, and the
 statistics wrap around it. On a linear contig, nothing wraps. A gene cut by a contig end is
