@@ -202,3 +202,67 @@ def test_binary_and_gz_untouched(rg: ModuleType, tmp_path: Path) -> None:
     rg.main(["--apply", "--repo", str(repo)])
     assert (repo / "tests/data/blob.gz").read_bytes() == GZ
     assert (repo / "tests/data/plot.png").read_bytes() == PNG
+
+
+def test_a_transition_whose_anchor_is_missing_raises(rg: ModuleType) -> None:
+    text = "squeue --me | grep -c ' giap-' || true\n"  # a later main changed the R14 line
+    with pytest.raises(rg.TransitionError, match=r"\(giap\|gippa\)-"):
+        rg.transform("scripts/session_start.sh", text)
+    with pytest.raises(rg.TransitionError):
+        rg.transform("scripts/probe_env.py", "giap_jobs = [ln for ln in q if 'giap-' in ln]\n")
+    with pytest.raises(rg.TransitionError, match="GIAP_X fallback"):
+        rg.transform("scripts/farmshare_env.sh", "export GIAP_X=${GIAP_X:-1}\n")
+
+
+def test_check_fails_when_a_transition_end_state_is_absent(
+    rg: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path)
+    rg.main(["--apply", "--repo", str(repo)])
+    assert rg.main(["--check", "--repo", str(repo)]) == 0
+    # gippa-only R14 counting with a changed anchor: no giap left, no transition fires
+    (repo / "scripts/session_start.sh").write_text("squeue --me | grep -c ' gippa-' || true\n")
+    capsys.readouterr()
+    assert rg.main(["--check", "--repo", str(repo)]) == 1
+    assert "LEFTOVER transition scripts/session_start.sh" in capsys.readouterr().out
+
+
+def test_apply_refuses_a_broken_transition_before_writing(rg: ModuleType, tmp_path: Path) -> None:
+    tree = {**TREE, "scripts/session_start.sh": "squeue --me | grep -c ' giap-' || true\n"}
+    repo = _repo(tmp_path, tree)
+    before = _snapshot(repo)
+    with pytest.raises(SystemExit, match=r"session_start\.sh"):
+        rg.main(["--apply", "--repo", str(repo)])
+    assert _snapshot(repo) == before
+
+
+def test_indented_export_is_aliased(rg: ModuleType) -> None:
+    env = FARMSHARE + 'if [ -d /scratch ]; then\n  export GIAP_TMP="${GIAP_TMP:-/scratch}"\nfi\n'
+    out = rg.transform("scripts/farmshare_env.sh", env)
+    assert '  export GIPPA_TMP="${GIPPA_TMP:-${GIAP_TMP:-/scratch}}"' in out
+    assert 'export GIAP_TMP="$GIPPA_TMP"' in out.split(rg.ALIAS_MARK)[1]
+    assert rg.transform("scripts/farmshare_env.sh", out) == out  # idempotent
+
+
+def test_probe_env_counts_both_prefixes(rg: ModuleType) -> None:
+    line = (
+        "    giap_jobs = [line for line in queue.splitlines() "
+        """if " giap-" in f" {line.split(' ', 1)[-1]}"]\n"""
+    )
+    out = rg.transform("scripts/probe_env.py", line)
+    assert 'for p in (" giap-", " gippa-"))' in out and "gippa_jobs = [" in out
+    assert rg.transform("scripts/probe_env.py", out) == out
+
+
+def test_setup_lock_is_never_renamed(rg: ModuleType) -> None:
+    text = 'LOCK = ".giap_setup.lock"\n'
+    assert rg.transform("src/gippa/setupdb/run.py", text) == text
+
+
+def test_a_move_onto_an_existing_file_raises(rg: ModuleType, tmp_path: Path) -> None:
+    repo = _repo(tmp_path, {"d/x_giap.txt": "a\n", "d/x_gippa.txt": "b\n"})
+    with pytest.raises(SystemExit, match=r"d/x_gippa\.txt exists, cannot move d/x_giap\.txt"):
+        rg.main(["--apply", "--repo", str(repo)])
+    with pytest.raises(SystemExit, match="exists"):
+        rg.move_paths(repo)  # the guard inside the loop too (no git mv -k, no endless loop)
+    assert _snapshot(repo) == {"d/x_giap.txt": b"a\n", "d/x_gippa.txt": b"b\n"}
