@@ -2,14 +2,16 @@
 
 Usage: python scripts/docs/make_demo_layers.py [--check]
 
-Simulates SIM100K (seed SIM100K_SEED) and writes, gzipped without name or mtime, its Bakta-like
+Simulates SIM100K (seed SIM100K_SEED) and writes, gzipped without name, with mtime 0 and the
+header OS byte 0xff (RFC 1952 "unknown", whatever the Python version), its Bakta-like
 JSON as ``layers/bakta.json.gz`` and every other ``annotation.precomputed`` layer as
 ``layers/<key>.tsv.gz`` (operon pairs, promoters, Tx rates, terminators, RBS, regions and the
 novel-ORF RBS layer ``rbs_novel``, ADR-0024). It also copies the SIM100K genome
 (tests/data/genomes/sim100k.fna.gz) and the tutorial peptide table
 (docs/tutorials/data/sim100k_peptides.tsv.gz, written by make_demo_peptides.py) byte for byte.
 The simulated genome must equal the committed one. ``--check`` writes nothing and exits 1 when a
-committed file differs (layers compared uncompressed, their gzip mtime must be 0). No network.
+committed file differs (layers compared uncompressed, their gzip mtime must be 0 and their OS byte
+0xff). No network.
 ``PROVENANCE.md`` is written by hand.
 """
 
@@ -32,6 +34,14 @@ PEPTIDES = REPO / "docs" / "tutorials" / "data" / "sim100k_peptides.tsv.gz"
 LAYER_KEYS = ("operon_pairs", "promoters", "tx_rates", "terminators", "rbs", "regions",
               "rbs_novel")  # fmt: skip
 MAX_BYTES = 1024 * 1024
+OS_OFFSET, OS_UNKNOWN = 9, 0xFF  # RFC 1952 section 2.3.1; Python 3.12 writes 0x03, 3.13 0xff
+
+
+def gzip_layer(data: bytes) -> bytes:
+    """``data`` gzipped at level 9 with mtime 0 and OS byte 0xff, the same on every Python."""
+    out = bytearray(gzip.compress(data, compresslevel=9, mtime=0))
+    out[OS_OFFSET] = OS_UNKNOWN  # outside the CRC32 (no FHCRC flag), so the member stays valid
+    return bytes(out)
 
 
 def generate() -> dict[str, bytes]:
@@ -51,7 +61,12 @@ def _same_layer(path: Path, want: bytes) -> bool:
     if not path.is_file():
         return False
     data = path.read_bytes()
-    return data[4:8] == b"\x00\x00\x00\x00" and gzip.decompress(data) == want
+    return (
+        data[4:8] == b"\x00\x00\x00\x00"
+        and len(data) > OS_OFFSET
+        and data[OS_OFFSET] == OS_UNKNOWN
+        and gzip.decompress(data) == want
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -76,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if not bad and size <= MAX_BYTES else 1
     (DEMO / "layers").mkdir(parents=True, exist_ok=True)
     for name, data in layers.items():
-        (DEMO / name).write_bytes(gzip.compress(data, compresslevel=9, mtime=0))
+        (DEMO / name).write_bytes(gzip_layer(data))
     for name, data in copies.items():
         (DEMO / name).write_bytes(data)
     size = sum(p.stat().st_size for p in DEMO.rglob("*") if p.is_file())

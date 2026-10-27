@@ -12,6 +12,8 @@ from a real organism, a database or a third party. `gippa demo` reads these file
 | `layers/operon_pairs.tsv.gz`, `promoters`, `tx_rates`, `terminators`, `rbs`, `regions` | precomputed tool layers (`annotation.precomputed.<key>`) | `scripts/docs/make_demo_layers.py` |
 | `layers/rbs_novel.tsv.gz` | novel-ORF RBS layer `rbs_novel` (ADR-0024) | `scripts/docs/make_demo_layers.py` |
 
-Layers are gzip with no file name and `mtime=0`, so they are reproducible byte for byte.
+Layers are gzip (level 9) with no file name, `mtime=0` and the header OS byte forced to `0xff`
+(RFC 1952 "unknown"; Python 3.12 would write `0x03`), so they are reproducible byte for byte on
+any Python version with the same zlib.
 Regenerate with `python scripts/docs/make_demo_layers.py`; CI runs it with `--check`.
 Licence: MIT, as GIPPA.

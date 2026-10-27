@@ -801,6 +801,7 @@ def demo(outdir: Path, full: bool, **kw: Any) -> None:
     if os.path.lexists(outdir):
         click.echo(f"gippa demo: {outdir} exists; use --outdir or remove it", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
+    created = _first_missing(outdir)  # what this call creates; removed if a --full run fails
     try:
         outdir.mkdir(parents=True)
     except OSError as exc:
@@ -816,6 +817,8 @@ def demo(outdir: Path, full: bool, **kw: Any) -> None:
     except SystemExit as exc:
         code = exc.code if exc.code is not None else 0
     if code != 0:
+        if full:  # typically preflight (missing setup): a kept outdir would refuse the retry;
+            shutil.rmtree(created, ignore_errors=True)  # the local demo keeps its logs there
         sys.exit(code)
     report = (outdir / "report" / "report.html").resolve()
     click.echo(f"gippa demo: done in {round(time.monotonic() - start)} s; report: {report}")
@@ -826,6 +829,15 @@ def demo(outdir: Path, full: bool, **kw: Any) -> None:
             webbrowser.open(report.as_uri())
         except Exception as exc:
             click.echo(f"gippa demo: could not open a browser ({exc})", err=True)
+
+
+def _first_missing(path: Path) -> Path:
+    """The outermost directory ``path.mkdir(parents=True)`` would create (``path`` itself when
+    its parent exists)."""
+    path = path.absolute()
+    while not os.path.lexists(path.parent) and path.parent != path:
+        path = path.parent
+    return path
 
 
 def _demo_data() -> Path:
