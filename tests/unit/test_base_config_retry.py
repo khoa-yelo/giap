@@ -51,7 +51,7 @@ def test_retries_137_and_143_twice() -> None:
     strategy = re.search(r"^\s*errorStrategy\s*=\s*\{", text, re.M)
     assert strategy, "no default errorStrategy closure"
     body = _block(text, strategy.end() - 1)  # a multi-line closure is read to its end
-    assert re.search(r"\[\s*137\s*,\s*143\s*\]", body) and "'retry'" in body
+    assert re.search(r"\[\s*137\s*,\s*(?:140\s*,\s*)?143\s*\]", body) and "'retry'" in body
     assert "'terminate'" in body, "every other exit terminates"
 
 
