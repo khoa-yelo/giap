@@ -89,7 +89,7 @@ def test_farmshare_profile_example_5() -> None:
     assert _executor(flat) == "slurm"
     assert _unq(flat["process.queue"]) == "normal"
     # slow-node stopgap (#416 D3): Python/JVM start-up stalls on these nodes
-    slow = "--exclude=barley-01,barley-03,rye-02"
+    slow = "--exclude=barley-01,rye-02"
     assert _unq(flat["process.clusterOptions"]) == f"--qos=normal {slow}"
     # review decision 3 (R14): queueSize 8 x resourceLimits.cpus 16 <= 128 (was 20 / 64 / 240 GB)
     assert _get(flat, "executor.queueSize", "executor.$slurm.queueSize") == "8"
