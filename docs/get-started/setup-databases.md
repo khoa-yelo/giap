@@ -42,6 +42,7 @@ Every flag is listed in the [CLI reference](../reference/cli.md#gippa-setup).
 | `--cog` | off | COG 2020 category tables (`cog-20.def.tab`, `fun-20.tab`) | `cog_category` in `genes.tsv`; module `function` |
 | `--contaminants` | off | the universal protein contaminant FASTA | contaminant labels in mapping; `gippa makedb` |
 | `--check` | off | nothing: only verifies what is installed | — |
+| `--nextflow` / `--no-nextflow` | on | the pinned Nextflow 26.10.0 `-dist` launcher (GitHub release `v26.10.0`), only when no `nextflow` is on `PATH`; never under `--uniop` or `--check` | `gippa run` without its own Nextflow |
 
 The shared options `--config`, `--set`, `--log-level` and `--version` work as for every command.
 
@@ -62,6 +63,7 @@ case, measure the size after your first download.
 | KEGG | `kegg/ko_pathway.tsv`, `kegg/pathway_names.tsv` | not recorded |
 | COG 2020 | `cog/cog-20.def.tab`, `cog/fun-20.tab` | not recorded |
 | Contaminants | `contaminants/contaminants.fasta` | not recorded |
+| Nextflow launcher 26.10.0 | `bin/nextflow` | 47 MiB (49,084,616 bytes) |
 
 The Apptainer images take a separate 15–25 GB in the image cache (§3.9).
 

@@ -64,6 +64,8 @@ class DbItem:
     check: str = ""  # verification rule: "bakta:light", "bakta:full", "genomad", ...
     size_gib: int = 0  # free disk needed before downloading
     prefetch: str | None = None  # row name in prefetch_manifest.tsv
+    redirect_hosts: tuple[str, ...] = ()  # replaces the REDIRECT_HOSTS default when set (15d)
+    executable: bool = False  # installed with mode 0755 (the Nextflow launcher)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +98,7 @@ class SetupOptions:
     cog: bool = False
     contaminants: bool = False
     uniop: bool = False  # the UniOP source archive (M11-14 item 1b; built by setup --uniop)
+    nextflow: bool = True  # the Nextflow -dist launcher when none is on PATH (M11-15 item 5)
 
 
 def _safe_name(name: str) -> bool:
@@ -124,6 +127,8 @@ def _load_sources() -> Mapping[str, DbItem]:
             check=str(row["check"]),
             size_gib=int(row.get("size_gib", 0)),
             prefetch=row.get("prefetch"),
+            redirect_hosts=tuple(str(h) for h in row.get("redirect_hosts") or ()),
+            executable=bool(row.get("executable", False)),
         )
     return MappingProxyType(out)
 

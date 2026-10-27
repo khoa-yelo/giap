@@ -149,6 +149,7 @@ Download databases and models (writes DIR/db_manifest.json).
 | `--uniop` | flag | — | — | Fetch UniOP from its authors and build it locally. |
 | `--accept-uniop-terms` | flag | — | — | UniOP has no licence file: you decide that your use is permitted (needed without a TTY). |
 | `--no-uniop` | flag | — | — | Do not build UniOP under --images. |
+| `--nextflow` / `--no-nextflow` | flag | `true` | — | Install the pinned Nextflow launcher in DIR/bin when none is on PATH. |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |

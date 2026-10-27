@@ -55,6 +55,7 @@ __all__ = [
     "amrfinder_record",
     "install",
     "run_setup",
+    "setup_nextflow",
 ]  # fmt: skip
 
 LOCK = ".giap_setup.lock"
@@ -200,7 +201,7 @@ class HttpsFetcher:
 
     def _fetch(self, url: str, dest: Path) -> None:
         host = urlparse(url).hostname or url
-        allowed = {host} | REDIRECT_HOSTS.get(host, frozenset())
+        allowed = {host} | _redirect_hosts(url, host)
         current = url
         for _ in range(self.max_redirects + 1):
             parts = urlparse(current)
@@ -233,6 +234,13 @@ class HttpsFetcher:
             finally:
                 conn.close()
         raise SourceError(host, f"more than {self.max_redirects} redirects")
+
+
+def _redirect_hosts(url: str, host: str) -> frozenset[str]:
+    """The redirect allowlist of the item(s) at ``url``: their ``redirect_hosts`` when a row
+    names some (M11-15 item 5), else the ``REDIRECT_HOSTS`` default of ``host``."""
+    rows = [h for i in SOURCES.values() if i.url == url for h in i.redirect_hosts]
+    return frozenset(rows) if rows else REDIRECT_HOSTS.get(host, frozenset())
 
 
 def _body_cap(url: str) -> int:
@@ -322,10 +330,16 @@ def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         fetcher.fetch(item.url, partial)
+        algo = item.checksum.partition(":")[0]
+        if item.checksum and (got := file_digest(partial, algo)) != item.checksum:
+            return _absent(item, f"checksum mismatch from {item.host}: pulled {got}, pinned "
+                                 f"{item.checksum}", "mismatch")  # fmt: skip
         rec = check_file(item, partial, item.checksum, item.version or today())
         if rec.status != "ok":
             return _absent(item, f"download from {item.host} does not verify: {rec.message}",
                            rec.status)  # fmt: skip
+        if item.executable:
+            partial.chmod(0o755)
         partial.replace(target)
     except SourceError as exc:
         return _absent(item, f"source {exc.host} unreachable ({exc.reason})")
@@ -515,3 +529,31 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
                     recs.append(amr)
         write_manifest(db, recs)
     return ExitCode.SUCCESS if status_ok else ExitCode.ENVIRONMENT
+
+
+def setup_nextflow(db_dir: Path, fetcher: Fetcher, environ: Mapping[str, str]) -> ExitCode:
+    """The Nextflow launcher (M11-15 item 5): a ``nextflow`` on ``PATH`` is reported (version and
+    path) and nothing is downloaded; else the pinned ``-dist`` launcher is adopted or fetched into
+    ``<db_dir>/bin/nextflow`` (mode 0755) and recorded in ``db_manifest.json``."""
+    from gippa.runner.prereqs import nextflow_version
+
+    found = shutil.which("nextflow", path=environ.get("PATH", ""))
+    if found is not None:
+        version = nextflow_version(Path(found), environ) or "of unknown version"
+        _say(f"nextflow: found {version} at {found}; the launcher is not downloaded")
+        return ExitCode.SUCCESS
+    item = SOURCES["nextflow"]
+    db_dir.mkdir(parents=True, exist_ok=True)
+    with _locked(db_dir) as acquired:
+        if not acquired:
+            _say(f"another gippa setup is running on {db_dir} ({LOCK}); try again later")
+            return ExitCode.ENVIRONMENT
+        old = read_records(db_dir)
+        rec = install(item, db_dir, ToolRunner(db_dir=db_dir), fetcher)
+        if rec.status == "ok":
+            (db_dir / item.path).chmod(0o755)
+            if not rec.message:  # adopted, not downloaded now
+                rec = _provenance(rec, old, {}, None)
+        _report(rec)
+        write_manifest(db_dir, [rec])
+    return ExitCode.SUCCESS if rec.status == "ok" else ExitCode.ENVIRONMENT
