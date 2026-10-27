@@ -4,7 +4,8 @@ docs/specs/M7-08-novel-steps-and-second-round.md, ADR-0024; GIPPA_SPEC.md §6.2,
 Covered: the registration of ``novel_candidates``, ``promotech_novel`` (ext),
 ``novel_promoter_layer``, ``ostir_novel`` (ext), ``novel_rbs_layer`` and ``novel_orfs``; the local
 plan (rule 5, example 6, "no peptides"); rules 1-4 on the work files of one real local run, with
-hand-written Promotech / OSTIR outputs and hand-built layers; examples 1 and 6 through ``gippa run``.
+hand-written Promotech / OSTIR outputs and hand-built layers; examples 1 and 6 through ``gippa
+run``.
 
 Readings pinned by the test author (see tests/helpers/novel_steps_fixture.py for the position
 convention of ``rbs_novel``):

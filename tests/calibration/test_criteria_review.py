@@ -6,7 +6,8 @@ docs/specs/M4-05-calibration-harness.md and ADR-0015 (two-block confirmation):
 1. Fail closed: ``check_level`` / ``check_fwer`` raise ValueError on non-finite or out-of-[0, 1]
    input; ``check_fdr`` raises on FDP outside [0, 1] and on R < 2. (The all-NaN and p > 1 cases of
    ``check_level`` live in attacks/test_attack_calibration_harness.py and are not repeated here.)
-2. Sharding: suites read ``GIPPA_CALIBRATION_REPLICATES=start:stop`` through the harness and run only
+2. Sharding: suites read ``GIPPA_CALIBRATION_REPLICATES=start:stop`` through the harness and run
+only
    that range; ``merge_shards`` (CLI ``--merge``) combines shard records and evaluates the criterion
    on the full R. Without the variable behaviour is unchanged.
 3. ADR-0015: a check failing on replicates 0..R-1 is re-run on R..2R-1 with the same seed formula

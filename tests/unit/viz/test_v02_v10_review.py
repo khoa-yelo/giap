@@ -152,7 +152,9 @@ def test_all_not_estimable_contig_with_zero_join_counts_is_the_empty_state(
     assert len(markers(_ax(inst, "b:chrA"))) == 20
 
 
-def test_flagged_rows_are_na_even_when_every_value_is_zero(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_flagged_rows_are_na_even_when_every_value_is_zero(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     """Moran's I written as 0 too: flags decide, not finiteness; the title is not estimable."""
     rows = correlogram_rows("chrA")
     _flag_lags(rows, "morans_i", set(range(1, 21)), "ci_unestimated;few_values;not_estimable", True)
@@ -388,7 +390,9 @@ def test_rows_sharing_a_midpoint_are_averaged_for_the_trend(
     np.testing.assert_allclose(by_pos.to_numpy(dtype=float), engine, atol=1e-12)
 
 
-def test_origin_crossing_island_position_wraps_mod_length(tmp_path: Path, cfg1: GippaConfig) -> None:
+def test_origin_crossing_island_position_wraps_mod_length(
+    tmp_path: Path, cfg1: GippaConfig
+) -> None:
     """ISL 95,001-105,000 on L = 100,000: (start0 + end) / 2 mod L + 1 = 1 (mutant L14)."""
     genes = [gene(f"g{i}", m, 1.0) for i, m in enumerate((10_000, 30_000, 50_000))]
     islands = [island("ISL_9", "high", 95_001, 105_000, 0.001)]

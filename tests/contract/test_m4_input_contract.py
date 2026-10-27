@@ -3,7 +3,8 @@
 Acceptance: "``tests/contract/test_m4_input_contract.py`` validates the M4-07 simulator output
 (example 1) and, once M2/M3 merge, their real outputs" (M4-21 unmarked ``pending_sample``), and
 "``TABLES`` is the single source of the column names; a test asserts [gippasim's] column lists equal
-``TABLES``". The gippasim parts skip until M4-07 adds ``gippasim.layout``/``gippasim.contract_tables``.
+``TABLES``". The gippasim parts skip until M4-07 adds
+``gippasim.layout``/``gippasim.contract_tables``.
 """
 
 from __future__ import annotations

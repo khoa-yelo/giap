@@ -59,7 +59,9 @@ def test_wheel_without_gippa_root_is_tool_unavailable(
     assert "GIPPA_ROOT is not set" not in str(exc.value)
 
 
-def test_wheel_with_gippa_root_uses_its_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_wheel_with_gippa_root_uses_its_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     _wheel(monkeypatch, tmp_path)
     root = tmp_path / "root"
     (root / "micromamba" / "envs" / "gippa-bakta").mkdir(parents=True)

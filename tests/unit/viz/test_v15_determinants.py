@@ -500,7 +500,9 @@ def test_example_4_unexplained_category_and_colour(tmp_path: Path, cfg: GippaCon
     assert VERMILLION in _colours(_axes(inst, "d"))
 
 
-def test_example_5_ribosomal_reference_category_and_colour(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_example_5_ribosomal_reference_category_and_colour(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _main(tmp_path, cfg)
     d = _rows(inst, "d")
     cat = dict(zip(d["locus_tag"].astype(str), d["category"].astype(str), strict=True))
@@ -677,7 +679,9 @@ def _title_of(tmp: Path, cfg: GippaConfig, en: dict, **kw: object) -> str:
     return _render(out, cfg).title
 
 
-def test_b1_title_names_the_repeat_t_interval_uncalibrated(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_b1_title_names_the_repeat_t_interval_uncalibrated(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     t = _main(tmp_path, cfg).title
     assert "(repeat t-interval 0.05–0.11, uncalibrated)" in t, t
     assert "95 % CI" not in t and "CI" not in t.replace("CV", ""), t

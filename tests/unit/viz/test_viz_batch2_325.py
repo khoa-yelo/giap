@@ -176,7 +176,9 @@ def test_v18_p_values_only_keeps_panel_a_at_zero_rows(tmp_path: Path, cfg: Gippa
     assert int((inst.data["panel"] == "b").sum()) > 0
 
 
-def test_v18_detectability_only_keeps_panel_b_at_zero_rows(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_v18_detectability_only_keeps_panel_b_at_zero_rows(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     out = make_out(tmp_path)
     write_schema_table(out / "tables" / "detection_summary.tsv", "detection_summary",
                        _detection_summary())  # fmt: skip

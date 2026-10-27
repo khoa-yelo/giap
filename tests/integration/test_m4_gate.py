@@ -97,7 +97,9 @@ def _tolerances() -> dict[str, Any]:
 
 
 def log_dir() -> Path:
-    return Path(os.environ.get("GIPPA_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration"))
+    return Path(
+        os.environ.get("GIPPA_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration")
+    )
 
 
 def _records(suite: str) -> list[dict[str, Any]]:

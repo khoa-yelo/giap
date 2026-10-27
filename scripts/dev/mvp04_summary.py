@@ -1,8 +1,8 @@
 """MVP-04 evidence-run summary (docs/specs/MVP-04-ecoli-evidence-run.md "The run", acceptance
 gates 1-16; lead decisions 11, 15, 19, 20 and 22).
 
-Reads only published GIPPA outputs and the gippasim inputs (plus a second gippasim call with the same
-seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN as null):
+Reads only published GIPPA outputs and the gippasim inputs (plus a second gippasim call with the
+same seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN as null):
 ``{"gates": {"1": entry, ..., "16": entry}, "all_gates_ok", "outside_expected"}``. Each entry has
 ``value``, ``expected``, ``gate``, ``gate_ok``, ``in_expected`` and ``status`` (``pass``,
 ``outside_expected`` = gate met but value outside the expected range, reported; ``fail``) plus

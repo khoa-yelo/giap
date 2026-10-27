@@ -15,8 +15,8 @@ to (or replaced in) the "Tags the digests were resolved from" comment.
 Every other line stays byte-identical, and a second run with the same input changes nothing.
 
 ``workflow/conf/images.json`` (``--images``, default next to ``--config``) gets one entry per
-pinned tool (M11-14 item 2): ``key``/``tag`` from ``gippa.io.image_key`` over ``--root`` (default the
-repository), the bare ``ref``, the ``processes`` whose ``withName`` line carries that ref,
+pinned tool (M11-14 item 2): ``key``/``tag`` from ``gippa.io.image_key`` over ``--root`` (default
+the repository), the bare ``ref``, the ``processes`` whose ``withName`` line carries that ref,
 ``built_from`` (``--source-commit``) and the registry ``licence``; other entries are kept.
 ``FGSEA`` has no Nextflow process: its ref goes to ``images.json`` only (``"processes": []``).
 

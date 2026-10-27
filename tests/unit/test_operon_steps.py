@@ -152,7 +152,9 @@ def _inputs(reg: ModuleType, name: str, avail: dict[str, Path]) -> dict[str, Pat
 
 def _run_uniop_input(reg: ModuleType, sim: Sim, out: Path, seed: int = 1) -> dict[str, Path]:
     outs = {k: out / v for k, v in UNIOP_IN_OUT.items()}
-    reg.run_step("uniop_input", GippaConfig(seed=seed), _inputs(reg, "uniop_input", sim.avail), outs)
+    reg.run_step(
+        "uniop_input", GippaConfig(seed=seed), _inputs(reg, "uniop_input", sim.avail), outs
+    )
     return outs
 
 

@@ -514,7 +514,9 @@ def test_te7_cli_pass_and_layout(tmp_path: Path, repo: Any) -> None:
     assert raw == json.dumps(doc, sort_keys=True, indent=2) + "\n"
     assert doc["schema"] == "gippa-pilot-te7/1"
     assert doc["gippa"]["status"] == "pass"
-    assert _paths(doc["gippa"]["external_differing"]) == ["annotation/tools/promotech/promotech.csv"]
+    assert _paths(doc["gippa"]["external_differing"]) == [
+        "annotation/tools/promotech/promotech.csv"
+    ]
     assert set(doc) >= {"pair", "gippa", "diann", "end_to_end"}
     with (out / "te7_files.tsv").open(newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))

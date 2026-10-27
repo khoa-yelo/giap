@@ -332,7 +332,9 @@ def test_nodes_are_drawn_in_the_fixed_order(tmp_path: Path, cfg: GippaConfig) ->
         assert ys == sorted(ys, reverse=True), (column, ys)
 
 
-def test_placed_is_blue_and_outcomes_have_distinct_colours(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_placed_is_blue_and_outcomes_have_distinct_colours(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     colours = _patch_colours(inst)
     assert "#0072B2" in colours

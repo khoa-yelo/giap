@@ -1,4 +1,5 @@
-"""In-silico digestion (issue M3-22 examples 1-3; GIPPA_SPEC.md §11.6 TE1/TE8, ``abundance.enzyme``).
+"""In-silico digestion (issue M3-22 examples 1-3; GIPPA_SPEC.md §11.6 TE1/TE8,
+``abundance.enzyme``).
 
 Interface (docs/specs/M3-22-digest-and-te-proxies.md "Public interface")::
 

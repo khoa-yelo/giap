@@ -5,7 +5,8 @@ Spec: docs/specs/M11-03b-nightly-readiness-labels.md, rule 3 of ``calibration_fu
 replaced by M11-03c PR 4 (docs/specs/M11-03c-calibration-full-sharding.md): a launch queues 16 jobs
 (15 per-suite jobs and the aggregator), so it refuses when ``jobs + 16 > 20``; it refuses when
 ``cpus + Σ + 1 > 128`` (Σ = 98); the worst-case end ``now + max(time) + 20 min`` (6 h 20 m) must be
-before the next nightly start (``GIPPA_NIGHTLY_AT``, default ``01:30`` local), else refuse. The clock
+before the next nightly start (``GIPPA_NIGHTLY_AT``, default ``01:30`` local), else refuse. The
+clock
 is ``GIPPA_NOW`` (epoch seconds). Every refusal is exit 2, no ``sbatch`` call, and a message naming
 the numbers (jobs, CPUs, end, nightly start).
 

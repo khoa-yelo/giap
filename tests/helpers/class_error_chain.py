@@ -11,7 +11,8 @@ decision 1: preflight writes ``peptide_spectra.parquet``), then the mapping chai
 
 ``oracle_sites`` rebuilds the M7-04 ``run_variants`` chain from merged public pieces (M7-01/02/05)
 to get each site's supporting peptides and class; ``oracle_rates`` counts rule 1-3 by brute force
-from the *raw* gippasim tables (never from GIPPA's C17), so it is independent of the code under test.
+from the *raw* gippasim tables (never from GIPPA's C17), so it is independent of the code under
+test.
 """
 
 from __future__ import annotations

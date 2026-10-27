@@ -91,7 +91,8 @@ def basic(
     ci: tuple[float | None, float | None] = (None, None),
     flags: str | None = None,
 ) -> list[dict[str, object]]:
-    """The seven ``basic`` rows of one group, as ``gippa.context.summary.basic_rows`` writes them."""
+    """The seven ``basic`` rows of one group, as ``gippa.context.summary.basic_rows`` writes
+    them."""
     value = n_detected - expected if ome is None else ome
 
     def row(metric: str, v: object, lo: object = None, hi: object = None, f: object = None) -> dict:

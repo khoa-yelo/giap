@@ -383,7 +383,8 @@ def test_m10_symlinked_run_dir_is_skipped(cs: CleanupSandbox) -> None:
 
 
 def test_m15_step4_symlink_is_planned_as_skipped(cs: CleanupSandbox) -> None:
-    """An mzml/ that links elsewhere inside $GIPPA_ROOT is ``skipped_symlink`` in plan.tsv itself."""
+    """An mzml/ that links elsewhere inside $GIPPA_ROOT is ``skipped_symlink`` in plan.tsv
+    itself."""
     store = cs.root / "data" / "mzml_store"
     subprocess.run(["/bin/mv", str(cs.mzml_dir), str(store)], check=True)
     cs.mzml_dir.symlink_to(store)

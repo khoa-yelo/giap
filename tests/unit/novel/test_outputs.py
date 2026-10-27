@@ -185,7 +185,8 @@ def test_example5_nterm_extension_patch(tmp_path: Path) -> None:
     t = table(case, orfs, scored(orfs, called={ID6: True}))
     paths = _written(tmp_path, case, t)
     assert feature_lines(paths["annotation_patch.gff3"]) == [
-        ["c1", "GIPPA", "CDS", "250", "900", ".", "+", "0", "ID=G;locus_tag=G;Note=nterm_extension"],
+        ["c1", "GIPPA", "CDS", "250", "900", ".", "+", "0",
+         "ID=G;locus_tag=G;Note=nterm_extension"],
     ]  # fmt: skip
     row = _row(paths["novel_orfs.tsv"], ID6)
     assert (row["class"], row["overlapping_gene"]) == ("nterm_extension", "G")
@@ -200,7 +201,8 @@ def test_example5_mirror_nterm_patch_uses_the_gene_end(tmp_path: Path) -> None:
     t = table(case, orfs, scored(orfs, called={orf.orf_id: True}))
     paths = _written(tmp_path, case, t)
     assert feature_lines(paths["annotation_patch.gff3"]) == [
-        ["c1", "GIPPA", "CDS", "101", "751", ".", "-", "0", "ID=G;locus_tag=G;Note=nterm_extension"],
+        ["c1", "GIPPA", "CDS", "101", "751", ".", "-", "0",
+         "ID=G;locus_tag=G;Note=nterm_extension"],
     ]  # fmt: skip
     row = _row(paths["novel_orfs.tsv"], orf.orf_id)
     assert (row["start_longest"], row["end"]) == ("751", "101")

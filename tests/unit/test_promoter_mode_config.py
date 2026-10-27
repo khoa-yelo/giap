@@ -1,7 +1,7 @@
 """Genome-wide Promotech: valid config, rejected at run time (M2-13 Q2, revised lead decision 4).
 
-``annotation.promoters.mode: genome`` (GIPPA_SPEC.md §5.2; ``gippa run --promoters``) loads and passes
-``gippa preflight`` (resource checks: tests/unit/preflight/test_run_review.py). ``gippa run``
+``annotation.promoters.mode: genome`` (GIPPA_SPEC.md §5.2; ``gippa run --promoters``) loads and
+passes ``gippa preflight`` (resource checks: tests/unit/preflight/test_run_review.py). ``gippa run``
 exits 1 before launching anything with "annotation.promoters.mode: genome is not implemented", and
 the ``promoter_windows`` step raises the same error if it is ever reached.
 """

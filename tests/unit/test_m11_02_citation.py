@@ -48,7 +48,8 @@ def load_cff(text: str) -> dict[str, Any]:
 
 
 def agreement_errors(cff: dict[str, Any], version: str, changelog: str) -> list[str]:
-    """Item 4: CFF version == gippa.__version__; a date-released has a matching changelog heading."""
+    """Item 4: CFF version == gippa.__version__; a date-released has a matching changelog
+    heading."""
     errors = []
     cff_version = str(cff.get("version"))
     if cff_version != version:

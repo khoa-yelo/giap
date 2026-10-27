@@ -348,7 +348,8 @@ class BuildBox:
 
     def run(self, *tools: str) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "TMPDIR"}}
-        env.update(GIPPA_REPO=str(self.repo), GIPPA_ROOT=str(self.root), GIPPA_PYTHON=sys.executable,
+        env.update(GIPPA_REPO=str(self.repo), GIPPA_ROOT=str(self.root),
+                   GIPPA_PYTHON=sys.executable,
                    FAKE_DIR=str(self.fake), HOME=str(self.root / "home"))  # fmt: skip
         return subprocess.run(["bash", str(self.repo / "scripts" / "build_envs.sh"), *tools],
                               capture_output=True, text=True, cwd=self.repo, env=env,

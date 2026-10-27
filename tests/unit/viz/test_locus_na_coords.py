@@ -113,7 +113,9 @@ def test_v13_locus_view_with_an_amr_set(tmp_path: Path, cfg: GippaConfig) -> Non
     assert "novel_orf" in set(inst.data["track"])
 
 
-def test_prophage_stat_row_without_coordinates_is_left_out(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_prophage_stat_row_without_coordinates_is_left_out(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     """Proposed default: a prophage / BGC ``regions_stats`` row with NA start/end has no window,
     so it is not a V3 locus; the other loci are unaffected."""
     out = vl.build_out(

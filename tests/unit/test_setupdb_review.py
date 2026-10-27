@@ -1,4 +1,5 @@
-"""`gippa setup` after code review (PR #57; docs/specs/M2-08 "Lead decisions after code review" 1-6).
+"""`gippa setup` after code review (PR #57; docs/specs/M2-08 "Lead decisions after code review"
+1-6).
 
 Every test runs under ``setup_guard`` (decision 3): no network, no tool, no real $GIPPA_DB_DIR.
 

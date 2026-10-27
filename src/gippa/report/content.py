@@ -311,7 +311,11 @@ def provenance(view: RunView, doc: Mapping[str, Any] | None, note: str | None) -
     inputs = [[str(i.get("file", "")).replace("\\", "/").rsplit("/", 1)[-1],
                str(i.get("role", "")), str(i.get("sha256", ""))]
               for i in _list(rows) if isinstance(i, Mapping)]  # fmt: skip
-    base = {"version": gippa.__version__, "inputs": inputs, "config": view.digest("resolved_config")}
+    base = {
+        "version": gippa.__version__,
+        "inputs": inputs,
+        "config": view.digest("resolved_config"),
+    }
     if doc is None:
         return {**base, "note": note or NOT_WRITTEN}
     seeds = doc.get("seeds")

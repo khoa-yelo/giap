@@ -1,7 +1,8 @@
 """Writer of the M4-06 contract tables C1-C8 and C15 for a gippasim layout (issues M4-07, M5-04).
 
 The column names and logical types below are a literal copy of the M2-side tables of
-``gippa.genetable.contract.TABLES`` (a test compares them, catching drift both ways); gippasim imports
+``gippa.genetable.contract.TABLES`` (a test compares them, catching drift both ways); gippasim
+imports
 nothing from ``gippa`` so the truth stays independent of the code under test. Parquet files hold
 0-based half-open coordinates and Arrow ``list<string>`` list columns; every file is a pure function
 of the layout (byte-identical for the same layout).

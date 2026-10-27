@@ -11,7 +11,8 @@ Interface pinned here (test-author reading of §10 with the lead decisions):
   abundance is given (``--abundance``). The check is the ostir one: ``environment.tools``, level
   ``error``, exit 2, ``value["missing"]`` names the tool, and ``gippa run`` exits 2 without
   launching Nextflow.
-- Missing means ``$GIPPA_ROOT/micromamba/envs/gippa-fgsea/.gippa-built`` does not equal the sha256 of
+- Missing means ``$GIPPA_ROOT/micromamba/envs/gippa-fgsea/.gippa-built`` does not equal the sha256
+of
   ``workflow/envs/fgsea.yml``, under farmshare and under apptainer profiles alike; the ``test`` and
   ``stub`` profiles require nothing.
 

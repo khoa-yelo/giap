@@ -461,7 +461,8 @@ def _recomputed_covariates(world: Any) -> pd.DataFrame:
     """GIPPA's gene-table covariates (``gippa.genetable.covariates.covariates`` with the default
     ``abundance.enzyme`` / ``observable_len``) recomputed from each gene's ``aa``, indexed like
     ``_genes(world)``; ``has_aa`` marks genes with an amino-acid sequence (pseudogenes without one
-    are translated from ``nt`` by GIPPA but carry no covariates in gippasim, so they are excluded)."""
+    are translated from ``nt`` by GIPPA but carry no covariates in gippasim, so they are
+    excluded)."""
     from gippa.config import GippaConfig
     from gippa.genetable.covariates import covariates
 

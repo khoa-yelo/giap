@@ -65,7 +65,8 @@ MVP-04 (docs/specs/MVP-04-ecoli-evidence-run.md) adds ``k12_evidence``, a
 ``gippasim.real_genome.RealGenomeConfig`` for ``simulate_on_genome`` on the committed K-12 genome at
 ``K12_EVIDENCE_SEED`` (its docstring records the tuned detection intercept b0).
 
-Operon scenarios (M6-03; drawn with ``simulate_operons``, see ``gippasim.operons``): ``operon_null``,
+Operon scenarios (M6-03; drawn with ``simulate_operons``, see ``gippasim.operons``):
+``operon_null``,
 ``missed_operon_power``, ``discordance_power`` and the attacks ``operon_attack_ar1`` and
 ``operon_attack_detection``. All use the generating t ``OPERON_T`` for the within-TU increment, no
 position decay, and the detection intercept ``OPERON_BETA`` (~80 % of genes detected, so 1,800 genes

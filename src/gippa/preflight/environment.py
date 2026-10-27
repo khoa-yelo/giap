@@ -200,8 +200,8 @@ def _env_built(tool: ToolSpec, env_root: Path | None, envs_dir: Path) -> bool:
 
 _PKG = __name__.split(".", 1)[0]
 _CONDA_PROFILES = frozenset({"conda", "farmshare", "farmshare_local"})
-# Started by a GIPPA step (gippa.io.fgsea_r), not by a Nextflow process: the prebuilt env counts under
-# every profile, and under docker / plain apptainer its image from images.json (M11-14 14c).
+# Started by a GIPPA step (gippa.io.fgsea_r), not by a Nextflow process: the prebuilt env counts
+# under every profile, and under docker / plain apptainer its image from images.json (M11-14 14c).
 _STEP_STARTED = frozenset({"fgsea"})
 _WITH_NAME = re.compile(r"withName\s*:\s*(['\"]?)([A-Za-z0-9_]+)\1")
 _CONTAINER = re.compile(r"(?:^|[\s;])container\s*=\s*(['\"])(.*?)\1")

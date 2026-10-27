@@ -109,7 +109,9 @@ def checks_for(
     return {c.rule_id: c for c in out}
 
 
-def check(records: Sequence[GenomeRecord], rule_id: str, config: GippaConfig | None = None) -> Check:
+def check(
+    records: Sequence[GenomeRecord], rule_id: str, config: GippaConfig | None = None
+) -> Check:
     return checks_for(records, config)[rule_id]
 
 

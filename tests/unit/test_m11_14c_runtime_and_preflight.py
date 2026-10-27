@@ -11,8 +11,8 @@ Interface pinned here:
 - ``gippa run`` (Nextflow executor) starts ``nextflow`` with an environment in which
   ``GIPPA_CONTAINER_RUNTIME`` equals 14f1's ``container_runtime(profile)``; when that is ``None``
   the variable is absent (an inherited value is dropped). With ``--db-dir D`` the child also has
-  ``GIPPA_DB_DIR=D`` (absolute), so the function step's ``image_cache(environ, GIPPA_DB_DIR)`` is the
-  directory preflight checked. ``os.environ`` of the caller is not modified.
+  ``GIPPA_DB_DIR=D`` (absolute), so the function step's ``image_cache(environ, GIPPA_DB_DIR)`` is
+  the directory preflight checked. ``os.environ`` of the caller is not modified.
 - ``gippa.preflight.environment.missing_tools(tools, profile, image_cache, env_root, local_tools)``
   (14f1 signature) for ``fgsea``: under ``docker``, present iff the prebuilt env is built or
   ``images.json`` has an ``fgsea`` entry; under plain ``apptainer``, present iff the env is built
@@ -351,7 +351,8 @@ def test_local_executor_does_not_honour_an_inherited_runtime(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``--executor local`` has no profile, so its runtime is ``None``: the function step must not
-    see a ``GIPPA_CONTAINER_RUNTIME`` left in the user's shell. The spec says only that ``gippa run``
+    see a ``GIPPA_CONTAINER_RUNTIME`` left in the user's shell. The spec says only that ``gippa
+    run``
     passes the runtime (item 1, step 3); this pins the reading that ``gippa run`` always sets or
     clears it, under either executor. The caller's value is back after the run."""
     import gippa.cli

@@ -55,7 +55,8 @@ follow them or say why not):
 
 - Test seams of the job: ``GIPPA_CALIBRATION_CPUSET`` (a Linux CPU list, e.g. ``0-3,8-11``)
   replaces the job's ``sched_getaffinity`` set, and ``GIPPA_CALIBRATION_SYSFS`` replaces
-  ``/sys/devices/system/cpu`` (``cpu<n>/topology/thread_siblings_list``). ``GIPPA_CALIBRATION_GRACE``
+  ``/sys/devices/system/cpu`` (``cpu<n>/topology/thread_siblings_list``).
+  ``GIPPA_CALIBRATION_GRACE``
   is the spec's grace in seconds. The job reads ``GIPPA_SUITE``, ``GIPPA_WORKTREE``,
   ``GIPPA_CALIBRATION_LOG_DIR`` and ``SLURM_JOB_ID``; there is no ``SLURM_ARRAY_*``.
 - A lane is pinned to ``cpus_per_lane / 2`` whole cores: its ``taskset`` list holds both siblings

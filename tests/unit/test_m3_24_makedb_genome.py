@@ -326,7 +326,8 @@ def test_the_cli_builds_the_db_a2_command_of_step_2(
 
 @pytest.mark.slow
 def test_the_committed_db_a2_comes_from_the_recorded_nissle_json(tmp_path: Path) -> None:
-    """Acceptance criterion: ``strain_db.faa.gz`` was produced by ``gippa makedb`` from that JSON."""
+    """Acceptance criterion: ``strain_db.faa.gz`` was produced by ``gippa makedb`` from that
+    JSON."""
     if not NISSLE_GENOME.is_file():
         pytest.skip(f"{NISSLE_GENOME} is not present (uncommitted, R11)")
     out = _build(RECORDED_NISSLE, tmp_path / "db_a2", genome=NISSLE_GENOME)

@@ -145,7 +145,8 @@ def test_digest_flags_match_gippa_digest(arm: str) -> None:
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_no_met_excision(arm: str) -> None:
-    """GIPPA digests the protein as written (digest.py decision 1), so DIA-NN must not excise Met."""
+    """GIPPA digests the protein as written (digest.py decision 1), so DIA-NN must not excise
+    Met."""
     cfg = read_cfg(CFG[arm])
     used = any("--met-excision" in names(section) for section in cfg.values())
     assert used == gippa_excises_initiator_met(), (

@@ -1,6 +1,7 @@
 """Python command builders vs. Nextflow ``script:`` blocks (M2-07 example 6; M2-index decision 2).
 
-Each ``gippa.annotate.<tool>_cmd`` builder and ``workflow/modules/local/<tool>/main.nf`` describe the
+Each ``gippa.annotate.<tool>_cmd`` builder and ``workflow/modules/local/<tool>/main.nf`` describe
+the
 same command (tool images do not contain GIPPA). Every flag the builder can emit must appear in the
 process script. Builders landing later (M2-12…M2-18) add their pair to ``BUILDERS`` in their own PR;
 ``test_every_cmd_builder_has_a_sync_pair`` makes that mandatory.

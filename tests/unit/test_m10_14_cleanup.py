@@ -299,7 +299,13 @@ def test_refuses_without_the_freeze_metrics(cs: CleanupSandbox) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["gippa-run-freeze-a1", "gippa-diann-A1", "gippa-entrapment", "gippa-pilot-compare", "gippa-bench"],
+    [
+        "gippa-run-freeze-a1",
+        "gippa-diann-A1",
+        "gippa-entrapment",
+        "gippa-pilot-compare",
+        "gippa-bench",
+    ],
 )
 def test_refuses_while_pilot_jobs_run(cs: CleanupSandbox, name: str) -> None:
     cs.set_jobs(

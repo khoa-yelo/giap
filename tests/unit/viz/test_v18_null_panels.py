@@ -496,7 +496,9 @@ def test_q_ties_break_on_p_then_region_id(tmp_path: Path, cfg: GippaConfig) -> N
     assert got == ["R13 / o_minus_e", *(f"R{i:02d} / o_minus_e" for i in range(11))]
 
 
-def test_constant_null_draws_one_bar_and_the_observed_line(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_constant_null_draws_one_bar_and_the_observed_line(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     out = make_out(tmp_path)
     _tables(out, regions_stats=[_rs("R01", 1.0, 1.0)])
     _support(out, "null_regions", NR_COLUMNS, _nr("R01", [1.5] * 40, 1.5))
@@ -742,7 +744,9 @@ def test_panels_a_and_b_unchanged_by_the_null_support(tmp_path: Path, cfg: Gippa
         ("null_regions", "null_determinants"),
     ],
 )
-def test_each_support_file_alone(tmp_path: Path, cfg: GippaConfig, present: tuple[str, ...]) -> None:
+def test_each_support_file_alone(
+    tmp_path: Path, cfg: GippaConfig, present: tuple[str, ...]
+) -> None:
     out = _full(tmp_path)
     for name in ("null_regions", "null_islands", "null_determinants"):
         if name not in present:

@@ -174,7 +174,9 @@ def test_golden_contract_strings(tmp_path: Path) -> None:
 def test_golden_contract_through_wrapper(tmp_path: Path) -> None:
     from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    engine = r_fgsea_engine(resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    engine = r_fgsea_engine(
+        resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path
+    )
     rows = engine(_golden_call())["main:golden"]
     want = _gz_rows(GOLDEN / "outputs" / "fgsea.tsv.gz")
     assert [r.term for r in rows] == [w["pathway"] for w in want]
@@ -228,7 +230,9 @@ def _ties_call(order: str, seed: int = 20261022):
 def test_ties_follow_input_order(tmp_path: Path) -> None:
     from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    engine = r_fgsea_engine(resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    engine = r_fgsea_engine(
+        resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path
+    )
     edges = {}
     for order in ("forward", "reversed"):
         call = _ties_call(order)

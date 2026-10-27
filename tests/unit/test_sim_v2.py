@@ -1,4 +1,5 @@
-"""gippasim v2: 100-kb genome with signals and precomputed layers (issue M2-05; GIPPA_SPEC.md §11.3).
+"""gippasim v2: 100-kb genome with signals and precomputed layers (issue M2-05; GIPPA_SPEC.md
+§11.3).
 
 Examples 1-10 and the edge cases of docs/specs/M2-05-simulator-v2.md, the round trip through
 M2-03's ``parse_bakta_json``, M2-02's ``load_precomputed`` and M1-05's ``read_gff3``,

@@ -197,7 +197,9 @@ def _tree(path: Path) -> dict[str, bytes]:
     return {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*") if p.is_file()}
 
 
-def test_gippa_report_without_support_writes_none(fake_registry: ModuleType, tmp_path: Path) -> None:
+def test_gippa_report_without_support_writes_none(
+    fake_registry: ModuleType, tmp_path: Path
+) -> None:
     register_fake("V07")
     out = run_out(tmp_path, islands=1)
     # run inputs lying next to OUT (and a genome in OUT) are never used to recompute (decision 2)

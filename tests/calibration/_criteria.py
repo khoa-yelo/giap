@@ -1287,7 +1287,8 @@ def _check_key(r: Mapping[str, Any]) -> list[Any]:
 
 def confirm_lanes() -> int | None:
     """``GIPPA_CALIBRATION_CONFIRM_LANES`` as L >= 1, or None when unset; ValueError for a
-    non-integer, L < 1, or L set without ``GIPPA_CALIBRATION_CONFIRM_JUNIT`` (no silent fallback)."""
+    non-integer, L < 1, or L set without ``GIPPA_CALIBRATION_CONFIRM_JUNIT`` (no silent
+    fallback)."""
     raw = os.environ.get(CONFIRM_LANES_ENV)
     if raw is None:
         return None

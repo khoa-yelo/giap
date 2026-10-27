@@ -1,4 +1,5 @@
-"""V2 ``abundance_landscape``: where along each replicon are proteins abundant? (M9-09; GIPPA_SPEC.md
+"""V2 ``abundance_landscape``: where along each replicon are proteins abundant? (M9-09;
+GIPPA_SPEC.md
 §10.2 V2, §7.3.5(d) islands, M5-01 ``gippa.stats.smooth.loess_detrend``; lead decisions 2026-10-22).
 
 V2 draws measured detected genes, a rug of undetected genes, a gene-level LOESS trend at the
@@ -477,7 +478,9 @@ def test_without_support_files_there_are_no_landmark_lines(
     assert not ({"oriC", "ter"} & set(_fig_texts(inst)))
 
 
-def test_one_panel_per_replicon_with_genes_in_fasta_order(tmp_path: Path, cfg1: GippaConfig) -> None:
+def test_one_panel_per_replicon_with_genes_in_fasta_order(
+    tmp_path: Path, cfg1: GippaConfig
+) -> None:
     reps = [
         CHR1,
         ("plasmid_1", 8_000, "circular", "plasmid"),

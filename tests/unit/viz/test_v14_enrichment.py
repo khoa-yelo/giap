@@ -545,7 +545,9 @@ def test_panel_b_no_error_bars(tmp_path: Path, cfg: GippaConfig) -> None:
     _no_error_bars(_one(_main(tmp_path, cfg), "b"))
 
 
-def test_panel_b_labels_ten_most_significant_non_redundant(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_panel_b_labels_ten_most_significant_non_redundant(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     rows = [ve.gsea_row("kegg", f"ko9{i:04d}", name=f"pathway number {i:02d}", nes=1.0 + i / 10,
                         q=0.001 * (i + 1)) for i in range(14)]  # fmt: skip
     rows[0]["redundant"] = True  # the most significant row is redundant: never labelled
@@ -953,7 +955,9 @@ def test_panel_c_o_over_e_descending_top_to_bottom(tmp_path: Path, cfg: GippaCon
     assert top_down == sorted(top_down, reverse=True), top_down
 
 
-def test_one_layer_missing_flag_is_the_generic_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_one_layer_missing_flag_is_the_generic_empty_state(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     from gippa.viz import checklist, enrichment
 
     inst = _render(ve.build_out(tmp_path, [], [], flags=["layer_missing:go"]), cfg)
@@ -1111,7 +1115,9 @@ def test_n5_no_note_at_30_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     assert "more in the TSV" not in _all_text(inst)
 
 
-def test_n6_tied_q_selection_is_independent_of_input_order(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_n6_tied_q_selection_is_independent_of_input_order(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     """Nothing significant, ties at the 20th q: broken on collection, term, direction."""
     tied = [ve.ora_row("cog", f"T{i:03d}", d, 6, 2, 0.2)
             for i in range(11) for d in ("over", "under")]  # fmt: skip

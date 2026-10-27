@@ -189,7 +189,8 @@ def test_script_runs_k12_with_uniop_disabled() -> None:
     code = _code()
     assert re.search(r"\bgippa\s+run\b", code)
     assert re.search(r"--set\s+\"?annotation\.uniop\.enabled=false\b", code), (
-        "weekly.sbatch has no `gippa run ... --set annotation.uniop.enabled=false` arm (M11-14 14s2)"
+        "weekly.sbatch has no `gippa run ... --set annotation.uniop.enabled=false` arm"
+        " (M11-14 14s2)"
     )
 
 

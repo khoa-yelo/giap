@@ -22,8 +22,8 @@ FORBIDDEN = ("a[1-3]*.tsv*", "*_abundance.tsv*", "*.convert.json", "*.convert.lo
 # M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
 NOT_CONVERTED = {
     "validation/pilot/a3_assets.tsv",
-    # M9-25 snapshot fixtures: gippasim output of `gippa compare` (tests/data/snapshot/PROVENANCE.md),
-    # no DIA-NN content; the name is the compare table's own
+    # M9-25 snapshot fixtures: gippasim output of `gippa compare`
+    # (tests/data/snapshot/PROVENANCE.md), no DIA-NN content; the name is the compare table's own
     "tests/data/snapshot/sim_empty/CMP/tables/compare_abundance.tsv",
     "tests/data/snapshot/sim_plots/CMP/tables/compare_abundance.tsv",
 }

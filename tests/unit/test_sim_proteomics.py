@@ -11,8 +11,8 @@ tests/helpers/peptide_oracle.py.
 Conventions these tests pin where the spec is silent:
 
 * ``ProteomicsConfig`` / ``ProteinSimConfig`` and ``digest(protein, digest_len=..,
-  missed_cleavages=..)`` live in ``gippasim.proteomics``; ``SimConfig.proteomics`` (default ``None``)
-  switches the module on and ``SimResult.truth["peptides"]`` is ``truth/peptides.tsv``.
+  missed_cleavages=..)`` live in ``gippasim.proteomics``; ``SimConfig.proteomics`` (default
+  ``None``) switches the module on and ``SimResult.truth["peptides"]`` is ``truth/peptides.tsv``.
 * Expressed proteins are the *true* proteins: non-pseudo CDS and sORFs translated from their true
   start (N-terminal extensions included) and the unannotated expressed ORFs of
   ``truth/novel_orfs.tsv`` (§11.3 "unannotated expressed ORFs"; truth ``locus_tag`` = ``orf_id``).

@@ -280,7 +280,9 @@ def test_example_1_counts_by_call_confidence_flag(tmp_path: Path, cfg: GippaConf
     }
 
 
-def test_example_1_stacked_segments_sum_to_each_flag_count(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_example_1_stacked_segments_sum_to_each_flag_count(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     from gippa.viz.variants import FLAG_COLOUR
 
     inst = _render(vv.build_out(tmp_path, _example1(), []), cfg)

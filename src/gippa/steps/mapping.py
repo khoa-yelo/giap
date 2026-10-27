@@ -328,7 +328,10 @@ def map_tolerant(ctx: StepContext) -> None:
 
 
 def _reference_exact(
-    path: Path, cfg: GippaConfig, index: SixFrameIndex, decoys: Mapping[DecoyType, tuple[Frame, ...]]
+    path: Path,
+    cfg: GippaConfig,
+    index: SixFrameIndex,
+    decoys: Mapping[DecoyType, tuple[Frame, ...]],
 ) -> pd.DataFrame:
     """Reference peptides (generic table) with ``target_exact`` (exact target hit, I = L)."""
     raw, _ = read_peptide_table(path)

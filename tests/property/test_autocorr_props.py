@@ -1,5 +1,5 @@
-"""Hypothesis properties of the autocorrelation engine (issue M5-02; GIPPA_SPEC.md §7.3.5(c), §7.3.6,
-§8.3; docs/specs/M5-02-stats-moran-joincount.md acceptance criteria, lead decision 7).
+"""Hypothesis properties of the autocorrelation engine (issue M5-02; GIPPA_SPEC.md §7.3.5(c),
+§7.3.6, §8.3; docs/specs/M5-02-stats-moran-joincount.md acceptance criteria, lead decision 7).
 
 - every TU-block permutation row is a permutation of 0 ... n - 1, keeps each block contiguous
   (cyclically) in its internal order (a wrapped block: end-part then start-part), and preserves

@@ -1,4 +1,5 @@
-"""Attack null 4 for the M4-18 plasmid rows (GIPPA_SPEC.md §8.5 attack 4 "High-copy plasmids → region
+"""Attack null 4 for the M4-18 plasmid rows (GIPPA_SPEC.md §8.5 attack 4 "High-copy plasmids →
+region
 tests, reported as replicon-level effects only"; docs/specs/M4-18-regions-stats-table.md acceptance
 "Attack null 4" and lead decisions 2 and 6).
 

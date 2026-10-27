@@ -81,7 +81,8 @@ def db_env(root: Path) -> Iterator[Path]:
 
 
 def run_gippa(sim: Any, out: Path, *extra: str, executor: str = "local") -> tuple[int, str]:
-    """``gippa run`` on the simulated genome, peptides, Bakta JSON and config (exit code, output)."""
+    """``gippa run`` on the simulated genome, peptides, Bakta JSON and config (exit code,
+    output)."""
     from click.testing import CliRunner
 
     from gippa.cli import cli

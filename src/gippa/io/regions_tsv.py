@@ -55,7 +55,8 @@ def _cell(col: str, v: object) -> object:
 
 
 def write_regions_stats(path: Path, df: pd.DataFrame) -> None:
-    """Write an assembled ``regions_stats`` frame (``gippa.context.regions_table.regions_stats``)."""
+    """Write an assembled ``regions_stats`` frame
+    (``gippa.context.regions_table.regions_stats``)."""
     cols = list(REGIONS_STATS_COLUMNS)
     rows = [[_cell(c, v) for c, v in zip(cols, r, strict=True)]
             for r in df[cols].itertuples(index=False, name=None)]  # fmt: skip

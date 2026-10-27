@@ -1,6 +1,7 @@
 """Hand-built, valid M4 input tables (M4-06 contract C1-C14) for the contract tests.
 
-Independent of ``gippasim`` (M4-07 is not merged yet) and of ``gippa.genetable.contract``: the frames
+Independent of ``gippasim`` (M4-07 is not merged yet) and of ``gippa.genetable.contract``: the
+frames
 below are written from the M4-06 spec table, so they check the validator rather than mirror it.
 
 Layout: one circular contig ``chr1``; gene ``i`` (0-based) is ``GSIM_<5(i+1):05d>`` at

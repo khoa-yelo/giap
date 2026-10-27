@@ -214,7 +214,9 @@ def test_property_placeholders_substituted(tmp_path: Path, version: str, sha: st
     data = render_ok(out, "--version", version, "--sha256", sha)
     assert str(data["package"]["version"]) == version
     assert data["source"]["sha256"] == sha
-    assert data["source"]["url"] == f"https://pypi.org/packages/source/g/gippa/gippa-{version}.tar.gz"
+    assert (
+        data["source"]["url"] == f"https://pypi.org/packages/source/g/gippa/gippa-{version}.tar.gz"
+    )
     text = (out / "gippa" / "meta.yaml").read_text()
     assert "{{ version" not in text and "{{ sha256" not in text
 

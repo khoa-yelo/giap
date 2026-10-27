@@ -1,4 +1,5 @@
-"""Statistics-only calibration of placement q-values (issue M3-10; GIPPA_SPEC.md §7.2.5, §8.4 "FDR").
+"""Statistics-only calibration of placement q-values (issue M3-10; GIPPA_SPEC.md §7.2.5, §8.4
+"FDR").
 
 Criterion: mean FDP over R replicates <= q + k SE(FDP) for q in ``levels``; R =
 ``replicates_fast.placement``, k = ``se_multiplier`` (tests/calibration/tolerances.yaml). Gated by

@@ -254,7 +254,8 @@ FETCH_OVERRIDE = {
 
 
 def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSandbox) -> None:
-    """§15.2 step 4 and deliverable 5: three wild-type runs under $GIPPA_DATA_DIR with SHA256SUMS."""
+    """§15.2 step 4 and deliverable 5: three wild-type runs under $GIPPA_DATA_DIR with
+    SHA256SUMS."""
     res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
     calls = pilot.fetch_calls()

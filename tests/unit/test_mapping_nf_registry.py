@@ -10,7 +10,8 @@ Nextflow needed), like tests/unit/test_nf_annotate_registry.py does for ANNOTATE
   and its out-spec keys equal the registry's outputs;
 * every statically resolvable ``stepIn`` input key (``kv('<key>', ...)`` literals, variables bound
   to them, and list variables of those) is a declared input of that step;
-* the ``gippa_mapping`` module (GIPPA_MAPPING / GIPPA_MAPPING_LOCI duplicates of GIPPA_STEP) is gone;
+* the ``gippa_mapping`` module (GIPPA_MAPPING / GIPPA_MAPPING_LOCI duplicates of GIPPA_STEP) is
+gone;
 * workflow/tests/data/mapping/step_registry.json (read by workflow/tests/mapping.nf.test, which
   checks every task's ``.gippa_inputs`` at run time) equals the live registry;
 * the §9.3 headers pinned in mapping.nf.test equal the Python column constants.

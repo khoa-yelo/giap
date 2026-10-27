@@ -1,4 +1,5 @@
-"""Peptide evidence for sequence-free layouts (issue M4-09; GIPPA_SPEC.md §11.3, §8.4, §8.7, §7.3.2).
+"""Peptide evidence for sequence-free layouts (issue M4-09; GIPPA_SPEC.md §11.3, §8.4, §8.7,
+§7.3.2).
 
 The evidence half of the M4-06 contract (C9, C10, C11-C13) drawn from the M4-08 expression truth as
 if preflight and mapping were perfect. True peptides: Trypsin/P, 7-30 aa, <= 1 missed cleavage,

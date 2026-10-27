@@ -172,7 +172,8 @@ def test_relative_scale_rows_na_with_reason(chain: Chain, tmp_path: Path,
     assert len(got) and set(got["family"]) == {so.FAMILY}
     assert set(got["jaccard"]) == {"NA"}
     assert any("relative" in r.getMessage() for r in caplog.records
-               if r.name.startswith("gippa.")), "no log record names the relative scale"  # fmt: skip
+               if r.name.startswith("gippa.")), (
+        "no log record names the relative scale")  # fmt: skip
 
 
 @pytest.mark.usefixtures("only_operons")

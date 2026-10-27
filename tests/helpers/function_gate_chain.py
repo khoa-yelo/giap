@@ -1,4 +1,5 @@
-"""gippasim function worlds -> GIPPA inputs for the M8-15 gate (docs/specs/M8-15-calibration-gate.md;
+"""gippasim function worlds -> GIPPA inputs for the M8-15 gate
+(docs/specs/M8-15-calibration-gate.md;
 M8-14 scenarios; GIPPA_SPEC.md §7.3, §7.7, §7.8, §8.4, §8.5 attacks 2 and 3).
 
 Test-side glue only: every statistic comes from GIPPA (``covariate_table``, ``fit_detectability``,

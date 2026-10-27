@@ -1,4 +1,5 @@
-"""Expression and detection truth for sequence-free layouts (issue M4-08; GIPPA_SPEC.md §11.3, §8.4).
+"""Expression and detection truth for sequence-free layouts (issue M4-08; GIPPA_SPEC.md §11.3,
+§8.4).
 
 TU level (log2): ``tu_log2 = mu + replicon copy + region effect + ori-ter gradient + island +
 AR(1)``, one value per TU; the AR(1) runs over the TUs of each replicon in ``TU_<n>`` order with a

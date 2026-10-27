@@ -420,7 +420,9 @@ def test_covariate_table_uses_config_enzyme_and_length() -> None:
     assert int(default.loc[0, "n_observable_peptides"]) == 3
     trypsin = run_table(genes, GippaConfig.model_validate({"abundance": {"enzyme": "trypsin"}}))
     assert int(trypsin.loc[0, "n_observable_peptides"]) == 2
-    narrow = run_table(genes, GippaConfig.model_validate({"abundance": {"observable_len": [9, 30]}}))
+    narrow = run_table(
+        genes, GippaConfig.model_validate({"abundance": {"observable_len": [9, 30]}})
+    )
     assert int(narrow.loc[0, "n_observable_peptides"]) == 2
 
 

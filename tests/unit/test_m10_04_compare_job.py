@@ -3,12 +3,13 @@
 
 The job runs in a sandbox checkout (``helpers.pilot_runs_m10_04.compare_job_sandbox``: fake Slurm
 tools, a logging ``gippa`` that must never be called, ``src/`` and ``validation/`` of this branch)
-on two tiny arms written by ``helpers.pilot_runs_m10_04.write_arm``, with the real ``gippa compare``.
+on two tiny arms written by ``helpers.pilot_runs_m10_04.write_arm``, with the real ``gippa
+compare``.
 
 Pinned by the test-author where the spec leaves it open: the evidence goes to
 ``$(dirname CMP)/evidence/compare.json`` (the spec's ``<R>/evidence/compare.json`` with
-``CMP = <R>/cmp_a1_a2``); when the first ``gippa compare`` exits non-zero, ``run_evidence.py`` is not
-run (its exit is the job's).
+``CMP = <R>/cmp_a1_a2``); when the first ``gippa compare`` exits non-zero, ``run_evidence.py`` is
+not run (its exit is the job's).
 """
 
 from __future__ import annotations
@@ -64,7 +65,9 @@ def test_two_compares_then_evidence_exit_0(job: CompareJobSandbox) -> None:
     doc = json.loads(_evidence(cmp).read_text())
     assert doc["failures"] == []
     assert job.repo_is_clean(), "the job wrote into the checkout"
-    assert not any(ln.startswith("gippa ") for ln in job.sb.calls_log()), "gippa runs via GIPPA_PYTHON"
+    assert not any(ln.startswith("gippa ") for ln in job.sb.calls_log()), (
+        "gippa runs via GIPPA_PYTHON"
+    )
 
 
 def test_gippa_python_runs_compare_twice_and_the_evidence(job: CompareJobSandbox) -> None:

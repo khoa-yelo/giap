@@ -1033,7 +1033,8 @@ def test_gate15_content_outside_the_sections_does_not_count(d: S.Dirs) -> None:
 def test_gate15_q_floor_caveat_fails(d: S.Dirs) -> None:
     page = (d.out / "report" / "report.html").read_text()
     page = page.replace(
-        "<h1>GIPPA report</h1>", '<h1>GIPPA report</h1>\n<p class="note">q_floor_above_alpha: ...</p>'
+        "<h1>GIPPA report</h1>",
+        '<h1>GIPPA report</h1>\n<p class="note">q_floor_above_alpha: ...</p>',
     )
     (d.out / "report" / "report.html").write_text(page)
     res = gate(15, d)

@@ -353,7 +353,11 @@ def final_metrics(
         "checklist": checklist_rows(statuses, a3_exit),
         "m4": {"spearman_rho": rho, "ci_low": 0.76, "ci_high": 0.88},
         "te_real": {"schema": "gippa-pilot-te-real/1", **{k: {"status": v} for k, v in te.items()}},
-        "te7": {"schema": "gippa-pilot-te7/1", "gippa": {"status": te7}, "diann": {"status": "pass"}},
+        "te7": {
+            "schema": "gippa-pilot-te7/1",
+            "gippa": {"status": te7},
+            "diann": {"status": "pass"},
+        },
     }
 
 

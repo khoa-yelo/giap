@@ -1,8 +1,8 @@
 """Steps ``transterm_input`` and ``terminator_layer`` (M2-15; M2-index step contract rows
 ``transterm_input`` and ``terminator_layer``; GIPPA_SPEC.md §6.2, §6.5, §7.1.5; Example 9).
 
-Run through ``gippa.steps.registry.run_step`` after ``parse_bakta`` on gippasim's SIM100K (the genome
-the recorded sim100k TerminatorNet/TransTermHP runs used; same contig names and lengths).
+Run through ``gippa.steps.registry.run_step`` after ``parse_bakta`` on gippasim's SIM100K (the
+genome the recorded sim100k TerminatorNet/TransTermHP runs used; same contig names and lengths).
 
 Conventions pinned here where the contract table is silent:
 

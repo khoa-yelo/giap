@@ -250,7 +250,9 @@ def test_package_patch_only_differs_gives_nothing() -> None:
     from gippa.compare.versions import compare_versions
 
     assert (
-        compare_versions({"A": manifest(gippa_version="1.0.2"), "B": manifest(gippa_version="1.0.7")})
+        compare_versions(
+            {"A": manifest(gippa_version="1.0.2"), "B": manifest(gippa_version="1.0.7")}
+        )
         == []
     )
 

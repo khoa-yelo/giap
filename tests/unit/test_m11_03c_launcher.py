@@ -5,8 +5,8 @@ Spec: docs/specs/M11-03c-calibration-full-sharding.md, "calibration_full_launch.
 examples 6-9. The launcher validates the **worktree's** plan (``calibration_lanes.py check``; exit
 2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(lanes x cpus_per_lane) + 1 >
 128``, refuses when ``now + max(time) + 20 min`` reaches the next nightly start, submits the 15
-``calibration_suite.sbatch`` jobs in plan order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes x
-cpus_per_lane, ``--mem`` = lanes x mem_per_lane_mb, ``--time``), then the aggregator
+``calibration_suite.sbatch`` jobs in plan order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes
+x cpus_per_lane, ``--mem`` = lanes x mem_per_lane_mb, ``--time``), then the aggregator
 (``afterany:<j0>:...:<j14>``, ``--job <j0>``, ``--expect 15``). A failed ``sbatch`` cancels exactly
 the jobs already submitted. Fixtures: ``test_m11_03b_launcher`` (fake sbatch IDs 4242, 4243, ...).
 """

@@ -11,7 +11,8 @@ the real formats. Stdlib only, except the two subcommands that run the merged GI
     record_tools_inputs.py uniop   BAKTA_JSON GENOME OUTDIR         # uniop_cds.gff, uniop_map.tsv
 
 ``promotech-windows`` and ``uniop`` run the pipeline's own steps with the default config through
-``gippa.steps.registry.run_step``, as ``gippa _step`` does in workflow/subworkflows/local/annotate.nf:
+``gippa.steps.registry.run_step``, as ``gippa _step`` does in
+workflow/subworkflows/local/annotate.nf:
 ``parse_bakta`` (BAKTA_JSON + the preflight GENOME -> OUTDIR/parse_bakta/), then
 ``promoter_windows`` (M2-13) or ``uniop_input`` (M2-12). They need ``gippa`` importable
 (PYTHONPATH=<checkout>/src).

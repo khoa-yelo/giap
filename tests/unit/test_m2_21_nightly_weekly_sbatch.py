@@ -1,5 +1,5 @@
-"""Static checks of ``scripts/slurm/nightly.sbatch`` and ``weekly.sbatch`` (M2-21; GIPPA_SPEC.md §12,
-§3.6, R14; docs/specs/M2-21-integration-nightly-runtimes.md and its lead decisions 3-5).
+"""Static checks of ``scripts/slurm/nightly.sbatch`` and ``weekly.sbatch`` (M2-21; GIPPA_SPEC.md
+§12, §3.6, R14; docs/specs/M2-21-integration-nightly-runtimes.md and its lead decisions 3-5).
 
 Nothing is submitted: the scripts are parsed (``bash -n``) and read as text.
 

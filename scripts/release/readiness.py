@@ -514,7 +514,9 @@ def h1(c: Ctx) -> Row:
 
 
 def h2(c: Ctx) -> Row:
-    init = re.search(r"(?m)^__version__\s*=\s*['\"]([^'\"]+)", c.text("src/gippa/__init__.py") or "")
+    init = re.search(
+        r"(?m)^__version__\s*=\s*['\"]([^'\"]+)", c.text("src/gippa/__init__.py") or ""
+    )
     cff = re.search(r"(?m)^version:\s*['\"]?([^'\"\s]+)", c.text("CITATION.cff") or "")
     got = {"gippa.__version__": init and init.group(1), "CITATION.cff": cff and cff.group(1)}
     bad = [f"{k} = {v}" for k, v in got.items() if v != c.version]

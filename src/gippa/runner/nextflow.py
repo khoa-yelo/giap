@@ -116,7 +116,8 @@ def launch_command(
     return [*cmd, "-resume"] if resume else cmd
 
 
-# ``GIPPA_STEP`` aliases whose name is not ``*_STEP`` nor the step (``REPORT:REPORT_HTML (report)``).
+# ``GIPPA_STEP`` aliases whose name is not ``*_STEP`` nor the step
+# (``REPORT:REPORT_HTML (report)``).
 _ALIAS_STEPS = {"report_html": "report"}
 
 
@@ -220,7 +221,8 @@ CACHE_ENV = "NXF_APPTAINER_CACHEDIR"
 def launch_env(
     environ: Mapping[str, str], runtime: str | None, db_dir: Path | None
 ) -> dict[str, str]:
-    """``environ`` for ``nextflow run``: ``GIPPA_CONTAINER_RUNTIME`` set to ``runtime`` (an inherited
+    """``environ`` for ``nextflow run``: ``GIPPA_CONTAINER_RUNTIME`` set to ``runtime`` (an
+    inherited
     value is dropped when ``runtime`` is ``None``) and ``GIPPA_DB_DIR`` to the absolute ``db_dir``
     when given, so the function step finds the fgsea image where preflight checked it (M11-14
     14c). With ``db_dir`` and no non-empty inherited ``NXF_APPTAINER_CACHEDIR``, that variable is

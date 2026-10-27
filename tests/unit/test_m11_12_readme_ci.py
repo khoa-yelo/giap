@@ -131,7 +131,9 @@ def test_docs_site_link() -> None:
 def test_install_section_has_pip_and_bioconda() -> None:
     _, sec = _section(r"^install")
     assert "pip install gippa" in sec
-    assert re.search(r"(conda|mamba|micromamba) install .*bioconda.*gippa|bioconda::gippa", sec), sec
+    assert re.search(r"(conda|mamba|micromamba) install .*bioconda.*gippa|bioconda::gippa", sec), (
+        sec
+    )
 
 
 def test_quickstart_is_four_lines_and_points_at_the_site() -> None:

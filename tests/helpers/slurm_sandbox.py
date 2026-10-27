@@ -195,7 +195,8 @@ _ENV_STUB = """# Sandbox stand-in for scripts/farmshare_env.sh (tests/helpers/sl
 : "${GIPPA_ROOT:?sandbox GIPPA_ROOT}"
 export GIPPA_REPO GIPPA_ROOT
 export UV_PROJECT_ENVIRONMENT="$GIPPA_ROOT/venv"
-export GIPPA_DB_DIR="$GIPPA_ROOT/db" GIPPA_DATA_DIR="$GIPPA_ROOT/data" GIPPA_LOG_DIR="$GIPPA_ROOT/logs"
+export GIPPA_DB_DIR="$GIPPA_ROOT/db" GIPPA_DATA_DIR="$GIPPA_ROOT/data"
+export GIPPA_LOG_DIR="$GIPPA_ROOT/logs"
 """
 
 

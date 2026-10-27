@@ -1,4 +1,5 @@
-"""``gippa run --genome G`` reaches ANNOTATE in stub mode (M2-07 follow-up, review item 1 of PR #65).
+"""``gippa run --genome G`` reaches ANNOTATE in stub mode (M2-07 follow-up, review item 1 of PR
+#65).
 
 ``gippa run`` is invoked through the CLI; a ``nextflow`` wrapper first on ``PATH`` forwards the
 runner's exact command line to the real Nextflow, swapping the profile for ``test,stub`` and adding

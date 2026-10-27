@@ -532,7 +532,8 @@ def test_committed_runbook_paths_exist() -> None:
 
 
 def test_committed_runbook_sbatch_calls() -> None:
-    """Criterion 1 (b): every sbatch call names an existing scripts/slurm/*.sbatch; -J is gippa-*."""
+    """Criterion 1 (b): every sbatch call names an existing scripts/slurm/*.sbatch; -J is
+    gippa-*."""
     text = _committed()
     calls = [
         ln

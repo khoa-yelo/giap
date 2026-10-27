@@ -1,4 +1,5 @@
-"""M5-10 acceptance "Integration": the ``sensitivity`` step with the ``islands`` family on a gippasim
+"""M5-10 acceptance "Integration": the ``sensitivity`` step with the ``islands`` family on a
+gippasim
 work directory (docs/specs/M5-10-sensitivity-islands.md examples 4-5, edge case 1, lead decision
 38; M4-19 lead decisions 2, 5, 12; GIPPA_SPEC.md §8.6, G9).
 

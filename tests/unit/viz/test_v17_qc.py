@@ -325,7 +325,9 @@ def test_no_preflight_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfi
 # --- structure, title, style ------------------------------------------------------------------
 
 
-def test_one_instance_double_width_with_six_labelled_cells(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_one_instance_double_width_with_six_labelled_cells(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -686,7 +688,9 @@ def test_property_missingness_and_measured_share(genes: list[tuple[bool, bool, b
 # --- degenerate: no genes_tsv -----------------------------------------------------------------
 
 
-def test_example6_no_genes_tsv_marks_d_and_e_not_available(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_example6_no_genes_tsv_marks_d_and_e_not_available(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_default_out(tmp_path, genes=None), cfg)
     assert set(inst.data["panel"]) == {"a", "b", "c"}
     for label in ("d", "e"):

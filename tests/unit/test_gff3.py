@@ -247,7 +247,9 @@ def test_writer_unknown_contig_raises(tmp_path) -> None:
 
 
 def test_writer_linear_overrun_raises(tmp_path) -> None:
-    f = GffFeature(Interval("chr", 1950, 2050, "+"), "gippa", "CDS", phase=0, attributes={"ID": "x"})
+    f = GffFeature(
+        Interval("chr", 1950, 2050, "+"), "gippa", "CDS", phase=0, attributes={"ID": "x"}
+    )
     with pytest.raises(ValueError):
         write_gff3(tmp_path / "a.gff3", [f], [L])
 

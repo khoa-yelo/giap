@@ -1,4 +1,5 @@
-"""The ``variants`` step (GIPPA_SPEC.md §6.2, §7.5, §9.1; docs/specs/M7-04-variants-step-and-run.md).
+"""The ``variants`` step (GIPPA_SPEC.md §6.2, §7.5, §9.1;
+docs/specs/M7-04-variants-step-and-run.md).
 
 Module 5 (core): ``peptide_hits.tsv`` of the LOCI directory ``mapping`` (read with the M3-16
 contract reader, so 0-based half-open) → M7-01 ``align_hits`` → M7-02 ``eligible``/``pileup``/

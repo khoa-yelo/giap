@@ -30,7 +30,8 @@ SEED = 7
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev.
+    12)."""
     monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 

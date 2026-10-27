@@ -174,7 +174,9 @@ def _parse_check(s: GenomeSummary, parse_error: str | None) -> Check:
     return _check("genome.parse", "ok", rule, len(s.ids))
 
 
-def genome_checks(s: GenomeSummary, cfg: GippaConfig, parse_error: str | None = None) -> list[Check]:
+def genome_checks(
+    s: GenomeSummary, cfg: GippaConfig, parse_error: str | None = None
+) -> list[Check]:
     """Evaluate every genome rule; only ``genome.parse`` when there are no records."""
     p = cfg.preflight
     out = [_parse_check(s, parse_error)]

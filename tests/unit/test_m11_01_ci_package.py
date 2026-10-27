@@ -96,7 +96,8 @@ def test_smoke_runs_outside_the_checkout() -> None:
     smoke = [
         st
         for st in job.get("steps", [])
-        if "gippa --version" in str(st.get("run", "")) or "workflow_main()" in str(st.get("run", ""))
+        if "gippa --version" in str(st.get("run", ""))
+        or "workflow_main()" in str(st.get("run", ""))
     ]
     assert smoke
     defaults = str(job.get("defaults", {}).get("run", {}).get("working-directory", ""))

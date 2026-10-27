@@ -65,7 +65,8 @@ def no_step_modules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    """``gippa run`` runs preflight: a test ``$GIPPA_DB_DIR``, never the real one (M3-17 rev.
+    12)."""
     from helpers.mapping_steps import write_test_db
 
     monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))

@@ -29,7 +29,8 @@ Interface assumed (test-author reading of the spec; deliverable 1):
     column). ``expect``: ``{"arm": "A1"|"A2", "job": str, "commit": str, "inputs": {role: sha}}``
     (the CLI's ``--arm``, ``--job``, ``--expect-commit`` and ``--expect-input role=sha``).
 ``compare_evidence(cmp, cmp2, labels, genes=PATH) -> dict``
-    ``cmp`` and ``cmp2``: the two ``gippa compare`` output directories; ``labels``: ``("A1", "A2")``;
+    ``cmp`` and ``cmp2``: the two ``gippa compare`` output directories; ``labels``: ``("A1",
+    "A2")``;
     ``genes``: ``out_a1/tables/genes.tsv`` (the CLI's required ``--genes``; lead decision on B4).
 
 Both return a JSON-serialisable dict with a ``failures`` list of the spec's exact rule strings.

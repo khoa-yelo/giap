@@ -24,7 +24,8 @@ estimates feed):
    Re-run on the M4-09 simulator once #80 is merged (backlog).
 
 Simulated data (the M4-09 evidence simulator is not merged; tests/helpers/abundance_oracle.py):
-gippasim layout (M4-07, 400 chromosome genes) and expression (M4-08 defaults); each ``detected_true``
+gippasim layout (M4-07, 400 chromosome genes) and expression (M4-08 defaults); each
+``detected_true``
 gene's observable tryptic peptides (0 missed cleavages, 7-30 aa) are quantified with probability
 0.6 and intensity ln I = abundance_log2_true * ln 2 + N(0, 0.5^2) (the M4-09 intensity model),
 as unique exact accepted peptides. ``n_observable_peptides`` is the oracle's digest count.

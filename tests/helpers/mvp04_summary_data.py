@@ -435,7 +435,8 @@ PLACEHOLDER = '<div class="plot" data-plot="V12">\n<p class="note">V12: plot fil
 def report_html(sections: Mapping[str, str]) -> str:
     body = "".join(section_html(s, sections.get(s, "")) for s in ALL_SECTIONS)
     return (
-        f'<!DOCTYPE html>\n<html lang="en">\n<body>\n<h1>GIPPA report</h1>\n{body}</body>\n</html>\n'
+        '<!DOCTYPE html>\n<html lang="en">\n<body>\n<h1>GIPPA report</h1>\n'
+        f"{body}</body>\n</html>\n"
     )
 
 

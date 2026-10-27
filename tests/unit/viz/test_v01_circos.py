@@ -677,7 +677,9 @@ def test_only_variants_absent_keeps_novel_orfs(tmp_path: Path, cfg: GippaConfig)
     assert (data["track"] == "novel_orf").sum() == 2
 
 
-def test_no_support_files_omit_gc_skew_and_landmarks_noted(tmp_path: Path, cfg: GippaConfig) -> None:
+def test_no_support_files_omit_gc_skew_and_landmarks_noted(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = render(full_run(tmp_path), cfg)
     data = tsv(inst, tmp_path)
     assert not data["track"].isin(["gc_skew", "oric", "ter"]).any()

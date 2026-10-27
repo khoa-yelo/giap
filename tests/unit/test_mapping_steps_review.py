@@ -12,7 +12,8 @@ Conventions pinned here where the decisions are silent:
   ``same`` / ``other`` keep it. "Recorded in the run metadata" = a mapping step logs a record on
   its ``gippa.steps.<name>`` logger naming ``search_db`` and the resolved value (the CLI's sink
   writes it to ``logs/<step>.log`` and ``events.jsonl``).
-* Item 7. ``gippa run --executor local`` (documented codes, §5.1 / §6.3 / §6.4): no evidence → exit 1
+* Item 7. ``gippa run --executor local`` (documented codes, §5.1 / §6.3 / §6.4): no evidence → exit
+1
   with the preflight message ``no evidence``; proteins only (miniprot cannot run locally) → exit 4
   naming ``miniprot`` (example 3); a GFF3 ``--annotation`` without
   ``annotation.precomputed.bakta_json`` → exit 1 naming ``bakta_json`` (§6.4 "a missing layer is an
@@ -596,7 +597,9 @@ def _no_module2(out: Path) -> bool:
 
 def test_item7_no_evidence_exits_1(sim50: Any, tmp_path: Path) -> None:
     out = tmp_path / "OUT"
-    r = _gippa_run(sim50, out, write_test_db(tmp_path / "db"), "--annotation", str(sim50.bakta_json))
+    r = _gippa_run(
+        sim50, out, write_test_db(tmp_path / "db"), "--annotation", str(sim50.bakta_json)
+    )
     assert r.exit_code == 1, r.output
     assert "no evidence" in r.output
     assert _no_module2(out)
