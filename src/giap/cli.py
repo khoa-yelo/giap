@@ -37,6 +37,8 @@ REPORT_MESSAGE = (
 _existing_file = click.Path(exists=True, dir_okay=False, path_type=Path)
 _existing_dir = click.Path(exists=True, file_okay=False, path_type=Path)
 _out_path = click.Path(path_type=Path)
+_PKG = __name__.split(".", 1)[0]
+_INSTALL_DOCS = "https://khoa-yelo.github.io/giap/get-started/install/"
 
 
 def _choice(literal: Any) -> click.Choice[str]:
@@ -183,12 +185,16 @@ def setup(
     # An explicit --uniop installs UniOP only (Q-K27): no database is planned.
     dbs = SetupOptions(db_dir, bakta="skip", genomad=False, promotech_models=False, check=check,
                        uniop=check) if uniop else SetupOptions(**opts)  # fmt: skip
-    code = run_setup(dbs, ToolRunner(db_dir=db_dir), fetcher)
+    # one cache for the pull, the downloaders that run in an image, preflight and Nextflow
     cache = cache_dir or image_cache(os.environ, db_dir)
-    if images is not None and runtime is not None and not check:
+    code = ExitCode.SUCCESS
+    if images is not None and runtime is not None and not check:  # before the downloaders
         tools = image_set(cfg, images == "all")
         if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
+    dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
+    if dbs_code != ExitCode.SUCCESS:
+        code = dbs_code
     needed = images is not None and not no_uniop and "uniop" in {
         t.name for t in required_tools(cfg)}  # fmt: skip
     if (uniop or needed) and not check:
@@ -217,6 +223,13 @@ def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> 
     return value
 
 
+def _check_optional_profile(
+    ctx: click.Context, param: click.Parameter, value: str | None
+) -> str | None:
+    """:func:`_check_profile` for an option that may be left out."""
+    return None if value is None else _check_profile(ctx, param, value)
+
+
 @cli.command()
 @click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
 @click.option("--proteins", type=_existing_file, help="Protein FASTA.")
@@ -225,6 +238,13 @@ def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> 
 @click.option("--annotation", type=_existing_file, help="bakta.json(.gz), GFF3 or GenBank.")
 @click.option("--outdir", type=_out_path, help="Output directory.")
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
+@click.option(
+    "--profile",
+    callback=_check_optional_profile,
+    default=None,
+    help="Also check the tools a run under these profiles needs, as 'giap run' does (DB "
+    "directory: $GIAP_DB_DIR). Comma-joined from: " + ", ".join(_PROFILES) + ".",
+)
 @shared_options
 def preflight(
     config_file: Path | None,
@@ -237,9 +257,10 @@ def preflight(
     annotation: Path | None,
     outdir: Path | None,
     strict: bool,
+    profile: str | None,
     **_: Any,
 ) -> None:
-    """Validate inputs only (seconds)."""
+    """Validate inputs only (seconds); with --profile also the installed tools."""
     from giap.preflight.report import render_preflight_md
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
@@ -248,7 +269,14 @@ def preflight(
         click.echo(f"giap preflight: --outdir {outdir} exists and is not a directory", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     inp = PreflightInputs(genome, proteins, peptides, abundance, annotation)
-    report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
+    if profile is None:
+        report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
+    else:  # the tool check of `giap run --profile` (same DB directory and $GIAP_ROOT)
+        env_db, root = os.environ.get("GIAP_DB_DIR"), os.environ.get("GIAP_ROOT")
+        report, norm = run_preflight(
+            inp, cfg, None, "preflight", outdir, Path(env_db) if env_db else None,
+            giap_root=Path(root) if root else None, profile=profile,
+        )  # fmt: skip
     if outdir is not None:
         write_outputs(outdir, report, norm)
     click.echo(render_preflight_md(report), nl=False)
@@ -394,7 +422,11 @@ def run(
     if lib is not None:
         inputs["contaminants"] = lib
     if shutil.which("nextflow") is None:
-        click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
+        click.echo(
+            f"giap run: nextflow not found on PATH; install Nextflow and Java ({_INSTALL_DOCS}), "
+            f"then pull the images with '{_PKG} setup --images --profile <profile>'",
+            err=True,
+        )
         sys.exit(ExitCode.ENVIRONMENT)
     base = _launch_sources(cfg, outdir, run_info, "nextflow", str(_["profile"]), bool(_["resume"]))
     try:
