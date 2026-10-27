@@ -1324,3 +1324,30 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - No unit test pins the strict `<` at `genome.ci_high == L_b_adj.ci_low` (equal reads `consistent`).
   - `tests/calibration/attacks/test_attack_h4_lower_bound.py` docstring still describes the one-bin rule (statistician-only docstring edit).
 - **#374/M11-14p review nits (one round):** update_digests follows only line-leading `includeConfig` (inline profile includes are not; the docstring should say so); with docker `-u`, `HOME=/` is not writable in the container and the tools' cache writes are untested (the probe runs `bakta --version` only); a `db_dir` with spaces or `:` breaks the bind argument (apptainer too); `docker_db.nf.test` without `GIAP_SMOKE_DB_DIR` leaves a temp dir per load; the actions warn about the Node 20 deprecation (as the existing job).
+
+## Genetic code 4 support (post-1.0)
+
+Khoa, 2026-10-27 (Q-K30): GIAP 1.0 supports genetic code 11 only; preflight refuses any other
+`annotation.translation_table` (#413) and warns when a default-11 genome looks like code 4
+(M11-14w, `genome.genetic_code`). Code 4 (Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma:
+TGA = Trp) is planned for a later release. Places that assume table 11 today:
+- Bakta: pass `--translation-table` (Bakta accepts 4, 11 and 25) from `annotation.translation_table`.
+- Six-frame index stop set: `src/giap/mapping/sixframe.py` (`translate11`, `STOP`, the
+  consumable-stop cells); the index format version must change with the table.
+- `src/giap/annotate/codon_usage.py` (raises for any table but 11; codon-bias is called with
+  `genetic_code=11`) and `src/giap/steps/codon.py`.
+- Novel candidates: `src/giap/novel/candidates.py` (`_stops(table)` is already table-aware; check
+  its callers and `outputs.py`, which hard-codes 11, see the M7 nits above).
+- `src/giap/mapping/loci.py`: `_PLUS_STOPS` is hard-coded to table 11; `_RECODED_FLAG` (TGA =
+  `sec_site`) means something else under code 4.
+- `src/giap/genetable/covariates.py` (reads the table; check every use).
+- Preflight: allow 4 in `_translation_table_check` (`src/giap/preflight/run.py`), and let the
+  M11-14w warning suggest `annotation.translation_table: 4`.
+- Possible post-annotation corroboration for the warning: the median CDS length, TGA-terminated
+  CDSs followed in frame by a same-strand CDS, and W enrichment among unmapped peptides.
+- Evidence (M. hyorhinis SK76, GCF_000313635.1, PR #411; docs/validation/datasets/README.md on
+  `validation/more-datasets`): at table 11 Bakta called 1,474 features against about 750 in
+  RefSeq (genes cut at TGA); the median protein was 90 aa against about 287 elsewhere; all 628
+  unmapped organism peptides contain W; 246 `strain_difference` and 354
+  `nterm_extension_evidence` flags were artefacts. The M11-14w long-ORF ratio is 0.227 for this
+  genome, against 0.82–0.88 for three code-11 genomes.
