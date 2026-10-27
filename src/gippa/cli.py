@@ -452,10 +452,12 @@ def _launch_sources(
     """Launch-time manifest sources; writes ``OUT/work/provenance.json`` (MVP-03 D-B step 3)."""
     from gippa.steps.manifest import launch_sources, write_provenance
 
-    argv = click.get_current_context().meta.get("gippa.argv", sys.argv)
+    meta = click.get_current_context().meta
+    argv = meta.get("gippa.argv", sys.argv)
     base = launch_sources(cfg, outdir.absolute(), info["given"], executor=executor,
                           profile=profile, resume=resume, publication=info["publication"],
-                          db_dir=info["db_dir"], command_line=argv)  # fmt: skip
+                          db_dir=info["db_dir"], command_line=argv,
+                          demo=bool(meta.get("gippa.demo")))  # fmt: skip
     write_provenance(outdir.absolute(), base)
     return base
 
@@ -772,6 +774,115 @@ def _record_step_events(logs_dir: Path) -> Callable[[], None]:
         steps_log.setLevel(prev_level)
 
     return restore
+
+
+# ---------------------------------------------------------------- demo
+
+_DEMO_MODULES = ("core", "mobile", "bgc")
+
+
+@cli.command()
+@click.option(
+    "--outdir", type=_out_path, default="gippa-demo", show_default=True,
+    help="Output directory; must not exist.",
+)  # fmt: skip
+@click.option(
+    "--full", is_flag=True, default=False,
+    help="After 'gippa setup': the same inputs through 'gippa run' with the real tools, the "
+    "databases and Nextflow (checks the whole install).",
+)  # fmt: skip
+@click.option(
+    "--open", "open", is_flag=True, default=False, help="Open the report in a web browser."
+)
+def demo(outdir: Path, full: bool, **kw: Any) -> None:
+    """Run the bundled synthetic SIM100K demo (no Nextflow, containers, databases or network)."""
+    import time
+
+    if os.path.lexists(outdir):
+        click.echo(f"gippa demo: {outdir} exists; use --outdir or remove it", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    try:
+        outdir.mkdir(parents=True)
+    except OSError as exc:
+        click.echo(f"gippa demo: cannot create {outdir} ({exc.strerror or exc}); choose a "
+                   "writable directory with --outdir", err=True)  # fmt: skip
+        sys.exit(ExitCode.INVALID_INPUT)
+    ctx = click.get_current_context()
+    ctx.meta["gippa.demo"] = True  # the manifest's ``demo: true`` and the report banner
+    start = time.monotonic()
+    code: int | str = 0
+    try:
+        (_demo_full if full else _demo_local)(ctx, outdir.absolute())
+    except SystemExit as exc:
+        code = exc.code if exc.code is not None else 0
+    if code != 0:
+        sys.exit(code)
+    report = (outdir / "report" / "report.html").resolve()
+    click.echo(f"gippa demo: done in {round(time.monotonic() - start)} s; report: {report}")
+    if kw["open"]:
+        import webbrowser
+
+        try:  # no browser (a headless host) is not an error: the path is printed above
+            webbrowser.open(report.as_uri())
+        except Exception as exc:
+            click.echo(f"gippa demo: could not open a browser ({exc})", err=True)
+
+
+def _demo_data() -> Path:
+    """The bundled demo directory ``gippa/data/demo`` (package data, on disk)."""
+    from importlib.resources import files
+
+    return Path(str(files("gippa.data") / "demo"))
+
+
+def _demo_local(ctx: click.Context, outdir: Path) -> None:
+    """``gippa run --executor local`` on the bundled inputs and layers (ADR-0066): the layers are
+    gunzipped into ``OUT/work/demo_layers``; no ``$GIPPA_DB_DIR``; numba caches under ``OUT``."""
+    import gzip
+
+    data, layers = _demo_data(), outdir / "work" / "demo_layers"
+    layers.mkdir(parents=True)
+    bakta = layers / "bakta.json"
+    bakta.write_bytes(gzip.decompress((data / "layers" / "bakta.json.gz").read_bytes()))
+    sets = []
+    for key in m.PrecomputedConfig.model_fields:
+        if key != "bakta_json":
+            path = layers / f"{key}.tsv"
+            path.write_bytes(gzip.decompress((data / "layers" / f"{key}.tsv.gz").read_bytes()))
+            sets.append(f"annotation.precomputed.{key}={json.dumps(str(path))}")
+    with _env_unset("GIPPA_DB_DIR"), _numba_cache(outdir / "work" / "numba_cache"):
+        ctx.invoke(run, genome=data / "sim100k.fna.gz", peptides=data / "sim100k_peptides.tsv.gz",
+                   annotation=bakta, modules=",".join(_DEMO_MODULES), outdir=outdir,
+                   executor="local", sets=tuple(sets))  # fmt: skip
+
+
+def _demo_full(ctx: click.Context, outdir: Path) -> None:
+    """``gippa run`` (Nextflow, the profile it resolves itself) on the bundled genome and
+    peptides with the real tools; adds ``function`` when its resources are installed."""
+    from gippa.setupdb.installed import FUNCTION_RESOURCES, resource
+
+    env_db = os.environ.get("GIPPA_DB_DIR")
+    db = Path(env_db) if env_db else None
+    modules = list(_DEMO_MODULES)
+    if db is not None and all(resource(db, n) is not None for n in FUNCTION_RESOURCES):
+        modules.append("function")
+    data = _demo_data()
+    ctx.invoke(run, genome=data / "sim100k.fna.gz", peptides=data / "sim100k_peptides.tsv.gz",
+               modules=",".join(modules), outdir=outdir)  # fmt: skip
+
+
+@contextmanager
+def _numba_cache(path: Path) -> Iterator[None]:
+    """``NUMBA_CACHE_DIR=path`` for the block unless the caller set it (numba's ``cache=True``
+    must not write into a read-only site-packages); removed again after it."""
+    if "NUMBA_CACHE_DIR" in os.environ:
+        yield
+        return
+    os.environ["NUMBA_CACHE_DIR"] = str(path)
+    try:
+        yield
+    finally:
+        os.environ.pop("NUMBA_CACHE_DIR", None)
 
 
 # ---------------------------------------------------------------- makedb

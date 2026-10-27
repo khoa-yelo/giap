@@ -36,6 +36,16 @@ Convert search-engine output to the generic peptide table.
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |
 | `--log-level` | `CHOICE` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | Logging verbosity. |
 
+## gippa demo
+
+Run the bundled synthetic SIM100K demo (no Nextflow, containers, databases or network).
+
+| Option | Type | Default | Choices | Help |
+|---|---|---|---|---|
+| `--outdir` | `PATH` | `gippa-demo` | — | Output directory; must not exist. |
+| `--full` | flag | — | — | After 'gippa setup': the same inputs through 'gippa run' with the real tools, the databases and Nextflow (checks the whole install). |
+| `--open` | flag | — | — | Open the report in a web browser. |
+
 ## gippa makedb
 
 Build an optional strain search database (no FDR is built on it).

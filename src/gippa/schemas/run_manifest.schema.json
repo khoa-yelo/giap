@@ -38,6 +38,7 @@
     "failed_step": {"$ref": "#/$defs/nstr"},
     "failed_log": {"$ref": "#/$defs/nstr"},
     "publication": {"type": "boolean"},
+    "demo": {"type": "boolean", "description": "true for a 'gippa demo' run (M11-15 item 2); absent otherwise."},
     "config": {"type": "object", "description": "The resolved configuration (config.schema.json)."},
     "inputs": {
       "type": "array",
