@@ -144,7 +144,7 @@ def test_quickstart_is_four_lines_and_points_at_the_site() -> None:
 
 
 def test_citing_section_points_at_citation_cff() -> None:
-    _, sec = _section(r"^citing giap")
+    _, sec = _section(r"^citing gippa")
     assert "CITATION.cff" in sec
     assert "(CITATION.cff)" in sec, "CITATION.cff should be a relative link"
 
@@ -164,4 +164,4 @@ def test_farmshare_development_moved_under_developers() -> None:
 
 def test_readme_keeps_its_first_paragraph() -> None:
     """M11-02: the CITATION.cff abstract is the README's first paragraph."""
-    assert "**GIAP** (genome-integrated analysis of proteomics data)" in README
+    assert "**GIPPA** (genome integrated prokaryotic proteomics analysis)" in README
