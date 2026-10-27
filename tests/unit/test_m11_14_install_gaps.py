@@ -573,9 +573,10 @@ def test_preflight_profile_in_help() -> None:
     assert "--profile" in res.output
 
 
-def test_preflight_without_profile_runs_no_tool_check(tmp_path: Path, pf_db: Path) -> None:
-    """Unchanged: an empty cache is not an error when no profile is given."""
-    code, text, out = _preflight_cli(tmp_path)
+def test_preflight_profile_none_runs_no_tool_check(tmp_path: Path, pf_db: Path) -> None:
+    """An empty cache is not an error under --profile none (inputs only; a bare preflight is
+    --profile auto since M11-15a)."""
+    code, text, out = _preflight_cli(tmp_path, "--profile", "none")
     assert all(c["level"] != "error" for c in _tools(out)), text
     assert code == 0, text
 

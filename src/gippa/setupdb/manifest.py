@@ -1,6 +1,7 @@
 """``DIR/db_manifest.json`` (GIPPA_SPEC.md §7.9.1) and the prefetch log it adopts provenance from.
 
-The manifest is ``{"schema_version": "1.0", "items": [DbRecord, ...]}`` sorted by name; writes
+The manifest is ``{"schema_version": "1.0", "items": [DbRecord, ...]}`` sorted by name (``1.1``
+with a top-level ``setup`` object once ``setup --images`` recorded its runtime); writes
 merge with the existing manifest by name and are atomic (temporary file, then ``os.replace``).
 """
 
@@ -19,13 +20,25 @@ from urllib.parse import urlparse
 from gippa.setupdb.items import DbRecord
 
 __all__ = ["MANIFEST", "PREFETCH_LOG", "SCHEMA_VERSION", "read_prefetch", "read_records",
-           "write_manifest"]  # fmt: skip
+           "record_runtime", "write_manifest"]  # fmt: skip
 
 MANIFEST = "db_manifest.json"
 PREFETCH_LOG = "prefetch_manifest.tsv"
 SCHEMA_VERSION = "1.0"
+SETUP_SCHEMA_VERSION = "1.1"  # a manifest with the top-level ``setup`` object (M11-15a)
 _FIELDS = {f.name for f in dataclasses.fields(DbRecord)}
 LOCAL_BUILD = "local_build"  # optional object of a locally built image (M11-14 item 1b)
+
+
+def _read_setup(db_dir: Path) -> dict[str, str] | None:
+    """The top-level ``setup`` object (``{"runtime": ...}``) of an existing manifest, if valid."""
+    try:
+        data = json.loads((db_dir / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    setup = data.get("setup") if isinstance(data, dict) else None
+    ok = isinstance(setup, dict) and all(isinstance(v, str) for v in setup.values())
+    return dict(setup) if ok and setup else None
 
 
 def _read_items(db_dir: Path) -> dict[str, tuple[DbRecord, dict[str, str] | None]]:
@@ -64,16 +77,21 @@ def write_manifest(
     db_dir: Path,
     records: Sequence[DbRecord],
     local_builds: Mapping[str, Mapping[str, str]] | None = None,
+    runtime: str | None = None,
 ) -> None:
     """Merge ``records`` into ``db_dir/db_manifest.json`` (same name: the new record wins).
-    ``local_builds`` gives a record its ``local_build`` object; a kept item keeps its own."""
+    ``local_builds`` gives a record its ``local_build`` object; a kept item keeps its own.
+    ``runtime`` sets ``setup.runtime`` (schema 1.1); else an existing ``setup`` is kept."""
     builds = local_builds or {}
     merged: dict[str, tuple[DbRecord, Mapping[str, str] | None]] = {
         **_read_items(db_dir), **{r.name: (r, builds.get(r.name)) for r in records}}  # fmt: skip
-    doc = {
-        "schema_version": SCHEMA_VERSION,
+    setup = {**(_read_setup(db_dir) or {}), **({"runtime": runtime} if runtime else {})}
+    doc: dict[str, object] = {
+        "schema_version": SETUP_SCHEMA_VERSION if setup else SCHEMA_VERSION,
         "items": [_item(*merged[n]) for n in sorted(merged)],
     }
+    if setup:
+        doc["setup"] = setup
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     fd, tmp = tempfile.mkstemp(prefix=f".{MANIFEST}.", suffix=".tmp", dir=db_dir)
     try:
@@ -87,6 +105,12 @@ def write_manifest(
         with contextlib.suppress(OSError):
             os.unlink(tmp)
         raise
+
+
+def record_runtime(db_dir: Path, runtime: str) -> None:
+    """Record ``setup.runtime`` (the images were pulled for it), keeping every item."""
+    db_dir.mkdir(parents=True, exist_ok=True)
+    write_manifest(db_dir, [], runtime=runtime)
 
 
 def read_prefetch(db_dir: Path) -> dict[str, tuple[str, str, str]]:

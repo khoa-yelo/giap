@@ -37,7 +37,7 @@ from gippa.config import GippaConfig
 
 WANT_VOLATILE = {
     "/command_line", "/executor", "/profile", "/resume", "/outdir", "/started_at",
-    "/finished_at", "/failed_log", "/steps", "/inputs/*/path",
+    "/finished_at", "/failed_log", "/steps", "/inputs/*/path", "/launch",
     "/config/annotation/precomputed/*",
 }  # fmt: skip
 CORE_KEYS = {"schema_version", "gippa_version", "git_commit", "git_dirty", "publication", "config",
