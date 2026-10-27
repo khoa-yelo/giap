@@ -95,9 +95,9 @@ The most frequent tokens across the repository:
   - `workflow/modules/local/giap_step/` (`main.nf`, `meta.yml`)
   - `workflow/tests/bin_giap/giap`
   - `workflow/tests/fake_giap.config`
-- Stay:
-  - `GIAP_SPEC.md`
-  - `docs/specs/M2-08-giap-setup-core.md` and `docs/specs/M2-09-giap-setup-resources.md` (historical)
+- Stay: `docs/adr/ADR-0064-rename-giap-to-gippa.md` (the rename record). Since Q-K32
+  (ADR-0064 amendment) `GIAP_SPEC.md` → `GIPPA_SPEC.md` and `docs/specs/M2-08-giap-setup-core.md`,
+  `docs/specs/M2-09-giap-setup-resources.md` move too.
 - In total, 357 tracked paths contain `giap`. 343 of them are in the two trees above.
 
 ## 4. Identifiers that users see
@@ -160,9 +160,9 @@ The most frequent tokens across the repository:
     item 5). Do not hand-edit the markers.
 11. **URLs.** `github.com/khoa-yelo/giap` redirects after the repo rename, but GitHub Pages does
     not. Rename the URLs in the same PR. Historical records keep the old URL.
-12. **Historical prose.** Leave docs/adr (153), docs/specs (2,805), the PROGRESS.md history and
-    docs/backlog.md history, validation reports and PROVENANCE text as written. Rename the
-    living docs.
+12. **Historical prose.** Superseded by Q-K32 (ADR-0064 amendment): every document is renamed,
+    including docs/adr, docs/specs, PROGRESS.md, docs/backlog.md and validation reports. Only
+    the rename record (ADR-0064, its index line, this page) and PROVENANCE text stay as written.
 13. **`scripts/release/readiness.py`.** NON_STATS_PATHS and NEVER_PATHS list `src/giap/...`, and
     `VERSION_FILE` is `src/giap/__init__.py`. The edit is mechanical but needs `stats` review
     (Q-L15), and the readiness unit tests (disjointness, examples 13c) follow.
@@ -207,12 +207,17 @@ The repository and publishing settings are Khoa's alone:
 
 ```
 rename_gippa.py [--apply | --check]
-  keep paths:  GIAP_SPEC.md, docs/adr/ADR-000[1-9]*…ADR-0063*, docs/specs/**, docs/backlog.md,
-               PROGRESS.md (history; the header block is renamed by hand), tests/data/recorded/**,
-               **/PROVENANCE.md, validation/pilot/{REPORT.md,metrics/**,db_a2/**}, validation/reports/**
-  keep tokens: GIAP_SPEC, the HASHSALT/svg.hashsalt "giap" literals
+  keep paths (data only since Q-K32): ADR-0064 and this page (the rename record),
+               tests/data/recorded/**, tests/data/uniop/**, **/PROVENANCE.md,
+               validation/pilot/{REPORT.md,metrics/**,db_a2/**,inputs/**,diann_A*.cfg},
+               the rename tooling, .github/** (Khoa)
+  keep tokens: the HASHSALT/svg.hashsalt "giap" literals, .giap-complete, .giap_setup.lock,
+               the checkout path, the ADR-0064 file name and index line
+  rewrite:     every document; GIAP_SPEC.md → GIPPA_SPEC.md; the old expansion →
+               "genome integrated prokaryotic proteomics analysis"
   skip:        binary files and *.gz
   map:         giap→gippa, GIAP→GIPPA, Giap→Gippa (substring, case-exact), then git mv paths
   regenerate:  config.schema.json, docs reference pages (gen_reference.py), uv.lock
   --check:     prints the remaining hits by keep category; exit 1 on any uncategorised hit
+               or any giap left in the docs outside the rename record and kept data tokens
 ```

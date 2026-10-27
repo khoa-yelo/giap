@@ -69,10 +69,9 @@ TREE: dict[str, bytes | str] = {
     "scripts/dev/record.sh": 'touch "$d/.giap-complete"\n',
 }
 KEPT = [
-    "GIAP_SPEC.md", "docs/adr/ADR-0005-x.md", "docs/specs/M1-01-giap-x.md", "PROGRESS.md",
     "tests/data/recorded/uniop/x/uniop_cds.gff", "tests/data/snapshot/PROVENANCE.md",
     "tests/data/proteins.faa", "tests/data/blob.gz", "tests/data/plot.png",
-    "validation/reports/run.md", ".github/workflows/ci.yml",
+    ".github/workflows/ci.yml",
 ]  # fmt: skip
 
 
@@ -120,7 +119,7 @@ def test_apply_respects_the_keep_list_and_moves_paths(rg: ModuleType, tmp_path: 
     assert 'PREFIX = "GIPPAORF_"' in ids and 'SEQ = "MKGIAPLL"' in ids  # identifier vs peptide
     assert 'TAB = "\\tgippa"' in ids and 'B = b"gippa"' in ids  # no word boundaries
     readme = snap["README.md"].decode()
-    assert readme.startswith("GIPPA: see GIAP_SPEC.md; run `gippa run`")
+    assert readme.startswith("GIPPA: see GIPPA_SPEC.md; run `gippa run`")
     assert "/home/classes/bios/270/khoa/giap." in readme  # the checkout does not move
     assert (
         snap["tests/data/hits.tsv"] == b"protein_id\tpeptide\nGIPPAORF_1\tGIAP\ngippa_2\tMKGIAPL\n"
@@ -168,7 +167,7 @@ def test_check_catches_leftovers(
     capsys.readouterr()
     assert rg.main(["--check", "--repo", str(repo)]) == 0
     out = capsys.readouterr().out
-    assert "GIAP_SPEC token" in out and "uncategorised: 0" in out
+    assert "checkout path (does not move)" in out and "uncategorised: 0" in out
     assert "REVIEW possible peptide (review): src/gippa/novel/ids.py:2: MKGIAPLL" in out
     (repo / "src/gippa/late.py").write_text("import giap\n")
     (repo / "scripts/giap_new.sh").write_text("echo\n")
@@ -266,3 +265,107 @@ def test_a_move_onto_an_existing_file_raises(rg: ModuleType, tmp_path: Path) -> 
     with pytest.raises(SystemExit, match="exists"):
         rg.move_paths(repo)  # the guard inside the loop too (no git mv -k, no endless loop)
     assert _snapshot(repo) == {"d/x_giap.txt": b"a\n", "d/x_gippa.txt": b"b\n"}
+
+
+# ---------------------------------------------------------------- Q-K32: every document rewritten
+
+ADR64 = "docs/adr/ADR-0064-rename-giap-to-gippa.md"
+README_430 = """\
+- the first release: PyPI and the hosted docs;
+- the final pilot report, and the code rename: until it lands, the package, the command and the
+  environment variables are `giap` (`giap run`, `GIAP_DB_DIR`);
+- genetic code 4 is planned after 1.0.
+"""
+DOCS_TREE: dict[str, bytes | str] = {
+    **TREE,
+    "README.md": "# GIAP\n\n**GIAP** (genome-integrated analysis of proteomics data) takes\n"
+    + README_430,
+    "GIAP_SPEC.md": "# GIAP spec\n\n**GIAP** is short for *genome-integrated analysis of\n"
+    "proteomics data*.\n",
+    "mkdocs.yml": "site_name: GIAP\nsite_description: Genome-integrated analysis of proteomics "
+    f"data for bacterial genomes\nnav:\n  - adr/{ADR64.split('/')[-1]}\n",
+    "docs/adr/ADR-0012-x.md": "GIAP decided; see GIAP_SPEC.md §6\n",
+    ADR64: "# ADR-0064: Rename GIAP to GIPPA\n`giap` becomes `gippa`\n",
+    "docs/adr/index.md": "- [ADR-0012: GIAP x](ADR-0012-x.md): accepted\n"
+    f"- [ADR-0064: Rename GIAP to GIPPA]({ADR64.split('/')[-1]}): accepted-by-khoa\n",
+    "docs/specs/M2-08-giap-setup-core.md": "`giap setup` (GIAP_SPEC.md §7)\n",
+    "docs/backlog.md": "# GIAP backlog\n",
+    "docs/validation/run.md": "giap run on FarmShare\n",
+    "docs/marker.md": "touch `.giap-complete`; lock `.giap_setup.lock`\n",
+}
+
+
+def test_documents_are_rewritten_and_the_spec_moves(rg: ModuleType, tmp_path: Path) -> None:
+    repo = _repo(tmp_path, DOCS_TREE)
+    rg.main(["--apply", "--repo", str(repo)])
+    snap = _snapshot(repo)
+    assert "GIAP_SPEC.md" not in snap
+    assert snap["GIPPA_SPEC.md"].decode().startswith("# GIPPA spec\n\n**GIPPA** is short for")
+    assert snap["docs/adr/ADR-0012-x.md"] == b"GIPPA decided; see GIPPA_SPEC.md \xc2\xa76\n"
+    spec = snap["docs/specs/M2-08-gippa-setup-core.md"]
+    assert spec == b"`gippa setup` (GIPPA_SPEC.md \xc2\xa77)\n"
+    assert snap["docs/backlog.md"] == b"# GIPPA backlog\n"
+    assert snap["PROGRESS.md"] == b"# GIPPA progress\n"
+    assert snap["validation/reports/run.md"] == b"the GIPPA run\n"
+    assert snap["docs/validation/run.md"] == b"gippa run on FarmShare\n"
+    assert snap[ADR64].decode() == DOCS_TREE[ADR64]  # the rename record keeps the old name
+    index = snap["docs/adr/index.md"].decode()
+    assert index.startswith("- [ADR-0012: GIPPA x](ADR-0012-x.md)")
+    assert f"- [ADR-0064: Rename GIAP to GIPPA]({ADR64.split('/')[-1]})" in index
+    assert f"  - adr/{ADR64.split('/')[-1]}\n" in snap["mkdocs.yml"].decode()  # link still valid
+
+
+def test_the_expansion_is_replaced_in_every_variant(rg: ModuleType, tmp_path: Path) -> None:
+    repo = _repo(tmp_path, DOCS_TREE)
+    rg.main(["--apply", "--repo", str(repo)])
+    new = "genome integrated prokaryotic proteomics analysis"
+    readme = (repo / "README.md").read_text()
+    assert f"**GIPPA** ({new}) takes" in readme
+    spec = (repo / "GIPPA_SPEC.md").read_text()
+    assert f"short for *{new}*." in spec  # wrapped over two lines before
+    mk = (repo / "mkdocs.yml").read_text()
+    assert f"site_description: {new.capitalize()}\n" in mk  # capitalised; "for bacterial..." gone
+    assert rg.transform("x/meta.yml", "Genome-integrated annotation of proteomics (this)") == (
+        f"{new.capitalize()} (this)"
+    )
+    with pytest.raises(rg.TransitionError, match="old expansion"):
+        rg.transform("docs/x.md", "genome-integrated analytics of proteomics data\n")
+
+
+def test_readme_drops_the_rename_clause(rg: ModuleType, tmp_path: Path) -> None:
+    repo = _repo(tmp_path, DOCS_TREE)
+    rg.main(["--apply", "--repo", str(repo)])
+    readme = (repo / "README.md").read_text()
+    assert "- the final pilot report;\n- genetic code 4" in readme
+    assert "until it lands" not in readme and "code rename" not in readme
+    rg.main(["--apply", "--repo", str(repo)])
+    assert (repo / "README.md").read_text() == readme
+    with pytest.raises(rg.TransitionError, match="README rename clause"):
+        rg.transform("README.md", "- the code rename: until it lands, `giap` is the name\n")
+
+
+def test_check_flags_giap_left_in_docs_but_not_kept_data_tokens(
+    rg: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path, DOCS_TREE)
+    rg.main(["--apply", "--repo", str(repo)])
+    capsys.readouterr()
+    assert rg.main(["--check", "--repo", str(repo)]) == 0
+    out = capsys.readouterr().out
+    assert "docs leftovers: 0" in out and f"kept in docs (rename-record): {ADR64}" in out
+    assert (repo / "docs/marker.md").read_text() == DOCS_TREE["docs/marker.md"]
+    # a peptide-like span the content map keeps is still a docs leftover
+    (repo / "docs/late.md").write_text("ok `.giap-complete`\nthe MKGIAPLL story\n")
+    _git(repo, "add", "-A")
+    assert rg.main(["--check", "--repo", str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert "LEFTOVER doc docs/late.md:2: the MKGIAPLL story" in out
+    assert "docs/late.md:1" not in out and "docs leftovers: 1" in out
+
+
+def test_the_old_to_new_arrow_does_not_read_gippa_to_gippa(rg: ModuleType) -> None:
+    text = "after the GIAP → GIPPA rename PR; rename GIAP → GIPPA (repo)\n"
+    out = rg.transform("docs/release.md", text)
+    assert out == "after the GIPPA rename PR; rename to GIPPA (repo)\n"
+    with pytest.raises(rg.TransitionError, match="GIPPA → GIPPA"):
+        rg.transform("docs/x.md", "GIAP->GIPPA\n")
