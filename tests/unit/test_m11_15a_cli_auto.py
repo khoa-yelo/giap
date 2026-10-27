@@ -137,6 +137,38 @@ def no_probe(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     return calls
 
 
+CONDA_ONLY_GAP = "conda-only tool under a container profile without conda"
+
+
+@pytest.fixture
+def conda_only_waived(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Drop only the "conda-only tool under a container profile without conda" reasons of the
+    preflight tool check; returns the waived tool names.
+
+    The ``slurm,apptainer`` tests are about the profile being accepted and reaching Nextflow,
+    not about the tool matrix: plain ``apptainer`` has no conda, so the conda-only tools
+    (ostir, promotech, ...) fail on any fake root. Every other reason (images, envs) still
+    counts."""
+    from gippa.preflight import run as pf_run
+
+    real = pf_run.missing_tool_reasons
+    waived: list[str] = []
+
+    def wrapped(*a: Any, **k: Any) -> dict[str, str]:
+        reasons = real(*a, **k)
+        waived.extend(n for n, why in reasons.items() if CONDA_ONLY_GAP in why)
+        return {n: why for n, why in reasons.items() if CONDA_ONLY_GAP not in why}
+
+    monkeypatch.setattr(pf_run, "missing_tool_reasons", wrapped)
+    return waived
+
+
+def _accepted(text: str) -> None:
+    """No click usage error and no profile-combination error for ``--profile``."""
+    assert "Usage:" not in text and "Invalid value" not in text, text
+    assert "unknown profile" not in text.lower(), text
+
+
 def _invoke(*argv: str) -> tuple[int, str]:
     from gippa.cli import cli
 
@@ -173,7 +205,7 @@ def _line(cmd: str, profile: str, reason: str) -> re.Pattern[str]:
 
 
 def test_fixture_pins_probe_xdg_and_db_dir(tmp_path: Path) -> None:
-    from conftest import PINNED_PROBE
+    from helpers.probe_pin import PINNED_PROBE
 
     mod = _mod()
     assert getattr(mod.probe_host, "gippa_pinned", False)
@@ -256,12 +288,15 @@ def test_run_explicit_auto_is_the_default(
     assert _nf_profile(env) == "farmshare,apptainer"
 
 
-def test_run_auto_slurm_login_node(env: dict[str, Path], set_probe: Any, tmp_path: Path) -> None:
+def test_run_auto_slurm_login_node(
+    env: dict[str, Path], set_probe: Any, conda_only_waived: list[str], tmp_path: Path
+) -> None:
     """Example 1.13 through the CLI: ``slurm,apptainer`` on the command line and hint (b)."""
     set_probe("sbatch", "apptainer")
     code, text = _run(env, tmp_path / "OUT")
     assert _line("run", "slurm,apptainer", "sbatch on PATH").search(text), text
     assert HINT_B in text
+    _accepted(text)
     assert code == ExitCode.SUCCESS, text
     assert _nf_profile(env) == "slurm,apptainer"
 
@@ -303,9 +338,10 @@ def test_run_flag_docker_skips_detection(
 
 
 def test_run_accepts_slurm_profile(
-    env: dict[str, Path], no_probe: list[Any], tmp_path: Path
+    env: dict[str, Path], no_probe: list[Any], conda_only_waived: list[str], tmp_path: Path
 ) -> None:
     code, text = _run(env, tmp_path / "OUT", "--profile", "slurm,apptainer")
+    _accepted(text)
     assert code == ExitCode.SUCCESS, text
     assert _nf_profile(env) == "slurm,apptainer"
 

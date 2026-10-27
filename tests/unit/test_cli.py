@@ -114,7 +114,8 @@ def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Pat
     from gippa.cli import cli
     from gippa.exitcodes import ExitCode
 
-    result = runner.invoke(cli, ["preflight", "--genome", str(genome), "--proteins", str(proteins)])
+    argv = ["preflight", "--profile", "none", "--genome", str(genome), "--proteins", str(proteins)]
+    result = runner.invoke(cli, argv)
     # a 200 bp genome only warns (total length, contiguity); warnings exit 0 without --strict
     assert result.exit_code == ExitCode.SUCCESS, result.output
     assert "not implemented" not in result.output.lower()
@@ -135,7 +136,7 @@ def test_valid_set_is_accepted_repeatedly(runner: CliRunner, genome: Path, prote
     from gippa.cli import cli
     from gippa.exitcodes import ExitCode
 
-    args = ["preflight", "--genome", str(genome), "--proteins", str(proteins)]
+    args = ["preflight", "--profile", "none", "--genome", str(genome), "--proteins", str(proteins)]
     result = runner.invoke(cli, [*args, "--set", "seed=1", "--set", "stats.permutations=5"])
     # config resolves; preflight (M1-12) then succeeds with warnings only
     assert result.exit_code == ExitCode.SUCCESS, result.output

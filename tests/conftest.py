@@ -207,14 +207,7 @@ _REAL_DB_MARKERS = frozenset({
 })  # fmt: skip
 _REAL_DB_DIRS = ("contract", "e2e")
 # The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
-# `farmshare,apptainer`, today's default, and tests written before 15a keep passing unchanged.
-PINNED_PROBE: dict[str, object] = {
-    "on_path": frozenset({"sbatch", "apptainer"}),
-    "docker_ok": False,
-    "slurm_job_id": None,
-    "cluster_name": "farmshare",
-    "setup_runtime": None,
-}
+# `farmshare,apptainer`, today's default. Defined in tests/helpers/probe_pin.py.
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -254,6 +247,8 @@ def _pinned_host_probe(
     except ImportError:  # before M11-15a: nothing to pin
         return
     if hasattr(profiles, "Probe"):
+        from helpers.probe_pin import PINNED_PROBE
+
         pinned = profiles.Probe(**PINNED_PROBE)
 
         def probe_host(*_a: object, **_k: object) -> object:
