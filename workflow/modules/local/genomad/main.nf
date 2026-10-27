@@ -19,7 +19,7 @@ process GENOMAD {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        genomad: \$(genomad --version 2>&1 | sed 's/.* //')
+        genomad: \$(genomad --version 2>/dev/null | sed 's/.* //')
     END_VERSIONS
     """
 

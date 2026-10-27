@@ -24,7 +24,7 @@ process TBLASTN {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        tblastn: \$(tblastn -version 2>&1 | head -n 1 | sed 's/^tblastn: //')
+        tblastn: \$(tblastn -version 2>/dev/null | head -n 1 | sed 's/^tblastn: //')
     END_VERSIONS
     """
 
