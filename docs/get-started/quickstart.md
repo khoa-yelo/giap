@@ -7,10 +7,11 @@ search engine. You need an installation ([Install](install.md)) and the database
 ([Set up the databases](setup-databases.md)).
 
 !!! warning "Where this runs"
-    `giap run` passes preflight only when the tool environments and images are in place under
-    `$GIAP_ROOT` (see [Install › What `giap run` needs](install.md#what-giap-run-needs-before-preflight-passes)).
-    In 1.0 this is supported on FarmShare from a repository checkout. Steps 1 and 2 work anywhere
-    the Python package is installed.
+    `giap run` passes preflight only when every tool image or environment is in place (see
+    [Install › What `giap run` needs](install.md#what-giap-run-needs-before-preflight-passes)).
+    Until the first image publish, that is FarmShare from a repository checkout
+    ([Install › Tested platforms](install.md#tested-platforms)). Steps 1 and 2 work anywhere the
+    Python package is installed.
 
 !!! note "The demo inputs are synthetic"
     `docs/tutorials/data/sim100k_peptides.tsv.gz` (68 KB, 1,685 rows of one run, `run1`) is a
