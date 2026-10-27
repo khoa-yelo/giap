@@ -7,13 +7,15 @@ Where GIAP is tested and which execution profiles are supported. Each cell is on
 - **smoke-tested**: a reduced run on that platform (a few real tools, not the whole pipeline);
 - **untested**: expected to work in principle, but nothing in GIAP's test suites runs it.
 
+<!-- --8<-- [start:platforms] -->
 | Platform | Python package (`giap preflight`, `convert`, `report`, `compare`) | Full pipeline |
 |---|---|---|
 | Linux x86-64 + Apptainer (FarmShare) | tested (`test`, `package` on ubuntu; `nightly`) | tested (`-profile farmshare_local,apptainer`; `nightly`, `weekly`) |
 | Linux x86-64 + conda | tested (`test`, `test-compat` on ubuntu) | tested for the conda-only tools only (prebuilt micromamba envs; `nightly`) |
-| Linux x86-64 + Docker | tested (`test`, `package` on ubuntu) | smoke-tested (`docker-smoke`: MINIPROT and TBLASTN under `-profile test,docker`) |
+| Linux x86-64 + Docker | tested (`test`, `package` on ubuntu) | smoke-tested (`docker-smoke`: MINIPROT and TBLASTN under `-profile test,docker`; `params.db_dir` readable in the BAKTA container) |
 | macOS (arm64 / x86-64) | tested (`test-compat`, macOS, Python 3.12) | untested; Docker Desktop runs the amd64 images under emulation |
 | Windows | untested; use WSL2 and follow the Linux rows | untested |
+<!-- --8<-- [end:platforms] -->
 
 ## What the cells mean
 
@@ -37,9 +39,12 @@ Where GIAP is tested and which execution profiles are supported. Each cell is on
   `-profile docker`.
 - The **conda-only tools** have no published image yet: UniOP, Promotech, Promoter Calculator,
   TerminatorNet, BacTermFinder and OSTIR keep their per-process conda environments
-  (`workflow/envs/`), and fgsea (R, the function step) is conda-only under every profile. With
-  Docker, combine the profiles (`docker,conda`) so these tools can run; that combination is
-  untested.
+  (`workflow/envs/`). Their images are built from `workflow/containers/<tool>/` and pinned by a
+  release once published (UniOP never: `giap setup --images` builds it locally, see
+  [Install › UniOP](../get-started/install.md#uniop)). Under `-profile docker` or plain
+  `-profile apptainer` such a tool counts as missing, because it would run on the host without its
+  environment. fgsea (R, the function step) runs from its prebuilt environment, else from its
+  `workflow/conf/images.json` image once one is pinned.
 - **DIA-NN** is not shipped with GIAP: you run it yourself and pass its report to
   `giap convert --from diann`.
 
