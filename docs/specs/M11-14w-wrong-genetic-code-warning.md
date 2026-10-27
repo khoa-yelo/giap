@@ -3,8 +3,8 @@
 Milestone M11 · pass 2 · depends on: #413 (preflight refuses `annotation.translation_table != 11`),
 M1 preflight (`giap.preflight`, ADR-0005 item 3), MVP-03 (manifest `warnings`), M9-16 (report
 summary section) · estimate ≈ 120 code lines + ≈ 220 test lines, one PR · **`stats`**: the
-statistician reviews the rule and the 0.5 threshold (a classification cut-off with a
-false-warning rate) · roles: implementer (`src/giap/preflight/`, `src/giap/report/`), test-author
+statistician reviewed the rule and set the 0.55 threshold (#419 review; a classification
+cut-off with a false-warning rate) · roles: implementer (`src/giap/preflight/`, `src/giap/report/`), test-author
 (`tests/unit/test_m11_14w_*.py`) · decision: Khoa, 2026-10-27, Q-K30.
 
 ## Spec sections implemented
@@ -52,22 +52,25 @@ Definitions, for every genome record, both strands and all three frames per stra
 |---|---|---|
 | `annotation.translation_table != 11` | `info` | `not evaluated: annotation.translation_table is not 11` (`config.translation_table` already errors) |
 | no records, or `n4 < 20` | `info` | `not evaluated: fewer than 20 open reading frames of at least 300 codons` |
-| `2 * bp11 < bp4` (exact integer comparison) | `warn` | the wording below |
+| `20 * bp11 < 11 * bp4` (ratio < 0.55, exact integer comparison) | `warn` | the wording below |
 | otherwise | `ok` | `""` |
 
-`value` (JSON) = `{"min_codons": 300, "bp_tga_stop": bp11, "bp_tga_sense": bp4, "n_orfs_tga_sense": n4, "ratio": ratio | null, "threshold": 0.5}`.
-`ratio` is `null` when `bp4 == 0`. Floats are rounded by the existing `_jsonable` writer. The
+`value` (JSON) = `{"min_codons": 300, "bp_tga_stop": bp11, "bp_tga_sense": bp4, "n_orfs_tga_sense": n4, "ratio": ratio | null, "threshold": 0.55}`.
+`ratio` is `null` when `bp4 == 0`. Every `S11` run lies inside an `S4` run, so `bp11 <= bp4` and
+`ratio` is in [0, 1]. When the rule is evaluated (`n4 >= 20`), `bp4 >= 20 * 900 > 0`, so `ratio` is
+never `null` in an `ok` or `warn` check. Floats are rounded by the existing `_jsonable` writer. The
 decision always uses the exact integer comparison, never the rounded float.
 
 `rule` column text: `long ORFs (>= 300 codons, six frames): bp with TGA as stop / bp with TGA as
-sense < 0.5 -> warn (needs >= 20 such ORFs)`.
+sense < 0.55 -> warn (needs >= 20 such ORFs)`.
 
 **Warning wording** (`message`; `{q11}` = bp11/genome bp and `{q4}` = bp4/genome bp, as whole
-percentages; `{ratio}` to 2 decimals):
+percentages; `{ratio}` = `(100 * bp11) // bp4` shown as `0.NN`, truncated and not rounded, so a
+warning never prints `0.55 < 0.55`):
 
 > This genome probably uses genetic code 4 (TGA = Trp; Mycoplasma, Spiroplasma, Mesoplasma,
 > Ureaplasma) or another code in which TGA is not a stop. Long open reading frames cover {q4} % of
-> the genome when TGA is read as a codon but only {q11} % when it is a stop (ratio {ratio} < 0.50).
+> the genome when TGA is read as a codon but only {q11} % when it is a stop (ratio {ratio} < 0.55).
 > GIAP 1.0 supports genetic code 11 only: genes will be cut at TGA, proteins and peptides that
 > contain W will not map, and strain_difference and nterm_extension_evidence flags will be
 > artefacts. This warning does not change any result.
@@ -84,20 +87,49 @@ percentages; `{ratio}` to 2 decimals):
 | synthetic code 4 (GC 0.40, 0.5 % TGA-Trp; M. pneumoniae-like) | 0.40 | 0.315 | 0.975 | 0.323 | 302 |
 | synthetic code 11 (GC 0.28 / 0.50 / 0.70) | | | | 0.997 / 0.997 / 0.991 | 300–556 |
 
+Extended evidence (statistician, #419 review, 2026-10-27): 61 official NCBI assemblies (60 RefSeq
+and the GenBank E. coli K-12 copy above; md5 checked against `md5checksums.txt`; accessions, md5s and the full table are in the #419
+review comment). Code as annotated by RefSeq (`transl_table` in the GBFF) or as known for the
+lineage.
+
+| Class (assemblies) | ratio range | nearest the cut |
+|---|---|---|
+| code 4 (21: Mycoplasma, Mycoplasmoides, Mycoplasmopsis, Mesoplasma, Spiroplasma, Ureaplasma, Hodgkinia MAG, Nasuia; 4 drafts of 6–165 contigs) | 0.201–0.470 | Nasuia 0.470 (GC 0.16, 113 kb), M. pneumoniae draft 0.384, M. genitalium 0.370, M. pneumoniae M129 0.358 |
+| code 25 (1: Ca. Absconditicoccus praedator) | 0.006 | |
+| code 11, low GC ≤ 0.35 (12, incl. Carsonella GC 0.17, Sulcia, Buchnera, Phytoplasma, Acholeplasma, Borrelia with 22 replicons) | 0.959–0.999 | M. jannaschii 0.959 |
+| code 11, GC 0.35–0.60 (8, incl. pseudogene-rich Sodalis, M. leprae, S. symbiotica) | 0.679–0.939 | Sodalis glossinidius 0.679, M. leprae 0.717 |
+| code 11, GC > 0.60 (19, incl. 3 drafts of 107–167 contigs) | 0.786–0.977 | M. tuberculosis draft 0.786, H37Rv 0.798 |
+| draft stress test (10 genomes cut into exponential contigs, mean 1–50 kb; 100 N every 10 kb) | code 4 ≤ 0.477, code 11 ≥ 0.641 | Nasuia 0.477; Sodalis 0.641 at mean 1 kb |
+| synthetic fixture, 5 seeds each (spec generator) | code 4 GC 0.28: 0.083–0.106; GC 0.40: 0.254–0.364; code 11: 0.988–0.999 | |
+
+No assembly is misclassified at 0.55 (nor at 0.5). Lower-casing the input and inserting N gaps do
+not change the decision.
+
 The spec-writer computed these on 2026-10-27 with a throw-away script that implements the
 definitions above. The synthetic genomes have 300 genes of 400 codons, 60 bp random spacers, half
 on each strand, seed 7.
 - **300 codons.** At 100 codons the code-4 genome stays at 0.68, because a 100-codon stretch has
   no TGA about 40 % of the time. At 300 codons the classes separate. Random ORFs of ≥ 300 codons
   are rare at any GC under `S11`. GC-rich antisense "shadow" ORFs inflate `bp4`, but they cover
-  frames that already sit opposite genes, so the ratio stays above 0.8 (M. smegmatis: 0.864).
-- **0.5.** The code-11 minimum observed is 0.82 and the code-4 maximum is 0.32, so 0.5 leaves a
-  margin of at least 0.18 on each side. It is also a round number that users can read.
+  frames that already sit opposite genes, so the ratio stays near 0.8 or above in complete
+  high-GC genomes (M. tuberculosis 0.798, M. smegmatis 0.864, Streptomyces coelicolor 0.931).
+- **0.55** (statistician, #419; replaces the drafted 0.5). On 61 official NCBI assemblies
+  (table above), every code-4/25 genome is ≤ 0.470 and every code-11 genome is ≥ 0.679. Three code-4
+  genomes sit above 0.35: M. pneumoniae 0.358 (a 165-contig draft: 0.384), M. genitalium 0.370 and
+  the 113 kb endosymbiont Candidatus Nasuia 0.470, only 0.03 below 0.5. The low code-11 tail comes
+  from pseudogene-rich genomes (Sodalis glossinidius 0.679, M. leprae 0.717) and high-GC
+  genomes (M. tuberculosis 0.798). Cutting complete genomes into draft-like contigs (exponential
+  lengths, mean 1 kb, contigs < 200 bp dropped) moves code 4 to at most 0.477 and code 11 to at
+  least 0.641 (Sodalis). 0.55 is the round value closest to the centre of that gap (0.56): it
+  leaves 0.07 to the highest code-4 value and 0.09 to the lowest code-11 value (0.13 on complete
+  assemblies). A missed code-4 genome gives silently wrong results; a false warning only prints a
+  message (or exits 3 under `--strict`), so the cut is not moved further toward code 11.
 - **n4 ≥ 20.** A ratio built on fewer than 20 long ORFs moves by 5 % or more per ORF. A typical
   plasmid or phage is below 20, so the check is not evaluated there; the warning is aimed at
-  chromosomes.
+  chromosomes. The smallest genomes tested pass the gate: Nasuia (113 kb) n4 = 41, Carsonella
+  (160 kb) n4 = 75, Sulcia (191 kb) n4 = 94.
 
-Constants, not config keys (no schema change): `MIN_CODONS = 300`, `RATIO_WARN = 0.5`,
+Constants, not config keys (no schema change): `MIN_CODONS = 300`, `RATIO_WARN = 0.55` (decided as `20 * bp11 < 11 * bp4`),
 `MIN_LONG_ORFS = 20`, in `giap/preflight/genetic_code.py`.
 
 Rejected as the primary signal (they need annotation or mapping, which come after the expensive
@@ -145,12 +177,12 @@ are fixed by the definitions, and the test computes them with a brute-force refe
 
 `genetic_code_check` (default constants):
 
-6. Synthetic code-4 genome (test fixture, below): `warn`, `value["ratio"] < 0.5`,
+6. Synthetic code-4 genome (test fixture, below): `warn`, `value["ratio"] < 0.55`,
    `n_orfs_tga_sense ≥ 20`, and the message starts with "This genome probably uses genetic code 4".
 7. Synthetic code-11 genome (same generator, no TGA inside genes): `ok`, `ratio > 0.9`.
-8. Decision boundary on the integers: `bp11 = 500, bp4 = 1000` (ratio exactly 0.5) gives `ok`;
-   `bp11 = 499, bp4 = 1000` gives `warn`. These are tested through a small internal
-   `_decide(bp11, bp4, n4)`. With `n4 = 19` the result is `info` whatever the ratio, and with
+8. Decision boundary on the integers: `bp11 = 550, bp4 = 1000` (ratio exactly 0.55) gives `ok`;
+   `bp11 = 549, bp4 = 1000` gives `warn`, and its message shows `ratio 0.54` (truncated).
+   These are tested through a small internal `_decide(bp11, bp4, n4)`. With `n4 = 19` the result is `info` whatever the ratio, and with
    `n4 = 20` the rule is evaluated.
 9. `table = 4` gives `info` ("not evaluated: annotation.translation_table is not 11"), whatever
    the sequence.
@@ -169,7 +201,7 @@ are fixed by the definitions, and the test computes them with a brute-force refe
 | minus-strand-only genes | same decision as the plus-strand mirror (test: the revcomp of the whole genome gives the same `bp11`, `bp4`, `n4`) |
 | lowercase sequence | identical to upper case |
 | many contigs | per-record scan, summed. Runs never cross records |
-| ratio exactly 0.5 | `ok` (strict `<` on integers) |
+| ratio exactly 0.55 | `ok` (strict `<` on integers) |
 | selenoprotein TGA (code 11) | a few genes; the ratio is not affected materially (no test) |
 | `--annotation` given | evaluated as usual |
 | translation_table ≠ 11 | `info`; the run already stops on `config.translation_table` |
@@ -193,7 +225,8 @@ are fixed by the definitions, and the test computes them with a brute-force refe
    `summary`. Without the warning, the HTML has no such element (snapshot unchanged).
 8. Performance: on a 10 Mb synthetic genome on one core, the check takes ≤ 5 s
    (`benchmarks/`, reported only; not a CI gate).
-9. Tests use no network, no `$GIAP_DB_DIR` and no `$GIAP_ROOT`. Lint, format and mypy are clean.
+9. Tests use no network, no `$GIAP_DB_DIR` and no `$GIAP_ROOT` (except the optional `slow`
+   validation test below, which skips when the files are absent). Lint, format and mypy are clean.
 
 ## Test plan
 
@@ -219,8 +252,9 @@ are fixed by the definitions, and the test computes them with a brute-force refe
   above GC 0.25 apart from M. hyorhinis. Before merge, should the validation agent compute the
   ratio on official NCBI copies of low-GC code-11 genomes (Staphylococcus aureus, Clostridioides
   difficile, Buchnera APS, Candidatus Carsonella at 17 % GC) and on more code-4 genomes
-  (M. pneumoniae at 40 % GC, Spiroplasma, Ureaplasma)? **Proposed: yes; adjust 0.5 only if a
-  genome falls between 0.35 and 0.65.**
+  (M. pneumoniae at 40 % GC, Spiroplasma, Ureaplasma)? **Lead: yes. Done in the #419 statistician review: three code-4 genomes fell in [0.35, 0.65],
+  none was misclassified, and the threshold moved from 0.5 to 0.55 (see Thresholds).** Proposed was: yes; adjust 0.5 only if a
+  genome falls between 0.35 and 0.65.
 - Q2: under `--strict`, this warning makes preflight exit 3, like every warning. Should it be
   exempt? **Proposed: no.** A strict user should not run a code-4 genome at table 11.
 - Q3: the report shows only this warning. A general "Run warnings" list (every manifest
