@@ -1,31 +1,35 @@
 #!/bin/bash
-# Run the full calibration tier and record it for the readiness checker (issue M11-03b; GIAP_SPEC.md
-# §8.4, §13.2; scripts/release/readiness.py R3, R4).
+# Run the full calibration tier and record it for the readiness checker (issues M11-03b, M11-03c;
+# GIAP_SPEC.md §8.4, §13.2; scripts/release/readiness.py R3, R4; spec
+# docs/specs/M11-03c-calibration-full-sharding.md, "calibration_full_launch.sh (changed)").
 #
 # Usage: scripts/slurm/calibration_full_launch.sh [REF]     (REF default origin/main, after a fetch)
-#   1. REF is resolved to a 40-hex SHA and checked out in the detached worktree
-#      $GIAP_ROOT/ci/calibration-<sha12> (flock on $GIAP_ROOT/ci/.git.lock, as the nightly does);
-#      a fresh log directory $GIAP_ROOT/logs/calibration/full-<sha12>-<YYYYmmdd-HHMMSS>.
-#   2. R14 (spec rule 3, amended in the #349 review), before any worktree, log dir or sbatch: the
-#      user's running + pending giap-* jobs and CPUs (squeue -r: one line per array task). Slurm
-#      queues all 15 array tasks and the aggregator at once, so refuse when jobs + 16 > 20.
-#      Throttle T = min(15, (128-cpus-1)/4) (4 CPUs a task, 1 for the aggregator); refuse when
-#      T < 4. The nightly is protected by time, not by a reserve: refuse when the worst-case end
-#      now + ceil(15/T) x 4 h + 20 min is at or after the next nightly start (GIAP_NIGHTLY_AT,
-#      HH:MM local, default 01:30; a start equal to now counts). The clock is GIAP_NOW (epoch
-#      seconds) else date +%s. A failing squeue, a non-integer CPU count, a bad GIAP_NOW or
-#      GIAP_NIGHTLY_AT also refuse: exit 2, nothing submitted.
-#   3. sbatch --array=0-14%T calibration_full.sbatch of the worktree (all 15 suites at full R), then
-#      the 1-CPU giap-calibration-rows job (--dependency=afterany:<array>) running
-#      scripts/ci/calibration_rows.py, which appends the calibration_full and calibration_attacks
-#      rows to $GIAP_ROOT/logs/nightly.tsv. If that submission fails the array is scancelled (by
-#      its ID) and the script exits 1: an array without its aggregator leaves no evidence.
+#   1. REF is resolved to a 40-hex SHA. R14 jobs, before any worktree, log dir or sbatch: the
+#      user's running + pending giap-* jobs and CPUs (squeue -r: one line per array task); a launch
+#      queues 16 jobs (15 suite jobs and the aggregator), so refuse when jobs + 16 > 20.
+#   2. The SHA is checked out in the detached worktree $GIAP_ROOT/ci/calibration-<sha12> (flock on
+#      $GIAP_ROOT/ci/.git.lock, as the nightly does) and the worktree's plan
+#      (scripts/slurm/calibration_plan.tsv) is validated with its calibration_lanes.py check (venv
+#      python: it needs yaml). Each suite's job asks for lanes x cpus_per_lane CPUs (lanes = shards
+#      + groups), lanes x mem_per_lane_mb MB and the plan time.
+#   3. R14 CPUs: refuse when cpus + sum(suite CPUs) + 1 > 128 (no throttle, no second wave). The
+#      nightly is protected by time: refuse when now + max(time) + 20 min is at or after the next
+#      nightly start (GIAP_NIGHTLY_AT, HH:MM local, default 01:30; a start equal to now counts). The
+#      clock is GIAP_NOW (epoch seconds) else date +%s. A failing squeue, a non-integer CPU count, a
+#      bad plan, GIAP_NOW or GIAP_NIGHTLY_AT also refuse: exit 2, nothing submitted.
+#   4. A fresh log directory $GIAP_ROOT/logs/calibration/full-<sha12>-<YYYYmmdd-HHMMSS>; one
+#      calibration_suite.sbatch job per plan row, in plan order (giap-cal-<suite>, GIAP_SUITE,
+#      GIAP_WORKTREE, GIAP_CALIBRATION_LOG_DIR), then the 1-CPU giap-calibration-rows job
+#      (--dependency=afterany:<j0>:...:<j14>) running scripts/ci/calibration_rows.py --job <j0>,
+#      which appends the calibration_full and calibration_attacks rows to
+#      $GIAP_ROOT/logs/nightly.tsv. If any submission fails, the jobs already submitted are
+#      scancelled (by ID) and the script exits 1: suites without their aggregator leave no evidence.
 # Any argument besides REF (harness options such as --fast, --shard, --dry-run) is refused (exit 2):
-# the rows must describe the full tier. Prints "array=<id> rows=<id> log=<dir> throttle=<T>".
+# the rows must describe the full tier. Prints "jobs=<j0>,...,<j14> rows=<id> log=<dir> cpus=<sum>".
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 REPO="$GIAP_REPO"
-SUITES=15   # replicates_full keys = calibration_full.sbatch --array=0-14 (the rows job checks it)
+SUITES=15   # replicates_full keys = plan rows (calibration_lanes.py check; the rows job checks it)
 die() { echo "calibration_full_launch: $2" >&2; exit "$1"; }
 
 [ "$#" -le 1 ] || die 2 "usage: $0 [REF]; harness arguments are refused (full tier only)"
@@ -45,17 +49,41 @@ while read -r c name _; do
   case "$name" in giap-*) jobs=$((jobs + 1)); cpus=$((cpus + c)) ;; esac
 done <<< "$queue"
 [ $((jobs + SUITES + 1)) -le 20 ] ||
-  die 2 "R14: $jobs giap-* jobs / $cpus CPUs queued; this launch queues 16 jobs ($SUITES array tasks and the aggregator) and $jobs + 16 > 20 jobs; nothing submitted"
-t=$SUITES
-by_cpu=$(( (128 - cpus - 1) / 4 )); [ $((128 - cpus - 1)) -ge 0 ] || by_cpu=-1
-[ "$by_cpu" -lt "$t" ] && t=$by_cpu
-if [ "$t" -lt 4 ]; then
-  die 2 "R14: $jobs giap-* jobs / $cpus CPUs queued leave a throttle of T=$t < 4 array tasks (4 CPUs each, 1 for the aggregator, of 128); nothing submitted"
-fi
+  die 2 "R14: $jobs giap-* jobs / $cpus CPUs queued; this launch queues 16 jobs ($SUITES suite jobs and the aggregator) and $jobs + 16 > 20 jobs; nothing submitted"
 now="${GIAP_NOW:-$(date +%s)}"
 case "$now" in ''|*[!0-9]*) die 2 "GIAP_NOW '$now' is not epoch seconds; nothing submitted" ;; esac
 at="${GIAP_NIGHTLY_AT:-01:30}"
-waves=$(( (SUITES + t - 1) / t ))
+
+wt="$GIAP_ROOT/ci/calibration-$short"
+mkdir -p "$GIAP_ROOT/ci" "$GIAP_ROOT/logs/calibration" "$REPO/local/logs"
+(
+  flock 9
+  [ -d "$wt" ] || git -C "$REPO" worktree add -q --detach "$wt" "$sha"
+  git -C "$wt" checkout -q -f --detach "$sha"
+) 9>"$GIAP_ROOT/ci/.git.lock" || die 2 "cannot check out $sha in $wt"
+
+# the worktree's plan, validated before it sizes anything
+plan="$wt/scripts/slurm/calibration_plan.tsv"
+py="${UV_PROJECT_ENVIRONMENT:-}/bin/python"; [ -x "$py" ] || py=python3
+"$py" "$wt/scripts/ci/calibration_lanes.py" check --plan "$plan" ||
+  die 2 "the plan $plan of $sha is invalid; nothing submitted"
+names=(); sizes=(); total=0; max_s=0
+# `|| [ -n "$suite" ]` keeps a last row without a final newline (check accepts it; #399 S1)
+suite=""
+while IFS=$'\t' read -r suite shards groups _ cpl mpl time _ || [ -n "$suite" ]; do
+  lanes=$((10#$shards + 10#$groups))
+  IFS=: read -r hh mm ss <<< "$time"
+  secs=$((10#$hh * 3600 + 10#$mm * 60 + 10#$ss))
+  [ "$secs" -gt "$max_s" ] && max_s=$secs
+  names+=("$suite")
+  sizes+=("$((lanes * 10#$cpl)) $((lanes * 10#$mpl)) $time")
+  total=$((total + lanes * 10#$cpl))
+done < <(tail -n +2 "$plan")
+[ "${#names[@]}" -eq "$SUITES" ] || die 2 "the plan $plan has ${#names[@]} suites, not $SUITES; nothing submitted"
+
+# R14 CPUs: every suite job and the aggregator are queued at once
+[ $((cpus + total + 1)) -le 128 ] ||
+  die 2 "R14: $jobs giap-* jobs / $cpus CPUs queued; this launch requests $((total + 1)) CPUs ($total for $SUITES suite jobs and 1 for the aggregator) and $cpus + $((total + 1)) = $((cpus + total + 1)) > 128 CPUs; nothing submitted"
 # python3 (not the venv) for local-time arithmetic; prints "<end> <start>", exit 1 = overlap
 window=$(python3 -I -c '
 import datetime as d, re, sys
@@ -70,38 +98,39 @@ if start < t0:
 end = d.datetime.fromtimestamp(now + secs)
 print(end.strftime("%Y-%m-%d %H:%M"), start.strftime("%Y-%m-%d %H:%M"))
 sys.exit(0 if now + secs < start.timestamp() else 1)
-' "$now" $((waves * 4 * 3600 + 20 * 60)) "$at")
+' "$now" $((max_s + 20 * 60)) "$at")
 rc=$?
 read -r end_d end_t start_d start_t _ <<< "$window"
 case $rc in
   0) ;;
-  1) die 2 "R14: $jobs giap-* jobs / $cpus CPUs queued, throttle T=$t: $waves wave(s) of 4 h + 20 min end $end_d $end_t, at or after the next nightly start $start_d $start_t (GIAP_NIGHTLY_AT $at); nothing submitted" ;;
+  1) die 2 "R14: the longest suite ($((max_s / 60)) min) + 20 min ends $end_d $end_t, at or after the next nightly start $start_d $start_t (GIAP_NIGHTLY_AT $at); nothing submitted" ;;
   *) die 2 "cannot place the nightly window (GIAP_NIGHTLY_AT '$at' is not HH:MM, or python3 failed); nothing submitted" ;;
 esac
 
-wt="$GIAP_ROOT/ci/calibration-$short"
-mkdir -p "$GIAP_ROOT/ci" "$GIAP_ROOT/logs/calibration" "$REPO/local/logs"
-(
-  flock 9
-  [ -d "$wt" ] || git -C "$REPO" worktree add -q --detach "$wt" "$sha"
-  git -C "$wt" checkout -q -f --detach "$sha"
-) 9>"$GIAP_ROOT/ci/.git.lock" || die 2 "cannot check out $sha in $wt"
 log="$GIAP_ROOT/logs/calibration/full-$short-$(date +%Y%m%d-%H%M%S)"
 [ ! -e "$log" ] || die 2 "$log exists; nothing submitted"
 mkdir -p "$log"
 
 # the log dir travels in the environment (ALL): a comma in it would split an --export list
 export GIAP_CALIBRATION_LOG_DIR="$log"
-array=$(sbatch --parsable --array="0-$((SUITES - 1))%$t" --export="ALL,GIAP_WORKTREE=$wt" \
-  "$wt/scripts/slurm/calibration_full.sbatch") || die 1 "the calibration array was not submitted"
-array=${array%%;*}
-py="${UV_PROJECT_ENVIRONMENT:-}/bin/python"; [ -x "$py" ] || py=python3
-cmd=$(printf '%q ' "$py" "$wt/scripts/ci/calibration_rows.py" --log-dir "$log" --job "$array" \
+ids=()
+cancel() {
+  if [ "${#ids[@]}" -gt 0 ] && ! scancel "${ids[@]}"; then  # orphans would hold R14 (#399 S2)
+    die 1 "$1; scancel FAILED for the job(s) already submitted (${ids[*]}): cancel them by hand"
+  fi
+  die 1 "$1; cancelled the ${#ids[@]} job(s) already submitted (${ids[*]:-none})"
+}
+for k in "${!names[@]}"; do
+  read -r c mem time <<< "${sizes[$k]}"
+  id=$(sbatch --parsable --job-name="giap-cal-${names[$k]}" --cpus-per-task="$c" --mem="${mem}M" \
+    --time="$time" --export="ALL,GIAP_SUITE=${names[$k]},GIAP_WORKTREE=$wt" \
+    "$wt/scripts/slurm/calibration_suite.sbatch") || cancel "suite ${names[$k]} was not submitted"
+  ids+=("${id%%;*}")
+done
+cmd=$(printf '%q ' "$py" "$wt/scripts/ci/calibration_rows.py" --log-dir "$log" --job "${ids[0]}" \
   --commit "$sha" --expect "$SUITES" --tsv "$GIAP_ROOT/logs/nightly.tsv")
-if ! rows=$(sbatch --parsable --job-name=giap-calibration-rows --cpus-per-task=1 --mem=2G \
-  --time=00:20:00 --dependency="afterany:$array" --output="$REPO/local/logs/%x.%j.out" \
-  --wrap="$cmd"); then
-  scancel "$array"
-  die 1 "array $array submitted, but its giap-calibration-rows job was refused; array cancelled"
-fi
-echo "array=$array rows=${rows%%;*} log=$log throttle=$t"
+dep=$(IFS=:; echo "afterany:${ids[*]}")
+rows=$(sbatch --parsable --job-name=giap-calibration-rows --cpus-per-task=1 --mem=2G \
+  --time=00:20:00 --dependency="$dep" --output="$REPO/local/logs/%x.%j.out" \
+  --wrap="$cmd") || cancel "the giap-calibration-rows job was refused"
+echo "jobs=$(IFS=,; echo "${ids[*]}") rows=${rows%%;*} log=$log cpus=$total"

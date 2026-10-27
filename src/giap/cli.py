@@ -14,7 +14,7 @@ import os
 import platform
 import shutil
 import sys
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar, get_args
@@ -73,14 +73,16 @@ def _resolve(
     log_level: str,
     flags: dict[str, Any] | None = None,
     publication: bool = False,
+    base: Mapping[str, Any] | None = None,
 ) -> GiapConfig:
-    """Resolve the config: defaults ← file ← CLI flags ← ``--set``. Exit 1 on an invalid key."""
+    """Resolve the config: defaults ← ``base`` ← file ← CLI flags ← ``--set``. Exit 1 on an
+    invalid key."""
     logging.basicConfig(level=log_level.upper(), format="%(levelname)s %(name)s: %(message)s")
     flag_sets = [
         f"{key}={json.dumps(value)}" for key, value in (flags or {}).items() if value is not None
     ]
     try:
-        return resolve_config(config_file, [*flag_sets, *sets], publication=publication)
+        return resolve_config(config_file, [*flag_sets, *sets], publication=publication, base=base)
     except ValueError as exc:
         click.echo(f"giap: invalid configuration: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
@@ -177,9 +179,11 @@ def setup(
     db_dir: Path = opts["db_dir"]
     check = bool(opts["check"])
     fetcher = HttpsFetcher()
-    # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b)
-    code = run_setup(SetupOptions(**opts, uniop=uniop and check), ToolRunner(db_dir=db_dir),
-                     fetcher)  # fmt: skip
+    # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b).
+    # An explicit --uniop installs UniOP only (Q-K27): no database is planned.
+    dbs = SetupOptions(db_dir, bakta="skip", genomad=False, promotech_models=False, check=check,
+                       uniop=check) if uniop else SetupOptions(**opts)  # fmt: skip
+    code = run_setup(dbs, ToolRunner(db_dir=db_dir), fetcher)
     cache = cache_dir or image_cache(os.environ, db_dir)
     if images is not None and runtime is not None and not check:
         tools = image_set(cfg, images == "all")
@@ -982,6 +986,24 @@ def _compare_report(
 # ---------------------------------------------------------------- report
 
 
+def _manifest_config(out: Path) -> Mapping[str, Any] | None:
+    """The ``config`` that ``OUT/run_manifest.json`` records, when it is a valid configuration;
+    ``None`` otherwise (no or unreadable manifest, a config this version cannot validate)."""
+    try:
+        recorded = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    config = recorded.get("config") if isinstance(recorded, dict) else None
+    if not isinstance(config, dict):
+        return None
+    try:
+        resolve_config(base=config)
+    except ValueError:
+        logging.getLogger(__name__).warning("report.manifest_config_invalid %s", out)
+        return None
+    return config
+
+
 @cli.command()
 @click.argument("out", type=_existing_dir)
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
@@ -1003,10 +1025,13 @@ def report(
     from giap.steps import plots as P
     from giap.viz.base import normalise_ids
 
-    if config_file is None:  # the run's own thresholds, formats and dpi (review B3)
+    base = None
+    if config_file is None:  # the run's own thresholds, formats, dpi, modules (review B3)
         runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
         config_file = next((p for p in runs if p.is_file()), None)
-    cfg = _resolve(config_file, sets, log_level)
+        if config_file is None:  # a local run writes none; its manifest records the config
+            base = _manifest_config(out)
+    cfg = _resolve(config_file, sets, log_level, base=base)
     if no_interactive:
         cfg = cfg.model_copy(
             update={"report": cfg.report.model_copy(update={"interactive": False})}

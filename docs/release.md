@@ -141,10 +141,11 @@ upload therefore never creates a tag.
   `scripts/farmshare_env.sh`. Before each `sbatch`, add up the running and pending CPUs of the
   `giap-*` jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).
     - `bash scripts/slurm/calibration_full_launch.sh origin/main`: pins a worktree at R, checks the
-      R14 budget (a launch queues 16 jobs; it refuses when its worst-case end reaches the 01:30
-      nightly), then submits the 15-task `calibration_full.sbatch` array and an `afterany`
+      worktree's `calibration_plan.tsv` and the R14 budget (a launch queues 16 jobs and Σ = 98
+      CPUs; it refuses when its worst-case end, the longest suite time plus 20 min, reaches the
+      01:30 nightly), then submits one `calibration_suite.sbatch` job per suite and an `afterany`
       aggregator that writes the `calibration_full` and `calibration_attacks` rows to
-      `$GIAP_ROOT/logs/nightly.tsv`. It prints `array=<id> rows=<id> log=<dir> throttle=<T>`.
+      `$GIAP_ROOT/logs/nightly.tsv`. It prints `jobs=<j0>,…,<j14> rows=<id> log=<dir> cpus=<Σ>`.
     - `sbatch --array=2 scripts/slurm/nightly.sbatch`: the fast suite with the
       `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIAP_ROOT/logs/nightly.tsv`,
       labelled `calibration_nightly`. A single task also posts a one-task table to the "Nightly
