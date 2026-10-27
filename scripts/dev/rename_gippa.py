@@ -72,6 +72,7 @@ KEEP_PATHS: tuple[tuple[str, str], ...] = (
     (".github/", "github-khoa"),
     ("scripts/dev/rename_gippa.py", "rename-tooling"),  # the map itself
     ("scripts/dev/rename_compare.py", "rename-tooling"),
+    ("tests/unit/test_rename_compare.py", "rename-tooling"),
     ("tests/unit/test_rename_gippa_tooling.py", "rename-tooling"),
 )
 #: keep paths whose *path* also stays (all other keep categories only keep their content)
