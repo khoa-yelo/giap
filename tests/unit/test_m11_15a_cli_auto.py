@@ -9,7 +9,8 @@ Interface pinned here (with test_m11_15a_detect_profile.py):
 
 - The CLI calls ``gippa.runner.profiles.probe_host(environ, db_dir)`` (as a module attribute) and
   ``detect_profile``; tests replace ``probe_host`` with a fixed ``Probe``. tests/conftest.py pins it
-  to ``Probe()`` ("nothing found") for every test (edge case (d)).
+  for every test to a FarmShare host (``PINNED_PROBE``: ``sbatch`` + ``apptainer``, cluster name
+  ``farmshare``), so ``auto`` resolves to today's default (edge case (d); lead decision).
 - ``gippa run``: default ``--profile auto``; the detected profile goes to ``-profile``; stderr gets
   ``gippa run: profile <p> (auto: <reason>; pass --profile to choose)`` and each hint on its own
   line. R5: exit 2, ``no container runtime or conda found: install Apptainer (no root needed on
@@ -172,8 +173,17 @@ def _line(cmd: str, profile: str, reason: str) -> re.Pattern[str]:
 
 
 def test_fixture_pins_probe_xdg_and_db_dir(tmp_path: Path) -> None:
+    from conftest import PINNED_PROBE
+
     mod = _mod()
-    assert mod.probe_host(dict(os.environ), None) == mod.Probe()
+    assert getattr(mod.probe_host, "gippa_pinned", False)
+    pinned = mod.probe_host(dict(os.environ), None)
+    assert pinned == mod.Probe(
+        on_path=frozenset({"sbatch", "apptainer"}), docker_ok=False, slurm_job_id=None,
+        cluster_name="farmshare", setup_runtime=None,
+    )  # fmt: skip
+    assert pinned == mod.Probe(**PINNED_PROBE)
+    assert mod.detect_profile(pinned).profile == "farmshare,apptainer", "today's default"
     assert Path(os.environ["XDG_CONFIG_HOME"]).is_relative_to(tmp_path)
     assert Path(os.environ["XDG_DATA_HOME"]).is_relative_to(tmp_path)
     assert os.environ["XDG_CONFIG_HOME"] != os.environ["XDG_DATA_HOME"]
@@ -181,11 +191,36 @@ def test_fixture_pins_probe_xdg_and_db_dir(tmp_path: Path) -> None:
 
 
 def test_bare_preflight_sees_the_pinned_probe(env: dict[str, Path]) -> None:
-    """A bare ``preflight`` (no ``--profile``) gets "nothing found", never the real host."""
+    """A bare ``preflight`` (no ``--profile``) gets the pinned FarmShare probe, never the real
+    host: it resolves to ``farmshare,apptainer`` and passes on the fake root."""
     _mod()
     code, text = _preflight(env)
-    assert code == ExitCode.ENVIRONMENT, text
-    assert R5 in text
+    assert _line("preflight", "farmshare,apptainer", "FarmShare detected").search(text), text
+    assert code == ExitCode.SUCCESS, text
+
+
+def test_bare_run_sees_the_pinned_probe(env: dict[str, Path], tmp_path: Path) -> None:
+    _mod()
+    code, text = _run(env, tmp_path / "OUT")
+    assert code == ExitCode.SUCCESS, text
+    assert _nf_profile(env) == "farmshare,apptainer"
+
+
+@pytest.mark.real_host_probe
+def test_real_host_probe_opts_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The marker keeps the module's own ``probe_host`` and leaves the XDG variables alone."""
+    mod = _mod()
+    assert not getattr(mod.probe_host, "gippa_pinned", False)
+    assert mod.probe_host.__module__ == mod.__name__
+    for var in ("XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+        value = os.environ.get(var)
+        assert value is None or not Path(value).is_relative_to(tmp_path)
+
+
+def test_probe_override_wins_over_the_fixture(set_probe: Any) -> None:
+    mod = _mod()
+    set_probe("docker")
+    assert mod.probe_host({}, None).on_path == frozenset({"docker"})
 
 
 # ---------------------------------------------------------------- AC 2: gippa run
@@ -240,9 +275,9 @@ def test_run_printed_before_preflight(env: dict[str, Path], set_probe: Any, tmp_
     assert HINT_A in text  # example 1.12, edge case (a)
 
 
-def test_run_r5_exits_2(env: dict[str, Path], tmp_path: Path) -> None:
-    """Example 1.8: nothing on PATH (the conftest probe)."""
-    _mod()
+def test_run_r5_exits_2(env: dict[str, Path], set_probe: Any, tmp_path: Path) -> None:
+    """Example 1.8: nothing on PATH."""
+    set_probe()  # nothing found
     out = tmp_path / "OUT"
     code, text = _run(env, out)
     assert code == ExitCode.ENVIRONMENT, text
@@ -393,9 +428,9 @@ def _validate_db(doc: dict[str, Any]) -> None:
     jsonschema.Draft202012Validator(schema).validate(doc)
 
 
-def test_1_14_setup_without_runtime(setup_env: dict[str, Any]) -> None:
+def test_1_14_setup_without_runtime(setup_env: dict[str, Any], set_probe: Any) -> None:
     """Edge case (c): images skipped with the warning, DBs run, exit by the DB result."""
-    _mod()
+    set_probe()  # nothing found
     code, text = _setup(setup_env, "--images")
     assert code == ExitCode.SUCCESS, text
     assert IMAGES_SKIPPED in text
@@ -404,8 +439,8 @@ def test_1_14_setup_without_runtime(setup_env: dict[str, Any]) -> None:
     assert "runtime" not in _db_doc(setup_env["db"]).get("setup", {})
 
 
-def test_1_14_exit_is_the_db_result(setup_env: dict[str, Any]) -> None:
-    _mod()
+def test_1_14_exit_is_the_db_result(setup_env: dict[str, Any], set_probe: Any) -> None:
+    set_probe()  # nothing found
     setup_env["db_code"] = ExitCode.INVALID_INPUT
     code, text = _setup(setup_env, "--images")
     assert code == ExitCode.INVALID_INPUT, text

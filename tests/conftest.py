@@ -199,12 +199,22 @@ def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
 
 
 # M11-15a item 1 edge case (d): no test sees the real host's container runtimes, Slurm, cluster
-# name, `gippa setup` pointer file or $GIPPA_DB_DIR. Opt out with ``@pytest.mark.real_host_probe``.
+# name, `gippa setup` pointer file or $GIPPA_DB_DIR; the probe is pinned to a FarmShare host
+# (PINNED_PROBE). Opt out with ``@pytest.mark.real_host_probe``.
 _REAL_DB_MARKERS = frozenset({
     "e2e", "needs_bakta_db", "needs_bakta_full", "needs_genomad_db", "needs_promotech_models",
     "needs_diann",
 })  # fmt: skip
 _REAL_DB_DIRS = ("contract", "e2e")
+# The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
+# `farmshare,apptainer`, today's default, and tests written before 15a keep passing unchanged.
+PINNED_PROBE: dict[str, object] = {
+    "on_path": frozenset({"sbatch", "apptainer"}),
+    "docker_ok": False,
+    "slurm_job_id": None,
+    "cluster_name": "farmshare",
+    "setup_runtime": None,
+}
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -230,7 +240,7 @@ def _keeps_real_db(item: pytest.Item) -> bool:
 def _pinned_host_probe(
     request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Pin ``gippa.runner.profiles.probe_host`` to "nothing found" (an empty ``Probe``), point
+    """Pin ``gippa.runner.profiles.probe_host`` to the FarmShare ``PINNED_PROBE``, point
     ``XDG_CONFIG_HOME``/``XDG_DATA_HOME`` at (uncreated) ``tmp_path`` subdirectories and unset
     ``GIPPA_DB_DIR``. A test that needs a probe patches ``probe_host`` itself."""
     if request.node.get_closest_marker("real_host_probe"):
@@ -244,5 +254,10 @@ def _pinned_host_probe(
     except ImportError:  # before M11-15a: nothing to pin
         return
     if hasattr(profiles, "Probe"):
-        empty = profiles.Probe()
-        monkeypatch.setattr(profiles, "probe_host", lambda *_a, **_k: empty, raising=False)
+        pinned = profiles.Probe(**PINNED_PROBE)
+
+        def probe_host(*_a: object, **_k: object) -> object:
+            return pinned
+
+        probe_host.gippa_pinned = True  # type: ignore[attr-defined]
+        monkeypatch.setattr(profiles, "probe_host", probe_host, raising=False)
