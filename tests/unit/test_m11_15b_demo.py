@@ -776,3 +776,29 @@ def test_full_refuses_an_existing_outdir(clean_env: Path, preflight: Recorder) -
     assert res.exit_code == 1, res.output
     assert REFUSAL in res.output
     assert preflight.calls == []
+
+
+# ------------------------------------------------------------------ manifest schema
+
+
+def test_manifest_schema_accepts_demo_true_and_keeps_it_optional() -> None:
+    """``run_manifest.schema.json`` has ``additionalProperties: false``: the demo's
+    ``demo: true`` must be a declared boolean property, not required (ordinary runs omit it)."""
+    from helpers.manifest_data import build, schema, schema_errors
+
+    assert "demo" in schema()["properties"]
+    assert "demo" not in schema()["required"]
+    m = build()
+    m.pop("demo", None)
+    assert schema_errors(m) == []
+    m["demo"] = True
+    assert schema_errors(m) == []
+
+
+@pytest.mark.parametrize("bad", ["yes", 1, None])
+def test_manifest_schema_rejects_a_non_boolean_demo(bad: object) -> None:
+    from helpers.manifest_data import build, schema_errors
+
+    m = build()
+    m["demo"] = bad
+    assert schema_errors(m), bad
