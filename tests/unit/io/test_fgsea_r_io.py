@@ -323,7 +323,9 @@ def test_required_recording_present(name: str) -> None:
     prov = (d / "PROVENANCE.md").read_text(encoding="utf-8")
     assert "recorded-by-hand" not in prov
     assert "sha256" in prov
-    assert "gippa_fgsea.R" in (d / "command.txt").read_text(encoding="utf-8")
+    # recorded before ADR-0064 under the wrapper's old name: the command as PROVENANCE.md has it
+    cmd = (d / "command.txt").read_text(encoding="utf-8").strip()
+    assert cmd.split()[0].endswith("_fgsea.R") and f"`{cmd}`" in prov
 
 
 @pytest.mark.parametrize("d", _recorded_dirs(), ids=lambda p: p.name)

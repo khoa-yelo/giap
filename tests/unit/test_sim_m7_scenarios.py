@@ -60,7 +60,7 @@ SEED_B = 4242
 
 #: Pre-M7-12 outputs (f6a8bf8) of configs that set no M7-12 field (example 5).
 SIM100K_SHA256 = {
-    "annotation.gff3": "fa95ab8fe14014e3dc65af7003beed7647b561ebb6e81f5b40189097b4224e2e",
+    "annotation.gff3": "ffcc10aec8ba6c437c0df011f49c947bc457dc6707aa28b18796842d50402903",
     "bakta_like.json": "ccf7c77f2a5b6b985ce28229c06f81eac8dda17897112a27cf7f379d893358b2",
     "genome.fasta": "dd10216ee21cb0ac13940b2f7d5a26bf0fdc8c2af54af8baf26b380fc65a8d69",
     "precomputed/operon_pairs.tsv": "84d2f05a42eefab68bc21569ecc2e6270edb797af86a3786fc7244710354098f",  # noqa: E501
@@ -82,7 +82,7 @@ SIM100K_SHA256 = {
 MIXED_SEED = 7
 MIXED_SHA256 = {
     "abundance.tsv": "6e8e869668805ea15637e953b7850ef2f17ba01878b64800581bcd871a0955d8",
-    "annotation.gff3": "bf1da82987863569db251f6386d17a3ac6454be6e2403fa0ce7f017b0cc0bd1f",
+    "annotation.gff3": "f14e53165accad32e4a343b4762c4a901dfe37b2ebafab6f9468e3223585b990",
     "bakta_like.json": "ffd43720276e5e68deeac0d40ac4862889f033fe51195e2e7107dc6232010e48",
     "genome.fasta": "4ba749a484ce201a1ff6af659ead1ea7c2306fe63c56c9c063eaf31a2a845c62",
     "peptides.tsv": "d33e6722017a81789c3dd5e2e7db77c60e439e3e84041980a856773247c44369",

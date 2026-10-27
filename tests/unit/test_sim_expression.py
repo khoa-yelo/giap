@@ -57,7 +57,7 @@ LAYOUT_SHA256 = {
         "genes.parquet": "e0d4341901746a7444965ebe8070a3c382d5edc6f864bff8597bd8e697b65e65",
         "layers.parquet": "c7ae231f33b641c11a6b7b03ce95c36e5daf5c6b7fd5c1a46456d31e6d6c5ba5",
         "region_genes.parquet": "1197b721b0b595beaf182adb375dfbf0707c5cf8085b5d4598106988f1215fd7",
-        "regions.parquet": "54ca39d8465b7720f4417364363d63ce4c6aa92cd893cad24c2f311c825f2ca5",
+        "regions.parquet": "372cebd51acc2a81a72dd80fae4d7ad2321e342e681300036d8916393e0d5712",
         "replicons.parquet": "baa9f94adf047f02a746031e33777abc727b0eea9e650454e0b7a868562bd85e",
         "tus.parquet": "c564de32b5fac4d9d1dc6a9ff5f885065ccdec0c2d7547b7ce48561f0e1ca825",
         "xrefs.parquet": "0fd3d2531b4d94b2dc6370de0378ecb870858dc2f6b091c37854771e474f592e",
@@ -67,7 +67,7 @@ LAYOUT_SHA256 = {
         "genes.parquet": "36b633ae9875d5a51b30e2999070ff6dc35b03c6011ef0aa3a42df6fea54e2de",
         "layers.parquet": "1745a48214adc69e34c25c54c61906b07ac121d43a097bbfd10044afc0514171",
         "region_genes.parquet": "acea093cd168190d31138ba706167c04a25a5186727512189982206c4480369a",
-        "regions.parquet": "c61cc5fa60051964a7435dc93e62a89687fb60c52ead2e53ff314b6055ecbe50",
+        "regions.parquet": "5975050658496a44c1bbdac7f0c6f21f8fee44ecc413ee8bdd7f9d762ae70ea3",
         "replicons.parquet": "5e38eeaf9aa9a76a63410d12fdb7296f7d489d63ad5a41afe5c9adf211e6bab1",
         "tus.parquet": "7ad19f2cfb66e2c5f9bbe397f0d468fc7ce12ed1bbf47d0c3324305b965e1719",
         "xrefs.parquet": "ded2195445f5002254a0fbbdcd1abc402787ed8cf09621e98c66d9dac0cbed80",
@@ -81,7 +81,7 @@ MIXED_KW: dict[str, Any] = {
 # the M3-19 hook swap (``expression_for_simulation``) must be opt-in.
 M0_PROTEOMICS_SHA256 = {
     "abundance.tsv": "bdbe3b7329f9a369bb278ab48d82c925462027b7c719c6f2bfa4e922534fd34a",
-    "annotation.gff3": "b9b0482bb56fb40a4069be0d9bce4629169779c41ebb2243506d8da57628a924",
+    "annotation.gff3": "0467c903f078fc0720277acb2814b281853c5313bd66ca16b4dfe20bc6d52cea",
     "bakta_like.json": "d312420eb3d404cb1abbb6d07844cccbc83c0ce5e9c912d3a02aa17da6c49064",
     "genome.fasta": "698373a45c787caa64c01d7050dd1d2a7b31e03771e4e389056ca510c6df1971",
     "peptides.tsv": "8489d448b3241131140f1ec59f28c0465aca8875e70f188550df4705328ee852",

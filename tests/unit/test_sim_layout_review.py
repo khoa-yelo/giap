@@ -264,7 +264,7 @@ _DEFAULT_KW: dict[str, Any] = {
 _PINNED = {
     "replicons.parquet": "344ec075ddc22b024b0f5bf71e148e9457d7d596c816919898af39339c4f3e66",
     "tus.parquet": "52851f936b3d5a5acd0fce8a50e82743c948743a1805e2a6cc40535056fb1dfe",
-    "regions.parquet": "cd7687bcc7e1e09baec42eab7f39428fada5b61a27713bfb12fe0ec27407f025",
+    "regions.parquet": "a885365b1755ca2ceabb67ac87d4b0d153e008af16cb4f2c09331cd792e35a9b",
 }
 _PINNED_GENES_CSV = "c5f362b1475398f9020bb9e23f2dddd5fba671dc2b112ebfd15a7f3340122e96"
 

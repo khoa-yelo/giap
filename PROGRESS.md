@@ -4,7 +4,12 @@
 > resume prompt (GIPPA_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01PrvuX9xr7fWwMTpHJxPSjm_
+_Last updated: 2026-10-27 · session https://claude.ai/code/session_01PrvuX9xr7fWwMTpHJxPSjm_
+
+> **Renamed to GIPPA (ADR-0064, branch `refactor/gippa-rename`):** the project, package, CLI
+> (`gippa`), simulator (`gippasim`), env vars (`GIPPA_*`), Slurm job names (`gippa-*`), micromamba
+> envs (`gippa-<tool>`) and the spec (`GIPPA_SPEC.md`). `scripts/farmshare_env.sh` still exports the
+> old variable names for a transition window, and the R14 checks count both job prefixes.
 
 ## Milestone progress
 <!-- progress:start -->

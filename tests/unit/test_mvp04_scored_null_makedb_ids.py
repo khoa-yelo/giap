@@ -42,13 +42,13 @@ SEED = 30
 FILES = ("peptides.tsv", "truth/peptides.tsv", "truth/proteomics.json")
 #: sha256 at main 98f89786 (before the fix): novel_orf_power(30, "100k"), seed 30.
 SIXFRAME_SHA = {
-    "peptides.tsv": "547680c738e0978829319627b8c1148e99acef6e7993b97e67b26bce12209e94",
+    "peptides.tsv": "481f1b06ed67ab6f4acb92cdd47ba5ef30baa33b7f9b661b6e25c178d6e499a6",
     "truth/peptides.tsv": "3585a5247fd095a8588aa9807f198c5cc2b2f2676c15c3dd31e1eb5da6c34fdf",
     "truth/proteomics.json": "473dbecb56a4cd26f8772b256e7f1a673f87d1e270d98d0d838512107235e360",
 }
 #: the same with ``decoys = "scored_null"``.
 SIXFRAME_SCORED_SHA = {
-    "peptides.tsv": "fa7842e8436565f26a1a69652a71f8301e8e23ceb9e828d42685e7133210efa4",
+    "peptides.tsv": "8ef836bfa756ba31195b9e785722315fe3870d467f5d9f33e3b12cfff0234e0a",
     "truth/peptides.tsv": "75d534320e244ae6416760eb80922a52cf62491c674c0d76c360e7712fbc24be",
     "truth/proteomics.json": "3ffbe3d247a246d5c7fada56220b67308dffe16d66d31d923d6041ebee9c0428",
 }

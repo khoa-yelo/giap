@@ -64,7 +64,7 @@ KS_MIN_P = 0.001  # tests/calibration/tolerances.yaml ks_min_p
 #: 9bd0b7a6 outputs (seed SEED, 100 kb) of the configs decisions 21-22 must not touch.
 VARIANT_F1_SHA256 = {
     "abundance.tsv": "c7576c8c6902c1a74892ddf5edd453fa73d67315b993243485d51a9960e7fba6",
-    "annotation.gff3": "239698807121fd27c9da3a01ce03d6ceb353ef2f3657f3e357ca43bbdafaaf73",
+    "annotation.gff3": "e07848d75d499470eeeb1c3d14c0f9c20df6d1e4ba8893bff0f402e5c85347de",
     "bakta_like.json": "7cf8b02cb7ada6536cca689db577882b28d47a7ec5ac4c1daa1b27c6831e1d9b",
     "genome.fasta": "fc8f62a258ffc2b22cd0e81cb833083101942c0ba91d89dfc1d1a822afcbfe08",
     "peptides.tsv": "45bfcd9b2bbaeee0a0b74e896de3200490d28eb7b90aa4d20aaa5ed8445dbf17",
@@ -86,7 +86,7 @@ VARIANT_F1_SHA256 = {
 }  # fmt: skip
 ISOBARIC_SHA256 = {
     "abundance.tsv": "c7576c8c6902c1a74892ddf5edd453fa73d67315b993243485d51a9960e7fba6",
-    "annotation.gff3": "239698807121fd27c9da3a01ce03d6ceb353ef2f3657f3e357ca43bbdafaaf73",
+    "annotation.gff3": "e07848d75d499470eeeb1c3d14c0f9c20df6d1e4ba8893bff0f402e5c85347de",
     "bakta_like.json": "7cf8b02cb7ada6536cca689db577882b28d47a7ec5ac4c1daa1b27c6831e1d9b",
     "genome.fasta": "fc8f62a258ffc2b22cd0e81cb833083101942c0ba91d89dfc1d1a822afcbfe08",
     "peptides.tsv": "45bfcd9b2bbaeee0a0b74e896de3200490d28eb7b90aa4d20aaa5ed8445dbf17",
@@ -111,7 +111,7 @@ NOVEL_SHUFFLED_SHA256 = {
 }  # fmt: skip
 #: ``novel_orf_power`` (six-frame): files outside the proteomics step (9bd0b7a6).
 NOVEL_NONPROTEOMICS_SHA256 = {
-    "annotation.gff3": "b6a1d46fa9548287611fd48eaf38ab37a829477446e711c7c6fea20a95eb815e",
+    "annotation.gff3": "770b40c07e9e3254a518abe2d04e7efd0025d0dd5590f4b6428c8358410e5eb3",
     "bakta_like.json": "2ef3d4b7faf94bcc864a9743ecad4470d2f17724769e1585afc445c9737c4503",
     "genome.fasta": "d5480626271116e811665a0e06b35739a70ce063657bd277fc65e611582e5bde",
     "precomputed/operon_pairs.tsv": "1edbfd598b1332fcdb8fb908203049da0cb303aa0fe2b4383db39ab51200a2f2",  # noqa: E501

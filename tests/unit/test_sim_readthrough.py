@@ -99,8 +99,8 @@ GENOME_SIDE = (
 )
 #: digests of KEEP recorded on main 1549a930, before ``n_readthrough`` existed
 PINNED = {
-    "mixed": "590cfead1b9b5be262b091c1b6f3baa31fd399284f62b65696469634a406ca79",
-    "sim100k_denovo": "ecd43a19b0c4561ae0bb8b41c234a620491da80909928c202ef74a7485323cd0",
+    "mixed": "28307def866b2d9bdeafb296fcd6d6b45bf63cc4001734d8499ec80305642ce5",
+    "sim100k_denovo": "779151d6c41e27f59826cba423a07110f7746129c68e2bf36a8a1a642953e7a8",
 }
 CASES: dict[str, tuple[SimConfig, int]] = {
     "mixed": (MIXED, MIXED_SEED),

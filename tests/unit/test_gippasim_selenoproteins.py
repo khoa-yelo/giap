@@ -46,7 +46,7 @@ KEEP = (
     "truth/peptides.tsv",
     "truth/novel_orfs.tsv",
 )
-PINNED_BASE = "f1c2a0cdba97f4a5febcf2f215f19472683580143a519e8a17793ebfa22d0aac"
+PINNED_BASE = "693403ffda596b82ca53bf68886655fc6aebff4bcc933784e2b842821be5ee03"
 _COMP = str.maketrans("ACGT", "TGCA")
 
 

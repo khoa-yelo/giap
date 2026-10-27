@@ -58,8 +58,8 @@ KEEP = (
     "truth/peptides.tsv",
 )
 PINNED = {
-    "other_strain_100k": "699ed56e520786433c62dd2dd8bb65444308d77111b2f82b00286a236a6be81d",
-    "indels_50k": "dedb61f2805eda642212f691e3fd350ed1552b11b75f8df63ec73afc26b40a86",
+    "other_strain_100k": "96a21f18dad6b5e046a03c78499d4348bc2d11886dc895d4dc8ed058f6d52d5c",
+    "indels_50k": "ddb117fe2215a640de9857c96f924c61625648eb59349ab345bef42d974fd4dd",
 }
 
 
