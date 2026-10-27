@@ -314,7 +314,11 @@ def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def _run_preflight(tmp_path: Path, root: Path, db: Path, profile: str) -> Any:
     from giap.preflight.run import run_preflight
 
-    low = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
+    low = [
+        "preflight.min_n50_warn=1",
+        "preflight.min_largest_contig_warn=1",
+        "annotation.uniop.enabled=true",
+    ]  # 14d2: the default is auto; pin the true path
     cfg = resolve_config(overrides=low)
     report, _ = run_preflight(
         _inputs(tmp_path), cfg, None, "run", tmp_path / "OUT", db, giap_root=root, profile=profile

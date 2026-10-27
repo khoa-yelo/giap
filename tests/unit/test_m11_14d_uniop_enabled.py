@@ -116,17 +116,43 @@ def _resolve(cfg: GiapConfig, installed: bool, publication: bool) -> Any:
 # ---------------------------------------------------------------- config
 
 
-def test_default_is_true_in_the_model() -> None:
-    assert GiapConfig().annotation.uniop.enabled is True
+# 14d2 (ADR-0061, statistician sign-off 2026-10-26): the default is ``auto``, so a failed UniOP
+# build degrades to the ADR-0022 distance model with its flags instead of stopping the run.
 
 
-def test_default_is_true_in_defaults_yaml() -> None:
+def test_default_is_auto_in_the_model() -> None:
+    assert GiapConfig().annotation.uniop.enabled == "auto"
+
+
+def test_default_is_auto_in_defaults_yaml() -> None:
     data = yaml.safe_load(DEFAULTS_YAML.read_text(encoding="utf-8"))
-    assert data["annotation"]["uniop"]["enabled"] is True, data["annotation"]["uniop"]
+    assert data["annotation"]["uniop"]["enabled"] == "auto", data["annotation"]["uniop"]
 
 
-def test_default_resolved_config_is_true() -> None:
-    assert resolve_config().annotation.uniop.enabled is True
+def test_default_resolved_config_is_auto() -> None:
+    assert resolve_config().annotation.uniop.enabled == "auto"
+
+
+_OPERATING_POINT = [
+    f"{m}_at_pair_threshold{s}"
+    for m in ("precision", "recall")
+    for s in ("", "_ci_low", "_ci_high")
+]
+
+
+def test_auto_default_needs_the_fallback_operating_point() -> None:
+    """AC 10: ``defaults.yaml`` may say ``auto`` only while ``calibration.yaml`` carries the
+    distance model's precision and recall at ``pair_threshold`` with their CIs (14s2)."""
+    data = yaml.safe_load(DEFAULTS_YAML.read_text(encoding="utf-8"))
+    if data["annotation"]["uniop"]["enabled"] != "auto":
+        return
+    cal = yaml.safe_load((DEFAULTS_YAML.parent.parent / "data" / "calibration.yaml").read_text())
+    od = cal.get("operon_distance") or {}
+    missing = [k for k in _OPERATING_POINT if not isinstance(od.get(k), float)]
+    assert not missing, f"calibration.yaml operon_distance lacks {missing}"
+    for m in ("precision", "recall"):
+        assert od[f"{m}_at_pair_threshold_ci_low"] <= od[f"{m}_at_pair_threshold"]
+        assert od[f"{m}_at_pair_threshold"] <= od[f"{m}_at_pair_threshold_ci_high"]
 
 
 @pytest.mark.parametrize(("raw", "want"), [("true", True), ("false", False), ("auto", "auto")])
@@ -151,7 +177,7 @@ def test_other_values_are_rejected(raw: str) -> None:
 
 
 def test_publication_does_not_change_enabled() -> None:
-    assert resolve_config(publication=True).annotation.uniop.enabled is True
+    assert resolve_config(publication=True).annotation.uniop.enabled == "auto"  # 14d2 default
     cfg = resolve_config(overrides=[_set("auto")], publication=True)
     assert cfg.annotation.uniop.enabled == "auto"
 
@@ -191,7 +217,7 @@ def test_json_schema_has_enabled_true_false_auto(source: str) -> None:
     props = _uniop_schema(schema)["properties"]
     assert "enabled" in props, sorted(props)
     node = props["enabled"]
-    assert node.get("default") is True, node
+    assert node.get("default") == "auto", node  # 14d2
     for ok in (True, False, "auto"):
         assert _accepts(node, ok), (ok, node)
     for bad in ("maybe", 1.5, None):
@@ -828,7 +854,14 @@ def test_run_example_9_true_not_installed_exits_2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path,
     fake_nf: Path,
 ) -> None:  # fmt: skip
-    code, text, _ = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False)
+    code, text, _ = _giap_run(
+        tmp_path,
+        monkeypatch,
+        genome,
+        proteins,
+        uniop=False,
+        sets=("annotation.uniop.enabled=true",),
+    )  # 14d2: default is auto
     assert code == ExitCode.ENVIRONMENT, text
     assert "uniop" in text
     assert not fake_nf.exists(), "nextflow was launched"

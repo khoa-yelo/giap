@@ -327,6 +327,36 @@ def _tools(reports: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return [rows[k] for k in sorted(rows)]
 
 
+def _uniop_build(doc: Mapping[str, Any] | None, profile: str | None) -> dict[str, Any] | None:
+    """The run-manifest keys of a local UniOP build (M11-14 item 1b) from the ``ok``
+    ``image:uniop`` item, when its runtime is the one ``profile`` resolves to. The
+    ``container_digest`` is the docker image ID or the ``.sif`` sha256 (none for an env)."""
+    from giap.preflight.environment import _FARMSHARE_PROFILES, _profiles, uniop_runtime
+
+    items = doc.get("items") if doc is not None else None
+    for i in items if isinstance(items, list) else []:
+        if not isinstance(i, Mapping) or i.get("name") != "image:uniop" or i.get("status") != "ok":
+            continue
+        build = i.get("local_build")
+        runtime = build.get("runtime") if isinstance(build, Mapping) else None
+        want: str | None = runtime if profile is None else uniop_runtime(profile)
+        if want == "micromamba" and _profiles(profile or "") & _FARMSHARE_PROFILES:
+            want = "prebuilt"
+        if not isinstance(build, Mapping) or want != runtime:
+            return None
+        digest = build.get("digest") if runtime in ("docker", "apptainer") else None
+        source = i.get("checksum") or None
+        return {"local_build": True, "runtime": runtime, "source_sha256": source,
+                "container_digest": digest or None}  # fmt: skip
+    return None
+
+
+def _with_uniop_build(
+    tools: list[dict[str, Any]], build: Mapping[str, Any] | None
+) -> list[dict[str, Any]]:
+    return [t | dict(build) if build is not None and t["name"] == "uniop" else t for t in tools]
+
+
 def _warnings(src: ManifestSources) -> list[str]:
     out = {f"preflight:{c['rule_id']}" for c in src.preflight.get("checks", [])
            if c.get("level") == "warn"}  # fmt: skip
@@ -379,7 +409,9 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "config": cfg.model_dump(mode="json"),
         "inputs": _inputs(src),
         "inputs_absent": sorted(src.inputs_absent),
-        "tools": _tools(src.tool_reports),
+        "tools": _with_uniop_build(
+            _tools(src.tool_reports), _uniop_build(src.db_manifest, src.profile)
+        ),
         "databases": _databases(src.db_manifest),
         "annotation": _annotation(src.annotation_meta),
         **_operon_source(src.operon_meta),

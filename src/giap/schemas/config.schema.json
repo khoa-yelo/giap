@@ -1252,7 +1252,7 @@
               "type": "string"
             }
           ],
-          "default": true,
+          "default": "auto",
           "title": "Enabled"
         },
         "fallback": {

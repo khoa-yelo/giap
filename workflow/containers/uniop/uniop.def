@@ -2,23 +2,29 @@
 # This image is built only locally by `giap setup --uniop` from the authors' archive; never pushed
 # (unlicensed).
 # The build context is the one setup stages: uniop.yml at workflow/envs/ and the verified archive
-# as uniop-src.tar.gz. No chown: a fakeroot build maps a single uid.
+# as uniop-src.tar.gz. No chown: a fakeroot build maps a single uid. Staged under /opt/giap-build,
+# not /tmp: apptainer mounts the host /tmp over it during %post (AC 9b job 1897239).
 Bootstrap: docker
 From: mambaorg/micromamba@sha256:f90ebbd10a6dabe1ab87497babd33085d6cf743da6176cf6bf119b9431cdf251
 
 %files
-    workflow/envs/uniop.yml /tmp/env.yml
-    uniop-src.tar.gz /tmp/src.tar.gz
+    workflow/envs/uniop.yml /opt/giap-build/env.yml
+    uniop-src.tar.gz /opt/giap-build/src.tar.gz
 
 %post
+    # %post sees neither the image's MAMBA_ROOT_PREFIX nor its entrypoint activation: name the prefix
+    export MAMBA_ROOT_PREFIX=/opt/conda
     GIT_SHA=3ed14dfc2a5d69b993d99a26e50c1f8e9723c087
-    micromamba install -y -n base -c conda-forge -c bioconda --override-channels -f /tmp/env.yml
+    micromamba install -y -p /opt/conda -c conda-forge -c bioconda --override-channels -f /opt/giap-build/env.yml
     micromamba clean -a -y
     mkdir -p /opt/conda/share/uniop
-    tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/uniop
+    tar -xzf /opt/giap-build/src.tar.gz --strip-components=1 -C /opt/conda/share/uniop
     echo "$GIT_SHA" > /opt/conda/share/uniop/GIAP_COMMIT
-    rm /tmp/src.tar.gz /tmp/env.yml
+    rm -r /opt/giap-build
     chmod -R a+rX /opt/conda/share/uniop
+
+%environment
+    export CONDA_PREFIX=/opt/conda MAMBA_ROOT_PREFIX=/opt/conda PATH=/opt/conda/bin:$PATH
 
 %labels
     org.opencontainers.image.title giap-uniop
