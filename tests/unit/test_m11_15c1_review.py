@@ -884,7 +884,9 @@ def test_prompt_order_proceed_then_terms(
     assert code == 0, out
 
 
-@pytest.mark.parametrize("case", ["images", "uniop+images", "uniop+db"])
+# `--uniop` installs UniOP only (Q-K27): with a database flag too, nothing else is planned, so
+# Proceed? is never asked there; test_example_18c_tty_refusal_under_uniop_exits_2 covers that path.
+@pytest.mark.parametrize("case", ["images", "uniop+images"])
 def test_no_to_proceed_stops_before_any_download(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uniop_env: Any, case: str
 ) -> None:
