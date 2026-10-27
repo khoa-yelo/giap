@@ -58,7 +58,8 @@ def _fake_prereqs_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(autouse=True)
 def _fake_prereqs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A fake ``java`` (21) and ``nextflow`` first on ``PATH``, ``JAVA_HOME`` unset (M11-15d).
+    """A fake ``java`` (21) and ``nextflow`` first on ``PATH``; ``JAVA_HOME``, ``JAVA_CMD`` and
+    ``NXF_JAVA_HOME`` unset (M11-15d).
 
     ``gippa setup`` and ``gippa run`` check Java and look up Nextflow; no unit test may run the
     host's tools or download the launcher. Opt out with ``@pytest.mark.real_prereqs`` (the 15d
@@ -73,5 +74,5 @@ def _fake_prereqs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatc
     bindir = request.getfixturevalue("_fake_prereqs_dir")
     monkeypatch.setenv(FAKE_PREREQS_ENV, str(bindir))
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
-    for var in ("JAVA_HOME", "JAVA_CMD"):
+    for var in ("JAVA_HOME", "JAVA_CMD", "NXF_JAVA_HOME"):
         monkeypatch.delenv(var, raising=False)
