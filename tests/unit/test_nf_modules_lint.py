@@ -42,8 +42,9 @@ LABELS = {
     "antismash": "process_high",
 }
 TOOL_NAMES = sorted(LABELS)
-# "Memory-heavy processes set memory explicitly (Bakta 48.GB, geNOMAD 48.GB, antiSMASH 32.GB)".
-EXPLICIT_MEMORY_GB = {"bakta": 48, "genomad": 48, "antismash": 32}
+# "Memory-heavy processes set memory explicitly (Bakta 48.GB, geNOMAD 48.GB)". antiSMASH is sized
+# in base.config withName (#416 D2: it peaks at 3.3 GB).
+EXPLICIT_MEMORY_GB = {"bakta": 48, "genomad": 48}
 # M2-01 lead decision 1: no published image yet, conda env only (listed in containers.config).
 CONDA_ONLY = {
     "uniop",
