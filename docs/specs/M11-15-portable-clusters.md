@@ -16,7 +16,7 @@ item 6), docs (`docs/get-started/`, `docs/user-guide/platforms.md`, new
 step-image publish (with 14j), the second cluster, and the questions at the end.
 
 **Naming.** Names follow ADR-0064 (command, package, `GIPPA_*` variables, `gippa-*` job names);
-`GIAP_SPEC.md` keeps its name (the rename script's keep list). `<pkg>` means the PyPI project
+`GIPPA_SPEC.md` keeps its name (the rename script's keep list). `<pkg>` means the PyPI project
 name read from `pyproject.toml`, `<owner>` the GHCR
 owner (`khoa-yelo`, M11-14 Q-K14).
 
