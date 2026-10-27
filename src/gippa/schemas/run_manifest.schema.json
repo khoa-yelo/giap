@@ -29,6 +29,17 @@
     "command_line": {"$ref": "#/$defs/strs"},
     "executor": {"enum": ["local", "nextflow"]},
     "profile": {"$ref": "#/$defs/nstr"},
+    "launch": {
+      "description": "How gippa run chose the Nextflow profile (M11-15a): flag or auto-detected; null for the local executor.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["profile", "profile_source", "profile_reason"],
+      "properties": {
+        "profile": {"type": "string"},
+        "profile_source": {"enum": ["auto", "flag"]},
+        "profile_reason": {"type": "string"}
+      }
+    },
     "resume": {"type": "boolean"},
     "outdir": {"type": "string"},
     "started_at": {"type": "string"},
