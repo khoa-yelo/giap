@@ -860,6 +860,29 @@ codon_bias (MIT; already in-process). **None qualifies today**; a backlog note o
   detected" (the printed profile line and how to override it), the licence lines, and three
   "if this fails" boxes (no container runtime: install Apptainer/Docker; Java < 17; not enough
   disk: `--db-dir`/`--minimal`). ≤ 1 page (a docs test caps it at 120 lines).
+  **Amended (Khoa, 2026-10-27):** the quick start is a guided path, one section per step, each
+  with the exact command, what it prints, how long it takes and the disk it uses:
+  1. install; 2. set up (download the databases and images; link the by-hand page
+  `manual-databases.md`); 3. `gippa demo` (bundled test data, the quick "does it run" check,
+  what a good report looks like); 4. example runs on the shipped example inputs (genome plus
+  peptides; genome plus proteins), with a short tour of the inputs and of the outputs (gene
+  table, regions, report); 5. "your own data": which input you have decides the route.
+  The 120-line cap moves to the four-command block at its top ("the short version"); the page
+  as a whole has no cap.
+- **`docs/get-started/from-spectra.md`** (new, "From raw spectra to a GIPPA run"; linked from
+  quick start step 5): for users with mass spectra but no protein or peptide table yet. One
+  section per route, each with *when to use it*, the commands (database from `gippa makedb`,
+  the search, `gippa convert`, `gippa run`) and its caveats:
+  - DIA-NN against the called genes (Bakta CDS + contaminants): the default for annotated
+    genomes; fastest, best-calibrated FDR; misses unannotated ORFs.
+  - DIA-NN against six-frame ORFs (`makedb --six-frame-orfs`): novel-ORF discovery; larger
+    search space, so stricter FDR and longer runs; feeds the novel-ORF module.
+  - De novo sequencing (the tool and converter GIPPA supports): no database or poorly annotated
+    or divergent strains; lower sensitivity; peptides placed by GIPPA's own tolerant mapper.
+  - DDA engines GIPPA's `convert` already reads, listed from the code.
+  A summary table (route × input × typical use × run time × what GIPPA modules it feeds), the
+  pilot (PXD078459) as the worked example, and the licence of each search tool (DIA-NN's own
+  terms; GIPPA never bundles or runs it unless the user supplies it).
 - `install.md`: the four commands replace the five steps; "Run on a cluster" replaces "A Slurm
   (or other) executor off FarmShare" (item 9 table, flags, `--nf-config` precedence, `--offline`,
   shared FS, step image, a generic head-job sbatch example); remove "`gippa run` has no `-c`
