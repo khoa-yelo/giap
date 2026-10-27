@@ -66,13 +66,14 @@ giap --version
 
 # 2. Nextflow, Java and Docker or Apptainer on PATH (Prerequisites above)
 
-# 3. databases, pinned images and the local UniOP build
-export NXF_APPTAINER_CACHEDIR=/big/disk/giap-images     # apptainer only (below)
+# 3. pinned images, databases and the local UniOP build
+export NXF_APPTAINER_CACHEDIR=/big/disk/giap-images     # optional, apptainer only (below)
 giap setup --db-dir /path/to/db --antismash --go --kegg --cog --contaminants \
     --images --profile apptainer                         # or: --profile docker
 
-# 4. check the inputs
-GIAP_DB_DIR=/path/to/db giap preflight --genome genome.fna --peptides peptides.tsv
+# 4. check the inputs and the installed tools
+GIAP_DB_DIR=/path/to/db giap preflight --genome genome.fna --peptides peptides.tsv \
+    --profile apptainer                                  # or: --profile docker
 
 # 5. run
 giap run --genome genome.fna --peptides peptides.tsv --db-dir /path/to/db \
@@ -83,8 +84,8 @@ giap run --genome genome.fna --peptides peptides.tsv --db-dir /path/to/db \
 MkDocs Material for building this site. **Bioconda:** the recipe is pending (M11-10); until it
 is merged, use PyPI.
 
-**Step 3.** `giap setup` downloads the databases (the flags are on
-[Set up the databases](setup-databases.md)), then pulls the images:
+**Step 3.** `giap setup` pulls the images, then downloads the databases (the flags are on
+[Set up the databases](setup-databases.md)):
 
 - `--images` pulls the pinned images that the configuration's modules need, and `--images all`
   every pinned image. `--config` and `--set` select the configuration, as for `giap run`.
@@ -96,27 +97,31 @@ is merged, use PyPI.
   conda | docker | apptainer`.
 - Each image is recorded as an `image:<tool>` item in `DIR/db_manifest.json`. A failed pull or a
   digest mismatch (`pulled <d1>, pinned <d2>`) is exit code 2; the other images are still pulled.
-- **The Apptainer cache: export `NXF_APPTAINER_CACHEDIR`** and keep it set for setup and run.
-  In this release the readers of the cache do not agree on other settings:
-    - `--cache-dir` is used only by the image pull and the UniOP build of this `setup` command;
-    - setup's Bakta and antiSMASH downloaders and `giap run`'s preflight use
-      `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else `DIR/containers`;
-    - Nextflow uses `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else its own cache,
-      where it pulls every image again.
+- **The Apptainer cache** is one directory: `NXF_APPTAINER_CACHEDIR`, else
+  `$GIAP_ROOT/containers`, else `DIR/containers` (`setup --cache-dir` overrides it for that
+  `setup` command). Every reader uses that same directory:
+    - setup's image pull and UniOP build;
+    - setup's Bakta and antiSMASH downloaders, which run inside the pulled images;
+    - preflight under `--profile` (`giap preflight --profile` and `giap run`);
+    - Nextflow: `giap run` exports `NXF_APPTAINER_CACHEDIR` to the cache it checked when the
+      variable is not set (`apptainer.cacheDir`).
 
-  So do not use `--cache-dir` or rely on `DIR/containers`: with either, preflight reports the
-  images `not in the apptainer cache`.
-- On a machine with Apptainer and no Docker, the first run reports the Bakta (and, with
-  `--antismash`, antiSMASH) database `absent`: their downloaders run inside the tool image, and
-  setup downloads the databases before it pulls the images. With `NXF_APPTAINER_CACHEDIR` set,
-  run the same command again: the images are then in the cache, and finished items are kept.
+  `DIR/containers` therefore works with no variable set. Export `NXF_APPTAINER_CACHEDIR` to put
+  the images on another disk, or to share one cache with Nextflow runs outside `giap`; keep it
+  set for setup, preflight and run. A `--cache-dir` other than that directory is seen only by
+  that `setup` command: preflight then reports the images `not in the apptainer cache`.
+- On a machine with Apptainer and no Docker, the Bakta (and, with `--antismash`, antiSMASH)
+  downloaders run inside the tool image: setup pulls the images first, so one `setup --images`
+  run installs those databases too.
 - Compute nodes without network: run step 3 where the network is. Preflight checks the cache,
   not the registry.
 
 **Step 4.** `giap preflight` validates the inputs in seconds and reads the installed versions from
-`$GIAP_DB_DIR/db_manifest.json`. It has no `--profile` option: the check that every tool is
-installed under your profile runs at the start of `giap run` (next section), before Nextflow
-starts.
+`$GIAP_DB_DIR/db_manifest.json`. With `--profile`, it also checks that every tool is installed
+under that profile, exactly as `giap run --profile` does before Nextflow starts (next section):
+the same profile names, the DB directory from `$GIAP_DB_DIR` and the prebuilt envs under
+`$GIAP_ROOT`. A missing tool is exit code 2; for missing images the message says `run: giap setup
+--images --profile apptainer`. Without `--profile`, no tool is checked.
 
 **Step 5.** The default `--profile` is `farmshare,apptainer`, so off FarmShare always pass it.
 `--memory` defaults to `64.GB`; set it to what the machine has. See [Run](../user-guide/run.md).
@@ -188,10 +193,10 @@ has no `-c` option for your own Nextflow config; Nextflow also reads `$NXF_HOME/
 
 ## What `giap run` needs before preflight passes
 
-In run mode, preflight checks that every tool the run will use is installed under `--profile`
-(`missing_tools` in `src/giap/preflight/environment.py`). A missing tool is an environment error:
-`giap run` exits with code 2 before Nextflow starts, and the message names the tool and the
-reason.
+In run mode, and in `giap preflight --profile`, preflight checks that every tool the run will use
+is installed under `--profile` (`missing_tools` in `src/giap/preflight/environment.py`). A
+missing tool is an environment error: `giap run` exits with code 2 before Nextflow starts, and
+the message names the tool and the reason.
 
 | Tool kind | `docker` | `apptainer` (no conda profile) | `farmshare*`, or with `conda` |
 |---|---|---|---|
@@ -204,7 +209,7 @@ reason.
 A prebuilt env counts only with its marker file `.giap-built`, holding the SHA-256 of
 `workflow/envs/<tool>.yml`. Preflight also reads `DIR/db_manifest.json` for the databases
 ([Set up the databases](setup-databases.md)). The antiSMASH image alone is about 9 GB
-(GIAP_SPEC.md §3.9).
+([Set up the databases › Layout and sizes](setup-databases.md#layout-and-sizes)).
 
 ## What `giap setup` needs
 

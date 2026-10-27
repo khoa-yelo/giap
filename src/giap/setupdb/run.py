@@ -119,12 +119,17 @@ def _mamba_root() -> Path | None:
 class ToolRunner:
     """Runs a downloader in ``giap-<tool>`` (micromamba), else in the image pinned in the bundled
     ``containers.config``: the apptainer cache file (``image_cache``), else ``docker run`` (M2-08
-    lead decision 5; M11-14 14f2). Neither ``$GIAP_ROOT`` nor a checkout is required."""
+    lead decision 5; M11-14 14f2). Neither ``$GIAP_ROOT`` nor a checkout is required. With
+    ``cache_dir`` the image is looked up there and nowhere else (``giap setup`` passes the
+    directory it pulls into)."""
 
-    def __init__(self, *, db_dir: Path | None = None) -> None:
+    def __init__(self, *, db_dir: Path | None = None, cache_dir: Path | None = None) -> None:
         self.db_dir = db_dir
+        self.cache_dir = cache_dir
 
     def _cache(self) -> Path | None:
+        if self.cache_dir is not None:
+            return self.cache_dir
         if self.db_dir is not None:
             return image_cache(os.environ, self.db_dir)
         if os.environ.get("NXF_APPTAINER_CACHEDIR"):
