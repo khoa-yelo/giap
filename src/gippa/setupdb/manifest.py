@@ -1,6 +1,8 @@
 """``DIR/db_manifest.json`` (GIPPA_SPEC.md §7.9.1) and the prefetch log it adopts provenance from.
 
-The manifest is ``{"schema_version": "1.0", "items": [DbRecord, ...]}`` sorted by name; writes
+The manifest is ``{"schema_version": "1.0", "items": [DbRecord, ...]}`` sorted by name (``1.1``
+with a top-level ``setup`` object: the runtime ``setup --images`` pulled for, M11-15a, and the
+``set`` it installed, M11-15c2); writes
 merge with the existing manifest by name and are atomic (temporary file, then ``os.replace``).
 """
 
@@ -24,19 +26,29 @@ __all__ = ["MANIFEST", "PREFETCH_LOG", "SCHEMA_VERSION", "read_prefetch", "read_
 MANIFEST = "db_manifest.json"
 PREFETCH_LOG = "prefetch_manifest.tsv"
 SCHEMA_VERSION = "1.0"
+SETUP_SCHEMA_VERSION = "1.1"  # a manifest with the top-level ``setup`` object (M11-15a)
 _FIELDS = {f.name for f in dataclasses.fields(DbRecord)}
 LOCAL_BUILD = "local_build"  # optional object of a locally built image (M11-14 item 1b)
-SETUP = "setup"  # optional object: how the directory was set up, e.g. {"set": "minimal"} (15c2)
+SETUP = "setup"  # optional object: how the directory was set up (15a runtime, 15c2 set)
+# The allowed values of each ``setup`` key (db_manifest.schema.json); others are dropped on read.
+SETUP_VALUES: dict[str, tuple[str, ...]] = {
+    "runtime": ("apptainer", "singularity", "docker"),  # images pulled for it (M11-15a)
+    "set": ("default", "minimal"),  # --minimal or the default set (M11-15c2)
+}
 
 
-def read_setup(db_dir: Path) -> dict[str, object]:
-    """The manifest's ``setup`` object; ``{}`` when missing or unreadable."""
+def read_setup(db_dir: Path) -> dict[str, str]:
+    """The manifest's ``setup`` object, keeping only known keys whose value is a string in
+    :data:`SETUP_VALUES`; ``{}`` when missing or unreadable."""
     try:
         data = json.loads((db_dir / MANIFEST).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     block = data.get(SETUP) if isinstance(data, dict) else None
-    return dict(block) if isinstance(block, dict) else {}
+    if not isinstance(block, dict):
+        return {}
+    return {k: v for k, v in block.items()
+            if isinstance(v, str) and v in SETUP_VALUES.get(k, ())}  # fmt: skip
 
 
 def _read_items(db_dir: Path) -> dict[str, tuple[DbRecord, dict[str, str] | None]]:
@@ -79,15 +91,16 @@ def write_manifest(
 ) -> None:
     """Merge ``records`` into ``db_dir/db_manifest.json`` (same name: the new record wins).
     ``local_builds`` gives a record its ``local_build`` object; a kept item keeps its own.
-    ``setup`` keys update the ``setup`` object; without it the existing object is kept."""
+    ``setup`` keys update the existing ``setup`` object (``None`` keeps it); the manifest is
+    schema ``1.1`` whenever the merged object is non-empty, else ``1.0``."""
     builds = local_builds or {}
     merged: dict[str, tuple[DbRecord, Mapping[str, str] | None]] = {
         **_read_items(db_dir), **{r.name: (r, builds.get(r.name)) for r in records}}  # fmt: skip
+    block = read_setup(db_dir) | dict(setup or {})
     doc: dict[str, object] = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": SETUP_SCHEMA_VERSION if block else SCHEMA_VERSION,
         "items": [_item(*merged[n]) for n in sorted(merged)],
     }
-    block = read_setup(db_dir) | dict(setup or {})
     if block:
         doc[SETUP] = block
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"

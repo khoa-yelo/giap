@@ -6,11 +6,15 @@
   "additionalProperties": false,
   "required": ["schema_version", "items"],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"enum": ["1.0", "1.1"]},
     "setup": {
-      "description": "How gippa setup filled the directory (M11-15c2): set is minimal (--minimal) or default.",
+      "description": "What gippa setup recorded beyond the items (schema 1.1): the container runtime the images were pulled for (M11-15a) and the set installed, minimal (--minimal) or default (M11-15c2).",
       "type": "object",
-      "properties": {"set": {"enum": ["default", "minimal"]}}
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {"enum": ["apptainer", "singularity", "docker"]},
+        "set": {"enum": ["default", "minimal"]}
+      }
     },
     "items": {
       "type": "array",

@@ -57,7 +57,7 @@ Build an optional strain search database (no FDR is built on it).
 
 ## gippa preflight
 
-Validate inputs only (seconds); with --profile also the installed tools.
+Validate inputs and (unless --profile none) the installed tools.
 
 | Option | Type | Default | Choices | Help |
 |---|---|---|---|---|
@@ -68,7 +68,7 @@ Validate inputs only (seconds); with --profile also the installed tools.
 | `--annotation` | `FILE` | — | — | bakta.json(.gz), GFF3 or GenBank. |
 | `--outdir` | `PATH` | — | — | Output directory. |
 | `--strict` | flag | — | — | Treat warnings as errors (exit code 3). |
-| `--profile` | `TEXT` | — | — | Also check the tools a run under these profiles needs, as 'gippa run' does (DB directory: $GIPPA_DB_DIR). Comma-joined from: farmshare, farmshare_local, apptainer, conda, docker, standard. |
+| `--profile` | `TEXT` | `auto` | — | Also check the tools a run under these profiles needs, as 'gippa run' does (DB directory: $GIPPA_DB_DIR); none: inputs only. Comma-joined from: standard, farmshare, farmshare_local, slurm, apptainer, conda, docker; auto detects one. |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |
@@ -119,7 +119,7 @@ Run the analysis.
 | `--parquet` | flag | — | — | Also write Parquet tables. |
 | `--sensitivity` | `CHOICE` | — | `basic`, `full`, `off` | — |
 | `--strict` | flag | — | — | Treat warnings as errors (exit code 3). |
-| `--profile` | `TEXT` | `farmshare,apptainer` | — | Comma-joined Nextflow profiles: farmshare, farmshare_local, apptainer, conda, docker, standard. |
+| `--profile` | `TEXT` | `auto` | — | Nextflow profiles. Comma-joined from: standard, farmshare, farmshare_local, slurm, apptainer, conda, docker; auto detects one. |
 | `--resume` | flag | — | — | Resume a previous Nextflow run. |
 | `--executor` | `CHOICE` | `nextflow` | `nextflow`, `local` | — |
 | `--version` | flag | — | — | Show the version and exit. |
@@ -146,7 +146,7 @@ Download databases and models (writes DIR/db_manifest.json).
 | `--check` | flag | — | — | Only verify what is installed. |
 | `--images` | `[all]` | — | — | Pull the pinned container images the config needs (the default when --profile names a runtime; with 'all': every pinned image). |
 | `--no-images` | flag | — | — | Do not pull container images. |
-| `--profile` | `apptainer|docker` | — | — | Container runtime for --images (a comma-joined Nextflow profile is accepted). |
+| `--profile` | `auto|apptainer|docker` | `auto` | — | Container runtime for --images (a comma-joined Nextflow profile is accepted); auto detects one. |
 | `--cache-dir` | `PATH` | — | — | Apptainer image cache and UniOP build context [default: NXF_APPTAINER_CACHEDIR, $GIPPA_ROOT/containers, DIR/containers]. |
 | `--uniop` | flag | — | — | Fetch UniOP from its authors and build it locally. |
 | `--accept-uniop-terms` | flag | — | — | UniOP has no licence file: you decide that your use is permitted (needed without a TTY). |

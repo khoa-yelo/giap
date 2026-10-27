@@ -175,7 +175,7 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 ## Execution profiles
 
 `gippa run --profile` takes one or more of these Nextflow profiles, joined by commas: `farmshare`,
-`farmshare_local`, `apptainer`, `conda`, `docker`, `standard`. The default is
+`farmshare_local`, `slurm`, `apptainer`, `conda`, `docker`, `standard`. The default is
 `farmshare,apptainer`.
 
 | Profile | What it does | Status |
@@ -185,6 +185,7 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 | `conda` | lets Nextflow create each tool's environment from `workflow/envs/*.yml`; preflight still requires the prebuilt environments of the conda-only tools | not tested on its own |
 | `farmshare` | Slurm executor on Stanford FarmShare, plus the prebuilt tool environments under `$GIPPA_ROOT` | tested |
 | `farmshare_local` | the same environments, but all tasks run inside the current Slurm allocation | tested |
+| `slurm` | generic Slurm executor: the cluster's default partition, no site-specific options; set the queue, account, extra `sbatch` options, job cap and time limit with the `params.slurm_*` options (`slurm_queue`, `slurm_account`, `slurm_options`, `slurm_max_jobs`, `slurm_max_time`); combine it with one container runtime, e.g. `slurm,apptainer` | not tested |
 | `standard` | Nextflow's local executor, with no container or Conda settings | not tested |
 
 **A Slurm (or other) executor off FarmShare.** The analysis steps (`GIPPA_STEP`) run `gippa` on the

@@ -29,7 +29,7 @@ from gippa.steps.registry import StepSpec
 #: JSON pointers (``*`` = every child) that differ between equivalent runs (D-C "Volatile").
 VOLATILE: tuple[str, ...] = (
     "/command_line", "/executor", "/profile", "/resume", "/outdir", "/started_at",
-    "/finished_at", "/failed_log", "/steps", "/inputs/*/path",
+    "/finished_at", "/failed_log", "/steps", "/inputs/*/path", "/launch",
     "/config/annotation/precomputed/*",
 )  # fmt: skip
 _NAME_ONLY = "/config/annotation/precomputed/*"  # reduced to file names, not removed
@@ -99,6 +99,7 @@ class ManifestSources:
     island_diagnostics: Sequence[Mapping[str, Any]] | None = None  # C1 order
     calibration: Mapping[str, Any] | None = None  # gippa.data.calibration.load()
     detection_tier: str | None = None  # the tier detection used (genes.tsv, §7.3.2)
+    launch: Mapping[str, Any] | None = None  # profile, profile_source, profile_reason (M11-15a)
 
 
 def canonical_json(obj: Any) -> str:
@@ -449,6 +450,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "layers_missing": sorted({f.removeprefix(_LAYER) for f in flags if f.startswith(_LAYER)}),
         "warnings": _warnings(src),
         "volatile": list(VOLATILE),
+        "launch": dict(src.launch) if src.launch is not None else None,
         **_content(src),
     }
     m["provenance_digest"] = provenance_digest(provenance_core(m))

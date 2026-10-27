@@ -196,3 +196,63 @@ def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
     from gippa.preflight import environment
 
     monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)
+
+
+# M11-15a item 1 edge case (d): no test sees the real host's container runtimes, Slurm, cluster
+# name, `gippa setup` pointer file or $GIPPA_DB_DIR; the probe is pinned to a FarmShare host
+# (PINNED_PROBE). Opt out with ``@pytest.mark.real_host_probe``.
+_REAL_DB_MARKERS = frozenset({
+    "e2e", "needs_bakta_db", "needs_bakta_full", "needs_genomad_db", "needs_promotech_models",
+    "needs_diann",
+})  # fmt: skip
+_REAL_DB_DIRS = ("contract", "e2e")
+# The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
+# `farmshare,apptainer`, today's default. Defined in tests/helpers/probe_pin.py.
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
+        "(tests/conftest.py pins them otherwise, M11-15a)",
+    )
+
+
+def _keeps_real_db(item: pytest.Item) -> bool:
+    """Real-database tests (capability markers, tests/contract, tests/e2e) keep $GIPPA_DB_DIR."""
+    if any(item.get_closest_marker(m) for m in _REAL_DB_MARKERS):
+        return True
+    try:
+        parts = Path(item.path).resolve().relative_to(REPO / "tests").parts
+    except ValueError:
+        return False
+    return bool(parts) and parts[0] in _REAL_DB_DIRS
+
+
+@pytest.fixture(autouse=True)
+def _pinned_host_probe(
+    request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pin ``gippa.runner.profiles.probe_host`` to the FarmShare ``PINNED_PROBE``, point
+    ``XDG_CONFIG_HOME``/``XDG_DATA_HOME`` at (uncreated) ``tmp_path`` subdirectories and unset
+    ``GIPPA_DB_DIR``. A test that needs a probe patches ``probe_host`` itself."""
+    if request.node.get_closest_marker("real_host_probe"):
+        return
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".xdg" / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / ".xdg" / "data"))
+    if not _keeps_real_db(request.node):
+        monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
+    try:
+        from gippa.runner import profiles
+    except ImportError:  # before M11-15a: nothing to pin
+        return
+    if hasattr(profiles, "Probe"):
+        from helpers.probe_pin import PINNED_PROBE
+
+        pinned = profiles.Probe(**PINNED_PROBE)
+
+        def probe_host(*_a: object, **_k: object) -> object:
+            return pinned
+
+        probe_host.gippa_pinned = True  # type: ignore[attr-defined]
+        monkeypatch.setattr(profiles, "probe_host", probe_host, raising=False)
