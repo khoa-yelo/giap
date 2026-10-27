@@ -37,6 +37,8 @@ from typing import Any
 
 import pytest
 
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
+
 REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 COMMIT = "3ed14dfc2a5d69b993d99a26e50c1f8e9723c087"
@@ -47,7 +49,13 @@ CODELOAD_PATH = f"/hongsua/UniOP/tar.gz/{COMMIT}"
 CODELOAD_URL = f"https://codeload.github.com{CODELOAD_PATH}"
 DB_PATH = f"uniop/UniOP-{COMMIT}.tar.gz"
 FAKE_IMAGE_ID = "sha256:" + "5e" * 32
-SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models"]
+SKIP_DBS = [
+    "--bakta",
+    "skip",
+    "--no-genomad",
+    "--no-promotech-models",
+    *opt_outs(*NO_RESOURCE_FLAGS),
+]  # M11-15c2: no DB item at all, explicitly
 ACCEPT = "--accept-uniop-terms"
 
 

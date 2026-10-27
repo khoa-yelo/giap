@@ -54,6 +54,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -73,7 +74,14 @@ GHCR = {
     "bactermfinder": (BTF_REF, "git-deadbeef-0123456789ac", ["BACTERMFINDER"]),
     "fgsea": (FGSEA_REF, "1.36.2-0123456789ad", []),
 }
-SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models", "--no-uniop"]
+SKIP_DBS = [
+    "--bakta",
+    "skip",
+    "--no-genomad",
+    "--no-promotech-models",
+    "--no-uniop",
+    *opt_outs(*NO_RESOURCE_FLAGS),
+]  # M11-15c2: no DB item at all, explicitly
 BAD = "sha256:" + "ee" * 32
 
 FAKE_RUNTIME = r"""#!/bin/sh
@@ -543,7 +551,7 @@ def test_existing_manifest_items_are_kept(tmp_path: Path, tree: dict[str, str]) 
 
 def test_without_images_nothing_is_pulled(tmp_path: Path, tree: dict[str, str]) -> None:
     db = tmp_path / "db"
-    res = setup_cli(["--db-dir", str(db), *SKIP_DBS])
+    res = setup_cli(["--db-dir", str(db), *SKIP_DBS, *opt_outs("images")])  # 15c2: on by default
     assert res.exit_code == 0, res.output
     assert not calls(tmp_path)
 
@@ -629,8 +637,9 @@ def test_setup_downloads_bakta_through_docker(
     monkeypatch.setattr(run.shutil, "disk_usage", lambda _p: usage(1 << 50, 0, 1 << 50))
     db = tmp_path / "db"
     res = setup_cli(
-        ["--db-dir", str(db), "--bakta", "light", "--no-genomad", "--no-promotech-models"]
-    )
+        ["--db-dir", str(db), "--bakta", "light", "--no-genomad", "--no-promotech-models",
+         *opt_outs(*NO_RESOURCE_FLAGS, "images")]
+    )  # fmt: skip
     runs = calls(tmp_path, "docker run")
     assert len(runs) == 1, calls(tmp_path)
     assert bakta_ref() in runs[0] and "bakta_db" in runs[0]
@@ -840,7 +849,8 @@ def test_check_bakta_other_minor_is_not_a_pin_change(tmp_path: Path) -> None:
     (db / "bakta" / "db-light" / "version.json").write_text(
         json.dumps({"major": int(major), "minor": int(other.split(".")[1]), "type": "full"})
     )
-    res = setup_cli(["--db-dir", str(db), "--no-genomad", "--no-promotech-models", "--check"])
+    res = setup_cli(["--db-dir", str(db), "--no-genomad", "--no-promotech-models", "--check",
+                     *opt_outs(*NO_RESOURCE_FLAGS, "images")])  # fmt: skip
     assert res.exit_code == 2, res.output
     assert "this release pins" not in res.output
     assert f"found v{other} full" in res.output
