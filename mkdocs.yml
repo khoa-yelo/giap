@@ -165,6 +165,7 @@ nav:
       - adr/ADR-0061-distance-model-fallback-scope.md
       - adr/ADR-0062-terminatornet-promotech-resources.md
       - adr/ADR-0063-determinants-null-processes-pd-threads.md
+      - adr/ADR-0064-rename-giap-to-gippa.md
   - Developer guide:
       - developer.md
       - release.md
