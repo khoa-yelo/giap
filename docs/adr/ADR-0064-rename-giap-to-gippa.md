@@ -213,3 +213,28 @@ in the repository.
   diff before they can merge.
 - Nextflow `-resume` caches from before the rename do not hit.
 - Readers of old docs follow GIAP_SPEC.md, and this ADR maps the old name to the new one.
+
+## Amendment 2026-10-27 (Q-K32): every document is rewritten; new expansion
+Khoa decided (Q-K32, in session: "Re write everything") that after the rename the documentation
+does not mention GIAP at all. This amends item 3 and the first Consequences bullet that names the
+spec and the historical records; the rest of the decision stands.
+
+- **Rewritten too:** GIAP_SPEC.md, which moves to `GIPPA_SPEC.md` (its content and the
+  `GIAP_SPEC` tokens are renamed with it, so the token is no longer protected), the historical
+  ADRs ADR-0001 to ADR-0063, docs/adr/index.md, docs/specs/, PROGRESS.md, docs/backlog.md,
+  docs/validation/ and validation/reports/. validation/release/ holds only `.gitkeep`; a file
+  added there is rewritten unless it is sha256-pinned.
+- **Kept as written (data only):** PROVENANCE files, recorded tool data, the pilot artefacts
+  (REPORT.md, metrics, db_a2, inputs, the sha256-pinned DIA-NN cfgs), binary and sequence files,
+  the SVG salt, `.giap-complete`, `.giap_setup.lock`, the checkout path, the rename tooling and
+  `.github/` (Khoa). The rename record also keeps the old name: this ADR, its index line and the
+  inventory `docs/specs/rename-gippa.md`.
+- **New expansion:** GIPPA stands for "genome integrated prokaryotic proteomics analysis". Every
+  variant of the old expansion ("genome-integrated analysis of proteomics data", with or without
+  "for bacterial genomes") is replaced by it, with the first letter capitalised where the
+  original was.
+- `rename_gippa.py --check` also fails on any `giap` left in README.md, CITATION.cff, mkdocs.yml,
+  AGENTS.md, CLAUDE.md, GIPPA_SPEC.md, PROGRESS.md and docs/, outside the rename record and the
+  kept data tokens (and the AGENTS.md R14 note of item 5, which names the old job prefix).
+- Moving GIAP_SPEC.md and editing ci/protected.txt are protected-file changes; the rename PR
+  carries `Gate-Change-Approved: ADR-0064`.
