@@ -8,7 +8,7 @@ placeholder and filled (``fill_prophage``) once the rest of the chromosome is kn
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -100,7 +100,10 @@ def oric(sim: _Sim) -> Parts:
         (random_seq(rng, 40, 0.35), None),
         (core, Feat("oric", extra={"product": "oriC"})),
         (random_seq(rng, 25, 0.35), None),
-        ("".join(cod), coding("cds", cod, extra={"gene": "mnmG", "product": _MNMG})),
+        (
+            "".join(cod),
+            coding("cds", cod, table=sim.table, extra={"gene": "mnmG", "product": _MNMG}),
+        ),
     ]
 
 
@@ -116,7 +119,10 @@ def gene_parts(sim: _Sim, length: int, gc: float) -> Parts:
             if parts:
                 break
             continue
-        parts += [(random_seq(rng, sp, gc), None), ("".join(cod), coding("cds", cod))]
+        parts += [
+            (random_seq(rng, sp, gc), None),
+            ("".join(cod), coding("cds", cod, table=sim.table)),
+        ]
         used += sp + 3 * len(cod)
     parts.append((random_seq(rng, length - used, gc), None))
     return parts
@@ -149,10 +155,10 @@ def gc_of(s: bytes | bytearray | str) -> float:
     return (b.count(b"G") + b.count(b"C")) / max(1, len(b))
 
 
-def tilted_cum(target: float) -> np.ndarray:
+def tilted_cum(target: float, usage: Mapping[str, float] = SENSE_USAGE) -> np.ndarray:
     """Cumulative codon probabilities exp-tilted towards a per-base GC of ``target``."""
-    w = np.array(list(SENSE_USAGE.values()), dtype=float)
-    g = np.array([sum(b in "GC" for b in c) / 3 for c in SENSE_USAGE])
+    w = np.array(list(usage.values()), dtype=float)
+    g = np.array([sum(b in "GC" for b in c) / 3 for c in usage])
     lo, hi = -40.0, 40.0
     for _ in range(60):
         lam = (lo + hi) / 2
@@ -168,7 +174,7 @@ def fill_prophage(
     strength); returns the placed features and the planted RBS spacers."""
     from gippasim.features import _block
 
-    sim.sense_cum = tilted_cum(target)
+    sim.sense_cum = tilted_cum(target, sim.usage)
     best: Any = None
     for _ in range(_GC_TRIES):
         trial = bytearray(seq)
