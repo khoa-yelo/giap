@@ -460,7 +460,8 @@ on 61 RefSeq assemblies), #420 (nightly task 2 in 2 shards, one merged row), #42
 3. M11-13 readiness check once 1 and 2 pass.
 4. 14i docs (docs agent), then the GIPPA rename, then Khoa publishes.
 5. More datasets (#411 draft): mhyo and gsulf done; msmeg failed (TerminatorNet exit 140 at 12 h,
-   pre-#417); resume after the calibration rerun. gsulf novel ORFs: all 14 match RefSeq genes that
+   pre-#417); resume after the calibration rerun. TerminatorNet is sharded now (M2-15b, #455):
+   msmeg's scan takes 84 min (#459), so the msmeg rerun no longer needs the 24 h limit. gsulf novel ORFs: all 14 match RefSeq genes that
    Bakta got wrong (ileS missed, a wrong strand, ~8 starts, 3 selenoproteins at UGA).
 
 Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50), 1900003
@@ -534,6 +535,8 @@ Slurm jobs this session (2026-10-27): 1900002 (nightly, task 2 SIGTERM at 5 h 50
 | uv sync --all-extras | — | 1 min 48 s | — | iron-01 (session) |
 | Bakta full DB | Nissle 1917 | 13.5 min | — | wheat (1846846) |
 | TerminatorNet (-n 17) | K-12 MG1655 | 60 min | — | wheat-04 (1847778) |
+| TerminatorNet sharded (M2-15b, 38 chunks × 4 CPU, 8 at a time) | K-12 MG1655 | — (cmp = unsharded) | — | 1901802 |
+| TerminatorNet sharded (M2-15b, 56 chunks × 4 CPU, 8 at a time; unsharded > 12 h) | M. smegmatis | 83 min 50 s; chunk max 960 s | 1.2 GB (job) | rye-01 (1901794) |
 | gippa setup GO/KEGG/COG/contaminants | — | — | go-basic 32.2 MB, KEGG links 2.3 MB | session (review #67) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged, `--replicons` (M2-10) | K-12 MG1655 | 9.9 min (592 s) | 20.6 GB (job, with SIM100K) | barley-01, 16 CPU (1849096) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | SIM100K | 5.3 min (317 s) | (same job) | barley-01, 16 CPU (1849096) |
