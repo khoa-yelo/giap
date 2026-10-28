@@ -23,8 +23,9 @@
 #     second build of the same env fail at once instead of interleaving with the first.
 #     Nextflow tasks that start during a rebuild see a missing or half-built env (as before).
 #   - CUDA builds on CPU nodes: if the yml asks for a CUDA build string (e.g. `pytorch=2.0.*=cuda*`)
-#     and `nvidia-smi -L` lists no GPU, the solve runs with CONDA_OVERRIDE_CUDA (default 11.8; an
-#     exported CONDA_OVERRIDE_CUDA wins), so the __cuda virtual package exists (job 1901404).
+#     and `nvidia-smi -L` lists no GPU, the solve runs with CONDA_OVERRIDE_CUDA (an exported
+#     CONDA_OVERRIDE_CUDA wins, then the yml's exact `cuda-version` pin, else 11.8), so the
+#     __cuda virtual package exists (job 1901404).
 #   - git-pinned tools: source cloned at the pinned commit into $prefix/share/<tool>/.
 #   - the version command must succeed and print the registry version (commit SHA for git tools);
 #     otherwise that tool fails and no lock is written.
@@ -114,10 +115,22 @@ wants_cuda() {
     "$ENV_DIR/$1.yml"
 }
 has_gpu() { grep -q '^GPU ' <<< "$(nvidia-smi -L 2> /dev/null || true)"; }
+# The yml's exact `cuda-version` pin (`cuda-version=12.1`, `cuda-version==12.1`,
+# `cuda-version 11.8.*`, `cuda-version=12.1=build`), without a trailing `.*`; empty for no pin
+# or a range (`>=11.8,<12`, `[version=...]`). The first uncommented pin wins.
+cuda_pin() {
+  sed -nE 's/^[[:space:]]*-[[:space:]]*["'"'"']?cuda-version(==?|[[:space:]]+)([0-9]+(\.[0-9]+)*)(\.\*)?(["'"'"'[:space:]=#]|$).*/\2/p' \
+    "$ENV_DIR/$1.yml" | awk 'NR == 1'  # awk reads all: no SIGPIPE under pipefail
+}
 # CONDA_OVERRIDE_CUDA for this tool's create, or empty (never export it empty: an empty value
-# hides a real GPU from the solver).
+# hides a real GPU from the solver). An exported value wins, then the yml's cuda-version pin,
+# then 11.8.
 cuda_override() {
-  if wants_cuda "$1" && ! has_gpu; then echo "${CONDA_OVERRIDE_CUDA:-11.8}"; fi
+  local pin
+  if wants_cuda "$1" && ! has_gpu; then
+    pin="$(cuda_pin "$1")"
+    echo "${CONDA_OVERRIDE_CUDA:-${pin:-11.8}}"
+  fi
 }
 mm_create() {
   local cuda="$1"; shift
