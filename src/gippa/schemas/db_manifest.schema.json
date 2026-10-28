@@ -22,7 +22,7 @@
           "size_bytes": {"type": "integer", "minimum": 0},
           "retrieved": {"type": "string", "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$"},
           "path": {"type": "string"},
-          "status": {"enum": ["ok", "absent", "mismatch"]},
+          "status": {"enum": ["ok", "absent", "mismatch", "failed"]},
           "message": {"type": "string"},
           "local_build": {
             "type": "object",
