@@ -389,7 +389,12 @@ def durations_from_probe_log(path: Path) -> dict[str, float]:
 def probe_log_lower_bounds(path: Path) -> dict[str, float]:
     """``nodeid -> seconds`` of the tests of a stamped probe log (as ``durations_from_probe_log``)
     that started but have no outcome line: the log's last stamp minus the start, a lower bound of
-    the test's duration (it was still running when the log ended or the job was killed)."""
+    the test's duration (it was still running when the log ended or the job was killed).
+
+    Caveat: the bound assumes the test ran until the log's last stamp. A worker that died
+    silently (no outcome line, no crash report) while the other workers kept logging gets a bound
+    that overstates its duration; ``merge_lower_bounds`` and ``--max`` then keep that inflated
+    value until a real measurement of the test replaces it."""
     start: dict[str, int] = {}
     done: set[str] = set()
     prev: int | None = None
@@ -409,11 +414,30 @@ def probe_log_lower_bounds(path: Path) -> dict[str, float]:
     return {n: float(prev - t) for n, t in start.items() if n not in done}
 
 
+def merge_lower_bounds(bounds: Iterable[Mapping[str, float]]) -> dict[str, float]:
+    """Merge the ``probe_log_lower_bounds`` of several probe logs: each test keeps its largest
+    bound across the logs (every bound holds, so the largest is the tightest), whatever the
+    order of the logs."""
+    out: dict[str, float] = {}
+    for b in bounds:
+        for n, s in b.items():
+            out[n] = max(float(s), out.get(n, float(s)))
+    return out
+
+
 def _write_durations(out: Path, found: Mapping[str, float], source: str, append: bool,
                      keep_max: bool = False,
                      lower: Mapping[str, float] | None = None) -> int:  # fmt: skip
     """Write ``out``; ``lower`` holds lower bounds (source ``<source>:lower-bound``), never
-    replacing a measured value of ``found``. Returns the number of rows added or raised."""
+    replacing a measured value of ``found``. Returns the number of rows added or replaced.
+
+    A row of ``out`` (with ``append`` or ``keep_max``) is replaced as follows; without
+    ``keep_max`` an existing row is never replaced, only new tests are added. With ``keep_max``:
+
+    - a measured value replaces a ``:lower-bound`` row, even when it is smaller (a measurement
+      beats a bound);
+    - otherwise (measured over measured, bound over bound, bound over measured) the new value
+      replaces the row only when it is strictly larger."""
     rows: dict[str, tuple[str, str]] = {}
     if (append or keep_max) and out.exists():
         old = read_durations(out)
@@ -428,12 +452,19 @@ def _write_durations(out: Path, found: Mapping[str, float], source: str, append:
     for nodeid, (seconds, src) in sorted(new.items()):
         if not nodeid.startswith(CALIBRATION):
             continue
-        if nodeid not in rows or (keep_max and seconds > float(rows[nodeid][0])):
+        if nodeid not in rows or (keep_max and _replaces(rows[nodeid], seconds, src)):
             rows[nodeid] = (repr(seconds), src)
             added += 1
     body = "".join(f"{n}\t{s}\t{src}\n" for n, (s, src) in sorted(rows.items()))
     out.write_text("\t".join(DURATIONS_HEADER) + "\n" + body)
     return added
+
+
+def _replaces(row: tuple[str, str], seconds: float, src: str) -> bool:
+    """``keep_max`` rule of ``_write_durations``: does ``(seconds, src)`` replace ``row``?"""
+    if row[1].endswith(LOWER_BOUND) and not src.endswith(LOWER_BOUND):
+        return True
+    return seconds > float(row[0])
 
 
 def _suites() -> list[str]:
@@ -489,7 +520,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if ns.probe_log:
                 for path in ns.files:
                     found.update(durations_from_probe_log(path))
-                    lower.update(probe_log_lower_bounds(path))
+                lower = merge_lower_bounds(probe_log_lower_bounds(p) for p in ns.files)
             else:
                 found = durations_from_junit(ns.files)
             added = _write_durations(ns.out, found, ns.source, ns.append, ns.keep_max, lower)
