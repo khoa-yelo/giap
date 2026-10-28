@@ -8,7 +8,9 @@ and ``sets.tsv`` to a fresh temporary directory, starts the script there, checks
 raises ``FgseaEngineError`` (``FgseaEngineUnavailable`` when R cannot be started); the engine
 never retries and the temporary directory is always removed. The launcher is
 ``GIPPA_FGSEA_PREFIX`` (never falls through), else the prebuilt env, else the image under
-``GIPPA_CONTAINER_RUNTIME`` (set by ``gippa run``).
+``GIPPA_CONTAINER_RUNTIME`` (set by ``gippa run``). Runs never pull images: ``docker run``
+gets ``--pull=never`` and a missing local image raises ``FgseaImageMissing`` telling the user to
+run ``gippa setup``, the only step that pulls (N6).
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ __all__ = [
     "TIMEOUT_S",
     "FgseaEngineError",
     "FgseaEngineUnavailable",
+    "FgseaImageMissing",
     "Launcher",
     "RFgseaEngine",
     "child_env",
@@ -79,6 +82,11 @@ _LOG = logging.getLogger(__name__)
 _DOCKER_CLEANUP_TIMEOUT_S = 60.0
 _R_NUMBER = re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$")
 _SIZE = re.compile(r"^\d+$")
+_DOCKER_RUN_FAILED = 125  # ``docker run`` itself failed (the container never started)
+# what ``docker run --pull=never`` prints for an absent image (#465 review B1): docker
+# "docker: Error response from daemon: No such image: <ref>."; podman "Error: <ref>: image not
+# known". "Unable to find image" belongs to the pull path, which ``--pull=never`` skips.
+_NO_IMAGE = ("No such image:", ": image not known")
 
 
 class FgseaEngineError(StepError):
@@ -95,11 +103,17 @@ class FgseaEngineUnavailable(FgseaEngineError):
     """The ``gippa-fgsea`` env is missing or cannot be started."""
 
 
+class FgseaImageMissing(FgseaEngineError):
+    """The pinned ``gippa-fgsea`` image is not present locally (``docker run --pull=never``
+    refused to start it); ``gippa setup`` pulls it."""
+
+
 @dataclass(frozen=True, slots=True)
 class Launcher:
     """How to start the script: a micromamba env ``prefix`` (``path`` is the env), or the image
-    under ``docker`` (``image`` is the ref, pulled by ``docker run``) or ``apptainer`` (``path``
-    is the cached ``.img``, ``image`` its ref)."""
+    under ``docker`` (``image`` is the ref, which must already be local: ``docker run`` never
+    pulls, ``gippa setup`` does) or ``apptainer`` (``path`` is the cached ``.img``, ``image`` its
+    ref)."""
 
     kind: Literal["prefix", "docker", "apptainer"]
     path: Path | None
@@ -200,7 +214,8 @@ def command(
 ) -> list[str]:
     """The script and its nine options for a prefix (or no) launcher. For an image launcher, the
     ``docker run`` / ``apptainer exec`` argv of M11-14 item 1 binding only ``call_dir``, which
-    runs R (``--vanilla``) on the baked-in script (the shebang is not read)."""
+    runs R (``--vanilla``) on the baked-in script (the shebang is not read). ``docker run``
+    carries ``--pull=never``: runs never pull (N6)."""
     if launcher is None or launcher.kind == "prefix":
         return [str(script_path()), *_options(call)]
     if call_dir is None:
@@ -209,8 +224,9 @@ def command(
     tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *_options(call)]
     if launcher.kind == "docker":
         user = f"{os.getuid()}:{os.getgid()}"
-        return ["docker", "run", "--rm", "--cidfile", str(cid_file(call_dir)), "-u", user,
-                "-v", f"{d}:{d}", "-w", d, "-e", "LC_ALL=C", launcher.image, *tail]  # fmt: skip
+        return ["docker", "run", "--rm", "--pull=never", "--cidfile", str(cid_file(call_dir)),
+                "-u", user, "-v", f"{d}:{d}", "-w", d, "-e", "LC_ALL=C",
+                launcher.image, *tail]  # fmt: skip
     return ["apptainer", "exec", "--cleanenv", "-B", d, "--pwd", d, str(launcher.path), *tail]
 
 
@@ -407,6 +423,16 @@ def _tail(stderr: bytes) -> str:
     return "\n".join(lines[-STDERR_TAIL:])
 
 
+def _image_missing(returncode: int, stderr: bytes) -> bool:
+    """Whether a failed ``docker run --pull=never`` means the image is not local: the runtime's
+    own exit 125 with docker's or podman's missing-image message (docker launchers only; any
+    other exit 125, e.g. an unreachable daemon or an unknown flag, is not)."""
+    if returncode != _DOCKER_RUN_FAILED:
+        return False
+    text = stderr.decode("utf-8", "replace")
+    return any(marker in text for marker in _NO_IMAGE)
+
+
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
     with contextlib.suppress(ProcessLookupError):
         os.killpg(proc.pid, signal.SIGKILL)
@@ -465,6 +491,12 @@ class RFgseaEngine:
         finally:
             if cid is not None:
                 cid.unlink(missing_ok=True)
+        if self.launcher.kind == "docker" and _image_missing(proc.returncode, stderr):
+            raise FgseaImageMissing(
+                f"the R fgsea image {self.launcher.image} is not present locally and runs never "
+                f"pull images; run `gippa setup` to fetch it (docker exit {proc.returncode}: "
+                f"{_tail(stderr)})"
+            )
         if proc.returncode != 0:
             raise FgseaEngineError(
                 f"R fgsea failed (exit {proc.returncode}, {len(call.jobs)} jobs): {_tail(stderr)}"

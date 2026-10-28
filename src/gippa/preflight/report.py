@@ -146,10 +146,12 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
-def _cell(v: JsonValue) -> str:
+def _cell(v: JsonValue, *, cap: bool = True) -> str:
+    """One markdown table cell: whitespace folded, escaped, and cut at ``_MD_CELL_MAX``
+    characters unless ``cap`` is false (check messages are shown in full, M11-17)."""
     text = v if isinstance(v, str) else json.dumps(v, sort_keys=True, ensure_ascii=False)
     text = " ".join(text.split())
-    if len(text) > _MD_CELL_MAX:
+    if cap and len(text) > _MD_CELL_MAX:
         text = text[: _MD_CELL_MAX - 1] + "…"
     for ch in "\\|`":
         text = text.replace(ch, "\\" + ch)
@@ -183,5 +185,5 @@ def render_preflight_md(r: PreflightReport) -> str:
     lines += ["| Level | Rule | Value | Message |", "|---|---|---|---|"]
     for c in sorted(r.checks, key=lambda c: _MD_ORDER.index(c.level)):
         value = _cell(_jsonable(c.value))
-        lines.append(f"| {c.level} | {c.rule_id} | {value} | {_cell(c.message)} |")
+        lines.append(f"| {c.level} | {c.rule_id} | {value} | {_cell(c.message, cap=False)} |")
     return "\n".join(lines) + "\n"
