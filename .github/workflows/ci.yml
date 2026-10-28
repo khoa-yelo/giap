@@ -194,7 +194,8 @@ jobs:
           export PATH=/tmp/pkg/bin:$PATH
           gippa --version
           gippa version --json
-          gippa preflight --genome "$REPO/tests/data/genomes/sim100k.fna.gz" \
+          # M11-15a: the default profile is auto; the runner has no tools, so check the package only
+          gippa preflight --profile none --genome "$REPO/tests/data/genomes/sim100k.fna.gz" \
             --proteins "$REPO/tests/data/recorded/makedb/sim100k_plasmid_1.bakta.faa" \
             --outdir /tmp/pkg-preflight
           wf=$(python -c '

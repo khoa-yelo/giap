@@ -141,7 +141,7 @@ def test_plot_catalogue_matches_registry() -> None:
 
 
 def test_install_pins_and_profiles_match_the_code() -> None:
-    from gippa.cli import _PROFILES
+    from gippa.runner.profiles import accepted_profiles
 
     install = _text("get-started/install.md")
     boot = (REPO / "scripts" / "bootstrap_farmshare.sh").read_text(encoding="utf-8")
@@ -150,7 +150,7 @@ def test_install_pins_and_profiles_match_the_code() -> None:
     assert f"nextflow={nf} openjdk={jdk}" in install and f"| Nextflow | {nf}" in install
     assert "--override-channels" in install
     section = install.split("## Execution profiles")[1].split("\n## ")[0]
-    assert set(re.findall(r"^\| `([a-z_]+)` \|", section, re.M)) == set(_PROFILES)
+    assert set(re.findall(r"^\| `([a-z_]+)` \|", section, re.M)) == set(accepted_profiles())
 
 
 def test_exit_code_meanings_match_exitcodes() -> None:

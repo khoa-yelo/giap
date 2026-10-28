@@ -103,7 +103,8 @@ def peptides(tmp_path: Path, intensity: bool = True) -> Path:
 def invoke(*args: str | Path) -> Result:
     from gippa.cli import cli
 
-    return CliRunner().invoke(cli, ["preflight", *(str(a) for a in args)])
+    # inputs only: a bare preflight is --profile auto, which also checks tools (M11-15a)
+    return CliRunner().invoke(cli, ["preflight", "--profile", "none", *(str(a) for a in args)])
 
 
 def assert_code(result: Result, code: int) -> None:

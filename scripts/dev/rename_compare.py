@@ -59,7 +59,7 @@ IGNORED_KEYS = frozenset({"git_commit", "git_dirty", "provenance_digest"})  # ma
 #: ``gippa.manifest.VOLATILE`` minus ``NAME_ONLY`` (tests/unit/test_rename_compare.py checks it)
 VOLATILE: tuple[str, ...] = (
     "/command_line", "/executor", "/profile", "/resume", "/outdir", "/started_at",
-    "/finished_at", "/failed_log", "/steps", "/inputs/*/path",
+    "/finished_at", "/failed_log", "/steps", "/inputs/*/path", "/launch",
 )  # fmt: skip
 NAME_ONLY = "/config/annotation/precomputed/*"
 #: glob -> why it is not compared (a glob matches the relative path or its first component)
