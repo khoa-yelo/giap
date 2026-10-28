@@ -1,0 +1,111 @@
+// M2-15b: stub runs of the TERMINATORNET_SHARDED subworkflow
+// (docs/specs/M2-15b-terminatornet-sharding.md items 5, 6; "Tests", nf-test).
+// ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here as well.
+//
+// Interface pinned here (test author, from the spec):
+//   take: gin    channel of [meta_id, genome.fa] (annotate.nf's gin)
+//   emit: tsv    terminatornet.tsv of TERMINATORNET_MERGE
+//   PLAN stub writes plan.tsv with a header and params.stub.terminatornet_chunks rows (default 1);
+//   one TERMINATORNET_CHUNK per plan row, tagged with its chunk_id, emitting calls_<chunk_id>.pkl;
+//   TERMINATORNET_MERGE gets every pickle and writes the 'NO TERMINATORS FOUND' stub TSV.
+// CHUNK's cpus = params.terminatornet_chunk_cpus (default 4), clamped by resourceLimits: the test
+// profile caps every task at 2 CPUs, so 1 is the value that shows the param is used.
+
+nextflow_workflow {
+
+    name "TERMINATORNET_SHARDED subworkflow (stub)"
+    script "../../subworkflows/local/terminatornet_sharded.nf"
+    workflow "TERMINATORNET_SHARDED"
+    config "../terminatornet_sharded.config"
+    options "-stub"
+    tag "terminatornet"
+
+    test("3 stub chunks: one PLAN, 3 CHUNK tasks, one MERGE emitting terminatornet.tsv") {
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, terminatornet_chunks: 3]
+            }
+            workflow {
+                """
+                input[0] = channel.of(['genome', file("${moduleTestDir}/../data/annotate/genome.fa")])
+                """
+            }
+        }
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/../lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'TERMINATORNET_PLAN') == 1 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET_CHUNK') == 3 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET_MERGE') == 1 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET') == 0 : ran
+
+            def plan = new File(H.procDirs(work, 'TERMINATORNET_PLAN')[0], 'plan.tsv').readLines().findAll { it }
+            assert plan[0].startsWith('chunk_id\t') && plan.size() == 4 : "plan.tsv: ${plan}"
+            def ids = plan.drop(1).collect { it.split('\t')[0] }
+            def tags = ran.findAll { H.procOf(it) == 'TERMINATORNET_CHUNK' }.collect { H.tagOf(it) }
+            assert tags.sort() == ids.sort() : "CHUNK tags ${tags} vs plan ids ${ids}"
+            H.procDirs(work, 'TERMINATORNET_CHUNK').each { d ->
+                assert d.listFiles().any { it.name ==~ /calls_.+\.pkl/ } : "no calls_<chunk_id>.pkl in ${d}"
+            }
+            def merge = H.procDirs(work, 'TERMINATORNET_MERGE')[0]
+            def staged = H.staged(merge).collect { new File(it[1]).name }.findAll { it.endsWith('.pkl') }
+            assert staged.size() == 3 : "MERGE must get all 3 pickles: ${staged}"
+            assert new File(merge, 'versions.yml').text.contains('TERMINATORNET_MERGE')
+
+            def tsv = workflow.out.tsv.flatten().collect { path(it.toString()) }
+            assert tsv.size() == 1 && tsv[0].fileName.toString() == 'terminatornet.tsv' : "tsv: ${tsv}"
+            assert tsv[0].text.contains('NO TERMINATORS FOUND')
+        }
+    }
+
+    test("terminatornet_chunk_cpus: CHUNK asks for the param's CPUs (default 4, clamped to the test cap of 2)") {
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, terminatornet_chunks: 2]
+                terminatornet_chunk_cpus = 1
+            }
+            workflow {
+                """
+                input[0] = channel.of(['genome', file("${moduleTestDir}/../data/annotate/genome.fa")])
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            def rows = []
+            new File("${metaDir}/trace.csv").withReader { r ->
+                def head = r.readLine().split('\t') as List
+                r.eachLine { l -> rows << [head, l.split('\t') as List].transpose().collectEntries() }
+            }
+            def chunks = rows.findAll { it.name.contains('TERMINATORNET_CHUNK') }
+            assert chunks.size() == 2 && chunks.every { it.cpus == '1' } : "CHUNK cpus: ${chunks}"
+        }
+    }
+
+    test("default terminatornet_chunk_cpus = 4 is clamped to the test profile's 2 CPUs; PLAN and MERGE get 1") {
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = channel.of(['genome', file("${moduleTestDir}/../data/annotate/genome.fa")])
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            def rows = []
+            new File("${metaDir}/trace.csv").withReader { r ->
+                def head = r.readLine().split('\t') as List
+                r.eachLine { l -> rows << [head, l.split('\t') as List].transpose().collectEntries() }
+            }
+            def cpus = rows.collectEntries { [(it.name.tokenize(':')[-1].split(' ')[0]): it.cpus] }
+            assert cpus == [TERMINATORNET_PLAN: '1', TERMINATORNET_CHUNK: '2', TERMINATORNET_MERGE: '1'] : "${rows}"
+        }
+    }
+}
