@@ -1426,3 +1426,7 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
 - **Not recorded:** the wall time of Cascadia per run (the pilot's CPU-route `.ssl` came from
   work-queue arrays), the output size of a `gippa demo` run, and `gippa setup` wall time for the
   default set. The quick start gives only the measured parts.
+
+### 2026-10-28 (lead, #468 review)
+- **#468 test gaps:** `test_m11_18_bakta_tool_dir.py` uses real directories, never the hard links / staged symlink-to-dir Nextflow uses (copytree follows them, verified by hand); no test of the regions route (`inputs.regions_gff3`); no end-to-end check of `OUT/annotation/tools/bakta/genome.json` (stub `annotation` is a file) — add a weekly e2e assertion that it exists and `gippa makedb --annotation` accepts it. Static annotate.nf test relies on `index("BAKTA(")` / `rfind("} else {")`.
+- **context.py tool_dirs keyed by `p.name`:** a second tool dir with the same name would silently overwrite.

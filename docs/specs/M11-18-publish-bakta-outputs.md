@@ -40,7 +40,7 @@ When the `BAKTA` process runs (no `annotation.precomputed.bakta_json`):
 - **Route: the M2-20 `tool_dirs` input of `context_layers`** (lead decision 2026-10-28, below).
   BAKTA declares a third output, `path 'tools/bakta', emit: tool_dir`. In the script and the stub
   it runs `mkdir -p tools/bakta` and hard-links `bakta/<sample>.json` and `bakta/<sample>.gbff`
-  into it (`ln`, with a `cp` fallback when `ln` fails across filesystems). Only those two files
+  into it (`ln`, with a `cp` fallback on filesystems without hard links; source and target share the task dir). Only those two files
   go in: no symlinks, no `bakta/*`, no `cp -r`. ANNOTATE passes `kv('tool_dirs', BAKTA.out.tool_dir)`
   to the `context_layers` step, only in the branch where BAKTA runs. `copy_native`
   (`gippa.annotate.layers`) byte-copies the directory to `annotation/tools/bakta/`, keyed by the

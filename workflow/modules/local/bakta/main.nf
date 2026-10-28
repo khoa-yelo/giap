@@ -14,7 +14,7 @@ process BAKTA {
     output:
     path "bakta/${meta_id}.json", emit: json
     path "bakta/${meta_id}.gbff", emit: gbff
-    // M11-18: the JSON and GBFF only (hard links, else copies), passed to CONTEXT_LAYERS as
+    // M11-18: the JSON and GBFF only (hard links; copies where the filesystem has none), passed to CONTEXT_LAYERS as
     // tool_dirs -> OUT/annotation/tools/bakta/. No publishDir: CONTEXT_LAYERS republishes the
     // whole annotation/ directory later and Nextflow's overwrite would delete it.
     path 'tools/bakta', emit: tool_dir
