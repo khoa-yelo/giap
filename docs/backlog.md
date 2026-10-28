@@ -1435,6 +1435,9 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
   work-queue arrays), the output size of a `gippa demo` run, and `gippa setup` wall time for the
   default set. The quick start gives only the measured parts.
 
+### 2026-10-28 (lead, #468 review)
+- **#468 test gaps:** `test_m11_18_bakta_tool_dir.py` uses real directories, never the hard links / staged symlink-to-dir Nextflow uses (copytree follows them, verified by hand); no test of the regions route (`inputs.regions_gff3`); no end-to-end check of `OUT/annotation/tools/bakta/genome.json` (stub `annotation` is a file) — add a weekly e2e assertion that it exists and `gippa makedb --annotation` accepts it. Static annotate.nf test relies on `index("BAKTA(")` / `rfind("} else {")`.
+- **context.py tool_dirs keyed by `p.name`:** a second tool dir with the same name would silently overwrite.
 ### 2026-10-28 (lead, #467 review)
 - **#467 F1:** `gippa preflight --config c.yaml --annotation b.json` checks the config file's `bakta_json`, while `gippa run` uses the `--annotation` flag (flags beat the file). Pass `{"annotation.precomputed.bakta_json": _bakta_json(annotation)}` to `_resolve` in `cli.preflight` (cli.py:410), as `run` does, and add a spec note on example 13.
 - **#467 F5:** with untruncated preflight.md messages, `io/abundance.py:91` (`extra_columns`) and `io/peptides.py:134` (`unknown_column`) list every column; run them through `capped()`.
