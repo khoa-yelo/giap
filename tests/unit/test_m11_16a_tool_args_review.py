@@ -121,8 +121,10 @@ def test_tblastn_quoted_option_name_is_split_like_the_shell() -> None:
     _assert_error(_check(11, **{TBLASTN_FIELD: "'-db_gencode' 4"}), TBLASTN)
 
 
-def test_tblastn_quoted_value_equal_to_the_table_is_ok() -> None:
-    _assert_ok(_check(4, **{TBLASTN_FIELD: "-db_gencode '4'"}))
+def test_tblastn_quoted_value_equal_to_the_table_is_an_error() -> None:
+    """A quoted value is refused even when it equals the table (16d review N1): the Nextflow
+    closure splits on whitespace and would read ``'4'``."""
+    _assert_error(_check(4, **{TBLASTN_FIELD: "-db_gencode '4'"}), TBLASTN)
 
 
 def test_tblastn_trailing_bare_db_gencode_is_an_error() -> None:

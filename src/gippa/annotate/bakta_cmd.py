@@ -1,7 +1,8 @@
 """Bakta 1.12.2 command line and database selection (GIPPA_SPEC.md §7.1.1, §5.2; M2-03).
 
 Builds ``bakta --db DB --output OUT --prefix P --threads N --keep-contig-headers
-[--complete] --replicons replicons.tsv [--regions regions.gff3] [extra args] genome.norm.fa``.
+[--complete] [--translation-table T] --replicons replicons.tsv [--regions regions.gff3]
+[extra args] genome.norm.fa``.
 Bakta itself is never imported (R5); it runs as a separate process.
 """
 
@@ -43,12 +44,19 @@ def bakta_command(
     replicons_tsv: Path,
     regions_gff3: Path | None,
     extra_args: Sequence[str],
+    translation_table: int,
 ) -> list[str]:
-    """Bakta argv; ``--replicons`` always, ``--complete`` iff forced or (auto) all circular."""
+    """Bakta argv; ``--replicons`` always, ``--complete`` iff forced or (auto) all circular.
+
+    ``--translation-table T`` only when ``T != 11`` (Bakta's default; M11-16 D2), right before
+    ``--replicons``.
+    """
     cmd = ["bakta", "--db", str(db), "--output", str(outdir), "--prefix", prefix]
     cmd += ["--threads", str(threads), "--keep-contig-headers"]
     use_complete = all_circular if complete == "auto" else bool(complete)
-    cmd += [*(["--complete"] if use_complete else []), "--replicons", str(replicons_tsv)]
+    cmd += ["--complete"] if use_complete else []
+    cmd += [] if translation_table == 11 else ["--translation-table", str(translation_table)]
+    cmd += ["--replicons", str(replicons_tsv)]
     if regions_gff3 is not None:
         cmd += ["--regions", str(regions_gff3)]
     cmd += [str(a) for a in extra_args]

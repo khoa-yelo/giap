@@ -113,7 +113,8 @@ def parse_bakta(ctx: StepContext) -> None:
     """Bakta JSON → genes, features, replicons, 16S FASTA, tRNA counts, xrefs, meta (§6.2)."""
     records = read_genome_fasta(_path(ctx.inputs["genome"]))
     genome = {r.id: r.sequence for r in records}
-    ann = parse_bakta_json(_path(ctx.inputs["bakta_json"]), genome=genome)
+    table = ctx.cfg.annotation.translation_table
+    ann = parse_bakta_json(_path(ctx.inputs["bakta_json"]), genome=genome, translation_table=table)
     reps, genes, feats = _ordered(ann, [r.id for r in records])
     for t, k in sorted(ann.skipped_types.items()):
         ctx.log.warning("parse_bakta: skipped %d Bakta feature(s) of unknown type %r", k, t)
@@ -145,5 +146,6 @@ def parse_bakta(ctx: StepContext) -> None:
         "n_genes": len(genes),
         "n_features": len(feats),
         "skipped_types": dict(sorted(ann.skipped_types.items())),
+        "translation_table": table,
     }
     out["annotation_meta"].write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")

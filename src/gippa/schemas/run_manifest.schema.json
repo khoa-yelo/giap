@@ -114,6 +114,9 @@
     "annotation": {
       "type": ["object", "null"],
       "additionalProperties": {"$ref": "#/$defs/nstr"},
+      "properties": {
+        "translation_table": {"type": "integer", "enum": [4, 11, 25]}
+      },
       "required": ["source", "bakta_version", "db_version", "db_type"]
     },
     "operon_source": {

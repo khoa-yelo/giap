@@ -25,6 +25,7 @@ from gippa.context.diagnostics import render_l_hat
 from gippa.data import calibration
 from gippa.io.run_view import RunView
 from gippa.io.tsv import format_value
+from gippa.model.genetic_code import codon_table, table_name
 
 #: GIPPA_SPEC.md §7.4, verbatim
 SIGMA70 = (
@@ -114,6 +115,23 @@ def summary_warnings(view: RunView) -> list[dict[str, str]]:
             for c in _list(checks)
             if isinstance(c, Mapping) and c.get("rule_id") in SUMMARY_WARNINGS
             and c.get("level") == "warn"]  # fmt: skip
+
+
+def genetic_code_methods(table: int) -> str:
+    """The Methods sentence of every run (M11-16 item 7)."""
+    return (
+        f"Genes were called and all six frames translated with NCBI genetic code {table} "
+        f"({table_name(table)})."
+    )
+
+
+def genetic_code_note(table: int) -> dict[str, str] | None:
+    """The summary note of a run at table 4 or 25 (``None`` at 11; M11-16 item 7, D8)."""
+    if table == 11:
+        return None
+    tga = codon_table(table)["TGA"]
+    text = f"Genetic code {table} ({table_name(table)}): TGA is read as {tga}."
+    return {"table": str(table), "text": text}
 
 
 def _list(value: Any) -> list[Any]:

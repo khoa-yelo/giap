@@ -11,6 +11,7 @@ circular replicons and is an error on linear ones. Every malformed input raises
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter
 from collections.abc import Mapping
@@ -39,8 +40,38 @@ _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
 _GENE_TYPES = ("cds", "sorf")
 
 
+_log = logging.getLogger(__name__)
+
+
 class BaktaParseError(ValueError):
     """Malformed or inconsistent Bakta JSON."""
+
+
+class AnnotationTableMismatch(ValueError):
+    """The JSON's ``genome.translation_table`` differs from the run's table (M11-16 item 3.4)."""
+
+
+def _check_table(data: Mapping[str, Any], table: int) -> None:
+    genome = data.get("genome")
+    recorded = genome.get("translation_table") if isinstance(genome, dict) else None
+    if recorded is None:
+        _log.info(
+            "annotation.table_unrecorded: the annotation JSON records no translation table; "
+            "assuming %d",
+            table,
+            extra={"event": "annotation.table_unrecorded", "data": {"translation_table": table}},
+        )
+        return
+    if not isinstance(recorded, int) or isinstance(recorded, bool):
+        raise BaktaParseError(
+            f"annotation JSON genome.translation_table must be an integer, got {recorded!r:.100}"
+        )
+    if recorded != table:
+        raise AnnotationTableMismatch(
+            f"annotation JSON was made with translation table {recorded}; this run uses {table}: "
+            f"re-run Bakta with --translation-table {table} or set "
+            f"annotation.translation_table: {recorded}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,11 +277,19 @@ def parse_bakta_json(
     path: StrPath,
     replicons: Mapping[str, Replicon] | None = None,
     genome: Mapping[str, str] | None = None,
+    *,
+    translation_table: int | None = None,
 ) -> BaktaAnnotation:
-    """Parse a (possibly gzipped) Bakta JSON; ``replicons`` (preflight's table) wins if given."""
+    """Parse a (possibly gzipped) Bakta JSON; ``replicons`` (preflight's table) wins if given.
+
+    With ``translation_table``, a recorded ``genome.translation_table`` that differs raises
+    ``AnnotationTableMismatch``; an unrecorded one is assumed equal (logged at INFO).
+    """
     data = read_json(path)
     if not isinstance(data, dict):
         raise BaktaParseError(f"{path}: top-level JSON must be an object")
+    if translation_table is not None:
+        _check_table(data, translation_table)
     records = data.get("sequences", data.get("contigs")) or []
     reps, seqs = _replicons_from_json(records, replicons, genome)
     genes: list[Gene] = []

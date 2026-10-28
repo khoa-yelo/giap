@@ -23,8 +23,10 @@ process BAKTA {
     script:
     def reg = regions ? "--regions ${regions}" : ''
     def extra = (params.annotation?.bakta?.extra_args ?: []).join(' ')
+    def table = params.annotation?.translation_table ?: 11
+    def code = table == 11 ? '' : "--translation-table ${table} "  // M11-16 D2: none at 11
     """
-    mode="--replicons ${replicons}"
+    mode="${code}--replicons ${replicons}"
     if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "c" { exit 1 }' ${replicons}; }; then mode="--complete \$mode"; fi
     bakta --db ${db} --output bakta --prefix ${meta_id} --threads ${task.cpus} --keep-contig-headers \$mode ${reg} ${extra} ${genome}
     mkdir -p tools/bakta && { ln bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/ 2>/dev/null || cp bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/; }

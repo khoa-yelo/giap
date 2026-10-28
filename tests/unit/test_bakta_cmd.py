@@ -27,6 +27,7 @@ def _cmd(**kw: Any) -> list[str]:
         "replicons_tsv": REPLICONS,
         "regions_gff3": None,
         "extra_args": [],
+        "translation_table": 11,  # M11-16d (D2): no --translation-table at 11
     }
     args.update(kw)
     return [str(x) for x in bakta_command(**args)]
@@ -140,6 +141,7 @@ def test_returns_list_of_str() -> None:
         replicons_tsv=REPLICONS,
         regions_gff3=None,
         extra_args=(),
+        translation_table=11,
     )
     assert isinstance(cmd, list)
     assert all(isinstance(x, str) for x in cmd)

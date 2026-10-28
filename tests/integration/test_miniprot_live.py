@@ -65,7 +65,7 @@ def test_live_equals_recorded(tmp_path: Path) -> None:
     faa = _plain(sorted(RECORDED.glob("proteins.faa*"))[0], tmp_path)
     recorded_gff = _plain(sorted(RECORDED.glob("*.gff*"))[0], tmp_path)
     mpi = tmp_path / "genome.mpi"
-    _run(env, miniprot_index_cmd(sim.genome_fasta, mpi, 2))
+    _run(env, miniprot_index_cmd(sim.genome_fasta, mpi, 2, table=11))
     live_gff = tmp_path / "live.gff"
     _run(env, miniprot_align_cmd(mpi, faa, 2, ProteinsConfig().miniprot_args), stdout=live_gff)
 

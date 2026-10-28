@@ -26,9 +26,9 @@ from gippa.model.coords import Interval, Replicon, Strand, from_one_based_closed
 Route = Literal["miniprot", "tblastn"]
 
 
-def miniprot_index_cmd(genome: Path, mpi: Path, threads: int) -> list[str]:
-    """``miniprot -t N -T 11 -d genome.mpi genome.fa`` (§7.1.1)."""
-    return ["miniprot", "-t", str(threads), "-T", "11", "-d", str(mpi), str(genome)]
+def miniprot_index_cmd(genome: Path, mpi: Path, threads: int, table: int) -> list[str]:
+    """``miniprot -t N -T <table> -d genome.mpi genome.fa`` (§7.1.1; M11-16 item 3.2)."""
+    return ["miniprot", "-t", str(threads), "-T", str(table), "-d", str(mpi), str(genome)]
 
 
 def miniprot_align_cmd(mpi: Path, proteins: Path, threads: int, args: str) -> list[str]:

@@ -1095,7 +1095,7 @@
           "type": "number"
         },
         "tblastn_args": {
-          "default": "-db_gencode 11 -seg no -evalue 1e-5",
+          "default": "-seg no -evalue 1e-5",
           "title": "Tblastn Args",
           "type": "string"
         }

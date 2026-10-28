@@ -60,8 +60,8 @@ mapping:
     min_identity: 0.80
     min_coverage: 0.80
     near_identity: 0.95
-    miniprot_args: "-S -N 5 --outs=0.95"              # -T 11 is applied at indexing time
-    tblastn_args: "-db_gencode 11 -seg no -evalue 1e-5"
+    miniprot_args: "-S -N 5 --outs=0.95"              # -T <annotation.translation_table> is applied at indexing time
+    tblastn_args: "-seg no -evalue 1e-5"              # -db_gencode <annotation.translation_table> is appended
   tolerant:
     enabled: true
     min_len: 10
