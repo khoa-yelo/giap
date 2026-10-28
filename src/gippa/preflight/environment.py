@@ -337,6 +337,105 @@ def _docker_image_exists(tag: str) -> bool:
     return proc.returncode == 0
 
 
+DockerVersion = tuple[Literal["docker", "podman"], tuple[int, int]]
+DOCKER_MIN: tuple[int, int] = (20, 10)  # first Docker whose `docker run` has --pull
+PODMAN_MIN: tuple[int, int] = (3, 0)
+SETUP_DOCKER = f"run: {_PKG} setup --images --profile docker"
+_DOCKER_VERSION = re.compile(r"(Docker|podman) version (\d+)\.(\d+)")
+_NO_DAEMON = (
+    "Cannot connect to the Docker daemon",
+    "permission denied while trying to connect to the Docker daemon",
+    "error during connect",
+    "to the docker API at",  # Docker 29+ (moby client v0.1.0): "failed to connect to the docker
+    # API at …", "permission denied while trying to connect to the docker API at …"
+)
+
+
+def parse_docker_version(text: str) -> DockerVersion | None:
+    """Pure: the CLI family and (major, minor) from the first line of ``docker --version``;
+    ``None`` when absent or unrecognised (nerdctl, empty, garbage)."""
+    m = _DOCKER_VERSION.match(text.split("\n", 1)[0])
+    if m is None:
+        return None
+    family: Literal["docker", "podman"] = "docker" if m.group(1) == "Docker" else "podman"
+    return family, (int(m.group(2)), int(m.group(3)))
+
+
+def docker_client_version() -> DockerVersion | None:
+    """``docker --version`` (the client, never the daemon); ``None`` when docker is not on
+    ``PATH``, the call fails or the output does not parse."""
+    docker = shutil.which("docker")
+    if docker is None:
+        return None
+    try:
+        proc = subprocess.run([docker, "--version"], capture_output=True, text=True,
+                              check=False, timeout=30)  # fmt: skip
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return parse_docker_version(proc.stdout) if proc.returncode == 0 else None
+
+
+def pull_never_problem(version: DockerVersion | None) -> str:
+    """Pure: ``""`` when ``docker run --pull=never`` is supported or the version is unknown
+    (Q2), else why the CLI is too old (M11-19 rule 1)."""
+    if version is None:
+        return ""
+    family, (major, minor) = version
+    floor = DOCKER_MIN if family == "docker" else PODMAN_MIN
+    if (major, minor) >= floor:
+        return ""
+    return (
+        f"{family} {major}.{minor} is older than {floor[0]}.{floor[1]}, the first version whose "
+        "docker run has --pull=never, and runs never pull images; upgrade Docker (Docker >= "
+        f"{DOCKER_MIN[0]}.{DOCKER_MIN[1]}, or podman >= {PODMAN_MIN[0]}.{PODMAN_MIN[1]} with "
+        "podman-docker)"
+    )
+
+
+def _no_daemon_reason(ref: str, why: str) -> str:
+    return (
+        f"image {ref} cannot be checked: the docker daemon is not reachable ({why}); start "
+        f"Docker, then {SETUP_DOCKER} if the image is missing"
+    )
+
+
+def _docker_image_problem(ref: str) -> tuple[str, str | None]:
+    """(:func:`docker_image_reason`, the no-daemon cause or ``None``)."""
+    if _docker_image_exists(ref):
+        return "", None
+    docker = shutil.which("docker")
+    if docker is None:
+        return (
+            f"image {ref} cannot be checked: docker is not on PATH (runs never pull images); "
+            f"install Docker >= {DOCKER_MIN[0]}.{DOCKER_MIN[1]}, then {SETUP_DOCKER}"
+        ), None
+    why: str | None = None
+    try:
+        proc = subprocess.run([docker, "image", "inspect", ref], capture_output=True, text=True,
+                              check=False, timeout=60)  # fmt: skip
+    except subprocess.TimeoutExpired:
+        why = "timed out"
+    except OSError:
+        pass
+    else:
+        if proc.returncode == 0:
+            return "", None
+        if any(marker in proc.stderr for marker in _NO_DAEMON):
+            why = next((ln.strip() for ln in proc.stderr.splitlines() if ln.strip()), "")
+    if why is not None:
+        return _no_daemon_reason(ref, why), why
+    return (
+        f"image {ref} is not present locally and runs never pull it (docker image inspect {ref} "
+        f"failed); {SETUP_DOCKER}"
+    ), None
+
+
+def docker_image_reason(ref: str) -> str:
+    """``""`` when the image ``ref`` is local (``docker image inspect``), else why not: docker
+    not on ``PATH``, the daemon not reachable, or absent (M11-19 rules 3-5). Never pulls."""
+    return _docker_image_problem(ref)[0]
+
+
 def missing_tool_reasons(
     tools: Sequence[ToolSpec],
     profile: str,
@@ -346,9 +445,11 @@ def missing_tool_reasons(
 ) -> dict[str, str]:
     """Why each of ``tools`` is not usable under the comma-joined Nextflow ``profile``.
 
-    A tool pinned in the bundled ``containers.config`` is satisfied by its image: under docker
-    Nextflow still pulls a step's image by digest at run time (``--pull=never`` for Nextflow's
-    step images is a separate follow-up, N6b); under apptainer it needs
+    A tool pinned in the bundled ``containers.config`` is satisfied by its image. Only
+    ``<pkg> setup`` pulls images (M11-19): under runtime docker (``docker`` and no
+    ``apptainer``, with or without ``conda``) Nextflow runs it with ``--pull=never``, so the ref
+    must be local (``docker image inspect``; the client must be Docker >= 20.10 or podman >= 3.0,
+    and ``<pkg> setup --images --profile docker`` fetches it); under apptainer it needs
     ``<image_cache>/<simpleName>.img`` (ADR-0059). A conda-only tool needs the prebuilt env
     ``<env_root>/gippa-<tool>`` with a ``.gippa-built`` marker equal to the sha256 of
     ``workflow/envs/<tool>.yml``; under a container profile without conda (``docker`` or plain
@@ -376,7 +477,27 @@ def missing_tool_reasons(
     )
     step_images = {} if conda_on else _step_images(workflow / "conf" / "images.json")
     setup_images = f"run: {_PKG} setup --images --profile apptainer"
-    setup_docker = f"run: {_PKG} setup --images --profile docker"
+    version: str | None = None  # rule 1, probed at most once and only when an image is needed
+    seen: dict[str, str] = {}
+    daemon_down: str | None = None
+
+    def too_old() -> str:
+        nonlocal version
+        if version is None:
+            version = pull_never_problem(docker_client_version())
+        return version
+
+    def docker_reason(ref: str) -> str:
+        """Rules 1-5: ``docker image inspect`` once per ref, none after a no-daemon result."""
+        nonlocal daemon_down
+        if old := too_old():
+            return old
+        if ref not in seen and daemon_down is not None:
+            seen[ref] = _no_daemon_reason(ref, daemon_down)
+        elif ref not in seen:
+            seen[ref], daemon_down = _docker_image_problem(ref)
+        return seen[ref]
+
     reasons: dict[str, str] = {}
     for tool in tools:
         if tool.in_process:
@@ -385,6 +506,11 @@ def missing_tool_reasons(
         if tool.name == "uniop" and local_uniop is not None:
             if local_uniop:
                 reasons[tool.name] = local_uniop
+            elif uniop_runtime(profile) == "docker" and (old := too_old()):
+                reasons[tool.name] = old
+        elif ref is not None and runtime == "docker":
+            if why := docker_reason(ref):
+                reasons[tool.name] = why
         elif ref is not None:
             image = image_cache / _image_file_name(ref)
             if runtime == "apptainer" and not image.is_file():
@@ -411,11 +537,8 @@ def missing_tool_reasons(
                     reasons[tool.name] = (
                         f"image {step_ref} not in the apptainer cache {image_cache}; {setup_images}"
                     )
-            elif runtime == "docker" and not _docker_image_exists(step_ref):
-                reasons[tool.name] = (
-                    f"image {step_ref} is not present locally and runs never pull it (no docker "
-                    f"on PATH, or `docker image inspect` fails); {setup_docker}"
-                )
+            elif runtime == "docker" and (why := docker_reason(step_ref)):
+                reasons[tool.name] = why
         elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
             reasons[tool.name] = (
                 f"conda-only tool under a container profile without conda: {tool.name}"

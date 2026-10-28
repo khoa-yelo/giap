@@ -48,6 +48,25 @@ Where GIPPA is tested and which execution profiles are supported. Each cell is o
 - **DIA-NN** is not shipped with GIPPA: you run it yourself and pass its report to
   `gippa convert --from diann`.
 
+## Docker (Linux and macOS)
+
+- **Docker 20.10 or later.** Under `-profile docker` every task runs with
+  `docker run --pull=never` (the first option of `docker.runOptions` in
+  `workflow/nextflow.config`), so runs never pull images: only `gippa setup` does. Pull the
+  images first with `gippa setup --images --profile docker`. Preflight (`gippa preflight
+  --profile docker` and `gippa run`) checks each pinned image the selected modules need with
+  `docker image inspect <ref>` and stops with exit code 2 when one is not local, when the Docker
+  daemon is not reachable, or when the `docker` client is older than 20.10 (its `docker run`
+  has no `--pull` option).
+- **podman.** With the `podman-docker` package, `docker` runs podman 3.0 or later, which has
+  `--pull=never` and `image inspect`. This is best effort and untested: no CI job or FarmShare
+  suite runs podman.
+- **Your own `docker.runOptions`.** A `docker.runOptions` set in a `nextflow.config` in the
+  launch directory (for `gippa run`, that is `<outdir>/nextflow.config`: Nextflow starts there)
+  or in a `-c` config replaces GIPPA's string; one in `$NXF_HOME/config` does not.
+  Keep `--pull=never` as its first option, or Docker pulls a missing image in the middle of the
+  run.
+
 ## macOS and Windows
 
 - The Python package installs and is tested on macOS. The full pipeline on macOS needs Docker
