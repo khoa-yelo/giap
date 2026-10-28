@@ -108,7 +108,9 @@ def test_no_tool_source_vendored() -> None:
             if path.is_file():
                 assert path.name.lower() not in source_names, path
                 assert path.suffix.lower() not in model_suffixes, path
-    allowed = {"Dockerfile", "main.nf", "meta.yml", ".dockerignore"}
+    # M11-15g step images: hashed locks, the licence allowlist and BuildKit's per-Dockerfile ignore
+    allowed = {"Dockerfile", "main.nf", "meta.yml", ".dockerignore", "Dockerfile.dockerignore",
+               "requirements.lock", "build-requirements.lock", "licences.allow"}  # fmt: skip
     for tree in (REPO / "workflow" / "containers", REPO / "workflow" / "modules" / "local"):
         if not tree.is_dir():
             continue
