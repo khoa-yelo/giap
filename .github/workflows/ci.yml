@@ -1,4 +1,4 @@
-# Fast checks on every push and pull request (GIAP_SPEC.md §12, ADR-0052). Heavy suites, the
+# Fast checks on every push and pull request (GIPPA_SPEC.md §12, ADR-0052). Heavy suites, the
 # calibration subset and the coverage gate run on FarmShare (scripts/slurm/nightly.sbatch).
 name: ci
 
@@ -25,7 +25,7 @@ jobs:
       - run: uv sync --frozen --all-extras
       - run: uv run --no-sync ruff check .
       - run: uv run --no-sync ruff format --check .
-      - run: uv run --no-sync mypy src/giap
+      - run: uv run --no-sync mypy src/gippa
       - run: uv run --no-sync python scripts/ci/check_imports.py src
       - run: python3 scripts/ci/check_no_rscript.py src
       - run: python3 scripts/ci/check_bash32.py
@@ -52,6 +52,10 @@ jobs:
       - name: unique test module names
         run: python3 scripts/ci/check_test_names.py
       - name: PR size (code only, ADR-0007, ADR-0016)
+        env:
+          # ADR-0064 item 10 (Q-K31): one-off exemption for the rename PR only. Labels need triage or
+          # write access; they are read from the push event, so add the label, then push again.
+          SIZE_EXEMPT: ${{ contains(github.event.pull_request.labels.*.name, 'size-exempt') && github.head_ref == 'refactor/gippa-rename' }}
         run: |
           # Only code counts toward the gate; tests (incl. workflow/tests, ADR-0016), docs, specs, ADRs,
           # locks and fixtures are reported.
@@ -65,6 +69,9 @@ jobs:
           warn=$(awk '/^pr_lines_warn:/ {print $2}' ci/gates.yaml)
           fail=$(awk '/^pr_lines_fail:/ {print $2}' ci/gates.yaml)
           echo "changed code lines: $lines (warn $warn, fail $fail); other lines (not gated): $other"
+          if [ "$lines" -gt "$fail" ] && [ "$SIZE_EXEMPT" = true ]; then
+            echo "::notice::PR size exemption (ADR-0064 item 10): $lines > $fail"; exit 0
+          fi
           if [ "$lines" -gt "$fail" ]; then echo "::error::PR too large ($lines > $fail)"; exit 1; fi
           if [ "$lines" -gt "$warn" ]; then echo "::warning::PR above $warn lines ($lines)"; fi
 
@@ -152,7 +159,7 @@ jobs:
           nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test ! -name docker_db.nf.test | sort) --profile test,stub
 
   # M11-01: build the wheel and sdist, check them, install the wheel in a clean venv and smoke it
-  # from /tmp, so nothing resolves through the checkout (an installed `giap run` finds its workflow).
+  # from /tmp, so nothing resolves through the checkout (an installed `gippa run` finds its workflow).
   package:
     needs: lint
     runs-on: ubuntu-latest
@@ -178,23 +185,23 @@ jobs:
         working-directory: /tmp
         env:
           REPO: ${{ github.workspace }}
-          GIAP_DB_DIR: /tmp/giap-db-none
+          GIPPA_DB_DIR: /tmp/gippa-db-none
         run: |
           set -euo pipefail
           export PATH=/tmp/pkg/bin:$PATH
-          giap --version
-          giap version --json
-          giap preflight --genome "$REPO/tests/data/genomes/sim100k.fna.gz" \
+          gippa --version
+          gippa version --json
+          gippa preflight --genome "$REPO/tests/data/genomes/sim100k.fna.gz" \
             --proteins "$REPO/tests/data/recorded/makedb/sim100k_plasmid_1.bakta.faa" \
             --outdir /tmp/pkg-preflight
           wf=$(python -c '
           from pathlib import Path; import site
-          from giap.runner.nextflow import workflow_main
+          from gippa.runner.nextflow import workflow_main
           m = workflow_main(); sp = Path(site.getsitepackages()[0]).resolve()
-          assert m.is_file() and m.parent == sp / "giap/workflow", (m, sp)
-          assert "site-packages/giap/workflow" in m.as_posix(), m
+          assert m.is_file() and m.parent == sp / "gippa/workflow", (m, sp)
+          assert "site-packages/gippa/workflow" in m.as_posix(), m
           print(m.parent)')
-          test -x "$wf/bin/giap_fgsea.R" && test -x "$wf/assets/ps/ps"
+          test -x "$wf/bin/gippa_fgsea.R" && test -x "$wf/assets/ps/ps"
           nextflow config "$wf" -profile test,stub > /dev/null
           nextflow config "$wf" -profile farmshare,apptainer > /dev/null
 
