@@ -27,7 +27,7 @@ from gippa.io.tsv import write_tsv
 from gippa.model.coords import Interval, Replicon
 from gippasim import blocks as v2blocks
 from gippasim import layers
-from gippasim.codons import SENSE_USAGE, STOPS, revcomp
+from gippasim.codons import TABLES, revcomp, sense_usage, stops
 from gippasim.denovo import DenovoConfig, simulate_denovo
 from gippasim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
 from gippasim.proteomics import ProteomicsConfig, simulate_proteomics
@@ -53,11 +53,14 @@ __all__ = [
     "revcomp",
     "simulate",
 ]
-_SENSE = np.array(list(SENSE_USAGE), dtype="<U3")
 _MAX_OVERLAP_TRIES = 200
 #: Overlaps (bp) for which a stop codon of the upstream gene can share bases with the
-#: start codon (and following codons) of the downstream gene. 2, 5 and multiples of 3 cannot.
-_FEASIBLE_OVERLAPS = frozenset(k for k in range(1, 21) if k % 3 and k not in (2, 5))
+#: start codon (and following codons) of the downstream gene, per genetic code. 2, 5 and
+#: multiples of 3 never can; 4 needs the stop ``NTG`` + ``A`` = TGA, so it is infeasible at 4/25.
+_FEASIBLE_OVERLAPS_11 = frozenset(k for k in range(1, 21) if k % 3 and k not in (2, 5))
+_FEASIBLE_OVERLAPS: dict[int, frozenset[int]] = {
+    t: _FEASIBLE_OVERLAPS_11 if t == 11 else _FEASIBLE_OVERLAPS_11 - {4} for t in TABLES
+}
 
 
 def _cum(weights: Any) -> np.ndarray:
@@ -70,9 +73,22 @@ def _draw(rng: np.random.Generator, cum: np.ndarray, size: int) -> np.ndarray:
     return np.minimum(np.searchsorted(cum, rng.random(size), side="right"), len(cum) - 1)
 
 
+_DEFAULT_STOPS = (("TAA", 0.61), ("TGA", 0.30), ("TAG", 0.09))
+_DEFAULT_OVERLAPS = (
+    (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
+)  # fmt: skip
+
+
 @dataclass(frozen=True)
 class SimConfig:
-    """Simulator knobs (M0 subset of spec §11.3)."""
+    """Simulator knobs (M0 subset of spec §11.3).
+
+    At genetic code 4 or 25 the default ``stop_codons`` drop TGA (sense there) and the default
+    ``overlap_bp`` drop the 4-bp overlap (it needs a TGA stop); the remaining weights are
+    renormalised. Passing either default explicitly is treated as the default (the values are
+    compared, not the identity), so it does not raise. A user value that contains TGA, resp. a
+    4-bp overlap, raises ``ValueError`` at 4/25.
+    """
 
     genome_length: int = 50_000
     contig_id: str = "chr1"
@@ -85,11 +101,9 @@ class SimConfig:
     # weight tables are tuples of (key, weight) pairs so the config stays hashable; a mapping
     # passed in is converted
     start_codons: tuple[tuple[str, float], ...] = (("ATG", 0.90), ("GTG", 0.08), ("TTG", 0.02))
-    stop_codons: tuple[tuple[str, float], ...] = (("TAA", 0.61), ("TGA", 0.30), ("TAG", 0.09))
+    stop_codons: tuple[tuple[str, float], ...] = _DEFAULT_STOPS  # TGA dropped at 4/25
     p_intra_tu_overlap: float = 0.3  # otherwise a gap drawn from intra_tu_gap_bp
-    overlap_bp: tuple[tuple[int, float], ...] = (
-        (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
-    )  # fmt: skip
+    overlap_bp: tuple[tuple[int, float], ...] = _DEFAULT_OVERLAPS  # 4 dropped at 4/25
     intra_tu_gap_bp: tuple[int, int] = (0, 40)
     inter_tu_gap_bp: tuple[int, int] = (50, 300)
     intergenic_at: float = 0.65  # AT fraction of non-coding sequence
@@ -133,6 +147,10 @@ class SimConfig:
     # M7-16 rule 14: genes whose expressed protein reads through the annotated stop to the next
     # in-frame stop 5-60 codons on (gippasim.readthrough); 0 = off
     n_readthrough: int = 0
+    # M11-16: NCBI genetic code (4, 11 or 25) and TGA's share of W (4) or G (25) in the sense
+    # usage (None = the table's default, gippasim.codons.DEFAULT_TGA_SHARE; ignored at 11)
+    genetic_code: int = 11
+    tga_sense_share: float | None = None
 
     @property
     def v2(self) -> bool:
@@ -156,6 +174,14 @@ class SimConfig:
             object.__setattr__(
                 self, name, tuple(v.items() if isinstance(v, Mapping) else map(tuple, v))
             )
+        if self.genetic_code not in TABLES:
+            raise ValueError(f"genetic_code must be one of {TABLES}")
+        if self.genetic_code != 11:
+            sense_usage(self.genetic_code, self.tga_sense_share)  # checks the share
+            if self.n_selenoproteins:
+                raise ValueError("n_selenoproteins > 0 needs genetic_code 11 (TGA as a stop)")
+            if self.stop_codons != _DEFAULT_STOPS and "TGA" in dict(self.stop_codons):
+                raise ValueError(f"TGA is sense under genetic code {self.genetic_code}")
         if self.n_readthrough < 0:
             raise ValueError("n_readthrough must be >= 0")
         if self.denovo is not None and self.proteomics is None:
@@ -164,10 +190,14 @@ class SimConfig:
             raise ValueError("n_selenoproteins must be >= 0")
         if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
-        bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
+        ok = _FEASIBLE_OVERLAPS[self.genetic_code]
+        bad = set(dict(self.overlap_bp)) - ok
+        if self.overlap_bp == _DEFAULT_OVERLAPS:
+            bad = set()  # the default drops what the table cannot realise (4 bp at 4/25)
         if bad:
             raise ValueError(
-                f"infeasible overlaps {sorted(bad)}; allowed {sorted(_FEASIBLE_OVERLAPS)}"
+                f"infeasible overlaps {sorted(bad)} under genetic code {self.genetic_code}; "
+                f"allowed {sorted(ok)}"
             )
 
 
@@ -215,16 +245,23 @@ class _Sim:
         self.rng = rng
         self.srng = srng  # v2 signals; TUs get leaders/trailers when set
         self.plans: list[TuPlan] = []
-        self.sense_cum = _cum(list(SENSE_USAGE.values()))
+        self.table = cfg.genetic_code
+        self.stop_set = stops(self.table)
+        self.usage = sense_usage(self.table, cfg.tga_sense_share)
+        self.sense_codons = np.array(list(self.usage), dtype="<U3")
+        self.sense_cum = _cum(list(self.usage.values()))
         self.starts = [k for k, _ in cfg.start_codons]
         self.start_cum = _cum([w for _, w in cfg.start_codons])
-        self.stops = [k for k, _ in cfg.stop_codons]
-        self.stop_cum = _cum([w for _, w in cfg.stop_codons])
-        self.overlaps = [k for k, _ in cfg.overlap_bp]
-        self.overlap_cum = _cum([w for _, w in cfg.overlap_bp])
+        st = [(k, w) for k, w in cfg.stop_codons if k in self.stop_set]  # default: TAA/TAG
+        self.stops = [k for k, _ in st]
+        self.stop_cum = _cum([w for _, w in st])
+        ok = _FEASIBLE_OVERLAPS[self.table]
+        ov = [(k, w) for k, w in cfg.overlap_bp if k in ok]  # default at 4/25: 4 bp dropped
+        self.overlaps = [k for k, _ in ov]
+        self.overlap_cum = _cum([w for _, w in ov])
 
     def sense(self, n: int) -> list[str]:
-        out: list[str] = _SENSE[_draw(self.rng, self.sense_cum, n)].tolist()
+        out: list[str] = self.sense_codons[_draw(self.rng, self.sense_cum, n)].tolist()
         return out
 
     def gene(self) -> _Gene:
@@ -257,7 +294,7 @@ class _Sim:
             head = [b.codons[0], *self.sense(q - 1)]
             tail = free + "".join(head)[:k]
             a_tail = [tail[i : i + 3] for i in range(0, 3 * q, 3)]
-            if a_tail[-1] in STOPS and not STOPS.intersection(a_tail[:-1]):
+            if a_tail[-1] in self.stop_set and not self.stop_set.intersection(a_tail[:-1]):
                 a.codons[-q:] = a_tail
                 b.codons[:q] = head
                 return True
@@ -355,16 +392,16 @@ class _Sim:
         return bytearray(np.frombuffer(b"ACGT", dtype=np.uint8)[idx].tobytes())
 
 
-def _gene_feat(g: _Gene) -> Feat:
+def _gene_feat(g: _Gene, table: int = 11) -> Feat:
     tu = f"TU_{g.tu}" if g.tu else ""
-    return coding("cds", g.codons, start=g.start, end=g.end, strand=g.strand, tu=tu)
+    return coding("cds", g.codons, table=table, start=g.start, end=g.end, strand=g.strand, tu=tu)
 
 
-def _write_genes(genome: bytearray, genes: list[_Gene]) -> list[Feat]:
+def _write_genes(genome: bytearray, genes: list[_Gene], table: int = 11) -> list[Feat]:
     for g in genes:
         nt = g.nt if g.strand == "+" else revcomp(g.nt)
         genome[g.start : g.end] = nt.encode()
-        g.feat = _gene_feat(g)
+        g.feat = _gene_feat(g, table)
     return [g.feat for g in genes if g.feat is not None]
 
 
@@ -378,7 +415,7 @@ def _extra_contig(
     sim = _Sim(replace(cfg, genome_length=length), rng, srng)
     genes, _ = sim.layout(max_genes=max_genes)
     genome = sim.background()
-    return genome, _write_genes(genome, genes), sim.plans
+    return genome, _write_genes(genome, genes, cfg.genetic_code), sim.plans
 
 
 def _tsv(path: Path, header: list[str], rows: Sequence[Sequence[Any]]) -> None:
@@ -442,6 +479,7 @@ def _write_json(
     seqs: dict[str, str],
     feats: list[Feat],
     bakta: bool = False,
+    table: int = 11,
 ) -> None:
     key = "nt" if bakta else "sequence"
     data: dict[str, Any] = {
@@ -462,6 +500,8 @@ def _write_json(
     }
     if bakta:
         data["version"] = _VERSION
+    if table != 11:  # absent at 11, so the code-11 outputs stay byte-identical (M11-16)
+        data["genome"] = {"translation_table": table}
     path.write_text(json.dumps(data, sort_keys=True, indent=1) + "\n")
 
 
@@ -587,7 +627,8 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     genes, put = sim.layout(blocks, targets, lead, tail)
     genes.sort(key=lambda g: (g.start, g.end))
     genome = sim.background()
-    gene_feats = _write_genes(genome, genes)
+    table = config.genetic_code
+    gene_feats = _write_genes(genome, genes, table)
     feats = list(gene_feats)
     for pos, b in put:
         genome[pos : pos + len(b.seq)] = b.seq.encode()
@@ -595,7 +636,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     if origin is not None:
         nt = (origin.nt if origin.strand == "+" else revcomp(origin.nt)).encode()
         genome[origin.start :], genome[:lead] = nt[:tail], nt[tail:]
-        feats.append(_gene_feat(origin))
+        feats.append(_gene_feat(origin, table))
         feats[-1].extra["edge"] = True  # Bakta's flag for a feature crossing the origin
     for f in feats:
         f.contig = chrom
@@ -633,13 +674,13 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     sec_rows = plant_selenoproteins(config.n_selenoproteins, seed, seqs, feats, novel)
     text = {cid: s.decode() for cid, s in seqs.items()}
     circular = {cid: topo == "circular" for cid, _, topo in contigs}
-    rt = pick_readthrough(config.n_readthrough, seed, feats, text, circular)  # M7-16 rule 14
+    rt = pick_readthrough(config.n_readthrough, seed, feats, text, circular, table)  # M7-16 r14
 
     out = Path(outdir)
     (out / "truth").mkdir(parents=True, exist_ok=True)
     fasta, bakta, gff = out / "genome.fasta", out / "bakta_like.json", out / "annotation.gff3"
     _write_fasta(fasta, contigs, text)
-    _write_json(bakta, contigs, text, feats, bakta=config.v2)
+    _write_json(bakta, contigs, text, feats, bakta=config.v2, table=table)
     _write_gff3(gff, contigs, text, feats)
     novel_truth = out / "truth" / "novel_orfs.tsv"
     _tsv(novel_truth, ["orf_id", "class", "contig", "start", "end", "strand", "aa"], novel)
@@ -668,14 +709,16 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         res = replace(res, truth={**res.truth, "selenoproteins": sec_truth})
     if config.strain is not None:
         dg = ((7, 30), 1) if prot is None else (prot.digest_len, prot.missed_cleavages)
-        ref_seqs, lifted, rows, stop_loss = derive_strain(config.strain, seed, text, feats, dg)
+        ref_seqs, lifted, rows, stop_loss = derive_strain(
+            config.strain, seed, text, feats, dg, table
+        )
         if config.strain.n_stop_loss:  # M7-16 rule 20
-            sl_rows = stop_loss_rows(text, feats, lifted, stop_loss, dg)
+            sl_rows = stop_loss_rows(text, feats, lifted, stop_loss, dg, table)
             _tsv(out / "truth" / "stop_loss.tsv", STOP_LOSS_COLUMNS, sl_rows)
         ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
         strain_truth = out / "truth" / "strain_differences.tsv"
         _write_fasta(ref_fasta, contigs, ref_seqs)
-        _write_json(ref_json, contigs, ref_seqs, lifted, bakta=config.v2)
+        _write_json(ref_json, contigs, ref_seqs, lifted, bakta=config.v2, table=table)
         header = [
             "contig",
             "pos_sample",
@@ -724,7 +767,8 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         topo_map = {cid: topo for cid, _, topo in contigs}
         rt_ext = {p.locus: (p.residue, p.extension) for p in rt}  # M7-16 rule 14
         paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted,
-                                    first_wrong=planted_wrong, readthrough=rt_ext)  # fmt: skip
+                                    first_wrong=planted_wrong, readthrough=rt_ext,
+                                    table=table)  # fmt: skip
         res = replace(
             res,
             peptides=paths["peptides"],
@@ -741,7 +785,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         res = replace(res, truth={**res.truth, "readthrough": out / "truth" / "readthrough.tsv"})
     if config.m7_truth:
         requested = {**dict(config.n_novel_orfs), "nterm_extension": config.n_nterm_extensions}
-        m7 = write_m7_truth(out, novel, feats, text, planted, strain_out, requested)
+        m7 = write_m7_truth(out, novel, feats, text, planted, strain_out, requested, table)
         res = replace(res, truth={**res.truth, **m7})
     return res
 

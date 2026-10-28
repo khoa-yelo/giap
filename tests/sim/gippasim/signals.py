@@ -33,7 +33,7 @@ from typing import Any
 
 import numpy as np
 
-from gippasim.codons import SENSE_USAGE, STOPS, codons_of, revcomp
+from gippasim.codons import SENSE_USAGE, codons_of, revcomp, sense_usage, stops
 
 LEADER = 70
 TRAILER = 50
@@ -105,13 +105,19 @@ def hairpin(rng: np.random.Generator) -> str:
     return stem + loop + revcomp(stem) + U_TRACT
 
 
-def _body_rbs(rng: np.random.Generator, a: Any, rel: int, sp: int) -> None:
-    """Write the RBS into ``a``'s codons at nt offset ``rel`` without creating a stop codon."""
+def _sense_codons(table: int) -> list[str]:
+    """Sorted sense codons of genetic code ``table`` (TGA included at 4/25)."""
+    return _SENSE if table == 11 else sorted(sense_usage(table))
+
+
+def _body_rbs(rng: np.random.Generator, a: Any, rel: int, sp: int, table: int = 11) -> None:
+    """Write the RBS into ``a``'s codons at nt offset ``rel`` without creating a stop codon of
+    genetic code ``table`` (at 4/25 a TGA it creates is sense and stays)."""
     nt = a.nt[:rel] + RBS + a.nt[rel + 6 :]
     c0 = rel - rel % 3
-    if nt[c0 : c0 + 3] in STOPS:
+    if nt[c0 : c0 + 3] in stops(table):
         tail = nt[rel : c0 + 3]
-        options = [c for c in _SENSE if c.endswith(tail)]
+        options = [c for c in _sense_codons(table) if c.endswith(tail)]
         nt = nt[:c0] + options[int(rng.integers(len(options)))] + nt[c0 + 3 :]
     for t, b in rbs_fixes(rel, sp):  # a C never completes a stop codon
         if t >= 0 and nt[t : t + 3] == "AGG":
@@ -119,7 +125,9 @@ def _body_rbs(rng: np.random.Generator, a: Any, rel: int, sp: int) -> None:
     a.codons = codons_of(nt)
 
 
-def _intra_rbs(rng: np.random.Generator, plan: TuPlan, a: Any, b: Any) -> int | None:
+def _intra_rbs(
+    rng: np.random.Generator, plan: TuPlan, a: Any, b: Any, table: int = 11
+) -> int | None:
     """Plant the RBS of ``b`` (after ``a`` in the same TU); returns its spacer."""
     ok = [sp for sp in SPACERS if b.start - sp <= a.end - 3 or b.start - sp - 6 >= a.end]
     if not ok:
@@ -130,12 +138,14 @@ def _intra_rbs(rng: np.random.Generator, plan: TuPlan, a: Any, b: Any) -> int | 
         plan.writes.append((x0, RBS))
         plan.fixes.append((x0, sp))
     else:
-        _body_rbs(rng, a, x0 - a.start, sp)
+        _body_rbs(rng, a, x0 - a.start, sp, table)
     return sp
 
 
 def plan_tu(rng: np.random.Generator, cfg: Any, genes: list[Any], length: int) -> TuPlan:
-    """Shift ``genes`` by ``LEADER`` and plan the TU's signals (strengths of ``cfg``)."""
+    """Shift ``genes`` by ``LEADER`` and plan the TU's signals (strengths and
+    ``genetic_code`` of ``cfg``)."""
+    table = int(getattr(cfg, "genetic_code", 11))
     for g in genes:
         g.start += LEADER
         g.end += LEADER
@@ -153,7 +163,7 @@ def plan_tu(rng: np.random.Generator, cfg: Any, genes: list[Any], length: int) -
         plan.tss = tss
     for a, b in pairwise(genes):
         if rng.random() < cfg.rbs_strength:
-            sp = _intra_rbs(rng, plan, a, b)
+            sp = _intra_rbs(rng, plan, a, b, table)
             if sp is not None:
                 plan.rbs.append((b, sp))
     end, off = genes[-1].end, int(rng.integers(5, 16))

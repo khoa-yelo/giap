@@ -9,6 +9,8 @@ and exit 0. Two layers are tested:
 
 - the guard scripts themselves (``tests/helpers/container_guard.py``), per refused and allowed
   command line;
+- ``guarded_path``, which keeps the guard on a subprocess's own minimal ``PATH`` (the
+  ``gippa compare`` helpers of M10-04 and M10-10);
 - the autouse fixture, in a child pytest whose ``PATH`` starts with the recorders: the real
   ``gippa.setupdb.images`` pull and ``gippa.setupdb.uniop_build`` build code get the refusal and
   the recorders never run; a test's own fake first on ``PATH`` wins; ``real_container_pull``
@@ -17,7 +19,9 @@ and exit 0. Two layers are tested:
 
 from __future__ import annotations
 
+import importlib
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +32,7 @@ from helpers.container_guard import (
     NAMES,
     REFUSED,
     REFUSED_EXIT,
+    guarded_path,
     real_binaries,
     write_guard,
 )
@@ -62,7 +67,8 @@ def guarded(tmp_path: Path) -> tuple[Path, Path]:
 
 def _run(guard: Path, argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run([str(guard / argv[0]), *argv[1:]], cwd=cwd, capture_output=True,
-                          text=True, check=False, timeout=60)  # fmt: skip
+                          stdin=subprocess.DEVNULL, text=True, check=False,
+                          timeout=60)  # fmt: skip
 
 
 def _log(log: Path) -> str:
@@ -97,6 +103,63 @@ REFUSED_ARGVS = [
     ["apptainer", "-c", "x.conf", "pull", "x.sif", "ubuntu"],
     ["singularity", "exec", f"docker://{REF}", "true"],
     ["apptainer", "build", "x.sif", "spaced.def"],
+    # N2: remote schemes in any case; a definition on stdin; the image after value flags
+    ["apptainer", "pull", "x.sif", f"DOCKER://{REF}"],
+    ["apptainer", "exec", f"DOCKER://{REF}", "true"],
+    ["apptainer", "exec", f"Docker://{REF}", "true"],
+    ["apptainer", "run", "ORAS://ghcr.io/x/y:1"],
+    ["apptainer", "exec", "LIBRARY://alpine", "true"],
+    ["apptainer", "exec", "HTTPS://example.org/x.sif", "true"],
+    ["apptainer", "build", "x.sif", f"DOCKER://{REF}"],
+    ["apptainer", "build", "out.sif", "-"],
+    ["apptainer", "build", "--fakeroot", "out.sif", "-"],
+    ["singularity", "build", "out.sif", "-"],
+    ["apptainer", "exec", "--env", "URL=https://example.org", f"docker://{REF}", "true"],
+    ["apptainer", "exec", "--bind", "bound", f"docker://{REF}", "true"],  # bound/ exists
+    ["apptainer", "exec", "-B", "bound", f"docker://{REF}", "true"],
+    ["apptainer", "exec", "--home", "bound", f"docker://{REF}", "true"],
+    ["apptainer", "exec", "--cleanenv", f"docker://{REF}", "local.sif"],
+    ["apptainer", "instance", "start", f"docker://{REF}", "inst"],
+    # no word is a local path (the image is missing): every word is scanned (a false refusal)
+    ["apptainer", "exec", "missing.sif", "curl", "https://example.org"],
+    # N3: docker import of a URL, plugin/service/stack, --pull=never only before the image
+    ["docker", "import", "https://example.org/rootfs.tar.gz"],
+    ["docker", "import", "HTTPS://example.org/rootfs.tar.gz", "localhost/x:1"],
+    ["docker", "import", "-c", "ENV A=1", "https://example.org/rootfs.tar.gz"],
+    ["docker", "image", "import", "https://example.org/rootfs.tar.gz"],
+    ["docker", "plugin", "install", "vieux/sshfs"],
+    ["docker", "plugin", "install", "--grant-all-permissions", "vieux/sshfs"],
+    ["docker", "plugin", "upgrade", "vieux/sshfs"],
+    ["docker", "service", "create", "--name", "s", REF],
+    ["docker", "service", "update", "--image", REF, "s"],
+    ["docker", "stack", "deploy", "-c", "stack.yml", "s"],
+    ["docker", "stack", "up", "-c", "stack.yml", "s"],
+    ["docker", "--context", "x", "service", "create", REF],
+    ["docker", "run", "a", "sh", "-c", "--pull=never"],
+    ["docker", "run", "--rm", "localhost/x:1", "--pull", "never"],
+    ["docker", "container", "run", "localhost/x:1", "--pull=never"],
+    ["docker", "create", "localhost/x:1", "--pull=never"],
+    ["docker", "run", "--pull=always", "localhost/x:1"],
+    ["docker", "run", "--pull", "missing", "localhost/x:1", "never"],
+    # an unknown value flag: its value is taken for the image, so --pull=never after it is
+    # missed (a refusal, never a pull)
+    ["docker", "run", "--made-up-flag", "v", "--pull=never", "localhost/x:1"],
+    # #470 review S1: an unknown flag or its value never ends the scan (fail-safe)
+    ["apptainer", "exec", "--docker-host", "unix:///d.sock", "docker://alpine", "true"],
+    ["apptainer", "shell", "-s", "/bin/sh", "docker://alpine"],
+    ["apptainer", "exec", "--cwd", "/tmp", "docker://alpine", "true"],
+    ["apptainer", "exec", "--no-mount", "/etc/hosts", "docker://alpine", "true"],
+    ["apptainer", "instance", "start", "--dmtcp-launch", "/tmp", "docker://alpine", "i1"],
+    ["apptainer", "instance", "start", "docker://alpine", "i1"],  # cwd holds a file "start"
+    ["apptainer", "exec", "bound", "docker://alpine", "true"],  # a plain directory, no sandbox
+    ["apptainer", "exec", "local.def", "docker://alpine", "true"],  # a file, not *.sif/*.img
+    # S2: docker takes the last --pull value
+    ["docker", "run", "--pull=never", "--pull=always", "alpine"],
+    ["docker", "run", "--pull", "never", "--pull", "missing", "alpine"],
+    ["docker", "run", "--pull=never", "--pull", "missing", "alpine"],
+    ["docker", "container", "create", "--pull", "never", "--pull=always", "alpine"],
+    # N1: every Bootstrap: line of a multi-stage definition
+    ["apptainer", "build", "x.sif", "multi.def"],
 ]
 
 ALLOWED_ARGVS = [
@@ -111,6 +174,37 @@ ALLOWED_ARGVS = [
     ["docker", "container", "run", "--pull=never", "localhost/x:1", "true"],
     ["docker", "compose", "version"],
     ["apptainer", "--config", "x.conf", "exec", "local.sif", "true"],
+    # N2: a flag's value and the container's own command are not pulls
+    ["apptainer", "exec", "--env", "URL=https://example.org", "local.sif", "true"],
+    ["apptainer", "exec", "--env", "https://example.org", "local.sif", "true"],
+    ["apptainer", "exec", "--env=URL=https://example.org", "local.sif", "true"],
+    ["apptainer", "exec", "local.sif", "curl", "https://example.org"],
+    ["apptainer", "exec", "local.sif", "sh", "-c", "apptainer pull x docker://y"],
+    ["apptainer", "run", "--bind", "bound:/b", "local.sif", "wget", "HTTPS://example.org"],
+    ["apptainer", "exec", "sandbox", "curl", "https://example.org"],  # a sandbox directory
+    ["apptainer", "exec", "local.img", "curl", "https://example.org"],
+    ["apptainer", "exec", "--bind", "bound", "local.sif", "true"],
+    ["apptainer", "exec", "instance://inst", "curl", "https://example.org"],
+    ["apptainer", "instance", "start", "local.sif", "inst"],
+    ["apptainer", "exec", "docker-daemon://localhost/x:1", "true"],
+    ["apptainer", "build", "out.sif", "local.def"],
+    # N3: local import, read-only plugin/service/stack commands, --pull=never before the image
+    ["docker", "import", "rootfs.tar", "localhost/x:1"],
+    ["docker", "import", "-", "localhost/x:1"],
+    ["docker", "image", "import", "rootfs.tar"],
+    ["docker", "plugin", "ls"],
+    ["docker", "service", "ls"],
+    ["docker", "stack", "ls"],
+    ["docker", "run", "--pull=never", "localhost/x:1", "sh", "-c", "--pull=always"],
+    ["docker", "run", "-e", "A=1", "--name", "n", "--pull", "never", "localhost/x:1"],
+    ["docker", "run", "-v", "/a:/b", "-w", "/b", "--pull=never", "localhost/x:1", "true"],
+    ["docker", "run", "-it", "--rm", "--pull=never", "localhost/x:1"],
+    ["docker", "--context", "x", "run", "--pull=never", "localhost/x:1"],
+    ["docker", "-c", "x", "container", "create", "--pull", "never", "localhost/x:1"],
+    ["docker", "create", "--entrypoint", "sh", "--pull=never", "localhost/x:1"],
+    ["docker", "run", "--pull=always", "--pull=never", "alpine"],
+    ["docker", "run", "--pull", "missing", "--pull", "never", "alpine"],
+    ["apptainer", "build", "x.sif", "multi_local.def"],
 ]
 
 
@@ -118,6 +212,17 @@ def _defs(cwd: Path) -> None:
     (cwd / "remote.def").write_text(BOOT_DOCKER, encoding="utf-8")
     (cwd / "local.def").write_text(BOOT_LOCAL, encoding="utf-8")
     (cwd / "spaced.def").write_text("  bootstrap : library\nFrom: alpine\n", encoding="utf-8")
+    (cwd / "local.sif").write_bytes(b"")
+    (cwd / "rootfs.tar").write_bytes(b"")
+    (cwd / "bound").mkdir(exist_ok=True)
+    (cwd / "sandbox" / ".singularity.d").mkdir(parents=True, exist_ok=True)
+    (cwd / "local.img").write_bytes(b"")
+    (cwd / "start").write_bytes(b"")  # a stray cwd file named like a positional word
+    (cwd / "multi.def").write_text(BOOT_LOCAL + "\n" + BOOT_DOCKER, encoding="utf-8")
+    (cwd / "multi_local.def").write_text(
+        "Bootstrap: localimage\nFrom: a.sif\nStage: one\n\nBootStrap: scratch\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.mark.parametrize("argv", REFUSED_ARGVS, ids=lambda a: " ".join(a)[:60])
@@ -310,3 +415,129 @@ def test_left_over_toys_are_never_collected(tmp_path: Path) -> None:
     assert run.returncode == 5, run.stdout + run.stderr  # 5: nothing collected (-k)
     assert "should_not_run" not in run.stdout, run.stdout
     assert ignored.returncode == 0  # .gitignore covers the pattern
+
+
+# ---------------------------------------------------------------- N4: a subprocess's own PATH
+
+
+def test_guarded_path_is_unchanged_when_the_path_holds_no_runtime(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert guarded_path(str(empty)) == str(empty)
+
+
+def test_guarded_path_guards_exactly_the_runtimes_of_that_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The scripts forward to the subprocess PATH's own binaries, so ``which`` finds the same
+    runtimes as without the guard, and refuse pulls."""
+    monkeypatch.delenv(GUARD_ENV, raising=False)  # independent of the per-test guard
+    own_log = tmp_path / "own.log"
+    own = tmp_path / "own"
+    _recorders(own, own_log)
+    (own / "singularity").unlink()
+    (own / "docker").unlink()
+    path = os.pathsep.join([str(own), "/usr/bin", "/bin"])
+    got = guarded_path(path)
+    first, rest = got.split(os.pathsep, 1)
+    assert rest == path
+    # /usr/bin:/bin may hold a runtime of its own (GitHub runners have /usr/bin/docker)
+    host = {n for n in NAMES if shutil.which(n, path="/usr/bin:/bin")}
+    assert sorted(p.name for p in Path(first).iterdir()) == sorted({"apptainer"} | host)
+    assert guarded_path(path) == got  # cached per path
+    which = shutil.which("apptainer", path=got)
+    assert which is not None and Path(which).parent == Path(first)
+    pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp_path)
+    assert pull.returncode == REFUSED_EXIT and REFUSED in pull.stderr
+    ok = _run(Path(first), ["apptainer", "--version"], tmp_path)
+    assert ok.returncode == 0, ok.stderr
+    assert _log(own_log).splitlines() == ["apptainer --version"]
+
+
+def test_guarded_path_writes_under_the_session_directory(tmp_path: Path) -> None:
+    """tests/conftest.py publishes a session directory before any module-scoped fixture."""
+    from helpers import container_guard
+
+    base = container_guard._session_dir
+    assert base is not None and base.is_dir()
+    own = tmp_path / "own"
+    _recorders(own, tmp_path / "own.log")
+    first = Path(guarded_path(str(own)).split(os.pathsep)[0])
+    assert first.parent == base
+
+
+def test_write_guard_replaces_scripts_atomically(tmp_path: Path) -> None:
+    bindir = write_guard(tmp_path / "g", {"apptainer": "/a", "docker": "/d"})
+    old = (bindir / "apptainer").stat().st_ino
+    write_guard(bindir, {"apptainer": "/b"})
+    assert (bindir / "apptainer").stat().st_ino != old  # a new file renamed over the old one
+    assert "real=/b" in (bindir / "apptainer").read_text(encoding="utf-8")
+    assert os.access(bindir / "apptainer", os.X_OK)
+    assert sorted(p.name for p in bindir.iterdir()) == ["apptainer", "docker"]  # no temp left
+
+
+def _helper_compare_env(module: str, tmp: Path, mp: pytest.MonkeyPatch) -> dict[str, str]:
+    """The env a helper's ``gippa compare`` subprocess gets, with recorders as its MIN_PATH."""
+    mod = importlib.import_module(module)
+    own = tmp / "own"
+    _recorders(own, tmp / "own.log")
+    mp.setattr(mod, "MIN_PATH", str(own))
+    seen: dict[str, dict[str, str]] = {}
+
+    def fake_run(cmd: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+        seen["env"] = kw["env"]  # type: ignore[assignment]
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    runs = [tmp / "a", tmp / "b"]
+    with mp.context() as m:  # subprocess.run is the real one again afterwards
+        m.setattr(mod.subprocess, "run", fake_run)
+        if module.endswith("m10_04"):
+            mod.gippa_compare(*runs, tmp / "cmp", env_root=tmp / "env")
+        else:
+            mod.gippa_compare_n(runs, ["A1", "A2"], tmp / "cmp", env_root=tmp / "env")
+    return seen["env"]
+
+
+HELPERS = ["helpers.pilot_runs_m10_04", "helpers.a3_run_m10_10"]
+
+
+@pytest.fixture(scope="module")
+def module_scoped_envs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple]:
+    """Like ``compare_pair``/``compare3``: a module-scoped fixture runs before the function-scoped
+    autouse guard, so ``GUARD_ENV`` is not set yet."""
+    out = {}
+    with pytest.MonkeyPatch.context() as mp:
+        for module in HELPERS:
+            tmp = tmp_path_factory.mktemp("helper_env")
+            out[module] = (os.environ.get(GUARD_ENV), tmp, _helper_compare_env(module, tmp, mp))
+    return out
+
+
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_called_from_a_module_scoped_fixture_keep_the_guard(
+    module: str, module_scoped_envs: dict[str, tuple]
+) -> None:
+    guard_env, tmp, env = module_scoped_envs[module]
+    assert guard_env is None  # the per-test guard was not active when the helper ran
+    first, rest = env["PATH"].split(os.pathsep, 1)
+    assert rest == str(tmp / "own")
+    pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp)
+    assert pull.returncode == REFUSED_EXIT and REFUSED in pull.stderr
+    assert _log(tmp / "own.log") == ""
+
+
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_with_a_minimal_path_keep_the_guard(
+    module: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _helper_compare_env(module, tmp_path, monkeypatch)
+    first, rest = env["PATH"].split(os.pathsep, 1)
+    assert rest == str(tmp_path / "own")
+    pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp_path)
+    assert pull.returncode == REFUSED_EXIT and REFUSED in pull.stderr
+    assert _log(tmp_path / "own.log") == ""
+
+
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_minimal_path_is_the_system_path(module: str) -> None:
+    assert importlib.import_module(module).MIN_PATH == "/usr/bin:/bin"

@@ -44,7 +44,7 @@ from typing import Any
 
 import numpy as np
 
-from gippasim.codons import CODE_11, codons_of, revcomp, translate_cds
+from gippasim.codons import code, codons_of, revcomp, translate_cds
 from gippasim.features import STARTS, Feat
 from gippasim.signals import RBS, clean_rbs, put
 
@@ -152,10 +152,10 @@ def _codon(seq: str, c0: int, strand: str) -> str:
     return revcomp(nt) if strand == "-" else nt
 
 
-def _residue(codon: str, first: bool) -> str:
-    """Code-11 residue; a valid start codon at the annotated start reads M, as in
+def _residue(codon: str, first: bool, table: int = 11) -> str:
+    """Residue under ``table``; a valid start codon at the annotated start reads M, as in
     ``strain_differences.tsv`` ``aa_change``."""
-    return "M" if first and codon in STARTS else CODE_11[codon]
+    return "M" if first and codon in STARTS else code(table)[codon]
 
 
 def _is_indel(r: Sequence[Any]) -> bool:
@@ -172,6 +172,7 @@ def alt_site_rows(
     sample: Mapping[str, str],
     ref: Mapping[str, str],
     peps: Mapping[str, list[tuple[str, int, int, str]]],
+    table: int = 11,
 ) -> list[list[Any]]:
     """``truth/alt_sites.tsv`` rows (decision 11): each SNV codon in the sample gene's frame
     (``genes`` = sample features), lifted to the reference by ``pos_reference - pos_sample``."""
@@ -190,8 +191,8 @@ def alt_site_rows(
         cs = _sample_codon(g, ps, ns)
         rc = (cs + (pr - ps)) % nr
         first = cs == (g.start if g.strand == "+" else g.end - 3)  # initiator reads M (strain)
-        ra = _residue(_codon(ref[cid], rc, g.strand), first)
-        aa = _residue(_codon(sample[cid], cs, g.strand), first)
+        ra = _residue(_codon(ref[cid], rc, g.strand), first, table)
+        aa = _residue(_codon(sample[cid], cs, g.strand), first, table)
         if ra == aa or "*" in (ra, aa):
             continue
         key = (str(cid), rc + 1, g.strand, str(gene))
@@ -217,6 +218,7 @@ def novel_rows(
     text: Mapping[str, str],
     planted: set[Key],
     peps: Mapping[str, list[tuple[str, int, int, str]]],
+    table: int = 11,
 ) -> list[list[Any]]:
     rows = []
     for orf_id, cls, cid, s1, e0, strand, aa in novel:
@@ -234,7 +236,7 @@ def novel_rows(
         stop = e0 - 2 if f.strand == "+" else s0 + 1
         assert f.true_start is not None
         rows.append([f"NOVEL_{len(rows) + 1:04d}", "nterm_extension", f.contig, s0 + 1, e0,
-                     f.strand, translate_cds(codons_of(nt)), stop, f.true_start, n,
+                     f.strand, translate_cds(codons_of(nt), table), stop, f.true_start, n,
                      (f.contig, f.strand, f.true_start - 1)])  # fmt: skip
     for r in rows:
         r[-1] = "true" if r[-1] in planted else "false"
@@ -260,6 +262,7 @@ def write_m7_truth(
     planted: set[Key],
     strain: tuple[Sequence[Sequence[Any]], Mapping[str, str]] | None,
     requested: Mapping[str, int] | None = None,
+    table: int = 11,
 ) -> dict[str, Path]:
     """Write the M7-12 truth tables (after proteomics); ``strain`` = (strain_differences rows,
     reference sequences) or None; ``requested`` = per-class novel counts asked for (the
@@ -271,11 +274,11 @@ def write_m7_truth(
     alt: list[list[Any]] = []
     if strain is not None:
         rows, ref = strain
-        alt = alt_site_rows(rows, feats, text, ref, peps)
+        alt = alt_site_rows(rows, feats, text, ref, peps, table)
         paths["indel_sites"] = out / "truth" / "indel_sites.tsv"
         _tsv(paths["indel_sites"], INDEL_COLUMNS, indel_site_rows(rows))
     _tsv(paths["alt_sites"], ALT_COLUMNS, alt)
-    nrows = novel_rows(novel, feats, text, planted, peps)
+    nrows = novel_rows(novel, feats, text, planted, peps, table)
     _tsv(paths["novel_orfs"], NOVEL_COLUMNS, nrows)
     if requested is not None and any(v > 0 for v in requested.values()):
         paths["novel_report"] = out / "truth" / "novel_orfs.json"

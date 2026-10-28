@@ -2,7 +2,8 @@
 
 - ``synthetic_genome``: the spec's fixture generator (test plan): ``n_genes`` genes of
   ``n_codons`` codons (ATG, sense codons, TAA) drawn from base frequencies at GC ``gc`` with the
-  three stops rejected; for code 4 each sense codon becomes TGA with probability ``tga_rate``.
+  three stops rejected; for code 4 (TGA = Trp) and code 25 (TGA = Gly; M11-16 item 8) each
+  sense codon becomes TGA with probability ``tga_rate``.
   Genes are separated by ``spacer`` bp random spacers (same base frequencies) and half of them
   are reverse-complemented. ``numpy.random.default_rng(seed)``.
 - ``reference_runs`` / ``reference_cover``: a pure-Python, codon-by-codon brute-force reference
@@ -97,7 +98,8 @@ def synthetic_genome(
     n_codons: int = 400,
     spacer: int = 60,
 ) -> str:
-    """One record: the spec's code-4 (``code=4``) or code-11 (``code=11``) fixture."""
+    """One record: the spec's code-4 (``code=4``), code-25 (``code=25``, M11-16) or code-11
+    (``code=11``) fixture; codes 4 and 25 give the same sequence at the same arguments."""
     rng = np.random.default_rng(seed)
     p = _probs(gc)
     minus = set(rng.permutation(n_genes)[: n_genes // 2].tolist())
@@ -105,7 +107,7 @@ def synthetic_genome(
     for i in range(n_genes):
         parts.append("".join(_BASES[rng.choice(4, size=spacer, p=p)]))
         sense = _sense_codons(rng, n_codons - 2, p)
-        if code == 4:
+        if code in (4, 25):
             hit = rng.random(len(sense)) < tga_rate
             sense = ["TGA" if h else c for c, h in zip(sense, hit, strict=True)]
         gene = "ATG" + "".join(sense) + "TAA"
