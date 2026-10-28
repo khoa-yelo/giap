@@ -49,7 +49,7 @@ from gippa.annotate.bakta_cmd import bakta_command
 g, o, p, db, rep = sys.argv[1:]
 for a in bakta_command(genome=Path(g), outdir=Path(o), prefix=p, db=Path(db), threads=16,
                        all_circular=False, complete=False, replicons_tsv=Path(rep), regions_gff3=None,
-                       extra_args=[]):
+                       extra_args=[], translation_table=11):
     print(a)
 EOF
 )
