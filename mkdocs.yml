@@ -170,6 +170,7 @@ nav:
       - adr/ADR-0064-rename-giap-to-gippa.md
       - adr/ADR-0065-gippa-step-images.md
       - adr/ADR-0066-demo-local-executor.md
+      - adr/ADR-0067-genetic-codes-4-11-25.md
   - Developer guide:
       - developer.md
       - release.md

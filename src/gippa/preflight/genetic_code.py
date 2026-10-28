@@ -1,10 +1,12 @@
 """Wrong-genetic-code warning (M11-14w; docs/specs/M11-14w-wrong-genetic-code-warning.md).
 
-GIPPA 1.0 supports genetic code 11 only (Q-K30). A genome left at the default table 11 that
-probably uses code 4 (TGA = Trp) is detected from the genome alone: long open reading frames
-(``>= MIN_CODONS`` codons, six frames) cover far less of the genome when TGA is read as a stop
-than when it is read as a sense codon. The rule compares the two coverages on exact integers
-(``20 * bp11 < 11 * bp4``, i.e. ratio < 0.55). Pure (numpy only, no I/O, no randomness).
+GIPPA supports genetic codes 4, 11 and 25 (ADR-0067; M11-16 item 2.3). Whether a genome reads
+TGA as a stop is seen from the genome alone: long open reading frames (``>= MIN_CODONS`` codons,
+six frames) cover far less of the genome when TGA is read as a stop than when it is read as a
+sense codon. The rule compares the two coverages on exact integers: at table 11 it warns when
+``20 * bp11 < 11 * bp4`` (ratio < 0.55); at tables 4 and 25 (TGA sense) it warns on the
+complement (ratio >= 0.55). The genome cannot tell code 4 from code 25. Pure (numpy only, no
+I/O, no randomness).
 
 Coordinates are 0-based half-open (GIPPA_SPEC.md §6.5); every record is treated as linear.
 """
@@ -16,6 +18,7 @@ from collections.abc import Sequence
 import numpy as np
 import numpy.typing as npt
 
+from gippa.model.genetic_code import SUPPORTED_TABLES, table_name
 from gippa.preflight.checks import Check, JsonValue, Level
 
 __all__ = [
@@ -36,9 +39,10 @@ MIN_LONG_ORFS = 20
 RULE_ID = "genome.genetic_code"
 RULE_TEXT = (
     f"long ORFs (>= {MIN_CODONS} codons, six frames): bp with TGA as stop / bp with TGA as "
-    f"sense < {RATIO_WARN} -> warn (needs >= {MIN_LONG_ORFS} such ORFs)"
+    f"sense; table 11: < {RATIO_WARN} -> warn; tables 4, 25: >= {RATIO_WARN} -> warn "
+    f"(needs >= {MIN_LONG_ORFS} such ORFs)"
 )
-MSG_TABLE = "not evaluated: annotation.translation_table is not 11"
+MSG_TABLE = "not evaluated: unsupported annotation.translation_table"
 MSG_FEW = (
     f"not evaluated: fewer than {MIN_LONG_ORFS} open reading frames of at least {MIN_CODONS} codons"
 )
@@ -132,36 +136,53 @@ def long_orf_cover(seq: str, stops: frozenset[str], min_codons: int) -> tuple[in
     return covered, len(starts)
 
 
-def _decide(bp11: int, bp4: int, n4: int) -> Level:
-    """The rule on exact integers: ``info`` below ``MIN_LONG_ORFS`` long ORFs, else ``warn``
-    when ``bp11 / bp4 < 0.55`` (as ``20 * bp11 < 11 * bp4``), else ``ok``."""
+def _decide(bp11: int, bp4: int, n4: int, *, table: int) -> Level:
+    """The rule on exact integers: ``info`` below ``MIN_LONG_ORFS`` long ORFs; else, with
+    ``low`` = ``bp11 / bp4 < 0.55`` (as ``20 * bp11 < 11 * bp4``), ``warn`` when ``low`` at
+    table 11 or when not ``low`` at tables 4 and 25, else ``ok``."""
     if n4 < MIN_LONG_ORFS:
         return "info"
-    return "warn" if _WARN_DEN * bp11 < _WARN_NUM * bp4 else "ok"
+    low = _WARN_DEN * bp11 < _WARN_NUM * bp4
+    return "warn" if low == (table == 11) else "ok"
 
 
 def _percent(part: int, whole: int) -> int:
     return (200 * part + whole) // (2 * whole) if whole else 0
 
 
-def _message(bp11: int, bp4: int, genome_bp: int) -> str:
+def _message(bp11: int, bp4: int, genome_bp: int, table: int) -> str:
+    """W11 at table 11, W4 at tables 4 and 25 (M11-16 item 2.3)."""
     q11, q4 = _percent(bp11, genome_bp), _percent(bp4, genome_bp)
-    ratio = f"0.{(100 * bp11) // bp4:02d}"  # truncated, never rounded up to the cut
+    r = (100 * bp11) // bp4
+    ratio = f"{r // 100}.{r % 100:02d}"  # truncated, never rounded up to the cut
+    if table == 11:
+        return (
+            "This genome probably uses a genetic code in which TGA is not a stop: code 4 (TGA = "
+            "Trp; Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma and other Mollicutes) or code "
+            "25 (TGA = Gly; candidate division SR1, Gracilibacteria). Long open reading frames "
+            f"cover {q4} % of the genome when TGA is read as a codon but only {q11} % when it is "
+            f"a stop (ratio {ratio} < {RATIO_WARN}). This run uses annotation.translation_table: "
+            "11, so genes will be cut at TGA, peptides with W or G at TGA codons will not map, "
+            "and strain_difference, readthrough and nterm_extension_evidence flags will be "
+            "artefacts. Set annotation.translation_table to 4 or 25 from the organism's "
+            "taxonomy; the genome sequence alone cannot tell the two apart. This warning does "
+            "not change any result."
+        )
     return (
-        "This genome probably uses genetic code 4 (TGA = Trp; Mycoplasma, Spiroplasma, "
-        "Mesoplasma, Ureaplasma) or another code in which TGA is not a stop. Long open reading "
-        f"frames cover {q4} % of the genome when TGA is read as a codon but only {q11} % when it "
-        f"is a stop (ratio {ratio} < {RATIO_WARN}). GIPPA 1.0 supports genetic code 11 only: "
-        "genes will be cut at TGA, proteins and peptides that contain W will not map, and "
-        "strain_difference and nterm_extension_evidence flags will be artefacts. This warning "
-        "does not change any result."
+        "This genome probably uses genetic code 11 (TGA = stop). Long open reading frames cover "
+        f"{q11} % of the genome when TGA is a stop and {q4} % when it is read as a codon (ratio "
+        f"{ratio} >= {RATIO_WARN}; genomes that use code 4 or 25 are below {RATIO_WARN}). This "
+        f"run uses annotation.translation_table: {table} ({table_name(table)}), so genes that "
+        "end in TGA will be read through into the next gene and peptides may be placed in the "
+        "wrong frame. Most bacteria and archaea use code 11; check the organism's genetic code. "
+        "This warning does not change any result."
     )
 
 
 def genetic_code_check(seqs: Sequence[str], table: int) -> Check:
     """The ``genome.genetic_code`` check for the genome records ``seqs`` at translation table
     ``table``; the level is ``ok``, ``info`` or ``warn``, never ``error``."""
-    if table != 11:
+    if table not in SUPPORTED_TABLES:
         return Check(RULE_ID, "genome", "info", RULE_TEXT, None, MSG_TABLE)
     bp11 = bp4 = n4 = 0
     for seq in seqs:
@@ -175,9 +196,10 @@ def genetic_code_check(seqs: Sequence[str], table: int) -> Check:
         "n_orfs_tga_sense": n4,
         "ratio": bp11 / bp4 if bp4 else None,
         "threshold": RATIO_WARN,
+        "translation_table": table,
     }
-    level = _decide(bp11, bp4, n4)
+    level = _decide(bp11, bp4, n4, table=table)
     message = {"info": MSG_FEW, "ok": ""}.get(level)
     if message is None:
-        message = _message(bp11, bp4, sum(len(s) for s in seqs))
+        message = _message(bp11, bp4, sum(len(s) for s in seqs), table)
     return Check(RULE_ID, "genome", level, RULE_TEXT, value, message)

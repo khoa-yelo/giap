@@ -159,7 +159,13 @@ class PrecomputedConfig(_Strict):
 
 class AnnotationConfig(_Strict):
     bakta: BaktaConfig = Field(default_factory=BaktaConfig)
-    translation_table: int = 11
+    translation_table: int = Field(
+        default=11,
+        description=(
+            "NCBI genetic code for every step: one of 4, 11 or 25 (checked in preflight, not "
+            "here, so a bad value is reported in the preflight table)"
+        ),
+    )
     start_codons: list[str] = ["ATG", "GTG", "TTG"]
     region_min_overlap_frac: float = 0.5
     uniop: UniopConfig = Field(default_factory=UniopConfig)
