@@ -1160,6 +1160,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md Â
   - N4: mutant M9 (`>` to `>=` in `--max`) survives; a tie relabels the source. Harmless.
   - N5: `test_durations_rows_are_the_max_of_old_and_new` checks one row; compare against `origin/main`'s `calibration_durations.tsv` and assert no row went down.
   - N6: the per-model determinants rows (`1901050:measured`, 23579 / 78976 s) are hand-entered and cover block 1 only, so the â…” test passes determinants on block 1 only (the PR's known gap).
+  - N7 (#469 review): measured values from several probe logs still merge last-file-wins (`found.update` in main); take the max, as `merge_lower_bounds` does for bounds.
 - **Flaky test watch:** `tests/calibration` `test_interrupt_rescans_for_pytests_started_after_usr1` failed three times on CI under load (group start vs USR1 rescan); #448 tolerates SIGINT during the late pytest's start-up. If it recurs, reopen.
 - **V18 macOS SVG determinism (possible R7 bug):** #446 skips the FarmShare-only tests on macOS, but `V18_stat_diagnostics.svg` was not byte-identical across two renders on macOS (PYTHONHASHSEED 3 vs 4; Linux passes). Render V18 on macOS several times and diff.
 - **Setup-test network guard:** setup tests made real apptainer pulls (about 6 GB each) and filled /tmp (`test_setup_run_never_starts_a_real_quota`, fixed in #441). Add a shared fake `apptainer` that refuses `pull` for all setup tests (drafting in branch `test/setup-network-guard`).

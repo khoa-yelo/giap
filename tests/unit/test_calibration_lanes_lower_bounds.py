@@ -118,6 +118,16 @@ def test_cli_max_measured_replaces_a_larger_lower_bound_row(logs: dict[str, Path
     assert rows[Z] == ["10.0", "old"]  # untouched
 
 
+def test_cli_max_measured_replaces_a_smaller_lower_bound_row(logs: dict[str, Path],
+                                                             tmp_path: Path) -> None:  # fmt: skip
+    out = tmp_path / "d.tsv"
+    out.write_text(f"nodeid\tseconds\tsource\n{X}\t1.0\told:lower-bound\n")
+    res = _cli("durations", "--source", "p", "--probe-log", "--max", "--out", str(out),
+               str(logs["a"]))  # fmt: skip
+    assert res.returncode == 0, res.stderr
+    assert _rows(out)[X] == ["3.0", "p"]  # a larger measurement replaces a bound too
+
+
 def test_cli_max_bounds_only_raise(logs: dict[str, Path], tmp_path: Path) -> None:
     out = tmp_path / "d.tsv"
     out.write_text("nodeid\tseconds\tsource\n"
