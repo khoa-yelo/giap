@@ -139,9 +139,8 @@ unchanged. These stop the run:
   preflight error `config.tool_genetic_code`;
 - `-db_gencode` given more than once, even with the same value: preflight error
   `config.tool_genetic_code`;
-- a quoted value such as `-db_gencode '4'`. Preflight accepts it, because the shell would remove
-  the quotes, but the tblastn step sees `'4'` and stops. Write the number without quotes, or
-  better, leave `-db_gencode` out.
+- a quoted value such as `-db_gencode '4'`, even when it equals the table: preflight error
+  `config.tool_genetic_code`. Write the number without quotes, or better, leave `-db_gencode` out.
 
 ### Precomputed Bakta JSON
 
@@ -165,7 +164,7 @@ and the log records the info event `annotation.table_unrecorded`.
 | Check | Level | When |
 |---|---|---|
 | `config.translation_table` | error (exit 1) | the table is not 4, 11 or 25. Message: `annotation.translation_table=12: GIPPA supports genetic codes 4, 11 and 25 (the tables Bakta accepts)` |
-| `config.tool_genetic_code` | error (exit 1) | a tool option sets a genetic code itself: Bakta's translation-table option (`bakta --translation-table`, or an abbreviation of it of at least 4 characters, such as `bakta --transl`) in `annotation.bakta.extra_args`; `-T` (also inside a short-option cluster such as `-uT4`) in `mapping.proteins.miniprot_args`; a `-db_gencode` in `mapping.proteins.tblastn_args` that differs from the table or is repeated. An option string the shell cannot split (for example an unbalanced quote) is also an error. `value` lists the offending keys. Remove the option and set `annotation.translation_table` instead |
+| `config.tool_genetic_code` | error (exit 1) | a tool option sets a genetic code itself: Bakta's translation-table option (`bakta --translation-table`, or an abbreviation of it of at least 4 characters, such as `bakta --transl`) in `annotation.bakta.extra_args`; `-T` (also inside a short-option cluster such as `-uT4`) in `mapping.proteins.miniprot_args`; a `-db_gencode` in `mapping.proteins.tblastn_args` that differs from the table, is repeated, is quoted or has no value. An option string the shell cannot split (for example an unbalanced quote) is also an error. `value` lists the offending keys. Remove the option and set `annotation.translation_table` instead |
 | `genome.genetic_code` | warn | the genome does not look like it uses the configured table (below) |
 | `genome.genetic_code` | info | fewer than 20 open reading frames of at least 300 codons, so the check is not evaluated |
 
