@@ -137,6 +137,9 @@ def test_s5_a_skipped_cross_check_is_logged(root: Path, tmp_path: Path) -> None:
     assert "cross-check" in log and "skip" in log, _show(res)
 
 
+# the sbatch's guard uses GNU ``realpath -m`` (BSD realpath: "illegal option -- m"), so the
+# default METRICS_DIR check only works on FarmShare (spec G19)
+@pytest.mark.gnu_userland
 def test_b2_default_metrics_dir_inside_the_checkout_runs(tmp_path: Path) -> None:
     """``GIPPA_ROOT`` under the checkout's git-ignored ``local/`` (farmshare_env.sh's default
     layout) and ``METRICS_DIR`` left at its default: the real entrapment.py exits 0."""

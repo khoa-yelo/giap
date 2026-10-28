@@ -1,0 +1,7 @@
+# The build backend of the sdist-only locked packages (pandarallel, upsetplot), hash-checked and
+# installed before requirements.lock, which is then built with --no-build-isolation (ADR-0065).
+# Regenerate from uv.lock (the setuptools entry of the runtime export, hashes kept):
+#    uv export --frozen --no-dev --no-emit-project --no-header --no-annotate | awk '/^[^ #]/{p=/^setuptools==/} p' >> workflow/containers/step/build-requirements.lock
+setuptools==84.0.0 \
+    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
+    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73

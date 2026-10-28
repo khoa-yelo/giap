@@ -104,3 +104,15 @@ uniop_source:                                        # M11-14 item 1b: the autho
   path: uniop/UniOP-3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz
   tool: null
   check: sha256
+nextflow:                                            # M11-15 item 5: the official self-contained launcher (no jar download at first run), for pip installs without nextflow on PATH (R6)
+  version: "26.10.0"
+  url: https://github.com/nextflow-io/nextflow/releases/download/v26.10.0/nextflow-26.10.0-dist
+  # sha256 of the official asset, downloaded on FarmShare 2026-10-27; equal to the `digest` the
+  # GitHub releases API reports for it (49084616 bytes)
+  checksum: sha256:c6e54be98b86b67d9f4fe994c2d87748d2de3c70bbcac2e594dd9ccdc78fb72b
+  path: bin/nextflow
+  tool: null
+  check: sha256
+  size_gib: 1
+  executable: true
+  redirect_hosts: [release-assets.githubusercontent.com]   # GitHub's 302 target, verified 2026-10-27; this row only
