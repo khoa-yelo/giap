@@ -1,4 +1,4 @@
-# Regenerate the R golden references (M8-12; GIAP_SPEC.md §11.5, §12). Manual only. The env is
+# Regenerate the R golden references (M8-12; GIPPA_SPEC.md §11.5, §12). Manual only. The env is
 # installed from the explicit lock (conda-forge and bioconda only); the result is proposed as a
 # pull request on a separate branch and never pushed to main. FarmShare route:
 # scripts/slurm/golden_r.sbatch.
@@ -28,7 +28,7 @@ jobs:
       - uses: mamba-org/setup-micromamba@v2
         with:
           environment-file: scripts/golden/golden_r.explicit.txt
-          environment-name: giap-golden-r
+          environment-name: gippa-golden-r
       - name: inputs and R outputs (each twice; byte-identical)
         env:
           REASON: ${{ inputs.reason }}
@@ -38,7 +38,7 @@ jobs:
           lock=scripts/golden/golden_r.explicit.txt
           for i in 1 2; do
             uv run --no-sync python scripts/golden/make_golden_inputs.py --out "$RUNNER_TEMP/in$i" --seed "$seed"
-            micromamba run -n giap-golden-r Rscript --vanilla scripts/golden/make_golden_r.R \
+            micromamba run -n gippa-golden-r Rscript --vanilla scripts/golden/make_golden_r.R \
               "$RUNNER_TEMP/in1" "$RUNNER_TEMP/out$i" "$RUNNER_TEMP/VERSIONS$i.txt" "$lock" "$seed"
           done
           diff -r "$RUNNER_TEMP/in1" "$RUNNER_TEMP/in2"
@@ -49,7 +49,7 @@ jobs:
           cp -r "$RUNNER_TEMP/out1" "$dest/outputs"
           cp "$RUNNER_TEMP/VERSIONS1.txt" "$dest/VERSIONS.txt"
           cat > "$dest/PROVENANCE.md" <<MD
-          # R golden references: fgsea and goseq (M8-12; GIAP_SPEC.md §11.4, §11.5)
+          # R golden references: fgsea and goseq (M8-12; GIPPA_SPEC.md §11.4, §11.5)
 
           - Command: workflow \`golden-r.yml\` (\`make_golden_inputs.py --seed $seed\`, \`make_golden_r.R\`).
           - Job: ${GITHUB_RUN_ID} (GitHub Actions run) on $(hostname), $(date -u +%Y-%m-%d).

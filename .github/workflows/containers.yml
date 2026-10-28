@@ -1,7 +1,7 @@
-# Build the conda-only tools' images, push them to GHCR and open a digest PR (GIAP_SPEC.md §12;
+# Build the conda-only tools' images, push them to GHCR and open a digest PR (GIPPA_SPEC.md §12;
 # docs/specs/M11-06-ghcr-containers.md; docs/specs/M11-14-container-install.md items 2, 5, 6;
 # ADR-0060). Six images: promotech, promoter_calculator, terminatornet, bactermfinder, ostir and
-# fgsea (M11-14 14c: R fgsea with workflow/bin/giap_fgsea.R baked in, a key input; its ref goes to
+# fgsea (M11-14 14c: R fgsea with workflow/bin/gippa_fgsea.R baked in, a key input; its ref goes to
 # workflow/conf/images.json only). UniOP is unlicensed (R5/R11) and never built here.
 # Third-party actions are pinned by commit SHA with the tag in a comment (Q-L5).
 #
@@ -20,7 +20,7 @@ on:
     paths:
       - "workflow/containers/**"
       - "workflow/envs/**"
-      - "workflow/bin/giap_fgsea.R"
+      - "workflow/bin/gippa_fgsea.R"
   workflow_dispatch:
     inputs:
       tools:
@@ -82,15 +82,15 @@ jobs:
           else
             if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
                 || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-              changed="$(git ls-files workflow/containers workflow/envs workflow/bin/giap_fgsea.R)"
+              changed="$(git ls-files workflow/containers workflow/envs workflow/bin/gippa_fgsea.R)"
             else
-              changed="$(git diff --name-only "$BEFORE" "$AFTER" -- workflow/containers workflow/envs workflow/bin/giap_fgsea.R)"
+              changed="$(git diff --name-only "$BEFORE" "$AFTER" -- workflow/containers workflow/envs workflow/bin/gippa_fgsea.R)"
             fi
             echo "changed files:"; echo "$changed"
             for t in $ALL; do
               pat="^(workflow/containers/$t/|workflow/envs/$t\.yml$|workflow/envs/locks/$t\.(explicit|pip)\.txt$)"
               # fgsea bakes in its script, a key input (M11-14 item 2)
-              if [ "$t" = "fgsea" ]; then pat="$pat|^workflow/bin/giap_fgsea\.R$"; fi
+              if [ "$t" = "fgsea" ]; then pat="$pat|^workflow/bin/gippa_fgsea\.R$"; fi
               if echo "$changed" | grep -qE "$pat"; then
                 echo "changed by this push: $t"
               fi
@@ -161,7 +161,7 @@ jobs:
               fi
               printf '%s\t%s\t%s\t%s\n' "$tool" "$IMAGE_NS/$PREFIX-$tool@$digest" "$revision" "$created" >> existing.tsv
             else
-              licence="$(uv run --no-sync python -c 'import sys; from giap.annotate.tools import TOOLS; print(TOOLS[sys.argv[1]].licence)' "$tool")"
+              licence="$(uv run --no-sync python -c 'import sys; from gippa.annotate.tools import TOOLS; print(TOOLS[sys.argv[1]].licence)' "$tool")"
               printf '%s\t%s\t%s\t%s\t%s\n' "$tool" "$ref" "${tag%-"$key"}" "$key" "$licence" >> build.tsv
             fi
           done < keys.tsv
@@ -238,7 +238,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=${{ matrix.licence }}
             org.opencontainers.image.version=${{ matrix.version }}
-            org.giap.image.key=${{ matrix.key }}
+            org.gippa.image.key=${{ matrix.key }}
       - name: Record the pushed digest
         env:
           TOOL: ${{ matrix.tool }}
