@@ -215,9 +215,45 @@ same way, with no change to `report/content.py` beyond item 7.
 
 **Why the same 0.55 cut works for W4** (stats review, decision D4). The M11-14w evidence
 (61 official NCBI assemblies plus draft stress tests) has every code-4/25 genome at ≤ 0.470
-(≤ 0.477 as drafts) and every code-11 genome at ≥ 0.679 (≥ 0.641 as drafts). Read the other way,
+(≤ 0.52 as drafts: Nasuia, mean 1 kb contigs, 5 seeds) and every code-11 genome at ≥ 0.679 (≥ 0.635 as drafts, 5 seeds). Read the other way,
 a code-4/25 run whose genome scores ≥ 0.55 is a code-11 genome. On that panel this gives 0
 false W4 on the 22 code-4/25 assemblies and 0 missed code-11 genomes. No new constant is needed.
+
+**Statistician review (D4), 2026-10-28: confirmed with conditions (documentation only, no code
+change).** I recomputed the ratio with this branch's `long_orf_cover` on the 57 panel
+assemblies kept under `local/tmp/gcode` (official NCBI files). The other 4 are M. hyorhinis,
+E. coli K-12, G. sulfurreducens and M. smegmatis, which use the values in the M11-14w table. All
+M11-14w values reproduce to three decimals.
+- *Whole assemblies.* Code 4/25 (22) score 0.006–0.470; the highest are Nasuia 0.470 (n4 = 41),
+  M. pneumoniae draft 0.384 and M. genitalium 0.370. Code 11 (39) score 0.679–0.999; the lowest
+  are Sodalis 0.679 and M. leprae 0.717. False W4 0/22 (95 % Clopper–Pearson upper bound 15 %).
+  A code-11 genome run at table 4 always gets W4: 39/39, missed 0/39 (upper bound 9 %). These
+  bounds reflect a stress-selected panel, not a random sample. The 0.21 gap between the classes
+  makes the panel result robust.
+- *Drafts (exponential contigs of mean 1, 2 and 5 kb, contigs < 200 bp dropped, 5 seeds each).*
+  Nasuia at a mean of 1 kb reaches **0.520** (n4 = 22–29), above the 0.477 quoted above from one
+  seed. That is still below the cut, by a margin of 0.03. M. pneumoniae and M. genitalium stay
+  ≤ 0.39. Sodalis goes down to 0.635 and M. leprae to 0.662.
+- *Small inputs (the n4 ≥ 20 gate).* I took 60 random single windows of 20–100 kb per assembly.
+  Over the evaluated windows (n4 ≥ 20), the false-W4 rate on code-4/25 windows is 11/2109 =
+  0.52 % (upper bound 0.93 %); the maximum window ratio is 0.611. Code-11 windows below the cut
+  (a missed W4, or a false W11 at table 11) are 59/7912 = 0.75 % (upper bound 0.96 %). False W4
+  is concentrated at small n4: 10/1056 at n4 20–29, 1/447 at 30–39, 0/606 at ≥ 40. The gate
+  therefore holds whole genomes at 0 errors and gives about 1 % errors in both directions on
+  partial inputs of 20–40 long ORFs. That is the same order as W11, so the shared gate is
+  adequate. Raising it to 40 would put Nasuia (n4 = 41) and its drafts (n4 = 22–40) at `info`.
+- *Why not 0.60 for W4 only.* The cost asymmetry is reversed at tables 4/25. A missed W4 (a
+  code-11 genome read with TGA as sense) silently gives readthrough fusions. A false W4 only prints
+  a message, or exits 3 under `--strict`. On the windows, 0.60 cuts false W4 from 0.52 % to
+  0.05 %, but it doubles missed W4 from 0.75 % to 1.50 %. It also shrinks the margin to the
+  Sodalis drafts from 0.09 to 0.04. 0.55 stays near the centre of the gap and is roughly balanced
+  on partial inputs. Keep one constant.
+- *Conditions.* (1) Done (lead): in the paragraph above, replaced "≤ 0.477 as drafts" with "≤ 0.52 as drafts
+  (Nasuia, mean 1 kb contigs, 5 seeds)"; Sodalis drafts 0.641 → 0.635. (2) The 16g methods note states that on inputs with only
+  20–40 long ORFs (plasmid-only or partial assemblies) either warning can be wrong about 1 % of
+  the time. (3) Code 25 rests on one assembly (0.006). The 16g validation run adds any official
+  code-25 assembly it uses (SR1, Gracilibacteria) to this evidence. If one scores ≥ 0.40, the
+  statistician reviews the cut again.
 
 ### 3. Tool plumbing
 
