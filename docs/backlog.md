@@ -1444,3 +1444,9 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
 
 ### 2026-10-28 (lead, #477 review)
 - The per-ref inspect cache in `missing_tool_reasons` is untested (no two registry tools share a ref today); the second `image inspect` timeout is unpinned; inspects run in the given tool order, not sorted (spec M11-19).
+
+### 2026-10-28 (lead, M11-16f statistician review)
+- **Initiator M at non-ATG starts.** Six-frame exact mapping reads GTG/TTG as V/L, so an annotated gene's N-terminal peptide with initiator M never maps to its gene: recall loss on real data, and now and then a unique chance copy at another ATG becomes an unestimated false novel ORF (M7-13 decision 14). Options: credit M at annotated non-ATG starts in mapping, or have `candidate_rows` (novel/candidates.py) drop peptides whose search row names an annotated protein. Table-independent.
+- **Wrong-table attack** (statistician N5): `tests/calibration/attacks/test_attack_wrong_table.py`, a code-11 genome run at table 4; placement FDR and read-through balance should stay at level.
+- **Nightly load** (N6): the M11-16f placement arms (~3× arm 11's placement load) and novel arms (~17 CPU-h) join the full tier; check the array tasks' `--time`.
+- The arm-11 `nonatg_nterm_recurrence` count is first logged by the next arm-11 G4 calibration run (expected 0; rate_11 survey: 0 in 80 replicates).
