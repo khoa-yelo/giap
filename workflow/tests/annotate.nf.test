@@ -370,7 +370,7 @@ nextflow_pipeline {
             def want = new File("${moduleTestDir}/data/annotate/terminators.tsv").canonicalPath
             assert workflow.success
             def ran = H.names(workflow.trace)
-            ['TERMINATORNET', 'TRANSTERMHP', 'BACTERMFINDER'].each { p ->
+            ['TERMINATORNET', 'TERMINATORNET_PLAN', 'TERMINATORNET_CHUNK', 'TERMINATORNET_MERGE', 'TRANSTERMHP', 'BACTERMFINDER'].each { p ->
                 assert H.count(workflow.trace, p) == 0 : "${p} ran despite precomputed.terminators: ${ran}"
             }
             ['transterm_input', 'terminator_layer'].each { s ->

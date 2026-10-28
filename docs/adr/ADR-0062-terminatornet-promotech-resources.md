@@ -70,6 +70,9 @@ In `workflow/conf/base.config`:
   ≥ 501 nt, `scan_multiprocess` stable-sorts the calls by stop before `merge_overlapping`; `-n 1`
   runs `scan()`, which keeps window order, so its output can differ. The `-n ≥ 2` output (what the
   deployed module produces) is the reference; the sharded step reproduces it at any chunk CPU count.
+- Resume: Nextflow does not hash `workflow/bin/` scripts, so after a change to
+  `gippa_terminatornet_shard.py` a `-resume` reuses the old chunk pickles; re-run without `-resume`
+  (or clear the TERMINATORNET_CHUNK work dirs).
 - msmeg measurement (wall time from the first PLAN submit to the MERGE end, chunk count, max chunk
   wall time, max RSS and peak concurrent CPUs at `terminatornet_chunk_cpus = 4`, next to the failed
   unsharded attempt, exit 140 at 12 h): pending; recorded here and in PROGRESS.md once it exists.

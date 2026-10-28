@@ -34,6 +34,11 @@ nextflow_pipeline {
             def tl = H.stepDirs(workDir.toString(), 'terminator_layer')[0]
             def keys = H.stepInputs(tl).collect { it[0] }
             assert 'terminatornet' in keys : "terminator_layer --in keys: ${keys}"
+            // the default path's stub outputs (examples 1/2/5 of annotate.nf.test pin the unsharded task)
+            def md = H.procDirs(workDir.toString(), 'TERMINATORNET_MERGE')[0]
+            def out = H.files(md).findAll { !it.path.contains('/in/') }
+            assert out.any { it.name == 'terminatornet.tsv' && it.text.contains('NO TERMINATORS FOUND') } : "MERGE stub TSV: ${out}"
+            assert out.any { it.name == 'versions.yml' && it.text.contains('terminatornet') } : "MERGE versions.yml: ${out}"
         }
     }
 

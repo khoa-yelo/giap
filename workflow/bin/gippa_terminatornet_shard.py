@@ -106,6 +106,36 @@ def order_calls(calls_by_chunk: Sequence[Sequence[Call]], mode: str) -> list[Cal
 # ---------------------------------------------------------------- upstream and files
 
 
+def plan_problems(rows: Sequence[PlanRow], records: Sequence[tuple[str, int]]) -> list[str]:
+    """Why ``rows`` is not a plan of ``records`` (``[(name, cleaned_length), ...]``): duplicate
+    chunk ids, a record index, name or length the genome does not have, or the cores of a
+    (record, strand) not tiling ``[0, nwin)`` exactly; empty when it is one."""
+    problems: list[str] = []
+    ids = [r["chunk_id"] for r in rows]
+    if len(set(ids)) != len(ids):
+        problems.append(f"duplicate chunk ids {sorted({c for c in ids if ids.count(c) > 1})}")
+    cores: dict[tuple[int, str], list[tuple[int, int]]] = {}
+    for r in rows:
+        i = r["seq_index"]
+        if not 0 <= i < len(records):
+            problems.append(f"{r['chunk_id']}: seq_index {i} not in the genome ({len(records)})")
+            continue
+        if (r["seq_name"], r["seq_length"]) != records[i]:
+            problems.append(f"{r['chunk_id']}: plan has {(r['seq_name'], r['seq_length'])}, "
+                            f"genome has {records[i]}")  # fmt: skip
+        cores.setdefault((i, r["strand"]), []).append((r["core_start"], r["core_end"]))
+    for i, (_name, length) in enumerate(records):
+        for strand in "+-":
+            got, end = sorted(cores.get((i, strand), [])), 0
+            for s, e in got:
+                if s != end or e <= s:
+                    break
+                end = e
+            if end != nwin(length) or len(got) == 0:
+                problems.append(f"record {i} {strand}: cores {got} do not tile [0, {nwin(length)})")
+    return problems
+
+
 def _fail(msg: str) -> None:
     sys.stderr.write(f"\nError - {msg}\n\n")
     sys.exit(1)
@@ -208,6 +238,11 @@ def cmd_chunk(cid: str, cpus: int) -> None:
 
 def cmd_merge() -> None:
     rows = _read_plan()
+    tn, _ = _upstream()
+    seqs, names, _long = _genome(tn)
+    problems = plan_problems(rows, list(zip(names, map(len, seqs), strict=True)))
+    if problems:
+        _fail(f"{PLAN} does not match the genome: {'; '.join(problems)}")
     plan_ids = {r["chunk_id"]: r for r in rows}
     files = {p.name[len("calls_") : -len(".pkl")]: p for p in Path.cwd().glob("calls_*.pkl")}
     missing, extra = sorted(plan_ids.keys() - files.keys()), sorted(files.keys() - plan_ids.keys())
@@ -221,8 +256,6 @@ def cmd_merge() -> None:
         if got != (cid, r["core_start"], r["core_end"]):
             _fail(f"calls_{cid}.pkl holds {got}, plan has {(cid, r['core_start'], r['core_end'])}")
         payloads[cid] = p
-    tn, _ = _upstream()
-    seqs, names, _long = _genome(tn)
     tn.BOTH_STRANDS = True
     with open(OUT, "w") as out:
         tn.OUT = out
