@@ -3,10 +3,12 @@
 
 Spec: docs/specs/M11-03c-calibration-full-sharding.md, "calibration_full_launch.sh (changed)",
 examples 6-9. The launcher validates the **worktree's** plan (``calibration_lanes.py check``; exit
-2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(lanes x cpus_per_lane) + 1 >
-128``, refuses when ``now + max(time) + 20 min`` reaches the next nightly start, submits the 15
-``calibration_suite.sbatch`` jobs in plan order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes
-x cpus_per_lane, ``--mem`` = lanes x mem_per_lane_mb, ``--time``), then the aggregator
+2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(allocated) + 1 > 128`` (a
+suite's allocated CPUs: ``max(lanes x cpus_per_lane, ceil(lanes x mem_per_lane_mb / 4000))``, the
+partition's MaxMemPerCPU; the committed plan allocates 126), refuses when ``now + max(time) + 20
+min`` reaches the next nightly start, submits the 15 ``calibration_suite.sbatch`` jobs in plan
+order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes x cpus_per_lane, ``--mem`` = lanes x
+mem_per_lane_mb, ``--time``), then the aggregator
 (``afterany:<j0>:...:<j14>``, ``--job <j0>``, ``--expect 15``). A failed ``sbatch`` cancels exactly
 the jobs already submitted. Fixtures: ``test_m11_03b_launcher`` (fake sbatch IDs 4242, 4243, ...).
 """
@@ -77,7 +79,7 @@ def _push(sb: Sandbox, edit: dict[str, dict[str, str]], keep_working_copy: bool)
 
 
 def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
-    _queue(sb, ["1 gippa-nightly-launch"])
+    _queue(sb, ["0 gippa-nightly-launch"])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     plan, jobs = _plan(), _suite_jobs(sb)
@@ -97,7 +99,7 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
         assert _export(j, "GIPPA_SUITE") == r["suite"] and _export(j, "GIPPA_WORKTREE") == wt, j
         assert _export(j, "GIPPA_CALIBRATION_LOG_DIR") == log, j
     first = jobs[0]["argv"]
-    assert option(first, "cpus-per-task", "c") == "20" and option(first, "time", "t") == "06:00:00"
+    assert option(first, "cpus-per-task", "c") == "20" and option(first, "time", "t") == "08:00:00"
     rows = _rows_job(sb)
     assert option(rows["argv"], "dependency", "d") == "afterany:" + ":".join(IDS), rows["argv"]
     assert option(rows["argv"], "cpus-per-task", "c") == "1", rows["argv"]
@@ -105,17 +107,17 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
     for pat in (rf"--job[= ]{IDS[0]}\b", r"--expect[= ]15\b", rf"--commit[= ]{sb.head}\b"):
         assert re.search(pat, cmd), (pat, cmd)
     assert all((_job_name(c) or "").startswith("gippa-") for c in sb.sbatch_calls())
-    want = rf"jobs={','.join(IDS)} rows={ROWS} log={re.escape(log)} cpus=98\b"
+    want = rf"jobs={','.join(IDS)} rows={ROWS} log={re.escape(log)} cpus=126\b"
     assert re.search(want, res.stdout), res.stdout
     seen = (sb.state / "squeue_seen").read_text().split()
     assert seen and seen[0] == "0", seen  # squeue before the first sbatch
 
 
 @pytest.mark.parametrize(("lines", "ok"),
-                         [(["29 gippa-x"], True),        # 29 + 98 + 1 = 128
-                          (["30 gippa-x"], False),       # example 7: 129 > 128
+                         [(["0 gippa-x"], True),         # 0 + 126 + 2 (aggregator core) = 128
+                          (["1 gippa-x"], False),        # example 7: a pending 1 CPU holds 2: 130
                           (["15 gippa-a", "15 gippa-b", "64 other"], False),
-                          (["1 gippa-j"] * 4, True),     # 4 + 16 = 20 jobs
+                          (["0 gippa-j"] * 4, True),     # 4 + 16 = 20 jobs, 128 CPUs
                           (["0 gippa-j"] * 5, False)])  # 21 > 20 jobs  # fmt: skip
 def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> None:
     _queue(sb, lines)
@@ -125,18 +127,18 @@ def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> N
         return
     out = _out(res)
     assert res.returncode == 2 and sb.sbatch_calls() == [] and "R14" in out, out
-    if sum(int(ln.split()[0]) for ln in lines if ln.split()[1].startswith("gippa-")) == 30:
-        assert all(re.search(rf"\b{n}\b", out) for n in (30, 99, 128)), out
+    if lines == ["1 gippa-x"]:  # 2 (whole core) + 128 (126 allocated + 2 rows) = 130 > 128
+        assert all(re.search(rf"\b{n}\b", out) for n in (2, 128, 130)), out
 
 
 @pytest.mark.parametrize(("hour", "minute", "nightly", "ok"),
-                         [(19, 9, "01:30", True), (19, 10, "01:30", False),
+                         [(17, 9, "01:30", True), (17, 10, "01:30", False),  # 8 h + 20 min
                           (22, 0, "01:30", False), (2, 0, "01:30", True),
-                          (10, 0, "16:20", False), (10, 0, "16:21", True)])  # fmt: skip
+                          (10, 0, "18:20", False), (10, 0, "18:21", True)])  # fmt: skip
 def test_example8_window_is_max_time_plus_20_min(
     sb: Sandbox, hour: int, minute: int, nightly: str, ok: bool
 ) -> None:
-    _queue(sb, ["8 gippa-other"])  # CPUs used no longer stretch the window: no waves
+    _queue(sb, ["0 gippa-other"])  # a queued job no longer stretches the window: no waves
     res = _launch(sb, GIPPA_NOW=at(hour, minute), GIPPA_NIGHTLY_AT=nightly)
     if ok:
         assert res.returncode == 0 and len(_suite_jobs(sb)) == 15, _out(res)
@@ -167,13 +169,18 @@ def test_bad_worktree_plan_refuses_before_any_sbatch(sb: Sandbox) -> None:
 
 
 def test_jobs_are_sized_from_the_worktree_plan(sb: Sandbox) -> None:
-    _push(sb, {"compare": {"cpus_per_lane": "4", "time": "03:00:00"}}, keep_working_copy=True)
+    # compare +2 CPUs; discordance 2 x 8000 MB is allocated 4 CPUs, not 8: 126 + 2 - 4 = 124
+    _push(sb, {"compare": {"cpus_per_lane": "4", "time": "03:00:00"},
+               "discordance": {"mem_per_lane_mb": "8000"}}, keep_working_copy=True)  # fmt: skip
     _queue(sb, [])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
-    last = _suite_jobs(sb)[-1]["argv"]
+    jobs = _suite_jobs(sb)
+    last = jobs[-1]["argv"]
     assert option(last, "cpus-per-task", "c") == "4" and option(last, "time", "t") == "03:00:00"
-    assert re.search(r"\bcpus=100\b", res.stdout), res.stdout
+    disc = next(j["argv"] for j in jobs if _job_name(j) == "gippa-cal-discordance")
+    assert re.fullmatch(r"16000M?", option(disc, "mem") or ""), disc
+    assert re.search(r"\bcpus=124\b", res.stdout), res.stdout
 
 
 def test_a_plan_without_a_final_newline_keeps_its_last_suite(sb: Sandbox) -> None:
@@ -185,7 +192,7 @@ def test_a_plan_without_a_final_newline_keeps_its_last_suite(sb: Sandbox) -> Non
     _queue(sb, [])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
-    assert len(_suite_jobs(sb)) == 15 and re.search(r"\bcpus=98\b", res.stdout), res.stdout
+    assert len(_suite_jobs(sb)) == 15 and re.search(r"\bcpus=126\b", res.stdout), res.stdout
 
 
 def test_a_failed_scancel_is_reported(sb: Sandbox) -> None:
