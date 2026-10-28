@@ -28,6 +28,7 @@ CODE = {
 _RC = str.maketrans("ACGTN", "TGCAN")
 
 seqs = st.text(alphabet="ACGTN", min_size=0, max_size=600)
+replicon_seqs = st.text(alphabet="ACGTN", min_size=1, max_size=600)  # Replicon refuses length 0
 tables = st.sampled_from((4, 11, 25))
 
 
@@ -52,7 +53,7 @@ def test_translate_codes_equal_the_reference(nt: str, table: int) -> None:
 
 
 @settings(max_examples=100, deadline=None)
-@given(seqs, tables, st.booleans(), st.integers(0, 60))
+@given(replicon_seqs, tables, st.booleans(), st.integers(0, 60))
 def test_build_sixframe_equals_the_reference(
     nt: str, table: int, circular: bool, wrap_nt: int
 ) -> None:
@@ -69,7 +70,7 @@ def test_build_sixframe_equals_the_reference(
 
 
 @settings(max_examples=100, deadline=None)
-@given(seqs, st.booleans())
+@given(replicon_seqs, st.booleans())
 def test_tables_differ_only_at_tga(nt: str, circular: bool) -> None:
     """The three tables give the same frames except where table 11 reads ``*`` over a TGA."""
     rep = Replicon("c", len(nt), "circular" if circular else "linear")

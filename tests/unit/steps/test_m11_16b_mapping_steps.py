@@ -164,7 +164,7 @@ def test_example_3_loci_cds_inframe_under_4(tmp_path: Path) -> None:
     hits = Chain(tmp_path, genome, gm, ["AWAEAWK"], 4).index().loci()
     (row,) = hits[hits["peptide"] == "AWAEAWK"].to_dict("records")
     assert (row["locus_class"], row["gene"]) == ("cds_inframe", "G")
-    assert row["flags"] == ""
+    assert row["flags"] == "NA"  # empty flags are written as NA (test_mapping_outputs)
 
 
 # ---------------------------------------------------------------- the index and the event
