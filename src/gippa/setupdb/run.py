@@ -8,6 +8,7 @@ time (``.giap_setup.lock``).
 
 from __future__ import annotations
 
+import codecs
 import dataclasses
 import fcntl
 import http.client
@@ -18,6 +19,7 @@ import ssl
 import subprocess
 import sys
 import tarfile
+import threading
 import zipfile
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -34,6 +36,7 @@ from gippa.setupdb.items import (
     DbItem,
     DbRecord,
     SetupOptions,
+    Status,
     _safe_name,
     check_dir,
     check_file,
@@ -43,6 +46,7 @@ from gippa.setupdb.items import (
     verify,
 )
 from gippa.setupdb.manifest import read_prefetch, read_records, write_manifest
+from gippa.setupdb.space import DISK_FULL, disk_full, is_disk_full
 
 __all__ = [
     "LOCK",
@@ -60,6 +64,7 @@ __all__ = [
 
 LOCK = ".giap_setup.lock"
 GIB = 1024**3
+_TAIL = 65536  # bytes of a downloader's stderr kept to tell a full disk
 AMR_URL = "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"
 
 
@@ -163,9 +168,34 @@ class ToolRunner:
             f"{tool})"
         )
 
+    last_stderr: str = ""  # the tail of the last run's stderr (a full disk is told from it)
+
     def run(self, tool: str, argv: Sequence[str]) -> int:
+        """Run ``argv``; its stderr still reaches the user live and its tail is kept."""
         env = tool_env(os.environ)
-        return subprocess.run(self.command(tool, argv), check=False, env=env).returncode
+        read_fd, write_fd = os.pipe()
+        tail = bytearray()
+        sink = sys.stderr
+
+        def tee() -> None:
+            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+            with os.fdopen(read_fd, "rb", buffering=0) as src:
+                while chunk := src.read(65536):
+                    tail.extend(chunk)
+                    del tail[:-_TAIL]
+                    sink.write(decoder.decode(chunk))
+                    sink.flush()
+
+        reader = threading.Thread(target=tee, daemon=True)
+        reader.start()
+        try:
+            cmd = self.command(tool, argv)
+            code = subprocess.run(cmd, check=False, env=env, stderr=write_fd).returncode
+        finally:
+            os.close(write_fd)
+            reader.join(timeout=10)
+        self.last_stderr = tail.decode("utf-8", errors="replace")
+        return code
 
 
 def tool_env(environ: Mapping[str, str]) -> dict[str, str]:
@@ -230,6 +260,8 @@ class HttpsFetcher:
                     raise SourceError(host, f"truncated body: {got} of {want} bytes from {current}")
                 return
             except (OSError, http.client.HTTPException) as exc:
+                if isinstance(exc, OSError) and exc.errno in DISK_FULL:
+                    raise  # our disk, not the source: the item is failed (M11-15 15c1)
                 raise SourceError(host, str(exc)) from exc
             finally:
                 conn.close()
@@ -273,11 +305,16 @@ def _argv(item: DbItem, out: Path) -> list[str]:
     return ["download-antismash-databases", "--database-dir", str(out)]
 
 
-def _absent(item: DbItem, message: str, status: str = "absent") -> DbRecord:
-    rec = DbRecord(
-        item.name, item.version, item.url, item.checksum, 0, "", item.path, "absent", message
+def _absent(item: DbItem, message: str, status: Status = "absent") -> DbRecord:
+    return DbRecord(
+        item.name, item.version, item.url, item.checksum, 0, "", item.path, status, message
     )
-    return dataclasses.replace(rec, status="mismatch") if status == "mismatch" else rec
+
+
+def _full(item: DbItem, db_dir: Path) -> DbRecord:
+    """``EDQUOT``/``ENOSPC`` while writing ``item``: failed, with the advice (M11-15 15c1); the
+    message names the item's final path, not its ``.partial``."""
+    return _absent(item, disk_full(db_dir / item.path), "failed")
 
 
 def _safe_member(m: tarfile.TarInfo) -> bool:
@@ -343,6 +380,10 @@ def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
         partial.replace(target)
     except SourceError as exc:
         return _absent(item, f"source {exc.host} unreachable ({exc.reason})")
+    except OSError as exc:
+        if exc.errno not in DISK_FULL:
+            raise
+        return _full(item, db_dir)
     finally:
         partial.unlink(missing_ok=True)
     return dataclasses.replace(rec, message=f"downloaded from {item.host}")
@@ -367,8 +408,11 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         return rec
     if item.check == "antismash" and (image := _antismash_image(item, runner)) is not None:
         return image
-    free = shutil.disk_usage(db_dir).free
-    if free < item.size_gib * GIB:
+    try:
+        free: int | None = shutil.disk_usage(db_dir).free
+    except OSError:
+        free = None  # unreadable: the plan has warned; the download decides
+    if free is not None and free < item.size_gib * GIB:
         return _absent(
             item, f"only {free / GIB:.1f} GiB free in {db_dir}, need {item.size_gib} GiB"
         )
@@ -385,6 +429,8 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
                 return failed
         else:
             code = runner.run(item.tool, _argv(item, partial))
+            if code != 0 and is_disk_full(getattr(runner, "last_stderr", "")):
+                return _full(item, db_dir)
             if code != 0:
                 return _absent(item, f"source {item.host} unreachable (downloader exit {code}; it "
                                      "also fails on a checksum mismatch)")  # fmt: skip
@@ -400,6 +446,10 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         return _absent(item, str(exc))
     except SourceError as exc:
         return _absent(item, f"source {exc.host} unreachable ({exc.reason})")
+    except OSError as exc:
+        if exc.errno not in DISK_FULL:
+            raise
+        return _full(item, db_dir)
     finally:
         shutil.rmtree(partial, ignore_errors=True)
     return dataclasses.replace(verify(item, db_dir), message=f"downloaded from {item.host}")
