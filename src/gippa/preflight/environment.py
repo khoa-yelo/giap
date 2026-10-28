@@ -686,7 +686,8 @@ def _uniop_argv(
         docker = shutil.which("docker")
         if docker is None:
             return "docker not found on PATH"
-        return [docker, "run", "--rm", built, "sh", "-c", _UNIOP_HELP]
+        # The image was built locally by ``gippa setup --uniop``; no registry holds it (N6).
+        return [docker, "run", "--rm", "--pull=never", built, "sh", "-c", _UNIOP_HELP]
     exe = shutil.which("apptainer") or shutil.which("singularity")
     if exe is None:
         return "apptainer not found on PATH"
@@ -700,9 +701,9 @@ def probe_uniop(
     profile: str, *, image_cache: Path, env_root: Path | None, local_tools: Path | None
 ) -> tuple[int, str]:
     """Run UniOP's entry point with ``--help`` in the runtime ``profile`` resolves to
-    (:func:`uniop_runtime`): the prebuilt env, the local image of ``local_tools`` under docker,
-    or its ``.sif`` under apptainer. Returns ``(returncode, stderr)``; 127 when it cannot be
-    started, 124 on a timeout."""
+    (:func:`uniop_runtime`): the prebuilt env, the local image of ``local_tools`` under docker
+    (``docker run --pull=never``: never pulled, N6), or its ``.sif`` under apptainer. Returns
+    ``(returncode, stderr)``; 127 when it cannot be started, 124 on a timeout."""
     argv = _uniop_argv(profile, image_cache, env_root, local_tools)
     if isinstance(argv, str):
         return 127, argv
