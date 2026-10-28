@@ -1,4 +1,9 @@
-"""Genetic code (table 11) and a bundled E. coli-like codon usage table."""
+"""Genetic codes 11, 4 and 25 (M11-16) and a bundled E. coli-like codon usage table.
+
+Codes 4 and 25 differ from 11 only at TGA (Trp at 4, Gly at 25). ``sense_usage`` moves
+``tga_sense_share`` of that amino acid's per-mille weight onto TGA and scales the other codons
+of the family by ``1 - share``, so every amino acid keeps its table-11 weight.
+"""
 
 from __future__ import annotations
 
@@ -36,6 +41,46 @@ SENSE_USAGE: dict[str, float] = {
 
 assert len(SENSE_USAGE) == 61 and not STOPS & SENSE_USAGE.keys()
 
+#: The tables the simulator supports, TGA's residue in each and the default ``tga_sense_share``
+#: (placeholders, spec Q-L1).
+TABLES = (4, 11, 25)
+_TGA = {4: "W", 25: "G"}
+DEFAULT_TGA_SHARE = {4: 0.6, 25: 0.05}
+
+
+def _check(table: int) -> None:
+    if table not in TABLES:
+        raise ValueError(f"genetic code {table} is not supported; use one of {TABLES}")
+
+
+def code(table: int) -> dict[str, str]:
+    """Translation of every codon under NCBI ``table`` (``*`` for stops)."""
+    _check(table)
+    return CODE_11 if table == 11 else {**CODE_11, "TGA": _TGA[table]}
+
+
+def stops(table: int) -> frozenset[str]:
+    """Stop codons of NCBI ``table``."""
+    _check(table)
+    return STOPS if table == 11 else STOPS - {"TGA"}
+
+
+def sense_usage(table: int, tga_sense_share: float | None = None) -> dict[str, float]:
+    """Per-mille sense-codon usage under ``table``; ``tga_sense_share`` (``None`` = the table's
+    default) is TGA's share of its amino acid at 4/25 and is ignored at 11."""
+    _check(table)
+    if table == 11:
+        return SENSE_USAGE
+    share = DEFAULT_TGA_SHARE[table] if tga_sense_share is None else tga_sense_share
+    if not 0 < share < 1:
+        raise ValueError(f"tga_sense_share must be in (0, 1), got {share}")
+    aa = _TGA[table]
+    fam = [c for c in SENSE_USAGE if CODE_11[c] == aa]
+    out = {c: (1 - share) * w if c in fam else w for c, w in SENSE_USAGE.items()}
+    out["TGA"] = share * sum(SENSE_USAGE[c] for c in fam)
+    return out
+
+
 _COMP = str.maketrans("ACGT", "TGCA")
 
 
@@ -43,9 +88,10 @@ def revcomp(seq: str) -> str:
     return seq.translate(_COMP)[::-1]
 
 
-def translate_cds(codons: list[str]) -> str:
+def translate_cds(codons: list[str], table: int = 11) -> str:
     """Protein of a CDS given as codons (start ... stop): initiator read as M, stop dropped."""
-    return "M" + "".join(CODE_11[c] for c in codons[1:-1])
+    t = code(table)
+    return "M" + "".join(t[c] for c in codons[1:-1])
 
 
 def codons_of(nt: str) -> list[str]:

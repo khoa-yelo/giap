@@ -74,7 +74,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from gippasim.codons import CODE_11, STOPS, codons_of, revcomp
+from gippasim.codons import TABLES, code, codons_of, revcomp, stops
 from gippasim.expression import ISLAND_COLUMNS, ExpressionConfig, expression_for_simulation
 from gippasim.features import STARTS, Feat
 from gippasim.layout import layout_from_simulation
@@ -141,8 +141,11 @@ class RealGenomeConfig:
     n_novel_per_class: int = 300
     novel_len_aa: tuple[int, int] = (30, 150)
     sample_name: str = SAMPLE_NAME
+    genetic_code: int = 11  # M11-16: NCBI table of the genome (4, 11 or 25)
 
     def __post_init__(self) -> None:
+        if self.genetic_code not in TABLES:
+            raise ValueError(f"genetic_code must be one of {TABLES}")
         object.__setattr__(self, "novel_len_aa", tuple(int(x) for x in self.novel_len_aa))
         if self.strain.indel_rate_per_kb != 0.0:
             raise ValueError("real-genome sample strains are SNV-only (indel_rate_per_kb = 0)")
@@ -374,7 +377,7 @@ def _code(c: str) -> int:
     return 16 * "ACGT".index(c[0]) + 4 * "ACGT".index(c[1]) + "ACGT".index(c[2])
 
 
-_STOP_CODES = np.array(sorted(_code(c) for c in STOPS))
+_STOP_CODES = {t: np.array(sorted(_code(c) for c in stops(t))) for t in TABLES}
 _START_CODES = np.array(sorted(_code(c) for c in STARTS))
 
 
@@ -392,8 +395,9 @@ def _hit(cov: np.ndarray, s0: np.ndarray, e0: np.ndarray) -> np.ndarray:
     return out
 
 
-def _translate(nt: str) -> str:
-    return "".join(CODE_11.get(c, "X") for c in codons_of(nt))
+def _translate(nt: str, table: int = 11) -> str:
+    t = code(table)
+    return "".join(t.get(c, "X") for c in codons_of(nt))
 
 
 def _il(s: str) -> str:
@@ -401,14 +405,19 @@ def _il(s: str) -> str:
 
 
 def found_orf_candidates(
-    ref: str, sample: str, genes: Sequence[Feat], rna: Sequence[Feat], len_aa: tuple[int, int]
+    ref: str,
+    sample: str,
+    genes: Sequence[Feat],
+    rna: Sequence[Feat],
+    len_aa: tuple[int, int],
+    table: int = 11,
 ) -> dict[str, list[tuple[int, int, str]]]:
     """Candidate novel ORFs (0-based ``s0``, ``e0``, strand) of one linear-scanned contig by
     class, in genome order: one per stop codon (its longest start..stop form in ``len_aa``), on
     ``ref`` and intact on ``sample`` (same coordinates), in frame with no overlapping same-strand
     protein gene, overlapping no RNA gene and no same-strand pseudogene. ``cds_outframe`` overlaps
     a same-strand protein gene, else ``antisense`` an opposite-strand one, else ``intergenic``."""
-    n = len(ref)
+    n, stop_codes = len(ref), _STOP_CODES[table]
     lo, hi = len_aa
     spans = [(g.start, g.end, g.strand) for g in genes]
     mask = _codon_mask(n, spans)
@@ -421,7 +430,7 @@ def found_orf_candidates(
         tr, ts = (ref, sample) if strand == "+" else (revcomp(ref), revcomp(sample))
         for off in range(3):
             ck, cs = _codon_codes(tr, off), _codon_codes(ts, off)
-            stops = np.flatnonzero(np.isin(ck, _STOP_CODES))
+            stops = np.flatnonzero(np.isin(ck, stop_codes))
             starts = np.flatnonzero(np.isin(ck, _START_CODES))
             if not len(stops) or not len(starts):
                 continue
@@ -431,8 +440,8 @@ def found_orf_candidates(
             s = starts[np.minimum(k, len(starts) - 1)]
             ok &= (s < stops) & (stops - s >= lo) & (stops - s <= hi)
             s, j = s[ok], stops[ok]
-            s_stop = np.concatenate([[0], np.cumsum(np.isin(cs, _STOP_CODES))])
-            ok = np.isin(cs[s], _START_CODES) & np.isin(cs[j], _STOP_CODES)
+            s_stop = np.concatenate([[0], np.cumsum(np.isin(cs, stop_codes))])
+            ok = np.isin(cs[s], _START_CODES) & np.isin(cs[j], stop_codes)
             ok &= s_stop[j] == s_stop[s]
             cm = np.concatenate([[0], np.cumsum(mask[strand][off::3][: len(ck)])])
             ok &= cm[j + 1] == cm[s]  # in frame with no protein gene
@@ -463,6 +472,7 @@ def draw_found_orfs(
     sample: str,
     hay: str,
     n: int,
+    table: int = 11,
 ) -> list[list[Any]]:
     """``n`` ORFs per class in random order whose protein (I = L, initiator dropped) is part of no
     annotated protein (``hay``); rows (class, contig, start1, end, strand, sample protein)."""
@@ -472,7 +482,7 @@ def draw_found_orfs(
         got = []
         for i in rng.permutation(len(pool)).tolist() if n else []:
             s0, e0, strand = pool[i]
-            aa = "M" + _translate(_segment(sample, s0, e0, strand)[3:-3])
+            aa = "M" + _translate(_segment(sample, s0, e0, strand)[3:-3], table)
             if _il(aa[1:]) in hay:
                 continue
             got.append([cls, contig, s0 + 1, e0, strand, aa])
@@ -485,18 +495,18 @@ def draw_found_orfs(
     return rows
 
 
-def nterm_options(g: Feat, ref: str, sample: str) -> list[int]:
+def nterm_options(g: Feat, ref: str, sample: str, table: int = 11) -> list[int]:
     """1-based true starts (first base of the start codon in transcription direction) of ``g``:
     in-frame start codons >= ``NTERM_MIN_CODONS`` codons upstream of the annotated start with no
     stop in between, on ``ref`` and ``sample`` (linear: the walk stops at the contig end)."""
     n = len(ref)
     tr, ts = (ref, sample) if g.strand == "+" else (revcomp(ref), revcomp(sample))
     a = g.start if g.strand == "+" else n - g.end
-    out = []
+    out, st = [], stops(table)
     p, k = a - 3, 1
     while p >= 0:
         ck, cs = tr[p : p + 3], ts[p : p + 3]
-        if ck in STOPS or cs in STOPS:
+        if ck in st or cs in st:
             break
         if k >= NTERM_MIN_CODONS and ck in STARTS and cs in STARTS:
             out.append(p + 1 if g.strand == "+" else n - p)
@@ -511,6 +521,7 @@ def draw_nterm(
     ref: Mapping[str, str],
     sample: Mapping[str, str],
     n: int,
+    table: int = 11,
 ) -> dict[str, int]:
     """``locus -> 1-based true start`` for up to ``n`` expressed, complete CDSs with an upstream
     start (one drawn uniformly among ``nterm_options``)."""
@@ -520,7 +531,7 @@ def draw_nterm(
     out: dict[str, int] = {}
     for i in rng.permutation(len(pool)).tolist() if n else []:
         g = pool[i]
-        opts = nterm_options(g, ref[g.contig], sample[g.contig])
+        opts = nterm_options(g, ref[g.contig], sample[g.contig], table)
         if opts:
             out[g.locus] = opts[int(rng.integers(len(opts)))]
             if len(out) == n:
@@ -549,6 +560,7 @@ def novel_alt_site_rows(
     ref: Mapping[str, str],
     sample: Mapping[str, str],
     peps: Mapping[str, list[tuple[str, int, int, str]]],
+    table: int = 11,
 ) -> list[list[Any]]:
     """``truth/novel_alt_sites.tsv`` rows: the sample SNV codons of the found novel ORFs
     (``NOVEL_FOUND_CLASSES`` rows of ``truth/novel_orfs.tsv``; ``nterm_extension`` ORFs are
@@ -558,7 +570,7 @@ def novel_alt_site_rows(
     ``ref_aa`` the genome's code-11 residue and ``alt_aa`` the sample's, and
     ``n_true_peptides`` the distinct I/L-folded correct peptides of the ORF (``peps``, by
     ``orf_id``) whose 1-based closed interval holds the whole codon."""
-    order = {c: k for k, c in enumerate(ref)}
+    order, tr = {c: k for k, c in enumerate(ref)}, code(table)
     out: list[list[Any]] = []
     for r in nrows:
         orf_id, cls, cid, s1, e1, strand = r[0], r[1], str(r[2]), int(r[3]), int(r[4]), r[5]
@@ -569,9 +581,9 @@ def novel_alt_site_rows(
             c1 = s1 + 3 * k if strand == "+" else e1 - 3 * (k + 1) + 1
             g = _segment(ref[cid], c1 - 1, c1 + 2, strand)
             s = _segment(sample[cid], c1 - 1, c1 + 2, strand)
-            if g == s or g not in CODE_11 or s not in CODE_11:
+            if g == s or g not in tr or s not in tr:
                 continue
-            ra, aa = CODE_11[g], CODE_11[s]
+            ra, aa = tr[g], tr[s]
             if ra == aa or "*" in (ra, aa):
                 continue
             n = len({p for _c, a1, b1, p in hits if a1 <= c1 and c1 + 2 <= b1})
@@ -630,7 +642,8 @@ def simulate_on_genome(
     genes, rna = _feats(data, ref)
 
     # step 2: the sample is derive_reference(genome); SNVs only, so coordinates agree
-    sample, sample_feats, strain_rows = derive_reference(cfg.strain, seed, ref, genes)
+    gc = cfg.genetic_code
+    sample, sample_feats, strain_rows = derive_reference(cfg.strain, seed, ref, genes, gc)
     if any(len(sample[c]) != len(ref[c]) for c in ref):
         raise ValueError("the sample strain changed a contig length (SNVs only)")
     by_locus = {f.locus: f for f in sample_feats}
@@ -663,10 +676,10 @@ def simulate_on_genome(
         for cid in ref:
             on = [g for g in genes if g.contig == cid]
             rna_on = [f for f in rna if f.contig == cid]
-            cands = found_orf_candidates(ref[cid], sample[cid], on, rna_on, cfg.novel_len_aa)
-            found += draw_found_orfs(nrng, cands, cid, sample[cid], hay, cfg.n_novel_per_class)
+            cands = found_orf_candidates(ref[cid], sample[cid], on, rna_on, cfg.novel_len_aa, gc)
+            found += draw_found_orfs(nrng, cands, cid, sample[cid], hay, cfg.n_novel_per_class, gc)
         novel = [[f"NOVEL_{i + 1:04d}", *r] for i, r in enumerate(found)]
-        nterm = draw_nterm(nrng, genes, by_locus, ref, sample, cfg.n_novel_per_class)
+        nterm = draw_nterm(nrng, genes, by_locus, ref, sample, cfg.n_novel_per_class, gc)
         feats = [replace(f, true_start=nterm[f.locus], extra=dict(f.extra))
                  if f.locus in nterm else f for f in sample_feats]  # fmt: skip
 
@@ -682,7 +695,7 @@ def simulate_on_genome(
 
         # step 5: peptides
         paths = simulate_proteomics(cfg.proteomics, seed, stage, feats, novel, sample, topology,
-                                    log_abundance=la)  # fmt: skip
+                                    log_abundance=la, table=gc)  # fmt: skip
         with paths["peptides"].open(encoding="utf-8") as fh:
             n_target = sum(1 for r in csv.DictReader(fh, delimiter="\t")
                            if r["is_decoy"] == "false")  # fmt: skip
@@ -694,12 +707,12 @@ def simulate_on_genome(
         # truth tables
         truth = stage / "truth"
         peps = _truth_peptides(paths["truth"])
-        alt = [r for r in alt_site_rows(strain_rows, feats, sample, ref, peps)
+        alt = [r for r in alt_site_rows(strain_rows, feats, sample, ref, peps, gc)
                if not _initiator(by_locus[str(r[3])], int(r[1]))]  # fmt: skip
         _write_tsv(truth / "alt_sites.tsv", ALT_COLUMNS, alt)
-        nrows = novel_rows(novel, feats, sample, set(), peps)
+        nrows = novel_rows(novel, feats, sample, set(), peps, gc)
         _write_tsv(truth / "novel_orfs.tsv", NOVEL_COLUMNS, nrows)
-        nalt = novel_alt_site_rows(nrows, ref, sample, peps)
+        nalt = novel_alt_site_rows(nrows, ref, sample, peps, gc)
         _write_tsv(truth / "novel_alt_sites.tsv", NOVEL_ALT_COLUMNS, nalt)
         requested = {c: cfg.n_novel_per_class for c in (*NOVEL_FOUND_CLASSES, "nterm_extension")}
         report = novel_report(requested, nrows)
@@ -751,6 +764,8 @@ def simulate_on_genome(
         }
         if "null_split" in meta:
             prov["null_split"] = meta["null_split"]
+        if gc != 11:  # absent at 11: code-11 provenance unchanged
+            prov["genetic_code"] = gc
         (stage / "provenance.json").write_text(json.dumps(prov, indent=2, sort_keys=True) + "\n")
         _publish(stage, outdir)
     rel = {k: outdir / p.relative_to(stage) for k, p in paths.items() if k != "proteins"}

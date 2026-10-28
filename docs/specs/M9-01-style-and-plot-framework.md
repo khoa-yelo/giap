@@ -90,7 +90,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
 1. **Style.** `apply()` sets `backend Agg`, `font.family = DejaVu Sans` (bundled with matplotlib),
    base 7 pt, titles 8 pt, tick labels 6 pt, `axes.prop_cycle` = the Okabe–Ito order, `svg.fonttype
    = none` (text stays text in the SVG, so the report can be searched), `svg.hashsalt =
-   "giap"` (the pre-rename salt, ADR-0064 item 7), `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
+   "gippa"` (renamed 2026-10-28: the hashed ids are renumbered on write, behaviour 7), `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
 2. **Colours.** Exactly the §10.1 table. COG letters map to four super-categories (index decision
    8); a gene with several letters (e.g. `KL`) is drawn in each letter, the convention of
    `gippa.context.summary._cog_letters` (M4-16). Letter descriptions come from the bundled

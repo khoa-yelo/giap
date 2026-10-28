@@ -261,6 +261,15 @@ M11-14w values reproduce to three decimals.
 <t>` only when the table is not 11, placed before `--replicons` (decision D2, Khoa 2026-10-28: no
 flag at 11, Bakta's own default, so code-11 caches stay valid). The Nextflow `BAKTA` module adds
 the same flag, under the same condition, at the same place. The
+(≤ 0.477 as drafts) and every code-11 genome at ≥ 0.679 (≥ 0.641 as drafts). Read the other way,
+a code-4/25 run whose genome scores ≥ 0.55 is a code-11 genome. On that panel this gives 0
+false W4 on the 22 code-4/25 assemblies and 0 missed code-11 genomes. No new constant is needed.
+
+### 3. Tool plumbing
+
+**3.1 Bakta.** `bakta_command(..., translation_table: int)` always adds `--translation-table
+<t>`, placed before `--replicons` (decision D2: always, including 11). The Nextflow `BAKTA` module
+adds `--translation-table ${params.annotation?.translation_table ?: 11}` at the same place. The
 existing argv parity test (Python argv vs the module script) covers both. The `--regions` route
 (user GFF3/GBFF annotation) is unchanged: Bakta re-calls the CDSs with the table.
 
@@ -592,6 +601,7 @@ Coordinates are 0-based half-open. "+0" is plus strand, frame offset 0.
 1. **Table 11 is unchanged.** On the gippasim pilot (`tests/integration/test_m10_05_sim_pilot.py`
    inputs) at table 11, every table under `tables/` and `mapping/` is byte-identical to the
    output before M11-16. The documented changes are (the Bakta argv is unchanged at 11, D2):
+   output before M11-16. The documented changes are: the Bakta argv (`--translation-table 11`, D2),
    `sixframe.npz` meta (format 3, `translation_table`), `run_manifest.json`
    `annotation.translation_table` and `output_schema_version`, `preflight.json` (the
    `genome.genetic_code` `rule` text and `value.translation_table`), and the report's Methods
@@ -703,6 +713,7 @@ says otherwise. D1 needs Khoa because it touches a protected file.
   `tblastn_args` to `"-seg no -evalue 1e-5"` and derive `-db_gencode` from the table (3.3).
   **Decided (Khoa, 2026-10-28): yes (option A)**, approved with ADR-0067; 16d makes the change
   with `Gate-Change-Approved: ADR-0067`. *Fallback (no longer needed):* keep the
+  **Recommended: yes**, approved with ADR-0067. *Fallback if not approved before 16d:* keep the
   default string. `effective_tblastn_args` then replaces a `-db_gencode` value with the table, but
   only when the string equals the shipped default exactly. Any other explicit mismatch stays a
   preflight error. This is reversible, and it is removed once D1 is approved.
@@ -710,6 +721,8 @@ says otherwise. D1 needs Khoa because it touches a protected file.
   Bakta task hash once, so every cached Bakta run (the most expensive step) is re-run after the
   upgrade. ~~Recommended: always.~~ **Decided (Khoa, 2026-10-28): only when ≠ 11**; table 11 is the
   default when no flag is given, and code-11 caches stay valid.
+  upgrade. **Recommended: always.** It is explicit, and a GIPPA version change already invalidates
+  resume. Only-when-≠-11 keeps code-11 caches.
 - **D3 — format-2 indexes.** **Recommended: accept format 2 as table 11** (it can only have been
   built at 11) and refuse it at 4/25. The alternative is to refuse format 2 always, like format 1,
   but format 1 was refused because it lacked data and format 2 lacks nothing at 11.

@@ -17,14 +17,15 @@ Interface pinned here (implementer, ``src/gippa/io/fgsea_r.py``):
      ``image_cache(environ, Path(environ["GIPPA_DB_DIR"])) / <simpleName>.img`` (14a's helper:
      ``NXF_APPTAINER_CACHEDIR`` → ``$GIPPA_ROOT/containers`` → ``<db_dir>/containers``;
      ``simpleName``: ``/`` and ``:`` → ``-``, ADR-0059); a missing ``.img`` →
-     ``FgseaEngineUnavailable``. Under docker nothing local is checked (``docker run`` pulls).
+     ``FgseaEngineUnavailable``. Under docker nothing local is checked; ``docker run`` never
+     pulls (``--pull=never``, N6) and a missing image fails the run.
   The returned ``Launcher.kind`` is ``"prefix"``, ``"docker"`` or ``"apptainer"``. The shebang
   front end is not read on the image path.
 - ``command(call, launcher=None, call_dir=None)``: with no launcher or a prefix launcher, today's
   list (script + nine options). For an image launcher, the exact argv of item 1 with ``call_dir``
   (the call's temporary directory) bound:
-  - docker: ``docker run --rm --cidfile <d>.cid -u <uid>:<gid> -v <d>:<d> -w <d> -e LC_ALL=C
-    <ref> Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <options>``;
+  - docker: ``docker run --rm --pull=never --cidfile <d>.cid -u <uid>:<gid> -v <d>:<d> -w <d>
+    -e LC_ALL=C <ref> Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <options>``;
   - apptainer: ``apptainer exec --cleanenv -B <d> --pwd <d> <cache>/<simpleName>.img Rscript
     --vanilla /opt/<pkg>/gippa_fgsea.R <options>``
   (lead amendment 2026-10-26, #386 review B1/S1).
@@ -113,7 +114,7 @@ def _options(call: Any) -> list[str]:
 
 
 def docker_argv(d: Path, call: Any, ref: str = REF) -> list[str]:
-    return ["docker", "run", "--rm", "--cidfile", f"{d}.cid", "-u", UIDGID,
+    return ["docker", "run", "--rm", "--pull=never", "--cidfile", f"{d}.cid", "-u", UIDGID,
             "-v", f"{d}:{d}", "-w", str(d), "-e", "LC_ALL=C", ref,
             "Rscript", "--vanilla", BAKED, *_options(call)]  # fmt: skip
 

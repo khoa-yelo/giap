@@ -253,8 +253,9 @@ def _missing(tmp_path: Path, profile: str, *, img: bool, built: bool) -> list[st
 @pytest.mark.parametrize(
     ("profile", "entry", "img", "built", "missing"),
     [
-        # docker: env, else the images.json entry (docker run pulls it)
-        ("docker", True, False, False, False),
+        # docker: env, else the images.json entry present locally (runs never pull, #465);
+        # the fake docker has no images, so a pinned entry alone is missing
+        ("docker", True, False, False, True),
         ("docker", False, False, False, True),
         ("docker", False, False, True, False),
         # plain apptainer: env, else the .img in the cache
@@ -283,6 +284,7 @@ def test_fgsea_row_of_the_item_3_table(
     missing: bool,
 ) -> None:
     _fake_tree(tmp_path, monkeypatch, entry)
+    monkeypatch.setattr(_env_mod(), "_docker_image_exists", lambda ref: False)
     assert _missing(tmp_path, profile, img=img, built=built) == (["fgsea"] if missing else [])
 
 
@@ -300,11 +302,17 @@ def test_fgsea_missing_image_under_apptainer_names_setup_images(
 def test_fgsea_under_docker_is_not_reported_as_conda_only_once_pinned(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Pinned and present locally: ok. Pinned but absent: the reason names the docker image
+    setup, not the conda env (runs never pull, #465)."""
     _fake_tree(tmp_path, monkeypatch, True)
-    reasons = _fn("missing_tool_reasons")(
-        [TOOLS["fgsea"]], "docker", _cache(tmp_path, False), _envs(tmp_path, False), None
-    )
-    assert reasons == {}
+    mod = _env_mod()
+    args = ([TOOLS["fgsea"]], "docker", _cache(tmp_path, False), _envs(tmp_path, False), None)
+    monkeypatch.setattr(mod, "_docker_image_exists", lambda ref: ref == REF)
+    assert _fn("missing_tool_reasons")(*args) == {}
+    monkeypatch.setattr(mod, "_docker_image_exists", lambda ref: False)
+    reasons = _fn("missing_tool_reasons")(*args)
+    assert set(reasons) == {"fgsea"}
+    assert "gippa setup --images --profile docker" in reasons["fgsea"], reasons
 
 
 def test_fgsea_has_no_containers_config_line() -> None:

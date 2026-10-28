@@ -128,7 +128,7 @@ def test_apply_sets_agg_fonts_sizes_and_deterministic_svg() -> None:
     assert rc["xtick.labelsize"] == 6
     assert rc["ytick.labelsize"] == 6
     assert rc["svg.fonttype"] == "none"
-    assert rc["svg.hashsalt"] == "giap"
+    assert rc["svg.hashsalt"] == "gippa"
     assert rc["pdf.fonttype"] == 42
 
 

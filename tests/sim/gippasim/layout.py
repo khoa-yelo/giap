@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from gippasim.codons import CODE_11, SENSE_USAGE
+from gippasim.codons import TABLES, code, sense_usage, stops
 from gippasim.contract_tables import REQUIRED_COLUMNS as CONTRACT_COLUMNS
 
 __all__ = [
@@ -130,8 +130,15 @@ class LayoutConfig:
     # M8-14: sizes of extra chr1 TUs ("packed operons") inserted among the geometric ones at
     # random TU positions; () draws exactly as before
     packed_tus: tuple[int, ...] = ()
+    # M11-16: NCBI genetic code (4, 11 or 25). Synonymous codons come from
+    # ``gippasim.codons.sense_usage(genetic_code)`` (TGA joins W at 4, G at 25, at the table's
+    # default share); terminal and pseudogene stops are the table's stops with the default
+    # weights renormalised (TAA/TAG at 4/25). 11 draws exactly as before.
+    genetic_code: int = 11
 
     def __post_init__(self) -> None:
+        if self.genetic_code not in TABLES:
+            raise ValueError(f"genetic_code must be one of {TABLES}, got {self.genetic_code}")
         cv = tuple(int(v) for v in self.convergent_gap_bp)
         if len(cv) != 2 or cv[0] > cv[1]:
             raise ValueError(f"convergent_gap_bp must be (lo, hi) with lo <= hi, got {cv}")
@@ -179,20 +186,28 @@ def _draw(rng: np.random.Generator, cum: np.ndarray, size: int) -> np.ndarray:
     return np.minimum(np.searchsorted(cum, rng.random(size), side="right"), len(cum) - 1)
 
 
-def _codon_tables(residues: list[str]) -> tuple[np.ndarray, np.ndarray]:
-    """Per residue: cumulative synonymous-codon weights (padded with 1) and codon bytes."""
-    syn = [[c for c in SENSE_USAGE if CODE_11[c] == a] for a in residues]
+def _codon_tables(residues: list[str], table: int = 11) -> tuple[np.ndarray, np.ndarray]:
+    """Per residue: cumulative synonymous-codon weights (padded with 1) and codon bytes, from
+    the sense usage of genetic code ``table``."""
+    usage, aa_of = sense_usage(table), code(table)
+    syn = [[c for c in usage if aa_of[c] == a] for a in residues]
     width = max(len(s) for s in syn)
     cum = np.ones((len(residues), width))
     codes = np.zeros((len(residues), width, 3), dtype=np.uint8)
     for i, s in enumerate(syn):
         if not s:
             raise ValueError(f"no sense codon for residue {residues[i]!r}")
-        cum[i, : len(s)] = _cum([SENSE_USAGE[c] for c in s])
+        cum[i, : len(s)] = _cum([usage[c] for c in s])
         for j, c in enumerate(s):
             codes[i, j] = np.frombuffer(c.encode(), dtype=np.uint8)
         codes[i, len(s) :] = codes[i, len(s) - 1]
     return cum, codes
+
+
+def _stop_weights(table: int) -> tuple[tuple[str, float], ...]:
+    """``_STOPS`` restricted to the stops of ``table`` (``_codon_bytes`` renormalises)."""
+    st = stops(table)
+    return tuple((c, w) for c, w in _STOPS if c in st)
 
 
 def _codon_bytes(codons: tuple[tuple[str, float], ...]) -> tuple[np.ndarray, np.ndarray]:
@@ -537,7 +552,7 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     # sequences: residues after the initiator, back-translated with the bundled codon usage
     residues = [a for a, _ in cfg.aa_composition]
     res_cum = _cum([w for _, w in cfg.aa_composition])
-    syn_cum, syn_codes = _codon_tables(residues)
+    syn_cum, syn_codes = _codon_tables(residues, cfg.genetic_code)
     body_n = len_aa - 1
     n_body = int(body_n.sum())
     res_idx = _draw(rng, res_cum, n_body)
@@ -545,7 +560,7 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     body = syn_codes[res_idx, np.minimum(pick, syn_codes.shape[1] - 1)]  # (n_body, 3)
     letters = np.frombuffer("".join(residues).encode(), dtype=np.uint8)[res_idx]
     start_cum, start_codes = _codon_bytes(_STARTS)
-    stop_cum, stop_codes = _codon_bytes(_STOPS)
+    stop_cum, stop_codes = _codon_bytes(_stop_weights(cfg.genetic_code))
     first = _draw(rng, start_cum, total)
     last = _draw(rng, stop_cum, total)
     pseudo = np.flatnonzero(ftype == "pseudogene")
