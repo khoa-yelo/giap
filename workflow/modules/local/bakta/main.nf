@@ -4,8 +4,6 @@ process BAKTA {
     label 'process_high'
     memory { 48.GB * task.attempt }
     conda "${projectDir}/envs/bakta.yml"
-    // M11-18: native outputs under OUT/annotation/tools/bakta/<sample>.{json,gbff} (only the declared ones).
-    publishDir "${params.outdir}/annotation/tools", mode: 'copy', saveAs: { fn -> fn == 'versions.yml' ? null : fn }
 
     input:
     tuple val(meta_id), path(genome), path(replicons)
@@ -16,6 +14,10 @@ process BAKTA {
     output:
     path "bakta/${meta_id}.json", emit: json
     path "bakta/${meta_id}.gbff", emit: gbff
+    // M11-18: the JSON and GBFF only (hard links, else copies), passed to CONTEXT_LAYERS as
+    // tool_dirs -> OUT/annotation/tools/bakta/. No publishDir: CONTEXT_LAYERS republishes the
+    // whole annotation/ directory later and Nextflow's overwrite would delete it.
+    path 'tools/bakta', emit: tool_dir
     path 'versions.yml', emit: versions
 
     script:
@@ -25,6 +27,7 @@ process BAKTA {
     mode="--replicons ${replicons}"
     if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "c" { exit 1 }' ${replicons}; }; then mode="--complete \$mode"; fi
     bakta --db ${db} --output bakta --prefix ${meta_id} --threads ${task.cpus} --keep-contig-headers \$mode ${reg} ${extra} ${genome}
+    mkdir -p tools/bakta && { ln bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/ 2>/dev/null || cp bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/; }
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -37,6 +40,7 @@ process BAKTA {
     mkdir bakta
     cp ${projectDir}/assets/stub/bakta.json bakta/${meta_id}.json
     touch bakta/${meta_id}.gff3 bakta/${meta_id}.gbff bakta/${meta_id}.faa bakta/${meta_id}.tsv
+    mkdir -p tools/bakta && { ln bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/ 2>/dev/null || cp bakta/${meta_id}.json bakta/${meta_id}.gbff tools/bakta/; }
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
