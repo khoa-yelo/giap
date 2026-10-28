@@ -38,7 +38,7 @@ __all__ = [
     "verify_kegg_links",
 ]
 
-Status = Literal["ok", "absent", "mismatch"]
+Status = Literal["ok", "absent", "mismatch", "failed"]
 BaktaChoice = Literal["light", "full", "skip"]
 PROMOTECH_ARCHIVE = "RF-HOT.zip"
 PROMOTECH_MODEL = "RF-HOT.model"

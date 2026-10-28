@@ -100,6 +100,7 @@ class ManifestSources:
     calibration: Mapping[str, Any] | None = None  # gippa.data.calibration.load()
     detection_tier: str | None = None  # the tier detection used (genes.tsv, §7.3.2)
     launch: Mapping[str, Any] | None = None  # profile, profile_source, profile_reason (M11-15a)
+    demo: bool = False  # a ``gippa demo`` run (M11-15 item 2): ``demo: true`` in the manifest
 
 
 def canonical_json(obj: Any) -> str:
@@ -453,5 +454,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "launch": dict(src.launch) if src.launch is not None else None,
         **_content(src),
     }
+    if src.demo:  # ordinary runs omit the key (optional in the schema)
+        m["demo"] = True
     m["provenance_digest"] = provenance_digest(provenance_core(m))
     return m

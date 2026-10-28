@@ -355,6 +355,7 @@ def build_report(
         provenance=content.provenance(view, doc, note), extras=content.extras(view, doc),
         warnings=content.summary_warnings(view), snippets=content.snippets(),
         licence_notes=content.licence_notes(doc),
+        demo_banner=content.demo_banner(doc),
         plotlyjs=plotlyjs and Markup(plotlyjs),
         plotly_version=version and version.group(1),
     )  # fmt: skip

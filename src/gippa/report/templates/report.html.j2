@@ -13,6 +13,9 @@
 <body>
 <h1>GIPPA report</h1>
 <p>GIPPA {{ version }}. Every number is shown with its error estimate, or marked {{ "unestimated" }}.</p>
+{% if demo_banner %}
+<div class="alert" role="note" data-demo="true" style="border-left: 4px solid #1f5f99; background: #eef5fc; padding: 0.6em 1em; margin: 0.5em 0 1em;">{{ demo_banner }}</div>
+{% endif %}
 {% for s in sections %}
 <section id="{{ s.id }}">
 <h2>{{ s.heading }}</h2>

@@ -36,6 +36,16 @@ Convert search-engine output to the generic peptide table.
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |
 | `--log-level` | `CHOICE` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | Logging verbosity. |
 
+## gippa demo
+
+Run the bundled synthetic SIM100K demo (no Nextflow, containers, databases or network).
+
+| Option | Type | Default | Choices | Help |
+|---|---|---|---|---|
+| `--outdir` | `PATH` | `gippa-demo` | — | Output directory; must not exist. |
+| `--full` | flag | — | — | After 'gippa setup': the same inputs through 'gippa run' with the real tools, the databases and Nextflow (checks the whole install). |
+| `--open` | flag | — | — | Open the report in a web browser. |
+
 ## gippa makedb
 
 Build an optional strain search database (no FDR is built on it).
@@ -68,7 +78,7 @@ Validate inputs and (unless --profile none) the installed tools.
 | `--annotation` | `FILE` | — | — | bakta.json(.gz), GFF3 or GenBank. |
 | `--outdir` | `PATH` | — | — | Output directory. |
 | `--strict` | flag | — | — | Treat warnings as errors (exit code 3). |
-| `--profile` | `TEXT` | `auto` | — | Also check the tools a run under these profiles needs, as 'gippa run' does (DB directory: $GIPPA_DB_DIR); none: inputs only. Comma-joined from: standard, farmshare, farmshare_local, slurm, apptainer, conda, docker; auto detects one. |
+| `--profile` | `TEXT` | `auto` | — | Also check the tools a run under these profiles needs, as 'gippa run' does (DB directory: $GIPPA_DB_DIR, else the one gippa setup recorded); none: inputs only. Comma-joined from: standard, farmshare, farmshare_local, slurm, apptainer, conda, docker; auto detects one. |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |
@@ -133,7 +143,7 @@ Download databases and models (writes DIR/db_manifest.json).
 
 | Option | Type | Default | Choices | Help |
 |---|---|---|---|---|
-| `--db-dir` | `PATH` | required | — | Database directory. |
+| `--db-dir` | `PATH` | — | — | Database directory [default: $GIPPA_DB_DIR, the one recorded by the last setup, $XDG_DATA_HOME/gippa/db or ~/.local/share/gippa/db]; recorded for run, preflight, makedb. |
 | `--bakta` | `CHOICE` | `light` | `light`, `full`, `skip` | — |
 | `--genomad` / `--no-genomad` | flag | `true` | — | geNOMAD database (non-commercial use). |
 | `--antismash` / `--no-antismash` | flag | `true` | — | antiSMASH databases. |
@@ -151,6 +161,7 @@ Download databases and models (writes DIR/db_manifest.json).
 | `--uniop` | flag | — | — | Fetch UniOP from its authors and build it locally. |
 | `--accept-uniop-terms` | flag | — | — | UniOP has no licence file: you decide that your use is permitted (needed without a TTY). |
 | `--no-uniop` | flag | — | — | Do not build UniOP under --images. |
+| `--yes` | flag | — | — | Do not ask before downloading (no TTY: never asked). |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |
