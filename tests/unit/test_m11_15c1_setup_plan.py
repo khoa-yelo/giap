@@ -55,6 +55,7 @@ from typing import Any, NamedTuple
 
 import pytest
 from click.testing import CliRunner
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools)
@@ -64,8 +65,13 @@ from gippa.setupdb import SOURCES, HttpsFetcher, SourceError
 
 GIB = 1024**3
 KIB = 1024
-HTTPS_ITEMS = ("--bakta", "skip", "--genomad", "--promotech-models", "--no-antismash")
-NO_DBS = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", "--no-antismash")
+# M11-15c2 turns the resource files and the images on by default; the plan tests are about
+# genomad + promotech_models only, so everything else is opted out (opt_outs keeps only the flags
+# the current setup accepts). Tests about images pass --images explicitly.
+_OTHERS = tuple(opt_outs(*NO_RESOURCE_FLAGS))
+HTTPS_ITEMS = ("--bakta", "skip", "--genomad", "--promotech-models", *_OTHERS,
+               *opt_outs("images"))  # fmt: skip
+NO_DBS = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", *_OTHERS)
 PLANNED = ("genomad", "promotech_models")
 HOME_WARNING = (
     "the default DB directory is in your home directory, which usually has a small quota on "

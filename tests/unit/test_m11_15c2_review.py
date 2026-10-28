@@ -69,7 +69,7 @@ def calls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, list[Any
     from gippa.runner import profiles
     from gippa.setupdb import images as img
     from gippa.setupdb import run as srun
-    from gippa.setupdb import uniop_build
+    from gippa.setupdb import space, uniop_build
     from gippa.setupdb.items import DbRecord
 
     log: dict[str, list[Any]] = {"installed": [], "images": [], "uniop": [], "probes": []}
@@ -108,6 +108,9 @@ def calls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, list[Any
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(socket.socket, "connect", deny)
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: HUGE)
+    # subprocess.run is denied, so the plan's best-effort quota probe (15c1) has no quota to read:
+    # a host where quota is not available.
+    monkeypatch.setattr(space, "user_quota", lambda *_a, **_k: {})
     for var in ("GIPPA_DB_DIR", "GIPPA_ROOT", "GIPPA_CONTAINER_RUNTIME", "NXF_APPTAINER_CACHEDIR",
                 "APPTAINER_CACHEDIR", "SINGULARITY_CACHEDIR", "SLURM_CLUSTER_NAME"):  # fmt: skip
         monkeypatch.delenv(var, raising=False)

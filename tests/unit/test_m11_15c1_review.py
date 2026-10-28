@@ -51,6 +51,7 @@ from typing import Any, NamedTuple
 
 import pytest
 from click.testing import CliRunner
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 
 from gippa.cli import cli
 from gippa.exitcodes import ExitCode
@@ -74,8 +75,14 @@ REAL_TOOLRUNNER_RUN = ToolRunner.__dict__["run"]
 
 GIB = 1024**3
 KIB = 1024
-HTTPS_ITEMS = ("--bakta", "skip", "--genomad", "--promotech-models", "--no-antismash")
-NO_DBS = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", "--no-antismash")
+# M11-15c2 turns the resource files and the images on by default; these tests are about genomad
+# + promotech_models (and images only where they pass --images), so the rest is opted out
+# (opt_outs keeps only the flags the current setup accepts). Without --no-images a real
+# subprocess.run would start real image pulls.
+_OTHERS = tuple(opt_outs(*NO_RESOURCE_FLAGS))
+HTTPS_DBS = ("--bakta", "skip", "--genomad", "--promotech-models", *_OTHERS)
+HTTPS_ITEMS = (*HTTPS_DBS, *opt_outs("images"))
+NO_DBS = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", *_OTHERS)
 PLANNED = ("genomad", "promotech_models")
 HOME_WARNING = (
     "the default DB directory is in your home directory, which usually has a small quota on "
@@ -770,7 +777,7 @@ def test_b6_one_quota_call_for_three_places(
         str(proj / "db"),
         "--cache-dir",
         str(home / "cache"),
-        *HTTPS_ITEMS,
+        *HTTPS_DBS,
         "--images",
         "--profile",
         "apptainer",
@@ -853,7 +860,10 @@ def _invoke(args: list[str], answer: str) -> tuple[int, str]:
 
 
 def _uniop_case(db: Path, case: str) -> list[str]:
-    skip = ["--bakta", "skip", "--no-genomad", "--no-promotech-models"]
+    # M11-15c2 turns antiSMASH and the resource files on by default; these cases are about the
+    # images and UniOP, so the rest is opted out (opt_outs: only flags setup accepts).
+    skip = ["--bakta", "skip", "--no-genomad", "--no-promotech-models",
+            *opt_outs(*NO_RESOURCE_FLAGS)]  # fmt: skip
     if case == "images":
         return ["--db-dir", str(db), *skip, "--images", "--profile", "docker"]
     if case == "uniop+images":
@@ -865,6 +875,7 @@ def _uniop_case(db: Path, case: str) -> list[str]:
         "skip",
         "--genomad",
         "--no-promotech-models",
+        *opt_outs(*NO_RESOURCE_FLAGS),
         "--uniop",
         "--profile",
         "docker",
