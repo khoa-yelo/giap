@@ -121,11 +121,12 @@ def test_every_nav_page_exists(cfg: Any) -> None:
         (
             "Get started",
             [
+                "get-started/quickstart.md",
+                "get-started/from-spectra.md",
                 "get-started/install.md",
                 "get-started/upgrade.md",
                 "get-started/setup-databases.md",
                 "get-started/manual-databases.md",
-                "get-started/quickstart.md",
             ],
         ),
         (

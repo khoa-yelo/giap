@@ -43,11 +43,12 @@ extra_javascript:
 nav:
   - Home: index.md
   - Get started:
+      - get-started/quickstart.md
+      - get-started/from-spectra.md
       - get-started/install.md
       - get-started/upgrade.md
       - get-started/setup-databases.md
       - get-started/manual-databases.md
-      - get-started/quickstart.md
   - User guide:
       - user-guide/inputs.md
       - user-guide/run.md
