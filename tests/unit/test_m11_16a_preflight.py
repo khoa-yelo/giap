@@ -15,8 +15,9 @@ generator's TGA-sense genome (``code=4``): the scan reads nucleotides only, and 
 genomes are the same to it (spec item 2.3; the generator gains an explicit code 25 in 16c).
 
 End-to-end runs at tables 4 and 25 set ``mapping.proteins.tblastn_args`` without
-``-db_gencode``: the shipped default still carries ``-db_gencode 11`` until 16d (spec 3.3, D1),
-and item 2.2 refuses it at 4/25.
+``-db_gencode``: the shipped default still carries ``-db_gencode 11`` until 16d (spec 3.3, D1).
+Item 2.2 exempts exactly that default until 16d (the bridge); any other ``-db_gencode`` that
+differs from the table is refused.
 """
 
 from __future__ import annotations
