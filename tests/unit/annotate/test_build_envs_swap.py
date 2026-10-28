@@ -40,6 +40,11 @@ case "$1" in
     n="$(name_of "$@")"
     mkdir -p "$envs/$n/conda-meta" "$envs/$n/bin"
     echo new > "$envs/$n/bin/payload"
+    if [ -e "$FAKE_DIR/hold_create_$n" ] && mkdir "$FAKE_DIR/held" 2>/dev/null; then
+      touch "$FAKE_DIR/in_create"
+      while [ ! -e "$FAKE_DIR/release" ]; do sleep 0.05; done
+      exit 0
+    fi
     if [ -e "$FAKE_DIR/hang_create_$n" ]; then
       touch "$FAKE_DIR/in_create"
       sleep 60 &
@@ -69,6 +74,7 @@ exit 0
 """
 
 FAKE_GIT = r"""#!/bin/bash
+for a in "$@"; do [ -e "$FAKE_DIR/fail_git_$a" ] && exit 1; done
 if [ "$1" = "clone" ]; then for a in "$@"; do last="$a"; done; mkdir -p "$last"; fi
 exit 0
 """
@@ -359,3 +365,237 @@ def test_cuda_build_detection(box: Box, line: str, wants: bool) -> None:
     assert proc.returncode == 0, proc.stdout + proc.stderr
     (create,) = box.creates()
     assert create.endswith("CUDA=11.8" if wants else "CUDA=unset"), create
+
+
+# ---------------------------------------------------------------- #457 review: B1, S1-S4
+
+
+def _shim(box: Box, name: str, match: str, action: str) -> None:
+    """A ``name`` wrapper first on PATH: runs ``action`` once when an argument matches ``match``."""
+    real = shutil.which(name)
+    assert real, name
+    body = f"""#!/bin/bash
+for a in "$@"; do
+  case "$a" in
+    {match})
+      if mkdir "$FAKE_DIR/shim_{name}" 2>/dev/null; then {action}; fi ;;
+  esac
+done
+exec {real} "$@"
+"""
+    path = box.root / "bin" / name
+    path.write_text(body)
+    path.chmod(0o755)
+
+
+_HANG = 'touch "$FAKE_DIR/in_shim"; sleep 60 & wait; exit 1'
+
+
+def _term_at_shim(box: Box, *tools: str) -> subprocess.Popen[bytes]:
+    proc = subprocess.Popen(
+        box.cmd(*tools),
+        cwd=box.repo,
+        env=box.env(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    try:
+        _wait_for(box.fake / "in_shim", proc)
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.wait(timeout=60)
+    finally:
+        if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+    return proc
+
+
+def _wait_for(path: Path, proc: subprocess.Popen[bytes]) -> None:
+    deadline = time.monotonic() + 120
+    while not path.exists():
+        assert proc.poll() is None, proc.communicate()
+        assert time.monotonic() < deadline, f"never reached {path.name}"
+        time.sleep(0.05)
+
+
+def _assert_new(box: Box, tool: str = "bakta", *, locks: bool = True) -> None:
+    prefix = box.prefix(tool)
+    assert (prefix / "bin" / "payload").read_text() == "new\n"
+    assert (prefix / ".gippa-built").read_text().strip() == box.yml_sha(tool)
+    assert not Path(f"{prefix}.gippa-old").exists()
+    if locks:
+        assert "new-2.0-0.conda" in (box.locks / f"{tool}.explicit.txt").read_text()
+        assert (box.locks / f"{tool}.pip.txt").read_text() == "newpkg==2.0\n"
+    assert not list(box.locks.glob(f"{tool}.*.prev")) and not list(box.locks.glob(f"{tool}.*.tmp"))
+
+
+def _leftovers(box: Box, tool: str = "bakta") -> list[str]:
+    return sorted(p.name for p in box.envs.glob(f"gippa-{tool}.gippa-*"))
+
+
+def test_term_while_old_env_is_deleted_keeps_the_new_env(box: Box) -> None:
+    """B1: the old env is renamed to trash before rm -rf; a TERM then never restores it."""
+    box.old_env("bakta")
+    (box.prefix("bakta") / "lib").mkdir()
+    (box.prefix("bakta") / "lib" / "libold.so").write_text("x")
+    _shim(box, "rm", "*.gippa-trash.*", '/bin/rm -rf "$a/lib"; ' + _HANG)
+    proc = _term_at_shim(box, "bakta")
+    assert proc.returncode == 143
+    _assert_new(box)
+    assert not (box.prefix("bakta") / "lib").exists()
+    (box.root / "bin" / "rm").unlink()
+    assert box.run("bakta").returncode == 0  # the next run sweeps the trash
+    assert _leftovers(box) == []
+    _assert_new(box)
+
+
+def test_term_while_locks_move_keeps_new_env_and_heals_locks(box: Box) -> None:
+    """B1: the marker is written before the locks move; the next run re-exports the locks."""
+    box.old_env("bakta")
+    _shim(box, "mv", "*.explicit.txt.tmp", _HANG)
+    proc = _term_at_shim(box, "bakta")
+    assert proc.returncode == 143
+    prefix = box.prefix("bakta")
+    assert (prefix / "bin" / "payload").read_text() == "new\n"
+    assert (prefix / ".gippa-built").read_text().strip() == box.yml_sha("bakta")
+    (box.root / "bin" / "mv").unlink()
+    assert box.run("bakta").returncode == 0
+    _assert_new(box)
+    assert _leftovers(box) == []
+
+
+@pytest.mark.parametrize("impl", ["flock", "mkdir"])
+def test_second_build_of_one_env_waits_out_the_first(box: Box, impl: str) -> None:
+    """S1: a second build of an env that is being built fails at once and touches nothing."""
+    extra = {"GIPPA_BUILD_LOCK": "mkdir"} if impl == "mkdir" else {}
+    box.old_env("bakta")
+    box.flag("hold_create", "bakta")
+    first = subprocess.Popen(
+        box.cmd("bakta"),
+        cwd=box.repo,
+        env=box.env(**extra),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        _wait_for(box.fake / "in_create", first)
+        box.flag("fail_create", "bakta")  # the second build's solve would fail
+        second = box.run("bakta", **extra)
+        assert second.returncode == 1
+        assert "another build holds the lock" in second.stderr
+        assert "restored" not in second.stderr
+        old = Path(f"{box.prefix('bakta')}.gippa-old")
+        assert (old / "bin" / "payload").read_text() == "old\n", "the first build was disturbed"
+        assert (box.prefix("bakta") / "conda-meta").is_dir()
+        (box.fake / "fail_create_gippa-bakta").unlink()
+        (box.fake / "release").write_text("")
+        out, err = first.communicate(timeout=120)
+    finally:
+        if first.poll() is None:
+            first.kill()
+            first.wait()
+    assert first.returncode == 0, (out + err).decode()
+    _assert_new(box)
+    assert box.run("bakta", **extra).returncode == 0, "the lock was not released"
+
+
+def test_stale_mkdir_lock_of_a_dead_build_is_taken_over(box: Box) -> None:
+    lock = box.envs / ".gippa-bakta.gippa-lock.d"
+    lock.mkdir(parents=True)
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    (lock / "pid").write_text(f"{dead.pid}\n")
+    proc = box.run("bakta", GIPPA_BUILD_LOCK="mkdir")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not lock.exists()
+
+
+def test_leftover_old_env_is_reconciled_without_nesting(box: Box) -> None:
+    """S2: with a leftover .gippa-old, a successful rebuild must not nest the env inside it."""
+    box.old_env("bakta")
+    prefix = box.prefix("bakta")
+    prefix.rename(f"{prefix}.gippa-old")
+    (prefix / "conda-meta").mkdir(parents=True)  # half-built, no marker
+    proc = box.run("bakta")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    _assert_new(box)
+    assert not (prefix / "gippa-bakta").exists()
+    assert _leftovers(box) == []
+
+
+def _fgsea(box: Box) -> str:
+    lock = (
+        "@EXPLICIT\nhttps://conda.anaconda.org/conda-forge/linux-64/new-2.0-0.conda#gippa-fgsea\n"
+    )
+    box.version("fgsea", "[1] \u20181.36.2\u2019")  # R prints curly quotes
+    prefix = box.prefix("fgsea")
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "bin" / "payload").write_text("old\n")
+    (prefix / ".gippa-built").write_text("0" * 64 + "\n")
+    (box.locks / "fgsea.explicit.txt").write_text(lock)
+    return lock
+
+
+def test_frozen_rebuild_removes_the_old_env(box: Box) -> None:
+    """S3: the frozen path retires the old env too, and never rewrites the committed lock."""
+    lock = _fgsea(box)
+    proc = box.run("fgsea")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    _assert_new(box, "fgsea", locks=False)
+    assert _leftovers(box, "fgsea") == []
+    assert (box.locks / "fgsea.explicit.txt").read_text() == lock
+    assert not (box.locks / "fgsea.pip.txt").exists()
+
+
+def test_failed_frozen_rebuild_keeps_old_env_and_lock(box: Box) -> None:
+    lock = _fgsea(box)
+    box.flag("fail_version", "fgsea")
+    assert box.run("fgsea").returncode == 1
+    prefix = box.prefix("fgsea")
+    assert (prefix / "bin" / "payload").read_text() == "old\n"
+    assert _leftovers(box, "fgsea") == []
+    assert (box.locks / "fgsea.explicit.txt").read_text() == lock
+
+
+@pytest.mark.parametrize("step", ["clone", "checkout"])
+def test_failed_git_step_keeps_old_env(box: Box, step: str) -> None:
+    """S3: a failed clone or checkout of a git-pinned tool's source keeps the old env."""
+    from gippa.annotate.tools import TOOLS
+
+    box.version("uniop", TOOLS["uniop"].version.removeprefix("git:"))
+    box.old_env("uniop")
+    (box.fake / f"fail_git_{step}").write_text("")
+    assert box.run("uniop").returncode == 1
+    _assert_old_kept(box, "uniop")
+
+
+@pytest.mark.parametrize("which", ["explicit", "pip"])
+def test_failed_lock_move_keeps_old_env_and_locks(box: Box, which: str) -> None:
+    """S4: a lock that cannot be moved fails the tool before the old env is deleted."""
+    box.old_env("bakta")
+    _shim(box, "mv", f"*.{which}.txt.tmp", "exit 1")
+    proc = box.run("bakta")
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    _assert_old_kept(box, "bakta")
+    assert not list(box.locks.glob("bakta.*.prev"))
+
+
+def test_next_run_sweeps_trash_left_by_a_killed_delete(box: Box) -> None:
+    """B1: a SIGKILL mid-delete leaves ``.gippa-trash.<pid>``; the next build removes it."""
+    trash = box.envs / "gippa-bakta.gippa-trash.12345"
+    (trash / "lib").mkdir(parents=True)
+    assert box.run("bakta").returncode == 0
+    assert _leftovers(box) == []
+
+
+def test_lock_left_aside_by_a_killed_swap_is_put_back(box: Box) -> None:
+    """A kill mid-swap leaves ``<lock>.prev``; a later failed run puts it back, never loses it."""
+    box.old_env("bakta")
+    _shim(box, "mv", "*.explicit.txt.tmp", _HANG)
+    assert _term_at_shim(box, "bakta").returncode == 143
+    (box.root / "bin" / "mv").unlink()
+    box.flag("fail_version", "bakta")
+    assert box.run("bakta").returncode == 1
+    assert (box.locks / "bakta.explicit.txt").read_text() == OLD_LOCK
+    assert not list(box.locks.glob("bakta.*.prev"))
