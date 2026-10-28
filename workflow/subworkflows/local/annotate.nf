@@ -75,6 +75,7 @@ workflow ANNOTATE {
 
     def bjson = channel.empty()
     def gbff = null   // null: no GBFF (precomputed bakta_json alone) -> antiSMASH skipped
+    def tool_dirs = []   // M11-18: BAKTA's tools/bakta -> annotation/tools/bakta/; none if precomputed
     if (pc.bakta_json) {
         bjson = channel.value(file(pc.bakta_json, checkIfExists: true))
         // the GBFF next to x.json / x.json.gz (any case): x.gbff, else x.gbff.gz
@@ -88,6 +89,7 @@ workflow ANNOTATE {
         BAKTA(gin.combine(replicons), bdb, ann.bakta.complete, rg)
         bjson = BAKTA.out.json
         gbff = BAKTA.out.gbff
+        tool_dirs = [kv('tool_dirs', BAKTA.out.tool_dir)]
     }
     def pb = stepIn('parse_bakta', [kv('bakta_json', bjson), kv('genome', genome)])
     PARSE_BAKTA(pb.files, pb.keys, ['genes=genes.parquet', 'features=features.parquet',
@@ -248,7 +250,7 @@ workflow ANNOTATE {
     layers += [kv('regions', c7), kv('region_genes', c8)]
     ev += [REGION_LAYER.out.events]
 
-    def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
+    def cl = stepIn('context_layers', core + layers + tool_dirs + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
     def layers_pq = pick(CONTEXT_LAYERS.out.outputs, 'layers.parquet')
     ev += [CONTEXT_LAYERS.out.events]

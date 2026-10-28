@@ -35,10 +35,9 @@ METADATA: dict[str, dict[str, Any]] = {
     "pdf": {"CreationDate": None, "ModDate": None},
     "png": {"Software": None},
 }
-#: fixed SVG id salt (``gippa.viz.style`` sets the same value)
-#: the pre-rename salt stays: a new salt changes every SVG id (ADR-0064 item 7); the hashed ids
-#: are renumbered by ``stable_svg_ids`` anyway
-HASHSALT = "giap"
+#: fixed SVG id salt (``gippa.viz.style`` sets the same value); the hashed ids are renumbered by
+#: ``stable_svg_ids``, so the salt never reaches a written SVG (ADR-0064 item 7, amended)
+HASHSALT = "gippa"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 #: matplotlib's hashed SVG ids (clip paths, markers, hatches) and their renamed stems
 _HASHED_ID = re.compile(rb'id="([pmh][0-9a-f]{10})"')

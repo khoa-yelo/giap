@@ -72,6 +72,7 @@ from gippa.preflight.evidence import (
     protein_checks,
     tier_check,
 )
+from gippa.preflight.gbff import bgc_gbff_check
 from gippa.preflight.genetic_code import genetic_code_check
 from gippa.preflight.genome import (
     classify_replicons,
@@ -450,11 +451,13 @@ def run_preflight(
     env = _with_uniop(env, uniop)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)
+    gbff = bgc_gbff_check(cfg, inp.annotation)
     checks = [
         *inputs_checks(
             inp.peptides is not None, inp.proteins is not None, n_usable_peptides=n_usable
         ),
         *([_annotation_check(inp.annotation)] if inp.annotation is not None else []),
+        *([gbff] if gbff is not None else []),
         _translation_table_check(cfg.annotation.translation_table),
         *checks_genome,
         genetic_code_check([r.sequence for r in genome], cfg.annotation.translation_table),

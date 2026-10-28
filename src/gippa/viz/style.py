@@ -91,7 +91,7 @@ RC: Mapping[str, Any] = MappingProxyType(
         "legend.fontsize": 6,
         "figure.titlesize": 8,
         "svg.fonttype": "none",
-        "svg.hashsalt": "giap",  # the pre-rename salt stays (ADR-0064 item 7)
+        "svg.hashsalt": "gippa",  # ids are renumbered on write (ADR-0064 item 7, amended)
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
         "path.simplify": True,

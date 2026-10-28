@@ -11,7 +11,7 @@ import os
 import shutil
 import socket
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import cache
 from pathlib import Path
 
@@ -333,6 +333,20 @@ _OUTER_GUARD = os.environ.get("GIPPA_TEST_CONTAINER_GUARD")  # helpers.container
 # a toy left behind by a killed run is never collected (its opt-out test would pull for real).
 if not os.environ.get("GIPPA_TEST_CONTAINER_GUARD_TOY"):
     collect_ignore_glob = ["*/test_zz_container_guard_toy_*"]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _container_guard_paths(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """The directory ``helpers.container_guard.guarded_path`` writes into. Session-scoped and
+    autouse, so it is set before any module-scoped fixture calls a helper with its own PATH."""
+    try:
+        from helpers.container_guard import set_session_dir
+    except ImportError:
+        yield
+        return
+    set_session_dir(tmp_path_factory.mktemp("container_guard_paths"))
+    yield
+    set_session_dir(None)
 
 
 @pytest.fixture(scope="session")
