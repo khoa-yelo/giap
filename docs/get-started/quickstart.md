@@ -93,7 +93,7 @@ geNOMAD (module mobile) is for non-commercial use only; for commercial use: gipp
 KEGG is free for academic use only; for other use: gippa setup --no-kegg
 ```
 
-Every item has an opt-out flag, such as `--no-genomad`. See
+Every item has an opt-out flag, such as `--no-genomad`, and `--no-images` skips the images. See
 [Set up the databases](setup-databases.md) for the flags, and [Licences](../user-guide/licences.md)
 for the terms of each tool and database.
 
