@@ -1,9 +1,9 @@
 """ANNOTATE py step calls follow the step registry (M2-07 decision 1, PR #65 review).
 
-Every ``GIAP_STEP`` alias call in ``workflow/subworkflows/local/annotate.nf`` whose step is
-registered in ``giap.steps`` (``load_step_modules``) must declare exactly the registry's output
+Every ``GIPPA_STEP`` alias call in ``workflow/subworkflows/local/annotate.nf`` whose step is
+registered in ``gippa.steps`` (``load_step_modules``) must declare exactly the registry's output
 keys. Input keys depend on the channel wiring, so they are checked at run time by
-``workflow/tests/annotate.nf.test`` (every ``.giap_inputs`` against
+``workflow/tests/annotate.nf.test`` (every ``.gippa_inputs`` against
 ``workflow/tests/data/annotate/step_registry.json``); here that fixture must equal the live
 registry, so the nf-test always checks the current contract. No Nextflow needed.
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.steps import load_step_modules
-from giap.steps.registry import all_steps
+from gippa.steps import load_step_modules
+from gippa.steps.registry import all_steps
 
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
@@ -70,7 +70,7 @@ def test_step_registry_fixture_equals_the_live_registry() -> None:
     want = _registry()
     got = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert got == want, (
-        "regenerate workflow/tests/data/annotate/step_registry.json from giap.steps "
+        "regenerate workflow/tests/data/annotate/step_registry.json from gippa.steps "
         "(py steps: sorted inputs, optional_inputs, outputs)"
     )
 

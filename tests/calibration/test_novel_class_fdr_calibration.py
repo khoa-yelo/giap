@@ -1,7 +1,7 @@
-"""Statistics-only calibration of the M7-11 novel-ORF class FDR (GIAP_SPEC.md §7.6.4, §8.4 row
+"""Statistics-only calibration of the M7-11 novel-ORF class FDR (GIPPA_SPEC.md §7.6.4, §8.4 row
 "Novel-ORF class FDR"; docs/specs/M7-11-novel-class-fdr.md; ADR-0009, ADR-0010, ADR-0015).
 
-A fast check on synthetic lists, one per regime; the giapsim suite with planted ORFs, false
+A fast check on synthetic lists, one per regime; the gippasim suite with planted ORFs, false
 peptides and de novo errors (and the two new attacks) is M7-13's. Criterion: mean FDP over R
 replicates <= q + 2 SE at q in ``levels``; R = ``replicates_fast.novel_orfs`` (full:
 ``replicates_full.novel_orfs``), suite ``novel_orfs``, two-block confirmation via
@@ -40,7 +40,7 @@ from helpers.novel_fdr_fixture import (
     q_of,
 )
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
@@ -56,7 +56,7 @@ CLASSES = tuple(CLASS_SIZES)
 
 
 def _fdr():  # type: ignore[no-untyped-def]
-    import giap.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
+    import gippa.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
 
     return m
 

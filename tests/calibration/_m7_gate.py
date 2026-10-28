@@ -1,6 +1,6 @@
 """Matching helpers of the M7 variants gate (docs/specs/M7-13-calibration-gate.md rules 3, 4, 9;
 interface pinned in ``test_m7_gate_helpers.py``). Pure functions: written ``variants.tsv`` and
-giapsim truth frames in, integer counts out. Coordinates are the 1-based lowest base of the codon,
+gippasim truth frames in, integer counts out. Coordinates are the 1-based lowest base of the codon,
 as both ``variants.tsv`` and ``truth/alt_sites.tsv`` write them (spec "Degenerate cases": minus
 strand).
 """
@@ -17,7 +17,7 @@ import pandas as pd
 GATE_R: Mapping[str, int] = MappingProxyType({"fast": 10, "full": 300})
 #: rule 4: a codon within this many nt of an indel junction is masked
 INDEL_MASK_NT = 3
-#: giapsim de novo error types that are mass-equivalent (``near_block`` and ``swap`` are not)
+#: gippasim de novo error types that are mass-equivalent (``near_block`` and ``swap`` are not)
 ISOBARIC_ERRORS: frozenset[str] = frozenset({"block", "modification"})
 
 PRED_COLUMNS = ("contig", "codon_start", "strand", "alt_aa", "mass_equivalent")

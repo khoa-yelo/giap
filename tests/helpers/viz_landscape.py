@@ -4,7 +4,7 @@ Genes are placed by their 0-based midpoint ``mid`` (``(start0 + end) / 2``): the
 1-based closed row is ``start = mid - half + 1``, ``end = mid + half``. Tables are written with
 ``helpers.viz_out_tree.write_schema_table`` under the ``genes``, ``islands`` and
 ``autocorrelation`` schemas; ``preflight/preflight.json`` carries the replicons in FASTA order.
-Nothing here touches ``$GIAP_DB_DIR`` or the network.
+Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -230,7 +230,7 @@ def lowess_oracle(
 ) -> np.ndarray:
     """statsmodels ``lowess(it=0, delta=0)`` with M5-01's span ``k = min(n, max(3, ⌈frac·n⌉))``;
     a circular series is padded with its last and first ``k`` points shifted by ``∓period`` and
-    the middle ``n`` fits are returned. Independent of ``giap.stats.smooth``."""
+    the middle ``n`` fits are returned. Independent of ``gippa.stats.smooth``."""
     from statsmodels.nonparametric.smoothers_lowess import lowess
 
     x = np.asarray(pos, dtype=float)
@@ -248,15 +248,15 @@ def lowess_oracle(
 
 
 def plot_spec(pid: str):  # type: ignore[no-untyped-def]
-    """The registered ``PlotSpec`` of ``pid`` after importing every ``giap.viz`` module (the
+    """The registered ``PlotSpec`` of ``pid`` after importing every ``gippa.viz`` module (the
     ``plots`` step discovers plots the same way), so the tests do not fix a module name."""
     import importlib
     import pkgutil
 
-    import giap.viz
-    from giap.viz import base
+    import gippa.viz
+    from gippa.viz import base
 
-    for info in pkgutil.walk_packages(giap.viz.__path__, prefix="giap.viz."):
+    for info in pkgutil.walk_packages(gippa.viz.__path__, prefix="gippa.viz."):
         importlib.import_module(info.name)
     return base.registered()[pid]
 

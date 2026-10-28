@@ -1,7 +1,7 @@
 """Promoter windows, chunks, Promotech command/writer/parser, layer and BED (issue M2-13).
 
 Spec: docs/specs/M2-13-promoter-windows-promotech.md examples 1-6, 9, 10 and edge cases;
-GIAP_SPEC.md §7.1.1 (Promotech row and gotcha), §7.1.4, §6.5 (BED, origin split). Lead decision
+GIPPA_SPEC.md §7.1.1 (Promotech row and gotcha), §7.1.4, §6.5 (BED, origin split). Lead decision
 M2-13 Q1 / index 5: headers ``w<index>`` over unique sequences in first-seen order plus a map frame;
 ``k = 0`` ends right before the start codon.
 
@@ -20,8 +20,8 @@ import pandas as pd
 import pytest
 from helpers.promoter_oracle import api, oracle_windows, revcomp
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 L = 100_000
 _RNG = random.Random(1307)
@@ -220,7 +220,7 @@ def test_dedupe_and_write_are_deterministic(tmp_path: Path) -> None:
 
 
 def test_promotech_command_targeted_rf_hot() -> None:
-    from giap.annotate.promotech_cmd import promotech_command
+    from gippa.annotate.promotech_cmd import promotech_command
 
     home, chunk, out = Path("/env/share/promotech"), Path("/w/windows_000.fa"), Path("/w/p000")
     cmd = promotech_command(chunk, out, home)
@@ -303,7 +303,7 @@ def _bed(rows: list[tuple[str, str, int, float]], reps: dict | None = None) -> l
 
 
 def test_example9_overlapping_windows_merge_with_max_score() -> None:
-    from giap.io.bed import bed_lines
+    from gippa.io.bed import bed_lines
 
     (rec,) = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1010, 0.9)])
     assert bed_lines(rec, CHR1) == ["chr1\t960\t1010\tpromoter_1\t900\t+"]
@@ -343,7 +343,7 @@ def test_bed_numbering_follows_genome_order() -> None:
 
 
 def test_bed_origin_crossing_record_splits_into_parts() -> None:
-    from giap.io.bed import bed_lines
+    from gippa.io.bed import bed_lines
 
     (rec,) = _bed([("chr1", "+", 20, 0.8)])  # window [-20, 20) -> unwrapped [99980, 100020)
     assert (rec.interval.start, rec.interval.end) == (99980, 100020)
@@ -360,14 +360,14 @@ def test_bed_origin_crossing_record_splits_into_parts() -> None:
 def test_promoter_steps_are_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     import importlib
 
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     monkeypatch.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     for n in ("promoter_windows", "promoter_layer"):
         spec = reg.get(n)
         assert (spec.kind, spec.module) == ("py", "core")

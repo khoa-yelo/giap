@@ -17,9 +17,9 @@ import pandas as pd
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.rng import for_step
-from giap.stats.bootstrap import circular_block_bootstrap, tu_block_bootstrap
-from giap.stats.robust import hodges_lehmann
+from gippa.rng import for_step
+from gippa.stats.bootstrap import circular_block_bootstrap, tu_block_bootstrap
+from gippa.stats.robust import hodges_lehmann
 
 FAST = settings(max_examples=100, deadline=None)
 

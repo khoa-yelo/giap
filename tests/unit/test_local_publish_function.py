@@ -2,7 +2,7 @@
 
 docs/specs/M8-06-function-step-and-run.md, "Publishing (M6-08 decision 7)": only the three
 ``tables/*.tsv`` files and ``genetable/tu_folds.parquet`` are named, and
-``giap.runner.local.PUBLISHED_FILES`` gains the same four keys (``test_local_publish_names.py``
+``gippa.runner.local.PUBLISHED_FILES`` gains the same four keys (``test_local_publish_names.py``
 pins them against the Nextflow names).
 """
 
@@ -22,13 +22,13 @@ WANT = {
 
 @pytest.mark.parametrize("key", sorted(WANT))
 def test_published_files_name_the_function_outputs(key: str) -> None:
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     assert PUBLISHED_FILES.get(key) == WANT[key], (key, PUBLISHED_FILES.get(key))
 
 
 def test_publish_copies_function_outputs_to_their_names(tmp_path: Path) -> None:
-    from giap.runner.local import publish
+    from gippa.runner.local import publish
 
     work, out = tmp_path / "work", tmp_path / "OUT"
     work.mkdir()
@@ -43,7 +43,7 @@ def test_publish_copies_function_outputs_to_their_names(tmp_path: Path) -> None:
 def test_function_off_publishes_no_function_table(tmp_path: Path) -> None:
     """Spec §9.1 "Optional modules that are switched off write no files": nothing in work/,
     nothing published."""
-    from giap.runner.local import publish
+    from gippa.runner.local import publish
 
     work, out = tmp_path / "work", tmp_path / "OUT"
     work.mkdir()

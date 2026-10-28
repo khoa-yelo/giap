@@ -1,6 +1,6 @@
 """M5-06 islands: spec examples, the degenerate-case table and the lead decisions.
 
-docs/specs/M5-06-islands.md (GIAP_SPEC.md §7.3.5(d) steps 1-10, §9.3 ``tables/islands.tsv``),
+docs/specs/M5-06-islands.md (GIPPA_SPEC.md §7.3.5(d) steps 1-10, §9.3 ``tables/islands.tsv``),
 ADR-0021 with Amendment 1 (block length l' = min(20, 2 l-hat + 1, T); ``uncalibrated`` dropped,
 the run report carries l-hat, l' and the lag-1 Moran's I instead) and lead decisions 21-27 and
 40-51. Inputs are hand-built §9.3 gene tables with the
@@ -20,7 +20,7 @@ monkeypatched below).
 Adaptations of the examples, with the reason:
 
 * examples 4-5 are tested on hand-built 600-TU replicons, where a planted island is found at
-  ``stats.alpha.context`` for every seed tried; on giapsim they need ``detection = "abundance"``
+  ``stats.alpha.context`` for every seed tried; on gippasim they need ``detection = "abundance"``
   and a much larger shift (test_islands_sim.py), because ~45 % of genes are censored independently
   of abundance there (ADR-0021 "Power").
 * example 6 keeps its structure (two overlapping significant high windows merge into one island
@@ -51,19 +51,19 @@ from islands_data import Contig
 
 
 def _isl() -> Any:
-    from giap.context import islands
+    from gippa.context import islands
 
     return islands
 
 
 def _rng(seed: int = 11) -> Any:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(idat.STEP, seed)
 
 
 def _ix(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
-    from giap.context.regions import replicon_index
+    from gippa.context.regions import replicon_index
 
     return replicon_index(genes, contig)
 
@@ -404,7 +404,7 @@ def test_family_is_the_genome_wide_maximum_over_scanned_replicons() -> None:
     every scanned replicon, so each replicon's p-values are at least the p-values its own maximum
     would give; with k scanned replicons (read from ``IslandScan.scanned``) a per-replicon family
     would leave the run-level rate at 1 - (1 - alpha)^k instead."""
-    from giap.stats.scan import fwer_p
+    from gippa.stats.scan import fwer_p
 
     genes, tus, reps = idat.frames(
         [_bump("chr1", 200, {(40, 48): 2.0}), _bump("p1", 60, {(5, 9): 2.0})]
@@ -424,7 +424,7 @@ def test_family_is_the_genome_wide_maximum_over_scanned_replicons() -> None:
 def test_negative_s_is_passed_as_abs_to_fwer_p() -> None:
     """Decision 42: ``fwer_p`` raises on a negative |S|, so the step passes ``np.abs(res.s)``;
     low windows get the p of their mirror."""
-    from giap.stats.scan import fwer_p
+    from gippa.stats.scan import fwer_p
 
     genes, tus, reps = idat.frames([_bump("chr1", 200, {(40, 48): -3.0})])
     cfg = idat.config(alpha=1.0)
@@ -535,7 +535,7 @@ def test_max_tus_above_t_is_capped_by_the_engine() -> None:
 def test_block_length_follows_adr0021() -> None:
     """ADR-0021 decision 1: l' = min(20, 2 l-hat + 1, T), l-hat from ``choose_block_len`` on the
     detrended scores with the gene-label null at the literal 0.05 (decision 24)."""
-    from giap.stats.autocorr import block_len_prime, choose_block_len
+    from gippa.stats.autocorr import block_len_prime, choose_block_len
 
     genes, tus, reps = idat.frames([_bump("chr1", 200, {(40, 48): 2.0})])
     cfg = idat.config(alpha=1.0)
@@ -565,7 +565,7 @@ def test_run_report_carries_l_hat_block_len_and_lag1_moran() -> None:
     """Decision 48: the §9.4 run report needs l-hat, l' (``block_len``) and the lag-1 Moran's I of
     the detrended TU scores per replicon, so ``IslandScan`` exposes all three (0 / NaN for a
     replicon that is not scanned)."""
-    from giap.stats.autocorr import block_len_prime, morans_i
+    from gippa.stats.autocorr import block_len_prime, morans_i
 
     genes, tus, reps = idat.frames([_bump("chr1", 200, {(40, 48): 2.0}), _bump("p1", 3, {})])
     cfg = idat.config(alpha=1.0)

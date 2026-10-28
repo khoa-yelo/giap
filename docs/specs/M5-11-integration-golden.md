@@ -3,7 +3,7 @@
 Milestone M5 · track T · depends on: M5-01 … M5-10; **M4-20** (fixture builder, golden `sim50k`) ·
 estimate ≈ 100 code lines (fixture extension) (+ ≈ 250 test lines + committed golden TSVs) · **not
 statistical** · **Slurm:** the full calibration array tasks `autocorrelation` and `islands` and the power
-grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
+grid (M5-07) run as `gippa-` jobs; nothing heavy in the session allocation
 
 ## Spec sections implemented
 
@@ -16,7 +16,7 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 
 ## Interface
 
-- `tests/sim/giapsim/fixtures.py` (tooling): `build_m4_fixture(..., oric_frac: float | None = 0.8,
+- `tests/sim/gippasim/fixtures.py` (tooling): `build_m4_fixture(..., oric_frac: float | None = 0.8,
   islands: Sequence[IslandSpec] = ())` — the M4-20 builder also writes `features.parquet` (C15) and can
   plant islands; `sim50k` keeps its M4 golden files byte-identical (the oriC is a new file; the gradient
   stays 0).
@@ -44,8 +44,8 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 - [ ] Benchmarks (`benchmarks/test_context_m5.py`): `context_stats` M5 part on the 4,500-gene fixture
   (B = 1,000): wall time and peak memory recorded in `benchmarks/baseline.json`; budget < 2 min on 4 CPUs.
 - [ ] Gate evidence in PROGRESS.md: Slurm job IDs and results of the full `islands` and `autocorrelation`
-  array tasks on main, the power table (M5-07), coverage of `giap.context.{autocorrelation,islands,oriter}`
-  and `giap.stats.{scores,smooth,autocorr,scan}` ≥ 90 %, methods notes `autocorrelation.md`,
+  array tasks on main, the power table (M5-07), coverage of `gippa.context.{autocorrelation,islands,oriter}`
+  and `gippa.stats.{scores,smooth,autocorr,scan}` ≥ 90 %, methods notes `autocorrelation.md`,
   `islands.md`, `oriter.md` signed off.
 - [ ] `docs/backlog.md` "M5 autocorrelation and islands" ticked with the PR links.
 
@@ -61,7 +61,7 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 39. Q1, Q2: accept; check the `sim1000_island` golden (+3 SD, 20 TUs) against ℓ' before freezing it.
 
 ## Lead decisions on the tests (2026-10-22, after fc34e31)
-40. **Island golden.** Decision 39's `sim1000_island` reports no island under giapsim's default
+40. **Island golden.** Decision 39's `sim1000_island` reports no island under gippasim's default
     `covariates_only` detection (even at +10 SD; ~45 % of genes censored regardless of abundance, the
     ADR-0018 lesson) and is marginal under `detection="abundance"` (FWER p ≥ 0.035). The golden is
     `sim4500_island` (oriC 0.8, one +3 SD island of 20 TUs, `detection="abundance"`), where the planted
@@ -84,7 +84,7 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
     sklearn lbfgs detectability fit, which differs across BLAS builds in the 4th–6th significant
     digit (CI ubuntu 3.11 / macOS 3.12 vs Slurm); observed counts, p and q agree everywhere. Same
     pattern as M4-20 decision 9. The golden is never regenerated on a CI runner.
-45. NITs N1, N2, N6 and the N3 fixture pins are fixed by the lead in this round; N4 (the `giap-bench`
+45. NITs N1, N2, N6 and the N3 fixture pins are fixed by the lead in this round; N4 (the `gippa-bench`
     script) and the gate evidence (the full `autocorrelation` record, `calibration_full.sbatch
     --array=4`) go to the backlog and PROGRESS.md.
 

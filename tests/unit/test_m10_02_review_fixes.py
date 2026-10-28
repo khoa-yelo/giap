@@ -19,7 +19,7 @@ One section per finding, with the lead's decisions:
   from) is missing or differs, and is unpacked to a temporary file and renamed (tested with a
   ``gzip``/``gunzip`` on PATH that fails partway, so the unpack must go through one of them).
 * N1: ``FAILED`` never records exit code 0 (a step that exits 0 but writes no output);
-  N2: a broken ``GIAP_PYTHON`` is named; N5: a step-1 rerun removes the old ``<arm>.log.txt``.
+  N2: a broken ``GIPPA_PYTHON`` is named; N5: a step-1 rerun removes the old ``<arm>.log.txt``.
 * Test gaps: A1 and A2 get different ``--temp`` directories and nothing appears under
   ``RAW_DIR``; a stale ``quant/`` is emptied before step 2; ``outputs.sha256`` leaves out the
   job's own records (``command_step*.txt`` and the rest).
@@ -376,7 +376,7 @@ def test_n1_failed_never_records_exit_code_0(
 
 
 @pytest.mark.parametrize("kind", ["missing", "not-executable", "broken"])
-def test_n2_a_broken_giap_python_is_named(m10: M10Sandbox, kind: str) -> None:
+def test_n2_a_broken_gippa_python_is_named(m10: M10Sandbox, kind: str) -> None:
     py = m10.sb.tmp / "badpy" / "python"
     py.parent.mkdir()
     if kind == "not-executable":
@@ -386,8 +386,8 @@ def test_n2_a_broken_giap_python_is_named(m10: M10Sandbox, kind: str) -> None:
         py.write_text("#!/bin/sh\necho 'python: error while loading shared libraries' >&2\n"
                       "exit 127\n")  # fmt: skip
         py.chmod(0o755)
-    msg = _rc(_run(m10, GIAP_PYTHON=str(py)), 2)
-    assert "GIAP_PYTHON" in msg, f"the message must name GIAP_PYTHON:\n{msg}"
+    msg = _rc(_run(m10, GIPPA_PYTHON=str(py)), 2)
+    assert "GIPPA_PYTHON" in msg, f"the message must name GIPPA_PYTHON:\n{msg}"
     assert not m10.searches()
 
 

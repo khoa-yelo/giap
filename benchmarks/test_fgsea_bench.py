@@ -13,8 +13,8 @@ from typing import Any
 import numba
 import numpy as np
 
-from giap.rng import for_step
-from giap.stats.fgsea import fgsea_simple, prepare
+from gippa.rng import for_step
+from gippa.stats.fgsea import fgsea_simple, prepare
 
 from ._unit_helpers import timed
 

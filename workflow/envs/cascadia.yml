@@ -1,5 +1,5 @@
-# Cascadia 0.0.7 for the A3 de novo pilot only (M10-08; GIAP_SPEC.md §15.1; ADR-0054 = ADR-M10-B).
-# Not a pipeline tool: giap.annotate.tools.PILOT_TOOLS (`build_envs.sh cascadia`, never `all`).
+# Cascadia 0.0.7 for the A3 de novo pilot only (M10-08; GIPPA_SPEC.md §15.1; ADR-0054 = ADR-M10-B).
+# Not a pipeline tool: gippa.annotate.tools.PILOT_TOOLS (`build_envs.sh cascadia`, never `all`).
 # Source: PyPI only (0.0.7 uploaded 2025-02-14; no git tag, no GitHub release); homepage
 #   https://github.com/Noble-Lab/cascadia. Licence: Apache-2.0 (code; weights per the paper).
 # Wheel cascadia-0.0.7-py3-none-any.whl sha256 (PyPI JSON, read 2026-10-24):
@@ -15,7 +15,7 @@
 # ModuleNotFoundError at import, 2026-10-24).
 # lxml>=5.4 refuses network entities (no silent Unimod fetch if a resolver is missed).
 # Locks: workflow/envs/locks/cascadia.{explicit,pip}.txt, written by build_envs.sh.
-name: giap-cascadia
+name: gippa-cascadia
 channels:
   - conda-forge
 dependencies:

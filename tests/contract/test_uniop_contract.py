@@ -1,6 +1,6 @@
-"""Contract test: ``uniop.pred`` parser on recorded UniOP runs (M2-12; GIAP_SPEC.md §5.4, §7.1.1).
+"""Contract test: ``uniop.pred`` parser on recorded UniOP runs (M2-12; GIPPA_SPEC.md §5.4, §7.1.1).
 
-Active since M2-21: real UniOP runs (pin 3ed14dfc, built ``giap-uniop`` env, run as a process; lead
+Active since M2-21: real UniOP runs (pin 3ed14dfc, built ``gippa-uniop`` env, run as a process; lead
 decision 3 after the PR #49 review) under ``tests/data/recorded/uniop/3ed14dfc/sim100k/`` (complete)
 and ``k12/`` (first 300 genes of the K-12 recording). Each directory holds the exact
 input GFF written by ``write_prodigal_gff`` (``*.gff``), UniOP's ``uniop.pred``, ``uniop_map.tsv``
@@ -48,7 +48,7 @@ def _gff(path: Path) -> list[tuple[str, str, int, str]]:
 
 
 def _files(sample: Path) -> tuple[Path, Path, dict[str, str]]:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     gffs = sorted(sample.glob("*.gff"))
     pred = sample / "uniop.pred"
@@ -88,7 +88,7 @@ def test_recorded_uniop_pred_layout_follows_uniop_gene_order(sample: Path) -> No
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[p.name for p in SAMPLES])
 def test_recorded_uniop_pred_parses_to_adjacent_pairs(sample: Path) -> None:
-    from giap.annotate.uniop_adapter import parse_uniop_pred
+    from gippa.annotate.uniop_adapter import parse_uniop_pred
 
     gff, pred, id_map = _files(sample)
     rows = _gff(gff)

@@ -1,5 +1,5 @@
 """Properties of ``novel_orf_power(..., n_per_class)`` (M7-12 lead decision 26; PR #225;
-GIAP_SPEC.md §7.6.6, §8.4). Interface in tests/unit/test_sim_m7_gate_count.py.
+GIPPA_SPEC.md §7.6.6, §8.4). Interface in tests/unit/test_sim_m7_gate_count.py.
 
 For any seed, size and count:
 
@@ -23,9 +23,9 @@ CLASSES4 = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
 
 
 def sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 @settings(max_examples=50, deadline=None)

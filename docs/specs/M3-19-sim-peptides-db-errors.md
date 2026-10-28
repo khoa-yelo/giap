@@ -1,6 +1,6 @@
-# M3-19: giapsim, proteins, peptides and database-search errors
+# M3-19: gippasim, proteins, peptides and database-search errors
 
-Milestone M3 · depends on: M3-18 · changes `tests/sim/giapsim/` (new `proteomics.py`) ·
+Milestone M3 · depends on: M3-18 · changes `tests/sim/gippasim/` (new `proteomics.py`) ·
 simulator tooling · pure Python · estimate ≈ 360 lines (not gated by ADR-0007)
 
 ## Spec sections implemented (§11.3 "Expression and proteomics")
@@ -79,7 +79,7 @@ n_runs: int = 3; proteins: ProteinSimConfig | None = None             # proteins
 1. The independent peptide checker is test code, not simulator tooling: it moves from `tests/sim/peptide_oracle.py`
    (implementer-owned, role-guard exempt) to `tests/helpers/peptide_oracle.py` so the implementer cannot
    edit the oracle its output is judged by.
-2. Accepted: API `giapsim.proteomics.{ProteomicsConfig, ProteinSimConfig, digest}`, `SimConfig.proteomics`,
+2. Accepted: API `gippasim.proteomics.{ProteomicsConfig, ProteinSimConfig, digest}`, `SimConfig.proteomics`,
    `res.truth["peptides"]`; expressed proteins counted from the true start incl. novel ORFs, pseudogenes
    excluded; wrong peptides match no sample protein (I = L); other-strain wrong peptides are tryptic pieces
    of reference-strain proteins (no strain → ValueError); `abundance.tsv` has `locus_tag` + `log_abundance`
@@ -94,7 +94,7 @@ n_runs: int = 3; proteins: ProteinSimConfig | None = None             # proteins
    → q calibrated against truth at the realised share.
 2. Decoy sampling uses `cfg.missed_cleavages` everywhere (no default of 1); test with `missed_cleavages=0,
    digest_len=(20,30)`.
-3. `n_loci_genome` is what GIAP's exact matcher would find: exact six-frame matches with I = L folded, and 0
+3. `n_loci_genome` is what GIPPA's exact matcher would find: exact six-frame matches with I = L folded, and 0
    is allowed (no `max(1, …)`). N-terminal peptides of GTG/TTG-start genes (protein starts with M, genome
    codes V/L) get a truth flag `alt_start_nterm` = true; M3-21's recall gate excludes them (spec TE1
    treats non-ATG starts as exceptions). Wrong peptides also get `n_loci_genome` (0 for shuffled; the

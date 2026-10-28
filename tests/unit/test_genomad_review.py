@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.model.coords import Interval, Replicon
+from gippa.model.coords import Interval, Replicon
 
 VS_HEADER = (
     "seq_name\tlength\ttopology\tcoordinates\tn_genes\tgenetic_code\tvirus_score\tfdr\t"
@@ -55,14 +55,14 @@ def _vg(gene: str, start: int, end: int) -> str:
 
 
 def test_provirus_at_position_zero_raises(tmp_path: Path) -> None:
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.genomad import parse_genomad
 
     with pytest.raises(ValueError, match=r"geNOMAD.*chr1"):
         parse_genomad(_write(tmp_path, [_vs(0, 5000)], []), "genome", REPS)
 
 
 def test_virus_gene_at_position_zero_raises(tmp_path: Path) -> None:
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.genomad import parse_genomad
 
     out = _write(tmp_path, [_vs(1, 5000)], [_vg("chr1|provirus_1_5000_1", 0, 300)])
     with pytest.raises(ValueError, match=r"geNOMAD.*chr1"):
@@ -70,7 +70,7 @@ def test_virus_gene_at_position_zero_raises(tmp_path: Path) -> None:
 
 
 def test_provirus_at_position_one_is_the_first_base(tmp_path: Path) -> None:
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.genomad import parse_genomad
 
     out = _write(tmp_path, [_vs(1, 5000)], [_vg("chr1|provirus_1_5000_1", 1, 300)])
     res = parse_genomad(out, "genome", REPS)

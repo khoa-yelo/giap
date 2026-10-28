@@ -1,7 +1,7 @@
-"""Inputs for the M4-13 detectability tests: small synthetic gene sets and giapsim (M4-07 layout +
+"""Inputs for the M4-13 detectability tests: small synthetic gene sets and gippasim (M4-07 layout +
 M4-08 ``covariates_only`` detection) data sets with M4-10 covariates.
 
-Nothing here imports ``giap.genetable.detectability``.
+Nothing here imports ``gippa.genetable.detectability``.
 """
 
 from __future__ import annotations
@@ -103,13 +103,13 @@ def sim_geneset(
 ) -> GeneSet:
     """M4-07 layout (``n_genes_chromosome = n_genes``) + M4-08 ``covariates_only`` detection.
 
-    Eligible = non-partial ``cds``/``sorf`` rows (giapsim gives pseudogenes an intercept-only
+    Eligible = non-partial ``cds``/``sorf`` rows (gippasim gives pseudogenes an intercept-only
     detection probability, so they are marked not eligible here); covariates from M4-10
-    (``covariates(aa, "trypsin_p", (7, 30))``, the giapsim ``n_obs`` definition).
+    (``covariates(aa, "trypsin_p", (7, 30))``, the gippasim ``n_obs`` definition).
     """
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giap.genetable.covariates import covariates
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippa.genetable.covariates import covariates
 
     lay = la.simulate_layout(
         la.LayoutConfig(n_genes_chromosome=n_genes, short_genes_in=short_genes_in), rng

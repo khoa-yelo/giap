@@ -1,14 +1,14 @@
 # ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
 - Status: proposed
 - Date: 2026-10-23
-- Spec sections: §15.1 (arms A1, A2: "DIA-NN 2.7.0"), §15.2 steps 3, 5 and 7 and the DIA-NN template, §3.3 (`GIAP_TOOLS_DIR`), §3.6 (`needs_diann`: "DIA-NN 2.7.0 under `$GIAP_TOOLS_DIR`"), §14.8 item 6, §0.1 item 4, §17 rows on DIA-NN; R5, R6, R11, R13
+- Spec sections: §15.1 (arms A1, A2: "DIA-NN 2.7.0"), §15.2 steps 3, 5 and 7 and the DIA-NN template, §3.3 (`GIPPA_TOOLS_DIR`), §3.6 (`needs_diann`: "DIA-NN 2.7.0 under `$GIPPA_TOOLS_DIR`"), §14.8 item 6, §0.1 item 4, §17 rows on DIA-NN; R5, R6, R11, R13
 - Needs Khoa: yes. This changes a dependency version and the way it is installed (§14.8 items 1 and 6). It writes down Khoa's 2026-10-20 acceptance of the M3-24 README and does not replace it.
 
 ## Context
 The spec names DIA-NN **2.7.0** in four places:
 - the arms (§15.1);
 - the install step: "Khoa: accept the DIA-NN 2.7.0 licence and unpack the Linux binary under
-  `$GIAP_TOOLS_DIR/diann-2.7.0`" (§15.2 step 3, §0.1 item 4, §14.8 item 6);
+  `$GIPPA_TOOLS_DIR/diann-2.7.0`" (§15.2 step 3, §0.1 item 4, §14.8 item 6);
 - the test marker (§3.6);
 - the recorded-sample path `tests/data/recorded/diann/2.7.0/` (§15.2 step 7).
 
@@ -37,7 +37,7 @@ reference script carries the same note.
 
 The cfgs (`validation/pilot/diann_A{1,2}.cfg`) deviate from the §15.2 template. All of this is
 listed in the README:
-- `--met-excision` is left out, because GIAP's digest keeps the initiator Met;
+- `--met-excision` is left out, because GIPPA's digest keeps the initiator Met;
 - `--lib ""` is not used;
 - added: `--min-pr-mz 300 --max-pr-mz 1800 --min-fr-mz 200 --max-fr-mz 1800`, `--peptidoforms`
   and `--verbose 1`;
@@ -54,9 +54,9 @@ Checked on 2026-10-23, in the session allocation:
 - `/diann-2.3.1/` holds `diann-linux` (25,747,216 bytes), `libtimsdata.so`,
   `ThermoFisher.CommonCore.*.dll`, `libtorch_cpu.so`, `models/*.pt` and `diann-stats.py`.
 - `find / -maxdepth 3 -iname '*licen*'` inside the image finds no licence file.
-- `$GIAP_TOOLS_DIR` (`local/tools`) is empty: no `diann-2.7.0`. `module avail diann` finds
+- `$GIPPA_TOOLS_DIR` (`local/tools`) is empty: no `diann-2.7.0`. `module avail diann` finds
   nothing.
-- `run_2step.sh` collects `*.raw` files (Thermo) and a human FASTA. GIAP has not yet run this
+- `run_2step.sh` collects `*.raw` files (Thermo) and a human FASTA. GIPPA has not yet run this
   image on timsTOF `.d` data.
 
 What is **not** known from anything on disk:
@@ -69,10 +69,10 @@ What is **not** known from anything on disk:
 1. **Adopt 2.3.1 Academia as the version of record** (the M3-24 kit, index decision 2). The pilot
    runs now. The spec's 2.7.0 paths are read as their 2.3.1 equivalents:
    - the shared image, verified against the pin and copied read-only to
-     `$GIAP_ROOT/images/diann_2.3.1.sif` (index lead decision 2, M10-02), in place of
-     `$GIAP_TOOLS_DIR/diann-2.7.0`;
+     `$GIPPA_ROOT/images/diann_2.3.1.sif` (index lead decision 2, M10-02), in place of
+     `$GIPPA_TOOLS_DIR/diann-2.7.0`;
    - `tests/data/recorded/diann/2.3.1/` in place of `…/2.7.0/`.
-2. **Wait for 2.7.0** under `$GIAP_TOOLS_DIR/diann-2.7.0`, installed by Khoa. This follows the spec
+2. **Wait for 2.7.0** under `$GIPPA_TOOLS_DIR/diann-2.7.0`, installed by Khoa. This follows the spec
    to the letter. M10 pass 1 stops at M10-01 until then. The flag table would need Khoa's check
    again against the 2.7.0 documentation, and the effect on the gate's timeline is unknown.
 3. **Run 2.3.1 now and re-run on 2.7.0 if it arrives.** Option 1 now. When a 2.7.0 build exists,
@@ -97,8 +97,8 @@ Image handling (M10-02):
 ## Questions for Khoa
 1. Do you accept 2.3.1 Academia as the version of record for the pilot (option 1/3), or should the
    pilot wait for 2.7.0 (option 2)?
-2. The copy is made by the agent from your image, under `$GIAP_ROOT/images/`, not under
-   `$GIAP_TOOLS_DIR`. §14.8 item 6 reserves *installing* DIA-NN to you. Is a verified, read-only
+2. The copy is made by the agent from your image, under `$GIPPA_ROOT/images/`, not under
+   `$GIPPA_TOOLS_DIR`. §14.8 item 6 reserves *installing* DIA-NN to you. Is a verified, read-only
    copy of the image you supplied acceptable?
 3. The image's labels name `khoayelo189/diann:2.3.1` on Docker Hub as its source. Can you confirm
    that this image is yours, built from an official DIA-NN 2.3.1 release?
@@ -129,16 +129,16 @@ M10-02 job IDs and `check.json` results.
   `…/2.7.0/` and keeps the old one only if both are tested.
 - The pilot report states "DIA-NN 2.3.1 Academia" for A1 and A2, and cites this ADR.
 - Risk: 2.3.1 might differ from 2.7.0 in report columns. The converter's contract test on the
-  real sample (M10-03) catches any column difference that matters to GIAP.
+  real sample (M10-03) catches any column difference that matters to GIPPA.
 
 ## Amendment (2026-10-24, M10-03, PR #288)
 Khoa ruled on 2026-10-23 that no row-level DIA-NN content is committed, and on 2026-10-24 that
 aggregates (counts, hashes, named example genes) may be. This replaces §15.2 step 7's committed
 recorded sample for DIA-NN:
 - The converted tables (`a1.tsv.gz`, `a2.tsv.gz` and their abundance tables) and any sample drawn
-  from the reports stay under `$GIAP_ROOT/pilot/`, never in the repository.
+  from the reports stay under `$GIPPA_ROOT/pilot/`, never in the repository.
 - What is committed is the conversion record in `validation/pilot/README.md` › "Conversion
   (M10-03)": the job IDs, the sha256 of every input report and output table, and the row counts.
 - The contract test (`tests/contract/test_m10_03_diann_contract.py`) runs on FarmShare against the
-  `$GIAP_ROOT` copies; CI runs the converter's unit tests on synthetic fixtures. The
+  `$GIPPA_ROOT` copies; CI runs the converter's unit tests on synthetic fixtures. The
   `tests/data/recorded/diann/2.3.1/` path named above therefore holds no data rows.

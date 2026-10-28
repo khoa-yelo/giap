@@ -1,7 +1,7 @@
 """Oracles for MVP-04 part 2: ``decoys = "scored_null"`` (docs/specs/MVP-04-ecoli-evidence-run.md,
 pipeline steps 5 and 6, examples 2-4, Q2, lead decisions 1 and 8; M7-12 decisions 21, 23, 24).
 
-Nothing here imports giapsim. The views read ``peptides.tsv``, ``truth/peptides.tsv``,
+Nothing here imports gippasim. The views read ``peptides.tsv``, ``truth/peptides.tsv``,
 ``truth/proteomics.json`` and ``provenance.json`` of one ``simulate_on_genome`` output directory.
 
 Vocabulary:
@@ -17,15 +17,15 @@ Vocabulary:
   placed like correct rows (``locus_tag``, ``contig``, 1-based closed ``start``/``end``,
   ``strand`` on the sample); so it maps to the genome and can give a gene false evidence;
 * the **entry** of a null peptide is the Bakta locus tag (protein kind) or the makedb six-frame
-  ``GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`` ID (six-frame kind).
+  ``GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}`` ID (six-frame kind).
 
 Lead decision 10 (statistician review of PR #247, B1): the protein / six-frame null split is a
 fixed 50/50; the search-space share is still recorded in ``provenance.json``.
 
-``gene_frames`` builds the C9-shaped frames that ``giap.genetable.detection.pair_decoys`` and
+``gene_frames`` builds the C9-shaped frames that ``gippa.genetable.detection.pair_decoys`` and
 ``choose_tier`` take; ``decoy_wins`` is the §7.3.2 step-3 picked competition (key: q asc, PEP asc,
 score desc; a tie goes to the decoy) between each gene's best paired decoy and its best target that
-GIAP's mapping would accept (a correct peptide of that gene, or a target peptide that occurs in the
+GIPPA's mapping would accept (a correct peptide of that gene, or a target peptide that occurs in the
 gene's recorded protein with I = L), both at q <= ``q_value_max``.
 """
 
@@ -44,10 +44,10 @@ from typing import Any
 from scipy import stats
 
 ORF_DECOY = re.compile(
-    r"^rev_GIAPORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
+    r"^rev_GIPPAORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
 )
 ORF_ID = re.compile(
-    r"^GIAPORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
+    r"^GIPPAORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
 )
 Q_VALUE_MAX = 0.01  # input.q_value_max default (spec "The run")
 DECOY_PREFIXES = ("rev_", "REV_", "DECOY_", "decoy_", "XXX_", "##")  # input.decoy_prefixes default
@@ -213,7 +213,7 @@ def mixture_q(s: float, pi: float, mix: tuple[float, ...]) -> float:
     return math.exp(l0 - max(l0, l1) - math.log1p(math.exp(-abs(l0 - l1))))
 
 
-# ---------------------------------------------------------------- GIAP detection frames
+# ---------------------------------------------------------------- GIPPA detection frames
 
 
 def gene_frames(v: View, genes: Iterable[str]) -> tuple[Any, Any, Any, Any]:
@@ -245,10 +245,10 @@ class Tier:
     pairing: Any  # the pair_decoys frame
 
 
-def giap_tier(v: View, genes: Iterable[str]) -> Tier:
-    """GIAP's own ``pair_decoys`` + ``choose_tier`` on the simulated peptides (defaults of
+def gippa_tier(v: View, genes: Iterable[str]) -> Tier:
+    """GIPPA's own ``pair_decoys`` + ``choose_tier`` on the simulated peptides (defaults of
     ``input.decoy_prefixes``, ``input.q_value_max`` and ``MIN_DECOY_PAIRING``)."""
-    from giap.genetable.detection import choose_tier, pair_decoys, protein_gene_map
+    from gippa.genetable.detection import choose_tier, pair_decoys, protein_gene_map
 
     g, p, ph, prh = gene_frames(v, genes)
     pmap = protein_gene_map(g, p, ph, prh)
@@ -265,7 +265,7 @@ def _key(r: Mapping[str, str]) -> tuple[float, float, float]:
 def decoy_wins(v: View, proteins: Mapping[str, str], eligible: set[str]) -> dict[str, bool]:
     """``gene -> decoy won`` for every eligible gene with a paired decoy at q <= ``Q_VALUE_MAX``
     (a ``rev_<gene>`` row). The gene's target is the best target row at q <= ``Q_VALUE_MAX``
-    that names the gene and that GIAP would map to it (a correct peptide of the gene, or a
+    that names the gene and that GIPPA would map to it (a correct peptide of the gene, or a
     peptide inside its recorded protein, I = L). No target, or a decoy key <= the target key
     (tie -> decoy), is a decoy win."""
     best_d: dict[str, tuple[float, float, float]] = {}
@@ -334,10 +334,10 @@ def tryptic(protein: str, lo: int = 7, hi: int = 30, missed: int = 1) -> set[str
 
 
 def makedb_search_space(annotation_json: Path, genome: Path, workdir: Path) -> dict[str, Any]:
-    """``giap makedb --six-frame-orfs`` on (annotation, genome): the entries by ``db_id`` and the
-    distinct tryptic products of the protein entries and of the six-frame (``GIAPORF_``) entries
+    """``gippa makedb --six-frame-orfs`` on (annotation, genome): the entries by ``db_id`` and the
+    distinct tryptic products of the protein entries and of the six-frame (``GIPPAORF_``) entries
     not also produced by a protein entry; ``protein_share`` = protein / (protein + six-frame)."""
-    from giap.makedb.build import MakedbOptions, build_strain_db
+    from gippa.makedb.build import MakedbOptions, build_strain_db
 
     workdir.mkdir(parents=True, exist_ok=True)
     raw = Path(annotation_json).read_bytes()
@@ -357,7 +357,7 @@ def makedb_search_space(annotation_json: Path, genome: Path, workdir: Path) -> d
     entries = {k: "".join(v) for k, v in seqs.items()}
     prot, six = set(), set()
     for k, s in entries.items():
-        (six if k.startswith("GIAPORF_") else prot).update(tryptic(s))
+        (six if k.startswith("GIPPAORF_") else prot).update(tryptic(s))
     six -= prot
     return {"entries": entries, "n_protein": len(prot), "n_sixframe": len(six),
             "protein_share": len(prot) / (len(prot) + len(six))}  # fmt: skip
@@ -454,7 +454,7 @@ def protein_null_violations(
     of a sample protein of its attributed locus, an expressible recorded locus); ``undetected``
     (the locus has no true peptide and the peptide is no correct peptide, I = L); ``maps`` (a
     truth row places it on the attributed locus: the sample segment translates to it, initiator
-    M allowed, and the genome GIAP gets differs in at most 2 residues, SNVs only)."""
+    M allowed, and the genome GIPPA gets differs in at most 2 residues, SNVs only)."""
     bad: dict[str, list[str]] = {k: [] for k in ("origin", "product", "undetected", "maps")}
     done = true_loci(v)
     seen = {il(p) for p in v.correct}
@@ -493,7 +493,7 @@ def protein_null_violations(
     return bad
 
 
-NTERM = "GIAPORF_nterm_extension_"
+NTERM = "GIPPAORF_nterm_extension_"
 
 
 def _accepted(r: Mapping[str, str]) -> bool:
@@ -501,7 +501,7 @@ def _accepted(r: Mapping[str, str]) -> bool:
 
 
 def nterm_gene(entry: str, genes: Sequence[Any]) -> str | None:
-    """The eligible gene a ``GIAPORF_nterm_extension_*`` makedb entry overlaps on its strand, if
+    """The eligible gene a ``GIPPAORF_nterm_extension_*`` makedb entry overlaps on its strand, if
     exactly one (``genes``: objects with ``locus``, ``eligible``, ``strand`` and 0-based half-open
     ``start`` / ``end``, as ``mvp04_data.Gene``)."""
     *_, s1, e1, st = entry.split("_")
@@ -531,7 +531,7 @@ def _identical(loci: Sequence[str], proteins: Mapping[str, list[str]]) -> bool:
 def gene_evidence(
     v: View, genes: Sequence[Any], proteins: Mapping[str, list[str]]
 ) -> list[Evidence]:
-    """§7.3.2 gene-level evidence per eligible gene, mirroring ``giap.genetable.detection`` without
+    """§7.3.2 gene-level evidence per eligible gene, mirroring ``gippa.genetable.detection`` without
     running the mapping (statistician review of PR #247, B3(b); MVP-04 lead decision 11):
 
     * **correct** peptides give target evidence to their truth loci: one locus (``unique``), or
@@ -539,9 +539,9 @@ def gene_evidence(
     * **protein-entry nulls** (decision 9) give target evidence to every eligible gene whose
       sample protein holds the peptide (I = L), when that is one gene or several with identical
       proteins (``multi_identical``); their ``rev_<locus>`` decoys give decoy evidence;
-    * **six-frame nulls on a ``GIAPORF_nterm_extension_*`` entry** place in the gene's
+    * **six-frame nulls on a ``GIPPAORF_nterm_extension_*`` entry** place in the gene's
       ``nterm_extension`` locus class, which assigns: target evidence for the one eligible gene
-      the entry overlaps on its strand; their ``rev_GIAPORF_nterm_extension_*`` decoys pair with
+      the entry overlaps on its strand; their ``rev_GIPPAORF_nterm_extension_*`` decoys pair with
       that gene only when the entry was voted to it, i.e. the peptide has an accepted target row
       (``protein_gene_map`` step 3, M7-12 decision 28);
     * other six-frame nulls and their decoys reach no gene (M7-12 decision 23).
@@ -572,7 +572,7 @@ def gene_evidence(
                 gs, ch = ([nterm[back]] if back in voted else []), "nterm_null"
             else:
                 gs = [x[len("rev_") :] for x in ids(r["protein_ids"])
-                      if x.startswith("rev_") and not x.startswith("rev_GIAPORF_")]  # fmt: skip
+                      if x.startswith("rev_") and not x.startswith("rev_GIPPAORF_")]  # fmt: skip
                 ch = "protein_null"
             out += [Evidence(g, True, k, pep, ch) for g in gs if g in eligible]
             continue

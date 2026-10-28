@@ -2,7 +2,7 @@
 
 Inputs are built in the M4-06 internal representation (C2 genes, C9 peptides, C11 peptide hits,
 C12 protein hits) with the M4-11 builders of ``evidence_oracle``; ``accepted`` and ``evidence``
-come from the merged producers (``giap.genetable.evidence.accepted_peptides`` /
+come from the merged producers (``gippa.genetable.evidence.accepted_peptides`` /
 ``gene_evidence``, which also carries ``contaminant_evidence``) and the covariates from M4-10
 ``covariate_table``, so ``detect`` sees exactly the columns its producers write. Nothing here
 re-implements detection.
@@ -53,10 +53,10 @@ def is_na(x: Any) -> bool:
 
 
 def cfg(**kw: Any) -> Any:
-    """``GiapConfig`` with nested overrides, e.g. ``cfg(stats={"alpha": {...}})``."""
-    from giap.config import GiapConfig
+    """``GippaConfig`` with nested overrides, e.g. ``cfg(stats={"alpha": {...}})``."""
+    from gippa.config import GippaConfig
 
-    return GiapConfig(**kw)
+    return GippaConfig(**kw)
 
 
 def tag(i: int) -> str:
@@ -203,9 +203,9 @@ class Builder:
     ) -> Run:
         """``detect`` on the scenario; ``no_peptides`` passes C9 = None (proteins-only input);
         ``sizes`` overrides ``n_observable_peptides``; ``shuffle`` permutes C9/C11/C12 rows."""
-        from giap.genetable.covariates import covariate_table
-        from giap.genetable.detection import detect
-        from giap.genetable.evidence import accepted_peptides, gene_evidence
+        from gippa.genetable.covariates import covariate_table
+        from gippa.genetable.detection import detect
+        from gippa.genetable.evidence import accepted_peptides, gene_evidence
 
         c = config if config is not None else cfg()
         genes = self.genes_frame()

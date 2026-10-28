@@ -1,7 +1,7 @@
-// CONTEXT subworkflow (GIAP_SPEC.md §6.2, §9.4; M4-18, MVP-01, M5-09): the final gene table plus
+// CONTEXT subworkflow (GIPPA_SPEC.md §6.2, §9.4; M4-18, MVP-01, M5-09): the final gene table plus
 // the M4-06 contract tables -> tables/regions_stats.tsv, tables/detection_summary.tsv,
 // tables/autocorrelation.tsv, tables/islands.tsv and tables/genes.tsv (context_stats, through a
-// GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
+// GIPPA_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
 // M8-16), which main.nf runs after DETERMINANTS.
 // context_stats also writes two intermediate parquet files under context/: the genes.tsv
 // context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics,
@@ -16,8 +16,8 @@
 // optional `operon_meta` entry (main.nf, M11-14d: the operon source of the ADR-0061 flags) is read.
 // M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
 // waits for VARIANTS when peptides are given.
-include { GIAP_STEP as CONTEXT_STATS } from '../../modules/local/giap_step/main'
-include { supportDir } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as CONTEXT_STATS } from '../../modules/local/gippa_step/main'
+include { supportDir } from '../../modules/local/gippa_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
 // One named file of the loci output: a file of the mapping/ directory in a real run, the

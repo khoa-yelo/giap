@@ -1,4 +1,4 @@
-"""Runtime of the determinants permutation null on worker processes (GIAP_SPEC.md §7.8.2 step 4;
+"""Runtime of the determinants permutation null on worker processes (GIPPA_SPEC.md §7.8.2 step 4;
 ADR-0063).
 
 The spec example 1 world of ``tests/helpers/determinants_models_data.py`` (400 genes, TUs of
@@ -30,8 +30,8 @@ BUDGET_S = 140.0
 
 
 def test_determinants_null_b400_n400_t8_budget(benchmark: Any) -> None:
-    from giap.config.model import DeterminantsConfig
-    from giap.determinants.null import null_p
+    from gippa.config.model import DeterminantsConfig
+    from gippa.determinants.null import null_p
 
     X, y, tu, _ = d.planted(np.random.default_rng(SEED))
     cfg = DeterminantsConfig()

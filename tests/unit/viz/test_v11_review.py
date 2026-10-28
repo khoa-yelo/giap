@@ -43,8 +43,8 @@ from test_v11_operon_pairs import (  # type: ignore[import-not-found]
     _rows,
 )
 
-from giap.config import GiapConfig, resolve_config
-from giap.viz import style
+from gippa.config import GippaConfig, resolve_config
+from gippa.viz import style
 
 NOTE_B = "lfdr ranks pairs; flags use q"
 IMPUTED = "abundance_imputed"
@@ -56,7 +56,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -129,7 +129,7 @@ def _imputed_case() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
 
 
 def test_b2_imputed_pairs_leave_panel_a_counts_densities_and_medians(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     kept, imputed = _imputed_case()
     base = _render(_out(tmp_path / "base", kept), cfg)
@@ -144,7 +144,7 @@ def test_b2_imputed_pairs_leave_panel_a_counts_densities_and_medians(
     assert inst.title == base.title
 
 
-def test_b2_imputed_pairs_leave_panel_c_rows_and_points(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_imputed_pairs_leave_panel_c_rows_and_points(tmp_path: Path, cfg: GippaConfig) -> None:
     kept, imputed = _imputed_case()
     inst = _render(_out(tmp_path, [*kept, *imputed]), cfg)
     c = _by_pair(_rows(inst, "c"))
@@ -155,7 +155,7 @@ def test_b2_imputed_pairs_leave_panel_c_rows_and_points(tmp_path: Path, cfg: Gia
     assert (20.0, 20.3) in drawn  # rna_between alone is not imputed
 
 
-def test_b2_imputed_pair_with_lfdr_stays_in_panel_b(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_imputed_pair_with_lfdr_stays_in_panel_b(tmp_path: Path, cfg: GippaConfig) -> None:
     kept, imputed = _imputed_case()
     inst = _render(_out(tmp_path, [*kept, *imputed]), cfg)
     b = _by_pair(_rows(inst, "b"))
@@ -203,7 +203,7 @@ def test_b2_property_adding_imputed_pairs_changes_neither_a_nor_c(
 # --- B3: title medians --------------------------------------------------------------------------
 
 
-def test_b3_title_medians_are_medians_printed_with_2g(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_title_medians_are_medians_printed_with_2g(tmp_path: Path, cfg: GippaConfig) -> None:
     """OP |Δ| 0.1, 0.123, 0.9 (median 0.123 -> "0.12"; mean 0.374 -> "0.37");
     NO |Δ| 1.0, 1.04, 2.5 (median 1.04 -> "1", %.3g "1.04"; mean 1.51 -> "1.5")."""
     pairs = [*_delta_pairs("OP", [0.1, -0.123, 0.9], 1), *_delta_pairs("NO", [1.0, 1.04, -2.5], 4)]
@@ -232,7 +232,7 @@ def test_b4_q_equal_to_alpha_is_counted_and_outlined(tmp_path: Path, alpha: floa
 
 
 def test_b5_bins_are_zero_based_and_the_smallest_delta_is_bin_0(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     pairs = [*_delta_pairs("OP", [0.0, 0.4, 0.6], 1), *_delta_pairs("NO", [1.0, -1.6], 4)]
     inst = _render(_out(tmp_path, pairs), cfg)
@@ -260,7 +260,7 @@ def test_b5_bins_are_zero_based_and_the_smallest_delta_is_bin_0(
 
 
 def test_b5_pair_rows_keep_pairs_tsv_order_with_multi_digit_ids(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     pairs = [
         _pair(2, "NO", 20.0, 21.0, lfdr=0.5),
@@ -278,7 +278,7 @@ def test_b5_pair_rows_keep_pairs_tsv_order_with_multi_digit_ids(
 
 
 def test_b5_header_only_pairs_gives_the_exact_empty_state_text(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render(_out(tmp_path, [], flags=[]), cfg)
     assert inst.title == "No gene pairs in this run"

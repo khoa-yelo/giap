@@ -23,10 +23,10 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +35,7 @@ def _style() -> None:
 
 
 def _render(out: Path) -> Instance:
-    import giap.viz.variants  # noqa: F401  (registers V12)
+    import gippa.viz.variants  # noqa: F401  (registers V12)
 
     result = base.registered()["V12"].fn(RunView.from_outdir(out), resolve_config())
     assert not isinstance(result, Skip), result
@@ -48,7 +48,7 @@ def _ax(inst: Instance, label: str) -> Axes:
 
 
 def _flag_bars(ax: Axes) -> list[Rectangle]:
-    from giap.viz.variants import FLAG_COLOUR, NO_FLAG_COLOUR
+    from gippa.viz.variants import FLAG_COLOUR, NO_FLAG_COLOUR
 
     colours = {c.upper() for c in [*FLAG_COLOUR.values(), NO_FLAG_COLOUR]}
     return [p for p in ax.patches if isinstance(p, Rectangle) and p.get_height() > 0
@@ -75,7 +75,7 @@ def test_a_no_bar_rises_above_the_site_total(tmp_path: Path) -> None:
 
 
 def test_a_one_bar_per_flag_with_its_site_count(tmp_path: Path) -> None:
-    from giap.viz.variants import FLAG_COLOUR, NO_FLAG_COLOUR
+    from gippa.viz.variants import FLAG_COLOUR, NO_FLAG_COLOUR
 
     bars = _flag_bars(_ax(_render(vv.build_out(tmp_path, SITES, [])), "a"))
     got = sorted((mcolors.to_hex(b.get_facecolor()[:3]).upper(), round(b.get_height(), 9))

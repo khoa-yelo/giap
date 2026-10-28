@@ -1,7 +1,7 @@
 """Contract test: blastp (BLAST+ 2.16.0) against the contaminant library on a recorded run (M3-15).
 
 Marked ``pending_sample`` until ``tests/data/recorded/blast/2.16.0/contaminants/`` exists. The
-directory holds ``blastp.tsv`` (tabular, ``giap.mapping.tblastn.OUTFMT``, written by the argument
+directory holds ``blastp.tsv`` (tabular, ``gippa.mapping.tblastn.OUTFMT``, written by the argument
 vector of ``blastp_cmd``), the query ``proteins.faa`` and ``PROVENANCE.md`` (command, image digest,
 input sha256, date, host). The library is ``tests/data/contaminants_mini.faa``. Query IDs encode
 the truth:
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.protein_fasta import read_protein_fasta
-from giap.mapping.tblastn import OUTFMT
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.mapping.tblastn import OUTFMT
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 RECORDED = DATA / "recorded" / "blast" / "2.16.0" / "contaminants"
@@ -50,7 +50,7 @@ def test_recorded_rows_have_outfmt_columns() -> None:
 
 
 def test_recorded_matches_truth() -> None:
-    c = importlib.import_module("giap.mapping.contaminants")
+    c = importlib.import_module("gippa.mapping.contaminants")
     lib_ids = {r.id for r in read_protein_fasta(MINI)}
     queries = [r.id for r in read_protein_fasta(RECORDED / "proteins.faa")]
     got = c.match_contaminant_proteins(RECORDED / "blastp.tsv")
@@ -67,6 +67,6 @@ def test_recorded_matches_truth() -> None:
 
 
 def test_cmd_matches_recorded_outfmt(tmp_path: Path) -> None:
-    c = importlib.import_module("giap.mapping.contaminants")
+    c = importlib.import_module("gippa.mapping.contaminants")
     cmd = c.blastp_cmd(tmp_path / "q.faa", MINI, 2)
     assert cmd[cmd.index("-outfmt") + 1] == OUTFMT

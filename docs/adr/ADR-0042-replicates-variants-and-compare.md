@@ -7,7 +7,7 @@
 ## Context
 Two calibration claims have no `replicates_fast` or `replicates_full` key:
 - the variant suites: the M7-10 class error rates and the M7-13 F1 gate (`f1_min.variants_high` = 0.90 already exists);
-- the TU-block bootstrap CI for Spearman ρ in `giap compare` (M9-22).
+- the TU-block bootstrap CI for Spearman ρ in `gippa compare` (M9-22).
 
 Without a count neither suite can gate.
 

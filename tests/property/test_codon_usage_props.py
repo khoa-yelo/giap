@@ -17,8 +17,8 @@ from helpers import codon_oracle as O
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval
-from giap.model.genes import Gene
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene
 
 ALL64 = sorted(O.CODE11)
 codon = st.sampled_from(ALL64)
@@ -28,7 +28,7 @@ nt_any = st.text(alphabet="ACGTN", min_size=0, max_size=60)
 
 
 def cu() -> ModuleType:
-    return importlib.import_module("giap.annotate.codon_usage")
+    return importlib.import_module("gippa.annotate.codon_usage")
 
 
 @settings(deadline=None)

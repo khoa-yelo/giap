@@ -9,7 +9,7 @@ records the runbook); bullet 1's label and the S8-S14 job IDs are filled by ``re
 --runbook``. Bullet 4 reads ``baseline.json`` (``standard_run.wheat``) and the ADR's ``Status:``
 line, every row carries an ``evidence`` string, and ``inputs`` hashes the new files.
 
-Inputs: M10-05's synthetic pilot (``helpers.pilot_metrics_m10``, giapsim SIM100K) plus the
+Inputs: M10-05's synthetic pilot (``helpers.pilot_metrics_m10``, gippasim SIM100K) plus the
 hand-made runbook, baseline, ADR, verdict and TE files of ``helpers.pilot_gate_m10_15``. The keys
 M10-07 (``m8``) and M10-10 (``m6``, ``h4``) will add are injected after ``compute`` where a test
 needs a final report (``with_later_hooks``). Without the new options the M10-05 checklist is
@@ -293,7 +293,7 @@ def _final_ok(res: Any, out: Path) -> str:
 
 
 def _status_cells(text: str) -> list[str]:
-    return status_row(text, "GIAP runs end to end")
+    return status_row(text, "GIPPA runs end to end")
 
 
 def test_s9a_example_1_compute_then_render_final_on_the_real_template(

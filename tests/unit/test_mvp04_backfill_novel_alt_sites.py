@@ -1,4 +1,4 @@
-"""``giapsim.real_genome.backfill_novel_alt_sites`` (PR #324 review item 5).
+"""``gippasim.real_genome.backfill_novel_alt_sites`` (PR #324 review item 5).
 
 Contract (module docstring and the function's docstring): on an input directory written before
 ``truth/novel_alt_sites.tsv`` existed, rerun ``simulate_on_genome`` with the same config, seed
@@ -21,18 +21,18 @@ from typing import Any
 import pytest
 from helpers import mvp04_data as M
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 SEED = 20261023
 TABLE = "truth/novel_alt_sites.tsv"
 
 
 def _rg() -> Any:
-    return importlib.import_module("giapsim.real_genome")
+    return importlib.import_module("gippasim.real_genome")
 
 
 def _cfg() -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     strain = replace(base.strain, snv_rate_per_kb=5.0)  # as test_mvp04_novel_alt_sites
     expr = replace(base.expression, islands=(IslandSpec(M.CONTIG, 2, 8, 3.0),))
     return replace(base, strain=strain, expression=expr, n_novel_per_class=20)

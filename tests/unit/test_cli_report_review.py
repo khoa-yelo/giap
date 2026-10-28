@@ -1,14 +1,14 @@
-"""PR #205 review round, ``giap report OUT`` (M9-02 behaviour 7; GIAP_SPEC.md §5.1, §7.9.4;
+"""PR #205 review round, ``gippa report OUT`` (M9-02 behaviour 7; GIPPA_SPEC.md §5.1, §7.9.4;
 review B3 and B5 and the lead decisions of that round).
 
-* B3: without ``--config``, ``giap report OUT`` resolves ``OUT/resolved_config.yaml`` when it
+* B3: without ``--config``, ``gippa report OUT`` resolves ``OUT/resolved_config.yaml`` when it
   exists, so every alpha a card or plot title uses, ``report.formats`` and ``report.dpi`` follow the
   run; ``--set`` still applies on top; defaults only when the file is absent; an explicit
   ``--config`` wins over the run's file.
-* B5: an unreadable or schema-invalid table never crashes ``giap report``: exit 0, the report
+* B5: an unreadable or schema-invalid table never crashes ``gippa report``: exit 0, the report
   is written, the affected card carries a note naming the file.
 
-Fake plots (tests/helpers/report_fixtures.py); never touches the real ``$GIAP_DB_DIR``.
+Fake plots (tests/helpers/report_fixtures.py); never touches the real ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ _PAIR = {"gene_a": "g1", "gene_b": "g2", "uniop_class": "OP", "promoter_between_
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _report(out: Path, *args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, ["report", str(out), *args])
 
@@ -55,8 +55,8 @@ def _ok(res: Result) -> None:
 
 
 def _write_config(path: Path, *overrides: str) -> Path:
-    """A full resolved config, as ``giap run`` writes ``OUT/resolved_config.yaml``."""
-    from giap.config import resolve_config
+    """A full resolved config, as ``gippa run`` writes ``OUT/resolved_config.yaml``."""
+    from gippa.config import resolve_config
 
     cfg = resolve_config(overrides=list(overrides))
     path.write_text(yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=True), encoding="utf-8")
@@ -88,7 +88,7 @@ def _png_width(path: Path) -> int:
 def test_b3_alpha_follows_the_runs_resolved_config(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    """The reviewer's probe: the run used ``stats.alpha.operon_flags=0.05``; ``giap report OUT``
+    """The reviewer's probe: the run used ``stats.alpha.operon_flags=0.05``; ``gippa report OUT``
     with no ``--config`` counts and labels at 0.05, not at the default 0.1."""
     out = run_out(tmp_path)
     _write_config(out / "resolved_config.yaml", "stats.alpha.operon_flags=0.05",
@@ -163,7 +163,7 @@ def test_b3_formats_and_dpi_follow_the_runs_config(
 def test_b3_no_config_report_equals_report_with_the_runs_config(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    """``giap report OUT`` reproduces what ``giap report OUT --config OUT/resolved_config.yaml``
+    """``gippa report OUT`` reproduces what ``gippa report OUT --config OUT/resolved_config.yaml``
     writes, byte for byte (the rebuilt report agrees with the run's thresholds)."""
     register_fake("V07")
     a = run_out(tmp_path / "a")
@@ -190,14 +190,14 @@ def test_b3_no_config_report_equals_report_with_the_runs_config(
     ],
     ids=["genes_missing_columns", "islands_binary", "novel_orfs_missing_columns"],
 )
-def test_b5_giap_report_exits_0_and_writes_the_report_on_a_broken_table(
+def test_b5_gippa_report_exits_0_and_writes_the_report_on_a_broken_table(
     fake_registry: ModuleType, tmp_path: Path, rel: str, body: bytes
 ) -> None:
     out = run_out(tmp_path)
     (out / rel).write_bytes(body)
     res = _report(out, "--set", "report.formats=[svg]", "--set", "report.dpi=50")
     if res.exception is not None and not isinstance(res.exception, SystemExit):
-        pytest.fail(f"giap report raised {type(res.exception).__name__}: {res.exception}")
+        pytest.fail(f"gippa report raised {type(res.exception).__name__}: {res.exception}")
     assert res.exit_code == 0, res.output
     html = out / "report" / "report.html"
     assert html.is_file()

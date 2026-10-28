@@ -4,7 +4,7 @@ Milestone M5 · track C (calibration) · depends on: M5-06 (islands), M5-04 (sce
 (merged: `calibrate`, `check_fwer`, two-block confirmation ADR-0015) · estimate ≈ 40 code lines (power
 recorder script under `scripts/dev/`) + ≈ 350 test lines (test-author owns the calibration and
 statistician owns the attack) · **statistical** (label `stats`) · **needs Slurm**: full mode (R = 500 × 3
-backgrounds) and the power grid run as `giap-` batch jobs (`scripts/slurm/calibration_full.sbatch`,
+backgrounds) and the power grid run as `gippa-` batch jobs (`scripts/slurm/calibration_full.sbatch`,
 existing array task `islands`)
 
 ## Spec sections implemented
@@ -100,7 +100,7 @@ ADR-0021 accepted by Khoa 2026-10-20. When accepted:
 29. Q2: escalate with numbers, never tune (done: ADR-0021).
 30. Q3: power = same-direction island sharing ≥ 1 TU with the planted one, plus Jaccard and false-island
     rate; report the null FWER next to each power cell. Power is recorded, not gated; run the grid also with
-    `detection = "abundance"`. The ≥ 0.8 planning target is not met under giapsim defaults (≈ 0.18 at
+    `detection = "abundance"`. The ≥ 0.8 planning target is not met under gippasim defaults (≈ 0.18 at
     20 TUs × 2 SD).
 
 ## Lead note (2026-10-21, from the statistician's #131 review)

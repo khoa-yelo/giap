@@ -1,4 +1,4 @@
-"""Gate M5 evidence (GIAP_SPEC.md §13 row M5: "island FWER <= 5 % under simulated nulls; power
+"""Gate M5 evidence (GIPPA_SPEC.md §13 row M5: "island FWER <= 5 % under simulated nulls; power
 curve recorded"; M5-11 acceptance "Gate evidence in PROGRESS.md" and "Benchmarks").
 
 M5-11 makes no new statistical claim; the gate is the ledger of records the two M5 suites must
@@ -13,9 +13,9 @@ islands 500, autocorrelation 1,000), copied from tests/integration/test_m4_gate.
   null of the TU-null scenario at 4,500 genes (tests/calibration/
   test_autocorrelation_calibration.py, ``full`` mode).
 
-The evidence check reads the JSON-lines logs (``$GIAP_CALIBRATION_LOG_DIR`` or
+The evidence check reads the JSON-lines logs (``$GIPPA_CALIBRATION_LOG_DIR`` or
 ``local/logs/calibration``) and skips unless a record at ``replicates_full`` exists (the fast suite
-writes into the same directory, M4-20 decision 12) or ``GIAP_M5_GATE=1`` demands the evidence.
+writes into the same directory, M4-20 decision 12) or ``GIPPA_M5_GATE=1`` demands the evidence.
 Lead decision 39 / Q2: the gate run is one green full calibration run on main as a Slurm job.
 
 The benchmark entry ``context_m5`` of ``benchmarks/baseline.json`` (benchmarks/
@@ -82,7 +82,9 @@ def required() -> dict[str, list[tuple[str, str, float]]]:
 
 
 def log_dir() -> Path:
-    return Path(os.environ.get("GIAP_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration"))
+    return Path(
+        os.environ.get("GIPPA_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration")
+    )
 
 
 def _records(suite: str) -> list[dict[str, Any]]:
@@ -98,7 +100,7 @@ def _key(rec: dict[str, Any]) -> tuple[str, str, float]:
 
 
 def demanded() -> bool:
-    return os.environ.get("GIAP_M5_GATE") == "1"
+    return os.environ.get("GIPPA_M5_GATE") == "1"
 
 
 def has_full_run(records: Iterable[dict[str, Any]], full: int) -> bool:
@@ -160,7 +162,7 @@ def test_m5_gate_evidence_is_recorded(suite: str) -> None:
         pytest.skip(
             f"no nightly full record (R >= {full}) for suite {suite} in {log_dir()}: submit"
             " scripts/slurm/calibration_full.sbatch --array=4,5 on main and point"
-            " GIAP_CALIBRATION_LOG_DIR at its records, or set GIAP_M5_GATE=1"
+            " GIPPA_CALIBRATION_LOG_DIR at its records, or set GIPPA_M5_GATE=1"
         )
     by_key: dict[tuple[str, str, float], list[dict[str, Any]]] = {}
     for rec in records:
@@ -180,9 +182,9 @@ def test_m5_gate_evidence_is_recorded(suite: str) -> None:
 
 
 def test_the_gate_can_be_demanded_with_an_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GIAP_M5_GATE", raising=False)
+    monkeypatch.delenv("GIPPA_M5_GATE", raising=False)
     assert not demanded()
-    monkeypatch.setenv("GIAP_M5_GATE", "1")
+    monkeypatch.setenv("GIPPA_M5_GATE", "1")
     assert demanded()
     tol = _tolerances()
     for suite in ("islands", "autocorrelation"):

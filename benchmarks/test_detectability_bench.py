@@ -6,7 +6,7 @@ fast size) + ``fit_detectability`` (5 TU folds, inner C search). Only the fit is
 numbers (per-replicate and the whole fast D1 run, R = 20) live in ``benchmarks/baseline.json``
 under ``detectability``; the budget below is about 3 times the measured per-replicate time
 (lead decision 15). Run with ``pytest benchmarks --benchmark-only`` (needs ``tests/sim`` on
-PYTHONPATH for giapsim).
+PYTHONPATH for gippasim).
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from typing import Any
 
 import numpy as np
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 from ._unit_helpers import timed
 
@@ -30,7 +30,7 @@ BUDGET_S = 4.5  # about 3 x the measured 1.47 s/replicate (lead decision 15)
 
 
 def test_detectability_d1_replicate_budget(benchmark: Any) -> None:
-    from giap.genetable.detectability import fit_detectability
+    from gippa.genetable.detectability import fit_detectability
 
     gs = dd.sim_geneset(np.random.default_rng(20261015), N_GENES)
 

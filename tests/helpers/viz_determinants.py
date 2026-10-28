@@ -9,7 +9,7 @@ Tables go through ``helpers.viz_out_tree.write_schema_table`` (schema header; ab
 ``determinants_shap`` (model rows x the top features, ``feature`` an encoded model column) and
 ``determinants_pd`` (``cai, tai, tir_ostir, promotech_max`` order, 21 ascending grid values on
 the feature's own scale, ``pd_low <= pd_mean <= pd_high``; LightGBM only). Nothing here touches
-``$GIAP_DB_DIR`` or the network.
+``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -231,7 +231,7 @@ def pd_frame(features: Sequence[str] = sa.PD_FEATURES) -> pd.DataFrame:
 
 
 def write_support(out: Path, name: str, frame: pd.DataFrame) -> Path:
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     sup = out / "plots" / "support"
     sup.mkdir(parents=True, exist_ok=True)

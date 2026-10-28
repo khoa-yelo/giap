@@ -1,5 +1,5 @@
 // MVP-01: stub run of the GENETABLE subworkflow (workflow/subworkflows/local/genetable.nf;
-// GIAP_SPEC.md §6.2, §7.3, §9.3). ci.yml runs: nf-test test workflow/tests --profile test,stub;
+// GIPPA_SPEC.md §6.2, §7.3, §9.3). ci.yml runs: nf-test test workflow/tests --profile test,stub;
 // "-stub" is set here as well.
 //
 // Interface pinned here:
@@ -7,8 +7,8 @@
 //         contract    value channel: [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
 //         mapping     LOCI output: [step, mapping/] (the §7.2.9 directory)
 //         peptides / abundance / preflight / cog2020_def: value channel or channel.empty()
-// Both py steps run through GIAP_STEP aliases named after the step (M2-07), so each task's
-// --in keys follow the registry (data/annotate/step_registry.json, kept equal to giap.steps by
+// Both py steps run through GIPPA_STEP aliases named after the step (M2-07), so each task's
+// --in keys follow the registry (data/annotate/step_registry.json, kept equal to gippa.steps by
 // tests/unit/test_nf_annotate_registry.py). gene_table publishes genetable/genes_pre.parquet,
 // detectability genetable/genes.parquet and the detectability diagnostics parquet.
 
@@ -50,10 +50,10 @@ nextflow_workflow {
 
             ['gene_table', 'detectability'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
-                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+                assert new File(H.stepDirs(work, s)[0], '.gippa_inputs').isFile() : "${s} did not run through GIPPA_STEP"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def gin = H.stepInputs(H.stepDirs(work, 'gene_table')[0])
             def keys = gin.collect { it[0] }

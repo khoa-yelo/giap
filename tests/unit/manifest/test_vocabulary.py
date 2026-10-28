@@ -1,14 +1,14 @@
 """MVP-03a run-flag vocabulary (docs/specs/MVP-03-manifest-finalize.md D-E, "Needs Khoa" 1, lead
-decisions 2026-10-22; GIAP_SPEC.md §9.4 Run row, ADR-0036 §2, ADR-0037).
+decisions 2026-10-22; GIPPA_SPEC.md §9.4 Run row, ADR-0036 §2, ADR-0037).
 
-Interface assumed: ``giap.manifest.RUN_FLAGS`` and ``giap.manifest.RUN_FLAGS_PENDING`` are
+Interface assumed: ``gippa.manifest.RUN_FLAGS`` and ``gippa.manifest.RUN_FLAGS_PENDING`` are
 disjoint ``frozenset[str]``. An entry ending in ``:`` is a prefix (``layer_missing:`` covers every
 ``layer_missing:<layer>``). The run-scope tokens beyond §9.4 —
 ``input_prefiltered``, ``cai_reference_missing``, ``no_detection_limit_model`` and the
 ``uncalibrated:`` prefix — sat in ``RUN_FLAGS_PENDING`` until Khoa accepted ADR-0041; they are now
 registered and ``RUN_FLAGS_PENDING`` is empty.
 
-"Every token emitted anywhere in ``src/giap``": the run-scope constants named in D-E (imported
+"Every token emitted anywhere in ``src/gippa``": the run-scope constants named in D-E (imported
 here, so a rename is caught), the ``bakta_db_light`` and ``c_assumed`` literals, the function
 module's run flags (ADR-0036 §2, ADR-0037) and every ``layer_missing:<word>`` literal found in
 the source tree.
@@ -22,17 +22,17 @@ from pathlib import Path
 
 import pytest
 
-SRC = Path(__file__).resolve().parents[3] / "src" / "giap"
+SRC = Path(__file__).resolve().parents[3] / "src" / "gippa"
 FLAG_PATTERN = re.compile(r"^[a-z0-9_]+(:[a-z0-9_.-]+)?$")
 
-#: (module, constant) of every run-scope token constant in src/giap (D-E).
+#: (module, constant) of every run-scope token constant in src/gippa (D-E).
 CONSTANTS = [
-    ("giap.annotate.bakta_layers", "ANTI_SD_DEFAULT_FLAG"),
-    ("giap.annotate.operons", "DISTANCE_FLAG"),
-    ("giap.mapping.placement_fdr", "PREFILTERED_FLAG"),
-    ("giap.annotate.codon_usage", "CAI_REFERENCE_MISSING"),
-    ("giap.operons.discordance", "NO_DL_MODEL"),
-    ("giap.operons.flags", "LAYER_MISSING"),
+    ("gippa.annotate.bakta_layers", "ANTI_SD_DEFAULT_FLAG"),
+    ("gippa.annotate.operons", "DISTANCE_FLAG"),
+    ("gippa.mapping.placement_fdr", "PREFILTERED_FLAG"),
+    ("gippa.annotate.codon_usage", "CAI_REFERENCE_MISSING"),
+    ("gippa.operons.discordance", "NO_DL_MODEL"),
+    ("gippa.operons.flags", "LAYER_MISSING"),
 ]
 LITERALS = ["bakta_db_light", "c_assumed"]
 FUNCTION_FLAGS = ["tu_recal_skipped", "too_few_ranked_tus", "no_eligible_genes",
@@ -44,7 +44,7 @@ PENDING = ["input_prefiltered", "cai_reference_missing", "no_detection_limit_mod
 
 
 def _vocab() -> tuple[frozenset[str], frozenset[str]]:
-    from giap.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
+    from gippa.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
 
     return frozenset(RUN_FLAGS), frozenset(RUN_FLAGS_PENDING)
 
@@ -56,7 +56,7 @@ def _covered(token: str, vocab: frozenset[str]) -> bool:
 
 
 def test_vocabularies_are_disjoint_frozensets() -> None:
-    from giap.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
+    from gippa.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
 
     assert isinstance(RUN_FLAGS, frozenset) and isinstance(RUN_FLAGS_PENDING, frozenset)
     assert not RUN_FLAGS & RUN_FLAGS_PENDING
@@ -99,7 +99,7 @@ def test_every_layer_missing_literal_in_src_is_covered() -> None:
     found = set()
     for path in SRC.rglob("*.py"):
         found |= set(re.findall(r"layer_missing:[a-z0-9_]+", path.read_text(encoding="utf-8")))
-    assert found, "no layer_missing:<layer> literal found under src/giap"
+    assert found, "no layer_missing:<layer> literal found under src/gippa"
     for token in sorted(found):
         assert _covered(token, flags | pending), token
 

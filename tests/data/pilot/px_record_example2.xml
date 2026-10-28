@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ProteomeXchangeDataset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="PXD078459" formatVersion="1.4.0" xsi:noNamespaceSchemaLocation="proteomeXchange-1.4.0.xsd">
   <DatasetSummary announceDate="2026-01-15" hostingRepository="iProX" title="Synthetic test record: E. coli Nissle 1917 proteome">
-    <Description>Synthetic fixture for the GIAP M10-01 tests; not real data.</Description>
+    <Description>Synthetic fixture for the GIPPA M10-01 tests; not real data.</Description>
     <ReviewLevel><cvParam cvRef="PRIDE" accession="PRIDE:0000414" name="Peer-reviewed dataset"/></ReviewLevel>
   </DatasetSummary>
   <DatasetIdentifierList><DatasetIdentifier>

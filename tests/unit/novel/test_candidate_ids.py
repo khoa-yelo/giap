@@ -1,5 +1,5 @@
 """``novel_candidate_id`` back-fill (M7-06 Q6, M7-15 item 6; review #278 B2, lead decision 11):
-``giap.novel.outputs.candidate_ids`` and ``giap.steps.novel.backfill_candidate_ids``.
+``gippa.novel.outputs.candidate_ids`` and ``gippa.steps.novel.backfill_candidate_ids``.
 
 Kills the review's surviving mutants "locus-class filter removed" and "strand dropped from the
 owner key". Pins the decision-11 nits: a hit matches an ORF only within the ORF span (positions;
@@ -15,9 +15,9 @@ from pathlib import Path
 from hypothesis import given
 from hypothesis import strategies as st
 
-from giap.novel.candidates import NOVEL_CLASSES
-from giap.novel.outputs import candidate_ids
-from giap.steps.novel import backfill_candidate_ids
+from gippa.novel.candidates import NOVEL_CLASSES
+from gippa.novel.outputs import candidate_ids
+from gippa.steps.novel import backfill_candidate_ids
 
 Row = dict[str, str | None]
 
@@ -265,7 +265,7 @@ def test_backfill_ignores_a_table_without_the_needed_columns(tmp_path: Path) -> 
 
 
 def test_backfill_result_reads_back_as_a_table(tmp_path: Path) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     hp = _write(tmp_path, [_hits_line(hit()), _hits_line(hit(strand="-"))], [orf()])
     backfill_candidate_ids(tmp_path)

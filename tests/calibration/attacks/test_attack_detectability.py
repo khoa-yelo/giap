@@ -1,4 +1,4 @@
-"""Attack null 2 for the M4-13 detectability model (GIAP_SPEC.md §8.5 "short genes concentrated in
+"""Attack null 2 for the M4-13 detectability model (GIPPA_SPEC.md §8.5 "short genes concentrated in
 prophages"; docs/specs/M4-13-detectability.md, lead decision 5 after the statistician's review;
 statistician's draft).
 
@@ -9,7 +9,7 @@ average: D1's marginal slope cannot see this (dropping the size covariates keeps
 Generator (one replicate): ``detectability_data.sim_geneset(rng, 2000, short_genes_in="prophage")``
 (M4-07 layout with the short genes placed in prophages + M4-08 ``covariates_only`` detection);
 ``fit_detectability`` with the default ``DetectabilityConfig`` and
-``giap.rng.for_step("detectability", seed)``, seed drawn from the replicate generator. Subgroups of
+``gippa.rng.for_step("detectability", seed)``, seed drawn from the replicate generator. Subgroups of
 the eligible genes: ``prophage`` (``extra["in_prophage"]``) and ``short_decile`` (length_aa at or
 below the 10th percentile). Per subgroup z = (Σ d - Σ p) / sqrt(Σ p(1 - p)); replicate value =
 two-sided normal p of z.
@@ -38,8 +38,8 @@ from scipy import stats
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import detectability_data as dd
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 SUITE = "detectability"
 MODES = [
@@ -53,7 +53,7 @@ _MEMO: dict[tuple[str, int], dict[str, float]] = {}
 
 
 def _subgroup_z(rng: np.random.Generator, covs: list[str] | None) -> dict[str, float]:
-    from giap.genetable.detectability import fit_detectability
+    from gippa.genetable.detectability import fit_detectability
 
     gs = dd.sim_geneset(rng, N_GENES, short_genes_in="prophage")
     cfg = DetectabilityConfig() if covs is None else DetectabilityConfig(covariates=covs)

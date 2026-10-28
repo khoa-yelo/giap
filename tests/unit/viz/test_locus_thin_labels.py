@@ -1,4 +1,4 @@
-"""V3/V13 gene labels do not overlap (#323 review S1; ``giap.viz.locus._thin_labels``).
+"""V3/V13 gene labels do not overlap (#323 review S1; ``gippa.viz.locus._thin_labels``).
 
 Gene labels are the texts on the ``"genes"`` axes whose string is a gene name of the window. On
 a dense window (short adjacent genes, long names) some labels are hidden; the visible ones have
@@ -17,10 +17,10 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import style
-from giap.viz.locus import Locus, render_locus
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import style
+from gippa.viz.locus import Locus, render_locus
 
 SCALE = (18.0, 24.0)
 

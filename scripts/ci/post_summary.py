@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Post a nightly array's summary to the "Nightly (FarmShare)" issue (GIAP_SPEC.md §3.10, §12).
+"""Post a nightly array's summary to the "Nightly (FarmShare)" issue (GIPPA_SPEC.md §3.10, §12).
 
 Usage: ``post_summary.py --job ARRAY_JOB [--tsv local/logs/nightly.tsv] [--expect 4] [--final]
 [--dry-run]``
@@ -73,7 +73,7 @@ def render(lines: list[Line], job: str, missing: dict[str, str] | None = None) -
     out += [f"\nNote: {ln.summary}" for ln in notes]
     out += [
         "",
-        f"Logs: `local/logs/giap-nightly.{job}_<task>.out`; rows in `local/logs/nightly.tsv`.",
+        f"Logs: `local/logs/gippa-nightly.{job}_<task>.out`; rows in `local/logs/nightly.tsv`.",
     ]
     return "\n".join(out) + "\n"
 

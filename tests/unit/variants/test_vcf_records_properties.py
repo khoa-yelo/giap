@@ -32,12 +32,12 @@ from helpers.variant_tables_fixture import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.genes import GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.genes import GeneModel
 
 L = 120
-CFG = GiapConfig.model_validate({})
+CFG = GippaConfig.model_validate({})
 SENSE = sorted(c for c in CODONS64 if CODE[c] != "*")
 PEPTIDE_AAS = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -121,7 +121,7 @@ def test_alt_translates_to_aa_alt_and_ref_matches_genome(sc: dict[str, Any]) -> 
     (r,) = recs
     with tempfile.TemporaryDirectory() as d:
         vcf_io().write_vcf(
-            Path(d) / "v.vcf", recs, [rep], giap_version=VERSION, genome_sha256=SHA,
+            Path(d) / "v.vcf", recs, [rep], gippa_version=VERSION, genome_sha256=SHA,
             sample=SAMPLE, info_fields=v.INFO_FIELDS, format_fields=v.FORMAT_FIELDS,
             sequences=genome,
         )  # fmt: skip

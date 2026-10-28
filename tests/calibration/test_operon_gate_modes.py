@@ -1,7 +1,7 @@
 """Harness modes of the M6-09 gate helpers (``_operon_gate``; PR #310 review B-1).
 
-Under ``--shard`` (``GIAP_CALIBRATION_REPLICATES``) ``calibrate*`` returns ``shard`` records and in
-a ``--merge`` confirm run (``GIAP_CALIBRATION_CONFIRM``) an unlisted check returns ``skipped``:
+Under ``--shard`` (``GIPPA_CALIBRATION_REPLICATES``) ``calibrate*`` returns ``shard`` records and in
+a ``--merge`` confirm run (``GIPPA_CALIBRATION_CONFIRM``) an unlisted check returns ``skipped``:
 neither has a verdict, so the gate helpers must skip (after logging), never fail, and the
 non-vacuity requirement must not fire on them. Toy count records, no simulation; every-commit tier.
 """

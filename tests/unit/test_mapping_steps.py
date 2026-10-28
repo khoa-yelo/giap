@@ -1,8 +1,8 @@
-"""Mapping steps, query selection and routing (issue M3-17; GIAP_SPEC.md §6.1, §6.2, §7.2,
+"""Mapping steps, query selection and routing (issue M3-17; GIPPA_SPEC.md §6.1, §6.2, §7.2,
 §7.3.1; docs/specs/M3-17-mapping-steps.md examples 1 and 6, plus step I/O and determinism).
 
-The registered steps run through ``giap.steps.registry.run_step`` (M2-02) on a 50-kb giapsim
-genome with M3-19 proteomics after ``giap preflight`` (M1-12 work files); external tools never
+The registered steps run through ``gippa.steps.registry.run_step`` (M2-02) on a 50-kb gippasim
+genome with M3-19 proteomics after ``gippa preflight`` (M1-12 work files); external tools never
 run: miniprot / tblastn outputs are injected from ``tests/data/recorded`` (helpers.mapping_steps).
 Each step's output is compared with the merged pure functions (M3-02 … M3-16) on the same input.
 
@@ -16,7 +16,7 @@ Ambiguities resolved here (spec silent; see helpers.mapping_steps for the key co
   ``mapping_fdr.tsv`` carry ``c_assumed`` in ``flags`` and a mapping step logs a WARNING that
   names ``c_assumed``.
 * "Every step logs counts": each mapping py step emits at least one INFO record with a number on
-  its ``giap.steps.<name>`` logger (``run_step``'s logger; ``logs/<step>.log`` is the CLI's sink).
+  its ``gippa.steps.<name>`` logger (``run_step``'s logger; ``logs/<step>.log`` is the CLI's sink).
 * The shuffled decoy translations in the ``sixframe`` work file are
   ``build_decoys(index, "shuffle", mapping.decoys.shuffle_window_aa,
   for_step("sixframe_index", seed))`` (the step's own stream, §6.6).
@@ -55,18 +55,18 @@ from helpers.mapping_steps import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.config import GiapConfig, resolve_config
-from giap.genetable.contract import validate_table
-from giap.io.work_tables import _read_tsv_table
-from giap.mapping.chance import residue_freqs
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.placement_fdr import best_costs, placement
-from giap.mapping.sixframe import build_sixframe, load_index
-from giap.mapping.tolerant import match_tolerant
-from giap.rng import for_step
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config import GippaConfig, resolve_config
+from gippa.genetable.contract import validate_table
+from gippa.io.work_tables import _read_tsv_table
+from gippa.mapping.chance import residue_freqs
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.placement_fdr import best_costs, placement
+from gippa.mapping.sixframe import build_sixframe, load_index
+from gippa.mapping.tolerant import match_tolerant
+from gippa.rng import for_step
 
 HIT_KEY = ["peptide", "search", "decoy_type", "contig", "start", "end", "strand", "n_diff"]
 SEED = 11
@@ -107,7 +107,7 @@ def norm_table(rows: list[dict[str, Any]]) -> pd.DataFrame:
     return df
 
 
-def expected_queries(df: pd.DataFrame, cfg: GiapConfig) -> set[str]:
+def expected_queries(df: pd.DataFrame, cfg: GippaConfig) -> set[str]:
     """Oracle of the spec's query rule (Behaviour, Q2)."""
     lo, hi = cfg.mapping.exact.min_len, cfg.mapping.exact.max_len
     qmax = cfg.input.q_value_max
@@ -121,8 +121,8 @@ def expected_queries(df: pd.DataFrame, cfg: GiapConfig) -> set[str]:
     return out
 
 
-def select(df: pd.DataFrame, cfg: GiapConfig | None = None) -> pd.DataFrame:
-    out = mapping_module().select_queries(df, cfg or GiapConfig())
+def select(df: pd.DataFrame, cfg: GippaConfig | None = None) -> pd.DataFrame:
+    out = mapping_module().select_queries(df, cfg or GippaConfig())
     assert isinstance(out, pd.DataFrame)
     assert "peptide" in out.columns
     return out
@@ -200,7 +200,7 @@ def test_example_1_only_confident_target_peptides_of_valid_length() -> None:
 
 
 def test_q2_boundary_and_missing_q() -> None:
-    cfg = GiapConfig()
+    cfg = GippaConfig()
     qmax = cfg.input.q_value_max
     df = norm_table(
         [
@@ -278,7 +278,7 @@ _row = st.fixed_dictionaries(
 @settings(max_examples=60, deadline=None)
 @given(st.lists(_row, min_size=0, max_size=25, unique_by=lambda r: r["peptide"]))
 def test_property_selection_is_exactly_the_query_rule(rows: list[dict[str, Any]]) -> None:
-    cfg = GiapConfig()
+    cfg = GippaConfig()
     df = norm_table(rows) if rows else norm_table([{"peptide": "X"}]).iloc[0:0]
     out = select(df, cfg)
     assert set(out["peptide"]) == expected_queries(df, cfg)
@@ -292,7 +292,7 @@ class Chain:
     def __init__(
         self,
         run: SimRun,
-        cfg: GiapConfig,
+        cfg: GippaConfig,
         avail: dict[str, Path],
         reg: ModuleType,
         records: list[logging.LogRecord],
@@ -331,7 +331,7 @@ def _with_near_misses(run: SimRun, out: Path) -> Path:
 
 
 def _run_chain(tmp: Path, seed: int = SEED, denovo: bool = False) -> Chain:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     run = simulate_with_proteomics(
         tmp / "in", seed, proteomics=ProteomicsConfig(pi_wrong=0.05, search_db="other")
@@ -348,7 +348,7 @@ def _run_chain(tmp: Path, seed: int = SEED, denovo: bool = False) -> Chain:
     cfg = resolve_config(run.config_yaml, [f"seed={seed}"])
     records: list[logging.LogRecord] = []
     handler = _ListHandler(records)
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(handler)
     log.setLevel(logging.INFO)
@@ -543,7 +543,7 @@ def test_only_queries_reach_the_hit_and_unmapped_tables(chain: Chain, oracle: di
 
 def test_every_mapping_step_logs_counts(chain: Chain) -> None:
     for name in MAPPING_PY_STEPS:
-        recs = [r for r in chain.records if r.name == f"giap.steps.{name}"]
+        recs = [r for r in chain.records if r.name == f"gippa.steps.{name}"]
         assert any(r.levelno >= logging.INFO and re.search(r"\d", r.getMessage()) for r in recs), (
             f"{name}: no count logged"
         )
@@ -587,7 +587,7 @@ def test_example_6_c_assumed_is_logged(denovo_chain: Chain) -> None:
     assert any(
         r.levelno >= logging.WARNING and "c_assumed" in r.getMessage()
         for r in denovo_chain.records
-        if r.name.startswith("giap.steps.")
+        if r.name.startswith("gippa.steps.")
     )
 
 
@@ -639,8 +639,8 @@ def protein_chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
     from helpers.mapping_steps import preflight
 
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SIM100K, SIM100K_SEED, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SIM100K, SIM100K_SEED, simulate
 
     tmp = tmp_path_factory.mktemp("proteins")
     cfg_sim = dataclasses.replace(SIM100K, proteomics=ProteomicsConfig())
@@ -716,14 +716,14 @@ def test_peptides_without_a_peptide_column_fail_the_step(
     assert not any(p.exists() for p in outs.values())
 
 
-def test_giap_step_cli_exits_4_on_a_corrupt_index(
+def test_gippa_step_cli_exits_4_on_a_corrupt_index(
     steps: ModuleType, chain: Chain, tmp_path: Path
 ) -> None:
     """``steps`` = ``fresh_steps``: the real steps whatever registry an earlier test left behind
     (M3-17 review decision 12)."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     spec = steps.get("map_exact")
     six = key_like(spec.inputs, "sixframe")

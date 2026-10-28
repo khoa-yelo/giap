@@ -1,5 +1,5 @@
 // M3-17 example 4: stub run of the MAPPING subworkflow (workflow/subworkflows/local/mapping.nf;
-// GIAP_SPEC.md §6.1, §6.2, §6.3 "Process conventions", §7.2.9). ci.yml runs:
+// GIPPA_SPEC.md §6.1, §6.2, §6.3 "Process conventions", §7.2.9). ci.yml runs:
 // nf-test test workflow/tests --profile test,stub ; "-stub" is set here as well.
 //
 // Interface pinned here (lead decisions 5, 6 after the PR #77 review):
@@ -9,12 +9,12 @@
 //         annotation         value channel: [genes.parquet, features.parquet, replicons.parquet]
 //         reference_peptides value channel: reference peptide table, or channel.empty()
 //         contaminants       value channel: contaminant library FASTA, or channel.empty()
-// Decision 5: the subworkflow follows M2-07: every py step of giap.steps.mapping runs through a
-// GIAP_STEP alias named after the step (inputs built by stepIn), so each task's stub writes
-// .giap_inputs and its --in keys follow the registry (data/mapping/step_registry.json, kept equal
-// to giap.steps by tests/unit/test_mapping_nf_registry.py); no GIAP_MAPPING / GIAP_MAPPING_LOCI.
+// Decision 5: the subworkflow follows M2-07: every py step of gippa.steps.mapping runs through a
+// GIPPA_STEP alias named after the step (inputs built by stepIn), so each task's stub writes
+// .gippa_inputs and its --in keys follow the registry (data/mapping/step_registry.json, kept equal
+// to gippa.steps by tests/unit/test_mapping_nf_registry.py); no GIPPA_MAPPING / GIPPA_MAPPING_LOCI.
 // The loci stub publishes params.outdir/mapping/ with the seven §7.2.9 files, the TSVs carrying
-// the real §9.3 headers (giap.mapping.outputs, giap.mapping.protein_assign). `contaminants` and
+// the real §9.3 headers (gippa.mapping.outputs, gippa.mapping.protein_assign). `contaminants` and
 // `reference_peptides` reach loci / placement when given. Decision 6: placement gets genes,
 // features, replicons (required by the registry). MINIPROT / TBLASTN run only with proteins.
 // Every task emits versions.yml.
@@ -27,7 +27,7 @@ nextflow_workflow {
     options "-stub"
     tag "mapping"
 
-    test("example 4: peptides only: GIAP_STEP per py step, registry keys, real headers, no protein tools") {
+    test("example 4: peptides only: GIPPA_STEP per py step, registry keys, real headers, no protein tools") {
 
         when {
             params {
@@ -59,19 +59,19 @@ nextflow_workflow {
             assert workflow.trace.failed().size() == 0
             def names = H.names(workflow.trace)
             assert names.size() > 0 : "no task ran"
-            assert !names.any { it.contains('GIAP_MAPPING') } : "decision 5: no GIAP_MAPPING* processes: ${names}"
+            assert !names.any { it.contains('GIPPA_MAPPING') } : "decision 5: no GIPPA_MAPPING* processes: ${names}"
             assert !names.any { it.contains('MINIPROT') || it.contains('TBLASTN') } : "protein tools ran without proteins: ${names}"
 
             ['sixframe_index', 'map_exact', 'map_tolerant', 'placement', 'loci'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${names}"
                 def dirs = H.stepDirs(work, s)
                 assert dirs.size() == 1 : "no task directory for ${s}"
-                assert new File(dirs[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP (no .giap_inputs)"
+                assert new File(dirs[0], '.gippa_inputs').isFile() : "${s} did not run through GIPPA_STEP (no .gippa_inputs)"
             }
             assert H.stepCount(workflow.trace, 'protein_leftovers') == 0 : "protein_leftovers ran without proteins"
 
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
             def pin = H.stepInputs(H.stepDirs(work, 'placement')[0]).collect { it[0] }
             assert pin.containsAll(['genes', 'features', 'replicons']) : "decision 6: placement inputs ${pin}"
             assert !('reference_peptides' in pin) : "placement got reference_peptides that were not given"
@@ -124,7 +124,7 @@ nextflow_workflow {
             assert workflow.success
             assert workflow.trace.failed().size() == 0
             def names = H.names(workflow.trace)
-            assert !names.any { it.contains('GIAP_MAPPING') } : "decision 5: no GIAP_MAPPING* processes: ${names}"
+            assert !names.any { it.contains('GIPPA_MAPPING') } : "decision 5: no GIPPA_MAPPING* processes: ${names}"
             ['MINIPROT', 'TBLASTN'].each { p ->
                 assert H.count(workflow.trace, p) == 1 : "${p} in ${names}"
             }
@@ -132,7 +132,7 @@ nextflow_workflow {
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${names}"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def pin = H.stepInputs(H.stepDirs(work, 'placement')[0])
             assert pin.any { it[0] == 'reference_peptides' && it[1].endsWith('reference_peptides.tsv') } : "placement inputs ${pin}"

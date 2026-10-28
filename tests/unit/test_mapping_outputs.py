@@ -1,4 +1,4 @@
-"""Module 2 outputs (issue M3-16; GIAP_SPEC.md §7.2.9, §9.2, §9.3, §6.5, §6.6).
+"""Module 2 outputs (issue M3-16; GIPPA_SPEC.md §7.2.9, §9.2, §9.3, §6.5, §6.6).
 
 ``write_mapping_outputs`` writes ``peptide_hits.tsv``, ``protein_hits.tsv``, ``mappings.probed``,
 ``mappings.bed``, ``mappings.gff3``, ``unmapped.tsv`` and ``mapping_fdr.tsv`` into ``outdir``.
@@ -26,17 +26,17 @@ import pandas as pd
 import pytest
 from helpers.mapping_outputs_oracle import PROBED_UNIQUENESS, bed12_core, bed_core_of_line
 
-from giap.io.gff3 import read_gff3
-from giap.io.tsv import read_tsv
-from giap.mapping.contaminants import UnmappedRow
-from giap.mapping.outputs import (
+from gippa.io.gff3 import read_gff3
+from gippa.io.tsv import read_tsv
+from gippa.mapping.contaminants import UnmappedRow
+from gippa.mapping.outputs import (
     MAPPING_FDR_COLUMNS,
     PEPTIDE_HITS_COLUMNS,
     PROTEIN_HITS_COLUMNS,
     UNMAPPED_COLUMNS,
     write_mapping_outputs,
 )
-from giap.model import Interval, Replicon
+from gippa.model import Interval, Replicon
 
 GENOME_SHA = "ab" * 32
 CHR1 = Replicon("chr1", 10_000, "circular", "chromosome")
@@ -89,7 +89,7 @@ def pep(**kw: Any) -> dict[str, Any]:
         "length_class": "10-11",
         "locus_class": "cds_inframe",
         "uniqueness": "unique",
-        "gene": "GIAP_00010",
+        "gene": "GIPPA_00010",
         "novel_candidate_id": None,
         "flags": "",
         "blocks": None,
@@ -101,7 +101,7 @@ def pep(**kw: Any) -> dict[str, Any]:
 
 def prot(**kw: Any) -> dict[str, Any]:
     row: dict[str, Any] = {
-        "protein_id": "GIAP_00010",
+        "protein_id": "GIPPA_00010",
         "protein_len_aa": 120,
         "route": "miniprot",
         "contig": "chr1",
@@ -113,7 +113,7 @@ def prot(**kw: Any) -> dict[str, Any]:
         "query_coverage": 1.0,
         "reciprocal_overlap": 1.0,
         "class": "identical",
-        "gene": "GIAP_00010",
+        "gene": "GIPPA_00010",
         "flags": "",
     }
     row.update(kw)
@@ -361,7 +361,7 @@ def test_example_01_scalar_dtypes_written(tmp_path: Path) -> None:
     assert r["length_class"] == "10-11"
     assert r["locus_class"] == "cds_inframe"
     assert r["uniqueness"] == "unique"
-    assert r["gene"] == "GIAP_00010"
+    assert r["gene"] == "GIPPA_00010"
     assert r["novel_candidate_id"] == "NA"
 
 
@@ -435,7 +435,7 @@ def test_origin_crossing_protein_hit_split_in_bed(tmp_path: Path) -> None:
     _, (r,) = raw_tsv(out / "protein_hits.tsv")
     assert (r["start"], r["end"]) == ("9901", "10050")
     names = sorted(f[3] for f in data_lines(out / "mappings.bed"))
-    assert names == ["GIAP_00010_part1", "GIAP_00010_part2"]
+    assert names == ["GIPPA_00010_part1", "GIPPA_00010_part2"]
 
 
 # --------------------------------------------------------------------- Example 3 (tolerant)
@@ -523,7 +523,7 @@ def test_example_04_frameshift_gff3_match_parts(tmp_path: Path) -> None:
     assert pid
     assert all(attr(p, "Parent") == pid for p in parts)
     assert sorted((p.interval.start, p.interval.end) for p in parts) == [(2, 20), (21, 39)]
-    assert all(p.source == "GIAP" for p in parts)
+    assert all(p.source == "GIPPA" for p in parts)
 
 
 def test_frameshift_delta_minus_one_first_block_shortened(tmp_path: Path) -> None:
@@ -649,7 +649,7 @@ def test_probed_fields(tmp_path: Path) -> None:
     (f,) = data_lines(out / "mappings.probed")
     assert len(f) == 25
     assert f[0:6] == ["chr1", "130", "160", "PEPTIDEKLLR", "1000", "+"]
-    assert f[12] == "GIAP_00010"  # proteinAccession = gene
+    assert f[12] == "GIPPA_00010"  # proteinAccession = gene
     assert f[13] == "PEPTIDEKLLR"  # peptideSequence
     assert f[14] == "unique"
     assert f[15] == f"sha256:{GENOME_SHA}"  # genomeReferenceVersion (Q2)
@@ -725,7 +725,7 @@ def test_gff3_peptide_and_protein_features(tmp_path: Path) -> None:
     out = write(tmp_path, [pep()], [prot(protein_id="PROT_A", start=2000, end=2300, rank=2)])
     feats = [f for f in gff_features(out / "mappings.gff3") if f.type != "region"]
     assert len(feats) == 2
-    assert all(f.source == "GIAP" and f.type == "nucleotide_to_protein_match" for f in feats)
+    assert all(f.source == "GIPPA" and f.type == "nucleotide_to_protein_match" for f in feats)
     pf, rf = sorted(feats, key=lambda f: f.interval.start)
     assert pf.interval == Interval("chr1", 130, 160, "+")
     assert attr(pf, "Name") == "PEPTIDEKLLR"
@@ -734,7 +734,7 @@ def test_gff3_peptide_and_protein_features(tmp_path: Path) -> None:
     assert attr(pf, "placement_q") == "0.002"
     assert attr(pf, "locus_class") == "cds_inframe"
     assert attr(pf, "uniqueness") == "unique"
-    assert attr(pf, "gene") == "GIAP_00010"
+    assert attr(pf, "gene") == "GIPPA_00010"
     assert rf.interval == Interval("chr1", 2000, 2300, "+")
     assert attr(rf, "Name") == "PROT_A"
     assert attr(rf, "identity") == "1"
@@ -807,7 +807,7 @@ def test_protein_hits_tsv_row(tmp_path: Path) -> None:
                gene=None, rank=2, strand="-", **{"class": "near"})  # fmt: skip
     out = write(tmp_path, prots=[row])
     _, (r,) = raw_tsv(out / "protein_hits.tsv")
-    assert (r["protein_id"], r["protein_len_aa"], r["route"]) == ("GIAP_00010", "120", "tblastn")
+    assert (r["protein_id"], r["protein_len_aa"], r["route"]) == ("GIPPA_00010", "120", "tblastn")
     assert (r["contig"], r["start"], r["end"], r["strand"], r["rank"]) == (
         "chr1", "1001", "1363", "-", "2",
     )  # fmt: skip

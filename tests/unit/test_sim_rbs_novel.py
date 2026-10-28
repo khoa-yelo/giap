@@ -1,4 +1,4 @@
-"""giapsim writes the ``rbs_novel`` layer (issue M7-08 rule 6; ADR-0024; GIAP_SPEC.md §11.3).
+"""gippasim writes the ``rbs_novel`` layer (issue M7-08 rule 6; ADR-0024; GIPPA_SPEC.md §11.3).
 
 Rule 6: ``precomputed/rbs_novel.tsv`` has one row per start codon (``annotation.start_codons``)
 on both strands of every replicon; ``tir_ostir`` is drawn from the "true" distribution
@@ -68,7 +68,7 @@ def test_layer_file_and_config_key(sim: Any) -> None:
 
 
 def test_layer_loads_with_load_precomputed(sim: Any) -> None:
-    from giap.annotate.precomputed import load_precomputed
+    from gippa.annotate.precomputed import load_precomputed
 
     reps = dict(nf.annotation_of(sim).model.replicons)
     df = load_precomputed("rbs_novel", nf.rbs_novel_layer(sim), reps)

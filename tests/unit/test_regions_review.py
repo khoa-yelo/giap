@@ -3,7 +3,7 @@
 
 * 3. The CRISPR cas-gene search is origin-aware on circular replicons: the gap is the circular
   distance between the array and the gene (also for origin-crossing arrays); the region extent
-  stays in one frame (unwrapped, ``end > length`` per GIAP_SPEC.md §6.5). The two review examples
+  stays in one frame (unwrapped, ``end > length`` per GIPPA_SPEC.md §6.5). The two review examples
   (chr1 circular, 100,000 bp): array ``[99500, 99900)`` with cas1 at ``[200, 1100)`` (gap 300) and
   the origin-crossing array ``[99800, 100300)`` with cas2 at ``[800, 1400)`` (gap 500). Linear
   replicons do not wrap.
@@ -27,13 +27,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-import giapsim
-from giap.config import GiapConfig, resolve_config
-from giap.genetable.contract import validate_table
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, NcFeature
+import gippasim
+from gippa.config import GippaConfig, resolve_config
+from gippa.genetable.contract import validate_table
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, NcFeature
 
-regions = importlib.import_module("giap.annotate.regions")  # M2-19
+regions = importlib.import_module("gippa.annotate.regions")  # M2-19
 
 CHR1 = Replicon("chr1", 100_000, "circular", "chromosome")
 LIN = Replicon("lin", 100_000, "linear", "chromosome")
@@ -220,16 +220,16 @@ PARSE_OUT = {
 
 @pytest.fixture(scope="module")
 def sim_core(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     out = tmp_path_factory.mktemp("regions_review_sim")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     load_step_modules()
     work = out / "work"
     reg.run_step(
         "parse_bakta",
-        GiapConfig(seed=1),
+        GippaConfig(seed=1),
         {"bakta_json": res.bakta_json, "genome": res.genome_fasta},
         {k: work / v for k, v in PARSE_OUT.items()},
     )
@@ -239,7 +239,7 @@ def sim_core(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 def test_step_reads_the_amr_column_into_amr_regions(
     sim_core: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     core = sim_core
     table = pq.read_table(core["genes"])
@@ -259,7 +259,7 @@ def test_step_reads_the_amr_column_into_amr_regions(
     pq.write_table(table, gpath)
 
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
-    reg.run_step("region_layer", GiapConfig(seed=1), {**core, "genes": gpath}, outs)
+    reg.run_step("region_layer", GippaConfig(seed=1), {**core, "genes": gpath}, outs)
     rows = pq.read_table(outs["regions"]).to_pylist()
     amr = [r for r in rows if r["region_type"] == "amr"]
     assert [(r["region_id"], r["contig"]) for r in amr] == [
@@ -278,10 +278,10 @@ def test_step_reads_the_amr_column_into_amr_regions(
 def test_step_regions_parquet_passes_c7_without_extra_column(
     sim_core: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
-    reg.run_step("region_layer", GiapConfig(seed=1), sim_core, outs)
+    reg.run_step("region_layer", GippaConfig(seed=1), sim_core, outs)
     df = pq.read_table(outs["regions"]).to_pandas()
     assert {"genes", "notes"} <= set(df.columns) and len(df) >= 1
     issues = validate_table("regions", df)

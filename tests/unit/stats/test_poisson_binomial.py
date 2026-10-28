@@ -1,7 +1,7 @@
-"""Exact Poisson-binomial distribution (issue M3-09; GIAP_SPEC.md §7.2.5, §8.3).
+"""Exact Poisson-binomial distribution (issue M3-09; GIPPA_SPEC.md §7.2.5, §8.3).
 
 Interface pinned here (shared with M4-02, M4-index decision 3; module
-``giap.stats.poisson_binomial`` as named in M3-09 and M3-index):
+``gippa.stats.poisson_binomial`` as named in M3-09 and M3-index):
 
 - ``poisson_binomial_pmf(p) -> np.ndarray``: float64, length ``len(p) + 1``, exact DP;
 - ``poisson_binomial_cdf(p, k) -> float``: P(X <= k), summed directly from the pmf (never
@@ -18,7 +18,7 @@ import math
 import numpy as np
 import pytest
 
-from giap.stats.poisson_binomial import (
+from gippa.stats.poisson_binomial import (
     poisson_binomial_cdf,
     poisson_binomial_pmf,
     poisson_binomial_sf,

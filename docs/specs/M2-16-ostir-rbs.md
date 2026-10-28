@@ -18,7 +18,7 @@ capabilities: none (recording needs `needs_conda`)
 
 ## Public interface
 
-`src/giap/annotate/ostir.py`, `src/giap/annotate/ostir_cmd.py`; steps `ostir_input`, `rbs_layer`.
+`src/gippa/annotate/ostir.py`, `src/gippa/annotate/ostir_cmd.py`; steps `ostir_input`, `rbs_layer`.
 ```python
 @dataclass(frozen=True, slots=True)
 class OstirRow: id: str; seq: str; start: int; end: int; anti_sd: str
@@ -71,7 +71,7 @@ Sequence geometry (S = first start-codon base, E = interval end, 0-based):
 
 1. The spec names the id column `id`; OSTIR's documented CSV header may be `name`. **Proposed
    default:** write whatever header OSTIR 1.1.3 accepts (checked once with the env), map it back to
-   `id` in GIAP; the recorded fixture fixes it.
+   `id` in GIPPA; the recorded fixture fixes it.
 
 ## Lead decisions (after the test-author's pass)
 1. The test-author's resolutions are accepted, incl. the M2-index change: `ostir_input` also takes

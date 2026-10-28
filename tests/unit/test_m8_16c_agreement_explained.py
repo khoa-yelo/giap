@@ -1,6 +1,6 @@
 """M8-16c: ``agreement`` over the genes the features explain (Khoa's decision of 2026-10-24,
 follow-up to M8-16 #265; docs/specs/M8-16-sensitivity-function-determinants.md lead decisions
-4-5; GIAP_SPEC.md §8.6 "plus ``agreement`` for the dominant determinant block").
+4-5; GIPPA_SPEC.md §8.6 "plus ``agreement`` for the dominant determinant block").
 
 New definition (lead):
 
@@ -11,7 +11,7 @@ New definition (lead):
 * that block is the **agreement block** (Khoa, option (a) of the #299 statistician review,
   2026-10-24): the block with the largest **|SHAP|** sum, not M8-08 rule 3's largest positive
   sum, so a gene predicted below the mean keeps its informative (negative) block instead of a
-  noise block just above 0. Interface: ``giap.determinants.sensitivity.agreement_block(sums)``.
+  noise block just above 0. Interface: ``gippa.determinants.sensitivity.agreement_block(sums)``.
   Ties and degenerate rows mirror ``_dominant``: NaN ignored, ties go to the first block in
   ``BLOCKS`` order (whatever the signs), ``None`` when every |sum| is 0 or NaN;
 * ``agreement`` is the share of the genes explained in both runs whose dominant block is the
@@ -41,17 +41,17 @@ from helpers import sensitivity_function_data as sf
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.determinants.attribution import SHAP_COLUMNS
+from gippa.determinants.attribution import SHAP_COLUMNS
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(f"sensitivity/{sf.DET}", sf.SEED)
 
@@ -145,13 +145,13 @@ def test_self_agreement_na_when_only_flagged_genes_have_a_block() -> None:
 
 
 def _block(sums: list[float]) -> Any:
-    from giap.determinants.sensitivity import agreement_block
+    from gippa.determinants.sensitivity import agreement_block
 
     return agreement_block(np.asarray(sums, dtype=float))
 
 
 def _B() -> tuple[str, ...]:
-    from giap.determinants.attribution import BLOCKS
+    from gippa.determinants.attribution import BLOCKS
 
     return BLOCKS
 
@@ -159,7 +159,7 @@ def _B() -> tuple[str, ...]:
 def test_negative_dominant_row_picks_the_negative_block() -> None:
     """A gene predicted below the mean: block 1 carries -2.0, the others noise around 0. The
     agreement block is block 1; rule 3 (largest positive) would pick block 2 (0.3)."""
-    from giap.determinants.attribution import _dominant
+    from gippa.determinants.attribution import _dominant
 
     B = _B()
     row = [0.1, -2.0, 0.3, -0.05, 0.0]
@@ -176,7 +176,7 @@ def test_all_negative_row_has_a_block() -> None:
 def test_ties_mirror_dominant() -> None:
     """Ties at the largest |sum| go to the first block in ``BLOCKS`` order, as ``_dominant``
     breaks a positive tie; a +x / -x tie the same way."""
-    from giap.determinants.attribution import _dominant
+    from gippa.determinants.attribution import _dominant
 
     B = _B()
     assert _dominant(np.asarray([0.0, 1.0, 1.0, 0.0, 0.0])) == B[1]
@@ -193,7 +193,7 @@ def test_ties_mirror_dominant() -> None:
 )
 def test_all_zero_or_nan_row_is_none(row: list[float]) -> None:
     """No block carries any SHAP mass: ``None`` (as ``_dominant`` on an all-zero row)."""
-    from giap.determinants.attribution import _dominant
+    from gippa.determinants.attribution import _dominant
 
     assert _block(row) is None
     assert _dominant(np.asarray(row)) is None
@@ -218,7 +218,7 @@ _SUM = st.one_of(
 def test_agreement_block_property(row: list[float]) -> None:
     """Property: the agreement block equals the written-out |SHAP| rule; on a row without a
     negative sum it equals rule 3; it is ``None`` exactly when no |sum| is > 0."""
-    from giap.determinants.attribution import _dominant
+    from gippa.determinants.attribution import _dominant
 
     got = _block(row)
     assert got == sf.abs_block(row)
@@ -277,14 +277,14 @@ def _wide_oracle(
     """The M8-10 chain without its null (as ``sf.det_oracle``) and the written-out |SHAP| rule
     (``sf.abs_block``) on the SHAP block sums of every explained model row; also the attribution
     table."""
-    from giap.determinants.attribution import (
+    from gippa.determinants.attribution import (
         SHAP_COLUMNS,
         UNEXPLAINED,
         attribution_table,
         shap_blocks,
     )
-    from giap.determinants.features import model_matrix
-    from giap.determinants.models import cross_validate, model_rows, tu_folds
+    from gippa.determinants.features import model_matrix
+    from gippa.determinants.models import cross_validate, model_rows, tu_folds
 
     f = sf.merged_features(genes, features)
     rows = model_rows(f)

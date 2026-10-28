@@ -9,7 +9,7 @@ The bootstrap (§3.4) installs the developer toolchain in user space under `loca
 
 ## Decision
 Record the versions the bootstrap installed: Nextflow 26.10.0 (bioconda, the spec's pin),
-nf-test 0.9.5, gh 2.102.0, OpenJDK 21 (conda-forge, in env `giap-wf`), uv 0.13.1
+nf-test 0.9.5, gh 2.102.0, OpenJDK 21 (conda-forge, in env `gippa-wf`), uv 0.13.1
 (standalone installer, `local/bin`). The Python lock (`uv.lock`) resolves numpy 2.5.4,
 scipy 1.18.1, numba 0.68.0, pandas 3.0.6 for Python 3.12.
 

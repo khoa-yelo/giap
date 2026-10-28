@@ -5,7 +5,7 @@ the calibration slope of ``p_detect`` is 1 ± 0.2 — the same criterion M4-13 a
 Suite ``detectability`` (``calsuite`` marker; no new ``tolerances.yaml`` key: R =
 ``replicates_{fast,full}.detectability``, bounds = ``detectability_slope`` [0.8, 1.2]). Replicate i
 of stream s draws from ``_criteria.replicate_rng(s, i)``; the model's folds come from
-``giap.rng.for_step("operons.detection_limit", seed_i)``.
+``gippa.rng.for_step("operons.detection_limit", seed_i)``.
 
 Claims:
 
@@ -44,8 +44,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import detectability_oracle as O
 from helpers import detection_limit_data as D
 
-from giap.config import GiapConfig
-from giap.rng import for_step
+from gippa.config import GippaConfig
+from gippa.rng import for_step
 
 SUITE = "detectability"
 BETA = {"intercept": -10.0, "abundance_log2": 0.5, "length": -0.03, "gravy": 0.8}
@@ -56,7 +56,7 @@ MODES = [
 
 
 def _dl() -> Any:
-    from giap.operons import detection_limit
+    from gippa.operons import detection_limit
 
     return detection_limit
 
@@ -65,7 +65,7 @@ def _replicate(rng: np.random.Generator, n_genes: int) -> tuple[float, float, fl
     s = D.simulate_peptides(rng, n_genes, BETA, a_mu=15.0, a_sd=2.5, n_peps=(5, 20), tu_size=2)
     seed = int(rng.integers(0, 2**31 - 1))
     dl = _dl()
-    cfg = GiapConfig(seed=seed)
+    cfg = GippaConfig(seed=seed)
     model = dl.fit_peptide_model(s.genes, s.hits, cfg, for_step(D.STEP, seed))
     assert model.usable and model.k_min == 1
     p = np.array(

@@ -4,7 +4,7 @@ bullets on ``oriter`` and ``-Infinity``, D-C rows ``sensitivity`` / ``context.re
 provisional form"; acceptance 03c "the oriter event reaches events.jsonl under both executors";
 backlog M6-06/M6-08 "must-do before the manifest writer").
 
-Interface assumed (test-author names, ``giap.io.manifest_sources``):
+Interface assumed (test-author names, ``gippa.io.manifest_sources``):
 
 * ``read_sensitivity(path: Path | None) -> list[dict] | None``: the rows of
   ``tables/sensitivity.tsv`` (counts as ``int``, ``jaccard``/``agreement`` as ``float`` or None
@@ -17,11 +17,11 @@ Interface assumed (test-author names, ``giap.io.manifest_sources``):
 
 Producer fixes pinned:
 
-* ``giap.context.oriter``'s logger is a child of ``giap.steps`` whose leaf is ``context_stats``,
-  so the ``giap.steps`` events handler (``giap run`` local and ``giap _step`` inside a Nextflow
-  task both install it, ``giap.cli._record_step_events``) writes the
+* ``gippa.context.oriter``'s logger is a child of ``gippa.steps`` whose leaf is ``context_stats``,
+  so the ``gippa.steps`` events handler (``gippa run`` local and ``gippa _step`` inside a Nextflow
+  task both install it, ``gippa.cli._record_step_events``) writes the
   ``context_stats.oriter.multiple_oric`` event with ``step == "context_stats"``.
-* ``giap.steps.operons._plain`` maps ±∞ to None (the event line is strict JSON) and keeps every
+* ``gippa.steps.operons._plain`` maps ±∞ to None (the event line is strict JSON) and keeps every
   other value (numpy scalars → Python).
 """
 
@@ -49,13 +49,13 @@ ORIC_EVENT = "context_stats.oriter.multiple_oric"
 
 
 def _ms():  # type: ignore[no-untyped-def]
-    from giap.io import manifest_sources
+    from gippa.io import manifest_sources
 
     return manifest_sources
 
 
 def write_diagnostics(path: Path, rows: list[tuple[Any, ...]]) -> None:
-    """The ``_write_diagnostics`` Arrow schema (``giap.steps.context_stats``)."""
+    """The ``_write_diagnostics`` Arrow schema (``gippa.steps.context_stats``)."""
     schema = pa.schema([("contig", pa.string()), ("scanned", pa.bool_()),
                         ("block_rule", pa.string()), ("l_hat", pa.int64()),
                         ("block_len", pa.int64()), ("morans_i_lag1", pa.float64()),
@@ -104,9 +104,9 @@ def test_read_sensitivity_absent_is_none(tmp_path: Path) -> None:
 
 def test_example_8_off_from_files_header_only_and_absent(tmp_path: Path) -> None:
     """Example 8 through the reader: both cases give the same block."""
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    cfg = GiapConfig.model_validate({"seed": 7, "output": {"sensitivity": "off"}})
+    cfg = GippaConfig.model_validate({"seed": 7, "output": {"sensitivity": "off"}})
     p = tmp_path / "sensitivity.tsv"
     p.write_text(SENS_HEADER)
     a = build(cfg=cfg, sensitivity=_ms().read_sensitivity(p))
@@ -117,8 +117,8 @@ def test_example_8_off_from_files_header_only_and_absent(tmp_path: Path) -> None
 def test_read_sensitivity_written_by_the_real_writer(tmp_path: Path) -> None:
     import pandas as pd
 
-    from giap.context.sensitivity import COLUMNS
-    from giap.io.sensitivity_tsv import write_sensitivity_tsv
+    from gippa.context.sensitivity import COLUMNS
+    from gippa.io.sensitivity_tsv import write_sensitivity_tsv
 
     df = pd.DataFrame([["regions", "top3", 5, 6, 4, 4 / 7, math.nan]], columns=list(COLUMNS))
     p = tmp_path / "sensitivity.tsv"
@@ -169,8 +169,8 @@ def test_context_replicons_of_the_real_writer(tmp_path: Path) -> None:
     """The frame ``context_stats`` persists (``island_diagnostics`` → ``_write_diagnostics``)."""
     import pandas as pd
 
-    from giap.context.diagnostics import DIAGNOSTICS_COLUMNS
-    from giap.steps.context_stats import _write_diagnostics
+    from gippa.context.diagnostics import DIAGNOSTICS_COLUMNS
+    from gippa.steps.context_stats import _write_diagnostics
 
     df = pd.DataFrame(
         {"contig": ["chr1", "lin1"], "scanned": [True, False],
@@ -260,7 +260,7 @@ def test_events_file_with_minus_infinity_reaches_the_manifest_as_null(tmp_path: 
 
 @pytest.mark.parametrize("value", [-math.inf, math.inf, np.float64(-np.inf), np.float64(np.inf)])
 def test_operons_plain_maps_infinity_to_none(value: Any) -> None:
-    from giap.steps.operons import _plain
+    from gippa.steps.operons import _plain
 
     assert _plain(value) is None
 
@@ -270,7 +270,7 @@ def test_operons_plain_maps_infinity_to_none(value: Any) -> None:
     [(np.int64(3), 3), (np.float64(2.5), 2.5), (0.0, 0.0), (-50.0, -50.0), (7, 7), ("x", "x")],
 )
 def test_operons_plain_keeps_finite_values(value: Any, want: Any) -> None:
-    from giap.steps.operons import _plain
+    from gippa.steps.operons import _plain
 
     got = _plain(value)
     assert got == want and type(got) is type(want)
@@ -281,7 +281,7 @@ def test_operons_event_line_is_strict_json(tmp_path: Path) -> None:
     ``allow_nan=False`` (its first bin edge is ``-inf`` today)."""
     import pandas as pd
 
-    from giap.steps.operons import _plain
+    from gippa.steps.operons import _plain
 
     bins = pd.DataFrame({"bin": np.arange(2, dtype=np.int64),
                          "lower_bp": np.array([-np.inf, 0.0]),
@@ -304,17 +304,17 @@ def _two_calls() -> Any:
     return od.oric_at("chr1", 1_000, 200_000)  # within 0.05 L of K-12 length: averaged
 
 
-def test_oriter_logger_is_under_giap_steps() -> None:
-    from giap.context import oriter
+def test_oriter_logger_is_under_gippa_steps() -> None:
+    from gippa.context import oriter
 
-    assert oriter.LOGGER.name.startswith("giap.steps.")
+    assert oriter.LOGGER.name.startswith("gippa.steps.")
     assert oriter.LOGGER.name.rsplit(".", 1)[-1] == "context_stats"
 
 
 def test_oriter_event_reaches_the_step_events_file(tmp_path: Path) -> None:
-    """The handler ``giap run`` (local) and ``giap _step`` (each Nextflow task) install."""
-    from giap.cli import _record_step_events
-    from giap.context import oriter
+    """The handler ``gippa run`` (local) and ``gippa _step`` (each Nextflow task) install."""
+    from gippa.cli import _record_step_events
+    from gippa.context import oriter
 
     logs = tmp_path / "logs"
     restore = _record_step_events(logs)
@@ -323,7 +323,7 @@ def test_oriter_event_reaches_the_step_events_file(tmp_path: Path) -> None:
     finally:
         restore()
     path = logs / "events.jsonl"
-    assert path.is_file(), "the multiple_oric event was lost (logger outside giap.steps)"
+    assert path.is_file(), "the multiple_oric event was lost (logger outside gippa.steps)"
     evs = [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
     (ev,) = [e for e in evs if e["event"] == ORIC_EVENT]
     assert ev["step"] == "context_stats"
@@ -333,8 +333,8 @@ def test_oriter_event_reaches_the_step_events_file(tmp_path: Path) -> None:
 
 
 def test_refused_oric_event_also_reaches_the_file(tmp_path: Path) -> None:
-    from giap.cli import _record_step_events
-    from giap.context import oriter
+    from gippa.cli import _record_step_events
+    from gippa.context import oriter
 
     logs = tmp_path / "logs"
     restore = _record_step_events(logs)
@@ -348,8 +348,8 @@ def test_refused_oric_event_also_reaches_the_file(tmp_path: Path) -> None:
 
 
 def test_oriter_event_from_file_becomes_context_oric(tmp_path: Path) -> None:
-    from giap.cli import _record_step_events
-    from giap.context import oriter
+    from gippa.cli import _record_step_events
+    from gippa.context import oriter
 
     logs = tmp_path / "logs"
     restore = _record_step_events(logs)
@@ -364,8 +364,8 @@ def test_oriter_event_from_file_becomes_context_oric(tmp_path: Path) -> None:
 
 
 def test_one_oric_call_logs_nothing(caplog: pytest.LogCaptureFixture) -> None:
-    from giap.context import oriter
+    from gippa.context import oriter
 
-    with caplog.at_level(logging.INFO, logger="giap"):
+    with caplog.at_level(logging.INFO, logger="gippa"):
         oriter.oric_position(od.oric_at("chr1", 5_000), "chr1", 4_641_652)
     assert not [r for r in caplog.records if getattr(r, "event", None) == ORIC_EVENT]

@@ -1,4 +1,4 @@
-"""Six-frame translation and coordinate maps (issue M3-02; GIAP_SPEC.md §7.2.1, §6.5, §7.2.9).
+"""Six-frame translation and coordinate maps (issue M3-02; GIPPA_SPEC.md §7.2.1, §6.5, §7.2.9).
 
 Frame order per contig: ``+0, +1, +2, -0, -1, -2`` (frame ids 0..5 for a single contig).
 """
@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 from Bio.Seq import Seq
 
-from giap.io.fasta import read_genome_fasta, write_fasta
-from giap.mapping.sixframe import (
+from gippa.io.fasta import read_genome_fasta, write_fasta
+from gippa.mapping.sixframe import (
     ALPHABET,
     AMBIG,
     NOMATCH,
@@ -27,8 +27,8 @@ from giap.mapping.sixframe import (
     encode_target,
     translate11,
 )
-from giap.model import Interval, Replicon, to_one_based_closed
-from giapsim.codons import CODE_11
+from gippa.model import Interval, Replicon, to_one_based_closed
+from gippasim.codons import CODE_11
 
 G = "ATGGCTAAAATTCTGTGGTAACGTNNA"  # 27 nt, linear contig c1
 R = "AAAGAACTGTAAGGCTCCATGCCG"  # 24 nt, circular replicon r

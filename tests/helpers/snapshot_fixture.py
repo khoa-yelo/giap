@@ -1,14 +1,14 @@
 """The M9-25 snapshot fixtures, plot cases and report-structure snapshots
-(docs/specs/M9-25-snapshot-baselines.md work items 1-3; GIAP_SPEC.md §10.1, §10.3).
+(docs/specs/M9-25-snapshot-baselines.md work items 1-3; GIPPA_SPEC.md §10.1, §10.3).
 
 Layout pinned by the test-author (the implementer's ``scripts/dev/make_snapshot_fixture.py``
 writes it; the tests read it):
 
 * ``tests/data/snapshot/<fixture>/OUT/``: the ``OUT/`` subset ``RunView`` reads, with its
   ``resolved_config.yaml`` (set ``report.max_locus_plots: 2`` there to keep renders short).
-  ``FIXTURES = ("sim_plots", "sim_empty")``: the rich giapsim run and the header-only tree.
+  ``FIXTURES = ("sim_plots", "sim_empty")``: the rich gippasim run and the header-only tree.
 * ``tests/data/snapshot/<fixture>/CMP/``: the V16 / ``compare.html`` input, a frozen
-  ``giap compare`` subset: ``CMP/tables/compare_{detection,abundance,stability}.tsv`` and
+  ``gippa compare`` subset: ``CMP/tables/compare_{detection,abundance,stability}.tsv`` and
   ``CMP/runs/<label>/`` (two or more runs; each with ``tables/genes.tsv`` and
   ``preflight/preflight.json``, the same genome SHA-256). Labels are the sorted directory names.
 * ``tests/snapshot/baseline/<fixture>-<stem>.png``: one pytest-mpl baseline per ``Case``.
@@ -18,10 +18,10 @@ writes it; the tests read it):
   approval only).
 
 Plot cases: every instance of every registered plot on ``OUT/`` (V16 from ``CMP/`` through
-``giap.viz.compare.compare_plot``), except that V03 and V13 keep only their first two locus
+``gippa.viz.compare.compare_plot``), except that V03 and V13 keep only their first two locus
 instances (V03: suffix not ``None``; V13: suffix ``locus_<id>``); the index and panel (a)
 instances stay. Figures are drawn under ``matplotlib.style.context("default")`` +
-``giap.viz.style.apply()``, which is what the ``plots`` step sees and what the tests' pytest-mpl
+``gippa.viz.style.apply()``, which is what the ``plots`` step sees and what the tests' pytest-mpl
 marker (``style="default"``) restores at save time.
 """
 
@@ -59,7 +59,7 @@ MAX_BASELINE_BYTES = 300_000  # spec work item 2
 #: ``render_plot_files`` once per session (file-locked; later calls copy the rendered tree).
 SESSION_CACHE: Path | None = None
 #: environment variable naming the directory of the session's case lists (see ``_case_keys``)
-CASES_ENV = "GIAP_SNAPSHOT_CASES"
+CASES_ENV = "GIPPA_SNAPSHOT_CASES"
 
 
 @dataclass(frozen=True)
@@ -99,7 +99,7 @@ def missing(fixture: str) -> str | None:
 
 
 def fixture_cfg(fixture: str) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     out = fixture_out(fixture)
     runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
@@ -107,10 +107,10 @@ def fixture_cfg(fixture: str) -> Any:
 
 
 def styled(fn: Callable[[], Any]) -> Any:
-    """``fn()`` under matplotlib's default style plus ``giap.viz.style.apply()``."""
+    """``fn()`` under matplotlib's default style plus ``gippa.viz.style.apply()``."""
     import matplotlib.style
 
-    from giap.viz import style
+    from gippa.viz import style
 
     with matplotlib.style.context("default", after_reset=True):
         style.apply()
@@ -119,15 +119,15 @@ def styled(fn: Callable[[], Any]) -> Any:
 
 def compare_inputs(fixture: str) -> tuple[list[Path], Any, dict[str, Any]]:
     """``(run paths, LoadedRuns, compare tables)`` of ``CMP/`` (typed by the table schemas)."""
-    from giap.io.compare_io import load_runs
-    from giap.io.run_view import read_schema_tsv
+    from gippa.io.compare_io import load_runs
+    from gippa.io.run_view import read_schema_tsv
 
     cmp = fixture_cmp(fixture)
     paths = sorted(p for p in (cmp / "runs").iterdir() if p.is_dir())
     loaded = load_runs(paths, None)
     tables = {}
     for name in COMPARE_TABLES:
-        res = resources.files("giap.schemas").joinpath("tables", f"{name}.schema.json")
+        res = resources.files("gippa.schemas").joinpath("tables", f"{name}.schema.json")
         schema = json.loads(res.read_text(encoding="utf-8"))
         tables[name] = read_schema_tsv(cmp / "tables" / f"{name}.tsv", name, schema)
     return paths, loaded, tables
@@ -169,10 +169,10 @@ def _raw_results_cached(fixture: str) -> dict[str, Any]:
 
 def _raw_results(fixture: str, pids: tuple[str, ...] = ()) -> dict[str, Any]:
     """``raw_results`` of every registered plot, or only of ``pids``."""
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
-    from giap.viz.compare import compare_plot
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
+    from gippa.viz.compare import compare_plot
 
     load_plot_modules()
     cfg = fixture_cfg(fixture)
@@ -191,8 +191,8 @@ def _raw_results(fixture: str, pids: tuple[str, ...] = ()) -> dict[str, Any]:
 
 
 def _snapshot_instances(results: dict[str, Any]) -> dict[tuple[str, str], Any]:
-    from giap.io.plot_files import stem
-    from giap.viz import base
+    from gippa.io.plot_files import stem
+    from gippa.viz import base
 
     found: dict[tuple[str, str], Any] = {}
     for pid, result in results.items():
@@ -225,7 +225,7 @@ def _rendered_pid(fixture: str, pid: str) -> dict[tuple[str, str], Any]:
 
 
 def _case_keys(fixture: str) -> list[tuple[str, str]]:
-    """The ``(pid, stem)`` keys of ``rendered(fixture)``. Under ``$GIAP_SNAPSHOT_CASES`` (set by
+    """The ``(pid, stem)`` keys of ``rendered(fixture)``. Under ``$GIPPA_SNAPSHOT_CASES`` (set by
     ``tests/snapshot/conftest.py`` for the session and inherited by the subprocesses the tests
     start) the first process to render writes them there and later processes read them."""
     where = os.environ.get(CASES_ENV)
@@ -260,7 +260,7 @@ def cases() -> list[Case]:
 
 
 def figure(case: Case) -> Any:
-    """The figure of ``case``. A process that took its cases from ``$GIAP_SNAPSHOT_CASES``
+    """The figure of ``case``. A process that took its cases from ``$GIPPA_SNAPSHOT_CASES``
     without rendering, outside the snapshot session (a test's subprocess), draws only
     ``case.pid``."""
     key = (case.pid, case.stem)
@@ -309,10 +309,10 @@ def render_plot_files(fixture: str, plots_dir: Path, formats: tuple[str, ...]) -
 
 
 def _render_plot_files(fixture: str, plots_dir: Path, formats: tuple[str, ...]) -> None:
-    from giap.io.plot_files import write_instance
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
+    from gippa.io.plot_files import write_instance
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
 
     def run() -> None:
         load_plot_modules()
@@ -329,10 +329,10 @@ def _render_plot_files(fixture: str, plots_dir: Path, formats: tuple[str, ...]) 
 
 
 def build_report(fixture: str, tmp: Path) -> Path:
-    """``report.html`` of ``fixture`` via ``giap.steps.plots.write_report`` (plots under
+    """``report.html`` of ``fixture`` via ``gippa.steps.plots.write_report`` (plots under
     ``tmp/plots``); returns the page path."""
-    from giap.io.run_view import RunView
-    from giap.steps.plots import write_report
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import write_report
 
     plots = tmp / "plots"
     render_plot_files(fixture, plots, ("svg", "png"))
@@ -341,15 +341,15 @@ def build_report(fixture: str, tmp: Path) -> Path:
 
 
 def build_compare(fixture: str, tmp: Path) -> Path:
-    """``compare.html`` of ``fixture``'s ``CMP/`` through the ``giap compare`` report tail
-    (``giap.cli._compare_report``) on a copy under ``tmp``; returns the page path."""
-    from giap.cli import _compare_report
+    """``compare.html`` of ``fixture``'s ``CMP/`` through the ``gippa compare`` report tail
+    (``gippa.cli._compare_report``) on a copy under ``tmp``; returns the page path."""
+    from gippa.cli import _compare_report
 
     cmp = tmp / "CMP"
     shutil.copytree(fixture_cmp(fixture), cmp)
     src_paths, _, tables = compare_inputs(fixture)
     paths = [cmp / "runs" / p.name for p in src_paths]
-    from giap.io.compare_io import load_runs
+    from gippa.io.compare_io import load_runs
 
     loaded = load_runs(paths, None)
     styled(lambda: _compare_report(cmp, paths, loaded, tables, fixture_cfg(fixture)))
@@ -360,7 +360,7 @@ def build_compare(fixture: str, tmp: Path) -> Path:
 
 
 class _Structure(HTMLParser):
-    """Collects the §10.3 structure of a GIAP page, in document order:
+    """Collects the §10.3 structure of a GIPPA page, in document order:
 
     * ``["section", id]`` for every ``<section>``;
     * ``["h2", id-or-text]`` and ``["h3", id-or-text]`` (the ``id`` attribute when present, else

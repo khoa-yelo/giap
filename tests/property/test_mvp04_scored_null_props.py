@@ -5,7 +5,7 @@ On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py), for random seeds:
 * each null PSM (wrong peptide, run) is written exactly once, as its target row or as the decoy
   row of its entry; every decoy row is such a null PSM (no ``match_wrong`` extras);
 * a decoy row is the reversed null peptide, ``rev_<entry>`` (an expressible recorded locus tag or
-  a ``GIAPORF_…`` six-frame entry), with finite q / PEP / score and intensity NA;
+  a ``GIPPAORF_…`` six-frame entry), with finite q / PEP / score and intensity NA;
 * no decoy equals a target peptide (I = L); ``decoy_collisions`` is a non-negative int bounded by
   the null PSMs whose reversal collides;
 * the q / PEP of every null row are the mixture's at its score and ``pi_wrong_realised``;
@@ -33,7 +33,7 @@ from helpers import mvp04_decoys as D
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 ISLANDS = ((2, 3.0), (18, -3.0), (34, 3.0), (50, -3.0), (66, 3.0), (82, -3.0))
 
@@ -49,14 +49,14 @@ def _excerpt() -> M.Excerpt:
 @given(seed=st.integers(min_value=0, max_value=2**31 - 1))
 def test_scored_null_invariants_hold_for_any_seed(seed: int) -> None:
     ex = _excerpt()
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
     cfg = replace(base, expression=expr, n_novel_per_class=10,
                   proteomics=replace(base.proteomics, decoys="scored_null"))  # fmt: skip
     out = Path(tempfile.mkdtemp(prefix=f"mvp04_p2_props_{seed}_"))
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         cfg, seed, out, genome_fasta=ex.fasta, bakta_json=ex.bakta_json, tu_set=None,
         check_hashes=False,
     )  # fmt: skip
@@ -107,14 +107,14 @@ def test_scored_null_invariants_hold_for_any_seed(seed: int) -> None:
        pi=st.sampled_from([0.005, 0.01, 0.03, 0.05, 0.08]))  # fmt: skip
 def test_null_split_is_fifty_fifty_for_any_seed_and_pi(seed: int, pi: float) -> None:
     ex = _excerpt()
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
     prot = replace(base.proteomics, decoys="scored_null", pi_wrong=pi)
     cfg = replace(base, expression=expr, n_novel_per_class=10, proteomics=prot)
     out = Path(tempfile.mkdtemp(prefix=f"mvp04_p2_split_{seed}_"))
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         cfg, seed, out, genome_fasta=ex.fasta, bakta_json=ex.bakta_json, tu_set=None,
         check_hashes=False,
     )  # fmt: skip

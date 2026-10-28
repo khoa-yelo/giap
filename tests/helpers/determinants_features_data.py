@@ -18,7 +18,7 @@ the wrong source or the wrong row shows up.
 
 Argument conventions resolved by the test author (the spec's interface leaves them open):
 
-* ``replicons`` is ``Mapping[str, Replicon]`` (as ``giap.annotate.operons``), C1 order = key order;
+* ``replicons`` is ``Mapping[str, Replicon]`` (as ``gippa.annotate.operons``), C1 order = key order;
 * ``regions`` is the C8 ``region_genes`` frame with the C7 ``region_type`` of each region joined
   on (``region_id``, ``locus_tag``, ``overlap_frac``, ``subset``, ``core_biosynthetic``,
   ``region_type``); region ids follow M2-19's ``<type>_<n>``;
@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 
 NAN = math.nan
-MODULE = "giap.determinants.features"
+MODULE = "gippa.determinants.features"
 
 IDENTITY = (
     "locus_tag", "tu_id", "detected", "abundance_log2", "abundance_imputed", "ribosomal_protein",
@@ -115,7 +115,7 @@ LAYER_FEATURES: dict[str, tuple[str, ...]] = {
 
 
 def mod() -> ModuleType:
-    """``giap.determinants.features`` (imported per test so each test fails on its own)."""
+    """``gippa.determinants.features`` (imported per test so each test fails on its own)."""
     return importlib.import_module(MODULE)
 
 
@@ -133,7 +133,7 @@ def is_na(x: Any) -> bool:
 
 
 def replicon(cid: str, length: int, topology: str = "circular", kind: str = "chromosome") -> Any:
-    from giap.model.coords import Replicon
+    from gippa.model.coords import Replicon
 
     return Replicon(cid, length, topology, kind)  # type: ignore[arg-type]
 
@@ -152,8 +152,8 @@ def gene(
     name: str | None = None,
     product: str = "",
 ) -> Any:
-    from giap.model.coords import Interval
-    from giap.model.genes import Gene
+    from gippa.model.coords import Interval
+    from gippa.model.genes import Gene
 
     return Gene(
         tag, feature_type, Interval(contig, start, end, strand), aa,  # type: ignore[arg-type]
@@ -168,8 +168,8 @@ def start_codon_pos(g: Any) -> int:
 
 def tu(tu_id: str, members: Sequence[Any], length: int | None = None) -> Any:
     """A ``Tu`` over ``members`` (transcription order); interval unwrapped across the origin."""
-    from giap.annotate.operons import Tu
-    from giap.model.coords import Interval
+    from gippa.annotate.operons import Tu
+    from gippa.model.coords import Interval
 
     first = members[0]
     contig, strand = first.interval.contig, first.interval.strand
@@ -186,7 +186,7 @@ def tu(tu_id: str, members: Sequence[Any], length: int | None = None) -> Any:
 
 def mirror_gene(g: Any, length: int, circular: bool) -> Any:
     """Reflect ``g`` through the genome (x -> L - x) and flip its strand."""
-    from giap.model.coords import Interval
+    from gippa.model.coords import Interval
 
     s, e = int(g.interval.start), int(g.interval.end)
     n = e - s
@@ -293,7 +293,7 @@ def _typed(values: list[Any], kind: str) -> pd.Series:
 
 def toy() -> World:
     """The 13-gene world of the module docstring (fresh objects on every call)."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
 
     reps = {"chr1": replicon("chr1", 10_000), "p1": replicon("p1", 3_000, "linear", "plasmid")}
     genes = []
@@ -360,7 +360,7 @@ def toy() -> World:
         r["flags"][i] = flags
     tbl = pd.DataFrame({c: _typed(cols[c], GENES_TYPES[c]) for c in GENES_COLUMNS})
 
-    from giap.genetable.contract import CONTRACT_COLUMNS
+    from gippa.genetable.contract import CONTRACT_COLUMNS
 
     lay: dict[str, Any] = {}
     for c in CONTRACT_COLUMNS["layers"]:
@@ -444,9 +444,9 @@ EXPECTED_BLOCKS_UNION: frozenset[str] = frozenset().union(*EXPECTED_BLOCKS.value
 
 
 def genes_from_frame(df: pd.DataFrame) -> list[Any]:
-    """C2 rows -> ``Gene`` (as ``giap.steps.mapping._gene_model`` builds them)."""
-    from giap.model.coords import Interval
-    from giap.model.genes import Gene
+    """C2 rows -> ``Gene`` (as ``gippa.steps.mapping._gene_model`` builds them)."""
+    from gippa.model.coords import Interval
+    from gippa.model.genes import Gene
 
     return [
         Gene(
@@ -464,8 +464,8 @@ def genes_from_frame(df: pd.DataFrame) -> list[Any]:
 
 def tus_from_frame(df: pd.DataFrame) -> list[Any]:
     """C5 rows -> ``Tu`` (``upstream`` from the frame when present, else a 1-bp stand-in)."""
-    from giap.annotate.operons import Tu
-    from giap.model.coords import Interval
+    from gippa.annotate.operons import Tu
+    from gippa.model.coords import Interval
 
     out = []
     for r in df.to_dict("records"):

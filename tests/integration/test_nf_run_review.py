@@ -2,7 +2,7 @@
 
 docs/specs/M2-07-nextflow-tool-processes.md, "Lead decisions for the run-wiring follow-up", item 3:
 
-a. Two ``giap run ... --resume`` stub runs into the same OUT: the second run's trace has cached
+a. Two ``gippa run ... --resume`` stub runs into the same OUT: the second run's trace has cached
    tasks (preflight must not rewrite unchanged ``work/preflight/*`` files, whose mtime is part of
    Nextflow's task hash).
 b. With ``params.db_dir`` set, the evaluated apptainer profile binds it read-only
@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -64,16 +64,16 @@ workflow {
 
 
 @pytest.fixture(autouse=True)
-def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _fake_gippa_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     return root
 
 
 def _db(path: Path) -> Path:
     path.mkdir()
-    write_setup_manifest(path)  # real `giap setup` format (decision 4c)
+    write_setup_manifest(path)  # real `gippa setup` format (decision 4c)
     return path
 
 
@@ -100,9 +100,9 @@ def _trace(out: Path) -> list[dict[str, str]]:
 def test_a_second_resume_run_caches_tasks(
     wrapped_nf: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_db(tmp_path / "db")))
     proteins = tmp_path / "proteins.faa"
     proteins.write_text(">prot1\nM" + "ACDEFGHIKLMNPQRSTVWY" * 8 + "\n")
     out = tmp_path / "OUT"
@@ -143,7 +143,7 @@ def _probe(tmp_path: Path, params: dict[str, object]) -> list[str]:
 
 
 def test_b_apptainer_profile_binds_db_dir_read_only(tmp_path: Path) -> None:
-    db = tmp_path / "giapdb"
+    db = tmp_path / "gippadb"
     db.mkdir()
     opts = _probe(tmp_path, {"db_dir": str(db)})
     bind = f"{db}:{db}:ro"

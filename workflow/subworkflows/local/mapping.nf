@@ -1,16 +1,16 @@
-// MAPPING subworkflow (GIAP_SPEC.md §6.1, §6.2, §7.2; M3-17): six-frame index -> exact ->
+// MAPPING subworkflow (GIPPA_SPEC.md §6.1, §6.2, §7.2; M3-17): six-frame index -> exact ->
 // tolerant (+ decoys) -> placement FDR -> loci; long proteins -> MINIPROT -> leftovers -> TBLASTN.
-// py steps run through GIAP_STEP aliases (M2-07; keys as in giap.steps.mapping); the protein route
+// py steps run through GIPPA_STEP aliases (M2-07; keys as in gippa.steps.mapping); the protein route
 // runs only when proteins_long emits. Outputs: params.outdir/mapping/ (seven §7.2.9 files).
-include { GIAP_STEP as SIXFRAME_INDEX; GIAP_STEP as MAP_EXACT; GIAP_STEP as MAP_TOLERANT;
-          GIAP_STEP as PLACEMENT; GIAP_STEP as PROTEIN_LEFTOVERS;
-          GIAP_STEP as LOCI } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as SIXFRAME_INDEX; GIPPA_STEP as MAP_EXACT; GIPPA_STEP as MAP_TOLERANT;
+          GIPPA_STEP as PLACEMENT; GIPPA_STEP as PROTEIN_LEFTOVERS;
+          GIPPA_STEP as LOCI } from '../../modules/local/gippa_step/main'
 include { MINIPROT } from '../../modules/local/miniprot/main'
 include { TBLASTN } from '../../modules/local/tblastn/main'
 include { stepIn; kv; pick } from './annotate'
 
 // Stub runs: the loci stub writes the seven §7.2.9 files, the TSVs with their §9.3 headers
-// (giap.mapping.outputs, giap.mapping.protein_assign); real runs declare the directory itself.
+// (gippa.mapping.outputs, gippa.mapping.protein_assign); real runs declare the directory itself.
 def lociSpec() {
     def h = [
         peptide_hits: 'peptide peptide_len source best_q_input pep_input score_input contig start end strand frame crosses_origin route n_diff diff_types placement_q length_class locus_class uniqueness gene novel_candidate_id flags',

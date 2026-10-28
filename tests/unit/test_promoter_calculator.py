@@ -1,5 +1,5 @@
 """Promoter Calculator: region FASTA, command, CSV parser, ``tx_layer``, TU features and
-``tx_rate_between`` (M2-14; GIAP_SPEC.md §7.1.1, §7.1.4, §9.3).
+``tx_rate_between`` (M2-14; GIPPA_SPEC.md §7.1.1, §7.1.4, §9.3).
 
 Examples 1-9 of docs/specs/M2-14-promoter-calculator.md and its edge cases, with hand-written CSVs
 in the real 27-column Promoter Calculator 1.2.4 format (spec Q2: the recorded header).
@@ -48,8 +48,8 @@ from helpers.promoter_calculator_fixtures import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 L = 10_000
 _rng = random.Random(2014)
@@ -68,7 +68,7 @@ FEAT_COLS = ["tu_id", "tx_rate_max", "tx_rate_sum", "tss_distance_bp"]
 
 
 def _mod():
-    from giap.annotate import promoter_calculator as pc
+    from gippa.annotate import promoter_calculator as pc
 
     return pc
 
@@ -132,7 +132,7 @@ def test_origin_crossing_region_is_one_contiguous_wrapped_slice(strand: str) -> 
 def test_write_tu_regions_files_are_the_one_line_region_text(tmp_path: Path) -> None:
     """``tu_upstream/<tu_id>.fa`` (M2-12 writer) is exactly what the tool gets: one record, one
     sequence line (§7.1.1 gotcha), i.e. ``region_fasta_text``."""
-    from giap.annotate.operons import write_tu_regions
+    from gippa.annotate.operons import write_tu_regions
 
     long_tu = make_tu("TU_9", "chr1", "+", (2000, 2100), (1000, 2050))
     paths = write_tu_regions(tmp_path / "tu_upstream", [*TUS, long_tu], GENOME)
@@ -144,7 +144,7 @@ def test_write_tu_regions_files_are_the_one_line_region_text(tmp_path: Path) -> 
 
 
 def test_example3_command() -> None:
-    from giap.annotate.promoter_calculator_cmd import promoter_calculator_command
+    from gippa.annotate.promoter_calculator_cmd import promoter_calculator_command
 
     got = promoter_calculator_command(Path("r.fa"), Path("r.csv"))
     assert got == ["promoter-calculator", "-i", "r.fa", "-o", "r.csv", "-j", "1"]

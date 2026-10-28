@@ -1,10 +1,10 @@
 """M5-06 examples 4-5 on the simulator (docs/specs/M5-06-islands.md "Acceptance", ``slow``).
 
-giapsim M4-07 layout + M4-08 expression with a planted ``IslandSpec`` (tests/sim/giapsim), the
+gippasim M4-07 layout + M4-08 expression with a planted ``IslandSpec`` (tests/sim/gippasim), the
 M4-17 gene-table builder (tests/helpers/region_tests_data.py) and the real C5 ``tus`` frame.
 
 Example 4 (a planted high island is found) needs ``detection = "abundance"`` and a large shift:
-with giapsim's default ``covariates_only`` detection about 45 % of genes are censored
+with gippasim's default ``covariates_only`` detection about 45 % of genes are censored
 independently of abundance, which hides even an 8 SD island (ADR-0021 "Power": 0.18 for
 20 TUs x 2 SD on 4,500 genes). Example 5 is the mirror case and is *not* recovered at all under
 left-censoring - a low island is bounded below by the censored score, which the rest of the
@@ -35,7 +35,7 @@ ISLAND_FIRST, ISLAND_TUS = 100, 20
 
 def _abundance_beta() -> dict[str, float]:
     """Detection driven by abundance (slope 0.4 per log2), same mean detected share."""
-    import giapsim.expression as ex
+    import gippasim.expression as ex
 
     slope = 0.4
     return {**dict(ex.DEFAULT_BETA), "log2_abundance": slope,
@@ -45,8 +45,8 @@ def _abundance_beta() -> dict[str, float]:
 def _simulate(
     seed: int, effect: float
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set[str]]:
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     rng = np.random.default_rng(seed)
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=N_GENES), rng)
@@ -64,9 +64,9 @@ def _simulate(
 
 
 def _islands(genes: pd.DataFrame, tus: pd.DataFrame, reps: pd.DataFrame, seed: int) -> Any:
-    from giap.context import islands as M
-    from giap.context.regions import replicon_index
-    from giap.rng import for_step
+    from gippa.context import islands as M
+    from gippa.context.regions import replicon_index
+    from gippa.rng import for_step
 
     cfg = idat.config(bootstrap=199, permutations=99, alpha=0.05)
     rng = for_step(idat.STEP, seed)

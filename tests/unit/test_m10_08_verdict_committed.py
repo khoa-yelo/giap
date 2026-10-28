@@ -26,7 +26,7 @@ from helpers.a3_eval_kit import (
 )
 from helpers.a3_kit import PILOT, is_canonical_json, require
 
-from giap.stats.cutoffs import wilson_ci
+from gippa.stats.cutoffs import wilson_ci
 
 METRICS = PILOT / "metrics" / "a3_feasibility.json"
 README = PILOT / "README.md"
@@ -121,7 +121,10 @@ def test_provenance_note_exists_only_on_a_pass(verdict: dict[str, Any]) -> None:
     assert re.search(r"\b[0-9a-f]{64}\b", text.replace(verdict["weights_sha256"], "")), (
         "the env lock's and the input archive's sha256"
     )
-    assert "WT_1.ssl.gz" in text and "$GIAP_ROOT" in text, "where the sample sits (not committed)"
+    # recorded before ADR-0064 under the root variable's old name: match the path, not the name
+    assert re.search(r"`\$[A-Z]+_ROOT/pilot/recorded/cascadia/0\.0\.7/WT_1\.ssl\.gz`", text), (
+        "where the sample sits (not committed)"
+    )
 
 
 def test_readme_has_the_a3_de_novo_section() -> None:

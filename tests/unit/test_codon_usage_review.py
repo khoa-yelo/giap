@@ -1,7 +1,7 @@
 """Codon usage, lead decisions after code review (PR #86), items 4-8 of
 docs/specs/M2-17-codon-usage.md.
 
-4. Run flags are stored in the ``codon.parquet`` file metadata, key ``giap_flags`` (JSON list).
+4. Run flags are stored in the ``codon.parquet`` file metadata, key ``gippa_flags`` (JSON list).
 5. Only translation table 11 is accepted; tables 1 and 4 raise ``ValueError``.
 6. ``gc3`` returns ``None`` when no third position is A/C/G/T.
 7. codon-bias RuntimeWarnings (genes with nothing to weight) are suppressed and logged once as
@@ -12,9 +12,9 @@ docs/specs/M2-17-codon-usage.md.
    (``shares_keep_stops`` is an equivalent mutant: stop counts never enter a sense family.)
 
 Resolutions (test author):
-* ``giap_flags`` is always present; it is ``[]`` when the run has no flag, so readers need no
+* ``gippa_flags`` is always present; it is ``[]`` when the run has no flag, so readers need no
   special case. Reruns stay byte-identical.
-* Item 7's single log record is emitted on a ``giap.*`` logger, mentions "warning" and the count.
+* Item 7's single log record is emitted on a ``gippa.*`` logger, mentions "warning" and the count.
 * Lower-case nucleotide sequences give exactly the same ``codon.parquet`` as upper-case ones.
 """
 
@@ -37,9 +37,9 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.codon_excerpt import write_inputs
 
-from giap.config import GiapConfig
-from giap.model.coords import Interval
-from giap.model.genes import Gene
+from gippa.config import GippaConfig
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene
 
 PARSE_OUT = {
     "genes": "genes.parquet",
@@ -57,7 +57,7 @@ TRNA = {"CAT": 3, "CAG": 4, "GCC": 2, "TTC": 2, "GTC": 3, "TGC": 2, "GAA": 1, "C
 
 
 def cu() -> ModuleType:
-    return importlib.import_module("giap.annotate.codon_usage")
+    return importlib.import_module("gippa.annotate.codon_usage")
 
 
 _POS = [0]
@@ -100,14 +100,14 @@ def gene_set(seed: int = 3) -> list[Gene]:
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -121,16 +121,16 @@ def steps() -> Iterator[ModuleType]:
 def work(steps: ModuleType, tmp_path: Path) -> dict[str, Path]:
     js, fa = write_inputs(tmp_path / "in")
     outs = {k: tmp_path / "work" / v for k, v in PARSE_OUT.items()}
-    steps.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
+    steps.run_step("parse_bakta", GippaConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
     return outs
 
 
-def _cfg(table: int = 11) -> GiapConfig:
-    return GiapConfig(seed=1, annotation={"translation_table": table})
+def _cfg(table: int = 11) -> GippaConfig:
+    return GippaConfig(seed=1, annotation={"translation_table": table})
 
 
 def _run(
-    reg: ModuleType, genes: Path, trna: Path, out: Path, cfg: GiapConfig | None = None
+    reg: ModuleType, genes: Path, trna: Path, out: Path, cfg: GippaConfig | None = None
 ) -> Path:
     reg.run_step(
         "codon_usage", cfg or _cfg(), {"genes": genes, "trna_counts": trna}, {"codon": out}
@@ -152,8 +152,8 @@ def _rows(path: Path) -> dict[str, dict[str, Any]]:
 
 def _flags(path: Path) -> list[str]:
     meta = pq.read_metadata(path).metadata or {}
-    assert b"giap_flags" in meta, f"codon.parquet metadata keys: {sorted(meta)}"
-    value = json.loads(meta[b"giap_flags"])
+    assert b"gippa_flags" in meta, f"codon.parquet metadata keys: {sorted(meta)}"
+    value = json.loads(meta[b"gippa_flags"])
     assert isinstance(value, list)
     return value
 
@@ -164,7 +164,7 @@ def _flags(path: Path) -> list[str]:
 def test_flags_metadata_lists_cai_reference_missing(
     steps: ModuleType, work: dict[str, Path], tmp_path: Path
 ) -> None:
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     def strip(r: dict[str, Any]) -> dict[str, Any]:
         g = make_gene("x", "ATG", gene=r["gene"], product=r["product"] or "")
@@ -208,7 +208,7 @@ def test_step_reads_the_configured_table(
     steps: ModuleType, work: dict[str, Path], tmp_path: Path, table: int
 ) -> None:
     """Kills ``step_table_hard1``: the step must pass ``annotation.translation_table``."""
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     with pytest.raises(StepError) as ei:
         _run(steps, work["genes"], work["trna_counts"], tmp_path / "c.parquet", _cfg(table))
@@ -270,7 +270,7 @@ def test_step_logs_suppressed_warnings_once_as_a_count(
         "anticodon\tamino_acid\tn_copies\n"
         + "".join(f"{a}\tX\t{n}\n" for a, n in sorted(TRNA.items()))
     )
-    caplog.set_level(logging.DEBUG, logger="giap")
+    caplog.set_level(logging.DEBUG, logger="gippa")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         out = _run(steps, genes, trna, tmp_path / "c.parquet")
@@ -278,7 +278,7 @@ def test_step_logs_suppressed_warnings_once_as_a_count(
     assert all(got[v]["tai"] is None for v in victims)
     hits = [
         r for r in caplog.records
-        if r.name.startswith("giap") and re.search("warning", r.getMessage(), re.I)
+        if r.name.startswith("gippa") and re.search("warning", r.getMessage(), re.I)
     ]  # fmt: skip
     assert len(hits) == 1, [r.getMessage() for r in hits]
     assert re.search(r"\b3\b", hits[0].getMessage()), hits[0].getMessage()

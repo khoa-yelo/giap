@@ -1,11 +1,11 @@
-"""M9-17 follow-up: ``OUT/plots/support/`` is the same under both executors (GIAP_SPEC.md §6.4
+"""M9-17 follow-up: ``OUT/plots/support/`` is the same under both executors (GIPPA_SPEC.md §6.4
 executor equality; docs/specs/M9-17-plot-support-analysis.md lead decisions 5-6).
 
-Inputs as tests/integration/test_m8_06_function_run.py: giapsim SIM100K with M3-19 proteomics,
+Inputs as tests/integration/test_m8_06_function_run.py: gippasim SIM100K with M3-19 proteomics,
 every precomputed layer and the deterministic synthetic ``db_xrefs`` (so the function step has
-testable sets), ``$GIAP_DB_DIR`` = the synthetic function DB merged with the M3-17 test DB, seed 7,
+testable sets), ``$GIPPA_DB_DIR`` = the synthetic function DB merged with the M3-17 test DB, seed 7,
 ``--modules core,function``. One run with ``--executor local``, one with ``--executor nextflow
---profile farmshare_local`` (real Nextflow on the prebuilt GIAP env; no tool runs, as in
+--profile farmshare_local`` (real Nextflow on the prebuilt GIPPA env; no tool runs, as in
 test_m2_21_local_vs_nextflow.py; stub files cannot be compared).
 
 On SIM100K the determinants step fits no model (too_few_rows, test_determinants_run.py), so it
@@ -30,7 +30,7 @@ from click.testing import CliRunner
 pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 SEED = 7
-#: the support files the three M9-17 analysis steps write (src/giap/schemas/datapackage.json)
+#: the support files the three M9-17 analysis steps write (src/gippa/schemas/datapackage.json)
 ANALYSIS = {"gsea_running", "determinants_shap", "determinants_pd", "null_determinants",
             "null_regions", "null_islands"}  # fmt: skip
 
@@ -52,13 +52,13 @@ def _add_xrefs(bakta_json: Path) -> None:
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    res = giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    res = gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
     _add_xrefs(Path(res.bakta_json))
     return res
 
@@ -68,7 +68,7 @@ def db(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
     from helpers.function_db import ITEMS, PATHS, write_function_db
     from helpers.mapping_steps import write_test_db
 
-    from giapsim.layout import layout_from_simulation
+    from gippasim.layout import layout_from_simulation
 
     root = tmp_path_factory.mktemp("function_db") / "db"
     write_function_db(root, layout_from_simulation(sim).xrefs)
@@ -80,7 +80,7 @@ def db(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _run(sim: Any, out: Path, db: Path, *extra: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
     assert sim.abundance is not None, "the fixture writes abundance.tsv"
@@ -88,7 +88,7 @@ def _run(sim: Any, out: Path, db: Path, *extra: str) -> None:
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
     args += ["--outdir", str(out), "--modules", "core,function", "--seed", str(SEED), *extra]
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):

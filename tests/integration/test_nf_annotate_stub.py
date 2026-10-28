@@ -1,4 +1,4 @@
-"""ANNOTATE in stub mode through ``main.nf`` and the runner (M2-07 edge cases; GIAP_SPEC.md §6.3).
+"""ANNOTATE in stub mode through ``main.nf`` and the runner (M2-07 edge cases; GIPPA_SPEC.md §6.3).
 
 - every ``withName`` pin of an annotation tool matches a process (no "no process matching config
   selector" warning for it);
@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.exitcodes import ExitCode
-from giap.runner.nextflow import launch_command, run_nextflow
+from gippa.exitcodes import ExitCode
+from gippa.runner.nextflow import launch_command, run_nextflow
 
 pytestmark = pytest.mark.needs_nextflow
 

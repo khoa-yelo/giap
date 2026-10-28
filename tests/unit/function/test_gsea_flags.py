@@ -6,7 +6,7 @@ Cases G1-G15 and D1-D14 of decision 9, the flag order of the ``flags`` cell, the
 
 Interface pinned here (decision 9 names the statistics, not the functions):
 
-* ``giap.function.gsea.CLUSTER_TAU`` = 0.15 and ``DETECTION_Z0`` = 1.0.
+* ``gippa.function.gsea.CLUSTER_TAU`` = 0.15 and ``DETECTION_Z0`` = 1.0.
 * ``cluster_delta(positions, n_ranked, circular) -> float``: the decision-9a kernel. ``positions``
   maps a replicon to its member positions (0-based indices in the ranked order of that replicon);
   ``n_ranked`` maps *every* replicon with ranked TUs to its count n_r (a replicon without members
@@ -41,9 +41,9 @@ from helpers.gsea_flags_oracle import (
     z_counts,
 )
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
-from giap.stats.fgsea import SimpleResult
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
+from gippa.stats.fgsea import SimpleResult
 
 DELTA_TOL = 5e-7  # "delta to 6 decimals"
 Z_TOL = 5e-5  # "z to 4 decimals"
@@ -51,7 +51,7 @@ STREAM = "function.gsea"
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 
@@ -501,7 +501,7 @@ class _Fake:
 @pytest.fixture
 def fake(monkeypatch: pytest.MonkeyPatch) -> Callable[[Mapping[int, tuple[float, float]]], _Fake]:
     def install(by_size: Mapping[int, tuple[float, float]]) -> _Fake:
-        import giap.stats.fgsea as fg
+        import gippa.stats.fgsea as fg
 
         mod = _g()  # import gsea before patching fg, or its import binds the fake
         eng = _Fake(by_size)

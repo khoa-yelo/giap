@@ -1,4 +1,4 @@
-"""giapsim de novo: the lead decisions after code review of PR #66 (issue M3-20).
+"""gippasim de novo: the lead decisions after code review of PR #66 (issue M3-20).
 
 docs/specs/M3-20-sim-denovo-errors.md, "Lead decisions after code review", items 1-2:
 
@@ -25,7 +25,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-import giapsim
+import gippasim
 
 SEED = 11
 BASE = {"genome_length": 60_000}
@@ -40,13 +40,13 @@ def rows(path: Path) -> list[dict[str, str]]:
 
 
 def run_sim(out: Path, **dn_kw: Any) -> Path:
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
-    cfg = giapsim.SimConfig(
+    cfg = gippasim.SimConfig(
         proteomics=ProteomicsConfig(pi_wrong=0.05), denovo=DenovoConfig(**dn_kw), **BASE
     )
-    giapsim.simulate(cfg, SEED, out)
+    gippasim.simulate(cfg, SEED, out)
     return out
 
 
@@ -117,7 +117,7 @@ def test_no_site_among_positive_weights_falls_back_to_substitution(tmp_path: Pat
 
 def test_every_stretch_length_occurs() -> None:
     """Kills M07 (stretches capped at 5). Distinct residues: the changed span is the length."""
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     pep = "ACDEFGHKMNPQRSTVWY"
     rng = np.random.default_rng(0)
@@ -131,7 +131,7 @@ def test_every_stretch_length_occurs() -> None:
 
 def test_block_read_in_reverse_order() -> None:
     """Kills M10 (only the listed order of a block is searched): GA (reverse of AG) reads as Q."""
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     pep = "PEPKGAEKR"  # only block site: GA
     rng = np.random.default_rng(0)
@@ -140,7 +140,7 @@ def test_block_read_in_reverse_order() -> None:
 
 def test_block_written_in_both_orders() -> None:
     """Kills M09 (the new block is always written in one order): Q reads as AG and as GA."""
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     pep = "PEPKQEKR"  # only block site: Q
     rng = np.random.default_rng(0)

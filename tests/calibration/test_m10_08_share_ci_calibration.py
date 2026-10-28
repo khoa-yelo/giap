@@ -1,7 +1,7 @@
 """Calibration of the A3 ``share_ci95`` as the evaluator reports it (M10-08b, R4, spec §8.4).
 
 Claim (docs/specs/M10-08-a3-feasibility.md, step 14): ``share_ci95`` is the Wilson 95 % interval
-of ``share = n_match / n_top``. ``giap.stats.cutoffs.wilson_ci`` is calibrated in
+of ``share = n_match / n_top``. ``gippa.stats.cutoffs.wilson_ci`` is calibrated in
 ``tests/calibration/test_cutoffs_calibration.py``; this test checks the interval **as written by
 ``a3_feasibility.py evaluate``** (after any rounding), end to end on synthetic inputs: for
 ``n_top = 40`` the evaluator is run once for every ``k = 0..40`` matches, and the exact binomial

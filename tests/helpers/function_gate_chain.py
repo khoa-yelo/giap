@@ -1,7 +1,8 @@
-"""giapsim function worlds -> GIAP inputs for the M8-15 gate (docs/specs/M8-15-calibration-gate.md;
-M8-14 scenarios; GIAP_SPEC.md §7.3, §7.7, §7.8, §8.4, §8.5 attacks 2 and 3).
+"""gippasim function worlds -> GIPPA inputs for the M8-15 gate
+(docs/specs/M8-15-calibration-gate.md;
+M8-14 scenarios; GIPPA_SPEC.md §7.3, §7.7, §7.8, §8.4, §8.5 attacks 2 and 3).
 
-Test-side glue only: every statistic comes from GIAP (``covariate_table``, ``fit_detectability``,
+Test-side glue only: every statistic comes from GIPPA (``covariate_table``, ``fit_detectability``,
 ``build_collections``, ``detection_enrichment``, ``gsea_table``, ``cross_validate``, ``null_p``,
 ``shap_blocks``, ``attribution_table``). The simulator's truth columns are used only where the
 spec names them (the oracle arm, the attack-2 confounded set, the recovery truth).
@@ -11,7 +12,7 @@ spec names them (the oracle arm, the attack-2 confounded set, the recovery truth
   when undetected), ``abundance_imputed``, ``abundance_scale``, ``cog_category``, ``kegg_ko``,
   ``go_terms``; the last three from the layout's C3 xrefs through ``function_columns``).
 - ``fitted_p_detect(w, genes, rng)``: the M4-13 cross-fitted ``p_detect`` with the **default**
-  ``DetectabilityConfig()`` on ``covariate_table(layout.genes, GiapConfig())`` (covariates
+  ``DetectabilityConfig()`` on ``covariate_table(layout.genes, GippaConfig())`` (covariates
   recomputed from the sequences; never the ``n_obs_true`` column; lead decision 4) and the M4-13
   ``fold_of_tu`` (passed to the ORA TU recalibration, M8-04 decision 13).
 - ``resources(w, tmp)`` / ``collections(w, genes, tmp)``: the M8-03 collections of the synthetic
@@ -38,7 +39,7 @@ _TERM = re.compile(r"\[Term\]\n(.*?)(?=\n\[|\Z)", re.S)
 
 
 def _fs() -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs
 
@@ -55,7 +56,7 @@ def tu_maps(w: Any) -> tuple[dict[str, str], dict[str, int]]:
 
 def gene_frame(w: Any) -> pd.DataFrame:
     """The gene-table columns of the M8 steps, one row per gene in layout order."""
-    from giap.genetable.assemble import function_columns
+    from gippa.genetable.assemble import function_columns
 
     lg = w.layout.genes
     tags = lg["locus_tag"].astype(str)
@@ -77,25 +78,25 @@ def gene_frame(w: Any) -> pd.DataFrame:
 
 def recomputed_covariates(w: Any) -> pd.DataFrame:
     """M4-10 ``covariate_table`` on the simulated sequences (``aa``, else translated ``nt``)."""
-    from giap.config.model import GiapConfig
-    from giap.genetable.covariates import covariate_table
+    from gippa.config.model import GippaConfig
+    from gippa.genetable.covariates import covariate_table
 
-    return covariate_table(w.layout.genes, GiapConfig())
+    return covariate_table(w.layout.genes, GippaConfig())
 
 
 def fitted_p_detect(
     w: Any, genes: pd.DataFrame, rng: np.random.Generator
 ) -> tuple[pd.Series, dict[str, int]]:
     """Cross-fitted p_detect (default ``DetectabilityConfig()``) and the M4-13 TU folds."""
-    from giap.config.model import DetectabilityConfig
-    from giap.genetable.detectability import fit_detectability
+    from gippa.config.model import DetectabilityConfig
+    from gippa.genetable.detectability import fit_detectability
 
     tags = genes["locus_tag"].astype(str)
     det = pd.Series(genes["detected"].to_numpy(bool), index=tags.to_numpy(), dtype="boolean")
     det[genes["partial"].to_numpy(bool)] = pd.NA
     tus = pd.Series(genes["tu_id"].to_numpy(), index=tags.to_numpy())
     fit = fit_detectability(det, recomputed_covariates(w), tus, DetectabilityConfig(), rng)
-    assert not fit.constant, "detectability_constant on a giapsim world"
+    assert not fit.constant, "detectability_constant on a gippasim world"
     return fit.p_detect.reindex(tags.to_numpy()), dict(fit.fold_of_tu)
 
 
@@ -123,13 +124,13 @@ def slim_obo(obo: str) -> str:
                 ln for ln in s.splitlines() if ln.split(":", 1)[0] in {"id", "name", "namespace"}
             ]
             keep.append("[Term]\n" + "\n".join(lines) + "\n")
-    head = "format-version: 1.2\ndata-version: giapsim/synthetic-slim\nontology: go/subsets/slim\n"
+    head = "format-version: 1.2\ndata-version: gippasim/synthetic-slim\nontology: go/subsets/slim\n"
     return head + "\n" + "\n".join(keep)
 
 
 def resources(w: Any, tmp: Path) -> Any:
-    from giap.function.collections import Resources
-    from giap.io.function_resources import read_go
+    from gippa.function.collections import Resources
+    from gippa.io.function_resources import read_go
 
     go, slim = tmp / "go.obo", tmp / "slim.obo"
     go.write_text(w.obo)
@@ -140,9 +141,9 @@ def resources(w: Any, tmp: Path) -> Any:
 
 def collections(w: Any, genes: pd.DataFrame) -> list[Any]:
     """The six M8-03 collections (cog, kegg, go_bp, go_mf, go_cc, go_slim) of the world."""
-    from giap.function.collections import build_collections
+    from gippa.function.collections import build_collections
 
-    with tempfile.TemporaryDirectory(prefix="giap-m815-") as d:
+    with tempfile.TemporaryDirectory(prefix="gippa-m815-") as d:
         res = resources(w, Path(d))
     el = ~genes["partial"].to_numpy(bool)
     colls, flags = build_collections(genes, el, res)
@@ -159,7 +160,7 @@ def confounded_term(w: Any) -> str:
 
 def single_term(colls: Sequence[Any], term: str) -> Any:
     """The GeneSets of ``term`` alone, collection name kept (no elim partner: p = p_noelim)."""
-    from giap.function.collections import GeneSets
+    from gippa.function.collections import GeneSets
 
     for c in colls:
         if term in c.sets:
@@ -242,7 +243,7 @@ def shares(p: np.ndarray, levels: Sequence[float]) -> np.ndarray:
 def r_engine(tmp: Path) -> Any:
     import os
 
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     return r_fgsea_engine(resolve_launcher(os.environ), tmp_root=tmp)
 
@@ -258,11 +259,11 @@ def cpu_share() -> int:
 
 
 def workers() -> int:
-    """Processes for ``prefetch``: ``GIAP_M815_WORKERS`` (default 4), at most ``cpu_share()``
+    """Processes for ``prefetch``: ``GIPPA_M815_WORKERS`` (default 4), at most ``cpu_share()``
     (review nit 1: the same per-xdist-worker share as the determinants ``_threads``)."""
     import os
 
-    return max(1, min(int(os.environ.get("GIAP_M815_WORKERS", "4")), cpu_share()))
+    return max(1, min(int(os.environ.get("GIPPA_M815_WORKERS", "4")), cpu_share()))
 
 
 def prefetch(cache: dict[Any, Any], run: Any, keys: Sequence[Any], done: Any = None) -> None:
@@ -288,8 +289,8 @@ def prefetch(cache: dict[Any, Any], run: Any, keys: Sequence[Any], done: Any = N
 def prefetch_indices(R: int) -> list[int]:
     """Absolute replicate indices the first ``calibrate`` pass of this process runs: unsharded,
     block 1 (``0..R-1``); under ``--shard K/N`` the shard's range of block
-    ``GIAP_CALIBRATION_BLOCK``, offset by ``(block - 1) * R`` (review B2); none in a confirm run
-    (``GIAP_CALIBRATION_CONFIRM``: its block-2 checks are only known to ``calibrate``)."""
+    ``GIPPA_CALIBRATION_BLOCK``, offset by ``(block - 1) * R`` (review B2); none in a confirm run
+    (``GIPPA_CALIBRATION_CONFIRM``: its block-2 checks are only known to ``calibrate``)."""
     import os
 
     import _criteria as C

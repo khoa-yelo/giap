@@ -24,9 +24,9 @@ import pytest
 from helpers.readthrough_toys import back_translate, gene, model
 from test_mapping_outputs_readthrough import annotate, attrs, feature_of, hit, tsv, write
 
-from giap.mapping.outputs import PEPTIDE_HITS_COLUMNS
-from giap.mapping.readthrough import StopSite
-from giap.model import Replicon
+from gippa.mapping.outputs import PEPTIDE_HITS_COLUMNS
+from gippa.mapping.readthrough import StopSite
+from gippa.model import Replicon
 
 N = 93
 SEC = StopSite("c1", "+", 54, ("G1",), "TGA", "recoded")
@@ -82,7 +82,7 @@ def test_example_30_w_over_the_recoded_tga_still_gets_sec_site() -> None:
 
 def test_flags_through_consumed_sites_of_the_recoded_site_set() -> None:
     """The ``loci`` path: ``consumed_sites`` over ``annotated_stops(..., recoded=True)``."""
-    from giap.mapping.readthrough import annotated_stops, consumed_sites
+    from gippa.mapping.readthrough import annotated_stops, consumed_sites
 
     genome, reps, gm = recoded_world()
     sites, _ = annotated_stops(gm, genome, recoded=True)
@@ -105,7 +105,7 @@ def test_example_27_merged_site_row_gets_sec_site_not_readthrough() -> None:
     ``recoded``, so a row over ``[15, 18)`` gets ``sec_site`` and never ``readthrough``."""
     from test_readthrough_recoded import ex27
 
-    from giap.mapping.readthrough import annotated_stops, consumed_sites
+    from gippa.mapping.readthrough import annotated_stops, consumed_sites
 
     genome, gm = ex27()
     sites, _ = annotated_stops(gm, genome, recoded=True)

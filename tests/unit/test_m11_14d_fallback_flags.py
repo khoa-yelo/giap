@@ -26,9 +26,9 @@ No other row changes; ``tu_source_distance_model`` never appears under ``uniop``
 
 Interface pinned here (the ADR leaves it to the 14d implementer):
 
-- ``giap.operons.flags.TU_SOURCE_FLAG == "tu_source_distance_model"`` and
-  ``giap.operons.flags.TU_ERROR_FLAG == "tu_block_tu_error"``.
-- ``giap.operons.flags.add_tu_source_flag(frame, table, operon_source) -> pandas.DataFrame``, pure:
+- ``gippa.operons.flags.TU_SOURCE_FLAG == "tu_source_distance_model"`` and
+  ``gippa.operons.flags.TU_ERROR_FLAG == "tu_block_tu_error"``.
+- ``gippa.operons.flags.add_tu_source_flag(frame, table, operon_source) -> pandas.DataFrame``, pure:
   ``table`` is ``"autocorrelation"`` or ``"pairs"``; the frame's ``flags`` cells are token
   sequences (as ``autocorrelation_rows`` and ``merge_tests`` build them). It returns a new frame,
   appends the flags to the target rows only (existing tokens kept, no duplicate) and leaves the
@@ -69,7 +69,7 @@ TU_ERROR_CAVEAT = (
     "K-12 error rates"
 )
 REPO = Path(__file__).resolve().parents[2]
-TABLE_SCHEMAS = REPO / "src" / "giap" / "schemas" / "tables"
+TABLE_SCHEMAS = REPO / "src" / "gippa" / "schemas" / "tables"
 MORAN_CAVEAT = (
     "Moran's I under the TU-block null is anti-conservative at short lags when TUs come from the "
     "distance model; rejection at α = 0.05 was 0.34 in simulation"
@@ -82,10 +82,10 @@ SOURCES = ["uniop", "distance_model", "precomputed"]
 
 
 def _add() -> Any:
-    from giap.operons import flags
+    from gippa.operons import flags
 
     fn = getattr(flags, "add_tu_source_flag", None)
-    assert fn is not None, "giap.operons.flags.add_tu_source_flag is not implemented"
+    assert fn is not None, "gippa.operons.flags.add_tu_source_flag is not implemented"
     return fn
 
 
@@ -98,7 +98,7 @@ def _tokens(cell: Any) -> list[str]:
 
 
 def test_flag_constant() -> None:
-    from giap.operons import flags
+    from gippa.operons import flags
 
     assert getattr(flags, "TU_SOURCE_FLAG", None) == FLAG
     assert getattr(flags, "TU_ERROR_FLAG", None) == TU_ERROR
@@ -272,8 +272,8 @@ def test_schema_flags_pattern_accepts_the_token(stem: str, other: str) -> None:
 
 @pytest.mark.parametrize("name", ["operons", "context_stats"])
 def test_steps_take_operon_meta_as_optional_input(name: str) -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get(name)
@@ -299,8 +299,8 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 def _gene_table(chain: Any, path: Path) -> Path:
     """A §9.3 gene table with abundance (as ``tests/unit/steps/test_operons_step.py``)."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.io.genes_tsv import write_genes_parquet
 
     c2 = chain.frame("genes")
     n = len(c2)
@@ -325,9 +325,9 @@ def _gene_table(chain: Any, path: Path) -> Path:
 
 
 def _run_operons(chain: Any, root: Path, source: str | None) -> pd.DataFrame:
-    from giap.config import GiapConfig
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import GippaConfig
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     keys = ("genes", "replicons", "tus", "pairs_raw", "features", "promoter_windows",
@@ -337,11 +337,11 @@ def _run_operons(chain: Any, root: Path, source: str | None) -> pd.DataFrame:
     if source is not None:
         ins["operon_meta"] = _meta(root / "operon_meta.json", source)
     outs = {k: root / "tables" / f"{k}.tsv" for k in ("pairs", "operons", "operon_flags")}
-    log = logging.getLogger("giap")
+    log = logging.getLogger("gippa")
     level = log.level
     log.setLevel(logging.WARNING)
     try:
-        reg.run_step("operons", GiapConfig(seed=1), ins, outs)
+        reg.run_step("operons", GippaConfig(seed=1), ins, outs)
     finally:  # module-scoped caller: a leaked level hides INFO events from later caplog tests
         log.setLevel(level)
     return pd.read_csv(outs["pairs"], sep="\t", dtype=str, keep_default_na=False)
@@ -397,8 +397,8 @@ def ctx_work(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def _ctx_inputs(work: Path) -> dict[str, Path]:
     """What ``run_context_stats`` passes (as ``tests/unit/steps/test_support_context.py``)."""
-    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
-    from giap.steps.gene_table import contract_paths
+    from gippa.io.work_tables import OPTIONAL_KEYS, default_paths
+    from gippa.steps.gene_table import contract_paths
 
     ins = contract_paths(work)
     ins |= {k: p for k, p in default_paths(work).items()
@@ -418,8 +418,8 @@ def autocorr_by_source(ctx_work: Path, tmp_path_factory: pytest.TempPathFactory)
     sys.path.insert(0, str(REPO / "tests" / "helpers"))
     import m4_chain as mc
 
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     cfg = mc.config(SEED, stats={"permutations": 99, "bootstrap": 100})

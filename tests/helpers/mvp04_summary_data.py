@@ -1,10 +1,10 @@
-"""Hand-built MVP-04 run and giapsim input directories for ``scripts/dev/mvp04_summary.py``
+"""Hand-built MVP-04 run and gippasim input directories for ``scripts/dev/mvp04_summary.py``
 (docs/specs/MVP-04-ecoli-evidence-run.md, acceptance gates 1-16).
 
-``build(tmp)`` writes a minimal published GIAP output directory and a giapsim input directory
-(plus an identical second giapsim call for gate 9) in which **every gate passes and every value
+``build(tmp)`` writes a minimal published GIPPA output directory and a gippasim input directory
+(plus an identical second gippasim call for gate 9) in which **every gate passes and every value
 lies in its expected range**. Each file carries only the columns the summary reads. Tests then
-edit one file to move one gate. Nothing here imports giap or giapsim.
+edit one file to move one gate. Nothing here imports gippa or gippasim.
 
 The numbers (``N`` below) are chosen so that every gate's value can be checked by hand:
 
@@ -128,12 +128,12 @@ def edit_json(path: Path, fn: Callable[[dict[str, Any]], None]) -> None:
 
 @dataclass(frozen=True)
 class Dirs:
-    out: Path  # published GIAP outputs
-    inputs: Path  # the giapsim call
-    again: Path  # the second giapsim call with the same seed (gate 9)
+    out: Path  # published GIPPA outputs
+    inputs: Path  # the gippasim call
+    again: Path  # the second gippasim call with the same seed (gate 9)
 
 
-# ---------------------------------------------------------------- inputs (giapsim)
+# ---------------------------------------------------------------- inputs (gippasim)
 
 
 def _novel_truth(k: int, cls: str) -> dict[str, Any]:
@@ -183,7 +183,7 @@ def _write_inputs(inp: Path) -> None:
         add(peptide(n), locus(i), False, 0.0001, True, "undetected_product", locus(i))
         n += 1
     for _ in range(N_UNMAPPED):
-        add(peptide(n), "GIAPORF_antisense_U00096.3_9001_9150_m", False, 0.002, True,
+        add(peptide(n), "GIPPAORF_antisense_U00096.3_9001_9150_m", False, 0.002, True,
             "sixframe_noncoding", "NA")  # fmt: skip
         n += 1
     for i in DECOY_WINS:
@@ -251,7 +251,7 @@ def alt_codon(k: int) -> int:
     return gene_coords(10 + k)[0] + 30
 
 
-# ---------------------------------------------------------------- published GIAP outputs
+# ---------------------------------------------------------------- published GIPPA outputs
 
 
 def _genes_tsv(out: Path) -> None:
@@ -344,12 +344,12 @@ def _variants(out: Path) -> None:
 
 
 def novel_call(t: Mapping[str, Any], *, called: bool = True, fdr: str = "0.005") -> list[Any]:
-    """A ``novel_orfs.tsv`` row for truth ORF ``t``; GIAP's ``end`` is the last base of the stop
+    """A ``novel_orfs.tsv`` row for truth ORF ``t``; GIPPA's ``end`` is the last base of the stop
     in transcription direction (the lowest coordinate on ``-``)."""
     plus = t["strand"] == "+"
     start_longest = t["start"] if plus else t["end"]
     end = t["end"] if plus else t["start"]
-    return [f"GIAPNOVEL_{t['orf_id']}", t["class"], t["contig"], t["strand"], start_longest, end,
+    return [f"GIPPANOVEL_{t['orf_id']}", t["class"], t["contig"], t["strand"], start_longest, end,
             fdr, "true" if called else "false", "NA"]  # fmt: skip
 
 
@@ -435,7 +435,8 @@ PLACEHOLDER = '<div class="plot" data-plot="V12">\n<p class="note">V12: plot fil
 def report_html(sections: Mapping[str, str]) -> str:
     body = "".join(section_html(s, sections.get(s, "")) for s in ALL_SECTIONS)
     return (
-        f'<!DOCTYPE html>\n<html lang="en">\n<body>\n<h1>GIAP report</h1>\n{body}</body>\n</html>\n'
+        '<!DOCTYPE html>\n<html lang="en">\n<body>\n<h1>GIPPA report</h1>\n'
+        f"{body}</body>\n</html>\n"
     )
 
 

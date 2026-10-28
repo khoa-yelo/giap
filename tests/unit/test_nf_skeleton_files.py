@@ -14,8 +14,8 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
-GIAP_STEP = WF / "modules" / "local" / "giap_step"
-SBATCH = REPO / "scripts" / "slurm" / "giap_run.sbatch"
+GIPPA_STEP = WF / "modules" / "local" / "gippa_step"
+SBATCH = REPO / "scripts" / "slurm" / "gippa_run.sbatch"
 
 FILES = [
     "main.nf",
@@ -25,8 +25,8 @@ FILES = [
     "conf/farmshare.config",
     "conf/farmshare_local.config",
     "conf/standard.config",
-    "modules/local/giap_step/main.nf",
-    "modules/local/giap_step/meta.yml",
+    "modules/local/gippa_step/main.nf",
+    "modules/local/gippa_step/meta.yml",
     "tests/main.nf.test",
 ]
 
@@ -80,36 +80,36 @@ def test_base_config_defines_the_four_labels() -> None:
     assert "resourceLimits" in text + (WF / "nextflow.config").read_text()
 
 
-def test_giap_step_module_calls_giap_step_and_has_stub_and_versions() -> None:
-    text = (GIAP_STEP / "main.nf").read_text()
-    assert re.search(r"process\s+GIAP_STEP\s*\{", text)
+def test_gippa_step_module_calls_gippa_step_and_has_stub_and_versions() -> None:
+    text = (GIPPA_STEP / "main.nf").read_text()
+    assert re.search(r"process\s+GIPPA_STEP\s*\{", text)
     assert re.search(r"\btag\b", text)
     assert re.search(r"\blabel\s+['\"]process_(single|low|medium|high)['\"]", text)
-    assert "giap _step" in text
+    assert "gippa _step" in text
     assert "--config" in text and "--in" in text and "--out" in text
-    assert re.search(r"(?m)^\s*stub:", text), "GIAP_STEP has no stub: block"
+    assert re.search(r"(?m)^\s*stub:", text), "GIPPA_STEP has no stub: block"
     assert "versions.yml" in text
 
 
-def test_giap_step_meta_yml() -> None:
-    meta = yaml.safe_load((GIAP_STEP / "meta.yml").read_text())
+def test_gippa_step_meta_yml() -> None:
+    meta = yaml.safe_load((GIPPA_STEP / "meta.yml").read_text())
     assert isinstance(meta, dict)
-    assert str(meta.get("name", "")).lower() == "giap_step"
+    assert str(meta.get("name", "")).lower() == "gippa_step"
     assert "input" in meta and "output" in meta
     assert "versions" in yaml.safe_dump(meta["output"])
 
 
-def test_main_nf_includes_giap_step_or_annotate() -> None:
-    """main.nf calls ANNOTATE (M2-07) when present, else only the GIAP_STEP smoke."""
+def test_main_nf_includes_gippa_step_or_annotate() -> None:
+    """main.nf calls ANNOTATE (M2-07) when present, else only the GIPPA_STEP smoke."""
     text = (WF / "main.nf").read_text()
     assert re.search(
-        r"include\s*\{[^}]*\b(GIAP_STEP|ANNOTATE)\b[^}]*\}\s*from\s*['\"]\./(modules|subworkflows)/local/",
+        r"include\s*\{[^}]*\b(GIPPA_STEP|ANNOTATE)\b[^}]*\}\s*from\s*['\"]\./(modules|subworkflows)/local/",
         text,
     )
     assert re.search(r"(?m)^\s*workflow\s*\{", text), "no entry workflow"
 
 
-# ---------------------------------------------------------------- giap_run.sbatch (§3.8)
+# ---------------------------------------------------------------- gippa_run.sbatch (§3.8)
 
 
 def _directives(text: str) -> dict[str, str]:
@@ -119,11 +119,11 @@ def _directives(text: str) -> dict[str, str]:
     return out
 
 
-def test_giap_run_sbatch_header() -> None:
+def test_gippa_run_sbatch_header() -> None:
     text = SBATCH.read_text()
     assert text.startswith("#!/bin/bash\n")
     d = _directives(text)
-    assert d["job-name"].startswith("giap-")
+    assert d["job-name"].startswith("gippa-")
     assert d["partition"] == "normal"
     assert d["qos"] == "normal"
     assert d["cpus-per-task"] == "2"
@@ -131,11 +131,11 @@ def test_giap_run_sbatch_header() -> None:
     assert d["time"] == "2-00:00:00"
     assert d["output"].endswith("/local/logs/%x.%j.out")
     assert "set -euo pipefail" in text
-    assert re.search(r"source\s+\"?\$\{GIAP_REPO[^}]*\}/scripts/farmshare_env\.sh", text)
-    assert "mktemp -d /tmp/giap." in text
+    assert re.search(r"source\s+\"?\$\{GIPPA_REPO[^}]*\}/scripts/farmshare_env\.sh", text)
+    assert "mktemp -d /tmp/gippa." in text
 
 
-def test_giap_run_sbatch_uses_farmshare_apptainer() -> None:
+def test_gippa_run_sbatch_uses_farmshare_apptainer() -> None:
     text = _strip_comments(SBATCH.read_text())
     assert "farmshare,apptainer" in text
-    assert "giap run" in text or "nextflow run" in text
+    assert "gippa run" in text or "nextflow run" in text

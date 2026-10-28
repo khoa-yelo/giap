@@ -1,5 +1,5 @@
 """Attack nulls for the abundance GSEA on the R fgsea engine (PR #214 statistician review;
-GIAP_SPEC.md §8.1 "GSEA: BH per collection", §8.5 attack 3; ADR-0038; M8-17 §11 T11).
+GIPPA_SPEC.md §8.1 "GSEA: BH per collection", §8.5 attack 3; ADR-0038; M8-17 §11 T11).
 Statistician-owned.
 
 ``test_gsea_r_engine_calibration.py`` re-runs the three single-set level claims on
@@ -26,7 +26,7 @@ Statistician-owned.
 3. **The gated structure arms** of ``test_attack_gsea_structure.py`` (median imputation, size
    biased membership, scattered between-TU AR(1)) on the R engine, same generators and criterion.
 
-Slurm only (``slow``, ``requires_r``); the ``giap-fgsea`` env must be built.
+Slurm only (``slow``, ``requires_r``); the ``gippa-fgsea`` env must be built.
 """
 
 from __future__ import annotations
@@ -44,8 +44,8 @@ from helpers.gsea_data import Gene, frame, gene_sets
 from test_attack_gsea_structure import _first_genes, _frame, _world
 from test_gsea_tu_calibration import _packed, _tied
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
 
 pytestmark = [
     pytest.mark.calibration,
@@ -66,7 +66,7 @@ FAST_FULL = [
 
 @pytest.fixture(scope="module")
 def engine(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     return r_fgsea_engine(
         resolve_launcher(os.environ), tmp_root=Path(tmp_path_factory.mktemp("fgsea_attack"))
@@ -88,7 +88,7 @@ class _Counting:
 
 
 def _table(engine: Any, genes: pd.DataFrame, colls: list[Any], rng: np.random.Generator) -> Any:
-    from giap.function.gsea import gsea_table
+    from gippa.function.gsea import gsea_table
 
     seed = int(rng.integers(0, 2**31 - 1))
     out = gsea_table(genes, colls, SIZE, CFG, ALPHA, for_step("function.gsea", seed),
@@ -120,7 +120,7 @@ def _gene_level(engine: Any) -> Any:
 
 def _tied_id_order(engine: Any) -> Any:
     def rep(rng: np.random.Generator) -> float:
-        from giap.function.gsea import EngineCall, GseaJob, tu_ranking
+        from gippa.function.gsea import EngineCall, GseaJob, tu_ranking
 
         genes, members = _tied(rng)
         rank = tu_ranking(genes)

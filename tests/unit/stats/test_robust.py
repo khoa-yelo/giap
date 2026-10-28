@@ -1,4 +1,4 @@
-"""Hodges-Lehmann two-sample shift (issue M4-04; GIAP_SPEC.md §7.3.5(b), §7.3.6, §8.3).
+"""Hodges-Lehmann two-sample shift (issue M4-04; GIPPA_SPEC.md §7.3.5(b), §7.3.6, §8.3).
 
 ``hodges_lehmann(x, y)`` = median of all pairwise differences x_i - y_j; the median of an even
 count is the mean of the two middle values. Exact on both paths: direct enumeration for
@@ -14,8 +14,8 @@ import math
 import numpy as np
 import pytest
 
-from giap.rng import for_step
-from giap.stats.robust import hodges_lehmann
+from gippa.rng import for_step
+from gippa.stats.robust import hodges_lehmann
 
 
 def brute(x: object, y: object) -> float:

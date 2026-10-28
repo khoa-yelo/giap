@@ -4,15 +4,15 @@ plus tests that kill the mutations which survived the review.
 - Atomic outputs: a rerun removes a stale ``work/preflight/``; ``preflight/preflight.json`` is
   written last (completion marker), so after a failed run it reflects the failure and no
   normalised file of an earlier run is left behind.
-- Resources are probed live by ``giap.preflight.environment.probe_resources(outdir)`` →
+- Resources are probed live by ``gippa.preflight.environment.probe_resources(outdir)`` →
   ``(free_disk_bytes, ram_bytes)`` (``shutil.disk_usage`` and the Slurm/cgroup limit, never
-  ``.giap/capabilities.json``); ``preflight.json`` keeps only the verdict, so it is byte-identical
+  ``.gippa/capabilities.json``); ``preflight.json`` keeps only the verdict, so it is byte-identical
   across machines, and the raw numbers go to ``OUT/logs/events.jsonl`` (§6.6, §6.7).
 - Protein headers are safe IDs; ``work/preflight/protein_map.tsv`` maps them to the originals.
 - ``--outdir`` naming an existing file exits 1.
 - ``db_manifest.json`` entries ``{"version": ..., "sha256": ...}`` are accepted.
 
-Every test isolates ``GIAP_REPO`` and ``GIAP_DB_DIR`` in ``tmp_path``.
+Every test isolates ``GIPPA_REPO`` and ``GIPPA_DB_DIR`` in ``tmp_path``.
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ import pandas as pd
 import pytest
 from click.testing import CliRunner, Result
 
-from giap.exitcodes import ExitCode
-from giap.io.protein_fasta import read_protein_fasta
+from gippa.exitcodes import ExitCode
+from gippa.io.protein_fasta import read_protein_fasta
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 GIB = 1024**3
 LOW = ["--set", "preflight.min_n50_warn=1", "--set", "preflight.min_largest_contig_warn=1"]
 GENOME_MODE = ["--set", "annotation.promoters.mode=genome"]
@@ -46,25 +46,25 @@ NORM_SUFFIXES = {".fa", ".faa", ".tsv", ".parquet"}
 
 @pytest.fixture(autouse=True)
 def _isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Empty ``$GIAP_DB_DIR``; ``$GIAP_REPO`` holds a capabilities.json that must be ignored."""
+    """Empty ``$GIPPA_DB_DIR``; ``$GIPPA_REPO`` holds a capabilities.json that must be ignored."""
     db = tmp_path / "_db"
     db.mkdir()
     repo = tmp_path / "_repo"
-    (repo / ".giap").mkdir(parents=True)
-    (repo / ".giap" / "capabilities.json").write_text(
-        json.dumps({"allocation": {"mem_gb": 1, "node_mem_gb": 1}, "giap_root_free_gb": 0.001}),
+    (repo / ".gippa").mkdir(parents=True)
+    (repo / ".gippa" / "capabilities.json").write_text(
+        json.dumps({"allocation": {"mem_gb": 1, "node_mem_gb": 1}, "gippa_root_free_gb": 0.001}),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
-    monkeypatch.setenv("GIAP_REPO", str(repo))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "_db"))  # never the real $GIAP_ROOT (4c)
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_REPO", str(repo))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "_db"))  # never the real $GIPPA_ROOT (4c)
     return db
 
 
 def patch_resources(monkeypatch: pytest.MonkeyPatch, disk_bytes: int, ram_bytes: int) -> None:
     """Pretend to be a machine with ``disk_bytes`` free and ``ram_bytes`` of memory."""
-    import giap.preflight.environment as env_mod
-    import giap.preflight.run as run_mod
+    import gippa.preflight.environment as env_mod
+    import gippa.preflight.run as run_mod
 
     def fake(*_a: object, **_k: object) -> tuple[int, int]:
         return disk_bytes, ram_bytes
@@ -101,7 +101,7 @@ def peptides(tmp_path: Path, intensity: bool = True) -> Path:
 
 
 def invoke(*args: str | Path) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, ["preflight", *(str(a) for a in args)])
 
@@ -278,7 +278,7 @@ def test_probe_resources_uses_disk_usage_of_outdir(
 ) -> None:
     import shutil
 
-    from giap.preflight.environment import probe_resources
+    from gippa.preflight.environment import probe_resources
 
     seen: list[Path] = []
 
@@ -343,9 +343,9 @@ def test_outdir_that_is_a_file_exits_1(tmp_path: Path) -> None:
 def test_provisional_db_manifest_format_is_accepted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _isolated_env: Path
 ) -> None:
-    from giap.config import resolve_config
-    from giap.preflight.environment import requirements
-    from giap.preflight.run import PreflightInputs, exit_code, run_preflight
+    from gippa.config import resolve_config
+    from gippa.preflight.environment import requirements
+    from gippa.preflight.run import PreflightInputs, exit_code, run_preflight
 
     cfg = resolve_config(
         overrides=["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]

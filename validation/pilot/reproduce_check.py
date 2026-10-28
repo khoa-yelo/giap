@@ -24,7 +24,7 @@ SECTION = re.compile(r"^#{2,3} ", re.M)
 FENCE = re.compile(r"^```bash\n(.*?)^```", re.M | re.S)
 A3 = re.compile(r"^### A3-(cascadia|fallback) \(status: (\w+)\)", re.M)
 PATH_TOKEN = re.compile(
-    r"(?:\$\{?GIAP_REPO\}?/)?((?:scripts|validation|workflow|tests/data)/[^\s\"'`;|)(<>]+)"
+    r"(?:\$\{?GIPPA_REPO\}?/)?((?:scripts|validation|workflow|tests/data)/[^\s\"'`;|)(<>]+)"
 )
 SBATCH_LINE = re.compile(r"^\s*(\w+=\S*\s+)*sbatch\b")
 SRUN_LINE = re.compile(r"^\s*(\w+=\S*\s+)*srun\b")
@@ -42,7 +42,7 @@ JOB_FIELDS: dict[str, tuple[str, str | None] | None] = {
     "constraint": ("constraint", "C"),
     "array": ("array", "a"),
 }
-ROOTS = ("$GIAP_ROOT", "$GIAP_DATA_DIR", "$GIAP_DB_DIR")
+ROOTS = ("$GIPPA_ROOT", "$GIPPA_DATA_DIR", "$GIPPA_DB_DIR")
 NOT_HASHED = (".tdf_bin",)  # gigabytes; M10-02 decision, spec L11
 READ_ONLY = (".sif",)  # the DIA-NN copy must be mode 0444
 FINAL_COMMIT_STEPS = {f"S{n}" for n in range(8, 13)}
@@ -172,7 +172,7 @@ def _check_job(step: Step, repo: Path) -> list[str]:
         return []
     out = [f"job_field_missing:{step.id}:{f}" for f in JOB_FIELDS if f not in job]
     name = job.get("name", "")
-    if not name.startswith("giap-"):
+    if not name.startswith("gippa-"):
         out.append(f"job_name:{step.id}:{name}")
     script = job.get("script", "-")
     if script == "-":  # a dev job without a script (srun): nothing to compare
@@ -223,7 +223,7 @@ def _check_blocks(rb: Runbook, repo: Path) -> list[str]:
                 if not (repo / sc).is_file():
                     out.append(f"missing_script:{sc} ({sid})")
             for jn in re.findall(r"(?:-J|--job-name)[= ]\s*\"?([^\s\"]+)", ln):
-                if not jn.startswith("giap-"):
+                if not jn.startswith("gippa-"):
                     out.append(f"job_name:{sid}:{jn}")
     return out
 
@@ -343,11 +343,11 @@ def static_check(runbook: Runbook, repo: Path) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def _resolve(path: str, giap_root: Path, env: Mapping[str, str], repo: Path) -> Path:
+def _resolve(path: str, gippa_root: Path, env: Mapping[str, str], repo: Path) -> Path:
     bases = {
-        "$GIAP_ROOT": str(giap_root),
-        "$GIAP_DATA_DIR": env.get("GIAP_DATA_DIR") or str(giap_root / "data"),
-        "$GIAP_DB_DIR": env.get("GIAP_DB_DIR") or str(giap_root / "db"),
+        "$GIPPA_ROOT": str(gippa_root),
+        "$GIPPA_DATA_DIR": env.get("GIPPA_DATA_DIR") or str(gippa_root / "data"),
+        "$GIPPA_DB_DIR": env.get("GIPPA_DB_DIR") or str(gippa_root / "db"),
     }
     for var, base in bases.items():
         if path == var or path.startswith(var + "/"):
@@ -356,7 +356,7 @@ def _resolve(path: str, giap_root: Path, env: Mapping[str, str], repo: Path) -> 
 
 
 def verify(
-    runbook: Runbook, giap_root: Path, repo: Path, env: Mapping[str, str] | None = None
+    runbook: Runbook, gippa_root: Path, repo: Path, env: Mapping[str, str] | None = None
 ) -> dict[str, Any]:
     """Hash every Inputs row that exists and check each record it can read (S-check step 2)."""
     env = {} if env is None else env
@@ -364,7 +364,7 @@ def verify(
     rows: dict[str, dict[str, Any]] = {}
     for r in runbook.inputs:
         rid, sha = r["id"], r["sha256"]
-        p = _resolve(r["path"], giap_root, env, repo)
+        p = _resolve(r["path"], gippa_root, env, repo)
         row: dict[str, Any] = {"path": str(p)}
         rows[rid] = row
         if r["path"].endswith(NOT_HASHED):
@@ -385,7 +385,7 @@ def verify(
                 row["status"] = "mismatch"
                 failures.append(f"mode:{rid}:{mode:o}")
         for rec in _records(r):
-            rp = _resolve(rec, giap_root, env, repo)
+            rp = _resolve(rec, gippa_root, env, repo)
             if not rp.is_file():
                 failures.append(f"record_absent:{rid}:{rec}")
                 row["status"] = "mismatch"
@@ -395,9 +395,9 @@ def verify(
     return {"freeze_commit": runbook.freeze_commit, "failures": failures, "inputs": rows}
 
 
-def protected(runbook: Runbook, giap_root: Path, env: Mapping[str, str], repo: Path) -> list[str]:
+def protected(runbook: Runbook, gippa_root: Path, env: Mapping[str, str], repo: Path) -> list[str]:
     rows = runbook.inputs + [r for r in runbook.outputs if r.get("kept") == "yes"]
-    return [str(_resolve(r["path"], giap_root, env, repo)).rstrip("/") for r in rows]
+    return [str(_resolve(r["path"], gippa_root, env, repo)).rstrip("/") for r in rows]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -425,9 +425,9 @@ def _run(a: argparse.Namespace) -> int:
         for s in issues:
             print(("warning: " if s.startswith("duplicate_hash:") else "") + s)
         return 1 if any(not s.startswith("duplicate_hash:") for s in issues) else 0
-    root = os.environ.get("GIAP_ROOT", "")
+    root = os.environ.get("GIPPA_ROOT", "")
     if not root:
-        print("reproduce_check: GIAP_ROOT is not set", file=sys.stderr)
+        print("reproduce_check: GIPPA_ROOT is not set", file=sys.stderr)
         return 2
     if a.cmd == "protected":
         print(rb.freeze_commit)

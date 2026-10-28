@@ -37,7 +37,7 @@ is free of charge (§6.1) and binds the user only "after having accepted this Ag
    fails after R9 **and** Khoa accepts the five non-Bruker EULAs. If neither route is available,
    rule E1 (`route_unavailable`) fires and A3 moves to the Casanovo fallback (M10-11a).
 2. **Licences.** Khoa accepts Bruker's TDF-SDK licence agreement for route B2 (2026-10-24, "the
-   Bruker TDF-SDK licence is accepted for route B2 (TIMSCONVERT + pyTDFSDK)"). GIAP reads the
+   Bruker TDF-SDK licence is accepted for route B2 (TIMSCONVERT + pyTDFSDK)"). GIPPA reads the
    FarmShare allocation it runs under as "your computing devices" (§2.1; spec question Q7).
    Nothing from the env, the SDK or the converted data is redistributed or committed (R11).
    Khoa does **not** accept the ProteoWizard five-EULA route (2026-10-24): B1 stays unavailable,
@@ -51,8 +51,8 @@ is free of charge (§6.1) and binds the user only "after having accepted this Ag
    file is a new asset row, approved by the lead. Only `cascadia.ckpt` is used (spec Q11). The
    `quay.io/protio/cascadia` copy is not used (spec Q8).
 4. **Unimod table.** The `unimod_tables.xml.gz` that psims 1.4.0 (conda-forge, Apache-2.0)
-   vendors is gunzipped from the built `giap-cascadia` env to
-   `$GIAP_DB_DIR/cascadia/unimod_tables.xml` and pinned by sha256. Cascadia runs through
+   vendors is gunzipped from the built `gippa-cascadia` env to
+   `$GIPPA_DB_DIR/cascadia/unimod_tables.xml` and pinned by sha256. Cascadia runs through
    `scripts/pilot/cascadia_offline.py`, which blocks both Unimod fetches before Cascadia is
    imported: it registers a psims resolver for the Unimod OBO URL that reads that file (start of
    run) and points pyteomics' `_unimod_xml_download_url` at it (end of run). It also refuses every
@@ -71,9 +71,9 @@ is free of charge (§6.1) and binds the user only "after having accepted this Ag
   mzML or Unimod copy is tracked).
 
 ## Consequences
-- Two pilot-only envs (`giap-cascadia`, `giap-timsconvert`; conda channel conda-forge only, pip
+- Two pilot-only envs (`gippa-cascadia`, `gippa-timsconvert`; conda channel conda-forge only, pip
   requirements from PyPI, pinned) in
-  `giap.annotate.tools.PILOT_TOOLS`; they never join `TOOLS`, `required_tools` or
+  `gippa.annotate.tools.PILOT_TOOLS`; they never join `TOOLS`, `required_tools` or
   `build_envs.sh all`.
 - `cascadia.ckpt` is a pickle (`torch.load`, `weights_only=False` on torch 2.0), so loading it
   runs code. It is trusted on first use, pinned by sha256 and loaded only inside the GPU job.

@@ -17,7 +17,7 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
 
 ## Definition
 
-1. **`mkdocs.yml`** at the repository root: `site_name: GIAP`, `docs_dir: docs`, `theme: material`
+1. **`mkdocs.yml`** at the repository root: `site_name: GIPPA`, `docs_dir: docs`, `theme: material`
    (no external fonts: `font: false`, so the site makes no Google Fonts request),
    `exclude_docs: specs/  backlog.md` (Q-L6), `strict` builds in CI, `validation` of links and
    anchors at `warn` (strict turns warnings into errors), `markdown_extensions`: `tables`, `toc`
@@ -38,7 +38,7 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
    Changelog (CHANGELOG.md, included via a page that embeds it), Citation (CITATION.cff rendered)
    ```
 3. **`scripts/docs/gen_reference.py [--check]`** writes, from code only:
-   - `docs/reference/cli.md`: every command and option from the Click tree (`giap.cli`), in command
+   - `docs/reference/cli.md`: every command and option from the Click tree (`gippa.cli`), in command
      order, with type, default, choices and help text; hidden commands (`_step`, `version` if
      hidden) excluded;
    - `docs/reference/configuration.md`: every key of `defaults.yaml` (dotted path, default, type and
@@ -54,8 +54,8 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
    differ (the pattern of `write_config_schema.py --check`).
 4. **CI**: in `ci.yml` › lint, `python scripts/docs/gen_reference.py --check` and
    `mkdocs build --strict --site-dir /tmp/site`.
-   **`docs.yml`**: on push to main (paths `docs/**`, `mkdocs.yml`, `src/giap/cli.py`,
-   `src/giap/config/**`, `src/giap/schemas/**`, `CHANGELOG.md`) and dispatch: build strict, then
+   **`docs.yml`**: on push to main (paths `docs/**`, `mkdocs.yml`, `src/gippa/cli.py`,
+   `src/gippa/config/**`, `src/gippa/schemas/**`, `CHANGELOG.md`) and dispatch: build strict, then
    `actions/upload-pages-artifact` + `actions/deploy-pages` (SHA-pinned), `permissions: pages: write,
    id-token: write` on the deploy job, `environment: github-pages`. The deploy job runs only when
    `vars.PAGES_ENABLED == 'true'` (Khoa sets the variable when enabling Pages; Q-K9).
@@ -64,8 +64,8 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `gen_reference.py` on main | `docs/reference/cli.md` has sections `giap compare`, `giap convert`, `giap makedb`, `giap preflight`, `giap report`, `giap run`, `giap setup`; under `giap run` a row `--genome` `FILE` required; `--profile` default `farmshare,apptainer` |
-| 2 | a PR adds option `--foo` to `giap run` without regenerating | CI lint fails: `docs/reference/cli.md is stale` + diff with the `--foo` row |
+| 1 | `gen_reference.py` on main | `docs/reference/cli.md` has sections `gippa compare`, `gippa convert`, `gippa makedb`, `gippa preflight`, `gippa report`, `gippa run`, `gippa setup`; under `gippa run` a row `--genome` `FILE` required; `--profile` default `farmshare,apptainer` |
+| 2 | a PR adds option `--foo` to `gippa run` without regenerating | CI lint fails: `docs/reference/cli.md is stale` + diff with the `--foo` row |
 | 3 | `configuration.md` | contains a row `seed` with the value in `defaults.yaml` and its schema description |
 | 4 | `tables.md` › `genes.tsv` | coordinate line "1-based closed" (from the schema), field `locus_tag` first |
 | 5 | `mkdocs build --strict` with a methods note containing `[0, 1](1 − q)` (parsed as a link) | build fails with the link warning; the fix is an escaped bracket or code span, made by the docs role and approved by the statistician |
@@ -74,7 +74,7 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
 
 ## Edge cases
 
-- **Links from docs to repo files** (`../src/giap/…`): outside `docs_dir` they break `--strict`;
+- **Links from docs to repo files** (`../src/gippa/…`): outside `docs_dir` they break `--strict`;
   rewrite as absolute GitHub URLs on `main` (docs role). ADRs that cite specs (`docs/specs/…`, now
   excluded) link to the GitHub URL instead.
 - **Click options with dynamic defaults** (e.g. thread count from the environment): printed as the
@@ -92,7 +92,7 @@ lines · not `stats` · roles: implementer (`mkdocs.yml`, `scripts/docs/gen_refe
 2. `gen_reference.py` unit tests: a small Click group and a small datapackage in `tmp_path`
    produce the expected Markdown (golden strings in the test); `--check` exit 0/1 behaviour;
    determinism (two runs byte-identical).
-3. Every `giap` subcommand and every non-hidden option appears in `cli.md`; every `defaults.yaml`
+3. Every `gippa` subcommand and every non-hidden option appears in `cli.md`; every `defaults.yaml`
    key in `configuration.md`; every datapackage resource in `tables.md` (tests walk the real
    sources).
 4. `docs.yml` static test: triggers, the `PAGES_ENABLED` guard, permissions only on deploy, pins.

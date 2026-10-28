@@ -7,7 +7,7 @@
 ## Context
 V1 draws GC skew and oriC/terminus marks, and V2 draws oriC and terminus lines. None of these is in a
 §9.1 file: GC skew needs the genome sequence, and the oriC call is in the intermediate
-`features.parquet`. `giap report OUT` must rebuild every plot from `OUT/` alone (§7.9.4) and has no
+`features.parquet`. `gippa report OUT` must rebuild every plot from `OUT/` alone (§7.9.4) and has no
 genome argument (§5.1).
 
 ## Decision
@@ -17,9 +17,9 @@ genome argument (§5.1).
    so the bytes are deterministic. Exactly one of `<name>.tsv` and `<name>.tsv.gz` exists; a rewrite
    removes the other.
 3. Each support file is one Frictionless resource in `datapackage.json`, with the custom property
-   `role: plot_support` and `schema: plot_support/<name>.json` (relative to `src/giap/schemas`).
+   `role: plot_support` and `schema: plot_support/<name>.json` (relative to `src/gippa/schemas`).
 4. Positions are 1-based as written, like every published table (spec §6.5).
-5. The producing step writes it during `giap run`; `giap report` reads it and never writes or
+5. The producing step writes it during `gippa run`; `gippa report` reads it and never writes or
    recomputes it. Missing support data gives the plot's empty state, not an error.
 6. A support file is not a result table: it has no §9.2 test columns and makes no claims.
 
@@ -27,9 +27,9 @@ The first two support files are `replicon_landmarks` (oriC, terminus) and `gc_sk
 both written by the `plots` step (M9-03).
 
 ## Evidence (before → after)
-- Before: V1/V2 could draw GC skew and oriC/ter only during `giap run`, so `giap report OUT` would
+- Before: V1/V2 could draw GC skew and oriC/ter only during `gippa run`, so `gippa report OUT` would
   produce different plots from the same run.
-- After: both entry points read the same support files; M9-03's step tests pin that `giap report`
+- After: both entry points read the same support files; M9-03's step tests pin that `gippa report`
   leaves them byte- and mtime-identical.
 
 ## Consequences

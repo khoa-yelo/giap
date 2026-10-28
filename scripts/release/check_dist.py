@@ -4,7 +4,7 @@ Usage: python scripts/release/check_dist.py DIST_DIR [--version V]
 
 Opens every ``*.whl`` and ``*.tar.gz`` with the standard library (never installs) and checks the
 required content, forbidden paths, symlinks, sizes (> 5 MB) and the version (default: the
-checkout's ``giap.__version__``). Prints one ``ok <artefact>`` line per clean artefact and one
+checkout's ``gippa.__version__``). Prints one ``ok <artefact>`` line per clean artefact and one
 ``FAIL <artefact>: <rule>: <path>`` line per violation. Exit 0 clean, 1 violations, 2 when
 DIST_DIR has no wheel or no sdist.
 """
@@ -23,7 +23,7 @@ from pathlib import Path, PurePosixPath
 REPO = Path(__file__).resolve().parents[2]
 MAX_BYTES = 5 * 1024 * 1024  # R11
 FORBIDDEN_TOP = ("local", "tests", "validation", ".github", ".claude", "docs", "benchmarks")
-FORBIDDEN_PREFIXES = ("workflow/tests/", "giap/workflow/tests/")
+FORBIDDEN_PREFIXES = ("workflow/tests/", "gippa/workflow/tests/")
 FORBIDDEN_SUFFIXES = (".sif", ".raw", ".d", ".mzml", ".parquet", ".pyc")
 UNIOP_ALLOWED = ("workflow/modules/local/uniop/", "workflow/containers/uniop/")
 SDIST_FILES = (
@@ -34,17 +34,17 @@ SDIST_FILES = (
     "CHANGELOG.md",
     "CITATION.cff",
 )
-SDIST_TREES = ("src/giap/__init__.py", "workflow/main.nf")
+SDIST_TREES = ("src/gippa/__init__.py", "workflow/main.nf")
 WHEEL_FILES = (
-    "giap/__init__.py",
-    "giap/cli.py",
-    "giap/py.typed",
-    "giap/config/defaults.yaml",
-    "giap/schemas/datapackage.json",
-    "giap/data/calibration.yaml",
-    "giap/data/db_sources.yaml",
-    "giap/workflow/main.nf",
-    "giap/workflow/nextflow.config",
+    "gippa/__init__.py",
+    "gippa/cli.py",
+    "gippa/py.typed",
+    "gippa/config/defaults.yaml",
+    "gippa/schemas/datapackage.json",
+    "gippa/data/calibration.yaml",
+    "gippa/data/db_sources.yaml",
+    "gippa/workflow/main.nf",
+    "gippa/workflow/nextflow.config",
 )
 
 
@@ -59,20 +59,20 @@ class Member:
 
 
 def checkout_version(repo: Path = REPO) -> str:
-    """``__version__`` of ``src/giap/__init__.py`` (read, not imported)."""
+    """``__version__`` of ``src/gippa/__init__.py`` (read, not imported)."""
     m = re.search(
-        r'^__version__\s*=\s*"([^"]+)"', (repo / "src/giap/__init__.py").read_text(), re.M
+        r'^__version__\s*=\s*"([^"]+)"', (repo / "src/gippa/__init__.py").read_text(), re.M
     )
     if m is None:
-        raise SystemExit("no __version__ in src/giap/__init__.py")
+        raise SystemExit("no __version__ in src/gippa/__init__.py")
     return m.group(1)
 
 
 def wheel_required(repo: Path = REPO) -> list[str]:
     """Item-4 wheel files plus every ``workflow/envs/*.yml`` and ``workflow/conf/*.config``."""
-    envs = sorted(f"giap/workflow/envs/{p.name}" for p in (repo / "workflow/envs").glob("*.yml"))
+    envs = sorted(f"gippa/workflow/envs/{p.name}" for p in (repo / "workflow/envs").glob("*.yml"))
     confs = sorted(
-        f"giap/workflow/conf/{p.name}" for p in (repo / "workflow/conf").glob("*.config")
+        f"gippa/workflow/conf/{p.name}" for p in (repo / "workflow/conf").glob("*.config")
     )
     return [*WHEEL_FILES, *envs, *confs]
 
@@ -89,7 +89,7 @@ def forbidden(rel: str) -> bool:
     if "regulondb" in parts[-1].lower():
         return True
     in_uniop = "uniop" in parts[:-1]
-    return in_uniop and not rel.removeprefix("giap/").startswith(UNIOP_ALLOWED)
+    return in_uniop and not rel.removeprefix("gippa/").startswith(UNIOP_ALLOWED)
 
 
 def member_failures(members: list[Member]) -> Iterator[tuple[str, str]]:
@@ -131,7 +131,7 @@ def check_wheel(path: Path, version: str, repo: Path = REPO) -> list[tuple[str, 
         dist_info = sorted(
             {n.split("/", 1)[0] for n in names if n.split("/", 1)[0].endswith(".dist-info")}
         )
-        di = dist_info[0] if dist_info else "giap.dist-info"
+        di = dist_info[0] if dist_info else "gippa.dist-info"
 
         def read(name: str) -> str:
             return zf.read(name).decode(errors="replace") if name in names else ""
@@ -143,7 +143,7 @@ def check_wheel(path: Path, version: str, repo: Path = REPO) -> list[tuple[str, 
     if not metadata:
         fails.append(("missing", f"{di}/METADATA"))
     if not re.search(
-        r"^\[console_scripts\][^\[]*^giap\s*=\s*giap\.cli:main\s*$", entry_points, re.M | re.S
+        r"^\[console_scripts\][^\[]*^gippa\s*=\s*gippa\.cli:main\s*$", entry_points, re.M | re.S
     ):
         fails.append(("console script", f"{di}/entry_points.txt"))
     licences = header(metadata, "License-Expression") + header(metadata, "License")
@@ -156,7 +156,7 @@ def check_wheel(path: Path, version: str, repo: Path = REPO) -> list[tuple[str, 
 
 
 def check_sdist(path: Path, version: str) -> list[tuple[str, str]]:
-    """Every violation of one sdist as (rule, path); paths below the ``giap-V/`` root count."""
+    """Every violation of one sdist as (rule, path); paths below the ``gippa-V/`` root count."""
     with tarfile.open(path, "r:gz") as tf:
         tinfos = [t for t in tf.getmembers() if not t.isdir()]
         roots = sorted({t.name.split("/", 1)[0] for t in tinfos})
@@ -176,7 +176,7 @@ def check_sdist(path: Path, version: str) -> list[tuple[str, str]]:
     rels = {m.rel for m in members if "/" in m.path}
     fails = list(member_failures(members))
     fails += [("missing", f"{root}/{f}") for f in (*SDIST_FILES, *SDIST_TREES) if f not in rels]
-    name_v = path.name.removeprefix("giap-").removesuffix(".tar.gz")
+    name_v = path.name.removeprefix("gippa-").removesuffix(".tar.gz")
     return fails + version_failures(name_v, header(metadata, "Version"), version, "PKG-INFO")
 
 
@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("dist_dir", type=Path)
     ap.add_argument(
-        "--version", help="expected version (default: giap.__version__ of the checkout)"
+        "--version", help="expected version (default: gippa.__version__ of the checkout)"
     )
     args = ap.parse_args(argv)
     version = args.version or checkout_version()

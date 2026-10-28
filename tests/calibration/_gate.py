@@ -9,7 +9,7 @@ here evaluates a criterion.
 
 ``Gate.values`` holds the per-replicate outputs of every replicate this process ran, in run order
 (block 1, then block 2 if a level needed it; only the shard's range under ``--shard``; empty for
-checks skipped under ``GIAP_CALIBRATION_CONFIRM``). Suites use it for non-criterion side checks
+checks skipped under ``GIPPA_CALIBRATION_CONFIRM``). Suites use it for non-criterion side checks
 (e.g. "something is accepted"), never for the gate itself. ``Gate.block_seconds`` is the simulation
 time per block (block 1 = replicates 0..R-1), kept even when a level goes on to block 2 (PR #69
 lead decision 2). ``m=`` is passed to ``calibrate`` (pooled level criterion, decision 1).

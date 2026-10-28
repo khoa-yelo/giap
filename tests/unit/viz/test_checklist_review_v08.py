@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from giap.viz import checklist, detection
+from gippa.viz import checklist, detection
 
 
 def _inst(title: str) -> SimpleNamespace:

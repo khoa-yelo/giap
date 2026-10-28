@@ -1,6 +1,6 @@
 # M1-06: Generic peptide table: read, validate, aggregate
 
-Milestone M1 · depends on: M1-04 (`read_tsv`) · creates `src/giap/io/issues.py` · estimate ≈ 380 changed lines
+Milestone M1 · depends on: M1-04 (`read_tsv`) · creates `src/gippa/io/issues.py` · estimate ≈ 380 changed lines
 
 ## Spec sections implemented
 
@@ -17,14 +17,14 @@ Milestone M1 · depends on: M1-04 (`read_tsv`) · creates `src/giap/io/issues.py
   enum `same|other` "default from `input.search_db`"; `spectrum_id` "unique within `run` (G2)".
 - §7.0 Peptides/schema (Error) and content (Warn) are evaluated in M1-10 from the `Issue`s below.
 
-## Public interface (`src/giap/io/peptides.py`)
+## Public interface (`src/gippa/io/peptides.py`)
 
 ```python
 PEPTIDE_COLUMNS: tuple[str, ...]   # the 13 columns in §5.3 order
 Severity = Literal["error", "warn", "info"]
 
 @dataclass(frozen=True, slots=True)
-class Issue:                        # shared by io validators and preflight (src/giap/io/issues.py)
+class Issue:                        # shared by io validators and preflight (src/gippa/io/issues.py)
     code: str; severity: Severity; message: str
     n_rows: int = 0; examples: tuple[str, ...] = ()     # ≤ 5 examples, 1-based data-row numbers
 
@@ -97,7 +97,7 @@ intensity excluded; all missing → NA). Missing `run` → one run named `""`. `
    `peptide_runs`.
 2. Should `peptide` values with modification syntax be stripped by the reader (as converters do)?
    **Proposed default:** no; the generic table promises stripped sequences, so such rows warn and are
-   dropped; `giap convert --from generic` (M1-07) is the place that strips.
+   dropped; `gippa convert --from generic` (M1-07) is the place that strips.
 3. Peptides longer than `peptide_len[1]` (40 aa): drop, or route to the protein path? **Proposed
    default:** warn and drop (no de novo or DIA-NN peptide is that long in practice).
 4. Rows of one peptide with different `source`: **Proposed default:** `database` wins; issue

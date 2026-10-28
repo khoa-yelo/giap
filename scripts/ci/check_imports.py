@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if src/ imports an external tool (GIAP_SPEC.md R5, §14.6).
+"""Fail if src/ imports an external tool (GIPPA_SPEC.md R5, §14.6).
 
 Forbidden: GPL, AGPL, non-commercial or unlicensed tools, and tools that run only as separate
 processes (design rule 4), e.g. TerminatorNet (MIT) and BacTermFinder (GPL-3.0).
@@ -23,7 +23,7 @@ FORBIDDEN = {
     "genomad",
     "terminatornet",
     "bactermfinder",
-    "rpy2",  # R bridge: R and its packages stay in the giap-golden-r env (M8-12)
+    "rpy2",  # R bridge: R and its packages stay in the gippa-golden-r env (M8-12)
 }
 
 

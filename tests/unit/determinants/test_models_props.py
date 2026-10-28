@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_models_data as d
 from determinants_models_data import finite, is_na, mod, one
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 SETTINGS = settings(
     max_examples=40,

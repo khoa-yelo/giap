@@ -22,7 +22,7 @@ does not move its bound. Instead, the failing rows are flagged, caveated and sco
 
 Full tier, Slurm 1895399; per-statistic re-run and the K-12-rate control, Slurm 1895506. The
 fast tier passed (1895398, 1895507), but its R and genome size do not resolve either failure.
-Logs are under `$GIAP_ROOT/stat/m11-14s1/`. Rates are given at α 0.01 / 0.05 / 0.10, followed
+Logs are under `$GIPPA_ROOT/stat/m11-14s1/`. Rates are given at α 0.01 / 0.05 / 0.10, followed
 by the bound.
 
 | Claim (gated, distance model) | Result |

@@ -1,11 +1,11 @@
-"""V5 ``mapping_sankey``: where did my sequences go? (M9-05; GIAP_SPEC.md §10.2 V5, §9.3).
+"""V5 ``mapping_sankey``: where did my sequences go? (M9-05; GIPPA_SPEC.md §10.2 V5, §9.3).
 
 Tests the flow table (the ``Instance`` data frame = ``plots/data/V05_mapping_sankey.tsv``), the
 node order, the title, the degenerate cases and determinism. No ``--mpl`` baselines (M9-25).
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.mapping_sankey`` (§4: one module per plot ID); importing it
+- The plot lives in ``gippa.viz.mapping_sankey`` (§4: one module per plot ID); importing it
   registers ``V05`` (name ``mapping_sankey``, module ``core``). ``needs`` | ``optional`` is
   exactly {``peptide_hits``, ``protein_hits``, ``unmapped``}, and ``protein_hits`` is optional
   (a run without protein input still draws V5). It returns one ``Instance``, ``suffix=None``,
@@ -44,15 +44,15 @@ from hypothesis import strategies as st
 from matplotlib.patches import Patch
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k" / "mapping"
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = ["input_class", "route", "outcome", "n"]
 GRID = [
     ("peptide", "exact", "placed"),
@@ -92,17 +92,17 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 def _v05() -> base.PlotSpec:
-    import giap.viz.mapping_sankey  # noqa: F401  (registers V05)
+    import gippa.viz.mapping_sankey  # noqa: F401  (registers V05)
 
     return base.registered()["V05"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v05().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -173,7 +173,7 @@ def test_v05_is_registered_as_mapping_sankey() -> None:
     assert "protein_hits" not in spec.needs
 
 
-def test_no_mapping_tables_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_mapping_tables_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(tmp_path)
     result = _v05().fn(RunView.from_outdir(out), cfg)
     assert isinstance(result, Skip)
@@ -184,7 +184,7 @@ def test_no_mapping_tables_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapC
 # --- the flow table ---------------------------------------------------------------------------
 
 
-def test_example1_peptide_flows_and_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_peptide_flows_and_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     assert _nonzero(inst) == {
         ("peptide", "exact", "placed"): 1,  # PEPA counted once over its two loci
@@ -199,7 +199,7 @@ def test_example1_peptide_flows_and_title(tmp_path: Path, cfg: GiapConfig) -> No
     assert "express" not in inst.title.lower()
 
 
-def test_example2_protein_best_rank_route(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_protein_best_rank_route(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(tmp_path, hits=[], proteins=EX2_PROTEINS, unmapped_rows=EX2_UNMAPPED)
     inst = _render(out, cfg)
     assert _nonzero(inst) == {
@@ -210,7 +210,7 @@ def test_example2_protein_best_rank_route(tmp_path: Path, cfg: GiapConfig) -> No
     assert "50 % of 2 proteins" in inst.title
 
 
-def test_best_rank_wins_whatever_the_row_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_best_rank_wins_whatever_the_row_order(tmp_path: Path, cfg: GippaConfig) -> None:
     proteins = [protein_hit("P1", "tblastn", 2), protein_hit("P1", "miniprot", 1, start=5001)]
     proteins += [protein_hit("P3", "tblastn", 1), protein_hit("P3", "miniprot", 3, start=9001)]
     inst = _render(mapping_out(tmp_path, hits=[], proteins=proteins, unmapped_rows=[]), cfg)
@@ -220,7 +220,7 @@ def test_best_rank_wins_whatever_the_row_order(tmp_path: Path, cfg: GiapConfig) 
     }
 
 
-def test_peptides_and_proteins_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_peptides_and_proteins_title(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(
         tmp_path,
         hits=EX1_HITS,
@@ -233,7 +233,7 @@ def test_peptides_and_proteins_title(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_example3_placed_and_unmapped_counts_once_as_placed(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = _ex1(tmp_path, hits=[peptide_hit("PEPAK")], unmapped_rows=[unmapped("PEPAK", "no_hit")])
     inst = _render(out, cfg)
@@ -242,7 +242,7 @@ def test_example3_placed_and_unmapped_counts_once_as_placed(
     assert inst.title == "100 % of 1 input peptides placed in the genome"
 
 
-def test_exact_wins_over_tolerant_for_one_peptide(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_exact_wins_over_tolerant_for_one_peptide(tmp_path: Path, cfg: GippaConfig) -> None:
     hits = [
         peptide_hit("MIXEDK", 101, route="tolerant"),
         peptide_hit("MIXEDK", 901, route="exact"),
@@ -266,13 +266,13 @@ def test_exact_wins_over_tolerant_for_one_peptide(tmp_path: Path, cfg: GiapConfi
     ],
 )
 def test_unmapped_reason_to_outcome(
-    tmp_path: Path, cfg: GiapConfig, reason: str, outcome: str
+    tmp_path: Path, cfg: GippaConfig, reason: str, outcome: str
 ) -> None:
     inst = _render(_ex1(tmp_path, hits=[], unmapped_rows=[unmapped("QQQQK", reason)]), cfg)
     assert _nonzero(inst) == {("peptide", "unmapped", outcome): 1}
 
 
-def test_contaminant_label_wins_over_reason(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_contaminant_label_wins_over_reason(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [contaminant("CONTK"), contaminant("P9", kind="protein")]
     inst = _render(_ex1(tmp_path, hits=[], unmapped_rows=rows), cfg)
     assert _nonzero(inst) == {
@@ -281,7 +281,7 @@ def test_contaminant_label_wins_over_reason(tmp_path: Path, cfg: GiapConfig) -> 
     }
 
 
-def test_flow_table_is_the_fixed_grid_in_node_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_flow_table_is_the_fixed_grid_in_node_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     assert list(inst.data.columns) == COLUMNS
     keys = list(
@@ -290,7 +290,7 @@ def test_flow_table_is_the_fixed_grid_in_node_order(tmp_path: Path, cfg: GiapCon
     assert keys == [*GRID, CONFLICTS]
 
 
-def test_zero_routes_stay_in_the_tsv_and_are_not_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_zero_routes_stay_in_the_tsv_and_are_not_drawn(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     flows = _flows(inst)
     for route in ("miniprot", "tblastn"):
@@ -301,14 +301,14 @@ def test_zero_routes_stay_in_the_tsv_and_are_not_drawn(tmp_path: Path, cfg: Giap
         assert len(_label(inst, node)) == 1, node
 
 
-def test_no_protein_hits_file_draws_peptides_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_protein_hits_file_draws_peptides_only(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path, proteins=None), cfg)
     assert [k for k in _flows(inst) if k[0] == "protein"] == [k for k in GRID if k[0] == "protein"]
     assert all(v == 0 for k, v in _flows(inst).items() if k[0] == "protein")
     assert inst.title == "40 % of 5 input peptides placed in the genome"
 
 
-def test_protein_only_run_has_only_the_protein_class(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_protein_only_run_has_only_the_protein_class(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(tmp_path, hits=[], proteins=EX2_PROTEINS, unmapped_rows=EX2_UNMAPPED)
     inst = _render(out, cfg)
     assert all(v == 0 for k, v in _flows(inst).items() if k[0] == "peptide")
@@ -317,7 +317,7 @@ def test_protein_only_run_has_only_the_protein_class(tmp_path: Path, cfg: GiapCo
     assert "NA" not in inst.title
 
 
-def test_nodes_are_drawn_in_the_fixed_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_nodes_are_drawn_in_the_fixed_order(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(
         tmp_path,
         hits=EX1_HITS,
@@ -332,7 +332,9 @@ def test_nodes_are_drawn_in_the_fixed_order(tmp_path: Path, cfg: GiapConfig) -> 
         assert ys == sorted(ys, reverse=True), (column, ys)
 
 
-def test_placed_is_blue_and_outcomes_have_distinct_colours(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_placed_is_blue_and_outcomes_have_distinct_colours(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     colours = _patch_colours(inst)
     assert "#0072B2" in colours
@@ -340,14 +342,14 @@ def test_placed_is_blue_and_outcomes_have_distinct_colours(tmp_path: Path, cfg: 
     assert len(colours & okabe) >= 3  # contaminant, rejected by FDR, unexplained
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     sizes = [t.get_fontsize() for t in _texts(inst)]
     assert sizes
     assert min(sizes) >= 6
 
 
-def test_width_is_a_style_width(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_width_is_a_style_width(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex1(tmp_path), cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -355,7 +357,7 @@ def test_width_is_a_style_width(tmp_path: Path, cfg: GiapConfig) -> None:
     assert width in (style.SINGLE_IN, style.DOUBLE_IN)
 
 
-def test_every_table_header_only_is_the_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_table_header_only_is_the_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(mapping_out(tmp_path, hits=[], proteins=[], unmapped_rows=[]), cfg)
     assert list(inst.data.columns) == COLUMNS
     assert len(inst.data) == 0
@@ -363,7 +365,7 @@ def test_every_table_header_only_is_the_empty_state(tmp_path: Path, cfg: GiapCon
     assert "%" not in inst.title
 
 
-def test_many_sequences_draw_at_most_the_grid(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_many_sequences_draw_at_most_the_grid(tmp_path: Path, cfg: GippaConfig) -> None:
     alphabet = "ACDEFGHIKLMNPQRSTVWY"
 
     def pep(i: int) -> str:
@@ -440,7 +442,7 @@ def _golden_out(tmp: Path) -> Path:
     return out
 
 
-def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_golden_out(tmp_path), cfg)
     assert _nonzero(inst) == {
         ("peptide", "exact", "placed"): 905,
@@ -451,7 +453,7 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) ->
     assert inst.title == "99 % of 918 input peptides placed in the genome"
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _ex1(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -475,7 +477,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert tsv[-1] == "all\tall\tconflicts\t0"
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_ex1(tmp_path))
     first = _v05().fn(view, cfg)
     second = _v05().fn(view, cfg)
@@ -489,10 +491,10 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_v05_and_v06_render_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v05_and_v06_render_on_the_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     """1644 exact peptides, 24 unmapped (13 no_hit, 4 too_short, 7 rejected), no protein hits;
     ``mapping_fdr`` all/1 (reverse) = 7 targets, fdr 0.142857; strata 0 and 2 NA."""
-    import giap.viz.mapping_fdr  # noqa: F401  (registers V06)
+    import gippa.viz.mapping_fdr  # noqa: F401  (registers V06)
 
     view = RunView.from_outdir(VAL_OUT)
     inst = _render(VAL_OUT, cfg)
@@ -514,7 +516,7 @@ def test_v05_and_v06_render_on_the_validation_run(tmp_path: Path, cfg: GiapConfi
         assert all(p.stat().st_size > 0 for p in paths)
 
 
-def test_protein_rows_without_a_gene_are_not_placed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_protein_rows_without_a_gene_are_not_placed(tmp_path: Path, cfg: GippaConfig) -> None:
     """Review N1 (#198): M3 keeps miniprot rows with no gene; tblastn then assigns the protein at
     its own rank 1. V5 credits the gene-assigned route; a protein with no gene row is not placed."""
     proteins = [

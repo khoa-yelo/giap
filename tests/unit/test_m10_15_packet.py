@@ -5,7 +5,7 @@ own message, the freeze-directory comparison, the ``fail (A3 exit n)`` branch).
 
 Spec: docs/specs/M10-15-pilot-gate.md, "The review packet (``local/review/m10-pilot/r<k>/``,
 D3)". Everything runs in a ``tmp_path`` sandbox built by ``helpers.pilot_gate_m10_15``: a
-checkout-like ``repo/`` (``--repo``), a ``root/`` standing in for ``$GIAP_ROOT`` (also exported to
+checkout-like ``repo/`` (``--repo``), a ``root/`` standing in for ``$GIPPA_ROOT`` (also exported to
 the subprocess) and ``out/m10-pilot`` (``--out``). The command-line options beyond the spec's four
 are pinned in that module's docstring. The committed ``REPORT.md`` of the sandbox is rendered by
 ``metrics.py render --final``.
@@ -160,7 +160,7 @@ def test_check_1_metrics_changed_after_rendering_exit_1(sb: Sandbox) -> None:
 # ------------------------------------------------------------------ check 2: commits
 
 
-def test_check_2_giap_commit_differs_from_freeze_commit_exit_1(sb: Sandbox) -> None:
+def test_check_2_gippa_commit_differs_from_freeze_commit_exit_1(sb: Sandbox) -> None:
     sb.runbook.write_text(runbook_text(freeze_commit=OTHER_COMMIT), encoding="utf-8")
     _refused(sb, sb.run(1), 1)
 

@@ -1,11 +1,11 @@
-"""``giap.report.build`` and the ``report`` step on tiny hand-built ``OUT/`` trees (M9-02
+"""``gippa.report.build`` and the ``report`` step on tiny hand-built ``OUT/`` trees (M9-02
 behaviour 2-6, examples 6 and 7, acceptance "cards omitted when their table is absent; every card
 carries an error estimate or ``unestimated``"; test idea "two SVGs whose internal ids collide").
 Structure checks only (html.parser); no ``--mpl`` baselines and no HTML snapshot (M9-25).
 
 Interface assumed beyond the spec text (M9-02 test author; see tests/helpers/report_fixtures.py):
 - ``SECTIONS`` entries have the attributes ``id``, ``heading``, ``plots`` (two-digit plot IDs, in
-  display order) and ``tables`` (``giap.io.run_view.PATHS`` keys);
+  display order) and ``tables`` (``gippa.io.run_view.PATHS`` keys);
 - ``build_report(view, {}, {}, cfg)`` is valid (no plot rendered, no skip recorded);
   ``skipped`` maps a plot ID to its M9-01 skip reason (``input_absent:pairs``);
 - HTML hooks: ``<section id>``, ``data-plot="Vnn"`` on each listed plot's slot,
@@ -39,9 +39,9 @@ from helpers.report_fixtures import (
 )
 from helpers.viz_out_tree import gene_row, schema_columns, write_schema_table
 
-import giap
-from giap.io.run_view import RunView
-from giap.steps import registry as reg
+import gippa
+from gippa.io.run_view import RunView
+from gippa.steps import registry as reg
 
 EXTERNAL = re.compile(r"^\s*(https?:|//|file:)", re.I)
 
@@ -52,7 +52,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _report(out: Path, *, skipped: dict[str, str] | None = None, **kw: object) -> Page:
-    from giap.report.build import build_report
+    from gippa.report.build import build_report
 
     view = RunView.from_outdir(out)
     return parse(build_report(view, {}, skipped or {}, cfg(*[f"{k}={v}" for k, v in kw.items()])))
@@ -84,7 +84,7 @@ def _write_tier_fdr(out: Path, fdr: float | None) -> None:
 
 
 def test_sections_ids_order_and_plots() -> None:
-    from giap.report.build import SECTIONS
+    from gippa.report.build import SECTIONS
 
     assert tuple(s.id for s in SECTIONS) == SECTION_IDS
     for s in SECTIONS:
@@ -96,8 +96,8 @@ def test_sections_ids_order_and_plots() -> None:
 
 
 def test_section_tables_are_published_tables() -> None:
-    from giap.io.run_view import PATHS
-    from giap.report.build import SECTIONS
+    from gippa.io.run_view import PATHS
+    from gippa.report.build import SECTIONS
 
     for s in SECTIONS:
         for key in s.tables:
@@ -301,7 +301,7 @@ def test_provenance_version_inputs_and_config_digest(tmp_path: Path) -> None:
     out = run_out(tmp_path)
     resolved = write_resolved_config(out / "resolved_config.yaml", ["core"])
     text = _report(out).section("provenance").text()
-    assert giap.__version__ in text
+    assert gippa.__version__ in text
     for item in INPUTS:
         assert str(item["file"]) in text and str(item["sha256"]) in text
     assert sha256(resolved) in text
@@ -309,7 +309,7 @@ def test_provenance_version_inputs_and_config_digest(tmp_path: Path) -> None:
 
 def test_provenance_without_resolved_config(tmp_path: Path) -> None:
     text = _report(run_out(tmp_path)).section("provenance").text()
-    assert giap.__version__ in text
+    assert gippa.__version__ in text
     assert str(INPUTS[0]["sha256"]) in text
 
 

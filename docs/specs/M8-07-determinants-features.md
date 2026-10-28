@@ -22,7 +22,7 @@ M5-09 gene context) · estimate ≈ 280 code lines (+ ≈ 380 test lines) · not
 
 ## Public interface
 
-`src/giap/determinants/features.py` (pure)
+`src/gippa/determinants/features.py` (pure)
 ```python
 BLOCKS: Mapping[str, tuple[str, ...]]      # block -> model columns (after encoding)
 FEATURE_COLUMNS: tuple[str, ...]           # the TSV columns, §7.8.1 order
@@ -36,7 +36,7 @@ def model_matrix(features: pd.DataFrame) -> tuple[pd.DataFrame, Mapping[str, str
                                            # encoded columns, column -> block
 ```
 
-1. **Rows.** One per eligible gene (§7.3; `giap.genetable.eligible()` from M8-03), in §6.5 order.
+1. **Rows.** One per eligible gene (§7.3; `gippa.genetable.eligible()` from M8-03), in §6.5 order.
    Identity columns first: `locus_tag`, `tu_id`, `detected`, `abundance_log2`, `abundance_imputed`,
    `ribosomal_protein` (from C2; the CAI reference set), then the features in §7.8.1 order.
 2. **Column sources** (spec name ← existing column):
@@ -132,7 +132,7 @@ def model_matrix(features: pd.DataFrame) -> tuple[pd.DataFrame, Mapping[str, str
    - **`regions`** is C8 with C7 `region_type` joined on.
    - **`ribosomal_protein`** is taken from the C2 column when set, otherwise from the product, gene name or the `cai_reference` flag.
    - **`FEATURE_COLUMNS`** is the 6 identity columns followed by the 31 features in §7.8.1 order.
-   - **Eligibility** is the regions-table rule. Use `giap.genetable.eligible` once M8-03 (#159) merges; until then a local copy is allowed, with a backlog note to dedupe it.
+   - **Eligibility** is the regions-table rule. Use `gippa.genetable.eligible` once M8-03 (#159) merges; until then a local copy is allowed, with a backlog note to dedupe it.
    - **One-hot names** are `<feature>_<level>`, and every level is kept.
    - **Distances** are nullable Int64, NA when the gene is in no TU.
    - **Run flags** are left to M8-10's step events.

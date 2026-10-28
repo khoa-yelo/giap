@@ -7,7 +7,7 @@
 // map_tolerant, placement_costs from placement); novel_orfs writes novel/novel_class_fdr.parquet
 // and it is published under OUT/novel/ (runner/local.py PUBLISHED_FILES gives the same name,
 // tests/unit/test_local_publish_names.py). The --in keys follow the registry fixture
-// (data/annotate/step_registry.json, kept equal to giap.steps by tests/unit/test_nf_annotate_registry.py).
+// (data/annotate/step_registry.json, kept equal to gippa.steps by tests/unit/test_nf_annotate_registry.py).
 
 nextflow_pipeline {
 
@@ -41,7 +41,7 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.trace.failed().size() == 0
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
             ['placement', 'novel_orfs'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
             }

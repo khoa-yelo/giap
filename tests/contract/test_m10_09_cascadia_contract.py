@@ -6,11 +6,11 @@ and 12; facts W1-W7 from the pinned 0.0.7 source.
 Data live on FarmShare only (Khoa, 2026-10-23: recorded samples and converted tables are never
 committed). The tests read
 
-* ``SAMPLE = $GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz`` (the header plus the first
+* ``SAMPLE = $GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz`` (the header plus the first
   1,000 data rows of ``WT_1.ssl``, M10-08 deliverable 13), and, for the ``slow`` variant,
-* ``FULL = $GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl``.
+* ``FULL = $GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl``.
 
-They **skip, never fail**, when ``GIAP_ROOT`` is unset (CI) or the file is missing, and read no
+They **skip, never fail**, when ``GIPPA_ROOT`` is unset (CI) or the file is missing, and read no
 environment at import time. The raw file is read with the stdlib ``csv`` module, independently of
 the converter. No golden output file is read or written. Assertion messages give counts, row
 positions and modification tokens only, never a row: criterion 12 pastes the output into the PR.
@@ -49,7 +49,7 @@ W5_TOKENS = frozenset(
     {"[+15.99]", "[+0.98]", "[+57.02]", "[+42.01]", "[+43.01]", "[-17.03]", "[+25.980265]"}
 )
 CUTOFF = 0.8
-NO_ROOT = "GIAP_ROOT is not set: the Cascadia sample lives on FarmShare only (Khoa 2026-10-23)"
+NO_ROOT = "GIPPA_ROOT is not set: the Cascadia sample lives on FarmShare only (Khoa 2026-10-23)"
 MISSING = "M10-08 smoke run not done or verdict fail"
 KINDS = [
     pytest.param("sample", id="sample"),
@@ -61,7 +61,7 @@ KINDS = [
 
 
 def _root() -> Path:
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if not root:
         pytest.skip(NO_ROOT)
     return Path(root)
@@ -186,7 +186,7 @@ def test_c5_file(kind: str) -> None:
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_c6_sequence(kind: str) -> None:
-    from giap.io.converters.strip import strip_modifications
+    from gippa.io.converters.strip import strip_modifications
 
     _, rows = raw(kind)
     not_plain, with_i, bad_dash = [], [], []
@@ -231,8 +231,8 @@ def test_c7_charge(kind: str) -> None:
 def test_c8_conversion(kind: str) -> None:
     path = data_path(kind)  # skip first: no import before the data check (criterion 10)
     _, rows = raw(kind)
-    from giap.config.model import InputConfig
-    from giap.io.converters.cascadia import convert_cascadia
+    from gippa.config.model import InputConfig
+    from gippa.io.converters.cascadia import convert_cascadia
 
     res = convert_cascadia([path], search_db=None, cfg=InputConfig())
     errs = sorted({i.code for i in res.issues if i.severity == "error"})
@@ -258,10 +258,10 @@ def test_c8_conversion(kind: str) -> None:
 def test_c8_cli_is_deterministic_and_valid(kind: str, tmp_path: Path) -> None:
     from click.testing import CliRunner
 
-    from giap.cli import cli
-    from giap.config.model import InputConfig
-    from giap.exitcodes import ExitCode
-    from giap.io.peptides import read_peptide_table, validate_peptides
+    from gippa.cli import cli
+    from gippa.config.model import InputConfig
+    from gippa.exitcodes import ExitCode
+    from gippa.io.peptides import read_peptide_table, validate_peptides
 
     path = data_path(kind)
     (tmp_path / "t").mkdir()

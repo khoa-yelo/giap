@@ -1,6 +1,7 @@
 """Independent oracle for the M4-10 protein covariates (docs/specs/M4-10-protein-covariates.md).
 
-Written from the spec text, not from ``giap.genetable.covariates``: digestion by regular expression,
+Written from the spec text, not from ``gippa.genetable.covariates``: digestion by regular
+expression,
 Kyte-Doolittle sliding means by cumulative sums (numpy), translation with a literal NCBI table 11,
 and the GRAVY/pI/MW reference straight from Biopython ``ProteinAnalysis`` on the cleaned sequence.
 """

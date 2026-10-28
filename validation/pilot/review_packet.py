@@ -1,9 +1,9 @@
 """Build the M10 pilot review packet ``OUT/r<k>/`` (docs/specs/M10-15-pilot-gate.md, D3).
 
-    python validation/pilot/review_packet.py --metrics-dir $GIAP_ROOT/pilot/metrics/freeze-<F7> \\
+    python validation/pilot/review_packet.py --metrics-dir $GIPPA_ROOT/pilot/metrics/freeze-<F7> \\
         --runbook validation/pilot/reproduce.md --round K --out local/review/m10-pilot \\
         [--repo .] --a1 R/out_a1 --a2 R/out_a2 [--a3 R/out_a3] --cmp R/cmp \\
-        --verify verify-<F7>.json --bench-summary $GIAP_ROOT/bench/<id>/summary.md \\
+        --verify verify-<F7>.json --bench-summary $GIPPA_ROOT/bench/<id>/summary.md \\
         --adr docs/adr/ADR-0051-....md [--adr ...]
 
 It copies files and hashes them; nothing is written before checks 1-6 pass. Exit codes: 0 the
@@ -111,8 +111,8 @@ def check_problems(a: argparse.Namespace, metrics: dict[str, Any], rb: Any) -> l
         out.append("1: the freeze directory's metrics.json differs from the committed one")
     if rb.status != "final":
         out.append(f"2: the runbook is status={rb.status or 'absent'}, not final")
-    if metrics.get("giap_commit") != rb.freeze_commit:
-        out.append(f"2: giap_commit {metrics.get('giap_commit')} != freeze {rb.freeze_commit}")
+    if metrics.get("gippa_commit") != rb.freeze_commit:
+        out.append(f"2: gippa_commit {metrics.get('gippa_commit')} != freeze {rb.freeze_commit}")
     for step, row in accepted_evidence(rb).items():
         if FREEZE_STEPS.fullmatch(step) and row.get("commit") != rb.freeze_commit:
             out.append(f"2: Evidence {step} ran at {row.get('commit')}")

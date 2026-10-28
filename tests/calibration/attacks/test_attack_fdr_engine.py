@@ -1,4 +1,4 @@
-"""Attack nulls for the M4-01 FDR engine (GIAP_SPEC.md §8.5; statistician-owned).
+"""Attack nulls for the M4-01 FDR engine (GIPPA_SPEC.md §8.5; statistician-owned).
 
 Each generator is built to push ``bh``, ``tda_qvalues`` or ``picked_fdr`` above level while staying
 inside the method's stated assumptions (docs/methods/target-decoy.md, multiple-testing.md):
@@ -30,8 +30,8 @@ import pytest
 from _gate import calibrate_levels
 from scipy.stats import norm
 
-from giap.stats.multitest import bh
-from giap.stats.tda import picked_fdr, tda_qvalues
+from gippa.stats.multitest import bh
+from gippa.stats.tda import picked_fdr, tda_qvalues
 
 Replicate = Callable[[np.random.Generator], tuple[np.ndarray, np.ndarray]]
 N = 2000

@@ -20,9 +20,9 @@ from ._unit_helpers import timed
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 from helpers import pairs_data as pdat
 
-from giap.annotate.operons import adjacent_pairs
-from giap.annotate.terminators import Terminator
-from giap.model.coords import Interval
+from gippa.annotate.operons import adjacent_pairs
+from gippa.annotate.terminators import Terminator
+from gippa.model.coords import Interval
 
 N_GENES = 4500
 LENGTH = 4_600_000

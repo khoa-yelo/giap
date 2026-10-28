@@ -29,7 +29,7 @@ by the ADR.
 
 ## Public interface
 
-`src/giap/stats/poisson_binomial.py` (pure; extends the merged module)
+`src/gippa/stats/poisson_binomial.py` (pure; extends the merged module)
 ```python
 @dataclass(frozen=True, slots=True)
 class CpbTails:
@@ -43,7 +43,7 @@ def poisson_binomial_pmf_trunc(p: ArrayLike, kmax: int) -> np.ndarray: ...   # P
 def tilt(p: ArrayLike, total: int) -> np.ndarray: ...      # odds × e^θ with Σ p(θ) = total
 def conditional_poisson_binomial(p_in: ArrayLike, p_out: ArrayLike, k: int, N: int) -> CpbTails: ...
 ```
-`src/giap/function/ora.py` and `src/giap/function/summary.py` (pure)
+`src/gippa/function/ora.py` and `src/gippa/function/summary.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class TuUniverse:
@@ -60,7 +60,7 @@ def detection_enrichment(genes: pd.DataFrame, colls: Sequence[GeneSets],
                          size: tuple[int, int], alpha: float) -> pd.DataFrame: ...
 ```
 
-### 1. The conditional null (`giap.stats.poisson_binomial`)
+### 1. The conditional null (`gippa.stats.poisson_binomial`)
 
 The TUs are independent units. TU t is detected (D_t = 1) with probability q_t. For a category C
 (a set of TUs) with complement Ū in the TU universe U, let K = Σ_{t∈C} D_t and S = Σ_{t∈U} D_t.
@@ -86,7 +86,7 @@ where PB_A is the Poisson-binomial pmf of the q_t in A (the "conditional Bernoul
    maximum relative error was **7.1 × 10⁻¹⁶** over the full support, down to pmf = 1.2 × 10⁻¹⁰⁹.
    The inner loop is numba-compiled (`@njit`, a sequential loop, so the §6.6 reduction-order rule
    is met trivially). The merged pure-numpy `_pmf` costs 15 ms at T = 2,500. The numba truncated
-   loop (spec-writer check, `$GIAP_ROOT/stat/m8-04-spec/bench.py`) costs ≈ 0.4 ms per category at
+   loop (spec-writer check, `$GIPPA_ROOT/stat/m8-04-spec/bench.py`) costs ≈ 0.4 ms per category at
    T = 2,500 TUs and N = 1,250, for any |C| in {5, 50, 500}.
 2. **Tilting against underflow.** P(K | S) is invariant when every odds q/(1 − q) is multiplied by
    the same e^θ (example 5). `tilt(q, N)` solves Σ_t expit(logit q_t + θ) = N for θ (monotone in θ;
@@ -137,7 +137,7 @@ has to be added. The §8.3 engine row `poisson_binomial_sf` is extended, not rep
 Collections `cog`, `kegg`, `go_slim` only (§9.3 enum). Per category:
 - `n_genes` (eligible members) and `n_detected`;
 - `expected` = Σ p_detect;
-- `o_minus_e` with a 95 % TU-block bootstrap CI (`giap.stats.tu_block_bootstrap` over the
+- `o_minus_e` with a 95 % TU-block bootstrap CI (`gippa.stats.tu_block_bootstrap` over the
   category's TUs, B = `stats.bootstrap`, the M4-16 `basic_rows` construction: per-TU sums of
   d − p resampled);
 - `median_abundance_log2` over detected members with a non-NA abundance (imputed values
@@ -189,7 +189,7 @@ and direction (`over`, `under`):
   filter applies to the term's **full** TU set (accepted Q3 default). A term that elim reduces
   below 5 TUs is still tested on what remains.
 - **BH families** = (collection, direction) (§7.7.3 "within each ontology and direction"; §8.1),
-  on `p_value`, with `giap.stats.bh`. A NaN p stays out of BH and carries `flags = unestimated`.
+  on `p_value`, with `gippa.stats.bh`. A NaN p stays out of BH and carries `flags = unestimated`.
   `p_classic` and `p_noelim` are reported only and are never adjusted.
 
 ### 6. elim (`go_bp`, `go_mf`, `go_cc`, direction `over` only, as accepted)
@@ -232,7 +232,7 @@ Rows are sorted by collection, term, then direction (M8-06).
 | category of < 10 TUs in `category_summary` | O − E CI NA, flag `ci_few_units` (M4-16) |
 | sim100k | most terms are below 5 TUs, so `enrichment_detection.tsv` may be nearly empty. That is a **passing** pass-1 result |
 
-## Examples (numbers computed in the session; `$GIAP_ROOT/stat/m8-04-spec/ex.py`, `ex2.py`)
+## Examples (numbers computed in the session; `$GIPPA_ROOT/stat/m8-04-spec/ex.py`, `ex2.py`)
 
 **Toy universe T6.** Ten eligible genes in six TUs:
 
@@ -315,7 +315,7 @@ direction, at α ∈ {0.01, 0.05, 0.10}. p̂ is always the **fitted** M4-13 cros
 | 8 | Wallenius (recorded) | arms 1–5 | `p_classic` | rates recorded (why it is not the gate) |
 | 9 | truth (recorded) | arms 1, 2 and 4 with p_true | TU-CPB | level recorded |
 
-**Spec-writer pre-check** (illustrative only, not gate evidence; `$GIAP_ROOT/stat/m8-04-spec/
+**Spec-writer pre-check** (illustrative only, not gate evidence; `$GIPPA_ROOT/stat/m8-04-spec/
 sim.py`, 1,500 genes, TU sizes geometric(0.45) capped at 8, true marginal p as p̂). Rejection
 rates are at α = 0.01 / 0.05, pooled over 20 categories per replicate:
 
@@ -408,7 +408,7 @@ They still apply. The new questions:
 5. **Q5:** BH is applied per (collection, direction), as written.
 6. **Q6:** the size filter counts TUs. **Q7:** effect = k − E[K | N] in TUs, with the CI NA and `ci_unestimated`.
 7. **Q8:** split into two PRs.
-   - **M8-04a:** `giap.stats.poisson_binomial` gains `conditional_poisson_binomial`, `poisson_binomial_pmf_trunc` and `tilt`. Tests use the exact-rational oracle, and the PR carries the stats label.
+   - **M8-04a:** `gippa.stats.poisson_binomial` gains `conditional_poisson_binomial`, `poisson_binomial_pmf_trunc` and `tilt`. Tests use the exact-rational oracle, and the PR carries the stats label.
    - **M8-04b:** `function/ora.py` and `summary.py`, stacked on M8-04a and on M8-01 (#153).
 8. **Q9:** the TU-packed teeth criterion is accepted for pass 1: > 2α at 0.01 and above the bound at 0.05. M8-14 may strengthen the attack.
 9. **Follow-up spec edits** (lead-assigned):
@@ -439,7 +439,7 @@ They still apply. The new questions:
       - "Unreachable from M4-13" is removed from the degenerate-case table.
     - **Calibration:**
       - `test_cpb_calibration` moves from `tilt` to `tilt_pair` with complements, and gains a tilt-stress level arm (every odds × e^−8 and about 5 % of units near 1).
-      - Arms 4b (TU-packed, categories from ≥ 4-gene TUs and from single-gene TUs) and 4c (gene-level p̂ intercept ±0.5) are specified here. They are gated in M8-14/15. They become runnable here on a gene frame plus `GeneSets`, with the statistician's generator `$GIAP_ROOT/stat/m8-04a-review/attack_tusize.py` as the reference.
+      - Arms 4b (TU-packed, categories from ≥ 4-gene TUs and from single-gene TUs) and 4c (gene-level p̂ intercept ±0.5) are specified here. They are gated in M8-14/15. They become runnable here on a gene frame plus `GeneSets`, with the statistician's generator `$GIPPA_ROOT/stat/m8-04a-review/attack_tusize.py` as the reference.
       - If 4b or 4c fails after recalibration, rows get `ora_uncalibrated` (the ADR-0034 pattern).
     - **Wording fixes:**
       - Spec §1 item 5 reads 1e-11, not 1e-12, for tilted input.

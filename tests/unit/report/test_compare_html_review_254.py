@@ -7,7 +7,7 @@
 - the detection section shows at most ``TOP_INTERSECTIONS`` = 30 intersection rows, the 30
   largest (the table links the full TSV).
 
-Same runs as ``test_compare_html.py``; never touches the real ``$GIAP_DB_DIR``; no network.
+Same runs as ``test_compare_html.py``; never touches the real ``$GIPPA_DB_DIR``; no network.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from helpers import viz_compare as vc
 from helpers.compare_data import STABILITY_COLUMNS, gene, write_run
 from helpers.report_fixtures import Page, parse, table_rows
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 LABELS = ("A1", "A2", "A3")
 N = 12
@@ -38,7 +38,7 @@ def _genes(shift: float, detected_upto: int) -> list[dict[str, object]]:
 
 
 def _run_compare(tmp: Path, name: str, *extra: str) -> Path:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     (tmp / "db_empty").mkdir(exist_ok=True)
     runs = [tmp / f"run{lab}" for lab in LABELS]
@@ -47,8 +47,8 @@ def _run_compare(tmp: Path, name: str, *extra: str) -> Path:
             write_run(tmp / f"run{lab}", _genes(s, d))
     out = tmp / name
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(tmp / "db_empty"))
-        mp.setenv("GIAP_ROOT", str(tmp / "db_empty"))
+        mp.setenv("GIPPA_DB_DIR", str(tmp / "db_empty"))
+        mp.setenv("GIPPA_ROOT", str(tmp / "db_empty"))
         res = CliRunner().invoke(cli, ["compare", *map(str, runs), "--outdir", str(out),
                                        "--labels", ",".join(LABELS),
                                        "--set", "stats.bootstrap=50", *extra])  # fmt: skip
@@ -130,7 +130,7 @@ def test_page_has_no_absolute_path(off: Path, on: Path, runs_dir: Path) -> None:
 
 
 def _build(genes: dict[str, pd.DataFrame]) -> tuple[Page, pd.DataFrame]:
-    from giap.report.compare import RunInfo, build_compare
+    from gippa.report.compare import RunInfo, build_compare
 
     det, ab = vc.inputs(genes, B=5)
     runs = [RunInfo(lab, f"../run{lab}", "a" * 64, "NA") for lab in genes]

@@ -1,4 +1,4 @@
-"""M8-17b: the #204 review nits 1 and 2 on ``giap.io.fgsea_r`` (docs/backlog.md "M8-17a review
+"""M8-17b: the #204 review nits 1 and 2 on ``gippa.io.fgsea_r`` (docs/backlog.md "M8-17a review
 nits"; docs/specs/M8-17-r-fgsea-engine.md §3 "Provenance", §4 step 6; A4).
 
 NIT 1. ``read_results`` requires each job's rows to be **exactly** its in-range sets
@@ -42,7 +42,7 @@ def _write(path: Path, lines: list[str]) -> Path:
 
 
 def test_all_in_range_rows_present_is_fine() -> None:
-    from giap.io.fgsea_r import read_results
+    from gippa.io.fgsea_r import read_results
 
     res = read_results(SIM_MAIN / "results.tsv", load_call(SIM_MAIN))
     assert sum(len(v) for v in res.values()) == 32
@@ -50,7 +50,7 @@ def test_all_in_range_rows_present_is_fine() -> None:
 
 @pytest.mark.parametrize("drop", [1, 10, 32])
 def test_a_dropped_row_is_an_error(tmp_path: Path, drop: int) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     lines = _lines(SIM_MAIN / "results.tsv")
     path = _write(tmp_path / "results.tsv", lines[:drop] + lines[drop + 1 :])
@@ -59,7 +59,7 @@ def test_a_dropped_row_is_an_error(tmp_path: Path, drop: int) -> None:
 
 
 def test_a_job_without_rows_is_an_error(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     lines = _lines(SIM_MAIN / "results.tsv")
     path = _write(tmp_path / "results.tsv", [x for x in lines if not x.startswith("main:kegg\t")])
@@ -68,7 +68,7 @@ def test_a_job_without_rows_is_an_error(tmp_path: Path) -> None:
 
 
 def test_header_only_with_in_range_sets_is_an_error(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     path = _write(tmp_path / "results.tsv", [RESULTS_HEADER])
     with pytest.raises(FgseaEngineError):
@@ -76,7 +76,7 @@ def test_header_only_with_in_range_sets_is_an_error(tmp_path: Path) -> None:
 
 
 def test_a_dropped_retest_row_is_an_error(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     d = RECORDED / "sim_retest"
     lines = _lines(d / "results.tsv")
@@ -86,8 +86,8 @@ def test_a_dropped_retest_row_is_an_error(tmp_path: Path) -> None:
 
 
 def _call_with_out_of_range_set():
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     ids = tuple(f"TU_{i}" for i in range(1, 9))
     sets = {"IN": ("TU_1", "TU_2", "TU_3"), "SMALL": ("TU_4",), "IN2": ("TU_5", "TU_6", "TU_7")}
@@ -101,7 +101,7 @@ def _row(term: str, size: int, edge: str) -> str:
 
 
 def test_out_of_range_set_without_row_is_fine(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import read_results
+    from gippa.io.fgsea_r import read_results
 
     path = _write(
         tmp_path / "results.tsv", [RESULTS_HEADER, _row("IN", 3, "TU_1"), _row("IN2", 3, "TU_5")]
@@ -111,7 +111,7 @@ def test_out_of_range_set_without_row_is_fine(tmp_path: Path) -> None:
 
 
 def test_in_range_set_missing_next_to_out_of_range_set_is_an_error(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_results
+    from gippa.io.fgsea_r import FgseaEngineError, read_results
 
     path = _write(tmp_path / "results.tsv", [RESULTS_HEADER, _row("IN", 3, "TU_1")])
     with pytest.raises(FgseaEngineError):
@@ -132,7 +132,7 @@ def _versions(tmp_path: Path, drop: str | None = None, edit: tuple[str, str] | N
 
 @pytest.mark.parametrize("key", ["seed", "jobs", "data.table"])
 def test_read_versions_requires_the_line(tmp_path: Path, key: str) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_versions
+    from gippa.io.fgsea_r import FgseaEngineError, read_versions
 
     with pytest.raises(FgseaEngineError):
         read_versions(_versions(tmp_path, drop=key))
@@ -150,7 +150,7 @@ def test_read_versions_requires_the_line(tmp_path: Path, key: str) -> None:
 def test_read_versions_rejects_non_integer_seed_or_jobs(
     tmp_path: Path, edit: tuple[str, str]
 ) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_versions
+    from gippa.io.fgsea_r import FgseaEngineError, read_versions
 
     with pytest.raises(FgseaEngineError):
         read_versions(_versions(tmp_path, edit=edit))
@@ -158,14 +158,14 @@ def test_read_versions_rejects_non_integer_seed_or_jobs(
 
 @pytest.mark.parametrize("version", ["1.17.0", "1.18.6", ""])
 def test_read_versions_rejects_other_data_table(tmp_path: Path, version: str) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, read_versions
+    from gippa.io.fgsea_r import FgseaEngineError, read_versions
 
     with pytest.raises(FgseaEngineError, match=r"data\.table"):
         read_versions(_versions(tmp_path, edit=("data.table\t1.18.6.1", f"data.table\t{version}")))
 
 
 def test_read_versions_accepts_every_recording() -> None:
-    from giap.io.fgsea_r import read_versions
+    from gippa.io.fgsea_r import read_versions
 
     for d in sorted(p for p in RECORDED.iterdir() if p.is_dir()):
         assert read_versions(d / "versions.txt").fgsea == "1.36.2", d.name
@@ -212,8 +212,8 @@ def _editing_prefix(root: Path, edit: dict[str, object]) -> Path:
 
 
 def _call():
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     ids = tuple(f"TU_{i}" for i in (5, 2, 7, 1, 4, 6, 3, 8))
     return EngineCall(
@@ -229,10 +229,10 @@ def _call():
 
 
 def _run(prefix: Path, work: Path):
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     eng = r_fgsea_engine(
-        resolve_launcher({"GIAP_FGSEA_PREFIX": str(prefix)}), timeout_s=60, tmp_root=work
+        resolve_launcher({"GIPPA_FGSEA_PREFIX": str(prefix)}), timeout_s=60, tmp_root=work
     )
     return eng(_call())
 
@@ -264,7 +264,7 @@ def test_editor_fake_passes_through_unchanged(tmp_path: Path, work: Path) -> Non
 def test_engine_rejects_versions_not_matching_the_call(
     tmp_path: Path, work: Path, edit: dict[str, object]
 ) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
+    from gippa.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
 
     with pytest.raises(FgseaEngineError) as info:
         _run(_editing_prefix(tmp_path / "env", edit), work)

@@ -1,6 +1,7 @@
-"""M5-10 acceptance "Integration": the ``sensitivity`` step with the ``islands`` family on a giapsim
+"""M5-10 acceptance "Integration": the ``sensitivity`` step with the ``islands`` family on a
+gippasim
 work directory (docs/specs/M5-10-sensitivity-islands.md examples 4-5, edge case 1, lead decision
-38; M4-19 lead decisions 2, 5, 12; GIAP_SPEC.md §8.6, G9).
+38; M4-19 lead decisions 2, 5, 12; GIPPA_SPEC.md §8.6, G9).
 
 Work directory: the M5-04 ``island_power`` scenario (1,000 genes, AR(1) rho = 0.5, one planted
 15-TU island at +4 SD), 60 genes stripped of peptide intensities, the M4-15 gene table
@@ -32,7 +33,7 @@ import sensitivity_islands_data as sid
 
 
 def _run(work: Path, cfg: Any) -> Path:
-    from giap.steps.sensitivity import run_sensitivity
+    from gippa.steps.sensitivity import run_sensitivity
 
     run_sensitivity(work, cfg)
     return work / "tables" / "sensitivity.tsv"
@@ -66,9 +67,9 @@ def _islands(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _schema() -> dict[str, Any]:
-    import giap
+    import gippa
 
-    path = Path(giap.__file__).resolve().parent / "schemas" / "tables" / "sensitivity.schema.json"
+    path = Path(gippa.__file__).resolve().parent / "schemas" / "tables" / "sensitivity.schema.json"
     return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
@@ -169,7 +170,7 @@ def test_islands_rows_do_not_depend_on_other_families(
 ) -> None:
     """M4-19 decision 2 / §6.6: the islands family has its own stream, so running it alone
     gives the same rows as running it after ``regions``."""
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     full = _islands(sid.read_sensitivity(_run(work, sid.work_config())))
     w = _copy(work, tmp_path / "w")
@@ -184,8 +185,8 @@ def test_islands_rows_depend_on_the_seed_stream(
 ) -> None:
     """The family's generator is ``for_step("sensitivity/islands", seed)``, in the same state for
     the primary and each variant (common random numbers)."""
-    from giap.context import sensitivity as S
-    from giap.rng import for_step
+    from gippa.context import sensitivity as S
+    from gippa.rng import for_step
 
     states: list[Any] = []
     real = S.FAMILIES["islands"]
@@ -208,7 +209,7 @@ def test_step_binds_c5_tus_and_c1_replicons(
     work: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Decision 38: the family gets the C5 ``tus`` and C1 ``replicons`` files' tables."""
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     seen: list[tuple[pd.DataFrame, pd.DataFrame]] = []
 
@@ -242,7 +243,7 @@ def test_missing_tus_raises(work: Path, tmp_path: Path) -> None:
 
 def test_example_4_off_writes_no_file(work: Path, tmp_path: Path) -> None:
     w = _copy(work, tmp_path / "w")
-    from giap.steps.sensitivity import run_sensitivity
+    from gippa.steps.sensitivity import run_sensitivity
 
     assert run_sensitivity(w, sid.work_config(output={"sensitivity": "off"})) is None
     assert not (w / "tables" / "sensitivity.tsv").exists()
@@ -252,9 +253,9 @@ def test_example_4_off_writes_no_file(work: Path, tmp_path: Path) -> None:
 
 
 def _ctx(work: Path, cfg: Any, out: Path, *, tus: bool = True) -> Any:
-    from giap.rng import for_step
-    from giap.steps.gene_table import contract_paths
-    from giap.steps.registry import StepContext
+    from gippa.rng import for_step
+    from gippa.steps.gene_table import contract_paths
+    from gippa.steps.registry import StepContext
 
     paths = contract_paths(work)
     keys = ["replicons", "regions", "region_genes"] + (["tus"] if tus else [])
@@ -266,8 +267,8 @@ def _ctx(work: Path, cfg: Any, out: Path, *, tus: bool = True) -> Any:
 
 
 def test_registered_step_declares_tus() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps.registry import get
+    from gippa.steps import load_step_modules
+    from gippa.steps.registry import get
 
     load_step_modules()
     spec = get("sensitivity")
@@ -277,7 +278,7 @@ def test_registered_step_declares_tus() -> None:
 
 
 def test_registered_step_writes_the_same_table(work: Path, tmp_path: Path) -> None:
-    from giap.steps.sensitivity import sensitivity
+    from gippa.steps.sensitivity import sensitivity
 
     cfg = sid.work_config()
     want = _run(work, cfg).read_bytes()
@@ -288,7 +289,7 @@ def test_registered_step_writes_the_same_table(work: Path, tmp_path: Path) -> No
 
 
 def test_registered_step_off_has_no_islands_rows(work: Path, tmp_path: Path) -> None:
-    from giap.steps.sensitivity import sensitivity
+    from gippa.steps.sensitivity import sensitivity
 
     out = tmp_path / "tables" / "sensitivity.tsv"
     sensitivity(_ctx(work, sid.work_config(output={"sensitivity": "off"}), out))

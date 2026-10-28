@@ -1,4 +1,4 @@
-"""Per-step random streams (GIAP_SPEC.md §6.6)."""
+"""Per-step random streams (GIPPA_SPEC.md §6.6)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import zlib
 import numpy as np
 import pytest
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 
 def test_returns_numpy_generator() -> None:

@@ -1,7 +1,7 @@
-# M4-07: giapsim layout: sequence-free genomes and contract-table fixtures
+# M4-07: gippasim layout: sequence-free genomes and contract-table fixtures
 
 Milestone M4 · track F (simulator) · depends on: M4-06 (column names; the test compares against
-`TABLES`) · estimate ≈ 380 lines in `tests/sim/giapsim/` (tooling, written by the implementer;
+`TABLES`) · estimate ≈ 380 lines in `tests/sim/gippasim/` (tooling, written by the implementer;
 §AGENTS "the implementer writes it, the test-author tests it") · **can start now**
 
 Calibration suites need hundreds of replicate genomes of 1,000–5,000 genes in seconds, and M4 must be
@@ -21,7 +21,7 @@ turns the M0 full simulator output into the same tables.
 - §6.5 IDs: regions `<type>_<n>` numbered by contig order then start; TUs `TU_<n>`.
 - §7.1.7 prophage function subsets: `integrase`, `repressor`, `structural`, `lysis`, `cargo`.
 
-## Interface (`tests/sim/giapsim/layout.py`, `contract_tables.py`)
+## Interface (`tests/sim/gippasim/layout.py`, `contract_tables.py`)
 
 ```python
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ class Layout:
 def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout: ...
 def layout_from_simulation(sim: SimResult) -> Layout: ...          # adapter for the M0 full simulator
 def write_contract_tables(layout: Layout, work_dir: Path) -> None: ...   # C1–C8 (M2-side files) under work_dir
-CONTRACT_COLUMNS: Mapping[str, tuple[str, ...]]                    # literal copy; a test compares to giap TABLES
+CONTRACT_COLUMNS: Mapping[str, tuple[str, ...]]                    # literal copy; a test compares to gippa TABLES
 ```
 - Gene coordinates are synthetic but consistent (3·(len_aa+1) bp, 50–300 bp gaps between TUs,
   −20…+40 within), so `contig/start/end/strand` satisfy the M4-06 invariants; `nt` is a
@@ -71,7 +71,7 @@ CONTRACT_COLUMNS: Mapping[str, tuple[str, ...]]                    # literal cop
 | # | Call | Expected |
 |---|---|---|
 | 1 | `simulate_layout(LayoutConfig(), default_rng(1))` | 1,000 genes on `chr1` (circular); every gene in exactly one TU; mean TU size within 1.8 ± 0.2 |
-| 2 | example 1 → `write_contract_tables` → `giap.io.work_tables.load_m4_inputs` | no `error` issues (M4-06 contract) |
+| 2 | example 1 → `write_contract_tables` → `gippa.io.work_tables.load_m4_inputs` | no `error` issues (M4-06 contract) |
 | 3 | `LayoutConfig(plasmids=(60,))` | replicon `p1` circular, kind `plasmid`, 60 genes; region `plasmid_1` with 60 members |
 | 4 | `LayoutConfig(linear_contigs=(30, 30))` | contigs `ctg1`, `ctg2` linear; 4 genes `partial = true` |
 | 5 | default regions | region IDs `prophage_1`, `bgc_1`, `crispr_1`, `amr_1`; `prophage_1` has 40 consecutive gene indices; every prophage member has a non-NA `subset` |
@@ -90,9 +90,9 @@ CONTRACT_COLUMNS: Mapping[str, tuple[str, ...]]                    # literal cop
 ## Acceptance criteria
 
 - [ ] `tests/sim/test_layout.py` (test-author): examples 1–9.
-- [ ] `CONTRACT_COLUMNS == {k: tuple(c.name for c in v) for k, v in giap.genetable.contract.TABLES.items()}`
+- [ ] `CONTRACT_COLUMNS == {k: tuple(c.name for c in v) for k, v in gippa.genetable.contract.TABLES.items()}`
   for the tables written (drift check, M4-06).
-- [ ] `giapsim` imports nothing from `giap` (independence of truth and code under test); grep test.
+- [ ] `gippasim` imports nothing from `gippa` (independence of truth and code under test); grep test.
 - [ ] Speed: 1,000 genes < 0.2 s, 4,500 genes < 2 s (`benchmarks/`).
 
 ## Methods note

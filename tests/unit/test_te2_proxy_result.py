@@ -1,5 +1,5 @@
 """M7-14 rules 1-2: the pure TE2 comparison ``te2_result`` and the ``te2`` CLI of
-validation/proxies/te_proxies.py (docs/specs/M7-14-te2-proxy-and-id-mixups.md; GIAP_SPEC.md §11.6
+validation/proxies/te_proxies.py (docs/specs/M7-14-te2-proxy-and-id-mixups.md; GIPPA_SPEC.md §11.6
 TE2 "no ``high`` ALT calls from A2 except at sites flagged ``start_codon`` or ``stop_codon``").
 
 The spec's acceptance names tests/unit/test_te_proxies.py; test authors do not edit existing test
@@ -51,7 +51,7 @@ FLAGS = ("mass_equivalent", "snv", "multi_nt", "strain_difference", "database_de
 
 def _row(i: int, conf: str, flags: tuple[str, ...], *, ref: str = "N", alt: str = "D",
          gene: str | None = None, aa_pos: int | None = None) -> dict[str, Any]:  # fmt: skip
-    from giap.variants.vcf_records import VARIANTS_COLUMNS
+    from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
     row: dict[str, Any] = dict.fromkeys(VARIANTS_COLUMNS, pd.NA)
     row.update(variant_id=f"VAR_{i}", contig="chr1", codon_start=3 * i, strand="+",
@@ -63,7 +63,7 @@ def _row(i: int, conf: str, flags: tuple[str, ...], *, ref: str = "N", alt: str 
 
 
 def _sites(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    from giap.variants.vcf_records import VARIANTS_COLUMNS
+    from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
     return pd.DataFrame(rows, columns=list(VARIANTS_COLUMNS))
 

@@ -1,7 +1,7 @@
-"""The generic GO-elim walker (issue M8-01; GIAP_SPEC.md §7.7.3 "GO redundancy (elim, Alexa
+"""The generic GO-elim walker (issue M8-01; GIPPA_SPEC.md §7.7.3 "GO redundancy (elim, Alexa
 2006)", §7.7.5 "Unit: elim on a toy DAG").
 
-Interface pinned here (docs/specs/M8-01-stats-wallenius-elim.md, module ``giap.function.elim``):
+Interface pinned here (docs/specs/M8-01-stats-wallenius-elim.md, module ``gippa.function.elim``):
 ``elim(term_genes, parents, test, threshold=0.01) -> {term: (p_classic, p_elim)}``.
 
 - terms are visited deepest first (level = longest path to a root; ties by term ID);
@@ -28,7 +28,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.function.elim import elim
+from gippa.function.elim import elim
 
 
 def fs(*x: int) -> frozenset[int]:

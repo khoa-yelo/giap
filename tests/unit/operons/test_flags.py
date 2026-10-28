@@ -1,5 +1,5 @@
 """Evidence "yes", abundance patterns, the seven flags and ``operon_flags.tsv`` (issue M6-07;
-GIAP_SPEC.md §7.4.5, §7.4.7, §9.3; docs/specs/M6-07-flags-and-operons-table.md).
+GIPPA_SPEC.md §7.4.5, §7.4.7, §9.3; docs/specs/M6-07-flags-and-operons-table.md).
 
 Every row of the §7.4.5 flag table, spec examples 1-10 and 12, the full 2 x 2 x 5 x 2 truth table
 and the degenerate cases, on hand-built merged pair frames (tests/helpers/flags_data.py), with
@@ -48,7 +48,7 @@ from helpers.flags_data import (
 )
 from helpers.pairs_data import PAIR_COLS
 
-from giap.operons import flags as fl
+from gippa.operons import flags as fl
 
 ROOT = Path(__file__).resolve().parents[3]
 FLAGS = (
@@ -72,10 +72,10 @@ DISCORDANT = {"downstream_higher", "upstream_higher", "discordant"}
 
 
 def _spec_line(prefix: str) -> str:
-    for line in (ROOT / "GIAP_SPEC.md").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "GIPPA_SPEC.md").read_text(encoding="utf-8").splitlines():
         if line.startswith(prefix):
             return line
-    raise AssertionError(f"{prefix!r} not found in GIAP_SPEC.md")
+    raise AssertionError(f"{prefix!r} not found in GIPPA_SPEC.md")
 
 
 def reference_flag(cls: str, p: bool, t: bool, pattern: str) -> str | None:
@@ -650,8 +650,8 @@ def test_real_discordance_and_missed_rows_merge_and_flag() -> None:
     from helpers.missed_data import block, genes_for, stack
     from helpers.missed_data import cfg as mcfg
 
-    from giap.operons.discordance import discordance
-    from giap.operons.missed import missed_operons
+    from gippa.operons.discordance import discordance
+    from gippa.operons.missed import missed_operons
 
     rng = np.random.default_rng(11)
     pairs = stack(

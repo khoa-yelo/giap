@@ -1,5 +1,5 @@
-# giap-bactermfinder image (GIAP_SPEC.md §4, §6.3). Built by containers.yml from the repository root:
-#   docker build -f workflow/containers/bactermfinder/Dockerfile -t ghcr.io/<owner>/giap-bactermfinder .
+# gippa-bactermfinder image (GIPPA_SPEC.md §4, §6.3). Built by containers.yml from the repository root:
+#   docker build -f workflow/containers/bactermfinder/Dockerfile -t ghcr.io/<owner>/gippa-bactermfinder .
 # and referenced by digest in workflow/conf/containers.config. Pins: ADR-0008.
 # Upstream https://github.com/BioinformaticsLabAtMUN/BacTermFinder at commit 024870447f6288ebc9d29b314e957a6dfdfeb5f6 (GPL-3.0); fetched at build time, never vendored (R5).
 FROM mambaorg/micromamba@sha256:f90ebbd10a6dabe1ab87497babd33085d6cf743da6176cf6bf119b9431cdf251
@@ -19,6 +19,6 @@ ARG GIT_SHA=024870447f6288ebc9d29b314e957a6dfdfeb5f6
 ADD --checksum=sha256:${ARCHIVE_SHA256} --chown=$MAMBA_USER:$MAMBA_USER https://github.com/BioinformaticsLabAtMUN/BacTermFinder/archive/${GIT_SHA}.tar.gz /tmp/src.tar.gz
 RUN mkdir -p /opt/conda/share/bactermfinder \
     && tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/bactermfinder \
-    && echo "$GIT_SHA" > /opt/conda/share/bactermfinder/GIAP_COMMIT && rm /tmp/src.tar.gz
+    && echo "$GIT_SHA" > /opt/conda/share/bactermfinder/GIPPA_COMMIT && rm /tmp/src.tar.gz
 WORKDIR /opt/conda/share/bactermfinder
-LABEL org.opencontainers.image.title="giap-bactermfinder"
+LABEL org.opencontainers.image.title="gippa-bactermfinder"

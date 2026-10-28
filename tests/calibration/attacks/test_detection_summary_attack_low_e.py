@@ -83,7 +83,7 @@ def null_genes(a: Attack, rng: np.random.Generator) -> pd.DataFrame:
 
 
 def sorf_row(a: Attack, rng: np.random.Generator) -> pd.Series:
-    from giap.context.summary import basic_rows
+    from gippa.context.summary import basic_rows
 
     genes = null_genes(a, rng)
     out = basic_rows(genes, B, np.random.default_rng(rng.integers(2**63)))

@@ -6,7 +6,7 @@ Run for real in the M2-21 sandbox (``tests/helpers/slurm_sandbox.py``), with thi
 ``TMPDIR`` it sees and whether that directory exists. Pinned:
 
 * TMPDIR is a fresh directory under ``/tmp`` (node-local), not under the task's ``$RUN`` on NFS
-  (``$GIAP_ROOT/ci/runs/...``), and it is removed when the task ends (also after SIGTERM);
+  (``$GIPPA_ROOT/ci/runs/...``), and it is removed when the task ends (also after SIGTERM);
 * ``nextflow -version`` runs before the integration pytest; nf-test still starts only after the
   pytest run ends (decision 23).
 """
@@ -22,7 +22,7 @@ from helpers.slurm_sandbox import (
     _PYTHON,
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     make_sandbox,
     write_exe,
 )
@@ -40,7 +40,7 @@ fi
 
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     box = make_sandbox(tmp_path)
     head, _, rest = _PYTHON.replace("{python}", sys.executable).partition("\n")
     for name in ("python", "python3"):
@@ -55,7 +55,7 @@ def _integration(sb: Sandbox, **env: str):  # type: ignore[no-untyped-def]
         "SLURM_JOB_ID": "5000",
         "SLURM_ARRAY_TASK_COUNT": "4",
         "SLURM_CPUS_PER_TASK": "2",
-        "SLURM_JOB_NAME": "giap-nightly",
+        "SLURM_JOB_NAME": "gippa-nightly",
         "NIGHTLY_POST": "dry",
     }
     return sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly.sbatch")],
@@ -86,7 +86,7 @@ def test_tmpdir_is_node_local_and_removed_at_exit(sb: Sandbox, pytest_mode: str)
         p = Path(tmpdir)
         assert p.is_absolute() and p.parts[:2] == ("/", "tmp"), f"TMPDIR {tmpdir} is not under /tmp"
         assert not tmpdir.startswith(run_root), f"TMPDIR {tmpdir} is under $RUN (NFS)"
-        assert not tmpdir.startswith(str(sb.root)), f"TMPDIR {tmpdir} is under $GIAP_ROOT"
+        assert not tmpdir.startswith(str(sb.root)), f"TMPDIR {tmpdir} is under $GIPPA_ROOT"
         assert p != Path("/tmp"), "TMPDIR is /tmp itself, not a task directory"
         assert not p.exists(), f"TMPDIR {tmpdir} is left behind after the task ({pytest_mode})"
     runs = sorted((sb.root / "ci" / "runs").glob(f"{JOB}_0"))

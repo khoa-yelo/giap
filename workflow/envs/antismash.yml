@@ -1,5 +1,5 @@
 # antiSMASH 8.0.4 (AGPL-3.0). Preferred path is the antismash/standalone image by digest.
-name: giap-antismash
+name: gippa-antismash
 channels: [conda-forge, bioconda]
 dependencies:
   - antismash=8.0.4

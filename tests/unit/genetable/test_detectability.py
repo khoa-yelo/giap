@@ -1,4 +1,4 @@
-"""M4-13 detectability model (docs/specs/M4-13-detectability.md; GIAP_SPEC.md §7.3.3, §5.2, §8.2,
+"""M4-13 detectability model (docs/specs/M4-13-detectability.md; GIPPA_SPEC.md §7.3.3, §5.2, §8.2,
 §8.4, G5, §6.6 / TE7).
 
 Examples 1-9 of the spec, the edge cases and the interface rules, each against the independent
@@ -47,15 +47,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import detectability_data as dd
 import detectability_oracle as O
 
-from giap.config.model import DetectabilityConfig
-from giap.rng import for_step
+from gippa.config.model import DetectabilityConfig
+from gippa.rng import for_step
 
 C_GRID = {0.01, 0.1, 1.0, 10.0}
 SEED = 7
 
 
 def _mod() -> Any:
-    from giap.genetable import detectability
+    from gippa.genetable import detectability
 
     return detectability
 

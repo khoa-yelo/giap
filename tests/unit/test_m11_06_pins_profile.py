@@ -74,7 +74,7 @@ def test_conda_off_only_for_pinned_processes() -> None:
 def test_uniop_and_fgsea_keep_conda() -> None:
     assert "UNIOP" not in _pinned() and "UNIOP" not in _conda_off()
     assert not {p for p in _pinned() | _conda_off() if "FGSEA" in p}
-    assert "giap-uniop" not in CONTAINERS
+    assert "gippa-uniop" not in CONTAINERS
 
 
 def test_pinnable_processes_exist_in_the_workflow() -> None:
@@ -88,13 +88,13 @@ GHCR_PIN = re.compile(r"container = '(?:docker://)?(ghcr\.io/[^']+)'")
 
 def test_ghcr_pins_use_the_project_namespace() -> None:
     for ref in GHCR_PIN.findall(CONTAINERS):
-        assert re.fullmatch(r"ghcr\.io/khoa-yelo/giap-[a-z_]+@sha256:[0-9a-f]{64}", ref), ref
+        assert re.fullmatch(r"ghcr\.io/khoa-yelo/gippa-[a-z_]+@sha256:[0-9a-f]{64}", ref), ref
 
 
 @pytest.mark.parametrize("prefix", ["", "docker://"])
 def test_ghcr_pin_pattern_finds_a_written_pin_line(prefix: str) -> None:
     """The config holds no GHCR pin yet, so the loop above can run zero times (#354 review S3)."""
-    ref = "ghcr.io/khoa-yelo/giap-ostir@sha256:" + "a" * 64
+    ref = "ghcr.io/khoa-yelo/gippa-ostir@sha256:" + "a" * 64
     line = f"  withName: 'OSTIR' {{ container = '{prefix}{ref}' }}"
     assert GHCR_PIN.findall(line) == [ref]
 

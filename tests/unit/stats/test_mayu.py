@@ -1,4 +1,4 @@
-"""MAYU-style gene FDR, closed form (issue M4-02; GIAP_SPEC.md §7.3.2, §8.3, Appendix B.3).
+"""MAYU-style gene FDR, closed form (issue M4-02; GIPPA_SPEC.md §7.3.2, §8.3, Appendix B.3).
 
 Examples 1-6 of docs/specs/M4-02-stats-mayu.md, the degenerate guards (p_b = 1, FDR clipped to 1,
 no thresholds -> empty curve), PEP vs t*|P(t)|, rank binning, edge cases and a seeded Monte Carlo
@@ -16,9 +16,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.stats.mayu import MayuResult, mayu_gene_fdr
-from giap.stats.poisson_binomial import poisson_binomial_pmf
-from giap.stats.tda import monotone_q
+from gippa.stats.mayu import MayuResult, mayu_gene_fdr
+from gippa.stats.poisson_binomial import poisson_binomial_pmf
+from gippa.stats.tda import monotone_q
 
 NAN = float("nan")
 CURVE_COLUMNS = ["t", "n_peptides", "F", "n_genes", "fp", "fdr", "fdr_2pep"]

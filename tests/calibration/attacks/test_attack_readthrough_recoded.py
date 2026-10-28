@@ -1,5 +1,5 @@
 """Attack (d): annotated recoded Sec/Pyl cells in the placement decoys (M7-16c, ADR-0058 item 6;
-spec "16c amendment" > "Re-runs (16c)" item 2; statistician pre-code check Q2; GIAP_SPEC.md §7.2.1,
+spec "16c amendment" > "Re-runs (16c)" item 2; statistician pre-code check Q2; GIPPA_SPEC.md §7.2.1,
 §8.2, §8.5).
 
 16c adds a cell at every annotated internal ``U``-over-TGA / ``O``-over-TAG codon (site kind
@@ -12,7 +12,7 @@ judges the recoded part on its own. Masses are the exact expected chance masses 
 it holds >= 1 recoded cell, *terminal* when it holds only terminal cells, *regular* when it holds
 none.
 
-- **d1** recoded-dense giapsim world: the 16a ``giapsim`` world (GENOME_NT, circular chromosome,
+- **d1** recoded-dense gippasim world: the 16a ``gippasim`` world (GENOME_NT, circular chromosome,
   one circular plasmid, one linear contig, biological terminal density, ~120 terminal sites) with
   ``n_selenoproteins = N_SEC`` (60 of ~106-126 eligible genes), so every replicate holds >= 50
   recoded cells. On the recoded part: (a) reverse, i.i.d.: D_rec = T_rec per replicate and L to
@@ -32,7 +32,7 @@ none.
   and tryptic ratios and net shifts logged, only net shift >= -EQUIV asserted.
 - **d4** the sites ``load_stop_cells`` returns equal the ``site_keys`` the variants step passes
   to M7-01 ``align_hits`` (``run_variants_qc`` on the same annotation files the index was built
-  from), on d4 giapsim worlds and (full) the two recordings.
+  from), on d4 gippasim worlds and (full) the two recordings.
 
 R = ``replicates_fast.placement`` / ``replicates_full.placement``; d4 uses R // 10 worlds. Seeds:
 ``_criteria.replicate_rng`` streams ``placement.readthrough_attack.recoded*``. Per-L ratios go to
@@ -68,7 +68,7 @@ from test_attack_readthrough_decoys import (
     _tryptic,
 )
 
-from giap.mapping.sixframe import READTHROUGH, STOP, Frame
+from gippa.mapping.sixframe import READTHROUGH, STOP, Frame
 
 N_SEC = 60
 MIN_REC_CELLS = 50
@@ -131,10 +131,10 @@ def split_masses(
 def build_index(genome: Mapping[str, str], gm: Any, tmp: Path, seed: int) -> dict[str, Any]:
     """``sixframe_index`` (registered step, both decoy types) on ``genome``/``gm``; the loaded
     index, decoys, StopCells and the input files (for d4)."""
-    from giap.config import resolve_config
-    from giap.mapping.sixframe import load_index, load_stop_cells
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import resolve_config
+    from gippa.mapping.sixframe import load_index, load_stop_cells
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     tmp.mkdir(parents=True, exist_ok=True)
@@ -154,12 +154,12 @@ def build_index(genome: Mapping[str, str], gm: Any, tmp: Path, seed: int) -> dic
 
 
 def recoded_world(seed: int, tmp: Path) -> tuple[dict[str, Any], set[tuple[str, str, int]]]:
-    import giapsim
-    from giap.annotate.bakta import parse_bakta_json
+    import gippasim
+    from gippa.annotate.bakta import parse_bakta_json
 
-    cfg = giapsim.SimConfig(genome_length=GENOME_NT, n_plasmids=1, plasmid_length=(8_000, 20_000),
+    cfg = gippasim.SimConfig(genome_length=GENOME_NT, n_plasmids=1, plasmid_length=(8_000, 20_000),
                             linear_contig_length=10_000, n_selenoproteins=N_SEC)  # fmt: skip
-    res = giapsim.simulate(cfg, seed=seed, outdir=tmp / "sim")
+    res = gippasim.simulate(cfg, seed=seed, outdir=tmp / "sim")
     ann = parse_bakta_json(res.bakta_json)
     truth = pd.read_csv(Path(res.outdir) / "truth" / "selenoproteins.tsv", sep="\t")
     keys = {(str(r.contig), str(r.strand), int(r.codon_start)) for r in truth.itertuples()}
@@ -167,8 +167,8 @@ def recoded_world(seed: int, tmp: Path) -> tuple[dict[str, Any], set[tuple[str, 
 
 
 def recording_world(name: str, tmp: Path) -> dict[str, Any]:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.io.fasta import read_genome_fasta
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.io.fasta import read_genome_fasta
 
     fna, js = RECORDINGS[name]
     genome = {r.id: r.sequence for r in read_genome_fasta(fna)}
@@ -189,7 +189,7 @@ def mirror(kind: str, frames: tuple[Frame, ...], cells: Cells) -> Cells:
 
 def built_split(w: Mapping[str, Any]) -> tuple[dict[str, Split], list[str]]:
     """{space: (terminal, recoded)} of the built index, and the containment failures."""
-    from giap.mapping.readthrough import frame_cells
+    from gippa.mapping.readthrough import frame_cells
 
     index, decoys, cells = w["index"], w["decoys"], w["cells"]
     rec_t = frame_cells(index, [s for s in cells.sites if s.kind == "recoded"])
@@ -354,10 +354,10 @@ class _Seen(Exception):
 def variants_site_keys(w: Mapping[str, Any]) -> frozenset[tuple[str, str, int]]:
     """The ``stop_sites`` the variants step's chain hands to ``align_hits``, read the way the
     step reads its inputs (``read_gene_model`` + ``read_genome_fasta`` on the same files)."""
-    import giap.steps.variants as V
-    from giap.config import resolve_config
-    from giap.io.fasta import read_genome_fasta
-    from giap.steps.mapping import read_gene_model
+    import gippa.steps.variants as V
+    from gippa.config import resolve_config
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.steps.mapping import read_gene_model
 
     ins = w["inputs"]
     genome = {r.id: r.sequence for r in read_genome_fasta(ins["genome"])}
@@ -385,7 +385,7 @@ def index_site_keys(w: Mapping[str, Any]) -> frozenset[tuple[str, str, int]]:
 
 
 @pytest.mark.parametrize("full", SUITES)
-def test_attack_d1_d2_recoded_giapsim(full: bool, tmp_path: Path) -> None:
+def test_attack_d1_d2_recoded_gippasim(full: bool, tmp_path: Path) -> None:
     R = C.replicates(SUITE, full)
     k = C.load_tolerances().se_multiplier
     reps: list[Res] = []
@@ -408,7 +408,7 @@ def test_attack_d1_d2_recoded_giapsim(full: bool, tmp_path: Path) -> None:
         reps.append(res)
         if not full and i == 0:
             print(f"rep 0: {n_rec[0]} recoded / {n_term[0]} terminal target cells")
-    rec = _summary(reps, ("iid", "tryptic"), full, "recoded_giapsim")
+    rec = _summary(reps, ("iid", "tryptic"), full, "recoded_gippasim")
     rec |= {"N_SEC": N_SEC, "mean_rec_cells": float(np.mean(n_rec)), "min_rec_cells": min(n_rec),
             "mean_term_cells": float(np.mean(n_term)),
             "teeth_struct_fail_reps": teeth_struct}  # fmt: skip

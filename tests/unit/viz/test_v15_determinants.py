@@ -1,5 +1,5 @@
 # ruff: noqa: RUF001, RUF003  (Δ, ², ± and – are the spec's own characters)
-"""V15 ``determinants``: what explains abundance? (M9-20; GIAP_SPEC.md §10.2 V15, §7.8.2, §9.3
+"""V15 ``determinants``: what explains abundance? (M9-20; GIPPA_SPEC.md §10.2 V15, §7.8.2, §9.3
 ``determinants_model.tsv`` / ``determinants_attribution.tsv``; ADR-0031..0034; M9-17 support
 files, its lead decision 5; M9-20 lead decisions 1-5 of 2026-10-23; decision 5 is the review
 round: B1-B4, S1-S3, N3, N4).
@@ -18,7 +18,7 @@ code (``helpers.viz_determinants``).
 
 Interface assumed where the spec leaves it open (M9-20 test author):
 
-- The plot registers on ``giap.steps.plots.load_plot_modules()`` as ``V15`` (name
+- The plot registers on ``gippa.steps.plots.load_plot_modules()`` as ``V15`` (name
   ``determinants``, module ``core``), ``needs`` ⊇ {``determinants_model``}, ``optional`` ⊇
   {``determinants_attribution``}. It returns one ``Instance`` (``suffix=None``, ``coords=()``),
   double width (7.2 in), ``Instance.title`` drawn in the figure.
@@ -64,11 +64,11 @@ from matplotlib.collections import Collection
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 COLUMNS = ["panel", "model", "block", "feature", "x", "y", "ci_low", "ci_high", "locus_tag",
            "category", "flags"]  # fmt: skip
@@ -98,7 +98,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -106,17 +106,17 @@ def cfg() -> GiapConfig:
 
 
 def _v15() -> base.PlotSpec:
-    from giap.steps.plots import load_plot_modules
+    from gippa.steps.plots import load_plot_modules
 
     load_plot_modules()
     return base.registered()["V15"]
 
 
-def _result(out: Path, cfg: GiapConfig) -> list[Instance] | Skip:
+def _result(out: Path, cfg: GippaConfig) -> list[Instance] | Skip:
     return _v15().fn(RunView.from_outdir(out), cfg)
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _result(out, cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -125,7 +125,7 @@ def _render(out: Path, cfg: GiapConfig) -> Instance:
     return inst
 
 
-def _main(tmp: Path, cfg: GiapConfig, **kw: object) -> Instance:
+def _main(tmp: Path, cfg: GippaConfig, **kw: object) -> Instance:
     return _render(vd.build_out(tmp, **kw), cfg)  # type: ignore[arg-type]
 
 
@@ -201,13 +201,13 @@ def test_v15_is_registered_as_determinants() -> None:
     assert base.normalise_ids("v15") == ["V15"]
 
 
-def test_model_table_absent_skips_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_model_table_absent_skips_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vd.build_out(tmp_path, no_model=True)
     assert _result(out, cfg) == Skip("input_absent:determinants_model")
 
 
-def test_plots_step_renders_v15_files(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.steps.plots import render_plots
+def test_plots_step_renders_v15_files(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.steps.plots import render_plots
 
     out = vd.build_out(tmp_path)
     plots = tmp_path / "plots"
@@ -222,10 +222,10 @@ def test_plots_step_renders_v15_files(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_plotly_twin_registered_and_built_from_the_data_tsv(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
-    from giap.steps.plots import TWIN_ID_DTYPES
-    from giap.viz.interactive import figure_json, has_twin
+    from gippa.steps.plots import TWIN_ID_DTYPES
+    from gippa.viz.interactive import figure_json, has_twin
 
     inst = _main(tmp_path, cfg)
     assert has_twin("V15")
@@ -244,7 +244,7 @@ def test_plotly_twin_registered_and_built_from_the_data_tsv(
 # --- data frame shape -------------------------------------------------------------------------
 
 
-def test_data_columns_suffix_coords_panel_order_width(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_columns_suffix_coords_panel_order_width(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert list(inst.data.columns) == COLUMNS
     assert inst.suffix is None
@@ -258,26 +258,26 @@ def test_data_columns_suffix_coords_panel_order_width(tmp_path: Path, cfg: GiapC
 # --- title ------------------------------------------------------------------------------------
 
 
-def test_example_1_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_1_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert inst.title == EX1_TITLE
     assert EX1_TITLE in _texts(inst)
 
 
-def test_title_is_in_the_svg(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_is_in_the_svg(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     write_instance(inst, "V15", "determinants", tmp_path / "p", ["svg"], 50)
     assert inst.title in (tmp_path / "p" / "V15_determinants.svg").read_text(encoding="utf-8")
 
 
-def test_title_uses_the_elastic_net_not_lightgbm(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_uses_the_elastic_net_not_lightgbm(tmp_path: Path, cfg: GippaConfig) -> None:
     """Decision 1: LightGBM's largest block (codon 0.12) and CV R² (0.25) never lead."""
     inst = _main(tmp_path, cfg)
     assert "codon" not in inst.title
     assert "0.25" not in inst.title and "0.12" not in inst.title
 
 
-def test_example_2_no_block_ci_excludes_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_2_no_block_ci_excludes_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vd.build_out(tmp_path, model=vd.model_table(vd.EN_DELTAS_NULL))
     t = _render(out, cfg).title
     assert t.startswith("Elastic net CV R² 0.21 ± 0.03"), t  # decision 5, S2
@@ -285,7 +285,7 @@ def test_example_2_no_block_ci_excludes_zero(tmp_path: Path, cfg: GiapConfig) ->
     assert "largest block" not in t
 
 
-def test_example_6_too_few_rows_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_6_too_few_rows_title(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vd.build_out(
         tmp_path,
         model=vd.too_few_model_table(),
@@ -297,7 +297,7 @@ def test_example_6_too_few_rows_title(tmp_path: Path, cfg: GiapConfig) -> None:
     assert t == "Too few genes for the determinants model (60 rows, 20 TUs)"
 
 
-def test_title_never_says_expressed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_never_says_expressed(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert "express" not in inst.title.lower()
 
@@ -305,7 +305,7 @@ def test_title_never_says_expressed(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (a) --------------------------------------------------------------------------------
 
 
-def test_panel_a_rows_are_the_delta_r2_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_rows_are_the_delta_r2_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     a = _rows(_main(tmp_path, cfg), "a")
     got = {(str(m), str(b)): (_f(x), _f(lo), _f(hi))
            for m, b, x, lo, hi in zip(a["model"], a["block"], a["x"], a["ci_low"], a["ci_high"],
@@ -321,26 +321,26 @@ def test_panel_a_rows_are_the_delta_r2_rows(tmp_path: Path, cfg: GiapConfig) -> 
         assert (_isna(hi) and math.isnan(ghi)) or ghi == pytest.approx(hi), k
 
 
-def test_block_without_a_row_is_not_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_block_without_a_row_is_not_drawn(tmp_path: Path, cfg: GippaConfig) -> None:
     a = _rows(_main(tmp_path, cfg), "a")
     lgb = a[a["model"].astype(str) == "lightgbm"]
     assert "context" not in set(lgb["block"].astype(str))
 
 
-def test_panel_a_legend_primary_and_secondary(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_legend_primary_and_secondary(tmp_path: Path, cfg: GippaConfig) -> None:
     texts = _ax_texts(_axes(_main(tmp_path, cfg), "a"))
     assert EN_LEGEND in texts
     assert LGB_LEGEND in texts
 
 
-def test_panel_a_vertical_line_at_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_vertical_line_at_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "a")
     xs = [np.asarray(ln.get_xdata(), float) for ln in ax.lines]
     zero = [x for x in xs if len(x) and np.allclose(x, 0.0)]
     assert zero, "no vertical line at ΔR² = 0"
 
 
-def test_delta_r2_ci_na_reads_ci_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_delta_r2_ci_na_reads_ci_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     a = _rows(inst, "a")
     ctx = a[(a["model"].astype(str) == "elastic_net") & (a["block"].astype(str) == "context")]
@@ -352,7 +352,7 @@ def test_delta_r2_ci_na_reads_ci_unestimated(tmp_path: Path, cfg: GiapConfig) ->
 # --- panel (b) --------------------------------------------------------------------------------
 
 
-def test_panel_b_rows_are_the_pd_grid(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_rows_are_the_pd_grid(tmp_path: Path, cfg: GippaConfig) -> None:
     b = _rows(_main(tmp_path, cfg), "b")
     assert set(b["model"].astype(str)) == {"lightgbm"}
     grid = b[[not _isna(v) for v in b["y"]]].reset_index(drop=True)
@@ -364,7 +364,7 @@ def test_panel_b_rows_are_the_pd_grid(tmp_path: Path, cfg: GiapConfig) -> None:
     assert np.allclose([_f(v) for v in grid["ci_high"]], want["pd_high"])
 
 
-def test_panel_b_features_and_promoter_score_name(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_features_and_promoter_score_name(tmp_path: Path, cfg: GippaConfig) -> None:
     """Decision 2: "promoter score" is ``promotech_max``, the feature name in the data."""
     inst = _main(tmp_path, cfg)
     feats = list(dict.fromkeys(_rows(inst, "b")["feature"].astype(str)))
@@ -375,7 +375,7 @@ def test_panel_b_features_and_promoter_score_name(tmp_path: Path, cfg: GiapConfi
     assert "promoter score" in _axes(inst, "b_promotech_max").get_xlabel().lower()
 
 
-def test_panel_b_pd_is_on_each_features_own_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_pd_is_on_each_features_own_scale(tmp_path: Path, cfg: GippaConfig) -> None:
     """M9-17 decision 5: ``tir_ostir`` grid values are raw (not ln) TIR."""
     b = _rows(_main(tmp_path, cfg), "b")
     tir = [_f(x) for x, f, y in zip(b["x"], b["feature"], b["y"], strict=True)
@@ -383,12 +383,12 @@ def test_panel_b_pd_is_on_each_features_own_scale(tmp_path: Path, cfg: GiapConfi
     assert min(tir) == pytest.approx(50.0) and max(tir) == pytest.approx(5000.0)
 
 
-def test_panel_b_spread_label_is_not_a_ci(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_spread_label_is_not_a_ci(tmp_path: Path, cfg: GippaConfig) -> None:
     """25 = ``determinants.outer_folds`` x ``repeats`` (5 x 5 by default)."""
     assert PD_LABEL in _alltext(_main(tmp_path, cfg))
 
 
-def test_panel_b_spread_is_shaded_and_mean_is_a_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_spread_is_shaded_and_mean_is_a_line(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "b_cai")
     want = vd.pd_frame()
     want = want[want["feature"] == "cai"]
@@ -400,7 +400,7 @@ def test_panel_b_spread_is_shaded_and_mean_is_a_line(tmp_path: Path, cfg: GiapCo
     ), "no shaded pd_low-pd_high band"
 
 
-def test_missing_pd_feature_is_not_available(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_missing_pd_feature_is_not_available(tmp_path: Path, cfg: GippaConfig) -> None:
     pdf = vd.pd_frame(("cai", "tai", "promotech_max"))
     inst = _main(tmp_path, cfg, pd_=pdf, flags=["layer_missing:ostir"])
     feats = set(_rows(inst, "b")["feature"].astype(str))
@@ -419,7 +419,7 @@ def _mean_abs(shap: pd.DataFrame) -> list[str]:
     return sorted(m.index, key=lambda f: (-m[f], f))
 
 
-def test_panel_c_points_are_the_shap_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_points_are_the_shap_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     c = _rows(_main(tmp_path, cfg), "c")
     assert set(c["model"].astype(str)) == {"lightgbm"}
     shap = vd.shap_frame()
@@ -432,7 +432,7 @@ def test_panel_c_points_are_the_shap_rows(tmp_path: Path, cfg: GiapConfig) -> No
     assert all(got[k] == pytest.approx(want[k], rel=1e-5) for k in want)  # %.6g file
 
 
-def test_panel_c_feature_order_and_x_sorted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_feature_order_and_x_sorted(tmp_path: Path, cfg: GippaConfig) -> None:
     c = _rows(_main(tmp_path, cfg), "c")
     feats = list(dict.fromkeys(c["feature"].astype(str)))
     assert feats == _mean_abs(vd.shap_frame())
@@ -441,7 +441,7 @@ def test_panel_c_feature_order_and_x_sorted(tmp_path: Path, cfg: GiapConfig) -> 
         assert xs == sorted(xs), f
 
 
-def test_panel_c_caps_at_top_20_features(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_caps_at_top_20_features(tmp_path: Path, cfg: GippaConfig) -> None:
     shap = vd.shap_frame(features=vd.SHAP_FEATURES)  # 22 features
     c = _rows(_main(tmp_path, cfg, shap=shap), "c")
     feats = list(dict.fromkeys(c["feature"].astype(str)))
@@ -449,7 +449,7 @@ def test_panel_c_caps_at_top_20_features(tmp_path: Path, cfg: GiapConfig) -> Non
     assert len(feats) == sa.SHAP_TOP
 
 
-def test_panel_c_top_feature_at_the_top(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_top_feature_at_the_top(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "c")
     pairs = zip(ax.get_yticks(), ax.get_yticklabels(), strict=True)
     ticks = [(float(y), lab.get_text()) for y, lab in pairs if lab.get_text()]
@@ -458,7 +458,7 @@ def test_panel_c_top_feature_at_the_top(tmp_path: Path, cfg: GiapConfig) -> None
     assert "tir_ostir" in top or "TIR" in top or "OSTIR" in top.upper(), ticks
 
 
-def test_panel_c_axis_header_and_viridis(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_axis_header_and_viridis(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     ax = _axes(inst, "c")
     assert ax.get_xlabel() == "SHAP (log2 abundance)"
@@ -467,7 +467,7 @@ def test_panel_c_axis_header_and_viridis(tmp_path: Path, cfg: GiapConfig) -> Non
     assert "viridis" in maps, maps
 
 
-def test_shap_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_shap_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GippaConfig) -> None:
     """Deterministic jitter (by rank within the feature): input row order is irrelevant."""
     shap = vd.shap_frame()
     a = _main(tmp_path / "a", cfg, shap=shap)
@@ -478,7 +478,7 @@ def test_shap_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GiapConfig
 # --- panel (d) --------------------------------------------------------------------------------
 
 
-def test_panel_d_rows_and_na_predictions(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_d_rows_and_na_predictions(tmp_path: Path, cfg: GippaConfig) -> None:
     d = _rows(_main(tmp_path, cfg), "d")
     att = {str(r["locus_tag"]): r for r in vd.attribution_rows()}
     tags = list(d["locus_tag"].astype(str))
@@ -490,7 +490,7 @@ def test_panel_d_rows_and_na_predictions(tmp_path: Path, cfg: GiapConfig) -> Non
         assert _f(y) == pytest.approx(float(att[t]["abundance_log2"]))  # type: ignore[arg-type]
 
 
-def test_example_4_unexplained_category_and_colour(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_4_unexplained_category_and_colour(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     d = _rows(inst, "d")
     cat = dict(zip(d["locus_tag"].astype(str), d["category"].astype(str), strict=True))
@@ -500,7 +500,9 @@ def test_example_4_unexplained_category_and_colour(tmp_path: Path, cfg: GiapConf
     assert VERMILLION in _colours(_axes(inst, "d"))
 
 
-def test_example_5_ribosomal_reference_category_and_colour(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_5_ribosomal_reference_category_and_colour(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _main(tmp_path, cfg)
     d = _rows(inst, "d")
     cat = dict(zip(d["locus_tag"].astype(str), d["category"].astype(str), strict=True))
@@ -509,13 +511,13 @@ def test_example_5_ribosomal_reference_category_and_colour(tmp_path: Path, cfg: 
     assert ORANGE in _colours(_axes(inst, "d"))
 
 
-def test_example_5_r2_text_is_the_elastic_net_cv_r2(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_5_r2_text_is_the_elastic_net_cv_r2(tmp_path: Path, cfg: GippaConfig) -> None:
     """The R² text quotes the model table (model rows only), not a refit with ribosomal genes."""
     texts = _ax_texts(_axes(_main(tmp_path, cfg), "d"))
     assert any(D_R2 in t for t in texts), texts  # decision 5, B2
 
 
-def test_panel_d_identity_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_d_identity_line(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "d")
     ident = [ln for ln in ax.lines if len(ln.get_xdata()) >= 2
              and np.allclose(np.asarray(ln.get_xdata(), float),
@@ -523,7 +525,7 @@ def test_panel_d_identity_line(tmp_path: Path, cfg: GiapConfig) -> None:
     assert ident or any(type(ln).__name__ == "AxLine" for ln in ax.get_children()), "no y = x"
 
 
-def test_more_than_20000_genes_bin_panel_d(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_more_than_20000_genes_bin_panel_d(tmp_path: Path, cfg: GippaConfig) -> None:
     n = 20_500
     out = vd.build_out(tmp_path, attribution=vd.many_attribution(n),
                        features=vd.many_features(n), support=False)  # fmt: skip
@@ -539,20 +541,20 @@ def test_more_than_20000_genes_bin_panel_d(tmp_path: Path, cfg: GiapConfig) -> N
 # --- footnotes --------------------------------------------------------------------------------
 
 
-def test_example_3_null_p_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_3_null_p_footnote(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _alltext(_main(tmp_path, cfg))
     assert NULL_FOOT in text
     assert "(uncalibrated" in text
 
 
-def test_univariate_footnote_only_with_univariate_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_univariate_footnote_only_with_univariate_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     assert UNI_FOOT in _alltext(_main(tmp_path / "a", cfg))
     out = vd.build_out(tmp_path / "b", model=vd.model_table(univariate=False))
     assert UNI_FOOT not in _alltext(_render(out, cfg))
 
 
-def test_native_genes_caveat(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.determinants import CAVEATS
+def test_native_genes_caveat(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.determinants import CAVEATS
 
     assert "expect a lower R²" in CAVEATS[0]
     assert "expect a lower R²" in _alltext(_main(tmp_path, cfg))
@@ -571,14 +573,14 @@ def _too_few(tmp: Path) -> Path:
     )
 
 
-def test_too_few_rows_empties_a_to_c(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_too_few_rows_empties_a_to_c(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_too_few(tmp_path), cfg)
     panels = set(inst.data["panel"].astype(str))
     assert not panels & {"a", "b", "c"}, panels
     assert all(not _isna(x) for x in _rows(inst, "d")["x"])  # NA predictions never drawn
 
 
-def test_support_files_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_support_files_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg, support=False)
     panels = set(inst.data["panel"].astype(str))
     assert {"a", "d"} <= panels
@@ -593,26 +595,26 @@ def test_support_files_absent(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def _gated_failures(inst: Instance, tmp: Path) -> list[str]:
-    from giap.viz import checklist
+    from gippa.viz import checklist
 
     files = write_instance(inst, "V15", "determinants", tmp, ["svg", "png"], 100)
     return [f"{r.item}: {r.detail}" for r in checklist.check_instance(inst, "V15", files)
             if r.passed is False]  # fmt: skip
 
 
-def test_checklist_main_fixture(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_checklist_main_fixture(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _gated_failures(_main(tmp_path, cfg), tmp_path / "plots") == []
 
 
-def test_checklist_without_support(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_checklist_without_support(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _gated_failures(_main(tmp_path, cfg, support=False), tmp_path / "plots") == []
 
 
-def test_checklist_too_few_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_checklist_too_few_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _gated_failures(_render(_too_few(tmp_path), cfg), tmp_path / "plots") == []
 
 
-def test_two_renders_give_equal_data_and_identical_svg(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_two_renders_give_equal_data_and_identical_svg(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vd.build_out(tmp_path)
     a, b = _render(out, cfg), _render(out, cfg)
     pd.testing.assert_frame_equal(a.data, b.data)
@@ -672,35 +674,37 @@ def _en(**over: tuple[float, float | None, float | None]) -> dict:
     return {**vd.EN_DELTAS_NULL, **over}
 
 
-def _title_of(tmp: Path, cfg: GiapConfig, en: dict, **kw: object) -> str:
+def _title_of(tmp: Path, cfg: GippaConfig, en: dict, **kw: object) -> str:
     out = vd.build_out(tmp, model=vd.model_table(en, **kw), support=False)  # type: ignore[arg-type]
     return _render(out, cfg).title
 
 
-def test_b1_title_names_the_repeat_t_interval_uncalibrated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_title_names_the_repeat_t_interval_uncalibrated(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     t = _main(tmp_path, cfg).title
     assert "(repeat t-interval 0.05–0.11, uncalibrated)" in t, t
     assert "95 % CI" not in t and "CI" not in t.replace("CV", ""), t
 
 
-def test_b1_panel_a_header(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_panel_a_header(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "a")
     assert ax.get_title(loc="left") == A_HEADER
 
 
-def test_b1_delta_r2_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_delta_r2_footnote(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _alltext(_main(tmp_path, cfg))
     assert DELTA_FOOT in text
     assert NULL_FOOT in text  # the other footnotes stay
 
 
-def test_b3_interval_wholly_below_zero_is_not_named(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_interval_wholly_below_zero_is_not_named(tmp_path: Path, cfg: GippaConfig) -> None:
     """Transcription's interval lies wholly below 0 (|ΔR²| the largest): no block is named."""
     t = _title_of(tmp_path, cfg, _en(transcription=(-0.09, -0.12, -0.06)))
     assert t == f"Elastic net CV R² 0.21 ± 0.03; {NONE_ABOVE}", t
 
 
-def test_b3_below_zero_beside_above_zero_names_the_above(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_below_zero_beside_above_zero_names_the_above(tmp_path: Path, cfg: GippaConfig) -> None:
     t = _title_of(tmp_path, cfg, _en(transcription=(-0.09, -0.12, -0.06),
                                      codon=(0.04, 0.01, 0.07)))  # fmt: skip
     assert t.endswith(
@@ -708,27 +712,27 @@ def test_b3_below_zero_beside_above_zero_names_the_above(tmp_path: Path, cfg: Gi
     ), t
 
 
-def test_n3_interval_low_end_exactly_zero_is_not_above(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_interval_low_end_exactly_zero_is_not_above(tmp_path: Path, cfg: GippaConfig) -> None:
     """An interval [0, hi] does not lie above 0 (strict ``lo > 0``)."""
     t = _title_of(tmp_path, cfg, _en(transcription=(0.10, 0.0, 0.20)))
     assert t.endswith(NONE_ABOVE), t
     assert "transcription" not in t
 
 
-def test_n4_ties_are_broken_in_blocks_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n4_ties_are_broken_in_blocks_order(tmp_path: Path, cfg: GippaConfig) -> None:
     """transcription precedes translation in BLOCKS; alphabetically it would lose the tie."""
     t = _title_of(tmp_path, cfg, _en(transcription=(0.05, 0.01, 0.09),
                                      translation=(0.05, 0.02, 0.08)))  # fmt: skip
     assert "largest block ΔR²: transcription 0.05 (repeat t-interval 0.01–0.09" in t, t
 
 
-def test_s2_title_uses_a_unicode_minus(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s2_title_uses_a_unicode_minus(tmp_path: Path, cfg: GippaConfig) -> None:
     t = _title_of(tmp_path, cfg, vd.EN_DELTAS_NULL, en_cv=(-0.05, 0.03, 0.5))
     assert t == f"Elastic net CV R² {MINUS}0.05 ± 0.03; {NONE_ABOVE}", t
     assert "-" not in t
 
 
-def test_s2_na_cv_r2_reads_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s2_na_cv_r2_reads_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [r for r in vd.model_table(vd.EN_DELTAS_NULL)
             if not (r["model"] == "elastic_net" and r["metric"] == "cv_r2_mean")]  # fmt: skip
     rows.append(vd.mrow("elastic_net", "all", "cv_r2_mean", None, flags="ci_unestimated"))
@@ -739,7 +743,7 @@ def test_s2_na_cv_r2_reads_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
     assert not re.search(r"\bNA\b", t), t
 
 
-def test_b2_panel_d_header_r2_text_and_flag_label(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_panel_d_header_r2_text_and_flag_label(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_main(tmp_path, cfg), "d")
     assert ax.get_title(loc="left") == D_HEADER
     texts = _ax_texts(ax)
@@ -751,7 +755,7 @@ def test_b2_panel_d_header_r2_text_and_flag_label(tmp_path: Path, cfg: GiapConfi
     assert "unexplained (> 2 SD)" not in labels
 
 
-def test_b2_panel_d_r2_text_unicode_minus(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_panel_d_r2_text_unicode_minus(tmp_path: Path, cfg: GippaConfig) -> None:
     """A null-world LightGBM (CV R² below 0) reads with a Unicode minus (S2's formatter)."""
     out = vd.build_out(tmp_path, model=vd.model_table(lgb_cv=(-0.27, 0.05, 0.6)), support=False)
     texts = _ax_texts(_axes(_render(out, cfg), "d"))
@@ -759,7 +763,7 @@ def test_b2_panel_d_r2_text_unicode_minus(tmp_path: Path, cfg: GiapConfig) -> No
     assert want in texts, texts
 
 
-def test_s1_panel_b_label(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s1_panel_b_label(tmp_path: Path, cfg: GippaConfig) -> None:
     assert B_LABEL in _alltext(_main(tmp_path, cfg))
 
 
@@ -783,7 +787,7 @@ def _hexbins(ax: Axes) -> list[Collection]:
             and c.get_array() is not None]  # fmt: skip
 
 
-def test_b4_hexbin_bins_model_genes_only_on_a_log_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_hexbin_bins_model_genes_only_on_a_log_scale(tmp_path: Path, cfg: GippaConfig) -> None:
     out, n_model = _big(tmp_path)
     inst = _render(out, cfg)
     ax = _axes(inst, "d")
@@ -797,7 +801,7 @@ def test_b4_hexbin_bins_model_genes_only_on_a_log_scale(tmp_path: Path, cfg: Gia
     assert (d["category"].astype(str) == "model").sum() == n_model
 
 
-def test_b4_hexbin_colourbar_and_legend_proxy(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_hexbin_colourbar_and_legend_proxy(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_big(tmp_path)[0], cfg)
     labels = [ax.get_ylabel() for ax in inst.figure.axes] + [
         ax.get_xlabel() for ax in inst.figure.axes]  # fmt: skip
@@ -807,12 +811,12 @@ def test_b4_hexbin_colourbar_and_legend_proxy(tmp_path: Path, cfg: GiapConfig) -
     assert HEX_PROXY in [t.get_text() for t in legend.get_texts()]
 
 
-def test_b4_checklist_big_genome(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_checklist_big_genome(tmp_path: Path, cfg: GippaConfig) -> None:
     out, _ = _big(tmp_path / "in")
     assert _gated_failures(_render(out, cfg), tmp_path / "plots") == []
 
 
-def test_n3_imputed_rows_are_not_model_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_imputed_rows_are_not_model_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     """Detected genes with an imputed abundance in TUs of their own leave the counts at 60/20."""
     feats = vd.feature_rows(60, tu=3)
     for k in range(5):
@@ -824,7 +828,7 @@ def test_n3_imputed_rows_are_not_model_rows(tmp_path: Path, cfg: GiapConfig) -> 
     assert _render(out, cfg).title == "Too few genes for the determinants model (60 rows, 20 TUs)"
 
 
-def test_n3_imputed_rows_are_not_in_the_pd_rug(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_imputed_rows_are_not_in_the_pd_rug(tmp_path: Path, cfg: GippaConfig) -> None:
     feats = vd.feature_rows()
     feats.append({**feats[0], "locus_tag": "I_0000", "tu_id": "TUI0000",
                   "abundance_imputed": True})  # fmt: skip
@@ -833,7 +837,7 @@ def test_n3_imputed_rows_are_not_in_the_pd_rug(tmp_path: Path, cfg: GiapConfig) 
     assert "G_0000" in set(b["locus_tag"].dropna().astype(str))
 
 
-def test_n3_each_feature_sits_at_its_own_tick(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_each_feature_sits_at_its_own_tick(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     ax = _axes(inst, "c")
     pairs = zip(ax.get_yticks(), ax.get_yticklabels(), strict=True)
@@ -846,7 +850,7 @@ def test_n3_each_feature_sits_at_its_own_tick(tmp_path: Path, cfg: GiapConfig) -
         assert np.all(np.abs(ys - tick[f]) <= 0.5), f
 
 
-def test_n3_half_na_ci_is_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_half_na_ci_is_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     """Protein's interval has a low end but no high end: no bar, "CI unestimated" (as context)."""
     en = {**vd.EN_DELTAS, "protein": (0.01, -0.02, None)}
     inst = _main(tmp_path, cfg, model=vd.model_table(en), support=False)
@@ -866,9 +870,9 @@ def test_n3_half_na_ci_is_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- the Plotly twin (decision 5, S3) ---------------------------------------------------------
 
 
-def _twin(tmp: Path, cfg: GiapConfig) -> dict:
-    from giap.steps.plots import TWIN_ID_DTYPES
-    from giap.viz.interactive import figure_json
+def _twin(tmp: Path, cfg: GippaConfig) -> dict:
+    from gippa.steps.plots import TWIN_ID_DTYPES
+    from gippa.viz.interactive import figure_json
 
     inst = _main(tmp, cfg)
     write_instance(inst, "V15", "determinants", tmp / "plots", ["svg"], 50)
@@ -897,7 +901,7 @@ def _yaxis(fig: dict, trace: dict) -> dict:
     return fig["layout"].get("yaxis" + ref[1:], {})
 
 
-def test_s3_twin_panel_a_dodged_numeric_y(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s3_twin_panel_a_dodged_numeric_y(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = _twin(tmp_path, cfg)
     tr = _a_traces(fig)
     assert set(tr) == {EN_LEGEND, LGB_LEGEND}
@@ -913,13 +917,13 @@ def test_s3_twin_panel_a_dodged_numeric_y(tmp_path: Path, cfg: GiapConfig) -> No
     assert set(vd.BLOCKS) <= set(ax.get("ticktext", []))
 
 
-def test_s3_twin_panel_a_markers(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s3_twin_panel_a_markers(tmp_path: Path, cfg: GippaConfig) -> None:
     tr = _a_traces(_twin(tmp_path, cfg))
     assert tr[EN_LEGEND]["marker"].get("symbol") == "circle"
     assert tr[LGB_LEGEND]["marker"].get("symbol") == "diamond-open"
 
 
-def test_s3_twin_panel_a_y_axis_reversed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s3_twin_panel_a_y_axis_reversed(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = _twin(tmp_path, cfg)
     ax = _yaxis(fig, _a_traces(fig)[EN_LEGEND])
     rng = ax.get("range")
@@ -930,15 +934,15 @@ def _annotations(fig: dict) -> list[str]:
     return [str(a.get("text", "")) for a in fig["layout"].get("annotations", [])]
 
 
-def test_s3_twin_footnotes_are_an_annotation(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.determinants import CAVEATS
+def test_s3_twin_footnotes_are_an_annotation(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.determinants import CAVEATS
 
     notes = "\n".join(_annotations(_twin(tmp_path, cfg)))
     assert DELTA_FOOT in notes, notes
     assert CAVEATS[0] in notes, notes
 
 
-def test_s3_twin_marks_ci_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_s3_twin_marks_ci_unestimated(tmp_path: Path, cfg: GippaConfig) -> None:
     """A visible mark (annotation or text trace), not only hover text, for the NA interval."""
     fig = _twin(tmp_path, cfg)
     shown = _annotations(fig)

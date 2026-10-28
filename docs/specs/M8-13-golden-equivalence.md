@@ -1,14 +1,14 @@
-# M8-13: Gate, half 1 — GIAP's Wallenius against goseq, and GIAP's R fgsea call against a direct R fgsea run, on the golden data
+# M8-13: Gate, half 1 — GIPPA's Wallenius against goseq, and GIPPA's R fgsea call against a direct R fgsea run, on the golden data
 
 Milestone M8 · track C (calibration and golden) · **pass 2** · depends on: M8-01 (Wallenius,
 merged), M8-12 (#192, committed golden data, merged), M8-17 (#204 and #207 merged, #214 open),
 **M8-12b** (median-exact golden GSEA inputs, proposed below) · estimate ≈ 0–20 code lines
 (+ ≈ 380 test lines), see "Estimate" · **statistical** (items marked **[statistician]**)
 
-> **Amended 2026-10-22 for ADR-0038.** GIAP no longer ports fgsea: `enrichment_gsea.tsv` comes
-> from `fgsea::fgseaMultilevel` 1.36.2 run by `workflow/bin/giap_fgsea.R` (ADR-0038 items 1, 3).
+> **Amended 2026-10-22 for ADR-0038.** GIPPA no longer ports fgsea: `enrichment_gsea.tsv` comes
+> from `fgsea::fgseaMultilevel` 1.36.2 run by `workflow/bin/gippa_fgsea.R` (ADR-0038 items 1, 3).
 > So the fgsea half of this gate cannot mean "the Python port agrees with R" any more. It now
-> means **"GIAP's call into R fgsea reproduces a direct R fgsea run on the golden data"**: it
+> means **"GIPPA's call into R fgsea reproduces a direct R fgsea run on the golden data"**: it
 > checks the wiring (TU ranking, ties, TU sets, size filter, seed, parameters, parsing, row
 > mapping), not the algorithm, which is fgsea's own by construction (ADR-0038 "Evidence"). The
 > Wallenius half is unchanged in intent (ADR-0038 item 5). M8-11 (the multilevel port, #193) is
@@ -38,26 +38,26 @@ Each of these was a read-only check of the committed data: a few seconds of Pyth
 
 - **F1. The golden GSEA scores are not exactly median-centred.** `inputs/gsea_stats.tsv.gz` has
   median −0.005705. `make_golden_inputs.py` centres the scores and then overwrites 106 of them
-  with ties and zeros, accepting `|median| ≤ 0.05`. `giap.function.gsea.tu_ranking` subtracts
+  with ties and zeros, accepting `|median| ≤ 0.05`. `gippa.function.gsea.tu_ranking` subtracts
   the median over TUs (ADR-B). So `gsea_table` on the golden inputs ranks `score + 0.005705`, not
   the scores R saw, and every ES differs (`scoreType = "std"` weights by |score|). **An exact
   wiring check through `gsea_table` is impossible on the current data.** Remedy: M8-12b
   (question 1).
 - **F2. Ties.** There are 106 tied TUs: two values × 50 TUs, plus 6 zeros. R saw them in TU-ID
-  file order. GIAP sends them in its seeded tie order (`rng.permutation`, M8-02 lead decision 7),
+  file order. GIPPA sends them in its seeded tie order (`rng.permutation`, M8-02 lead decision 7),
   and fgsea's stable radix sort keeps that order (M8-17 §5, T5). So even after F1 is fixed, ES
   and the leading edges of sets whose peak falls inside a tie block legitimately differ between
-  GIAP's own run and the golden run.
+  GIPPA's own run and the golden run.
 - **F3. The Wallenius half fails on current main [statistician].** I ran
-  `giap.stats.wallenius.wallenius_ora` over the full 3,000-gene universe (`make_golden_r.R`
+  `gippa.stats.wallenius.wallenius_ora` over the full 3,000-gene universe (`make_golden_r.R`
   passes `use_genes_without_cat = TRUE`), and the counts `numInCat` and `numDEInCat` match for
   all 150 categories. But **36 of the 300 tails exceed relative 10⁻⁶**:
   - CAT_137 over, p_R = 0.01935: rel 1.4 × 10⁻⁴;
   - about 30 tails with p_R in 0.1–0.2: rel 1–2 × 10⁻⁵;
   - CAT_012, p_R = 2.1 × 10⁻¹⁰: rel 0.05;
   - CAT_011, p_R = 3.7 × 10⁻²⁷: rel 0.18;
-  - CAT_004, p_R = 2.1 × 10⁻⁷ against GIAP's 4.2 × 10⁻⁷: a factor of 2;
-  - CAT_013, p_R = 0 against GIAP's 1.06 × 10⁻¹⁷, which the old rule "p_R = 0 requires
+  - CAT_004, p_R = 2.1 × 10⁻⁷ against GIPPA's 4.2 × 10⁻⁷: a factor of 2;
+  - CAT_013, p_R = 0 against GIPPA's 1.06 × 10⁻¹⁷, which the old rule "p_R = 0 requires
     p ≤ 10⁻³⁰⁰" fails.
 
   Errors of 10⁻⁵ at p ≈ 0.1 are not the deep-tail cancellation that docs/methods/function.md
@@ -83,14 +83,14 @@ Each of these was a read-only check of the committed data: a few seconds of Pyth
 4. **Both tails** **[statistician]**: `|p − p_R| / p_R ≤ wallenius_rel_tol` where p_R > 0. Where
    p_R = 0 (BiasedUrn underflow, or cancellation in `1 − cdf`), the rule is
    `p ≤ wallenius_abs_floor`, defined in question 3. Until question 3 is decided it is **10⁻¹⁴**,
-   GIAP's documented precision floor (docs/methods/function.md), **not** 10⁻³⁰⁰.
-5. **Pipeline wiring of `p_classic`** (new, cheap). `giap.function.ora.detection_enrichment`
+   GIPPA's documented precision floor (docs/methods/function.md), **not** 10⁻³⁰⁰.
+5. **Pipeline wiring of `p_classic`** (new, cheap). `gippa.function.ora.detection_enrichment`
    runs on a gene table built from the golden ORA inputs: one gene per TU, all eligible, no
    folds. Its `p_classic` must equal `wallenius_ora` on the same category **exactly** (float `==`).
    The primary detection p is the conditional Poisson-binomial (ADR-0029) and has no goseq
    counterpart, so `p_classic` is the only ORA number the golden data can check.
 
-### 1.2 GSEA: GIAP's R fgsea call against a direct R fgsea run
+### 1.2 GSEA: GIPPA's R fgsea call against a direct R fgsea run
 
 The reference is the direct R run in `make_golden_r.R`: one `set.seed(GOLDEN_SEED)` and one
 `fgseaMultilevel` over the golden stats in file order, with sampleSize 101, eps 0,
@@ -125,7 +125,7 @@ The checks, from cheapest to strongest:
     17-digit strings;
   - `size_tus` equals `size`;
   - `leading_edge` equals the golden leading-edge TUs mapped to genes, **in fgsea's order**;
-  - `q_value` equals `giap.stats.multitest.bh` over the golden p values;
+  - `q_value` equals `gippa.stats.multitest.bh` over the golden p values;
   - `method = fgsea_multilevel`, `null_model = tu_set_permutation`, `n_perm = 1000`, and every
     row has the flag `ci_unestimated`.
 
@@ -135,18 +135,18 @@ The checks, from cheapest to strongest:
   the `EngineCall` before delegating: it sets `seed = GOLDEN_SEED`, and it reorders the TUs inside
   each tie block to golden file order. Columns `pathway`, `pval`, `log2err`, `ES`, `NES`, `size`
   and `leadingEdge` of the engine's rows must equal `fgsea.tsv.gz` **as strings, row for row**,
-  and G2's table rules must hold on the live table. This is the gate's wiring check. Every GIAP
+  and G2's table rules must hold on the live table. This is the gate's wiring check. Every GIPPA
   transformation runs except the two that G3a overrides, and those two are covered elsewhere:
   - seed derivation by M8-17 §5 unit tests;
   - tie order by M8-17 T5 on real R.
-- **G3b GIAP's own run (Slurm, `slow` + `requires_r`) [statistician].** The same, **without**
-  normalisation: GIAP's own seed and tie order. The §7.7.5 criteria are applied as Monte Carlo
+- **G3b GIPPA's own run (Slurm, `slow` + `requires_r`) [statistician].** The same, **without**
+  normalisation: GIPPA's own seed and tie order. The §7.7.5 criteria are applied as Monte Carlo
   agreement, with the rules in §3:
   - **ES:** a test-side ES oracle, written from the GSEA definition with gseaParam 1 (about 20
-    lines, no fgsea source), computes each set's ES under GIAP's order and under golden order.
+    lines, no fgsea source), computes each set's ES under GIPPA's order and under golden order.
     Then three things must hold to `fgsea_es_abs_tol`:
     - the oracle on golden order equals `calc_gsea_stat.tsv.gz`, which validates the oracle;
-    - the live ES equals the oracle on GIAP's order;
+    - the live ES equals the oracle on GIPPA's order;
     - the live ES equals the golden ES for every set where the two oracle values agree. Such a set
       is *tie-insensitive*. The others are counted and reported.
   - **NES** and **p**, per §3.
@@ -157,7 +157,7 @@ The checks, from cheapest to strongest:
 
 | Test | PR | Input | What it proves | What it does not |
 |---|---|---|---|---|
-| `tests/contract/test_fgsea_r_contract.py::test_golden_contract_strings` (M8-17 A1) | #204, merged | golden stats and sets written straight to `giap_fgsea.R` as one job, GOLDEN_SEED | `giap_fgsea.R` ≡ `make_golden_r.R`'s fgsea call, exact strings, 119 rows | `gsea_table`: TU collapse, centring, tie order, set construction, seed derivation |
+| `tests/contract/test_fgsea_r_contract.py::test_golden_contract_strings` (M8-17 A1) | #204, merged | golden stats and sets written straight to `gippa_fgsea.R` as one job, GOLDEN_SEED | `gippa_fgsea.R` ≡ `make_golden_r.R`'s fgsea call, exact strings, 119 rows | `gsea_table`: TU collapse, centring, tie order, set construction, seed derivation |
 | `…::test_golden_contract_through_wrapper` | #204 | the same, through `r_fgsea_engine` | `write_call`, the subprocess and `read_results` on golden data | the same |
 | `…::test_seed_is_set_before_every_job` | #204 | the golden job behind another job | per-job `set.seed` | the same |
 | `tests/contract/test_fgsea_r_switch_contract.py::test_live_engine_reproduces_the_replay_table` | #214, open | the M8-06 **simulated** step fixture (4 collections, seed 7) | live `gsea_table` + R = the replay table, byte for byte: live and recorded agree end to end | the golden data, and agreement with an *independent* direct R run (the replay was recorded through the same wrapper) |
@@ -175,7 +175,7 @@ consumption.
 |---|---|---|---|
 | `tests/golden/test_golden_wallenius.py` (§1.1) | CI, every PR | none (golden layer) | committed goseq outputs |
 | `tests/golden/test_golden_gsea_wiring.py::G1`, `::G2` | CI, every PR | none | committed fgsea outputs (replay) |
-| `tests/golden/test_golden_gsea_wiring.py::G3a`, `::G3b` | Slurm only: `sbatch scripts/slurm/test_branch.sbatch <worktree> -m requires_r tests/golden` (≤ 2 CPUs of work, inside the 16-CPU giap-test job), and the weekly `gsea` task of the M8-15 full-calibration array (`calsuite gsea`) on main | `slow`, `requires_r` | live `giap-fgsea` env (`sbatch scripts/slurm/build_envs.sbatch fgsea`) |
+| `tests/golden/test_golden_gsea_wiring.py::G3a`, `::G3b` | Slurm only: `sbatch scripts/slurm/test_branch.sbatch <worktree> -m requires_r tests/golden` (≤ 2 CPUs of work, inside the 16-CPU gippa-test job), and the weekly `gsea` task of the M8-15 full-calibration array (`calsuite gsea`) on main | `slow`, `requires_r` | live `gippa-fgsea` env (`sbatch scripts/slurm/build_envs.sbatch fgsea`) |
 
 - CI cannot run R (§11.4). G1 and G2 replay the committed outputs, so CI keeps a check of
   everything outside R.
@@ -190,7 +190,7 @@ All keys come from `tolerances.yaml` `golden_r` and are read, never copied. A ch
 them needs a **Khoa ADR** (protected file, R3). This spec's only change is ADR-0044's
 `wallenius_goseq_abs_tol: 1.0e-5`.
 
-| Criterion | G3a (seed and ties normalised) | G3b (GIAP's own seed and ties) |
+| Criterion | G3a (seed and ties normalised) | G3b (GIPPA's own seed and ties) |
 |---|---|---|
 | ES | exact strings (stronger than 1e-9) | `fgsea_es_abs_tol` = 1e-9, tie-insensitive sets; oracle equality for all |
 | NES | exact strings | `fgsea_nes_abs_tol` = 0.02 where both are finite |
@@ -207,7 +207,7 @@ among its 119 rows.
   at **5 % of compared sets**, i.e. ⌊0.05 × 119⌋ = **5** on the current data. They are reported
   in the JSON and never silently passed. Reasons:
   - the cap keeps a vacuous pass visible;
-  - the golden side contributes none, so the cap only constrains GIAP's own run;
+  - the golden side contributes none, so the cap only constrains GIPPA's own run;
   - the cap is a test rule, not a `tolerances.yaml` key, so it needs no ADR.
 - G3a needs no cap: NA must match NA exactly.
 
@@ -236,9 +236,9 @@ block the gate.
   in fgsea's order, mapped to genes in G2. Given the ranking and ES this is deterministic, so
   order is free to check.
 - **G3b:** (a) on every compared set, the live leading edge equals, as a set, the oracle's
-  leading edge on GIAP's sent ranking; (b) on every *edge-tie-insensitive* set, the live leading
+  leading edge on GIPPA's sent ranking; (b) on every *edge-tie-insensitive* set, the live leading
   edge equals the golden leading edge as a set. A set is edge-tie-insensitive when its oracle
-  leading edges under GIAP's sent order and under golden file order are equal as sets. This is
+  leading edges under GIPPA's sent order and under golden file order are equal as sets. This is
   classified separately from ES tie-insensitivity (§1.2), because a tie block that straddles the
   running-sum extreme can swap edge members without changing the running sum (SET_016). The
   report lists the edge-tie-sensitive sets by name. Rule (b) is implied by (a) and by the CI
@@ -261,7 +261,7 @@ block the gate.
   - the number of p exceedances at k = 3 and the max of |Δlog10 p| / bound;
   - the NA `log2err` counts by class;
   - the p decade histogram;
-  - the GIAP seed;
+  - the GIPPA seed;
   - the R and fgsea versions from `EngineProvenance`.
 
 The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
@@ -276,7 +276,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 | 4 | G1 | fixture → captured `EngineCall` | scores == golden (after M8-12b); 119 sets in golden order, SET_027 absent; 101/0/1000; [10, 500] |
 | 5 | G2 | replayed `fgsea.tsv.gz` | table es/nes/p/log2err == golden; q == bh(golden p); leading edges are the golden TUs as genes |
 | 6 | G3a | live R, seed → 50000, ties → file order | 119 rows equal `fgsea.tsv.gz` as strings |
-| 7 | G3b ES | live R, GIAP's seed and ties | oracle(golden order) == `calc_gsea_stat` ≤ 1e-9; live == oracle(GIAP order) for 119/119; tie-insensitive sets == golden ≤ 1e-9 |
+| 7 | G3b ES | live R, GIPPA's seed and ties | oracle(golden order) == `calc_gsea_stat` ≤ 1e-9; live == oracle(GIPPA order) for 119/119; tie-insensitive sets == golden ≤ 1e-9 |
 | 8 | G3b NES and p | the same | reported: max |ΔNES|, the number of p exceedances, NA counts ≤ 5 |
 | 9 | mutation: scores not centred (F1 reintroduced, or `tu_ranking` skips the median) | G1 | G1 fails on the score equality; G3a fails on every ES |
 | 10 | mutation: ω inverted (`category_odds` returns out/in) | §1.1 | counts pass, tails fail on all non-trivial categories |
@@ -293,7 +293,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 | `pval` NA on one side (unbalanced) | the row fails; the golden data have none |
 | `log2err` NA | §3: one side uses the finite side; both sides are not p-checked; the class counts are capped at 5 |
 | an empty leading edge | the golden data have none. The comparison is `()` == `()` (an empty cell) |
-| giap-fgsea env missing | G3 skips with a reason off Slurm, and the weekly task fails |
+| gippa-fgsea env missing | G3 skips with a reason off Slurm, and the weekly task fails |
 | golden data regenerated (M8-12b) | ORA inputs and outputs must stay byte-identical. A1 (#204) and G1–G3 must pass on the new files in the same PR |
 
 ## Acceptance criteria
@@ -314,15 +314,15 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 - [ ] **A6** The mutation checks of examples 9 and 10 are documented in the PR: both injected
       faults are caught.
 - [ ] **A7** PROGRESS.md records gate half 1 as met, with the max deviations and the test names.
-- [ ] **A8** No change to `tolerances.yaml`, `src/` or `GIAP_SPEC.md` (a test-only issue, apart
+- [ ] **A8** No change to `tolerances.yaml`, `src/` or `GIPPA_SPEC.md` (a test-only issue, apart
       from M8-12b's generator change).
 
 ## Hardening owed / escalation
 
-- **Wallenius (F3):** first decide which side is imprecise (question 3). If it is GIAP, an ADR
+- **Wallenius (F3):** first decide which side is imprecise (question 3). If it is GIPPA, an ADR
   on the computation (log-space or exact pmf) follows, never on `wallenius_rel_tol` (R3). If it is
   goseq or BiasedUrn, the reference itself misses 1e-6. That needs a Khoa ADR on the reference or
-  on the tolerance, because no GIAP change can pass a test against an imprecise reference.
+  on the tolerance, because no GIPPA change can pass a test against an imprecise reference.
 - **G3b NES or p miss after 3 iterations (R9):** evidence to the statistician, then a Khoa ADR on
   `fgsea_nes_abs_tol` / `fgsea_log10p_k` or on the multiplicity rule. Not a wiring bug once G3a
   passes.
@@ -336,7 +336,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 - M8-02 (`fgsea_simple`): no longer a dependency. `SIMPLE_ENGINE` is irrelevant here.
 - **M8-12: merged (#192)**. Golden data in `tests/data/golden/r/`, generated by Slurm job
   1868639; the lock is `scripts/golden/golden_r.explicit.txt`.
-- **M8-17: #204 (17a, env, `giap_fgsea.R`, wrapper, A1 contract) merged; #207 (17a-2,
+- **M8-17: #204 (17a, env, `gippa_fgsea.R`, wrapper, A1 contract) merged; #207 (17a-2,
   recording tooling) merged; #214 (17b, engine switch in `gsea_table`, `requires_r` marker in
   `pyproject.toml`) open.** G1–G3 need #214 (`engine=` in `gsea_table`). The Wallenius half needs
   nothing new.
@@ -378,7 +378,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
    for p_R = 0? **Proposed default:** before writing the gate test, the statistician compares
    both sides with a high-precision oracle on the 36 failing tails. The oracle is the Wallenius
    pmf by mpmath quadrature from the definition (no goseq or BiasedUrn code). Then:
-   - if GIAP is wrong, an ADR on the computation;
+   - if GIPPA is wrong, an ADR on the computation;
    - if goseq is wrong (likely: BiasedUrn's default `precision = 1e-7` and its own tail sum), a
      Khoa ADR: either compare against the oracle with `wallenius_rel_tol` and goseq at a looser
      documented tolerance, or change the reference.
@@ -388,7 +388,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 4. **What gates in G3b [statistician].** **Proposed default:** the gate is G1 + G2 + G3a plus
    G3b's deterministic rules (ES, oracle, leading edges). G3b's NES ≤ 0.02 and p at k = 3 are
    reported and escalated, not gating, because across seeds they measure fgsea's Monte Carlo error
-   rather than GIAP's wiring (§3 risks). *Alternative:* gate on them literally per §7.7.5 and
+   rather than GIPPA's wiring (§3 risks). *Alternative:* gate on them literally per §7.7.5 and
    accept a Khoa ADR if they miss.
 5. **Leading edges (old Q2).** **Proposed default: yes.** An exact ordered list in G2 and G3a,
    and an exact set on tie-insensitive sets in G3b (§4).
@@ -415,7 +415,7 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 Reproduction scripts (scratch, not committed): urn recursion, exact rational integral, NES Monte
 Carlo estimate. Their method is stated in ADR-0044 "Context" and is reproducible from it.
 
-### Question 3: the Wallenius disagreement. Verdict: goseq is wrong, GIAP is right
+### Question 3: the Wallenius disagreement. Verdict: goseq is wrong, GIPPA is right
 
 **The reference.** Both sides were compared with the exact Wallenius distribution, computed from
 the definition, with no goseq or BiasedUrn code, in two independent ways:
@@ -426,7 +426,7 @@ the definition, with no goseq or BiasedUrn code, in two independent ways:
 
 R2 rows checked:
 
-| tail | exact (R2) | GIAP rel. error | goseq rel. error |
+| tail | exact (R2) | GIPPA rel. error | goseq rel. error |
 |---|---|---|---|
 | CAT_002 under | 9.916048474169236e-01 | 2.7e-12 | 4.6e-10 |
 | CAT_004 over | 4.169557888115581e-07 | 3.8e-12 | **0.49** |
@@ -439,7 +439,7 @@ R2 rows checked:
 | CAT_003 over (agrees) | 1.497505205155841e-04 | 1.9e-12 | 7.8e-08 |
 
 **All 300 tails against R1:**
-- GIAP: 0 tails > 1e-6, max relative error **7.1e-12**;
+- GIPPA: 0 tails > 1e-6, max relative error **7.1e-12**;
 - goseq: **36** tails > 1e-6, the same 36 as F3, max absolute error **2.6e-6**.
 
 **Why goseq is wrong**, from its outputs alone:
@@ -454,7 +454,7 @@ The spec-writer's suspicion is confirmed in direction (BiasedUrn's precision) bu
 error is absolute, ~3e-6, not relative 1e-7.
 
 **Consequences:**
-- **No GIAP change can pass "relative 1e-6 against goseq" on these data.**
+- **No GIPPA change can pass "relative 1e-6 against goseq" on these data.**
   → **ADR-0044 (accepted by Khoa, 2026-10-23):**
   - the criterion-1 reference becomes the exact distribution (R2, committed with a generator),
     at the unchanged `wallenius_rel_tol`;
@@ -463,7 +463,7 @@ error is absolute, ~3e-6, not relative 1e-7.
   - this supersedes the interim `wallenius_abs_floor`;
   - mutation check (example 10, inverted ω): the goseq rule catches 145/150 categories and the
     exact rule catches 150/150.
-- **GIAP is not wrong on the golden data, but it is elsewhere.** A spot check of 40 random
+- **GIPPA is not wrong on the golden data, but it is elsewhere.** A spot check of 40 random
   urns against R1 found:
   - relative error 3.5e-6 at p ≈ 2e-9;
   - 1.5e-4 at 5e-11;
@@ -494,13 +494,13 @@ condition, because G3b's p rule does not gate (question 4).
 - G1, G2, G3a;
 - G3b's deterministic rules:
   - the oracle equals `calc_gsea_stat`;
-  - live ES equals the oracle under GIAP's order;
+  - live ES equals the oracle under GIPPA's order;
   - tie-insensitive ES equals golden at 1e-9;
   - leading edges;
 - the one-sided `pval`/`NES` NA rule.
 
 G3a meets all four §7.7.5 criteria literally: equal seeds, exact strings. Under ADR-0038 that is
-the reading that tests GIAP and not fgsea's Monte Carlo error.
+the reading that tests GIPPA and not fgsea's Monte Carlo error.
 
 **The ES oracle is feasible.** A ~20-line ES from the definition (gseaParam 1, ties in file order)
 matches `calc_gsea_stat.tsv.gz` to **9.4e-16** on all 120 sets.
@@ -514,7 +514,7 @@ sd(ΔNES) ≈ √2 · |NES| · cv(same-sign null ES) / √(1000 · P(same sign))
   permutations correlate the sets, which lowers this somewhat).
 
 So the literal rule "NES within 0.02" across seeds **fails on every seed**. It measures fgsea's
-nPermSimple = 1000 error, not GIAP. Gating on it (the alternative) would need a Khoa ADR on
+nPermSimple = 1000 error, not GIPPA. Gating on it (the alternative) would need a Khoa ADR on
 `fgsea_nes_abs_tol` **before** the test is written, and the value would be about 0.15 at
 nPermSimple = 1000. I do not recommend that: G3a already pins the wiring exactly.
 - **Report:**
@@ -532,7 +532,7 @@ nPermSimple = 1000. I do not recommend that: G3a already pins the wiring exactly
 - If `log2err` understates the sd by 1.25× (function-gsea.md says "slightly"), P(≥ 1) = 0.86.
 
 The seed is fixed, so a miss is a fixed property of the derived seed, not flakiness. One or two
-exceedances say nothing about GIAP.
+exceedances say nothing about GIPPA.
 - **Report:** the count and the max |Δlog10 p| / bound;
 - **Alert:** ≥ 3 exceedances (0.4 % under calibration).
 
@@ -542,7 +542,7 @@ An alert opens a `stats` issue (lead decision 4) but does not set the gate to "n
 
 - **Wallenius half, as written ("against goseq, relative 1e-6"): no, on any implementation.**
   The reference is off by up to 0.49 and by 1 at the zero. With ADR-0044 accepted, it passes
-  today (GIAP's max 7.1e-12 against 1e-6). Khoa accepted ADR-0044 on 2026-10-23, so A1 is unblocked. The test PR adds
+  today (GIPPA's max 7.1e-12 against 1e-6). Khoa accepted ADR-0044 on 2026-10-23, so A1 is unblocked. The test PR adds
   `wallenius_goseq_abs_tol` to `tolerances.yaml` with the trailer `Gate-Change-Approved: ADR-0044`.
 - **GSEA half:** yes, with the question-4 default. G1, G2, G3a and the deterministic G3b rules
   are attainable. The literal cross-seed NES rule is not (about 24 expected misses), and it is

@@ -1,4 +1,4 @@
-"""M11-14h: ``giap compare`` version, digest, database and operon-source warnings.
+"""M11-14h: ``gippa compare`` version, digest, database and operon-source warnings.
 
 docs/specs/M11-14-container-install.md item 1 option (c) "Compare (14h) warns
 ``compare.operon_source: run A uniop, run B distance_model`` when the sources differ", item 1b
@@ -9,7 +9,7 @@ fields, including the ``operon_source`` warning"); ADR-0060 §6.
 
 Interface pinned here (test-author reading, beyond the spec text):
 
-- ``giap.compare.versions.compare_versions(manifests)`` is pure. ``manifests`` maps each run
+- ``gippa.compare.versions.compare_versions(manifests)`` is pure. ``manifests`` maps each run
   label (in run order) to its parsed ``run_manifest.json`` (``{}`` when the run has none). It
   returns the warning lines, each starting with its event name (``compare.cross_version: ...``),
   one line per differing tool. It reads every key with ``.get``: a manifest written before 14d
@@ -25,7 +25,7 @@ Interface pinned here (test-author reading, beyond the spec text):
   as a warning.
 
 Runs are small ``OUT/`` trees from ``tests/helpers/compare_data.py`` with a synthetic
-``run_manifest.json``. Never touches the real ``$GIAP_DB_DIR`` or the network.
+``run_manifest.json``. Never touches the real ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from helpers.compare_data import SHA_A, gene, write_run
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAST = ["--set", "stats.bootstrap=50"]
 N = 8
@@ -56,8 +56,8 @@ OSTIR_B = "sha256:77a0c1d2e3f4" + "1" * 52
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 # ---------------------------------------------------------------- fixtures
@@ -97,7 +97,7 @@ def manifest(**over: Any) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "schema_version": "1.0",
         "output_schema_version": "1.0",
-        "giap_version": "1.0.0",
+        "gippa_version": "1.0.0",
         "inputs": [
             {
                 "role": "genome",
@@ -132,7 +132,7 @@ def _pair(tmp: Path, a: Mapping[str, Any] | None, b: Mapping[str, Any] | None) -
 
 
 def _compare(tmp: Path, a: Path, b: Path, *extra: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = [str(a), str(b), "--outdir", str(tmp / "CMP"), "--labels", "A,B", *FAST, *extra]
     res = CliRunner().invoke(cli, ["compare", *args])
@@ -195,7 +195,7 @@ def test_same_operon_source_does_not_warn(tmp_path: Path) -> None:
     ],
 )
 def test_operon_source_line_names_each_run_in_order(src_a: str, src_b: str) -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions({"A": manifest(operon_source=src_a), "B": manifest(operon_source=src_b)})
     assert f"compare.operon_source: run A {src_a}, run B {src_b}" in out
@@ -203,7 +203,7 @@ def test_operon_source_line_names_each_run_in_order(src_a: str, src_b: str) -> N
 
 def test_operon_source_reason_alone_does_not_warn() -> None:
     """The table lists ``operon_source``; the reason is free text."""
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions(
         {
@@ -228,7 +228,7 @@ def test_example_10_cross_version_and_tool_digest(tmp_path: Path) -> None:
         tmp_path,
         manifest(),
         manifest(
-            giap_version="1.1.0", tools=[tool("ostir", "1.1.4", OSTIR_B), tool("bakta", "1.9.4")]
+            gippa_version="1.1.0", tools=[tool("ostir", "1.1.4", OSTIR_B), tool("bakta", "1.9.4")]
         ),
     )
     res = _compare(tmp_path, a, b)
@@ -247,26 +247,28 @@ def test_example_10_cross_version_and_tool_digest(tmp_path: Path) -> None:
 
 
 def test_package_patch_only_differs_gives_nothing() -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     assert (
-        compare_versions({"A": manifest(giap_version="1.0.2"), "B": manifest(giap_version="1.0.7")})
+        compare_versions(
+            {"A": manifest(gippa_version="1.0.2"), "B": manifest(gippa_version="1.0.7")}
+        )
         == []
     )
 
 
 def test_package_minor_differs_gives_the_spec_line() -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions(
-        {"A": manifest(giap_version="1.0.2"), "B": manifest(giap_version="1.1.0")}
+        {"A": manifest(gippa_version="1.0.2"), "B": manifest(gippa_version="1.1.0")}
     )
     assert out == ["compare.cross_version: runs from 1.0.2 and 1.1.0"]
 
 
 def test_same_tool_version_different_digest_warns() -> None:
     """Any tool ``version`` or ``container_digest`` differs: the digest alone is enough."""
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions(
         {
@@ -280,7 +282,7 @@ def test_same_tool_version_different_digest_warns() -> None:
 
 
 def test_one_line_per_differing_tool() -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions(
         {
@@ -296,7 +298,7 @@ def test_one_line_per_differing_tool() -> None:
 
 
 def test_database_version_differs() -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions({"A": manifest(), "B": manifest(databases=[db("bakta_db", "6.1")])})
     assert out == ["compare.db_versions: bakta_db 6.0 vs 6.1"]
@@ -323,7 +325,7 @@ def _with_uniop(**over: Any) -> dict[str, Any]:
 
 def test_local_uniop_rebuild_with_another_digest_does_not_warn() -> None:
     """Item 1b: a rebuild of the same key on another host is not a tool change."""
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions(
         {"A": _with_uniop(), "B": _with_uniop(container_digest="sha256:" + "e" * 64)}
@@ -333,7 +335,7 @@ def test_local_uniop_rebuild_with_another_digest_does_not_warn() -> None:
 
 @pytest.mark.parametrize("over", [{"source_sha256": "f" * 64}, {"runtime": "apptainer"}])
 def test_local_uniop_source_or_runtime_change_warns(over: dict[str, Any]) -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     out = compare_versions({"A": _with_uniop(), "B": _with_uniop(**over)})
     lines = [x for x in out if x.startswith("compare.tool_versions: uniop")]
@@ -416,7 +418,7 @@ def test_old_and_new_manifest_mix_does_not_fail(tmp_path: Path) -> None:
 
 _VER = st.tuples(st.integers(0, 3), st.integers(0, 3), st.integers(0, 3))
 _KEYS = (
-    "giap_version",
+    "gippa_version",
     "tools",
     "databases",
     "operon_source",
@@ -432,10 +434,10 @@ _KEYS = (
 def test_cross_version_iff_major_or_minor_differs(
     va: tuple[int, int, int], vb: tuple[int, int, int]
 ) -> None:
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     a, b = ".".join(map(str, va)), ".".join(map(str, vb))
-    out = compare_versions({"A": manifest(giap_version=a), "B": manifest(giap_version=b)})
+    out = compare_versions({"A": manifest(gippa_version=a), "B": manifest(gippa_version=b)})
     cross = [x for x in out if x.startswith("compare.cross_version: ")]
     if va[:2] == vb[:2]:
         assert cross == []
@@ -450,7 +452,7 @@ def test_any_missing_key_never_raises_and_warns_only_with_both_values(
 ) -> None:
     """Old manifests: any subset of keys may be absent. Every value present in both runs is
     equal here, so a key missing from one run never produces a warning."""
-    from giap.compare.versions import compare_versions
+    from gippa.compare.versions import compare_versions
 
     a = manifest(**dict.fromkeys(drop_a))
     b = manifest(**dict.fromkeys(drop_b))

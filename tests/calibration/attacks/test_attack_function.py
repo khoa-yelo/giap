@@ -1,5 +1,5 @@
 """M8 gate, half 2: attacks 2 and 3 (docs/specs/M8-15-calibration-gate.md § Suites and criteria,
-lead decisions 3-7; GIAP_SPEC.md §7.7.5, §8.4, §8.5 attacks 2 and 3; docs/methods/function.md
+lead decisions 3-7; GIPPA_SPEC.md §7.7.5, §8.4, §8.5 attacks 2 and 3; docs/methods/function.md
 "Simulator worlds for the M8-15 gate"; ADR-0015, ADR-0029, ADR-0035, ADR-0038).
 Statistician-owned nulls, written by the test-author as specified.
 
@@ -12,12 +12,12 @@ gene table and tested alone (its collection name kept; one term, so ``p_value = 
   covariates ``covariate_table`` recomputes from the sequences (never ``n_obs_true``), the M4-13
   folds to the TU recalibration; §8.4 level of the over **and** the under p at every alpha.
   Expected strongly conservative at -1.5 (decision 5: plug-in variance); a level gate only.
-* *teeth* (gated, decisions 3 and 9 B1): GIAP's own engine with the detectability weights
+* *teeth* (gated, decisions 3 and 9 B1): GIPPA's own engine with the detectability weights
   removed. ``p_detect`` is one constant for every eligible gene (the eligible detection share),
   run through ``detection_enrichment(..., [term], ORA_SIZE, 0.05, folds=<the oracle arm's
   tu_folds>)``; the ``under`` p must be a confirmed ``fail`` through ``calibrate`` (both
   blocks) **and** reject in > 2 x alpha at alpha = 0.05 in each block, at -1.5 and at -0.75
-  (decision 4: R >= 100; statistician probe 1, ``$GIAP_ROOT/stat/m815-review/probe1.py``:
+  (decision 4: R >= 100; statistician probe 1, ``$GIPPA_ROOT/stat/m815-review/probe1.py``:
   1.00 at -1.5, 0.96 / 0.97 at -0.75). The TU null keeps each TU's size through
   q_t = 1 - (1 - p)^{n_t}, so only the weights are removed.
 * *recorded beside the teeth* (``function_gate_diagnostics.jsonl``):
@@ -88,13 +88,13 @@ def _levels() -> list[float]:
 
 
 def _sc() -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc
 
 
 def _draw(pair: Any, rng: np.random.Generator) -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs.draw(pair, rng)
 
@@ -124,8 +124,8 @@ def _a2_world(tag: str, i: int) -> tuple[Any, pd.DataFrame, Any]:
 def _a2_cheap(tag: str, i: int, w: Any, genes: pd.DataFrame, one: Any) -> dict[str, Any]:
     """Oracle p (p_true through the ORA engine), the gated teeth p (the same engine and folds
     with one constant p_detect, decision 9 B1) and the two recorded hypergeometric p."""
-    from giap.function import ora
-    from giap.genetable.detectability import tu_folds
+    from gippa.function import ora
+    from gippa.genetable.detectability import tu_folds
 
     folds = tu_folds(list(genes["tu_id"]), 5, C.replicate_rng(_sim2(tag) + ".oracle", i))
     tab = ora.detection_enrichment(F.with_p_detect(genes, F.true_p_detect(w, genes)), [one],
@@ -161,7 +161,7 @@ def _a2(tag: str, i: int, fitted: bool) -> dict[str, Any]:
     rec = _A2.get(key)
     if rec is not None and (not fitted or "fitted_over" in rec):
         return rec
-    from giap.function import ora
+    from gippa.function import ora
 
     w, genes, one = _a2_world(tag, i)
     rec = rec or _a2_cheap(tag, i, w, genes, one)
@@ -227,7 +227,7 @@ def test_attack2_fitted_p_detect_confounded_term_at_level(full: bool, tag: str) 
 def test_teeth_attack2_flat_p_detect_under_rejects_beyond_twice_alpha(
     tag: str, teeth_log: Path
 ) -> None:
-    """Gated teeth (decisions 3, 9 B1): GIAP's engine with one constant p_detect is a confirmed
+    """Gated teeth (decisions 3, 9 B1): GIPPA's engine with one constant p_detect is a confirmed
     fail, > 2 x alpha per block; the gene-level and equal-q TU hypergeometrics are recorded."""
     R = C.replicates(ORA, False)
     assert R >= 100  # decision 4: the overlap arm must fail at R >= 100
@@ -293,9 +293,9 @@ def _a3(engine: Any, i: int) -> dict[str, np.ndarray]:
     """TU-collapsed and gene-level R-engine p of the 20 packed sets of replicate ``i``."""
     if i in _A3:
         return _A3[i]
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     w = _draw(_sc().gsea_attack_operon_packed(N_GENES, N_PACKED), C.replicate_rng(SIM3, i))
     genes = F.gene_frame(w)

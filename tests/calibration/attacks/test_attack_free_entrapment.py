@@ -1,4 +1,4 @@
-"""Attack (GIAP_SPEC.md §8.5, statistician): the free-entrapment estimate of M10-07
+"""Attack (GIPPA_SPEC.md §8.5, statistician): the free-entrapment estimate of M10-07
 (docs/specs/M10-07-free-entrapment.md, "Statistician decisions" S3, S4 item 3, S6).
 
 Null world (one universe, built once from the seed): a K-12-like database of k = 1,000 K-12-only
@@ -48,7 +48,7 @@ look like a pass.
 
 Calls the implementation's pure API (``combined``, ``lower``, ``ucb95``, ``assess`` in
 ``validation/pilot/entrapment.py``) unchanged; the test fails, not errors, while it does not
-exist. Randomness only through ``giap.rng.for_step``, seeded ``seeds.calibration_base + 707``
+exist. Randomness only through ``gippa.rng.for_step``, seeded ``seeds.calibration_base + 707``
 from ``tolerances.yaml``.
 """
 
@@ -67,7 +67,7 @@ import _criteria as C
 import numpy as np
 import pytest
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from helpers.entrapment_m10_07 import load_entrapment

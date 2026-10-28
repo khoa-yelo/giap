@@ -1,9 +1,9 @@
-"""Coverage of the M5-08 ori-ter slope CI (suite ``islands``; GIAP_SPEC.md §8.4, §7.3.5(e)).
+"""Coverage of the M5-08 ori-ter slope CI (suite ``islands``; GIPPA_SPEC.md §8.4, §7.3.5(e)).
 
 The ori-ter regression is **descriptive** (no p-value, flag ``descriptive``), so the only
 statistical claim is the circular block-bootstrap CI of the slope. ADR-0021 decision 1 fixes its
 block length (l' = min(20, 2 l-hat + 1, T)) and Amendment 1 states the validity domain as a
-dependence regime -- giapsim ``ar1_background`` at rho <= 0.5 -- not a replicon size; no row
+dependence regime -- gippasim ``ar1_background`` at rho <= 0.5 -- not a replicon size; no row
 carries ``uncalibrated``.
 
 Claims:
@@ -11,7 +11,7 @@ Claims:
 C1 (spec example 7, **recorded**, not gated) ``scenarios.oriter_gradient(4500, 0.5, 2.0)``:
    the pooled-slope CI covers the OLS slope of the planted cosine curve in >= 90 % of R seeds
    (R = ``replicates_fast/full.islands``: 50 / 500). 2 log2 ori minus ter is a 4-fold
-   copy-number ratio and, quoted in background SD (giapsim's AR(1) innovation SD is 2, so the
+   copy-number ratio and, quoted in background SD (gippasim's AR(1) innovation SD is 2, so the
    stationary SD at rho = 0.5 is 2.31), a 0.87 SD peak-to-trough gradient -- the realistic
    amplitude the statistician measured at level. Rate appended to
    ``local/logs/calibration/oriter_coverage.jsonl``.
@@ -22,7 +22,7 @@ C3 (**teeth**, ``calibration_full``) resampling single TUs (``context.islands.bl
    block length at all.
 
 Each replicate draws its layout and expression from ``replicate_rng`` and runs the real
-``giap.context.oriter.oriter_rows`` with ``giap.rng.for_step("context_stats.oriter", seed)``.
+``gippa.context.oriter.oriter_rows`` with ``gippa.rng.for_step("context_stats.oriter", seed)``.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def _replicate(
     block_len: int | str = "auto",
 ) -> tuple[float, float]:
     """(covered?, CI width) of one replicate; NaN when the CI does not exist."""
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     genes, tus, replicons, feats = od.scenario_frames(
         rng, sc.oriter_gradient(n_genes, rho, amplitude)

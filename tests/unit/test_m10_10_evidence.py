@@ -4,7 +4,7 @@
 Spec: docs/specs/M10-10-a3-run.md, "The A3 run and its evidence", "The three-way compare",
 examples 7 and 8. Run trees, ``sacct`` rows and the compare-job sandbox come from M10-04's kit
 (``helpers.pilot_runs_m10_04``, PR #296); the compare tables are the output of the real
-``giap compare`` on three tiny arms. Interface conventions (``expect["a2"]`` / ``--a2``,
+``gippa compare`` on three tiny arms. Interface conventions (``expect["a2"]`` / ``--a2``,
 ``pair_cmp`` / ``--pair-cmp``, ``expected_warnings``, ``warnings``):
 ``tests/helpers/a3_run_m10_10.py``.
 """
@@ -22,7 +22,7 @@ from helpers.a3_run_m10_10 import (
     REFERENCE_ROLE,
     a3_cli_args,
     a3_expect,
-    giap_compare_n,
+    gippa_compare_n,
     m10_04,
     three_arms,
     write_a3_arm,
@@ -200,13 +200,13 @@ def test_a1_a2_arms_ignore_a10_a11(tmp_path: Path) -> None:
 
 @pytest.fixture(scope="module")
 def compare3(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """``CMP``, ``CMP2`` (same seed) and ``cmp_a1_a2`` from the real ``giap compare``."""
+    """``CMP``, ``CMP2`` (same seed) and ``cmp_a1_a2`` from the real ``gippa compare``."""
     tmp = tmp_path_factory.mktemp("m10_10_cmp")
     a1, a2, a3 = three_arms(tmp)
     for name in ("cmp_a1_a2_a3", "cmp2"):
-        res = giap_compare_n([a1, a2, a3], LABELS3, tmp / name, env_root=tmp / "env")
+        res = gippa_compare_n([a1, a2, a3], LABELS3, tmp / name, env_root=tmp / "env")
         assert res.returncode == 0, res.stdout[-2000:] + res.stderr[-2000:]
-    res = giap_compare_n([a1, a2], LABELS3[:2], tmp / "cmp_a1_a2", env_root=tmp / "env")
+    res = gippa_compare_n([a1, a2], LABELS3[:2], tmp / "cmp_a1_a2", env_root=tmp / "env")
     assert res.returncode == 0, res.stdout[-2000:] + res.stderr[-2000:]
     return tmp
 
@@ -280,7 +280,7 @@ def test_c3_matrix_n_times_g(cmp3: Path) -> None:
         n_matrix = len(matrix)
         drop = next(i for i in matrix if rows[i]["run"] == "A3")
         _write(path, header, [r for i, r in enumerate(rows) if i != drop])
-    assert n_matrix == 3 * m10_04().N_GENES, "N x G matrix rows from giap compare"
+    assert n_matrix == 3 * m10_04().N_GENES, "N x G matrix rows from gippa compare"
     assert f"matrix_rows:{n_matrix - 1}" in _compare(cmp3)["failures"]
 
 
@@ -365,14 +365,14 @@ def job(tmp_path: Path):  # type: ignore[no-untyped-def]
 
 
 def _compare_calls(box) -> list[list[str]]:  # type: ignore[no-untyped-def]
-    return [c for c in box.python_calls() if "compare" in c and any("giap.cli" in a for a in c)]
+    return [c for c in box.python_calls() if "compare" in c and any("gippa.cli" in a for a in c)]
 
 
 def test_four_arguments_run_the_three_way_compare(job) -> None:  # type: ignore[no-untyped-def]
     box, a1, a2, a3, pass2 = job
     cmp = pass2 / "cmp_a1_a2_a3"
     res = box.run(
-        str(a1), str(a2), str(a3), str(cmp), env={"GIAP_PYTHON": str(box.recording_python())}
+        str(a1), str(a2), str(a3), str(cmp), env={"GIPPA_PYTHON": str(box.recording_python())}
     )
     assert res.returncode == 0, res.stdout[-3000:] + res.stderr[-3000:]
     ev = pass2 / "evidence" / "compare3.json"
@@ -390,10 +390,10 @@ def test_four_arguments_run_the_three_way_compare(job) -> None:  # type: ignore[
 def test_three_arguments_keep_m10_04_behaviour(job) -> None:  # type: ignore[no-untyped-def]
     box, a1, a2, _, _ = job
     cmp = box.runs / "pass1" / "cmp_a1_a2"
-    res = box.run(str(a1), str(a2), str(cmp), env={"GIAP_PYTHON": str(box.recording_python())})
+    res = box.run(str(a1), str(a2), str(cmp), env={"GIPPA_PYTHON": str(box.recording_python())})
     assert res.returncode == 0, res.stdout[-3000:] + res.stderr[-3000:]
     assert (box.runs / "pass1" / "evidence" / "compare.json").is_file()
-    assert _compare_calls(box), "the 3-argument form runs giap compare"
+    assert _compare_calls(box), "the 3-argument form runs gippa compare"
     assert not (box.runs / "pass1" / "evidence" / "compare3.json").exists()
     for c in _compare_calls(box):
         assert c[c.index("--labels") + 1] == "A1,A2"

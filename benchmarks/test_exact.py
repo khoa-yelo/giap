@@ -1,4 +1,4 @@
-"""Performance budget for exact matching (issue M3-04 acceptance; GIAP_SPEC.md §7.2.2).
+"""Performance budget for exact matching (issue M3-04 acceptance; GIPPA_SPEC.md §7.2.2).
 
 100,000 random tryptic peptides (7-40 aa, ending in K/R; half cut from the genome's frames so
 that hits exist, half random) on a 5-Mb random circular genome, target + reverse decoy:
@@ -23,11 +23,11 @@ SCRIPT = textwrap.dedent(
     """
     import json, resource, sys, time
     import numpy as np
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.exact import match_exact
-    from giap.mapping.sixframe import build_sixframe, decode
-    from giap.model import Replicon
-    from giap.rng import for_step
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.exact import match_exact
+    from gippa.mapping.sixframe import build_sixframe, decode
+    from gippa.model import Replicon
+    from gippa.rng import for_step
 
     tiny = build_sixframe({"w": "ATGAAATAG" * 50}, {"w": Replicon("w", 450, "circular")})
     build_decoys(tiny, "reverse", 50, for_step("sixframe_index", 0))

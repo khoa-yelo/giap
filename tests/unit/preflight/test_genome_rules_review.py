@@ -1,4 +1,4 @@
-"""Review follow-ups for the genome preflight rules (issue M1-09; GIAP_SPEC.md §7.0, §7.1.2).
+"""Review follow-ups for the genome preflight rules (issue M1-09; GIPPA_SPEC.md §7.0, §7.1.2).
 
 Pins lead decisions taken after code review: mutation gaps, list truncation, merged IUPAC
 ambiguity runs with their own cap, a single source for the N-run threshold, and the
@@ -13,10 +13,10 @@ from collections.abc import Sequence
 
 import pytest
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.fasta import GenomeRecord, sanitize_id
-from giap.preflight.checks import Check
-from giap.preflight.genome import (
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.fasta import GenomeRecord, sanitize_id
+from gippa.preflight.checks import Check
+from gippa.preflight.genome import (
     LIST_CAP,
     classify_replicons,
     genome_checks,
@@ -47,11 +47,11 @@ def acgt(n: int) -> str:
     return ("ACGT" * (n // 4 + 1))[:n]
 
 
-def cfg(*overrides: str) -> GiapConfig:
+def cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
-def checks_for(records: Sequence[GenomeRecord], config: GiapConfig) -> dict[str, Check]:
+def checks_for(records: Sequence[GenomeRecord], config: GippaConfig) -> dict[str, Check]:
     s = summarize_genome(records, config.preflight.n_run_min_bp)
     return {c.rule_id: c for c in genome_checks(s, config)}
 

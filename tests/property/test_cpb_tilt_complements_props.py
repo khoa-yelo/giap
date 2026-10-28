@@ -22,7 +22,7 @@ from helpers.cpb_pair_oracle import dec_rel_err, tilted_reference
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.poisson_binomial import conditional_poisson_binomial, tilt, tilt_pair
+from gippa.stats.poisson_binomial import conditional_poisson_binomial, tilt, tilt_pair
 
 CONTRACT = 1e-11
 RTOL = 1e-12

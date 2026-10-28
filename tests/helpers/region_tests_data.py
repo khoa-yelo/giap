@@ -9,7 +9,7 @@ Two kinds of inputs, both in the column vocabulary the real producers write (not
   covariates ``length_aa``, ``n_observable_peptides``, ``gravy`` (ADR-0018: HL residualises on
   them);
   C1 ``replicons``, C7 ``regions`` and C8 ``region_genes`` frames with the contract columns;
-* simulated gene tables (``sim_tables`` / ``tables_from``): giapsim M4-07 layout (C1, C2, C7, C8;
+* simulated gene tables (``sim_tables`` / ``tables_from``): gippasim M4-07 layout (C1, C2, C7, C8;
   C6 via ``layers_frame``, or the whole contract written and re-read with M4-06
   ``load_m4_inputs`` in ``loaded_tables``) + M4-08 expression truth: ``detected = detected_true``,
   ``abundance_log2 = abundance_log2_true`` on detected genes (NaN otherwise: M4-14 fills only
@@ -17,10 +17,10 @@ Two kinds of inputs, both in the column vocabulary the real producers write (not
   covariates (``p_source="m4_13"``); covariate columns from M4-10 ``covariate_table``.
 
 Eligibility follows M4-15/M4-16: partial genes have ``detection_status = partial_excluded``,
-``detected = False`` and ``p_detect = NaN``. Nothing here imports ``giap.context``.
+``detected = False`` and ``p_detect = NaN``. Nothing here imports ``gippa.context``.
 
 Oracles: ``naive_o_minus_e_null`` / ``naive_hl_null`` (one Python loop per shift), ``naive_perm_p``
-and ``expected_shifts`` (shift sets from the spec text, independent of ``giap.stats``); ADR-0018:
+and ``expected_shifts`` (shift sets from the spec text, independent of ``gippa.stats``); ADR-0018:
 ``naive_studentised_null`` (O - E test statistic sum(d - p) / sqrt(sum p (1 - p)) per shift) and
 ``naive_residualise`` (log2 abundance residualised on the M4-13 transforms of the detectability
 covariates among the replicon's detected genes). ADR-0018 amendment 2 (lead decision 15: V
@@ -66,9 +66,9 @@ FEW_SHIFTS_K = 19  # lead decision 5 / Q3: K < 19 -> the smallest p 1/(1+K) exce
 def config(
     bootstrap: int = 50, permutations: int = 1000, exhaustive: int = 20000, **kw: Any
 ) -> Any:
-    """A ``GiapConfig`` with ``stats.bootstrap``, ``stats.permutations``,
+    """A ``GippaConfig`` with ``stats.bootstrap``, ``stats.permutations``,
     ``context.exhaustive_shift_max_genes`` and optional ``abundance_missing`` set."""
-    from giap.config.model import GiapConfig
+    from gippa.config.model import GippaConfig
 
     raw: dict[str, Any] = {
         "stats": {"bootstrap": bootstrap, "permutations": permutations},
@@ -78,7 +78,7 @@ def config(
         raw["abundance"] = {"missing": kw.pop("abundance_missing")}
     if kw:
         raise TypeError(f"unknown config keys {sorted(kw)}")
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
 def flag_set(cell: Any) -> set[str]:
@@ -481,7 +481,7 @@ PLASMID_AMR = 6
 def calibration_layout_config(n_genes: int, **kw: Any) -> Any:
     """M4-07 ``LayoutConfig``: ``n_genes`` chromosome genes, default regions, plasmid ``p1`` of 60
     genes with its own AMR set (``RegionSpec.contig``, added by M4-17), origin crossing."""
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     regions = (*la.DEFAULT_REGIONS, la.RegionSpec("amr", PLASMID_AMR, scattered=True, contig="p1"))
     base: dict[str, Any] = {
@@ -498,8 +498,8 @@ def simulate(
     rng: np.random.Generator, layout_cfg: Any, expr_kw: Mapping[str, Any] | None = None
 ) -> tuple[Any, Any]:
     """(layout, expression) from one generator; detection ``covariates_only`` unless overridden."""
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(layout_cfg, rng)
     ecfg = ex.ExpressionConfig(**{"detection": "covariates_only", **dict(expr_kw or {})})
@@ -512,7 +512,7 @@ def sim_tables(
     expr_kw: Mapping[str, Any] | None = None,
     p_source: str = "true",
 ) -> SimTables:
-    """Gene table, C1/C7/C8 from one giapsim layout + expression draw (see ``tables_from``)."""
+    """Gene table, C1/C7/C8 from one gippasim layout + expression draw (see ``tables_from``)."""
     lay, expr = simulate(rng, layout_cfg, expr_kw)
     return tables_from(lay, expr, p_source, rng)
 
@@ -532,9 +532,9 @@ def tables_from(
     detected share; the naive model of the attack-2 teeth test) or an explicit array in layout gene
     order. ``genes_c2`` / ``layers`` default to the layout's C2 frame and ``layers_frame``.
     """
-    from giap.config.model import GiapConfig
-    from giap.genetable.covariates import covariate_table
-    from giapsim.contract_tables import layers_frame
+    from gippa.config.model import GippaConfig
+    from gippa.genetable.covariates import covariate_table
+    from gippasim.contract_tables import layers_frame
 
     e = expr.genes.set_index("locus_tag")
     g = lay.genes if genes_c2 is None else genes_c2
@@ -556,7 +556,7 @@ def tables_from(
     else:
         raise ValueError(f"unknown p_source {p_source!r}")
     p = np.where(part, np.nan, p)
-    cov = covariate_table(g, GiapConfig())  # M4-10, the genes.tsv protein columns (§9.3)
+    cov = covariate_table(g, GippaConfig())  # M4-10, the genes.tsv protein columns (§9.3)
     genes = pd.DataFrame(
         {
             "locus_tag": tags.to_numpy(),
@@ -585,11 +585,11 @@ def tables_from(
 
 
 def loaded_tables(lay: Any, expr: Any, work: Path) -> tuple[SimTables, Any]:
-    """Write the layout's C1-C8 with giapsim ``write_contract_tables``, read them back with M4-06
+    """Write the layout's C1-C8 with gippasim ``write_contract_tables``, read them back with M4-06
     ``load_m4_inputs`` and build the gene table from the loaded C2/C6 (``p = p_detect_true``).
     Returns the tables (loaded C1/C7/C8) and the load issues."""
-    from giap.io.work_tables import default_paths, load_m4_inputs
-    from giapsim.contract_tables import write_contract_tables
+    from gippa.io.work_tables import default_paths, load_m4_inputs
+    from gippasim.contract_tables import write_contract_tables
 
     write_contract_tables(lay, work)
     inputs, issues = load_m4_inputs(default_paths(work))
@@ -603,13 +603,13 @@ def m4_13_p_detect(
     lay: Any, det: np.ndarray, part: np.ndarray, rng: np.random.Generator
 ) -> np.ndarray:
     """Cross-fitted M4-13 ``p_detect`` (PR #83 interface) on M4-10 ``covariate_table``."""
-    from giap.config.model import DetectabilityConfig, GiapConfig
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detectability import fit_detectability  # M4-13 (PR #83)
-    from giap.rng import for_step
+    from gippa.config.model import DetectabilityConfig, GippaConfig
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detectability import fit_detectability  # M4-13 (PR #83)
+    from gippa.rng import for_step
 
     tags = lay.genes["locus_tag"].astype(str)
-    cov = covariate_table(lay.genes, GiapConfig()).set_index("locus_tag", drop=False)
+    cov = covariate_table(lay.genes, GippaConfig()).set_index("locus_tag", drop=False)
     d = pd.array(det, dtype="boolean")
     d[part] = pd.NA
     detected = pd.Series(d, index=tags.to_numpy(), name="detected")
@@ -622,8 +622,8 @@ def m4_13_p_detect(
 
 
 def run_region_tests(tables: SimTables, cfg: Any, rng: np.random.Generator) -> pd.DataFrame:
-    """``giap.context.regions.test_all_regions`` on simulated tables (imported lazily)."""
-    from giap.context import regions as R
+    """``gippa.context.regions.test_all_regions`` on simulated tables (imported lazily)."""
+    from gippa.context import regions as R
 
     return R.test_all_regions(
         tables.genes, tables.regions, tables.region_genes, tables.replicons, cfg, rng

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from giap.viz.variants import DEGENERATE_NOTE, POOLED, _header, title
+from gippa.viz.variants import DEGENERATE_NOTE, POOLED, _header, title
 
 
 def _site(rate: object, n: object) -> dict[str, object]:

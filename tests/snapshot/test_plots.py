@@ -1,5 +1,5 @@
 """M9-25 work item 2: one pytest-mpl snapshot per plot instance on both frozen fixtures
-(docs/specs/M9-25-snapshot-baselines.md; GIAP_SPEC.md §10.1 "tolerance RMS <= 2"; index
+(docs/specs/M9-25-snapshot-baselines.md; GIPPA_SPEC.md §10.1 "tolerance RMS <= 2"; index
 decision 22).
 
 ``pytest tests/snapshot --mpl`` compares each figure with
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import gzip
 import importlib.util
+import re
 import struct
 from pathlib import Path
 
@@ -42,7 +43,7 @@ def _param(case: sf.Case) -> object:
 def test_plot_snapshot(case: sf.Case) -> object:
     if case.error is not None:
         pytest.fail(case.error)
-    from giap.viz import style
+    from gippa.viz import style
 
     style.apply()
     return sf.figure(case)
@@ -74,11 +75,11 @@ def test_make_snapshot_fixture_script_exists() -> None:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert callable(getattr(mod, "main", None))
-    assert mod.__doc__ and "giap run" in mod.__doc__
+    assert mod.__doc__ and "gippa run" in mod.__doc__
 
 
 def test_rich_fixture_every_plot_draws_something() -> None:
-    from giap.viz import base, checklist
+    from gippa.viz import base, checklist
 
     _require(sf.RICH)
     results = sf.styled(lambda: sf.raw_results(sf.RICH))
@@ -94,7 +95,7 @@ def test_rich_fixture_every_plot_draws_something() -> None:
 
 
 def _table(fixture: str, key: str) -> object:
-    from giap.io.run_view import RunView
+    from gippa.io.run_view import RunView
 
     frame = RunView.from_outdir(sf.fixture_out(fixture)).table(key)
     assert frame is not None, f"{fixture}: {key} absent"
@@ -142,7 +143,7 @@ def test_empty_fixture_is_header_only() -> None:
 
 
 def test_empty_fixture_renders_every_plot_in_its_empty_state() -> None:
-    from giap.viz import base, checklist
+    from gippa.viz import base, checklist
 
     _require(sf.EMPTY)
     results = sf.styled(lambda: sf.raw_results(sf.EMPTY))
@@ -170,8 +171,8 @@ def test_every_baseline_has_a_case() -> None:
 
 
 def test_baselines_cover_all_16_plots_on_both_fixtures() -> None:
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
 
     load_plot_modules()
     pids = set(base.registered())
@@ -230,4 +231,5 @@ def test_snapshot_fixture_has_provenance() -> None:
     assert prov.is_file(), "tests/data/snapshot/PROVENANCE.md is missing"
     text = prov.read_text(encoding="utf-8")
     assert "make_snapshot_fixture.py" in text
-    assert "giapsim" in text
+    # the kept PROVENANCE.md was written before ADR-0064: it names the simulator by its old name
+    assert re.search(r"built from (\w+) \(`tests/sim/\1`\)", text), "names the simulator"

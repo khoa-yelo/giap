@@ -1,7 +1,7 @@
 """Nightly scheduling and the R14 worst case (M2-21 lead decisions 12, 14 and 18).
 
 ``scripts/slurm/nightly_launch.sh`` runs in the sandbox of ``tests/helpers/slurm_sandbox.py``
-(fake ``sbatch``/``sacct``/``gh`` first on ``PATH``, sandbox ``GIAP_REPO``/``GIAP_ROOT``); the
+(fake ``sbatch``/``sacct``/``gh`` first on ``PATH``, sandbox ``GIPPA_REPO``/``GIPPA_ROOT``); the
 scrontab and the sbatch scripts are read as text. Nothing is submitted or installed.
 
 Conventions settled by the test author:
@@ -9,18 +9,18 @@ Conventions settled by the test author:
 * Decision 18: the launcher submits ``nightly.sbatch`` with ``--array=0-3`` (``--array 0-3`` and
   ``-a 0-3`` accepted) and then one summary job with ``--dependency`` containing
   ``afterany:<array job ID>``; the summary job asks for 1 CPU (``--cpus-per-task``/``-c`` absent
-  or 1, also in its script's ``#SBATCH`` lines), is named ``giap-*`` and runs
+  or 1, also in its script's ``#SBATCH`` lines), is named ``gippa-*`` and runs
   ``scripts/ci/post_summary.py`` (``--wrap`` or a script). The launcher exits 0; when the array
   submission fails it exits non-zero and submits no summary job.
 * Decision 14: the summary job, run in the sandbox after one task of the array was killed (no row;
   ``sacct`` says ``TIMEOUT``), posts exactly one comment for the array job; it is not green and has
   a table row for the missing task. When the array already posted itself it posts nothing.
 * Decision 18: the scrontab has one cron line running ``scripts/slurm/nightly_launch.sh``; its
-  ``#SCRON`` options carry no ``--array``, a ``giap-*`` job name and 1 CPU.
+  ``#SCRON`` options carry no ``--array``, a ``gippa-*`` job name and 1 CPU.
 * Decisions 12, 22: the default profiles are ``farmshare_local``; worst case = array tasks x
   ``--cpus-per-task`` + Nextflow child jobs + the 1-CPU
   summary job <= 128 (R14). Child jobs exist only when the default ``*_PROFILE`` uses the Slurm
-  executor (``farmshare``, not ``farmshare_local``): then each task that runs ``giap run`` adds
+  executor (``farmshare``, not ``farmshare_local``): then each task that runs ``gippa run`` adds
   ``queueSize`` x ``min(16, cpus-per-task)`` CPUs, ``queueSize`` read from the script if it sets
   one, else from ``workflow/conf/farmshare.config``.
 """
@@ -38,7 +38,7 @@ import pytest
 from helpers.slurm_sandbox import (
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     export_pairs,
     make_sandbox,  # fmt: skip
     option,
@@ -59,7 +59,7 @@ def _launcher_text() -> str:
 
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
-    assert_honours_giap_repo(_launcher_text(), "nightly_launch.sh")
+    assert_honours_gippa_repo(_launcher_text(), "nightly_launch.sh")
     return make_sandbox(tmp_path)
 
 
@@ -109,7 +109,7 @@ def test_launcher_submits_the_array_then_an_afterany_summary(sb: Sandbox) -> Non
     )
     assert cpus in (None, "1"), f"the summary job takes 1 CPU, not {cpus}"
     name = option(s["argv"], "job-name", "J") or _sbatch_directive(s["script"], "job-name", "J")
-    assert name and name.startswith("giap-"), f"summary job name {name!r} (R14: giap-*)"
+    assert name and name.startswith("gippa-"), f"summary job name {name!r} (R14: gippa-*)"
     body = (option(s["argv"], "wrap") or "") + (s["script"] or "")
     assert "post_summary.py" in body, f"the summary job does not run post_summary.py: {s}"
 
@@ -160,17 +160,17 @@ def _summary_command(sb: Sandbox, call: dict[str, Any]) -> tuple[list[str], dict
     remains, runs under ``/bin/sh -c`` (dash on FarmShare), as sbatch does.
     """
     env = {k: v for k, v in export_pairs(call["argv"]).items() if k != "ALL"}
-    env.update({"SLURM_JOB_ID": str(call["id"]), "SLURM_JOB_NAME": "giap-nightly-summary",
+    env.update({"SLURM_JOB_ID": str(call["id"]), "SLURM_JOB_NAME": "gippa-nightly-summary",
                 "SLURM_CPUS_PER_TASK": "1"})  # fmt: skip
     wrap = option(call["argv"], "wrap")
     if wrap is not None:
-        assert_honours_giap_repo(wrap, "summary --wrap")
+        assert_honours_gippa_repo(wrap, "summary --wrap")
         return ["/bin/sh", "-c", wrap], env
     argv = call["argv"]
     cwd = Path(call["cwd"])
     idx = next(i for i, a in enumerate(argv) if not a.startswith("-") and (cwd / a).is_file())
     script = cwd / argv[idx]
-    assert_honours_giap_repo(script.read_text(), str(script))
+    assert_honours_gippa_repo(script.read_text(), str(script))
     spool = sb.tmp / "spool" / f"job{call['id']}"
     spool.mkdir(parents=True, exist_ok=True)
     copy = spool / "slurm_script"
@@ -190,7 +190,7 @@ def _array_with_rows(sb: Sandbox, tasks: list[int]) -> dict[str, Any]:
     ))  # fmt: skip
     states = {t: "COMPLETED" for t in range(4)} | {t: "TIMEOUT" for t in range(4) if t not in tasks}
     sb.set_sacct([
-        {"JobID": f"{ARRAY_ID}_{t}", "JobName": "giap-nightly", "State": st,
+        {"JobID": f"{ARRAY_ID}_{t}", "JobName": "gippa-nightly", "State": st,
          "ExitCode": "0:0" if st == "COMPLETED" else "0:15", "NodeList": "barley-01",
          "Elapsed": "06:00:00" if st == "TIMEOUT" else "00:10:00"}
         for t, st in states.items()
@@ -247,7 +247,7 @@ def test_scrontab_runs_the_one_cpu_launcher() -> None:
     joined = " ".join(opts)
     assert "--array" not in joined and not re.search(r"(^|\s)-a\s", joined), opts
     name = re.search(r"--job-name[= ](\S+)|-J\s*(\S+)", joined)
-    assert name and (name.group(1) or name.group(2)).startswith("giap-"), opts
+    assert name and (name.group(1) or name.group(2)).startswith("gippa-"), opts
     cpus = re.search(r"--cpus-per-task[= ](\d+)|-c\s*(\d+)", joined)
     assert cpus is None or (cpus.group(1) or cpus.group(2)) == "1", opts
 

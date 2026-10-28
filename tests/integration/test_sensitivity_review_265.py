@@ -37,7 +37,7 @@ VARIANT_EVENT = "sensitivity.determinants_variant_skipped"
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
@@ -54,12 +54,12 @@ class _Records(logging.Handler):
 def _run_step(
     cfg: Any, ins: dict[str, Path], out: Path, families: dict[str, Any]
 ) -> tuple[pd.DataFrame, list[logging.LogRecord]]:
-    from giap.steps import load_step_modules
-    from giap.steps.registry import run_step
+    from gippa.steps import load_step_modules
+    from gippa.steps.registry import run_step
 
     load_step_modules()
     h = _Records()
-    root = logging.getLogger("giap")
+    root = logging.getLogger("gippa")
     old = root.level
     root.addHandler(h)
     root.setLevel(logging.DEBUG)
@@ -87,7 +87,7 @@ def _spy(family: Callable[..., Any], store: list[dict[str, Any]]) -> Callable[..
 
 def _det_features_tsv(genes: pd.DataFrame, path: Path) -> Path:
     """An M8-07 features TSV for ``genes`` (noise feature columns)."""
-    from giap.io.determinants_tables import write_determinants_features
+    from gippa.io.determinants_tables import write_determinants_features
 
     g = genes[genes["tu_id"].notna()].reset_index(drop=True)
     n = len(g)
@@ -131,7 +131,7 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> World:
     from helpers.function_db import write_function_db
     from helpers.function_step_data import write_tu_folds
 
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     root = tmp_path_factory.mktemp("sens_review")
     work = sd.sim_work_dir(root / "work")
@@ -148,8 +148,8 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> World:
 
 
 def _ora_folds(w: World, out: Path, *, drop: tuple[str, ...] = ()) -> list[Any]:
-    import giap.function.sensitivity as FS
-    from giap.function.gsea import SIMPLE_ENGINE
+    import gippa.function.sensitivity as FS
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     seen: list[Any] = []
     real = FS.detection_enrichment
@@ -169,7 +169,7 @@ def _ora_folds(w: World, out: Path, *, drop: tuple[str, ...] = ()) -> list[Any]:
 
 def test_step_passes_tu_folds_to_the_ora(world: World, tmp_path: Path) -> None:
     """B2a: every ORA call (primary and each variant) gets the ``tu_folds`` file's folds."""
-    from giap.steps.function import read_folds
+    from gippa.steps.function import read_folds
 
     want = read_folds(world.inputs["tu_folds"])
     seen = _ora_folds(world, tmp_path / "s.tsv")
@@ -191,7 +191,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 
 
 def _fake_det(store: list[dict[str, Any]]) -> Callable[..., Any]:
-    from giap.determinants.sensitivity import DeterminantsSensitivity
+    from gippa.determinants.sensitivity import DeterminantsSensitivity
 
     def determinants(genes: pd.DataFrame, cfg: Any, rng: np.random.Generator, *,
                      features: pd.DataFrame) -> Any:  # fmt: skip
@@ -206,7 +206,7 @@ def test_operon_flags_and_determinants_each_get_their_features(chain: Chain,
     """B2b: one step call with pairs_raw + C2 / C3 and ``determinants_features``: operon_flags
     gets C3, determinants M8-07's TSV, both families write rows, and the operon rows equal the
     run without ``determinants_features``."""
-    from giap.io.determinants_tables import read_determinants_features
+    from gippa.io.determinants_tables import read_determinants_features
 
     S = _S()
     cfg = so.config()
@@ -242,7 +242,7 @@ def test_variant_below_the_minimum_gets_no_row_and_an_event(chain: Chain, tmp_pa
     ``None`` under ``missing=exclude``) writes no row and logs
     ``sensitivity.determinants_variant_skipped`` naming the variant; ``missing=min`` keeps its
     row and the step does not crash."""
-    from giap.determinants.sensitivity import DeterminantsSensitivity
+    from gippa.determinants.sensitivity import DeterminantsSensitivity
 
     def determinants(genes: pd.DataFrame, cfg: Any, rng: np.random.Generator, *,
                      features: pd.DataFrame) -> Any:  # fmt: skip

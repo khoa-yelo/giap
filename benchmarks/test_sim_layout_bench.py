@@ -1,4 +1,4 @@
-"""Performance budgets for the giapsim sequence-free layout (docs/specs/M4-07-sim-layout-tables.md
+"""Performance budgets for the gippasim sequence-free layout (docs/specs/M4-07-sim-layout-tables.md
 acceptance "Speed: 1,000 genes < 0.2 s, 4,500 genes < 2 s (``benchmarks/``)"), seed 1.
 
 - ``LayoutConfig()`` (1,000 genes): best of 3 < 0.2 s. From

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-build-envs
+#SBATCH --job-name=gippa-build-envs
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=4
@@ -9,9 +9,9 @@
 # Builds the tool envs (workflow/envs/*.yml) and pulls every pinned image by digest into
 # $NXF_APPTAINER_CACHEDIR (spec §3.8, §3.9, M2-01).  Usage: sbatch build_envs.sbatch [tool ...]
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
-cd "$GIAP_REPO"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+export TMPDIR="$(mktemp -d /tmp/gippa.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
+cd "$GIPPA_REPO"
 if [ "$#" -eq 0 ]; then set -- all; fi
 SECONDS=0
 status=0
@@ -29,5 +29,5 @@ for ref in $refs; do
 done
 
 echo "wall time: ${SECONDS}s"
-du -sh "$MAMBA_ROOT_PREFIX"/envs/giap-* "$NXF_APPTAINER_CACHEDIR" 2>/dev/null || true
+du -sh "$MAMBA_ROOT_PREFIX"/envs/gippa-* "$NXF_APPTAINER_CACHEDIR" 2>/dev/null || true
 exit "$status"

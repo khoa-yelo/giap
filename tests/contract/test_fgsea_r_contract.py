@@ -1,4 +1,4 @@
-"""T4 and T5: ``giap_fgsea.R`` on the real ``giap-fgsea`` env (M8-17a; ADR-0038 item 7; A1, A2).
+"""T4 and T5: ``gippa_fgsea.R`` on the real ``gippa-fgsea`` env (M8-17a; ADR-0038 item 7; A1, A2).
 
 Slow and ``requires_r``: runs only on Slurm (``scripts/slurm/test_branch.sbatch -m requires_r``,
 at most 2 CPUs) and is skipped, with the reason, where the env or #192's golden data are absent.
@@ -41,7 +41,7 @@ pytestmark = [
     pytest.mark.requires_r,
     pytest.mark.skipif(
         PREFIX is None,
-        reason="the giap-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
+        reason="the gippa-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
         "run on Slurm with scripts/slurm/test_branch.sbatch -m requires_r",
     ),
 ]
@@ -62,7 +62,7 @@ def _gz_rows(path: Path) -> list[dict[str, str]]:
 
 
 def _golden_job(job_id: str = "main:golden"):
-    from giap.function.gsea import GseaJob
+    from gippa.function.gsea import GseaJob
 
     ranked = {r["tu_id"] for r in _gz_rows(GOLDEN / "inputs" / "gsea_stats.tsv.gz")}
     sets: dict[str, list[str]] = {}
@@ -74,8 +74,8 @@ def _golden_job(job_id: str = "main:golden"):
 
 
 def _golden_call(jobs: tuple | None = None):
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall
 
     stats = _gz_rows(GOLDEN / "inputs" / "gsea_stats.tsv.gz")
     return EngineCall(
@@ -102,7 +102,7 @@ def _child_env() -> dict[str, str]:
 
 def _run(d: Path, call, *extra: str, args: list[str] | None = None) -> subprocess.CompletedProcess:
     """Run the script directly on ``write_call(call)`` in ``d`` (string-level comparisons)."""
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     if call is not None:
         write_call(call, d)
@@ -172,9 +172,11 @@ def test_golden_contract_strings(tmp_path: Path) -> None:
 
 @needs_golden
 def test_golden_contract_through_wrapper(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    engine = r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    engine = r_fgsea_engine(
+        resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path
+    )
     rows = engine(_golden_call())["main:golden"]
     want = _gz_rows(GOLDEN / "outputs" / "fgsea.tsv.gz")
     assert [r.term for r in rows] == [w["pathway"] for w in want]
@@ -192,7 +194,7 @@ def test_golden_contract_through_wrapper(tmp_path: Path) -> None:
 
 @needs_golden
 def test_seed_is_set_before_every_job(tmp_path: Path) -> None:
-    from giap.function.gsea import GseaJob
+    from gippa.function.gsea import GseaJob
 
     golden = _golden_job()
     first = GseaJob("main:other", dict(list(golden.sets.items())[:30]), 10, 500)
@@ -210,8 +212,8 @@ def test_seed_is_set_before_every_job(tmp_path: Path) -> None:
 
 def _ties_call(order: str, seed: int = 20261022):
     """50 TUs; 20 (40 %) tie at the top, 10 of them in set S, interleaved with 10 others."""
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     tied = [f"T{i:02d}" for i in range(20)]  # even = members of S
     if order == "reversed":
@@ -226,9 +228,11 @@ def _ties_call(order: str, seed: int = 20261022):
 
 
 def test_ties_follow_input_order(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    engine = r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    engine = r_fgsea_engine(
+        resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path
+    )
     edges = {}
     for order in ("forward", "reversed"):
         call = _ties_call(order)

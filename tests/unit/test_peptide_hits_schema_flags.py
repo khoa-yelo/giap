@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-SCHEMA = REPO / "src" / "giap" / "schemas" / "tables" / "peptide_hits.schema.json"
-VARIANTS = REPO / "src" / "giap" / "schemas" / "tables" / "variants.schema.json"
+SCHEMA = REPO / "src" / "gippa" / "schemas" / "tables" / "peptide_hits.schema.json"
+VARIANTS = REPO / "src" / "gippa" / "schemas" / "tables" / "variants.schema.json"
 VALUES = (
     "engine_protein_mismatch",
     "low_complexity",

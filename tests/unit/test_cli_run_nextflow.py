@@ -1,6 +1,6 @@
-"""``giap run`` launches the Nextflow runner (M2-07 owns the wiring; M2-06 lead decision 7).
+"""``gippa run`` launches the Nextflow runner (M2-07 owns the wiring; M2-06 lead decision 7).
 
-GIAP_SPEC.md §6.3 "Launch": ``giap run`` validates inputs and config in Python, writes
+GIPPA_SPEC.md §6.3 "Launch": ``gippa run`` validates inputs and config in Python, writes
 ``OUT/work/params.json`` and ``OUT/resolved_config.yaml``, then runs
 ``nextflow run <pkg>/workflow/main.nf -params-file … -profile … -work-dir OUT/work -with-trace …
 [-resume]``; a failed step is exit 4 naming the step (§6.3 "Error strategy"). A missing tool is
@@ -10,8 +10,8 @@ A fake ``nextflow`` executable on ``PATH`` records its argv and working director
 ``$FAKE_NF_RC``; with ``$FAKE_NF_TRACE`` it copies that file to the ``-with-trace`` path first.
 Nothing real is launched.
 
-``giap run`` runs preflight in full first (run-wiring lead decision 1): every run here gets a
-protein list as evidence and a ``$GIAP_DB_DIR`` whose ``db_manifest.json`` lists every requirement.
+``gippa run`` runs preflight in full first (run-wiring lead decision 1): every run here gets a
+protein list as evidence and a ``$GIPPA_DB_DIR`` whose ``db_manifest.json`` lists every requirement.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from pathlib import Path
 import pytest
 import yaml
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
-from giap.runner.nextflow import launch_command
+from gippa.exitcodes import ExitCode
+from gippa.runner.nextflow import launch_command
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -48,10 +48,10 @@ TRACE_HEADER = "task_id\thash\tnative_id\tname\ttag\tstatus\texit\tattempt\twork
 
 
 @pytest.fixture(autouse=True)
-def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _fake_gippa_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     return root
 
 
@@ -71,7 +71,7 @@ _EVIDENCE: list[Path] = []
 
 @pytest.fixture(autouse=True)
 def evidence_and_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Proteins passed by ``_run`` and a complete ``db_manifest.json`` in ``$GIAP_DB_DIR``."""
+    """Proteins passed by ``_run`` and a complete ``db_manifest.json`` in ``$GIPPA_DB_DIR``."""
     rng = random.Random(7)
     aa = "ACDEFGHIKLMNPQRSTVWY"
     proteins = tmp_path / "evidence" / "proteins.faa"
@@ -81,8 +81,8 @@ def evidence_and_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     db = tmp_path / "db"
     db.mkdir()
-    write_setup_manifest(db)  # real `giap setup` format (decision 4c)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    write_setup_manifest(db)  # real `gippa setup` format (decision 4c)
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     monkeypatch.setattr(f"{__name__}._EVIDENCE", [proteins])
     return proteins
 
@@ -103,7 +103,7 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _run(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     evidence = [a for p in _EVIDENCE for a in ("--proteins", str(p))]
     result = CliRunner().invoke(cli, ["run", *argv, *evidence])
@@ -114,7 +114,7 @@ def _run(argv: list[str]) -> tuple[int, str]:
 
 
 def _argv(path: Path) -> list[str]:
-    assert path.is_file(), "giap run did not launch nextflow"
+    assert path.is_file(), "gippa run did not launch nextflow"
     return path.read_text().splitlines()
 
 
@@ -197,7 +197,7 @@ def test_run_failed_step_exits_4_naming_the_step(
     wd = tmp_path / "work" / "ab" / "cdef"
     trace.write_text(
         TRACE_HEADER
-        + "1\taa/111111\t-\tANNOTATE:GIAP_STEP (parse_bakta)\tparse_bakta\tCOMPLETED\t0\t1\t"
+        + "1\taa/111111\t-\tANNOTATE:GIPPA_STEP (parse_bakta)\tparse_bakta\tCOMPLETED\t0\t1\t"
         + f"{tmp_path}\n"
         + f"2\tab/cdef00\t-\tANNOTATE:TERMINATORNET (chr1)\tchr1\tFAILED\t1\t1\t{wd}\n"
     )

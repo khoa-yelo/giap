@@ -1,4 +1,4 @@
-"""``parse_bakta_json`` on giapsim output (issue M2-03 acceptance; GIAP_SPEC.md §11.3).
+"""``parse_bakta_json`` on gippasim output (issue M2-03 acceptance; GIPPA_SPEC.md §11.3).
 
 The M0 simulator JSON (``contig``, ``start``, ``stop``, ``locus``, ``start_type``, ``nt``, ``aa``,
 no ``version``) parses with ``db_type="unknown"`` and reproduces ``truth/genes.tsv``. The M3-18
@@ -15,17 +15,17 @@ from typing import Any
 
 import pytest
 
-from giap.model import Interval
-from giapsim import SimConfig, simulate
+from gippa.model import Interval
+from gippasim import SimConfig, simulate
 
 _FIELDS = {f.name for f in dataclasses.fields(SimConfig)}
 needs_m318 = pytest.mark.skipif(
-    "strain" not in _FIELDS, reason="giapsim lacks the M3-18 options (not merged yet)"
+    "strain" not in _FIELDS, reason="gippasim lacks the M3-18 options (not merged yet)"
 )
 
 
 def _parse(path: Path, **kw: Any) -> Any:
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     return parse_bakta_json(path, **kw)
 
@@ -129,7 +129,7 @@ def test_m318_simulator_json_all_features(tmp_path: Path) -> None:
 
 @needs_m318
 def test_m318_reference_bakta_like_json(tmp_path: Path) -> None:
-    from giapsim import StrainConfig
+    from gippasim import StrainConfig
 
     cfg = SimConfig(
         genome_length=100_000,
@@ -153,7 +153,7 @@ def test_m318_reference_bakta_like_json(tmp_path: Path) -> None:
 
 @needs_m318
 def test_m318_simulator_json_with_preflight_replicons(tmp_path: Path) -> None:
-    from giap.model import Replicon
+    from gippa.model import Replicon
 
     cfg = SimConfig(genome_length=60_000, n_plasmids=1, origin_crossing_gene=True)
     res = simulate(cfg, seed=2, outdir=tmp_path)

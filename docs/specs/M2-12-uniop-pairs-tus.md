@@ -11,7 +11,7 @@ Milestone M2 · depends on: M2-04 · estimate ≈ 380 code lines (tests not coun
   keep a map back to locus tags, run UniOP, and parse `uniop.pred`." "**Fallback.** When UniOP fails,
   the distance model gives p(operon | d) = 1 / (1 + exp((d − d₀)/s)), where d is the intergenic
   distance in bp (negative for overlaps). Defaults are d₀ = 50, s = 20; … stored in
-  `src/giap/data/calibration.yaml`. The manifest records `operon_source = distance_model`." "**TUs**
+  `src/gippa/data/calibration.yaml`. The manifest records `operon_source = distance_model`." "**TUs**
   are maximal runs of same-strand adjacent genes linked by p ≥ `uniop.pair_threshold`." "**TU upstream
   region.** From −300 to +50 bp around the first start codon, strand-aware, clipped at the end of the
   nearest upstream gene on either strand."
@@ -24,8 +24,8 @@ Milestone M2 · depends on: M2-04 · estimate ≈ 380 code lines (tests not coun
 
 ## Public interface
 
-`src/giap/annotate/uniop_adapter.py`, `src/giap/annotate/uniop_cmd.py`, `src/giap/annotate/operons.py`,
-`src/giap/data/calibration.yaml` (new; `operon_distance: {d0: 50, s: 20, provenance: "GIAP_SPEC §7.1.3 default", calibrated: false}`,
+`src/gippa/annotate/uniop_adapter.py`, `src/gippa/annotate/uniop_cmd.py`, `src/gippa/annotate/operons.py`,
+`src/gippa/data/calibration.yaml` (new; `operon_distance: {d0: 50, s: 20, provenance: "GIPPA_SPEC §7.1.3 default", calibrated: false}`,
 `terminatornet_yes: {value: 0.5, calibrated: false}`), steps `uniop_input`, `operon_pairs`.
 ```python
 def write_prodigal_gff(path: Path, genes: Sequence[Gene], replicons: Sequence[Replicon]) -> list[tuple[str, str]]
@@ -92,7 +92,7 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
 - [ ] `tests/unit/test_uniop_adapter.py`: examples 4, 10.
 - [ ] `tests/contract/test_uniop_contract.py` on `tests/data/recorded/uniop/<git12>/{sim100k,k12}/`
   (recorded with the M2-10 harness on the Bakta full-DB genes); `pending_sample` until recorded.
-- [ ] `calibration.yaml` created; values read through one loader (`giap.data.calibration.load()`).
+- [ ] `calibration.yaml` created; values read through one loader (`gippa.data.calibration.load()`).
 
 ## Questions for the lead
 
@@ -115,7 +115,7 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
 3. With `annotation.precomputed.operon_pairs`, the precomputed layer is read by `operon_pairs` directly
    (its `source` column kept); exact recovery of simulator `truth/tus.tsv` from 0/1 oracle probabilities
    is the accuracy check (the spec sets no calibration threshold).
-4. The adapter module is `giap.annotate.uniop_adapter` (not `uniop.py`): the vendoring guard
+4. The adapter module is `gippa.annotate.uniop_adapter` (not `uniop.py`): the vendoring guard
    (`test_no_tool_source_vendored`) forbids files named after unlicensed tools under src/ (ADR-0008).
 5. Accepted implementation notes: a circular TU is capped at the ring length; the distance-model fallback
    is logged as a WARNING (and recorded as `operon_source = distance_model` in the manifest).
@@ -128,7 +128,7 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
    them from the input GFF/Prodigal file. Row k = sorted gene k; gene_b = the next gene ON THE SAME CONTIG.
    The adapter rebuilds that order from the exact input the builder wrote, requires both genes on the same
    contig and strand, and maps to locus tags. Unit test on a multi-contig genome.
-3. Record a real UniOP run on SIM100K as `tests/data/recorded/uniop/3ed14dfc/sim100k/` (built `giap-uniop`
+3. Record a real UniOP run on SIM100K as `tests/data/recorded/uniop/3ed14dfc/sim100k/` (built `gippa-uniop`
    env; run as a process; PROVENANCE.md with command, env lock and input sha256); the contract test is
    rewritten to the real format and must pass on it (ID-based assumptions removed).
 4. `workflow/modules/local/uniop/main.nf` creates UniOP's `-t` output directory (`mkdir -p out`).
@@ -155,6 +155,6 @@ Rule from here on (lead): every tool-wrapping issue records a real-tool fixture 
   `operon_meta.json` is a JSON object with `operon_source` ∈ {`uniop`, `distance_model`,
   `precomputed`} and a non-empty `reason` string.
 - Item 6: the fallback logs a WARNING whose message contains "distance" (no such record on a UniOP
-  run); d₀/s are read by calling `giap.data.calibration.load()` at step run time (monkeypatched in tests).
+  run); d₀/s are read by calling `gippa.data.calibration.load()` at step run time (monkeypatched in tests).
 - Contract: `tests/data/recorded/uniop/3ed14dfc/{sim100k,k12}/` holds one `*.gff`, `uniop.pred`,
   `uniop_map.tsv` and `PROVENANCE.md` containing `3ed14dfc` and the GFF's sha256.

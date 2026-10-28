@@ -2,7 +2,7 @@
 "Conformance": every eligible gene has a row and the feature columns equal the gene-table columns
 they come from).
 
-``giap run --executor local`` on giapsim SIM100K (tests/helpers/m4_real.py) then the M4 chain
+``gippa run --executor local`` on gippasim SIM100K (tests/helpers/m4_real.py) then the M4 chain
 (``m4_chain.run_m4``) give the real ``work/`` tables: C1 ``replicons``, C2 ``genes``, C5 ``tus``,
 C6 ``layers``, C7/C8 ``regions`` / ``region_genes``, the gene table ``genetable/genes.parquet``
 and M5-09's ``context/gene_context.parquet``. About 40 s (a whole local run), like
@@ -39,7 +39,7 @@ def work(features_mod: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> 
 
     root = tmp_path_factory.mktemp("m8_features_sim100k")
     db = mc.test_db(root / "db")
-    w = mr.giap_run(mr.sim100k(root / "sim"), root / "OUT", db, SEED)
+    w = mr.gippa_run(mr.sim100k(root / "sim"), root / "OUT", db, SEED)
     mc.run_m4(w, mc.config(SEED, stats=STATS), db)
     return w
 

@@ -46,7 +46,7 @@ COG_VALUES = ["K", "KL", "J", "R", "S", "M", "LM", "-", "", None]
 
 @pytest.fixture(scope="module")
 def res(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giap.io.function_resources import read_resources
+    from gippa.io.function_resources import read_resources
 
     root: Path = tmp_path_factory.mktemp("function_resources")
     return read_resources(write_resources(root))
@@ -69,7 +69,7 @@ def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
 
 
 def _build(genes: pd.DataFrame, res: Any) -> dict[str, Any]:
-    from giap.function.collections import build_collections
+    from gippa.function.collections import build_collections
 
     out, _ = build_collections(genes, eligible_mask(genes), res)
     return {g.collection: g for g in out}

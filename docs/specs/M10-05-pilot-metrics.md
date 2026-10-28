@@ -1,8 +1,8 @@
 # M10-05: pilot metrics for A1/A2 (§15.5 metrics 1–5 and 7), TE1 on real data, `REPORT.md` draft
 
 Milestone M10 · **pass 1** (MVP closer of the metrics side) · depends on: M10-04 (run directories
-`out_a1`, `out_a2` with exit 0, the compare directory of `giap compare out_a1 out_a2 --labels
-A1,A2`), M10-03 (the converted tables and `<a>.convert.json` under `$GIAP_ROOT/pilot/inputs/`),
+`out_a1`, `out_a2` with exit 0, the compare directory of `gippa compare out_a1 out_a2 --labels
+A1,A2`), M10-03 (the converted tables and `<a>.convert.json` under `$GIPPA_ROOT/pilot/inputs/`),
 M10-02 (`summary.json` per arm) · estimate ≈ 360 code lines + ≈ 450 test lines · **`stats`**
 (light: Wilson intervals, one exact binomial test; see "Statistician review") · roles:
 validation (`validation/pilot/metrics.py`, `validation/pilot/report_template.md`), test-author
@@ -33,33 +33,33 @@ committed); the default does not wait for him.
 | Piece | State | Used for |
 |---|---|---|
 | `validation/proxies/te_proxies.py` | in-silico TE1/TE2/TE8. Pure: `te1_result(sources, excluded, peptide_hits, genes, circular)`, `non_atg_nterm(genes)`, `coding_genes`, `inframe_inside`, `ProxyResult`. Constant `TE1_MIN = 0.999` (the proxy's bar) | TE1 on real data **reuses `te1_result`** and `non_atg_nterm`; no copy of the in-frame logic |
-| `giap.steps.mapping.select_queries(peptides, cfg)` | the mapping step's query set: non-decoy rows with `q_value ≤ input.q_value_max` (0.01) or NA, length in `mapping.exact.[min_len, max_len]` (7–40), one row per distinct `peptide` | the peptide universe of metric 2 and TE1, so the metrics count exactly what GIAP queried |
-| `giap.context.summary.qc_rows` | writes `detection_summary.tsv` row `section=qc, metric=genome_inconsistent_rate` (share of distinct target, non-contaminant `search_db = other` peptides without an exact placement; `n` = that denominator) | metric 2 "genome-inconsistent peptides in A1" is **read**, not recomputed |
-| `giap compare` (M9-22) | `compare_abundance.tsv` (ρ on shared genes: detected and not imputed in both; TU-block bootstrap CI; Bland–Altman), `compare_stability.tsv` (Jaccard per family `islands`, `operon_flags`, `enriched_categories`, `novel_orfs`, `alt_sites`; flags `both_empty`, `missing_in:<label>`), `compare_detection.tsv` (gene × run matrix) | metrics 4 and 5 are **read**; hypothesis 1 uses the matrix |
+| `gippa.steps.mapping.select_queries(peptides, cfg)` | the mapping step's query set: non-decoy rows with `q_value ≤ input.q_value_max` (0.01) or NA, length in `mapping.exact.[min_len, max_len]` (7–40), one row per distinct `peptide` | the peptide universe of metric 2 and TE1, so the metrics count exactly what GIPPA queried |
+| `gippa.context.summary.qc_rows` | writes `detection_summary.tsv` row `section=qc, metric=genome_inconsistent_rate` (share of distinct target, non-contaminant `search_db = other` peptides without an exact placement; `n` = that denominator) | metric 2 "genome-inconsistent peptides in A1" is **read**, not recomputed |
+| `gippa compare` (M9-22) | `compare_abundance.tsv` (ρ on shared genes: detected and not imputed in both; TU-block bootstrap CI; Bland–Altman), `compare_stability.tsv` (Jaccard per family `islands`, `operon_flags`, `enriched_categories`, `novel_orfs`, `alt_sites`; flags `both_empty`, `missing_in:<label>`), `compare_detection.tsv` (gene × run matrix) | metrics 4 and 5 are **read**; hypothesis 1 uses the matrix |
 | `run_manifest.json` | `started_at`, `finished_at`, `exit_code`, `config` (resolved), `steps[]` with `name`, `status` (`completed`/`cached`/`failed`), `n_tasks`, `n_retries`, `wall_time_s`, `cpu_time_s`, `peak_rss_bytes` (from `logs/trace.tsv`, last attempt per task; absent metrics left out, never 0) | metric 7 |
 | `genes.tsv` | `locus_tag`, `feature_type` {cds, sorf, pseudogene}, `contig`, `start`/`end` (1-based closed), `strand`, `crosses_origin`, `replicon_type` {chromosome, plasmid, unknown}, `region_ids` (`<type>_<n>`, §9.2), `detection_status` {detected, not_detected, single_peptide_unestimated, partial_excluded} | metric 3 |
 | `peptide_hits.tsv`, `unmapped.tsv` | accepted placements (`route` {exact, tolerant}, `locus_class`, `gene`, coordinates 1-based closed); unmapped and contaminant sequences (`label`, `kind`, `reason`) | metric 2, TE1 |
-| `giap.stats.cutoffs.wilson_ci(k, n, level)` | Wilson score interval, exact 0/1 endpoints, NaN for n = 0 | every share's CI |
+| `gippa.stats.cutoffs.wilson_ci(k, n, level)` | Wilson score interval, exact 0/1 endpoints, NaN for n = 0 | every share's CI |
 | M10-03 `<a>.convert.json` | counts of the converted table incl. `distinct_peptides_target_q01`, `q_crossings` | cross-check of metric 1; `q_crossings` reported next to TE1 |
 | M10-02 `summary.json` | `distinct_stripped_q01` on the **raw** report q-values | cross-check of metric 1 |
-| M10-04 | spec not yet written (2026-10-23). This spec assumes `$GIAP_ROOT/pilot/runs/out_a1`, `…/out_a2`, `…/cmp_a1_a2` (question L1); `metrics.py` takes every path as an argument, so only the runbook depends on it | inputs |
+| M10-04 | spec not yet written (2026-10-23). This spec assumes `$GIPPA_ROOT/pilot/runs/out_a1`, `…/out_a2`, `…/cmp_a1_a2` (question L1); `metrics.py` takes every path as an argument, so only the runbook depends on it | inputs |
 
 ## Inputs (all on FarmShare; none committed)
 
 | Name | Path (default) | Metric |
 |---|---|---|
-| `OUT_A1`, `OUT_A2` | `$GIAP_ROOT/runs/pilot/pass1/out_a{1,2}` (lead decision 1: resolved through M10-04's `ATTEMPTS.tsv` to the final attempt, `.r<n>` suffix included) | 2, 3, 7, TE1, H1 |
-| `CMP` | `$GIAP_ROOT/runs/pilot/pass1/cmp_a1_a2` (same resolution) | 4, 5, H1, H3 |
-| `PEP_A1`, `PEP_A2` | `$GIAP_ROOT/pilot/inputs/a{1,2}.tsv.gz` (M10-03) | 1, 2, TE1 |
-| `CONV_A1`, `CONV_A2` | `$GIAP_ROOT/pilot/inputs/a{1,2}.convert.json` | 1 (cross-check), TE1 (`q_crossings`) |
+| `OUT_A1`, `OUT_A2` | `$GIPPA_ROOT/runs/pilot/pass1/out_a{1,2}` (lead decision 1: resolved through M10-04's `ATTEMPTS.tsv` to the final attempt, `.r<n>` suffix included) | 2, 3, 7, TE1, H1 |
+| `CMP` | `$GIPPA_ROOT/runs/pilot/pass1/cmp_a1_a2` (same resolution) | 4, 5, H1, H3 |
+| `PEP_A1`, `PEP_A2` | `$GIPPA_ROOT/pilot/inputs/a{1,2}.tsv.gz` (M10-03) | 1, 2, TE1 |
+| `CONV_A1`, `CONV_A2` | `$GIPPA_ROOT/pilot/inputs/a{1,2}.convert.json` | 1 (cross-check), TE1 (`q_crossings`) |
 | `SUM_A1`, `SUM_A2` | M10-02 `summary.json` of each arm (path as M10-02 lead decision 4 leaves it) | 1 (cross-check) |
 | `BAKTA_JSON` | `tests/data/recorded/bakta/1.12.2-full/nissle/…json.gz` (committed) | TE1 (`non_atg_nterm`, gene intervals), strain-specific set |
 | `GENOME` | `tests/data/genomes/nissle1917.fna.gz` (committed, circular-tagged); its sha256 must equal the runs' genome hash | TE1 (`read_coding_genes`, circularity) |
-| `K12_FASTA` | `$GIAP_DATA_DIR/proteomes/UP000000625.fasta` | strain-specific set (metric 3) |
+| `K12_FASTA` | `$GIPPA_DATA_DIR/proteomes/UP000000625.fasta` | strain-specific set (metric 3) |
 | `SACCT` (optional) | a TSV written by M10-04 from `sacct -P -o JobID,JobName,State,Elapsed,MaxRSS,NodeList,AllocCPUS` for each arm's head job | metric 7 (arm level) |
 
 `metrics.py` checks before computing: both run manifests have `exit_code = 0`; the genome sha256
-of both manifests is equal (as `giap compare` already demands); each `PEP_*` sha256 equals the
+of both manifests is equal (as `gippa compare` already demands); each `PEP_*` sha256 equals the
 input sha256 the run's manifest recorded for `--peptides` (the metrics describe the table the run
 used). Any failure exits 2 naming the file; nothing is written.
 
@@ -67,7 +67,7 @@ used). Any failure exits 2 naming the file; nothing is written.
 
 Notation: for an arm, **P** is its converted peptide table; a row is a *target* row when
 `is_decoy` is false; *accepted* means `q_value ≤ 0.01` (inclusive; the value as written by the
-converter, so the same set GIAP's preflight and mapping see). A `protein_ids` value is
+converter, so the same set GIPPA's preflight and mapping see). A `protein_ids` value is
 *contaminant-only* when every `;` item starts with one of the run's `input.contaminant_prefixes`
 (read from `run_manifest.json` `config`; default `Cont_`, `CON__`, `CONT_`, `cRAP`), the preflight
 rule. Shares are given with a 95 % Wilson interval (`wilson_ci`); a share whose denominator is 0 is
@@ -137,7 +137,7 @@ same universe this equals `tolerant + unmapped` of A1's **D**; the metric report
 ### Metric 3: coverage of the strain CDS
 
 Universe **G** = `genes.tsv` rows with `feature_type` in {cds, sorf} (the same locus tags in both
-arms; `giap compare` already fails otherwise). Pseudogenes are reported as their own row, not in
+arms; `gippa compare` already fails otherwise). Pseudogenes are reported as their own row, not in
 **G**. *Detected* = `detection_status = detected`; the other statuses are counted per status, all
 inside the denominator. Per arm and per subset: genes, detected, share and CI.
 
@@ -152,7 +152,7 @@ inside the denominator. Per arm and per subset: genes, detected, share and CI.
 | `no_peptides` | the protein yields no in-silico peptide (reported, in neither of the two above) |
 
 **Strain-specific, defined by peptide identity, not orthology** (no homology tool is allowed, §16
-"No MMseqs2"). Digest: `giap.mapping.digest.digest` with its defaults (trypsin_p, ≤ 1 missed
+"No MMseqs2"). Digest: `gippa.mapping.digest.digest` with its defaults (trypsin_p, ≤ 1 missed
 cleavage, 7–30 aa; the TE proxies' settings), I and L collapsed to one letter on both sides. K-12
 side: every protein of `K12_FASTA`. Nissle side: the Bakta protein of each gene of **G**
 (`coding_genes` of the parsed Bakta JSON, joined by locus tag). This is the set A1 cannot detect by
@@ -254,7 +254,7 @@ Two pre-registered **secondary** numbers, never the verdict:
   rounded across the cut-off by `%.6g` is written as `0.01`, so this conservative superset holds
   every peptide that depends on a crossing (the raw q-values are not an input here). Reported with
   the number of peptides removed and A2's `q_crossings`. With `q_crossings = 0` the field is
-  `null`, `reason: no_crossings`. The verdict stays on GIAP's share; the report flags a pass that
+  `null`, `reason: no_crossings`. The verdict stays on GIPPA's share; the report flags a pass that
   becomes a fail under the superset.
 
 TE1 is also computed for A1 as a **diagnostic only** (`te1_a1_diagnostic`, no pass flag): A1's
@@ -322,11 +322,11 @@ Q-K2):
 
 ## Outputs
 
-All under `METRICS_DIR` (default `$GIAP_ROOT/pilot/metrics/`), never under the checkout:
+All under `METRICS_DIR` (default `$GIPPA_ROOT/pilot/metrics/`), never under the checkout:
 
 | File | Content | Row-level data from DIA-NN? |
 |---|---|---|
-| `metrics.json` | `{"schema": "giap-pilot-metrics/1", "inputs": {name: {path, sha256}}, "spec": "<git SHA of this spec at compute time>", "m1": …, "m2": …, "m3": …, "m4": …, "m5": …, "m7": …, "te1": …, "te1_a1_diagnostic": …, "h1": …, "h3": …, "checklist": […], "warnings": […]}` | no: counts, shares, CIs, statistics, step timings |
+| `metrics.json` | `{"schema": "gippa-pilot-metrics/1", "inputs": {name: {path, sha256}}, "spec": "<git SHA of this spec at compute time>", "m1": …, "m2": …, "m3": …, "m4": …, "m5": …, "m7": …, "te1": …, "te1_a1_diagnostic": …, "h1": …, "h3": …, "checklist": […], "warnings": […]}` | no: counts, shares, CIs, statistics, step timings |
 | `te1.json` | the `te1` object alone, with `share_exact_inframe` (the field the index's evidence table names) | no |
 | `te1_exceptions.tsv` | one row per miss: `kind`, `locus_tag`, `peptide`, `hits` (the proxy's exception rows, **without** the 50-row cap) | **yes** (peptide sequences): never committed under any Q-K1 answer |
 | `REPORT.md` | rendered from `validation/pilot/report_template.md` and `metrics.json` | no (by the template rules below) |
@@ -340,7 +340,7 @@ sorted (steps in manifest order, which is deterministic; subsets in table order 
 ### What it may contain (default; Q-K1 for Khoa)
 
 **Default: aggregates only.** Counts, shares and their CIs, test statistics and p-values, ρ,
-Jaccard, runtimes and memory, the §15.6/§15.7 statuses, file paths, job IDs, the GIAP commit, and
+Jaccard, runtimes and memory, the §15.6/§15.7 statuses, file paths, job IDs, the GIPPA commit, and
 the sha256 of inputs that are already public or committed (genome, Bakta JSON, `strain_db.faa.gz`,
 UP000000625). **Not:** any peptide or precursor sequence, protein or locus-tag list, per-gene
 value, per-row table, column list of a DIA-NN report, or a sha256 of a DIA-NN-derived file (those
@@ -348,11 +348,11 @@ stay in `metrics.json` `inputs` on FarmShare). Named examples ("rplL detected in
 the draft; M10-15 may add a few if Khoa allows (Q-K1 b).
 
 **Default: nothing rendered is committed** until Khoa answers. `REPORT.md` is written to
-`$GIAP_ROOT/pilot/metrics/REPORT.md`; `validation/pilot/REPORT.md` and `validation/pilot/metrics/`
+`$GIPPA_ROOT/pilot/metrics/REPORT.md`; `validation/pilot/REPORT.md` and `validation/pilot/metrics/`
 do not exist in the repository (a guard test enforces it). This is the reversible choice: if Khoa
 says the aggregates may be committed, one later commit copies `REPORT.md`, `metrics.json` and
 `te1.json` and drops the guard line; a commit made too early cannot be taken back. The index's
-evidence table (`validation/pilot/metrics/te1.json`) changes to `$GIAP_ROOT/pilot/metrics/te1.json`
+evidence table (`validation/pilot/metrics/te1.json`) changes to `$GIPPA_ROOT/pilot/metrics/te1.json`
 under the default.
 
 ### Template (`validation/pilot/report_template.md`, committed; no numbers)
@@ -362,14 +362,14 @@ rendered number is followed by its source, e.g. `0.996 [0.990, 0.998] (metrics.j
 placeholder whose path is missing renders `**missing: <path>**` and the render exits 1 (no silent
 gaps). Floats render with 3 significant digits for shares and ρ, `p` with 2 significant digits,
 times as `h:mm:ss`, memory in GiB with 1 decimal. A hand-written notes file
-`$GIAP_ROOT/pilot/metrics/notes.md` (prose by the validation agent: explanations of failures,
+`$GIPPA_ROOT/pilot/metrics/notes.md` (prose by the validation agent: explanations of failures,
 caveats) is included verbatim under "Notes" when present; the render rejects it if it contains a
 digit sequence of 4 or more characters that is not in `metrics.json` (numbers come from tables,
 index decision 7) or a string matching `[ACDEFGHIKLMNPQRSTVWY]{7,}` (a peptide).
 
 Sections:
 
-1. **Status**: the §15.6 checklist table (below), the GIAP commit, the spec SHA.
+1. **Status**: the §15.6 checklist table (below), the GIPPA commit, the spec SHA.
 2. **Data and arms**: PXD078459 runs (from M10-01's committed manifest), DIA-NN 2.3.1 Academia
    (ADR-0051), the databases, job IDs of M10-02/03/04 (from `SACCT` and PROGRESS).
 3. **Metric 1–5, 7** tables, one per metric, A1 and A2 side by side.
@@ -390,7 +390,7 @@ Sections:
 
 | Bullet | Status rule in `metrics.py` | Expected after M10-05 |
 |---|---|---|
-| GIAP runs end to end on A1, A2 and A3 | `pass` only when all three manifests exist with exit 0; with A1 and A2 at exit 0 and no A3: `partial (A1, A2; A3 pending M10-10)` | partial |
+| GIPPA runs end to end on A1, A2 and A3 | `pass` only when all three manifests exist with exit 0; with A1 and A2 at exit 0 and no A3: `partial (A1, A2; A3 pending M10-10)` | partial |
 | ≥ 99.5 % of A2 peptides map exactly (TE1) | `pass` / `fail` from `te1.passed` | pass or fail |
 | A1 and A2 detections and abundances are compared | `pass` when `compare_detection.tsv`, `compare_abundance.tsv` and `compare_stability.tsv` exist and validate against their schemas and the A1/A2 abundance row exists (ρ may be NA with a flag, which is reported) | pass |
 | Measured runtimes replace the estimates | always `pending (M10-12)`; metric 7 is shown as pilot measurements | pending |
@@ -423,7 +423,7 @@ Exit codes: 0 written (cross-check inequalities that fail, such as `raw_vs_writt
 placeholder missing, a rejected notes file); 2 a precondition (missing file, run exit ≠ 0, genome
 or peptide-table hash mismatch, `--out` inside the checkout). Run with the shared venv Python and
 `PYTHONPATH=$REPO/src:$REPO` (for `validation.proxies.te_proxies`); no `uv run`. It reads only
-GIAP's own outputs and committed or public inputs, no downloaded archive. Expected cost: one CPU,
+GIPPA's own outputs and committed or public inputs, no downloaded archive. Expected cost: one CPU,
 < 2 min (the largest step is digesting ~9,000 proteins), so it runs inside an allocation, not on
 a login node; if it exceeds 10 min it moves to a `dev` job (question L5).
 
@@ -481,7 +481,7 @@ Hand-made values (not from the real reports).
   A2-only and A1-only genes is a tie (`mixed_tu`), reported and left out of the TU test but kept in
   b, c and `p_gene`. ρ ties are compare's (average ranks). `te1_exceptions.tsv` is sorted by (`kind`, `locus_tag`, `peptide`).
 - **q at the cut-off.** `q = 0.01` is accepted. Values above 0.01 rounded to `0.01` by the
-  converter (`q_crossings`) are accepted because GIAP accepts them. The crossing rows cannot be
+  converter (`q_crossings`) are accepted because GIPPA accepts them. The crossing rows cannot be
   identified (no raw q-value here), so TE1's `share_without_q_at_cutoff` drops the superset of
   peptides whose accepted rows are all at exactly `0.01` (example 13); metric 1's raw-vs-written
   check is an inequality (example 3).
@@ -547,13 +547,13 @@ On CI (no real data; every input is built in `tmp_path`):
    `validation/pilot/metrics/`, and no `te1_exceptions.tsv`, `metrics.json` or `te1.json` anywhere
    (extends M10-03's guard).
 10. Integration (marked `slow`; Slurm via `test_branch.sbatch`, not the session): two
-    `giap run --executor local` runs on giapsim SIM100K (`tests/helpers/m4_real.py`): an "A2" run
+    `gippa run --executor local` runs on gippasim SIM100K (`tests/helpers/m4_real.py`): an "A2" run
     with the simulator's same-strain peptides plus two planted peptides (one from an out-of-frame
     translation, one non-ATG N-terminal product of a planted GTG-start gene), and an "A1" run of
     the same table with `search_db = other` and a few residues substituted so that tolerant and
-    unmapped peptides exist; then `giap compare`; then `compute` and `render`. TE1 counts equal the
+    unmapped peptides exist; then `gippa compare`; then `compute` and `render`. TE1 counts equal the
     planted truth (the two planted misses, everything else exact in frame); metric 2's A1
-    tolerant + unmapped equals `genome_inconsistent_rate × n`; metric 3 subsets equal giapsim's
+    tolerant + unmapped equals `genome_inconsistent_rate × n`; metric 3 subsets equal gippasim's
     planted prophage/BGC/plasmid gene sets; metric 7 has one entry per manifest step.
 
 On FarmShare (evidence; PR description and PROGRESS, not CI):
@@ -561,7 +561,7 @@ On FarmShare (evidence; PR description and PROGRESS, not CI):
 11. `compute` and `render` on the real M10-04 outputs exit 0; `metrics.json` `warnings` are listed
     in the PR; `te1.json` `share_exact_inframe` and `passed` are reported in PROGRESS › Measured
     numbers (as an aggregate, per Q-K1); the rendered `REPORT.md` sits at
-    `$GIAP_ROOT/pilot/metrics/REPORT.md`. A TE1 fail does not fail the issue: it is explained in
+    `$GIPPA_ROOT/pilot/metrics/REPORT.md`. A TE1 fail does not fail the issue: it is explained in
     `notes.md` (§15.6, "investigated and explained") and becomes a lead finding.
 
 Link to §15.6: this issue gives evidence for bullet 2 (TE1) and the computed part of bullet 3, and
@@ -611,26 +611,26 @@ Tests ≈ 450 lines. One PR.
 
 | # | Question | Default |
 |---|---|---|
-| L1 | M10-04 is not specced yet: run and compare directory paths? | `$GIAP_ROOT/pilot/runs/out_a1`, `out_a2`, `cmp_a1_a2`; M10-04 adopts them or this runbook follows M10-04 (arguments make it a one-line change) |
+| L1 | M10-04 is not specced yet: run and compare directory paths? | `$GIPPA_ROOT/pilot/runs/out_a1`, `out_a2`, `cmp_a1_a2`; M10-04 adopts them or this runbook follows M10-04 (arguments make it a one-line change) |
 | L2 | Metric 1 "protein groups at 1 % FDR": the converter drops `PG.Q.Value`. Add it to the converted table (a converter change in M10-03), read the raw report (deleted at M10-14), or report groups of accepted precursors? | groups of accepted precursors, labelled so in the report |
 | L3 | "Strain-specific genes": peptide identity against the K-12 digest (no shared in-silico tryptic peptide, I/L collapsed) as the proxy for "no K-12 counterpart"? | yes; the definition is printed in the report |
-| L4 | TE1 when `q_crossings > 0`: the verdict uses the share as GIAP saw it; `share_without_q_at_cutoff` (the superset rule of S3) is shown. Should the verdict use the stricter share? | verdict on the share as GIAP saw it; both shown (accepted, lead decision 2) |
+| L4 | TE1 when `q_crossings > 0`: the verdict uses the share as GIPPA saw it; `share_without_q_at_cutoff` (the superset rule of S3) is shown. Should the verdict use the stricter share? | verdict on the share as GIPPA saw it; both shown (accepted, lead decision 2) |
 | L5 | `metrics.py compute` in the session allocation (1 CPU, < 2 min), or always a `dev` job? | session allocation; `dev` job if > 10 min |
 | L6 | Is this spec's statistics section enough as the methods note, or does the statistician want `docs/methods/pilot_metrics.md`? | the spec section; a note only if the statistician asks |
-| L7 | The index evidence table names `validation/pilot/metrics/te1.json` (committed). Under Q-K1's default it is `$GIAP_ROOT/pilot/metrics/te1.json`. Update the index row now? | yes, in the implementation PR |
+| L7 | The index evidence table names `validation/pilot/metrics/te1.json` (committed). Under Q-K1's default it is `$GIPPA_ROOT/pilot/metrics/te1.json`. Update the index row now? | yes, in the implementation PR |
 
 ### For Khoa (next batch; the defaults do not block)
 
 | # | Question | Default (reversible) |
 |---|---|---|
-| Q-K1 | (a) May `REPORT.md`, `metrics.json` and `te1.json` be committed when they hold aggregates only (counts, shares, CIs, ρ, Jaccard, p-values, runtimes), with no sequence, no ID list, no per-gene value and no hash of a DIA-NN-derived file? (b) May the final report name a few genes as examples (for example "the ribosomal proteins")? | (a) not committed until you answer; kept under `$GIAP_ROOT/pilot/metrics/`, review packet in `local/review/` (M10-15); content already restricted to aggregates. (b) no names **Answered by Khoa 2026-10-24** (PROGRESS › Answered by Khoa, "pilot data rule"): aggregates with a few example gene names may go in `REPORT.md` and `metrics.json`; hashes and row counts are allowed; no row-level DIA-NN content. M10-15 commits the frozen `REPORT.md` (at `validation/pilot/`), `metrics.json` and `te1.json` (D5); the interim A3 metrics stay under `$GIAP_ROOT/pilot/metrics/pass2-a3/`; `te1_exceptions.tsv` never. |
+| Q-K1 | (a) May `REPORT.md`, `metrics.json` and `te1.json` be committed when they hold aggregates only (counts, shares, CIs, ρ, Jaccard, p-values, runtimes), with no sequence, no ID list, no per-gene value and no hash of a DIA-NN-derived file? (b) May the final report name a few genes as examples (for example "the ribosomal proteins")? | (a) not committed until you answer; kept under `$GIPPA_ROOT/pilot/metrics/`, review packet in `local/review/` (M10-15); content already restricted to aggregates. (b) no names **Answered by Khoa 2026-10-24** (PROGRESS › Answered by Khoa, "pilot data rule"): aggregates with a few example gene names may go in `REPORT.md` and `metrics.json`; hashes and row counts are allowed; no row-level DIA-NN content. M10-15 commits the frozen `REPORT.md` (at `validation/pilot/`), `metrics.json` and `te1.json` (D5); the interim A3 metrics stay under `$GIPPA_ROOT/pilot/metrics/pass2-a3/`; `te1_exceptions.tsv` never. |
 | Q-K2 | §15.7 calls the hypotheses "fixed before running", but gives no decision rule. This spec fixes H1 (`supported` iff b > c, one-sided exact TU-level binomial `p_tu` ≤ 0.05, and > 50 % of A2-only genes in plasmid ∪ prophage ∪ BGC) and H3 (ρ `ci_low` ≥ 0.7; per family with union ≥ 5, Jaccard ≥ 0.5). Keep the H3 rule, or downgrade H3 to descriptive? | both rules as written (lead decision 5). A downgrade after the numbers are seen is reported as such; a new rule set then is post hoc |
 
 ## Lead decisions (2026-10-24)
 
-1. **L1:** the M10-04 spec (branch m10/spec-04, fc2758aa) puts the runs at `$GIAP_ROOT/runs/pilot/pass1/{out_a2,out_a1,cmp_a1_a2}`, with `.r<n>` suffixes for fresh re-runs and an `ATTEMPTS.tsv` index. Use those as the defaults. A run directory resolves through `ATTEMPTS.tsv` to its final attempt.
+1. **L1:** the M10-04 spec (branch m10/spec-04, fc2758aa) puts the runs at `$GIPPA_ROOT/runs/pilot/pass1/{out_a2,out_a1,cmp_a1_a2}`, with `.r<n>` suffixes for fresh re-runs and an `ATTEMPTS.tsv` index. Use those as the defaults. A run directory resolves through `ATTEMPTS.tsv` to its final attempt.
 2. **L2–L7: the defaults are accepted.**
-3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIAP_ROOT/pilot/metrics/` is committed until Khoa answers. ~~Hypothesis 3 stays descriptive.~~ (superseded by decision 5)
+3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIPPA_ROOT/pilot/metrics/` is committed until Khoa answers. ~~Hypothesis 3 stays descriptive.~~ (superseded by decision 5)
 4. **Next:** the statistician reviews the metric definitions and the hypothesis section, then the test-author.
 5. **Q-K2 (2026-10-24): the statistician's H3 rule is the pre-registered default now**, as in their review: ρ holds when `ci_low ≥ 0.7`; a Jaccard family is evaluable when the union ≥ 5 and holds when J ≥ 0.5; the verdict is `supported`, `not_supported` or `not_evaluable`. Khoa may later downgrade it to descriptive. S1–S7 and the minor items of the pre-test review are applied in the body.
 
@@ -638,7 +638,7 @@ Tests ≈ 450 lines. One PR.
 
 Reviewer: statistician subagent, 2026-10-23. Scope: "Metric definitions" 1–3 and 7, "TE1 on
 real data", "Hypotheses 1 and 3", and the lead decisions. The ρ, bootstrap CI and Jaccards of
-M9-22 are copied, not re-reviewed. Checked against GIAP_SPEC §8.1–8.5, §11.6 and §15.5–15.7;
+M9-22 are copied, not re-reviewed. Checked against GIPPA_SPEC §8.1–8.5, §11.6 and §15.5–15.7;
 `validation/proxies/te_proxies.py` (`te1_result`, `non_atg_nterm`, `read_coding_genes`); the
 M10-02 search commands and `summary.json`; the M10-03 `convert.json` counts. Examples 3, 4, 6, 9
 and 10 were recomputed with `wilson_ci` and `scipy.stats.binomtest`; every CI and p-value in the
@@ -698,7 +698,7 @@ has no peptide list to work from. Replace it with a conservative superset that i
   this set contains all the peptides that depend on a crossing.
 - Report how many peptides were removed, and `q_crossings`, beside the share.
 - When `q_crossings = 0`, report the field as `null` with `reason: no_crossings`.
-- The verdict stays on the share as GIAP saw it (L4 accepted). The report flags a pass that
+- The verdict stays on the share as GIPPA saw it (L4 accepted). The report flags a pass that
   becomes a fail under the superset.
 - The edge case "q at the cut-off" and acceptance criterion 1 (example 9 or a new example) follow
   this definition.
@@ -767,7 +767,7 @@ its coverage is optimistic, and the report calls it "nominal". Showing "CI lower
 next to a pass is right and stays. A CI is never described as a test.
 
 **Mapping shares, coverage and strain-specific proxy (metrics 2 and 3; L3).**
-- The universes are well defined, and **U** = `select_queries` ties metric 2 to what GIAP queried.
+- The universes are well defined, and **U** = `select_queries` ties metric 2 to what GIPPA queried.
 - Coverage CIs are nominal and descriptive. A1 and A2 are paired on the same genes, so the report
   must not compare arms by CI overlap: H1 is the paired comparison. Add one sentence saying so.
 - The peptide-identity proxy is the right definition for H1: a gene with no shared in-silico

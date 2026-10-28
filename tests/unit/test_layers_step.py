@@ -1,8 +1,8 @@
 """M2-20 step ``context_layers``: registry contract, ``annotation/*`` files, ``layers.parquet``,
 determinism, ``layer_missing`` logging, native copies, schemas (docs/specs/M2-20-context-layers.md;
-GIAP_SPEC.md §6.2, §6.3, §6.6/R7, §7.1.8, §9.1-§9.5).
+GIPPA_SPEC.md §6.2, §6.3, §6.6/R7, §7.1.8, §9.1-§9.5).
 
-Inputs: the merged producers run on giapsim SIM100K (``helpers.layers_chain``) and the
+Inputs: the merged producers run on gippasim SIM100K (``helpers.layers_chain``) and the
 simulator's precomputed layers (M2-02 TSVs).
 
 Pinned / settled by the test author (see the spec questions and annotate.nf):
@@ -27,8 +27,8 @@ Pinned / settled by the test author (see the spec questions and annotate.nf):
   M2-13 ``promoters_bed`` with ``promotech_yes``, M2-15 ``terminators_bed``) applied to the
   producer files.
 * ``layer_missing:<layer>`` run flags are logged as warnings by the step (the M2-19
-  ``region_layer`` convention; ``giap.steps`` events reach ``logs/events.jsonl``).
-* Schemas: ``src/giap/schemas/annotation/<table>.json`` (``<table>.schema.json`` accepted).
+  ``region_layer`` convention; ``gippa.steps`` events reach ``logs/events.jsonl``).
+* Schemas: ``src/gippa/schemas/annotation/<table>.json`` (``<table>.schema.json`` accepted).
 * Lead decision 4: ``gc_local_dev`` needs the sequence, so ``genome`` (the genome FASTA, the key
   annotate.nf already uses for ``parse_bakta`` / ``ostir_input``) is a required input and
   annotate.nf stages ``kv('genome', genome)`` for ``context_layers``; layers.parquet holds a float
@@ -59,12 +59,12 @@ from helpers.layers_chain import (
     genome_seqs,
 )
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
 FIXTURE = REPO / "workflow" / "tests" / "data" / "annotate" / "step_registry.json"
-SCHEMA_DIR = REPO / "src" / "giap" / "schemas" / "annotation"
+SCHEMA_DIR = REPO / "src" / "gippa" / "schemas" / "annotation"
 REQUIRED = {"genes", "replicons", "pairs_raw", "tus", "genome"}
 OPTIONAL = {
     "features", "promoter_windows", "promoters", "tx_rates", "terminators",
@@ -94,12 +94,12 @@ def steps() -> Iterator[ModuleType]:
         yield fresh_steps(mp)
 
 
-def run(out: Path, inputs: dict[str, Any], cfg: GiapConfig | None = None) -> tuple[Path, Path]:
+def run(out: Path, inputs: dict[str, Any], cfg: GippaConfig | None = None) -> tuple[Path, Path]:
     """Run ``context_layers`` into ``out``; returns (annotation dir, layers.parquet)."""
     outs = {"annotation": out / "annotation", "layers": out / "layers.parquet"}
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
-        reg.run_step("context_layers", cfg or GiapConfig(seed=1), inputs, outs)
+        reg.run_step("context_layers", cfg or GippaConfig(seed=1), inputs, outs)
     return outs["annotation"], outs["layers"]
 
 
@@ -242,7 +242,7 @@ def test_every_annotation_file_and_layers_parquet_written(full: tuple[Path, Path
         assert (ann / name).is_file(), name
     assert not (ann / "id_map.tsv").exists(), "id_map.tsv only with a GFF3/GBFF --annotation"
     assert lay.is_file()
-    from giap.annotate.layers import LAYER_COLUMNS
+    from gippa.annotate.layers import LAYER_COLUMNS
 
     assert tuple(pd.read_parquet(lay).columns) == tuple(LAYER_COLUMNS)
 
@@ -269,7 +269,7 @@ def test_tables_equal_the_merged_writers(
     chain: Chain, full: tuple[Path, Path], tmp_path: Path, name: str
 ) -> None:
     want = orc.expected_annotation_files(
-        chain.inputs, tmp_path, GiapConfig().annotation.promoters.promotech_yes
+        chain.inputs, tmp_path, GippaConfig().annotation.promoters.promotech_yes
     )
     assert (full[0] / name).read_bytes() == want[name].read_bytes(), name
 
@@ -294,11 +294,11 @@ def test_no_crosscheck_input_no_crosscheck_file(chain: Chain, tmp_path: Path) ->
 
 def test_id_map_copied_when_given(chain: Chain, tmp_path: Path) -> None:
     """M2-11 producer: simulator GFF3 -> read_user_cds -> build_id_map -> write_id_map."""
-    from giap.annotate.user_annotation import build_id_map, read_user_cds, write_id_map
+    from gippa.annotate.user_annotation import build_id_map, read_user_cds, write_id_map
 
     reps = orc.replicons(chain.frame("replicons"))
     gff = chain.sim.annotation_gff3 or chain.sim.gff3
-    assert gff is not None, "giapsim writes an annotation GFF3"
+    assert gff is not None, "gippasim writes an annotation GFF3"
     cds = read_user_cds(Path(gff), "gff3", reps, {c: c for c in reps})
     rows = build_id_map(cds, orc.genes(chain.frame("genes")), list(reps))
     idm = tmp_path / "id_map.tsv"
@@ -348,8 +348,8 @@ def test_missing_optional_layer_is_logged(
     chain: Chain, tmp_path: Path, caplog: pytest.LogCaptureFixture,
     cfg_data: dict[str, Any], drop: tuple[str, ...], flag: str,
 ) -> None:  # fmt: skip
-    cfg = GiapConfig.model_validate({"seed": 1, **cfg_data})
-    with caplog.at_level(logging.WARNING, logger="giap.steps"):
+    cfg = GippaConfig.model_validate({"seed": 1, **cfg_data})
+    with caplog.at_level(logging.WARNING, logger="gippa.steps"):
         _, lay = run(tmp_path, chain.subset(*drop), cfg)
     assert any(flag in r.getMessage() for r in caplog.records), [
         r.getMessage() for r in caplog.records
@@ -380,12 +380,12 @@ def test_only_required_inputs(chain: Chain, tmp_path: Path) -> None:
 def test_precomputed_promoters_tsv(chain: Chain, tmp_path: Path, key: str) -> None:
     """annotate.nf stages pre('promoters') as ``promoters``; the local executor gives the same
     TSV as ``promoter_windows``; promoters.bed then comes from the TSV."""
-    from giap.annotate.precomputed import load_precomputed
-    from giap.annotate.promoters import promoters_bed
-    from giap.io.bed import write_bed
+    from gippa.annotate.precomputed import load_precomputed
+    from gippa.annotate.promoters import promoters_bed
+    from gippa.io.bed import write_bed
 
     tsv = chain.sim.precomputed["promoters"]
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"precomputed": {"promoters": str(tsv)}}}
     )
     ann, lay = run(tmp_path / "out", {**chain.subset("promoter_windows"), key: tsv}, cfg)
@@ -402,7 +402,7 @@ def test_local_executor_style_precomputed_layers(chain: Chain, tmp_path: Path) -
     step point to the layer file)."""
     pre = chain.sim.precomputed
     layers = ("promoters", "tx_rates", "terminators", "rbs", "regions")
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"precomputed": {k: str(pre[k]) for k in layers}}}
     )
     inputs = {
@@ -419,7 +419,7 @@ def test_local_executor_style_precomputed_layers(chain: Chain, tmp_path: Path) -
     assert not (ann / "terminators_crosscheck.tsv").exists(), "TransTermHP did not run"
     df = pd.read_parquet(lay)
     ids = {x for cell in df["region_ids"] for x in cell}
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     head, rows = read_tsv(pre["regions"])
     planted = {str(r[0]) for r in rows if r[head.index("genes")]}
@@ -435,7 +435,7 @@ def test_local_executor_style_precomputed_layers(chain: Chain, tmp_path: Path) -
 
 def test_copy_native_byte_copies(tmp_path: Path) -> None:
     """annotation/tools/<tool>/: byte copies, no gzip, no rename (§9.1 "untouched")."""
-    from giap.annotate.layers import copy_native
+    from gippa.annotate.layers import copy_native
 
     srcs = {
         "genomad": REC / "genomad" / "1.12.0" / "sim100k",

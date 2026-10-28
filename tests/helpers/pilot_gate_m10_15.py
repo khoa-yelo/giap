@@ -5,7 +5,7 @@ format: the header line, ``## Evidence`` and the ``## A3`` subsections), ``basel
 (``standard_run``), an ADR file, ``a3_feasibility.json``, a small final-mode template, a minimal
 ``metrics.json`` and the FarmShare side of a review packet (per-arm ``report.html``,
 ``compare.html``, ``verify-<F7>.json``, the benchmark ``summary.md``). Nothing comes from
-``$GIAP_ROOT``, ``$GIAP_DB_DIR`` or a DIA-NN report; no peptide sequence is written.
+``$GIPPA_ROOT``, ``$GIPPA_DB_DIR`` or a DIA-NN report; no peptide sequence is written.
 
 Interface pinned here (the spec gives the command lines; the rest is fixed by these tests; the
 "Lead decisions after the 15a code review" of the spec are binding):
@@ -28,7 +28,7 @@ Interface pinned here (the spec gives the command lines; the rest is fixed by th
   ``fail`` gives ``fail (A3 feasibility fail)``; otherwise ``pass (A3 = Cascadia)`` or
   ``pass (A3 = Casanovo fallback on UTI89, different strain)``.
   Exit 1 for: a runbook not ``status=final``; a ``pending``/``partial`` checklist status; a
-  ``pending`` or absent TE status (``te_real.te<n>.status``, ``te7.giap.status``), whatever the
+  ``pending`` or absent TE status (``te_real.te<n>.status``, ``te7.gippa.status``), whatever the
   ``schema`` key (``final_problems``, its message names the path); an empty ``evidence`` string
   (message names ``evidence``); an absent placeholder path; a ``**missing:`` string (the message
   names what is missing); a non-pass TE without a ``## Diagnosis: TE<n>`` section naming one
@@ -71,10 +71,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from helpers.pilot_metrics_m10 import GIAP_COMMIT, REPO
+from helpers.pilot_metrics_m10 import GIPPA_COMMIT, REPO
 
 REVIEW_PACKET_PY = REPO / "validation" / "pilot" / "review_packet.py"
-F = GIAP_COMMIT
+F = GIPPA_COMMIT
 F7 = F[:7]
 OTHER_COMMIT = "fedcba9876543210fedcba9876543210fedcba98"
 #: the source separator of the report (``metrics.SOURCE_SEP``)
@@ -95,7 +95,7 @@ EVIDENCE_JOBS: dict[str, tuple[str, str]] = {
 }
 
 BULLETS = (
-    "GIAP runs end to end on A1, A2 and A3",
+    "GIPPA runs end to end on A1, A2 and A3",
     ">= 99.5 % of A2 peptides map exactly (TE1)",
     "A1 and A2 detections and abundances are compared",
     "Measured runtimes replace the estimates",
@@ -236,7 +236,7 @@ def write_adr(
 
 def write_feasibility(path: Path, verdict: str, reason: str | None = None) -> Path:
     return write_json(
-        path, {"schema": "giap-a3-feasibility/1", "verdict": verdict, "reason": reason}
+        path, {"schema": "gippa-a3-feasibility/1", "verdict": verdict, "reason": reason}
     )
 
 
@@ -254,7 +254,7 @@ FIXTURE_TEMPLATE = """# Pilot report (fixture template)
 | runtimes | {{checklist.3.status}} | {{checklist.3.evidence}} |
 | TE2-TE5 | {{checklist.4.status}} | {{checklist.4.evidence}} |
 
-GIAP commit {{giap_commit}}; runbook status {{evidence.runbook.status}}.
+GIPPA commit {{gippa_commit}}; runbook status {{evidence.runbook.status}}.
 Submitted for Khoa's review (§14.8 item 4).
 
 ## 3. Metrics
@@ -269,7 +269,7 @@ Agreement: {{m4.spearman_rho}}.
 | TE3 | {{te_real.te3.status}} |
 | TE4 | {{te_real.te4.status}} |
 | TE5 | {{te_real.te5.status}} |
-| TE7 | {{te7.giap.status}} |
+| TE7 | {{te7.gippa.status}} |
 
 ## 7. Not evaluated
 
@@ -334,7 +334,7 @@ def final_metrics(
     te: Mapping[str, str] | None = None,
     te7: str = "pass",
     rho: float = 0.83,
-    giap_commit: str = F,
+    gippa_commit: str = F,
     a3_exit: int | None = 0,
     verdict: str | None = "pass",
     reason: str | None = None,
@@ -344,16 +344,20 @@ def final_metrics(
     (statuses only), one m4 number."""
     te = {"te2": "pass", "te3": "pass", "te4": "pass", "te5": "pass", **(te or {})}
     return {
-        "schema": "giap-pilot-metrics/1",
+        "schema": "gippa-pilot-metrics/1",
         "spec": "0" * 40,
-        "giap_commit": giap_commit,
+        "gippa_commit": gippa_commit,
         "inputs": {},
         "warnings": [],
         "evidence": gate_block(a3_exit, verdict, reason),
         "checklist": checklist_rows(statuses, a3_exit),
         "m4": {"spearman_rho": rho, "ci_low": 0.76, "ci_high": 0.88},
-        "te_real": {"schema": "giap-pilot-te-real/1", **{k: {"status": v} for k, v in te.items()}},
-        "te7": {"schema": "giap-pilot-te7/1", "giap": {"status": te7}, "diann": {"status": "pass"}},
+        "te_real": {"schema": "gippa-pilot-te-real/1", **{k: {"status": v} for k, v in te.items()}},
+        "te7": {
+            "schema": "gippa-pilot-te7/1",
+            "gippa": {"status": te7},
+            "diann": {"status": "pass"},
+        },
     }
 
 
@@ -420,7 +424,7 @@ def write_te_inputs(d: Path) -> tuple[Path, Path]:
     """Hand-made ``te_real.json`` and ``te7.json`` (every TE passes) with every path of the
     final template (M10-06's shape; no row-level content)."""
     te_real = {
-        "schema": "giap-pilot-te-real/1",
+        "schema": "gippa-pilot-te-real/1",
         "te2": {"status": "pass", "counts": {"violations": 0}},
         "te3": {
             "status": "pass",
@@ -434,8 +438,8 @@ def write_te_inputs(d: Path) -> tuple[Path, Path]:
         "te5": {"status": "pass", "A1": {"share_bucket": "low"}, "A2": {"share_bucket": "low"}},
     }
     te7 = {
-        "schema": "giap-pilot-te7/1",
-        "giap": {"status": "pass", "n_gate": 12},
+        "schema": "gippa-pilot-te7/1",
+        "gippa": {"status": "pass", "n_gate": 12},
         "diann": {"status": "pass"},
         "end_to_end": True,
     }
@@ -471,7 +475,7 @@ def with_later_hooks(doc: dict[str, Any], m6_reason: str | None) -> dict[str, An
 def run_packet(
     *args: str, root: Path, cwd: Path, script: Path | None = None, pythonpath: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """``python validation/pilot/review_packet.py ARGS`` with ``$GIAP_ROOT``/``$GIAP_DB_DIR``
+    """``python validation/pilot/review_packet.py ARGS`` with ``$GIPPA_ROOT``/``$GIPPA_DB_DIR``
     pointing into the sandbox. Fails the calling test when the script is absent. ``script`` and
     ``pythonpath``: run a copy of the script (the N6 test); the environment then has no
     ``PYTHONDONTWRITEBYTECODE``."""
@@ -487,9 +491,9 @@ def run_packet(
     if pythonpath is not None:
         env.pop("PYTHONDONTWRITEBYTECODE", None)
         env.pop("PYTHONPYCACHEPREFIX", None)
-    env["GIAP_ROOT"] = str(root)
-    env["GIAP_DB_DIR"] = str(root / "db")
-    env["GIAP_DATA_DIR"] = str(root / "data")
+    env["GIPPA_ROOT"] = str(root)
+    env["GIPPA_DB_DIR"] = str(root / "db")
+    env["GIPPA_DATA_DIR"] = str(root / "data")
     return subprocess.run(
         [sys.executable, str(script), *args],
         capture_output=True,
@@ -593,7 +597,7 @@ def build_sandbox(
     git: bool = False,
 ) -> Sandbox:
     """A checkout-like ``repo/`` with the committed files, a ``root/`` standing in for
-    ``$GIAP_ROOT`` and the packet output ``out/`` (not created). The committed ``REPORT.md`` is
+    ``$GIPPA_ROOT`` and the packet output ``out/`` (not created). The committed ``REPORT.md`` is
     rendered by ``metrics.py render --final`` (so the builder needs the final mode).
 
     ``a3=False``: example 6 (M10-08 ``fail``/``route_unavailable``, runbook ``fallback`` without

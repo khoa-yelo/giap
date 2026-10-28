@@ -257,7 +257,7 @@ def _partial_run(**kw: Any) -> Any:
     rows = [acc(t, f"PEP{t}K", 2.0**v) for t, v in ((G, 10), (H, 12), (L, 30))]
     genes = genes_frame(TAGS, partial=(L, M))
     det = detection(TAGS, (G, H, K, L, M))  # a stub marking the partial L and M detected
-    from giap.genetable.abundance import gene_abundance
+    from gippa.genetable.abundance import gene_abundance
 
     return gene_abundance(genes, accepted_frame(rows), covariates_frame({t: 1 for t in TAGS}, TAGS),
                           det, None, pmap_frame([]), cfg(**kw), protein_hits=protein_hits_frame([]),
@@ -301,7 +301,7 @@ def _partial_scenarios(draw: st.DrawFn) -> dict[str, Any]:
 @SETTINGS
 @given(_partial_scenarios())
 def test_partial_genes_filled_but_not_in_statistic_matches_oracle(sc: dict[str, Any]) -> None:
-    from giap.genetable.abundance import gene_abundance
+    from gippa.genetable.abundance import gene_abundance
 
     if not sc["rows"]:
         return  # source "none": covered elsewhere

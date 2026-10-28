@@ -1,4 +1,4 @@
-"""Tolerant matching, ±1-nt frameshift splits (issue M3-08; GIAP_SPEC.md §7.2.4).
+"""Tolerant matching, ±1-nt frameshift splits (issue M3-08; GIPPA_SPEC.md §7.2.4).
 
 Examples 1-7 of docs/specs/M3-08-frameshift-splits.md, its edge cases (stop at the split point,
 δ = -1 overlap, origin-crossing splits on circular replicons, equal-cost ordinary tolerant hits),
@@ -38,14 +38,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 from fs_genomes import background, codons_for, join_split, rc
 from oracle_frameshift import TYPE_ORDER, Result, frameshift_oracle
 
-from giap.config.model import TolerantConfig
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.hits import HIT_COLUMNS
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.config.model import TolerantConfig
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 CFG = TolerantConfig()
 FS1 = "GGCCGGAACCGACCATTGATAGAAAAACTGATGAACGCGTAA"  # spec example sequence (42 nt)
@@ -146,7 +146,7 @@ def fs1() -> SixFrameIndex:
 
 
 def test_example_sequence_frames(fs1: SixFrameIndex) -> None:
-    from giap.mapping.sixframe import decode
+    from gippa.mapping.sixframe import decode
 
     assert decode(fs1.frames[2].aa) == "PEPTLDRKTDERV"  # +3 (I -> L)
     assert decode(fs1.frames[0].aa) == "GRNRPLLEKLMNA*"  # +1

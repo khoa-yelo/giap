@@ -3,7 +3,7 @@
 S8, N2; examples 7 and 8).
 
 The S-check job runs in a sandbox checkout (``helpers.slurm_sandbox.make_sandbox`` plus
-``validation/``) with a stub ``giap.cli`` on ``$GIAP_REPO/src``: ``convert`` writes
+``validation/``) with a stub ``gippa.cli`` on ``$GIPPA_REPO/src``: ``convert`` writes
 ``table:<report bytes>`` and ``abundance:<report bytes>``, or raises for the stems named in
 ``$FAKE_CONVERT_CRASH``. No Slurm, no network, no DIA-NN output. No statistical claim, so no
 calibration test (spec §8.4).
@@ -35,7 +35,7 @@ from helpers.m10_14_kit import (
     sha256_bytes,
     synthetic_repo,
 )
-from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_giap_repo, make_sandbox
+from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_gippa_repo, make_sandbox
 
 STEP_SCHECK = """### S-check reproducibility check (M10-14)
 
@@ -73,7 +73,7 @@ def test_s8a_unknown_read_id_fails_static(rc: Any, tmp_path: Path) -> None:
 
 def test_s8a_outputs_ids_and_dashes_are_known_reads(rc: Any, tmp_path: Path) -> None:
     repo = synthetic_repo(tmp_path)
-    out = f"| a1_table | $GIAP_ROOT/pilot/inputs/a1.tsv.gz | {'d' * 64} | - | yes |"
+    out = f"| a1_table | $GIPPA_ROOT/pilot/inputs/a1.tsv.gz | {'d' * 64} | - | yes |"
     step = STEP_S7.replace("Reads: genome", "Reads: genome, a1_table")
     issues = _issues(rc, runbook(steps=[STEP_S0, s5(), step], outputs=[out]), repo)
     assert not [s for s in issues if s.startswith("unknown_read")], issues
@@ -128,13 +128,13 @@ def test_s8c_final_runbook_with_pending_a3_branch_fails(rc: Any, tmp_path: Path)
 def test_n2_missing_runbook_exits_2(tmp_path: Path, cmd: str) -> None:
     missing = tmp_path / "no_such_reproduce.md"
     extra = ["--out", str(tmp_path / "v.json")] if cmd == "verify" else []
-    res = run_cli(cmd, str(missing), *extra, env={"GIAP_ROOT": str(tmp_path)})
+    res = run_cli(cmd, str(missing), *extra, env={"GIPPA_ROOT": str(tmp_path)})
     assert res.returncode == 2, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
 
 
 # ---------------------------------------------------------------- S7: the S-check job
 
-_STUB_CLI = r'''"""Stub giap.cli for the S-check sandbox (test_m10_14_reproduce_review.py)."""
+_STUB_CLI = r'''"""Stub gippa.cli for the S-check sandbox (test_m10_14_reproduce_review.py)."""
 import json, os, sys
 
 
@@ -203,8 +203,8 @@ class ReproSandbox:
 def _scheck_runbook(prose: str = "", freeze: str = "pending") -> str:
     sha = sha256_bytes(REPORT_A1)
     row = (
-        f"| a1_report | $GIAP_ROOT/pilot/A1/A1_report.parquet | {sha} | "
-        "$GIAP_ROOT/pilot/A1/outputs.sha256 |"
+        f"| a1_report | $GIPPA_ROOT/pilot/A1/A1_report.parquet | {sha} | "
+        "$GIPPA_ROOT/pilot/A1/outputs.sha256 |"
     )
     return runbook(inputs=[row], steps=[STEP_S0], evidence=[], prose=prose, freeze=freeze)
 
@@ -212,18 +212,18 @@ def _scheck_runbook(prose: str = "", freeze: str = "pending") -> str:
 @pytest.fixture
 def rs(tmp_path: Path) -> ReproSandbox:
     assert REPRO_SBATCH.is_file(), "scripts/slurm/pilot_reproduce_check.sbatch does not exist"
-    assert_honours_giap_repo(REPRO_SBATCH.read_text(), "pilot_reproduce_check.sbatch")
+    assert_honours_gippa_repo(REPRO_SBATCH.read_text(), "pilot_reproduce_check.sbatch")
     sb = make_sandbox(tmp_path.resolve())
     shutil.copytree(
         REPO / "validation",
         sb.repo / "validation",
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    pkg = sb.repo / "src" / "giap"
+    pkg = sb.repo / "src" / "gippa"
     pkg.mkdir(parents=True)
     (pkg / "__init__.py").write_text("")
     (pkg / "cli.py").write_text(_STUB_CLI)
-    sb.env.update({"GIAP_PYTHON": sys.executable, "PYTHONDONTWRITEBYTECODE": "1"})
+    sb.env.update({"GIPPA_PYTHON": sys.executable, "PYTHONDONTWRITEBYTECODE": "1"})
     r = ReproSandbox(sb)
     a1 = r.pilot / "A1"
     a1.mkdir(parents=True)
@@ -264,7 +264,7 @@ def test_s7_examples_7_and_8_identical_and_changed(rs: ReproSandbox) -> None:
     calls = {c[c.index("--out") + 1].rsplit("/", 1)[-1]: c for c in rs.converts()}
     assert calls["a1.tsv.gz"][calls["a1.tsv.gz"].index("--search-db") + 1] == "other"
     assert calls["a2.tsv.gz"][calls["a2.tsv.gz"].index("--search-db") + 1] == "same"
-    assert rs.repo_status() == "", f"wrote into $GIAP_REPO: {rs.repo_status()}"
+    assert rs.repo_status() == "", f"wrote into $GIPPA_REPO: {rs.repo_status()}"
 
 
 def test_s7_absent_report(rs: ReproSandbox) -> None:

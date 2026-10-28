@@ -1,5 +1,5 @@
 """Calibration of the M7-11b call path (docs/specs/M7-11b-class-fdr-wiring.md rules 2, 3, 5, 6;
-GIAP_SPEC.md §7.6.4, §8.4 row "Novel-ORF class FDR"; ADR-0015).
+GIPPA_SPEC.md §7.6.4, §8.4 row "Novel-ORF class FDR"; ADR-0015).
 
 The M7-11 suite (tests/calibration/test_novel_class_fdr_calibration.py) calibrates the pure
 ``picked_class_q`` / ``denovo_class_q`` on a given ``id_map``. This one runs the *wired* path the
@@ -42,7 +42,7 @@ from helpers.novel_fdr_fixture import (
     peptides_frame,
 )
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 

@@ -10,7 +10,7 @@ The p-values and q-values are correct. The problem is that two scales are mixed 
   while `null_*` and `effect` are on the Pearson-residual statistic S_k.
 - In V10 it is a real bug, because the figure compares the two scales.
 
-- **Producer.** `src/giap/context/autocorrelation.py:291-293` sets `value` to the raw count `raw[col]`
+- **Producer.** `src/gippa/context/autocorrelation.py:291-293` sets `value` to the raw count `raw[col]`
   and `observed` to the Pearson S_k `jc_obs[col]`. It then calls `lag_test(observed, null)` with the
   Pearson null. `_row` (lines 201-202) writes `value`, the S-scale `null_*` and
   `effect = S_k - null_mean`.
@@ -18,8 +18,8 @@ The p-values and q-values are correct. The problem is that two scales are mixed 
   For K-12 at lag 1 that gives 1117.63 - 3.36 = 494.54 + 619.74 = 1114.3 under both nulls, so the
   rows are consistent. The 855 in the trigger comes from 1,973 - 1,117.6, which mixes the two scales.
 - **V10 is the bug.** Two places plot the raw `value` against the S-scale envelope:
-  - `src/giap/viz/correlogram.py:143-145`, with the band drawn at 133;
-  - the Plotly twin `src/giap/viz/twins_panels.py:77` (band) and `:98` (the hover text "envelope").
+  - `src/gippa/viz/correlogram.py:143-145`, with the band drawn at 133;
+  - the Plotly twin `src/gippa/viz/twins_panels.py:77` (band) and `:98` (the hover text "envelope").
 
   The M9-09 spec (panel (b): "raw BB value, ADR-0020", same layout as Moran's I) asks for this.
   It contradicts docs/methods/autocorrelation.md: "[the envelope is] on the statistic's scale ... not
@@ -28,7 +28,7 @@ The p-values and q-values are correct. The problem is that two scales are mixed 
   The effect: under a null, the BB marker sits outside the band at every lag, and the filled or open
   marker (from q) disagrees with its position.
 
-## Replay check (giapsim, real `replicon_autocorrelation`, same rng stream)
+## Replay check (gippasim, real `replicon_autocorrelation`, same rng stream)
 
 1,000 genes, B = 999, 100 replicates per scenario, 20 lags, both nulls. The scenarios are
 `autocorr_calib.label_null` and `tu_null`.
@@ -69,7 +69,7 @@ Alternative: make the table self-consistent.
   needs an ADR-0020 amendment.
 
 Either way the `value`, `null_mean` and `null_hi` schema descriptions in
-`src/giap/schemas/tables/autocorrelation.schema.json` should state the scale for `join_count_bb` rows.
+`src/gippa/schemas/tables/autocorrelation.schema.json` should state the scale for `join_count_bb` rows.
 
 ## M5 gate
 

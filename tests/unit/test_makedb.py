@@ -1,8 +1,8 @@
-"""`giap makedb`: strain search database (issue M3-23; GIAP_SPEC.md §7.9.2, §5.1, §6.6).
+"""`gippa makedb`: strain search database (issue M3-23; GIPPA_SPEC.md §7.9.2, §5.1, §6.6).
 
 Examples 1-9, the edge cases and the acceptance criteria of docs/specs/M3-23-makedb.md on
 
-* the giapsim 50-kb genome (example 1 and a full six-frame comparison),
+* the gippasim 50-kb genome (example 1 and a full six-frame comparison),
 * a hand-built genome (``tests/helpers/makedb_genomes.py``: circular ``chr1`` of 3,300 nt and
   linear ``lin1`` of 660 nt) that holds examples 4-7 and 9 and the edge cases,
 * a real Bakta 1.12.2 excerpt (``tests/data/recorded/makedb``, see its PROVENANCE.md).
@@ -12,7 +12,7 @@ Expected ORFs come from the brute-force oracle ``tests/helpers/makedb_oracle.py`
 Conventions these tests pin down where the spec is silent (resolved by the test author):
 
 * A Bakta feature without ``product`` is written as ``>{locus_tag} hypothetical protein``
-  (example 1: the giapsim JSON has no ``product`` and the expected header says so).
+  (example 1: the gippasim JSON has no ``product`` and the expected header says so).
 * Patched proteins are translated from the genome with table 11 and, like Bakta proteins, start
   with ``M`` when the first codon is an alternative start (GTG/TTG); six-frame ORFs and the
   upstream part of ``nterm_extension`` entries are translated codon by codon (GTG -> V).
@@ -23,7 +23,7 @@ Conventions these tests pin down where the spec is silent (resolved by the test 
   header token and unique.
 * An ORF containing ``X`` is never written (whether it is dropped or split is not asserted).
 * Patched records follow all CDS/sORF records and precede all ORFs.
-* The CLI finds the contaminant library at ``DB_DIR/contaminants/contaminants.fasta`` (``giap
+* The CLI finds the contaminant library at ``DB_DIR/contaminants/contaminants.fasta`` (``gippa
   setup`` layout, ``--db-dir``); when it is absent and ``--no-contaminants`` is not given, the
   exit code is 2 (§5.1: a database is missing).
 """
@@ -42,12 +42,12 @@ from typing import Any
 
 import pytest
 
-import giap
-from giap.annotate.bakta import parse_bakta_json
-from giap.config.model import InputConfig
-from giap.exitcodes import ExitCode
-from giap.io.protein_fasta import read_protein_fasta
-from giap.model.coords import from_one_based_closed
+import gippa
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config.model import InputConfig
+from gippa.exitcodes import ExitCode
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.model.coords import from_one_based_closed
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 
@@ -88,7 +88,7 @@ ORF_CLASSES = {"intergenic", "cds_outframe", "antisense", "nterm_extension"}
 
 
 def _api() -> Any:
-    from giap.makedb import build
+    from gippa.makedb import build
 
     return build
 
@@ -116,8 +116,8 @@ def example_json(tmp_path: Path, example: ExampleGenome) -> Path:
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim import SimConfig
+    import gippasim
+    from gippasim import SimConfig
 
     cfg = SimConfig(
         n_sorfs=3,
@@ -128,7 +128,7 @@ def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
         origin_crossing_gene=True,
         n_novel_orfs=(("intergenic", 2), ("cds_outframe", 1), ("antisense", 1)),
     )
-    return giapsim.simulate(cfg, 11, tmp_path_factory.mktemp("sim"))
+    return gippasim.simulate(cfg, 11, tmp_path_factory.mktemp("sim"))
 
 
 @pytest.fixture(scope="module")
@@ -247,8 +247,8 @@ def test_min_orf_aa_option_lowers_the_threshold(
 
 def test_example7_nterm_extension_plus_strand(orf_db: Path, example: ExampleGenome) -> None:
     recs = by_id(orf_db)
-    hits = {i: s for i, s in recs.items() if i.startswith("GIAPORF_nterm_extension_chr1_565_")}
-    assert set(hits) == {"GIAPORF_nterm_extension_chr1_565_690_p"}  # upstream + 30 codons
+    hits = {i: s for i, s in recs.items() if i.startswith("GIPPAORF_nterm_extension_chr1_565_")}
+    assert set(hits) == {"GIPPAORF_nterm_extension_chr1_565_690_p"}  # upstream + 30 codons
     assert list(hits.values()) == [example.expect["nterm_plus_aa"]]
     # 12 upstream residues, translated codon by codon (the GTG at 564 stays V), + 30 aa of G1
     seq = next(iter(hits.values()))
@@ -261,7 +261,7 @@ def test_example7_nterm_extension_minus_strand(orf_db: Path, example: ExampleGen
     hits = [
         s
         for i, s in recs.items()
-        if i == "GIAPORF_nterm_extension_chr1_2211_2330_m"  # upstream + 30 codons
+        if i == "GIPPAORF_nterm_extension_chr1_2211_2330_m"  # upstream + 30 codons
     ]
     assert hits == [example.expect["nterm_minus_aa"]]
 
@@ -312,7 +312,7 @@ def test_orf_classes_are_the_four_spec_classes(orf_db: Path) -> None:
             cls = row["class"]
             sfx = "p" if row["strand"] == "+" else "m"
             assert row["db_id"] == (
-                f"GIAPORF_{cls}_{row['contig']}_{row['start']}_{row['end']}_{sfx}"
+                f"GIPPAORF_{cls}_{row['contig']}_{row['start']}_{row['end']}_{sfx}"
             )
 
 
@@ -320,7 +320,7 @@ def test_orfs_have_no_stop_and_no_x(orf_db: Path) -> None:
     recs = by_id(orf_db)
     for i, s in recs.items():
         assert "*" not in s, i
-        if i.startswith("GIAPORF_"):
+        if i.startswith("GIPPAORF_"):
             assert "X" not in s, i
 
 
@@ -329,19 +329,19 @@ def test_orf_sequences_are_genome_translations_without_i_to_l(
 ) -> None:
     genome = example.genome
     for i, s in by_id(orf_db).items():
-        if not i.startswith("GIAPORF_") or "_nterm_extension_" in i:
+        if not i.startswith("GIPPAORF_") or "_nterm_extension_" in i:
             continue
         *_, contig, start1, end1, sfx = i.split("_")
         nt = strand_nt(genome[contig], int(start1) - 1, int(end1), "+" if sfx == "p" else "-")
         assert s == translate(nt), i
-    assert any("I" in s for i, s in by_id(orf_db).items() if i.startswith("GIAPORF_"))
+    assert any("I" in s for i, s in by_id(orf_db).items() if i.startswith("GIPPAORF_"))
 
 
 def test_origin_crossing_orf_header_is_unwrapped(orf_db: Path, example: ExampleGenome) -> None:
     recs = by_id(orf_db)
     assert recs[example.expect["origin"]] == example.expect["origin_aa"]
     for i in recs:
-        if i.startswith("GIAPORF_"):
+        if i.startswith("GIPPAORF_"):
             *_, start1, end1, _sfx = i.split("_")
             assert int(start1) <= int(end1), f"wrapped coordinates in {i}"
 
@@ -386,7 +386,7 @@ def test_six_frame_orfs_equal_the_oracle_min_10(
 def test_six_frame_orfs_function_matches_the_written_orfs(
     orf_db: Path, example_json: Path, example: ExampleGenome
 ) -> None:
-    from giap.mapping.sixframe import build_sixframe
+    from gippa.mapping.sixframe import build_sixframe
 
     api = _api()
     ann = parse_bakta_json(example_json)
@@ -531,7 +531,7 @@ def test_manifest_version_inputs_options_counts(patch_db: Path, example_json: Pa
     m = json.loads((patch_db / "makedb_manifest.json").read_text())
     assert isinstance(m, dict)
     values = list(_walk(m))
-    assert giap.__version__ in values
+    assert gippa.__version__ in values
     sha = hashlib.sha256(example_json.read_bytes()).hexdigest()
     assert sha in values
     assert hashlib.sha256(CONTAMINANTS.read_bytes()).hexdigest() in values
@@ -619,12 +619,12 @@ def test_database_is_readable_by_the_m1_and_m3_readers(patch_db: Path, example_j
 
 def test_database_peptides_map_with_the_exact_matcher(orf_db: Path, example: ExampleGenome) -> None:
     """Every ORF's tryptic peptides map exactly (M3-04) inside its id_map locus."""
-    from giap.genetable.covariates import digest
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.exact import match_exact
-    from giap.mapping.sixframe import build_sixframe
-    from giap.model.coords import Replicon
-    from giap.rng import for_step
+    from gippa.genetable.covariates import digest
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.exact import match_exact
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.model.coords import Replicon
+    from gippa.rng import for_step
 
     reps = {
         "chr1": Replicon("chr1", len(example.genome["chr1"]), "circular"),
@@ -661,7 +661,7 @@ def test_database_peptides_map_with_the_exact_matcher(orf_db: Path, example: Exa
 
 
 def _main(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -735,7 +735,7 @@ def test_cli_genome_is_optional(example_json: Path, tmp_path: Path) -> None:
 
 
 def test_cli_contaminants_from_db_dir(example_json: Path, tmp_path: Path) -> None:
-    db = tmp_path / "giapdb"
+    db = tmp_path / "gippadb"
     (db / "contaminants").mkdir(parents=True)
     shutil.copy(CONTAMINANTS, db / "contaminants" / "contaminants.fasta")
     argv = [
@@ -756,7 +756,7 @@ def test_cli_missing_contaminant_library_exits_2(
 ) -> None:
     empty = tmp_path / "empty_db"
     empty.mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(empty))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(empty))
     argv = [
         "makedb",
         "--annotation",

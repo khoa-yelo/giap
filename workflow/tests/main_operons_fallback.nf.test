@@ -4,14 +4,14 @@
 // OPTIONAL input of the operons and context_stats py steps, so a main.nf / context.nf channel
 // that stops passing it would make the flags vanish without any error (fail-open). Stub runs
 // only; ci.yml runs: nf-test test workflow/tests --profile test,stub. The flag values on real
-// tables are pinned by tests/integration/test_m11_14d_fallback_flags_run.py (giap run on sim100k).
+// tables are pinned by tests/integration/test_m11_14d_fallback_flags_run.py (gippa run on sim100k).
 //
 // Pinned here (test author), with run_uniop = false (distance-model source) and true (UniOP):
 //   - operon_pairs runs once and writes operon_meta.json;
 //   - the operons task and the context_stats task each get the --in key `operon_meta`, staged
 //     as a file named operon_meta.json from operon_pairs' task directory (main.nf's OPERONS and
 //     CONTEXT calls, and context.nf's filter of layers_for_pairs);
-//   - every py step's --in keys still follow the giap.steps registry.
+//   - every py step's --in keys still follow the gippa.steps registry.
 
 nextflow_pipeline {
 
@@ -40,14 +40,14 @@ nextflow_pipeline {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            // by GIAP_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
+            // by GIPPA_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
             def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
             assert workflow.success
             assert workflow.trace.failed().size() == 0
             assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran with run_uniop = false: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def prod = byTag('operon_pairs')
             assert prod.size() == 1 : "operon_pairs ran ${prod.size()}x"
@@ -87,14 +87,14 @@ nextflow_pipeline {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            // by GIAP_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
+            // by GIPPA_STEP tag: OPERONS' alias is OPERONS_STEP, so H.stepDirs does not find it
             def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
             assert workflow.success
             assert workflow.trace.failed().size() == 0
             assert H.count(workflow.trace, 'UNIOP') == 1
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def prod = byTag('operon_pairs')
             assert prod.size() == 1 : "operon_pairs ran ${prod.size()}x"

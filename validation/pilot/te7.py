@@ -1,9 +1,9 @@
-"""TE7: a second A2 run, byte for byte (GIAP layer), and the DIA-NN replicate (an upstream
-finding, never the verdict); GIAP_SPEC.md §11.7; spec docs/specs/M10-06-te-real-and-te7.md.
+"""TE7: a second A2 run, byte for byte (GIPPA layer), and the DIA-NN replicate (an upstream
+finding, never the verdict); GIPPA_SPEC.md §11.7; spec docs/specs/M10-06-te-real-and-te7.md.
 
 Pure functions plus ``run``, which ``te_real.py te7`` (the CLI) calls::
 
-    python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIAP_REPO \\
+    python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIPPA_REPO \\
         [--diann-a DIANN_A --diann-b DIANN_B --peptides-a PEP_A2 --peptides-b CONV_B] \\
         --out METRICS_DIR
 
@@ -31,7 +31,7 @@ import pandas as pd
 from validation.pilot import metrics as pm
 from validation.pilot.te_real import _out_dir, _s, _spec_sha, _true, _write
 
-CODE_PATHS = ("src/", "workflow/", "pyproject.toml", "uv.lock", "scripts/slurm/giap_run.sbatch")
+CODE_PATHS = ("src/", "workflow/", "pyproject.toml", "uv.lock", "scripts/slurm/gippa_run.sbatch")
 EXCLUDED_TOP = ("work", "logs", "report", "preflight")
 L3_KEY = ["run", "modified_peptide", "charge", "is_decoy"]
 #: Nextflow process aliases whose registry step is not the lowercased alias minus ``_step``
@@ -41,7 +41,7 @@ Reader = Callable[[], bytes]
 Frame: TypeAlias = pd.DataFrame | Callable[[], pd.DataFrame] | None
 
 
-# ---------------------------------------------------------------- GIAP layer
+# ---------------------------------------------------------------- GIPPA layer
 
 
 def path_class(path: str) -> str:
@@ -131,7 +131,7 @@ def classify_tree(
     *,
     labels: Sequence[str] = ("ref", "rep1"),
 ) -> dict[str, Any]:
-    """te7.json's ``giap`` object: the byte comparison of the gate files decides TE7. The
+    """te7.json's ``gippa`` object: the byte comparison of the gate files decides TE7. The
     te7_files.tsv rows ride along under ``_rows`` (popped before writing)."""
     counts: Counter[str] = Counter()
     found: dict[str, list[Any]] = {"gate": [], "external": [], "figures": []}
@@ -292,10 +292,10 @@ def _producers(
 ) -> dict[str, Any]:
     """OUT path -> its producing registered step (output key = file name with ``_`` for ``.``, or
     its stem) and that step's CPU classes per run."""
-    import giap.steps
-    from giap.steps.registry import all_steps
+    import gippa.steps
+    from gippa.steps.registry import all_steps
 
-    giap.steps.load_step_modules()
+    gippa.steps.load_step_modules()
     owner = {k: s.name for s in all_steps() for k in s.outputs}
     out: dict[str, Any] = {}
     for p in paths:
@@ -371,13 +371,13 @@ def te7(a: argparse.Namespace) -> tuple[dict[str, Any], list[list[Any]]]:
                      "hosts": hosts, "cpu_classes_by_step": classes[lab]}  # fmt: skip
     fa, fb = _tree(ref), _tree(rep)
     gate = [p for p in sorted(set(fa) | set(fb)) if path_class(p) == "gate"]
-    giap = classify_tree(fa, fb, _known_columns(), _producers(gate, classes), labels=labels)
-    rows = giap.pop("_rows")
-    e2e = giap["status"] == "pass" and diann["status"] in (
+    gippa = classify_tree(fa, fb, _known_columns(), _producers(gate, classes), labels=labels)
+    rows = gippa.pop("_rows")
+    e2e = gippa["status"] == "pass" and diann["status"] in (
         "identical_report",
         "identical_converted",
     )
-    doc = {"schema": "giap-pilot-te7/1", "spec": _spec_sha(), "pair": pair, "giap": giap,
+    doc = {"schema": "gippa-pilot-te7/1", "spec": _spec_sha(), "pair": pair, "gippa": gippa,
            "diann": diann, "end_to_end": e2e}  # fmt: skip
     return doc, rows
 
@@ -386,4 +386,4 @@ def run(a: argparse.Namespace) -> dict[str, str]:
     """``te_real.py te7``: write te7.json and te7_files.tsv; the statuses for the summary line."""
     doc, rows = te7(a)
     _write(a.out, "te7.json", doc, "te7_files.tsv", FILES_COLS, rows)
-    return {"te7": doc["giap"]["status"], "diann": doc["diann"]["status"]}
+    return {"te7": doc["gippa"]["status"], "diann": doc["diann"]["status"]}

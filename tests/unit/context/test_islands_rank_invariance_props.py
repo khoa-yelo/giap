@@ -1,6 +1,6 @@
-"""M5-07 invariant behind the island FWER calibration (GIAP_SPEC.md §7.3.5(d) step 1; spec
+"""M5-07 invariant behind the island FWER calibration (GIPPA_SPEC.md §7.3.5(d) step 1; spec
 docs/specs/M5-07-island-calibration-power.md): the island scan reads abundance only through Blom
-scores of ranks, so the calibration on giapsim's log2 scale covers every strictly increasing
+scores of ranks, so the calibration on gippasim's log2 scale covers every strictly increasing
 rescaling of abundance. Under one seed, a strictly increasing map of the detected abundances
 leaves the TU scores, block lengths, null maximum and every window p unchanged.
 """

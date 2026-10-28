@@ -1,6 +1,6 @@
 """The manifest's ``detection_tier`` is the tier the run used (review of #359).
 
-Spec: GIAP_SPEC.md §7.3.2 "The tier is chosen once per run from the input and recorded in the
+Spec: GIPPA_SPEC.md §7.3.2 "The tier is chosen once per run from the input and recorded in the
 manifest and in ``genes.tsv`` (``detection_tier``)": one tier per run, the same in both places.
 docs/specs/M4-24-decoy-unscored.md rules 2-4: ``choose_tier`` may settle on another tier than the
 columns suggest (unscored decoys, S = ∅ → the no-decoy chain, ``mayu`` or ``two_peptide``) and
@@ -19,7 +19,7 @@ The bug (quickstart demo, Slurm 1894327): preflight said ``decoy_picked``, the d
 q_value, PEP or score, detection rule 4(c) chose ``mayu``; genes.tsv and detection_summary.tsv say
 ``mayu``, the manifest said ``decoy_picked`` and had no ``decoy_unscored`` warning.
 
-Interface used (all on main): ``giap.steps.manifest.run_tail(outdir, base, exit_code, ...)``
+Interface used (all on main): ``gippa.steps.manifest.run_tail(outdir, base, exit_code, ...)``
 writes ``OUT/run_manifest.json`` from the files of ``OUT``; the tables are written with the real
 writers (``write_genes_tsv``, ``write_detection_summary``) from the producers' output on the
 M4-15 hand fixture (``tests/helpers/gene_table_fixture.py``). The tests pin no new source field
@@ -86,8 +86,8 @@ def _world(shape: str) -> Any:
 
 def _write_tables(out: Path, w: Any) -> None:
     """``OUT/tables/genes.tsv`` and ``OUT/tables/detection_summary.tsv`` as a finished run has."""
-    from giap.io.genes_tsv import write_genes_tsv
-    from giap.io.summary_tsv import write_detection_summary
+    from gippa.io.genes_tsv import write_genes_tsv
+    from gippa.io.summary_tsv import write_detection_summary
 
     (out / "tables").mkdir(parents=True, exist_ok=True)
     write_genes_tsv(out / "tables" / "genes.tsv", w.assemble())
@@ -104,14 +104,14 @@ def _base(out: Path, executor: str, tier: str = PREFLIGHT_TIER) -> dict[str, Any
         "profile": None,
         "resume": False,
         "outdir": str(out),
-        "command_line": ["giap", "run"],
+        "command_line": ["gippa", "run"],
         "started_at": "2026-10-25T10:00:00+00:00",
         "input_paths": {"genome": "/data/genome.fa", "peptides": "/data/peptides.tsv"},
     }
 
 
 def _manifest(out: Path, executor: str, tier: str = PREFLIGHT_TIER) -> dict[str, Any]:
-    from giap.steps.manifest import run_tail
+    from gippa.steps.manifest import run_tail
 
     steps = [{"name": "gene_table", "status": "completed", "wall_time_s": 1.0,
               "cpu_time_s": 1.0}] if executor == "local" else []  # fmt: skip
@@ -135,11 +135,11 @@ def _summary_tiers(out: Path) -> set[str]:
 @pytest.fixture
 def gene_table_events(tmp_path: Path) -> Iterator[Callable[[Path, Any], None]]:
     """Run the real ``gene_table`` step body on a fixture world, its log going to
-    ``OUT/logs/events.jsonl`` through the run's ``EventsHandler`` (as ``giap run`` does)."""
-    from giap.io.events import EventsHandler
-    from giap.steps import gene_table as G
+    ``OUT/logs/events.jsonl`` through the run's ``EventsHandler`` (as ``gippa run`` does)."""
+    from gippa.io.events import EventsHandler
+    from gippa.steps import gene_table as G
 
-    log = logging.getLogger("giap.steps.gene_table")
+    log = logging.getLogger("gippa.steps.gene_table")
     handlers: list[logging.Handler] = []
     old_level = log.level
 

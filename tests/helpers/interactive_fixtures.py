@@ -2,18 +2,18 @@
 (the interactive report: Plotly.js inlined once, twins, sortable/filterable tables, size budget).
 
 M9-14 lead decision 3: this branch registers no twin itself (twins are M9-15), so every twin here
-is registered into a swapped ``giap.viz.interactive._REGISTRY`` (``swap_twins``), the way
+is registered into a swapped ``gippa.viz.interactive._REGISTRY`` (``swap_twins``), the way
 ``helpers.report_fixtures.swap_registry`` swaps the plot registry.
 
-``external_loads`` is a local stand-in for M9-13's ``giap.report.checks.external_loads`` (not on
+``external_loads`` is a local stand-in for M9-13's ``gippa.report.checks.external_loads`` (not on
 main when these tests were written); M9-13 adds the shared checker, and these tests may switch to
 it once it lands.
 
 Interface pinned here (M9-14 test author, beyond the spec text):
-- ``giap.viz.interactive`` keeps its twins in a module-level dict ``_REGISTRY`` (plot ID ->
+- ``gippa.viz.interactive`` keeps its twins in a module-level dict ``_REGISTRY`` (plot ID ->
   ``InteractiveFn``), read at call time, so a test can swap it with ``monkeypatch``;
-- ``giap.steps.plots.write_report(view, plots_dir, report_dir, cfg)`` builds the twins from the
-  data TSVs under ``plots_dir/data/`` (the step and ``giap report`` both go through it).
+- ``gippa.steps.plots.write_report(view, plots_dir, report_dir, cfg)`` builds the twins from the
+  data TSVs under ``plots_dir/data/`` (the step and ``gippa report`` both go through it).
 """
 
 from __future__ import annotations
@@ -86,9 +86,9 @@ def external_loads(html: str) -> list[str]:
 
 
 def swap_twins(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    """Give ``giap.viz.interactive`` an empty twin registry for one test."""
+    """Give ``gippa.viz.interactive`` an empty twin registry for one test."""
     preload()
-    import giap.viz.interactive as interactive
+    import gippa.viz.interactive as interactive
 
     monkeypatch.setattr(interactive, "_REGISTRY", {})
     return interactive
@@ -115,9 +115,9 @@ def register_twin(
     raises: bool = False,
     meta_bytes: int = 0,
 ) -> Callable[..., Any]:
-    """Register a test-only twin for ``pid`` through ``giap.viz.interactive.interactive``;
+    """Register a test-only twin for ``pid`` through ``gippa.viz.interactive.interactive``;
     ``calls`` collects ``(pid, columns, title)`` per call."""
-    from giap.viz.interactive import interactive
+    from gippa.viz.interactive import interactive
 
     @interactive(pid)
     def _twin(data: pd.DataFrame, title: str) -> Any:
@@ -135,8 +135,8 @@ def register_twin(
 
 def tables(out: Path) -> dict[str, Path]:
     """Every published file of ``out`` that ``RunView`` knows, by key (the steps' inputs)."""
-    from giap.io.run_view import PATHS
-    from giap.steps.plots import ALL_PUBLISHED_KEYS
+    from gippa.io.run_view import PATHS
+    from gippa.steps.plots import ALL_PUBLISHED_KEYS
 
     return {k: out / PATHS[k] for k in ALL_PUBLISHED_KEYS
             if k in PATHS and (out / PATHS[k]).is_file()}  # fmt: skip
@@ -144,7 +144,7 @@ def tables(out: Path) -> dict[str, Path]:
 
 def run_steps(tmp_path: Path, *overrides: str, out: Path | None = None) -> Path:
     """The ``plots`` then ``report`` steps on a small ``OUT/``; returns ``report.html``."""
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     out = out or run_out(tmp_path)
     work = tmp_path / "work"
@@ -156,7 +156,7 @@ def run_steps(tmp_path: Path, *overrides: str, out: Path | None = None) -> Path:
 
 def report_step(tmp_path: Path, *overrides: str, plots: Path, out: Path) -> Path:
     """Only the ``report`` step, on an existing ``plots`` directory."""
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     pre = out / "preflight" / "preflight.json"
     report = tmp_path / "work" / "report"

@@ -1,4 +1,4 @@
-"""Cascadia 0.0.7 ``.ssl`` converter (M10-09; GIAP_SPEC.md §5.3, §5.4).
+"""Cascadia 0.0.7 ``.ssl`` converter (M10-09; GIPPA_SPEC.md §5.3, §5.4).
 
 Spec: docs/specs/M10-09-cascadia-convert.md (facts W1-W9, decisions D1-D7, examples 1-11 and 13,
 acceptance criteria 2-7; lead decisions 2026-10-24: Q1-Q13 take their defaults).
@@ -23,15 +23,15 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig, InputConfig
-from giap.io.converters.base import ConvertResult
-from giap.io.converters.strip import strip_modifications
-from giap.io.issues import Issue
-from giap.io.peptides import PEPTIDE_COLUMNS, read_peptide_table
-from giap.io.tsv import write_tsv
+from gippa.config.model import GippaConfig, InputConfig
+from gippa.io.converters.base import ConvertResult
+from gippa.io.converters.strip import strip_modifications
+from gippa.io.issues import Issue
+from gippa.io.peptides import PEPTIDE_COLUMNS, read_peptide_table
+from gippa.io.tsv import write_tsv
 
 REPO = Path(__file__).resolve().parents[2]
-MODULE = REPO / "src" / "giap" / "io" / "converters" / "cascadia.py"
+MODULE = REPO / "src" / "gippa" / "io" / "converters" / "cascadia.py"
 
 # W1: the header 0.0.7 writes, literally.
 W1 = (
@@ -115,7 +115,7 @@ def row(
 
 
 def convert(paths: Sequence[Path], search_db: str | None = None) -> ConvertResult:
-    from giap.io.converters.cascadia import convert_cascadia
+    from gippa.io.converters.cascadia import convert_cascadia
 
     return convert_cascadia(list(paths), search_db=search_db, cfg=InputConfig())
 
@@ -155,8 +155,8 @@ EX1_OUT = (
 
 
 def test_registered_in_converters() -> None:
-    import giap.io.converters as conv
-    from giap.io.converters.cascadia import convert_cascadia
+    import gippa.io.converters as conv
+    from gippa.io.converters.cascadia import convert_cascadia
 
     assert conv.CONVERTERS["cascadia"] is convert_cascadia
     assert "convert_cascadia" in conv.__all__
@@ -164,7 +164,7 @@ def test_registered_in_converters() -> None:
 
 
 def test_default_cutoff_constant_is_named() -> None:
-    from giap.io.converters import cascadia
+    from gippa.io.converters import cascadia
 
     assert cascadia.CASCADIA_DEFAULT_CUTOFF == 0.8
 
@@ -701,7 +701,7 @@ def test_criterion4_matches_m10_08_stripping_rule() -> None:
 
 
 def test_criterion5_columns_and_sources(tmp_path: Path) -> None:
-    from giap.steps.mapping import resolve_sources
+    from gippa.steps.mapping import resolve_sources
 
     res = convert([write_ssl(tmp_path, EX1_ROWS)])
     cols = list(res.peptides.columns)
@@ -713,7 +713,7 @@ def test_criterion5_columns_and_sources(tmp_path: Path) -> None:
     to_bytes(res, out)
     df, found = read_peptide_table(out)
     assert not errors(found), found
-    cfg = GiapConfig()
+    cfg = GippaConfig()
     assert resolve_sources(df, cfg).tolist() == ["denovo", "denovo"]
     assert resolve_sources(df.drop(columns=["source"]), cfg).tolist() == ["denovo", "denovo"]
 

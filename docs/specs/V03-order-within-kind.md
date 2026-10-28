@@ -4,14 +4,14 @@ Backlog item: "V03 locus order mixes scales" (docs/backlog.md, 2026-10-25 aftern
 on: M9-10 (merged) · estimate ≈ 40 code lines (+ ≈ 200 test lines) · **`stats`** (it changes which
 loci a reader sees first and which loci the cap renders) · roles: statistician (review of the rule
 before the test step), test-author (new tests), lead (edits to existing tests, snapshot baseline),
-implementer (`src/giap/viz/locus.py`, user guide, changelog)
+implementer (`src/gippa/viz/locus.py`, user guide, changelog)
 
 ## Problem
 
-`src/giap/viz/locus.py::_order` sorts the whole V3 pool by `Locus.error` ascending, NA last, then
+`src/gippa/viz/locus.py::_order` sorts the whole V3 pool by `Locus.error` ascending, NA last, then
 kind (`KIND_ORDER`), then `locus_id` (M9-10 lead decisions 3, 5 and 8). `error` is:
 
-| Kind | `error` | Family (GIAP_SPEC.md §8.1) | Level |
+| Kind | `error` | Family (GIPPA_SPEC.md §8.1) | Level |
 |---|---|---|---|
 | prophage, bgc | `regions_stats.q_value` (`o_minus_e`, `subset = all`) | region effect, BH within type | `stats.alpha.context` (0.05) |
 | island | `islands.p_value` (`q_value` is NA, §9.3 `islands.tsv`) | islands, FWER over windows (max statistic) | `stats.alpha.context` (0.05) |
@@ -29,7 +29,7 @@ two scales").
 
 ## Spec sections
 
-- GIAP_SPEC.md §10.2 V3: "At most `report.max_locus_plots` (50), ordered by q". Islands have no q
+- GIPPA_SPEC.md §10.2 V3: "At most `report.max_locus_plots` (50), ordered by q". Islands have no q
   (`q_value = NA`, §9.3 `islands.tsv`), so a literal reading would put every island in the NA tail.
   §10.2 does not say how to order across kinds. This spec fills that gap. It does not override
   §10.2: within each kind the order is still by that kind's own q, or FWER p for islands.
@@ -153,7 +153,7 @@ the current `_order`.
 - [ ] The `docs/user-guide/plots-and-report.md` V03 bullet describes the new rule, and the
   sentence "one ordering mixes two scales" is removed. A `changelog.d/<PR>.bugfix.md` fragment is
   added.
-- [ ] `ruff`, `ruff format --check` and `mypy src/giap` are clean.
+- [ ] `ruff`, `ruff format --check` and `mypy src/gippa` are clean.
 
 ## Test plan
 

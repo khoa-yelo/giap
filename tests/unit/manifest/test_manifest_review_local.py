@@ -14,7 +14,7 @@ Interface pinned for the fix:
 * M17: a step whose last-attempt tasks are a mix of CACHED and COMPLETED is ``completed``;
   ``cached`` only when every task of the step was CACHED (example 12: "the steps that finished
   in run 1 have status cached"; a step with any task run in this session did not finish in run 1).
-* M19: ``command_line`` starts with ``["giap", "run"]`` (the raw giap argv, not ``sys.argv``).
+* M19: ``command_line`` starts with ``["gippa", "run"]`` (the raw gippa argv, not ``sys.argv``).
 
 The toy graph is the one of ``test_manifest_cli_local.py`` (cut down; copied, not imported).
 """
@@ -33,7 +33,7 @@ from click.testing import CliRunner
 from helpers.manifest_data import build, spec, trace_row, validate
 from helpers.mapping_steps import write_test_db
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 
 def _toy(reg: ModuleType, *, bad_event_line: bool = False) -> None:
@@ -52,7 +52,7 @@ def _toy(reg: ModuleType, *, bad_event_line: bool = False) -> None:
     reg.step("x", inputs=[], outputs=["b.txt"])(x)
     reg.step("y", inputs=["b.txt"], outputs=["c.txt"])(y)
     reg.external("term_tool", inputs=[], outputs=["term_tool.tsv"], precomputed="terminators")
-    importlib.reload(importlib.import_module("giap.steps.manifest"))
+    importlib.reload(importlib.import_module("gippa.steps.manifest"))
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
     layer = tmp_path / "in" / "terminators.tsv"
     layer.write_text("contig\tstart\tend\n")
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path / "test_db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path / "test_db")))
     return {"genome": genome, "peptides": pep, "layer": layer}
 
 
@@ -75,7 +75,7 @@ def _argv(env: dict[str, Path], out: Path) -> list[str]:
 
 
 def _invoke_raw(argv: list[str]) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, argv)
 
@@ -133,7 +133,7 @@ def test_b1_local_rotates_a_leftover_trace(
 
 def _check_exit5_manifest(res: Any, out: Path, needle: str) -> None:
     assert isinstance(res.exception, SystemExit), (
-        f"the exception escaped giap run (main() would exit 5 with no manifest): {res.exception!r}"
+        f"the exception escaped gippa run (main() would exit 5 with no manifest): {res.exception!r}"
     )
     assert res.exit_code == ExitCode.INTERNAL, res.output
     assert (out / "work" / "provenance.json").is_file()
@@ -147,7 +147,7 @@ def _check_exit5_manifest(res: Any, out: Path, needle: str) -> None:
 def test_b2_publish_oserror_exits_5_with_a_failed_manifest(
     toy: ModuleType, env: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     def bad(*a: Any, **k: Any) -> None:
         raise OSError("disk full on purpose")
@@ -163,7 +163,7 @@ def test_b2_publish_oserror_exits_5_with_a_failed_manifest(
 def test_b2_unexpected_error_inside_run_local_exits_5_with_a_failed_manifest(
     toy: ModuleType, env: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     def bad(*a: Any, **k: Any) -> None:
         raise local.LayerMissing("annotation.precomputed.on_purpose")
@@ -177,7 +177,7 @@ def test_b2_unexpected_error_inside_run_local_exits_5_with_a_failed_manifest(
 def test_b2_tail_failure_after_exit_5_writes_nothing_and_stays_5(
     registry: ModuleType, env: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.runner import local
+    from gippa.runner import local
 
     _toy(registry, bad_event_line=True)
 
@@ -195,14 +195,14 @@ def test_b2_tail_failure_after_exit_5_writes_nothing_and_stays_5(
 # ----------------------------------------------------------------------------- M19
 
 
-def test_m19_local_command_line_is_the_giap_argv(
+def test_m19_local_command_line_is_the_gippa_argv(
     toy: ModuleType, env: dict[str, Path], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"
     code, log = _invoke(_argv(env, out))
     assert code == ExitCode.SUCCESS, log
     cl = _manifest(out)["command_line"]
-    assert cl[:2] == ["giap", "run"], cl
+    assert cl[:2] == ["gippa", "run"], cl
     assert cl[2:] == _argv(env, out)[1:], cl
 
 

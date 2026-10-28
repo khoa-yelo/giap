@@ -12,7 +12,7 @@ R14 (M11-03c PR 4, superseding the M11-03b array and throttle): a launch queues 
 per-suite jobs and the aggregator), so refuse when ``jobs + 16 > 20``; refuse when
 ``cpus + Σ + 1 > 128`` (Σ = 98 from ``calibration_plan.tsv``); refuse when the worst-case end
 ``now + max(time) + 20 min`` (6 h 20 m) reaches the next nightly start (01:30). The clock is
-``GIAP_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own. The per-suite
+``GIPPA_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own. The per-suite
 details are pinned in ``test_m11_03c_launcher.py``.
 """
 
@@ -29,7 +29,7 @@ import pytest
 from helpers.slurm_sandbox import (
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     export_pairs,
     make_sandbox,
     option,
@@ -54,7 +54,7 @@ exit 0
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
     assert LAUNCH.is_file(), f"{LAUNCH} does not exist (M11-03b)"
-    assert_honours_giap_repo(LAUNCH.read_text(), "calibration_full_launch.sh")
+    assert_honours_gippa_repo(LAUNCH.read_text(), "calibration_full_launch.sh")
     box = make_sandbox(tmp_path)
     tol = box.repo / "tests" / "calibration" / "tolerances.yaml"
     tol.parent.mkdir(parents=True)
@@ -76,7 +76,7 @@ def at(hour: int, minute: int = 0) -> str:
 
 
 def _launch(sb: Sandbox, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
-    env.setdefault("GIAP_NOW", at(10))
+    env.setdefault("GIPPA_NOW", at(10))
     script = sb.repo / "scripts" / "slurm" / "calibration_full_launch.sh"
     return sb.run(["bash", str(script), *args], env=env)
 
@@ -123,19 +123,19 @@ def test_empty_queue_submits_the_suite_jobs_and_aggregator(sb: Sandbox) -> None:
     assert option(arr["argv"], "array", "a") is None, arr["argv"]
     assert "--parsable" in arr["argv"]
     assert (option(arr["argv"], "export") or "").split(",")[0] == "ALL", arr["argv"]
-    wt = _export(arr, "GIAP_WORKTREE")
+    wt = _export(arr, "GIPPA_WORKTREE")
     assert wt == f"{sb.root}/ci/calibration-{sha[:12]}", wt
     head = subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"], capture_output=True,
                           text=True, check=True, env=sb.env).stdout.strip()  # fmt: skip
     assert head == sha
-    log = _export(arr, "GIAP_CALIBRATION_LOG_DIR") or ""
+    log = _export(arr, "GIPPA_CALIBRATION_LOG_DIR") or ""
     assert re.fullmatch(rf"{re.escape(str(sb.root))}/logs/calibration/full-{sha[:12]}-"
                         r"\d{8}-\d{6}", log), log  # fmt: skip
     assert option(rows["argv"], "cpus-per-task", "c") == "1", rows["argv"]
     want = "afterany:" + ":".join(SUITE_IDS)
     assert option(rows["argv"], "dependency", "d") == want, rows["argv"]
-    assert _job_name(rows) == "giap-calibration-rows"
-    assert (_job_name(arr) or "").startswith("giap-"), arr
+    assert _job_name(rows) == "gippa-calibration-rows"
+    assert (_job_name(arr) or "").startswith("gippa-"), arr
     cmd = " ".join(rows["argv"]) + " " + (rows.get("script") or "")
     assert "calibration_rows.py" in cmd, cmd
     for pat in (rf"--job[= ]{FIRST}\b", rf"--commit[= ]{sha}\b", r"--expect[= ]15\b",
@@ -160,9 +160,9 @@ def test_squeue_runs_before_the_first_sbatch(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     "lines",
-    [["8 giap-a", "4 giap-b", "64 not-giap"],  # giap cpus 12: 12 + 98 + 1 <= 128; jobs 2 + 16
-     ["1 giap-j"] * 4,                         # jobs 4 + 16 = 20 (boundary)
-     ["29 giap-big"]],                         # 29 + 98 + 1 = 128 (boundary)
+    [["8 gippa-a", "4 gippa-b", "64 not-gippa"],  # gippa cpus 12: 12 + 98 + 1 <= 128; jobs 2 + 16
+     ["1 gippa-j"] * 4,                         # jobs 4 + 16 = 20 (boundary)
+     ["29 gippa-big"]],                         # 29 + 98 + 1 = 128 (boundary)
 )  # fmt: skip
 def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
@@ -177,9 +177,9 @@ def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
 
 @pytest.mark.parametrize(
     "lines",
-    [["16 giap-n"] * 4 + ["3 giap-x", "3 giap-y"],   # example 10: 70 CPUs / 6 jobs
-     ["112 giap-big"],                               # 112 + 98 + 1 = 211 > 128
-     ["1 giap-j"] * 5],                              # 5 + 16 = 21 > 20 jobs
+    [["16 gippa-n"] * 4 + ["3 gippa-x", "3 gippa-y"],   # example 10: 70 CPUs / 6 jobs
+     ["112 gippa-big"],                               # 112 + 98 + 1 = 211 > 128
+     ["1 gippa-j"] * 5],                              # 5 + 16 = 21 > 20 jobs
 )  # fmt: skip
 def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
@@ -190,7 +190,7 @@ def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> No
 
 
 def test_example10_message_names_the_numbers(sb: Sandbox) -> None:
-    _queue(sb, ["16 giap-n"] * 4 + ["3 giap-x", "3 giap-y"])
+    _queue(sb, ["16 gippa-n"] * 4 + ["3 gippa-x", "3 gippa-y"])
     res = _launch(sb)
     out = _out(res)
     assert res.returncode == 2, out
@@ -205,7 +205,7 @@ def test_squeue_failure_refuses(sb: Sandbox) -> None:
 
 
 def test_non_integer_cpu_count_refuses(sb: Sandbox) -> None:
-    _queue(sb, ["N/A giap-odd"])
+    _queue(sb, ["N/A gippa-odd"])
     res = _launch(sb)
     assert res.returncode == 2, _out(res)
     assert sb.sbatch_calls() == []

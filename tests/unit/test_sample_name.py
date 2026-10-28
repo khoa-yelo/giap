@@ -1,9 +1,9 @@
-"""``sample_name: auto`` is resolved by ``giap run`` (docs/specs/M7-04-variants-step-and-run.md
-rule 4, examples 4 and 5, lead decision 1; GIAP_SPEC.md §5.2 "auto = stem of the peptide (or
+"""``sample_name: auto`` is resolved by ``gippa run`` (docs/specs/M7-04-variants-step-and-run.md
+rule 4, examples 4 and 5, lead decision 1; GIPPA_SPEC.md §5.2 "auto = stem of the peptide (or
 protein) file", §7.5.5 "Sample column", ADR-0005 VCF-safe IDs).
 
-Interface pinned here: ``giap.config.resolve_sample_name(cfg, peptides_path, proteins_path) ->
-str``, a pure function. If the implementation lives in ``giap.cli``, ``giap.config`` re-exports
+Interface pinned here: ``gippa.config.resolve_sample_name(cfg, peptides_path, proteins_path) ->
+str``, a pure function. If the implementation lives in ``gippa.cli``, ``gippa.config`` re-exports
 it.
 
 * ``auto`` becomes the peptide file's name without ``.gz`` and its last suffix
@@ -11,10 +11,10 @@ it.
   ``sample``.
 * The value, whether from ``auto`` or given explicitly, then maps to a VCF-safe ID: every
   character outside ``[A-Za-z0-9._-]`` becomes ``_``.
-* ``giap run`` writes the resolved value into ``OUT/resolved_config.yaml`` before Nextflow
+* ``gippa run`` writes the resolved value into ``OUT/resolved_config.yaml`` before Nextflow
   starts. This is checked with a fake ``nextflow`` on ``PATH``, as in
-  tests/unit/test_cli_run_nextflow.py, so nothing is launched. ``$GIAP_ROOT`` and
-  ``$GIAP_DB_DIR`` are fakes there too.
+  tests/unit/test_cli_run_nextflow.py, so nothing is launched. ``$GIPPA_ROOT`` and
+  ``$GIPPA_DB_DIR`` are fakes there too.
 """
 
 from __future__ import annotations
@@ -28,20 +28,20 @@ from pathlib import Path
 import pytest
 import yaml
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
-from giap.exitcodes import ExitCode
+from gippa.config import GippaConfig
+from gippa.exitcodes import ExitCode
 
 SAFE = re.compile(r"[A-Za-z0-9._-]+")
 
 
 def _resolve(name: str, peptides: str | None, proteins: str | None) -> str:
-    from giap.config import resolve_sample_name
+    from gippa.config import resolve_sample_name
 
-    cfg = GiapConfig.model_validate({"sample_name": name})
+    cfg = GippaConfig.model_validate({"sample_name": name})
     pep = Path(peptides) if peptides is not None else None
     prot = Path(proteins) if proteins is not None else None
     return resolve_sample_name(cfg, pep, prot)
@@ -103,7 +103,7 @@ def test_auto_is_never_returned() -> None:
         assert _resolve("auto", pep, prot) != "auto"
 
 
-# ----------------------------------------------------------------------------- giap run
+# ----------------------------------------------------------------------------- gippa run
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -113,11 +113,11 @@ exit 0
 
 @pytest.fixture(autouse=True)
 def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     db = tmp_path / "db"
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
     exe = bindir / "nextflow"
@@ -150,7 +150,7 @@ def evidence(tmp_path: Path) -> dict[str, Path]:
 
 
 def _run(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = CliRunner().invoke(cli, ["run", *argv])
     if result.exception is not None and not isinstance(result.exception, SystemExit):
@@ -163,7 +163,7 @@ def _resolved(out: Path) -> str:
     return str(data["sample_name"])
 
 
-def test_example_4_giap_run_resolves_auto_from_the_peptide_file(
+def test_example_4_gippa_run_resolves_auto_from_the_peptide_file(
     evidence: dict[str, Path], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"
@@ -173,7 +173,7 @@ def test_example_4_giap_run_resolves_auto_from_the_peptide_file(
     assert _resolved(out) == "run_A"
 
 
-def test_giap_run_resolves_auto_from_the_protein_file_without_peptides(
+def test_gippa_run_resolves_auto_from_the_protein_file_without_peptides(
     evidence: dict[str, Path], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"
@@ -183,7 +183,7 @@ def test_giap_run_resolves_auto_from_the_protein_file_without_peptides(
     assert _resolved(out) == "ecoli_proteins"
 
 
-def test_example_5_giap_run_maps_an_explicit_name(
+def test_example_5_gippa_run_maps_an_explicit_name(
     evidence: dict[str, Path], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"

@@ -148,7 +148,7 @@ def test_calib_paths_cover_the_simulator_and_the_test_helpers() -> None:
     assert {"src", "tests/calibration", "ci", "tests/sim", "tests/helpers"} <= set(paths), paths
 
 
-@pytest.mark.parametrize("rel", ["tests/sim/giapsim/nulls.py", "tests/helpers/region_oracle.py"])
+@pytest.mark.parametrize("rel", ["tests/sim/gippasim/nulls.py", "tests/helpers/region_oracle.py"])
 def test_a_change_in_a_calibration_input_makes_the_rows_stale(tmp_path: Path, rel: str) -> None:
     fx = Fixture.build(tmp_path)  # its nightly rows (all labels) are for R
     assert _statuses(fx) == ("pass", "pass")

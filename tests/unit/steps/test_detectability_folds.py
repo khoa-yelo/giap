@@ -26,15 +26,15 @@ import pyarrow.parquet as pq  # type: ignore[import-untyped]
 import pytest
 from helpers.function_step_data import natural_key, toy4, world_pre, write_gene_table
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 
 @pytest.fixture(autouse=True, scope="module")
 def _simple_gsea_engine() -> Iterator[None]:
     """The step runs on ``fgsea_simple``, never R: unit tests use fakes (ADR-0038 §4, M8-17b 10).
     Module scope, so module-scoped fixtures that run the step see it too."""
-    import giap.steps.function as fn
-    from giap.function.gsea import SIMPLE_ENGINE
+    import gippa.steps.function as fn
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(fn, "_LazyRFgsea", lambda log: SIMPLE_ENGINE)
@@ -45,30 +45,30 @@ SEED = 7
 
 
 def _run(pre: Path, out: Path, *, folds: bool, seed: int = SEED) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outputs = {"gene_table": out / "genetable" / "genes.parquet",
                "detectability_summary": out / "genetable" / "det.parquet"}  # fmt: skip
     if folds:
         outputs["tu_folds"] = out / "genetable" / "tu_folds.parquet"
-    reg.run_step("detectability", GiapConfig(seed=seed), {"genes_pre": pre}, outputs)
+    reg.run_step("detectability", GippaConfig(seed=seed), {"genes_pre": pre}, outputs)
     return outputs
 
 
 def _fit(pre: Path, seed: int = SEED):  # type: ignore[no-untyped-def]
-    from giap.genetable.covariates import COVARIATE_COLUMNS
-    from giap.genetable.detectability import fit_detectability
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.rng import for_step
+    from gippa.genetable.covariates import COVARIATE_COLUMNS
+    from gippa.genetable.detectability import fit_detectability
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.rng import for_step
 
     p = read_genes_parquet(pre)
     idx = pd.Index(p["locus_tag"].astype(str))
     det = pd.Series(p["detected"].astype(bool).to_numpy(), index=idx, dtype="boolean")
     det[p["partial"].astype(bool).to_numpy()] = pd.NA
     cov = p[["locus_tag", *COVARIATE_COLUMNS]].astype(dict.fromkeys(COVARIATE_COLUMNS, "float64"))
-    cfg = GiapConfig(seed=seed)
+    cfg = GippaConfig(seed=seed)
     return fit_detectability(det, cov, pd.Series(p["tu_id"].to_numpy(), index=idx),
                              cfg.detectability, for_step("detectability", seed))  # fmt: skip
 
@@ -86,8 +86,8 @@ def wired(pre600: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[str, P
 
 
 def test_tu_folds_is_an_optional_output_of_detectability() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("detectability")
@@ -158,7 +158,7 @@ def test_example_7_folds_feed_function_without_skip(
     from helpers.function_db import write_function_db
     from helpers.function_step_data import write_replicons
 
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     _, xrefs = world_pre()
     db = write_function_db(tmp_path / "db", xrefs)
@@ -167,7 +167,7 @@ def test_example_7_folds_feed_function_without_skip(
     ins |= db.inputs(["cog2020_fun"])
     outs = {k: tmp_path / "tables" / f"{k}.tsv"
             for k in ("category_summary", "enrichment_detection", "enrichment_gsea")}  # fmt: skip
-    cfg = GiapConfig.model_validate({"seed": SEED, "stats": {"bootstrap": 50},
+    cfg = GippaConfig.model_validate({"seed": SEED, "stats": {"bootstrap": 50},
                                      "function": {"gsea": {"n_perm_simple": 100}}})  # fmt: skip
     import logging
 
@@ -177,7 +177,7 @@ def test_example_7_folds_feed_function_without_skip(
         def emit(self, record: logging.LogRecord) -> None:
             seen.append(record)
 
-    log = logging.getLogger("giap.steps.function")
+    log = logging.getLogger("gippa.steps.function")
     h, old = H(level=logging.DEBUG), log.level
     log.addHandler(h)
     log.setLevel(logging.DEBUG)

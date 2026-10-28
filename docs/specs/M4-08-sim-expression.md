@@ -1,6 +1,6 @@
-# M4-08: giapsim expression and detection truth
+# M4-08: gippasim expression and detection truth
 
-Milestone M4 · track F (simulator) · depends on: M4-07 · estimate ≈ 300 lines in `tests/sim/giapsim/`
+Milestone M4 · track F (simulator) · depends on: M4-07 · estimate ≈ 300 lines in `tests/sim/gippasim/`
 (tooling) · **can start now**
 
 ## Spec sections implemented
@@ -15,7 +15,7 @@ Milestone M4 · track F (simulator) · depends on: M4-07 · estimate ≈ 300 lin
   concentrated in prophages)") and 4 ("High-copy plasmids").
 - §7.3.6 power: "regions with detection shifts of 10–50 %".
 
-## Interface (`tests/sim/giapsim/expression.py`)
+## Interface (`tests/sim/gippasim/expression.py`)
 
 ```python
 @dataclass(frozen=True)
@@ -42,8 +42,8 @@ def simple_covariates(aa: str) -> tuple[int, float]: ...   # (n_obs tryptic 7–
 ```
 - `p_detect_true = sigmoid(β0 + β1·log(length_aa) + β2·log1p(n_obs) + β3·GRAVY [+ β4·abundance_log2
   when detection = "abundance"] + region_detect_shift)`. `detected_true ~ Bernoulli(p_detect_true)`.
-  Covariates are computed by `simple_covariates`, independent of `giap` (M4-10 recomputes them).
-- Partial genes keep values (they are excluded later by `giap`, not by the simulator).
+  Covariates are computed by `simple_covariates`, independent of `gippa` (M4-10 recomputes them).
+- Partial genes keep values (they are excluded later by `gippa`, not by the simulator).
 - **Full-simulator hook:** M3-19 gives the nucleotide simulator a plain log-normal
   `gene_log_abundance` and says M4 replaces it "behind the same function". This issue provides
   `expression_for_simulation(sim_genes, tus, cfg, rng)` returning the same per-gene log abundance, and
@@ -72,7 +72,7 @@ def simple_covariates(aa: str) -> tuple[int, float]: ...   # (n_obs tryptic 7–
 ## Acceptance criteria
 
 - [ ] `tests/sim/test_expression.py`: examples 1–8 (seeded; tolerances as stated).
-- [ ] No import of `giap` (grep test shared with M4-07).
+- [ ] No import of `gippa` (grep test shared with M4-07).
 - [ ] 4,500 genes in < 1 s.
 
 ## Methods note

@@ -1,4 +1,4 @@
-"""Properties of locus classification on giapsim genomes (issue M3-14; GIAP_SPEC.md §7.2.6).
+"""Properties of locus classification on gippasim genomes (issue M3-14; GIPPA_SPEC.md §7.2.6).
 
 Acceptance properties of docs/specs/M3-14-loci-and-assignment.md:
 
@@ -31,9 +31,9 @@ import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.hits import HIT_COLUMNS
-from giap.model.coords import Interval, Replicon, split_at_origin
-from giap.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.model.coords import Interval, Replicon, split_at_origin
+from gippa.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
 
 PROPS = settings(
     max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow]
@@ -76,9 +76,9 @@ def _fasta(path: Path) -> dict[str, str]:
 
 
 def _simulate(out: Path, seed: int, **kw: Any) -> Sim:
-    import giapsim
+    import gippasim
 
-    giapsim.simulate(giapsim.SimConfig(**kw), seed=seed, outdir=out)
+    gippasim.simulate(gippasim.SimConfig(**kw), seed=seed, outdir=out)
     return Sim(out)
 
 
@@ -110,7 +110,7 @@ def sim_plain(tmp_path_factory: pytest.TempPathFactory) -> Sim:
 
 
 def classify(i: Interval, gm: GeneModel, genome: dict[str, str]) -> tuple[str, str | None]:
-    from giap.mapping.loci import classify_locus
+    from gippa.mapping.loci import classify_locus
 
     cls, gene = classify_locus(i, gm, genome)
     return str(cls), (None if gene is None or pd.isna(gene) else str(gene))
@@ -348,7 +348,7 @@ def test_sim_truth_novel_orfs(sim: Sim) -> None:
 
 
 def test_sim_origin_crossing_gene(sim: Sim) -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     chrom = next(iter(sim.reps))
     rep = sim.reps[chrom]
@@ -385,7 +385,7 @@ def test_sim_origin_crossing_gene(sim: Sim) -> None:
 @settings(max_examples=40, deadline=None)
 @given(data=st.data())
 def test_annotate_row_order_invariant(sim: Sim, data: st.DataObject) -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     hits = [_near_gene_hit(data, sim) for _ in range(data.draw(st.integers(1, 12)))]
     names = [data.draw(st.sampled_from(["PA", "PB", "PC"])) for _ in hits]

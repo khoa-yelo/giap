@@ -1,9 +1,9 @@
 """Shared inputs for the M7-08 tests (docs/specs/M7-08-novel-steps-and-second-round.md).
 
-* ``SIM_CFG``: giapsim ``SIM100K`` with M3-19 proteomics, planted novel ORFs of the three M3-18
+* ``SIM_CFG``: gippasim ``SIM100K`` with M3-19 proteomics, planted novel ORFs of the three M3-18
   classes and planted N-terminal extensions (example 1: "sim100k with planted novel ORFs").
-* ``run_giap``: ``giap run`` through the click runner (the local executor by default), with a test
-  ``$GIAP_DB_DIR`` (never the real one).
+* ``run_gippa``: ``gippa run`` through the click runner (the local executor by default), with a test
+  ``$GIPPA_DB_DIR`` (never the real one).
 * ``library_orfs``: the M7-06 library on the run's own work files (``candidate_rows`` +
   ``reconstruct``), the oracle of what ``novel_candidates`` wraps.
 
@@ -49,42 +49,43 @@ RBS_NOVEL_COLUMNS = ("contig", "strand", "start", "tir_ostir", "sd_dg", "mrna_dg
 
 
 def sim_config(**over: Any) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     kw: dict[str, Any] = {"proteomics": ProteomicsConfig(), "n_novel_orfs": NOVEL_COUNTS,
                           "n_nterm_extensions": N_NTERM}  # fmt: skip
     kw.update(over)
-    return dataclasses.replace(giapsim.SIM100K, **kw)
+    return dataclasses.replace(gippasim.SIM100K, **kw)
 
 
 def simulate(out: Path, **over: Any) -> Any:
-    import giapsim
+    import gippasim
 
-    return giapsim.simulate(sim_config(**over), giapsim.SIM100K_SEED, out)
+    return gippasim.simulate(sim_config(**over), gippasim.SIM100K_SEED, out)
 
 
 @contextmanager
 def db_env(root: Path) -> Iterator[Path]:
     from helpers.mapping_steps import write_test_db
 
-    old = os.environ.get("GIAP_DB_DIR")
+    old = os.environ.get("GIPPA_DB_DIR")
     db = write_test_db(root / "test_db")
-    os.environ["GIAP_DB_DIR"] = str(db)
+    os.environ["GIPPA_DB_DIR"] = str(db)
     try:
         yield db
     finally:
         if old is None:
-            os.environ.pop("GIAP_DB_DIR", None)
+            os.environ.pop("GIPPA_DB_DIR", None)
         else:
-            os.environ["GIAP_DB_DIR"] = old
+            os.environ["GIPPA_DB_DIR"] = old
 
 
-def run_giap(sim: Any, out: Path, *extra: str, executor: str = "local") -> tuple[int, str]:
-    """``giap run`` on the simulated genome, peptides, Bakta JSON and config (exit code, output)."""
+def run_gippa(sim: Any, out: Path, *extra: str, executor: str = "local") -> tuple[int, str]:
+    """``gippa run`` on the simulated genome, peptides, Bakta JSON and config (exit code,
+    output)."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
             "--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml),
@@ -99,7 +100,7 @@ def run_giap(sim: Any, out: Path, *extra: str, executor: str = "local") -> tuple
 
 def rbs_novel_layer(sim: Any) -> Path:
     """The simulator's ``annotation.precomputed.rbs_novel`` (from its ``config.yaml``)."""
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = resolve_config(Path(sim.config_yaml))
     path = cfg.annotation.precomputed.rbs_novel  # type: ignore[attr-defined]
@@ -109,28 +110,28 @@ def rbs_novel_layer(sim: Any) -> Path:
 
 
 def genome_of(sim: Any) -> dict[str, str]:
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     return {r.id: r.sequence.upper() for r in read_genome_fasta(Path(sim.genome_fasta))}
 
 
 def annotation_of(sim: Any) -> Any:
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     return parse_bakta_json(Path(sim.bakta_json))
 
 
 def library_orfs(work: Path, sim: Any, mapping: Path | None = None) -> list[Any]:
     """M7-06 ``candidate_rows`` + ``reconstruct`` on the run's peptide hits and C9 peptides."""
-    from giap.config import GiapConfig
-    from giap.io.work_tables import _read_tsv_table
-    from giap.novel.candidates import candidate_rows, reconstruct
+    from gippa.config import GippaConfig
+    from gippa.io.work_tables import _read_tsv_table
+    from gippa.novel.candidates import candidate_rows, reconstruct
 
     hits = _read_tsv_table("peptide_hits", (mapping or work / "mapping") / "peptide_hits.tsv")
     pep = pd.read_parquet(work / "peptides")
     ann = annotation_of(sim)
     return reconstruct(candidate_rows(hits, pep, None), ann.model, dict(ann.sequences),
-                       GiapConfig())  # fmt: skip
+                       GippaConfig())  # fmt: skip
 
 
 def tpos(strand: str, lowest: int) -> int:
@@ -156,8 +157,8 @@ def step_inputs(
 ) -> dict[str, Any]:
     """Every declared input of ``name`` found under ``work`` (required ones must exist), with
     ``override`` winning; keys in ``skip`` are left out."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get(name)
@@ -176,8 +177,8 @@ def step_inputs(
 
 
 def run(name: str, cfg: Any, inputs: Mapping[str, Any], outdir: Path) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outs = {k: outdir / k for k in reg.get(name).outputs}
@@ -198,13 +199,13 @@ def ostir_out_row(name: str, codon: str, pos: int, tir: float, spacer: int = 7) 
 
 
 def tsv_dicts(path: Path) -> list[dict[str, str | None]]:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     header, rows = read_tsv(path)
     return [dict(zip(header, r, strict=True)) for r in rows]
 
 
-SCHEMA = Path(__file__).resolve().parents[2] / "src/giap/schemas/tables/novel_orfs.schema.json"
+SCHEMA = Path(__file__).resolve().parents[2] / "src/gippa/schemas/tables/novel_orfs.schema.json"
 
 
 def assert_valid_novel_orfs(path: Path) -> None:

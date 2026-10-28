@@ -1,7 +1,7 @@
 # Permutation p-values, circular shifts and Besag–Clifford
 
-Implements `giap.stats.permutation` (`perm_p`, `circular_shifts`, `apply_shift`, `choose_shifts`,
-`besag_clifford`; GIAP_SPEC.md §7.3.5(b), §8.2, §8.3, decision 14, Appendix B.4; issue M4-03).
+Implements `gippa.stats.permutation` (`perm_p`, `circular_shifts`, `apply_shift`, `choose_shifts`,
+`besag_clifford`; GIPPA_SPEC.md §7.3.5(b), §8.2, §8.3, decision 14, Appendix B.4; issue M4-03).
 Statistician sign-off: see the end of this note.
 
 ## The +1 rule
@@ -43,7 +43,7 @@ the factor (B + 1)/B and is anti-conservative when B is small:
 | B = 99 | 0.05 | 0.053 | 0.051 |
 | B = 999 | 0.05 | 0.048 | 0.048 |
 
-Small K is routine in GIAP: plasmids with 10–20 genes (K = n − 1) and short linear contigs
+Small K is routine in GIPPA: plasmids with 10–20 genes (K = n − 1) and short linear contigs
 (K = n − span). The attack nulls `tiny_circular_n10`, `tiny_circular_n20` and `tiny_linear_n12`
 (tests/calibration/attacks/test_attack_permutation.py) fail with null-only centring (rates 0.14,
 0.064 and 0.126 against bounds 0.109, 0.056, 0.109) and pass with pooled centring (0.104, 0.052,
@@ -75,7 +75,7 @@ only ever adds exceedances, so it can only make p larger (valid, at worst slight
 Limitation (non-blocking): the rounding error of a sum scales with the **summands**, not with the
 sum. With large summands that cancel (terms ±1000.1, width 50; or ±100000.1, width 200) a true tie can be missed:
 in a probe, 1/300 and 7/300 replicates had float p below the exact rational p (one tie missed;
-effect ≤ 1/(B + 1)). For GIAP's region statistics (z-scores or log intensities, widths ≤ a few
+effect ≤ 1/(B + 1)). For GIPPA's region statistics (z-scores or log intensities, widths ≤ a few
 hundred genes) the error stays far below 1e-12·scale; the attack `test_tie_tolerance_never_lowers_p`
 (heavy ties on log₂-like decimals, width 50, exhaustive shifts) checks float p ≥ exact p. If a
 caller ever sums large cancelling terms, it should pass rounded statistics or a scale.
@@ -104,7 +104,7 @@ confirms the attack has teeth: label permutation rejects far above 0.05, while t
 the same data stays at level (table below).
 
 Caveats the callers own (M5): stationarity fails near replication-origin/terminus gradients
-(gene dosage) — shifts then compare a region with regions at other dosage; GIAP mitigates this by
+(gene dosage) — shifts then compare a region with regions at other dosage; GIPPA mitigates this by
 detrending (§7.3.5) and by reporting plasmids as replicon-level effects (§8.5 attack 4).
 
 **Linear replicons.** On a linear contig a wrapped set is not a region, so only translations that
@@ -119,7 +119,7 @@ contig) → no test; callers report `p_value = NA`.
 them when B ≥ K). Sampling a uniformly random subset of the other placements keeps T₀ exchangeable
 with the chosen ones, so the +1 rule stays exact (Hemerik & Goeman 2018); without replacement
 avoids duplicated null draws and is never worse. Determinism: the shifts depend only on the
-`Generator` state (from `giap.rng.for_step`) and are returned sorted.
+`Generator` state (from `gippa.rng.for_step`) and are returned sorted.
 
 ## Besag–Clifford sequential p (§8.2, decision 14)
 

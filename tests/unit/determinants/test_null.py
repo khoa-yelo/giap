@@ -1,6 +1,6 @@
 """M8-09 TU-size-preserving permutation null: examples 1-4 and 8, the degenerate rows and the
 §7.8.3 units "TU-size-preserving permutation blocks" and "the p formula"
-(docs/specs/M8-09-determinants-attribution-null.md rules 5-7, decision 16; GIAP_SPEC.md §7.8.2
+(docs/specs/M8-09-determinants-attribution-null.md rules 5-7, decision 16; GIPPA_SPEC.md §7.8.2
 step 4, §8.2).
 
 Contract choices the interface leaves open are in ``tests/helpers/determinants_attrib_data.py``.
@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_attrib_data as a
 import determinants_models_data as d
 
-from giap.rng import for_step
-from giap.stats.permutation import perm_p
+from gippa.rng import for_step
+from gippa.stats.permutation import perm_p
 
 SEED = 20261021
 

@@ -16,13 +16,13 @@ not statistical
 
 ## Public interface
 
-`src/giap/viz/interactive.py`
+`src/gippa/viz/interactive.py`
 ```python
 InteractiveFn = Callable[[pd.DataFrame, str], "plotly.graph_objects.Figure"]   # data TSV frame, title
 def interactive(pid: str) -> Callable[[InteractiveFn], InteractiveFn]          # registry by plot ID
 def figure_json(pid: str, data: pd.DataFrame, title: str) -> str | None        # None = static only
 ```
-`src/giap/report/templates/` gains `plotly_block.html.j2` and `tables.js` (inline).
+`src/gippa/report/templates/` gains `plotly_block.html.j2` and `tables.js` (inline).
 
 ## Behaviour
 
@@ -40,7 +40,7 @@ def figure_json(pid: str, data: pd.DataFrame, title: str) -> str | None        #
 4. **Tables.** Every embedded table (top 20 rows, M9-02) becomes sortable (click a header: numeric
    sort when every non-`NA` cell parses as a number, else string; `NA` always last) and filterable
    (one text box per table, case-insensitive substring over the row). About 40 lines of vanilla JS,
-   written for GIAP (index decision 24). No external JS.
+   written for GIPPA (index decision 24). No external JS.
 5. **Size budget.** After writing, the step measures `report.html`; > 25 MB raises a warning event
    `report.size_exceeded {bytes}` and, under `--strict`, exit 3. Tables are always linked, never
    embedded beyond 20 rows.
@@ -96,8 +96,8 @@ def figure_json(pid: str, data: pd.DataFrame, title: str) -> str | None        #
 ## Lead decisions on the tests (2026-10-22, after d44717b)
 
 4. The test author's interface choices 1–10 (module docstrings) are accepted.
-5. `giap report` gains `--strict` (page still written, exit 3 on `report.size_exceeded`); under
-   `giap run --strict` the report step's warning maps to exit 3 the same way as other strict
+5. `gippa report` gains `--strict` (page still written, exit 3 on `report.size_exceeded`); under
+   `gippa run --strict` the report step's warning maps to exit 3 the same way as other strict
    warnings (implementation detail, tested if cheap).
 6. No real twin in M9-14 (decision 3 wins over behaviour 1); V17's twin is M9-15.
 7. The plotly.js footer notice appears only when plotly.js is inlined; a `--no-interactive` page

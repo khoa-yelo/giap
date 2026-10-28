@@ -1,5 +1,5 @@
 """M6-10 review #243 B2 at unit level: ``Variant.families`` and ``Variant.patch_only``
-(docs/specs/M6-10-sensitivity-operon-flags.md, lead decision 8; GIAP_SPEC.md §8.6).
+(docs/specs/M6-10-sensitivity-operon-flags.md, lead decision 8; GIPPA_SPEC.md §8.6).
 
 Interface (lead decision 8, B2 option a): ``Variant`` gains ``families: tuple[str, ...] | None``
 (``None`` = every family, the default); the ``pair_threshold=*`` variants carry
@@ -20,7 +20,7 @@ PATCH = {so.PATCH_KEY: 0.3}
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 

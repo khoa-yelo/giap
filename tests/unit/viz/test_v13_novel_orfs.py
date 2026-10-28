@@ -1,13 +1,13 @@
 """V13 ``novel_orfs``: class counts by call status and the top-20 locus views (M9-12, examples
-1-4, degenerate cases, lead decisions 1-4; GIAP_SPEC.md §10.2 V13, §7.6, §9.3; M9-index
+1-4, degenerate cases, lead decisions 1-4; GIPPA_SPEC.md §10.2 V13, §7.6, §9.3; M9-index
 decision 19).
 
 Interface assumed where the spec leaves it open (reported to the lead):
 
-- ``giap.viz.novel_orfs`` registers ``V13`` as ``"novel_orfs"`` with ``needs = ("novel_orfs",)``
+- ``gippa.viz.novel_orfs`` registers ``V13`` as ``"novel_orfs"`` with ``needs = ("novel_orfs",)``
   (genes, peptide hits, BEDs optional). The plot returns: the panel (a) instance (``suffix =
   None``; or the empty state), one locus instance per rendered ORF (``suffix = "locus_<orf_id>"``,
-  raw ID; files sanitised by ``giap.io.plot_files.stem`` as for V3, decision 4) in ``rank``
+  raw ID; files sanitised by ``gippa.io.plot_files.stem`` as for V3, decision 4) in ``rank``
   order, and the index instance (``suffix = "locus"``, columns exactly ``rank, orf_id,
   rendered``) whenever any locus view is rendered.
 - Panel (a) is the axes labelled ``"counts"``; its data columns are exactly ``class, status, n,
@@ -16,8 +16,8 @@ Interface assumed where the spec leaves it open (reported to the lead):
   called; otherwise ``class_fdr`` NA / ``unestimated`` or flag ``class_fdr_unestimated`` ->
   unestimated; otherwise not_called. Bars are ``Rectangle`` patches on that axes coloured
   ``#0072B2`` / ``#BBBBBB`` / ``#E69F00``; class names are the category tick labels.
-- Locus views are built by ``giap.viz.locus.render_locus`` with ``Locus(kind="novel_orf")``
-  (spied on both ``giap.viz.locus`` and, if it imports the name, ``giap.viz.novel_orfs``);
+- Locus views are built by ``gippa.viz.locus.render_locus`` with ``Locus(kind="novel_orf")``
+  (spied on both ``gippa.viz.locus`` and, if it imports the name, ``gippa.viz.novel_orfs``);
   ``Locus.start0/end0`` is the 0-based half-open span. The data frame has the V3 columns plus
   one ``track = novel_orf`` row (``id = orf_id``, the span, the strand). The ORF arrow is a patch
   with edge colour ``#CC79A7``; the ORF's peptides are highlighted on the ``"pileup"`` axes with
@@ -56,12 +56,12 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle
 from matplotlib.text import Text
 
-import giap.viz.locus as locus_mod
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+import gippa.viz.locus as locus_mod
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 CLASSES = (
     "nterm_extension", "cterm_extension", "intergenic", "cds_outframe", "antisense",
@@ -82,14 +82,14 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 @pytest.fixture
 def nov() -> ModuleType:
     """The module under test (imported per test so each test fails on its own)."""
-    return importlib.import_module("giap.viz.novel_orfs")
+    return importlib.import_module("gippa.viz.novel_orfs")
 
 
 # --- fixtures and helpers -----------------------------------------------------------------------
@@ -149,7 +149,7 @@ def _out(tmp: Path, rows: Sequence[Mapping[str, object]], **kw: Any) -> Path:
     return vl.build_out(tmp, novel_orfs=rows, **kw)
 
 
-def _run(out: Path, cfg: GiapConfig, nov: ModuleType) -> list[Instance]:
+def _run(out: Path, cfg: GippaConfig, nov: ModuleType) -> list[Instance]:
     assert nov is not None
     result = base.registered()["V13"].fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
@@ -242,7 +242,7 @@ def test_v13_is_registered_with_novel_orfs_as_its_only_hard_need(nov: ModuleType
     assert spec.needs == ("novel_orfs",)
 
 
-def test_absent_table_is_a_declared_skip(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_absent_table_is_a_declared_skip(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     out = vl.build_out(tmp_path)
     result = base.registered()["V13"].fn(RunView.from_outdir(out), cfg)
     assert result == Skip("input_absent:novel_orfs")
@@ -255,7 +255,7 @@ def test_module_is_pure_and_uses_no_pyplot(nov: ModuleType) -> None:
 # --- example 1: panel (a) -----------------------------------------------------------------------
 
 
-def test_example1_counts(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_example1_counts(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     main = _main(_run(_out(tmp_path, _example1_rows()), cfg, nov))
     assert list(main.data.columns) == COUNT_COLUMNS
     assert _counts(main) == [
@@ -265,7 +265,7 @@ def test_example1_counts(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> No
     ]
 
 
-def test_example1_class_fdr_max_called(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_example1_class_fdr_max_called(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     d = _main(_run(_out(tmp_path, _example1_rows()), cfg, nov)).data
     called = d[(d["class"] == "intergenic") & (d["status"] == "called")]
     assert float(called["class_fdr_max_called"].iloc[0]) == pytest.approx(0.008)
@@ -273,7 +273,7 @@ def test_example1_class_fdr_max_called(tmp_path: Path, cfg: GiapConfig, nov: Mod
     assert pd.isna(anti["class_fdr_max_called"].iloc[0])
 
 
-def test_example1_title(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_example1_title(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     main = _main(_run(_out(tmp_path, _example1_rows()), cfg, nov))
     want = "2 novel ORFs called (class FDR ≤ 0.008), 2 unestimated"
     assert _collapse(main.title) == want
@@ -281,7 +281,7 @@ def test_example1_title(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> Non
 
 
 def test_example1_bars_are_stacked_in_the_status_colours(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     ax = _axes(_main(_run(_out(tmp_path, _example1_rows()), cfg, nov)).figure, "counts")
     assert _bar_lengths(ax, CALLED) == [2.0]
@@ -290,7 +290,7 @@ def test_example1_bars_are_stacked_in_the_status_colours(
 
 
 def test_example1_bar_labels_give_the_fdr_range_or_unestimated(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     ax = _axes(_main(_run(_out(tmp_path, _example1_rows()), cfg, nov)).figure, "counts")
     texts = [_collapse(t.get_text()) for t in ax.texts]
@@ -299,7 +299,7 @@ def test_example1_bar_labels_give_the_fdr_range_or_unestimated(
 
 
 def test_rows_sorted_by_class_enum_then_status(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rng = random.Random(7)
     rows = []
@@ -320,7 +320,7 @@ def test_rows_sorted_by_class_enum_then_status(
 
 
 def test_category_ticks_follow_the_class_enum_order(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", cls="sorf", start_longest=1001, end=1100),
@@ -350,7 +350,7 @@ def test_category_ticks_follow_the_class_enum_order(
      ("unestimated", "partial;class_fdr_unestimated")],
 )  # fmt: skip
 def test_unestimated_class_fdr_is_status_unestimated(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, fdr: str | None, flags: str | None
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, fdr: str | None, flags: str | None
 ) -> None:
     rows = [orf("NOVEL_chr1_1001_p", class_fdr=fdr, called=False, flags=flags)]
     insts = _run(_out(tmp_path, rows), cfg, nov)
@@ -359,7 +359,7 @@ def test_unestimated_class_fdr_is_status_unestimated(
 
 
 def test_literal_unestimated_is_read_as_na(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", class_fdr="0.004"),
@@ -373,7 +373,7 @@ def test_literal_unestimated_is_read_as_na(
 
 
 def test_called_row_with_unestimated_fdr_titles_class_fdr_unestimated(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [orf("NOVEL_chr1_5001_p", class_fdr="unestimated", n_peptides=3, best_q=0.002)]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
@@ -386,7 +386,7 @@ def test_called_row_with_unestimated_fdr_titles_class_fdr_unestimated(
 
 
 def test_example4_header_only_is_the_empty_state(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     out = _out(tmp_path / "run", [])
     insts = _run(out, cfg, nov)
@@ -404,7 +404,7 @@ def test_example4_header_only_is_the_empty_state(
 
 
 def test_no_called_but_unestimated_is_panel_a_only(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf("NOVEL_chr1_1001_p", class_fdr="unestimated", called=False, rank=1),
@@ -420,7 +420,7 @@ def test_no_called_but_unestimated_is_panel_a_only(
 
 
 def test_fewer_than_20_called_gives_that_many_views(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [
         orf(f"NOVEL_chr1_{1001 + 5000 * i}_p", start_longest=1001 + 5000 * i, end=1300 + 5000 * i,
@@ -435,7 +435,7 @@ def test_fewer_than_20_called_gives_that_many_views(
 
 
 def test_evidence_columns_na_leave_panel_a_unchanged_and_views_render(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     """PR #180 not merged: the M7-09 evidence columns are all NA."""
     evidence = (
@@ -470,7 +470,7 @@ def _many(n_called: int, *, uncalled: bool = False) -> list[dict[str, object]]:
 
 
 def test_example2_25_called_gives_20_views_ranks_1_to_20(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = _many(25)
     insts = _run(_out(tmp_path, rows), cfg, nov)
@@ -484,7 +484,7 @@ def test_example2_25_called_gives_20_views_ranks_1_to_20(
 
 
 def test_uncalled_rows_never_get_a_view_even_with_smaller_rank(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = _many(22, uncalled=True)
     insts = _run(_out(tmp_path, rows), cfg, nov)
@@ -496,7 +496,7 @@ def test_uncalled_rows_never_get_a_view_even_with_smaller_rank(
     assert _index(insts).data["rank"].tolist() == list(range(2, 42, 2))
 
 
-def test_example2_index_file_name(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_example2_index_file_name(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     ix = _index(_run(_out(tmp_path / "run", _many(2)), cfg, nov))
     paths = write_instance(ix, "V13", "novel_orfs", tmp_path / "plots", ["svg"], 100)
     names = sorted(p.relative_to(tmp_path / "plots").as_posix() for p in paths)
@@ -526,7 +526,7 @@ def spy(nov: ModuleType, monkeypatch: pytest.MonkeyPatch) -> Iterator[_Spy]:
 
 
 def test_every_view_is_drawn_by_render_locus(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, spy: _Spy
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, spy: _Spy
 ) -> None:
     insts = _run(_out(tmp_path, _many(4)), cfg, nov)
     assert len(spy.loci) == len(_views(insts)) == 4
@@ -535,7 +535,7 @@ def test_every_view_is_drawn_by_render_locus(
 
 
 def test_views_have_the_v3_layout_plus_a_novel_orf_track(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [orf("NOVEL_chr1_5001_p", start_longest=5_001, end=5_300)]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
@@ -548,7 +548,7 @@ def test_views_have_the_v3_layout_plus_a_novel_orf_track(
     ]
 
 
-def test_locus_title(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_locus_title(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     rows = [orf("NOVEL_chr1_5001_p", n_peptides=3, best_q=0.0001, class_fdr="0.004")]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
     want = "NOVEL_chr1_5001_p (intergenic): 3 peptides, best q 1e-04, class FDR 0.004"
@@ -574,7 +574,7 @@ def _example3_out(tmp: Path) -> Path:
 
 
 def test_example3_span_is_zero_based_half_open(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, spy: _Spy
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, spy: _Spy
 ) -> None:
     (view,) = _views(_run(_example3_out(tmp_path), cfg, nov))
     ((lo),) = spy.loci
@@ -583,7 +583,7 @@ def test_example3_span_is_zero_based_half_open(
     assert [(int(r.start), int(r.end), r.strand) for r in nv.itertuples()] == [(1_200, 1_500, "-")]
 
 
-def test_example3_data_tsv_is_one_based(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_example3_data_tsv_is_one_based(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     (view,) = _views(_run(_example3_out(tmp_path / "run"), cfg, nov))
     paths = write_instance(view, "V13", "novel_orfs", tmp_path / "plots", ["svg"], 100)
     (tsv,) = [p for p in paths if p.suffix == ".tsv"]
@@ -594,7 +594,7 @@ def test_example3_data_tsv_is_one_based(tmp_path: Path, cfg: GiapConfig, nov: Mo
 
 
 def test_example3_window_is_unwrapped_below_zero(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     (view,) = _views(_run(_example3_out(tmp_path), cfg, nov))
     assert _axes(view.figure, "genes").get_xlim() == pytest.approx((-800, 3_500))
@@ -607,7 +607,7 @@ def _tick_int(label: str) -> int:
 
 
 def test_example3_ticks_are_labelled_by_wrapped_position(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     (view,) = _views(_run(_example3_out(tmp_path), cfg, nov))
     ax = _axes(view.figure, "genes")
@@ -622,7 +622,7 @@ def test_example3_ticks_are_labelled_by_wrapped_position(
             assert 0 <= _tick_int(txt) < 100_000
 
 
-def test_wrapped_ticks_past_the_length(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_wrapped_ticks_past_the_length(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     """A ``+`` ORF crossing the origin (``end < start_longest``) is unwrapped past 100 kb."""
     rows = [orf("NOVEL_chr1_99901_p", start_longest=99_901, end=200)]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
@@ -634,7 +634,7 @@ def test_wrapped_ticks_past_the_length(tmp_path: Path, cfg: GiapConfig, nov: Mod
 
 
 def test_minus_orf_crossing_the_origin(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, spy: _Spy
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, spy: _Spy
 ) -> None:
     """On ``-`` the row crosses the origin when ``start_longest < end``."""
     rows = [orf("NOVEL_chr1_99851_m", strand="-", start_longest=150, end=99_851)]
@@ -648,7 +648,7 @@ def test_minus_orf_crossing_the_origin(
     [(301, 600, (0, 2_600)), (29_701, 29_900, (27_700, 30_000))],
 )
 def test_linear_window_clips(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType, start: int, end: int, xlim: tuple[int, int]
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType, start: int, end: int, xlim: tuple[int, int]
 ) -> None:
     rows = [orf(f"NOVEL_lin1_{start}_p", contig="lin1", start_longest=start, end=end)]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
@@ -664,7 +664,7 @@ def test_linear_window_clips(
     codons=st.integers(min_value=10, max_value=400),
 )
 def test_property_span_is_min_minus_1_to_max(
-    cfg: GiapConfig, nov: ModuleType, strand: str, lo: int, codons: int
+    cfg: GippaConfig, nov: ModuleType, strand: str, lo: int, codons: int
 ) -> None:
     hi = lo + 3 * codons - 1
     first, last = (lo, hi) if strand == "+" else (hi, lo)
@@ -694,7 +694,7 @@ def test_property_span_is_min_minus_1_to_max(
 )
 def test_no_start_codon_span_starts_at_the_first_peptide(
     tmp_path: Path,
-    cfg: GiapConfig,
+    cfg: GippaConfig,
     nov: ModuleType,
     spy: _Spy,
     strand: str,
@@ -721,7 +721,7 @@ def _patches(fig: Figure) -> list[tuple[Axes, Patch]]:
 
 
 def test_example3_orf_arrow_outline_points_left_above_the_genes(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     fig = _views(_run(_example3_out(tmp_path), cfg, nov))[0].figure
     genes_ax = _axes(fig, "genes")
@@ -747,7 +747,7 @@ def test_example3_orf_arrow_outline_points_left_above_the_genes(
 
 
 def test_ostir_start_differing_gets_a_tick(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [orf("NOVEL_chr1_5001_p", start_longest=5_001, start_best_ostir=5_031, end=5_300)]
     fig = _views(_run(_out(tmp_path, rows), cfg, nov))[0].figure
@@ -765,7 +765,7 @@ def test_ostir_start_differing_gets_a_tick(
 
 
 def test_orf_peptides_are_highlighted_in_the_pileup(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     def highlighted(peptides: str | None) -> bool:
         rows = [orf("NOVEL_chr1_1201_m", cls="antisense", strand="-", start_longest=1_500,
@@ -789,7 +789,7 @@ def test_orf_peptides_are_highlighted_in_the_pileup(
 
 
 def test_locus_files_are_named_by_sanitised_orf_id(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     rows = [orf("NOVEL_chr/1 x_5001_p")]
     (view,) = _views(_run(_out(tmp_path / "run", rows), cfg, nov))
@@ -805,7 +805,7 @@ def test_locus_files_are_named_by_sanitised_orf_id(
     ]
 
 
-def test_main_data_tsv_name_and_header(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_main_data_tsv_name_and_header(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     main = _main(_run(_out(tmp_path / "run", _example1_rows()), cfg, nov))
     paths = write_instance(main, "V13", "novel_orfs", tmp_path / "plots", ["svg"], 100)
     tsv = tmp_path / "plots" / "data" / "V13_novel_orfs.tsv"
@@ -813,7 +813,7 @@ def test_main_data_tsv_name_and_header(tmp_path: Path, cfg: GiapConfig, nov: Mod
     assert tsv.read_text(encoding="utf-8").splitlines()[0].split("\t") == COUNT_COLUMNS
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     insts = _run(_example3_out(tmp_path / "a"), cfg, nov)
     insts += _run(_out(tmp_path / "b", _example1_rows()), cfg, nov)
     for inst in insts:
@@ -824,7 +824,7 @@ def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig, nov: Modul
 
 
 def test_main_texts_inside_the_figure_and_not_overlapping(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     fig = _main(_run(_out(tmp_path, _example1_rows()), cfg, nov)).figure
     r = _agg(fig)
@@ -849,7 +849,7 @@ def test_main_texts_inside_the_figure_and_not_overlapping(
 
 
 def test_files_are_byte_identical_across_renders(
-    tmp_path: Path, cfg: GiapConfig, nov: ModuleType
+    tmp_path: Path, cfg: GippaConfig, nov: ModuleType
 ) -> None:
     out = _example3_out(tmp_path / "run")
     written = []
@@ -867,7 +867,7 @@ def test_files_are_byte_identical_across_renders(
     assert written[0] == written[1]
 
 
-def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     import matplotlib.pyplot as plt
 
     before = plt.get_fignums()
@@ -876,6 +876,6 @@ def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GiapConfig, nov: Mo
     assert plt.get_fignums() == before
 
 
-def test_titles_never_say_express(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
+def test_titles_never_say_express(tmp_path: Path, cfg: GippaConfig, nov: ModuleType) -> None:
     for inst in _run(_example3_out(tmp_path), cfg, nov):
         assert "express" not in inst.title.lower()

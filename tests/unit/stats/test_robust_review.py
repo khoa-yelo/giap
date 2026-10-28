@@ -16,9 +16,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from giap.rng import for_step
-from giap.stats import robust
-from giap.stats.robust import hodges_lehmann
+from gippa.rng import for_step
+from gippa.stats import robust
+from gippa.stats.robust import hodges_lehmann
 
 TIME_LIMIT_S = 10.0
 NAN, INF = float("nan"), float("inf")

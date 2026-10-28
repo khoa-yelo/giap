@@ -1,7 +1,7 @@
 """Teeth of the M7-13a variants gate: each check has a mutant that must fail
 (docs/specs/M7-13-calibration-gate.md § Attacks: "Each attack has a mutant that must fail";
-attack 6 row "A6c doubles as the teeth of A6b"; GIAP_SPEC.md §8.5 "A failing attack blocks the
-merge"). The mutants reuse the gate's own replicates (``helpers.m7_gate_records``: one GIAP run
+attack 6 row "A6c doubles as the teeth of A6b"; GIPPA_SPEC.md §8.5 "A failing attack blocks the
+merge"). The mutants reuse the gate's own replicates (``helpers.m7_gate_records``: one GIPPA run
 feeds the check and its mutant, rule 1) and are evaluated through the same criteria, logged to a
 private directory (``teeth_log``), never the nightly suite log.
 
@@ -195,7 +195,7 @@ def test_smoke_cluster_null_entries_avoid_planted_orfs_and_sim_hits() -> None:
     try:
         res = N.simulate(0, "100k", root)
         pep = N._tsv(Path(res.outdir) / "peptides.tsv")
-        seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIAPORF_" in p}
+        seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIPPAORF_" in p}
         truth = N._truth(res)
         keys = set(zip(truth["contig"].astype(str), truth["strand"].astype(str),
                        truth["stop"].astype(int), strict=True))  # fmt: skip
@@ -207,9 +207,9 @@ def test_smoke_cluster_null_entries_avoid_planted_orfs_and_sim_hits() -> None:
     entries = info["entries"]
     assert len(entries) == min(60, info["n_eligible"]) and entries, info["n_eligible"]
     assert len({e["id"] for e in entries}) == len(entries)
-    assert seen, "the simulation hit no GIAPORF_ entry"
+    assert seen, "the simulation hit no GIPPAORF_ entry"
     for e in entries:
-        assert e["id"].startswith("GIAPORF_antisense_") and e["id"] not in seen, e["id"]
+        assert e["id"].startswith("GIPPAORF_antisense_") and e["id"] not in seen, e["id"]
         assert tuple(e["key"]) not in keys, e
         lo, hi = e["span"]
         for c, a, b in zip(truth["contig"], truth["start"], truth["end"], strict=True):
@@ -226,7 +226,7 @@ def test_smoke_cluster_null_entries_avoid_planted_orfs_and_sim_hits() -> None:
         assert set(rows["is_decoy"]) == {"true" if e["decoy"] else "false"}
     assert len(out) == len(pep) + info["n_rows"]
     assert out.iloc[: len(pep)].equals(pep), "the simulated rows must be kept unchanged"
-    null = pep[pep["protein_ids"].str.startswith("rev_GIAPORF_")]
+    null = pep[pep["protein_ids"].str.startswith("rev_GIPPAORF_")]
     trip = set(zip(null["q_value"], null["pep"], null["score"], strict=True))
     add = out.iloc[len(pep) :]
     assert set(zip(add["q_value"], add["pep"], add["score"], strict=True)) <= trip

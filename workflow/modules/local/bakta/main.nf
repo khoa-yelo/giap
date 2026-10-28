@@ -1,4 +1,4 @@
-// Bakta 1.12.2 (GIAP_SPEC.md §7.1.1); flags mirror giap.annotate.bakta_cmd.bakta_command.
+// Bakta 1.12.2 (GIPPA_SPEC.md §7.1.1); flags mirror gippa.annotate.bakta_cmd.bakta_command.
 process BAKTA {
     tag "${meta_id}"
     label 'process_high'

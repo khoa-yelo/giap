@@ -2,7 +2,7 @@
 
 On K-12 the checklist counted 20,001 elements on the SHAP axes: ``MAX_DRAWN`` points plus the
 zero line. Required: the drawn total on the axes, extras (reference lines, texts, patches)
-included, is at most 20,000, counted as ``giap.viz.checklist`` counts it (patches + lines + texts
+included, is at most 20,000, counted as ``gippa.viz.checklist`` counts it (patches + lines + texts
 + each collection's offsets / paths, untagged artists together).
 """
 
@@ -15,11 +15,11 @@ import pytest
 from helpers import viz_determinants as vd
 from helpers.viz_landscape import plot_spec
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import checklist as ck
-from giap.viz import style
-from giap.viz.base import Skip
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import checklist as ck
+from gippa.viz import style
+from gippa.viz.base import Skip
 
 CAP = 20_000
 

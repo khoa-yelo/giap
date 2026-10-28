@@ -1,6 +1,6 @@
 # Detection-limit model (P(detect | abundance) and P(miss))
 
-Implements `giap.operons.detection_limit` (GIAP_SPEC.md §7.4.3 "One detected, one not", §7.3.3
+Implements `gippa.operons.detection_limit` (GIPPA_SPEC.md §7.4.3 "One detected, one not", §7.3.3
 conventions, §8.7; issue M6-02, docs/specs/M6-02-detection-limit-model.md). Consumer: M6-05H.
 
 **Status:** method reviewed by the statistician before implementation (2026-10-21). The estimator
@@ -55,7 +55,7 @@ P(O_gj = 1 | X_g ≥ k) = p_gj · P(X_g,−j ≥ k − 1) / P(X_g ≥ k); for k_
   logistic"). A fixed, negligible ridge purely for numerical safety is acceptable only if the
   calibration criteria below still pass.
 - Cross-fitting, folds and `model_for_tu` are unchanged (GroupKFold by TU, folds from
-  `giap.rng.for_step("operons.detection_limit", seed)`).
+  `gippa.rng.for_step("operons.detection_limit", seed)`).
 
 **Replicate model.** Per-run detection probability q_g = σ(γ·z_g) on the gene's mean
 `abundance_log2` plus `detectability.covariates`; S_g of R runs. Training genes as in the spec
@@ -120,7 +120,7 @@ sample = oriented Δ of both-detected pairs; opportunities = (v detected, u) ord
 The naive fit shrinks P(miss) by a third and multiplies the rate of small P(miss) under the null
 by 2.5–3. The selection of the r sample on both-detected pairs was negligible in this design (sd of
 the r sample 0.60 / 1.48 against 0.6 / 1.5). Scripts and raw output:
-`$GIAP_ROOT/stat/m6-02/` (sim_pep.py, sim_rep.py, sim_pmiss.py, out/).
+`$GIPPA_ROOT/stat/m6-02/` (sim_pep.py, sim_rep.py, sim_pmiss.py, out/).
 
 ## Calibration criteria
 
@@ -164,7 +164,7 @@ a pair with true P(miss) 0.2 estimated at 0.04 contributes 0.2 to the level at �
 ## Statistical review of the implementation (PR #157, head cf164a5, 2026-10-21)
 
 Simulations ran the code under review: Slurm jobs 1865238 and 1865261. The scripts and output are in
-`$GIAP_ROOT/stat/m6-02/review/` (review_sim.py, review_sel.py, out/). R = 100 replicates per arm,
+`$GIPPA_ROOT/stat/m6-02/review/` (review_sim.py, review_sel.py, out/). R = 100 replicates per arm,
 60 for the selection arm. The values below are means, with the Monte Carlo SE in brackets.
 
 **Verdict: blocked on one item (B1). Everything else matches this note.**

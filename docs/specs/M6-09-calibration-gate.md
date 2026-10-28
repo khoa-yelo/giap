@@ -38,7 +38,7 @@ two-block confirmation and sharding apply (the standing backlog item about migra
    `tests/calibration/attacks/test_attack_operons.py` as M5-07 does.
 2. The fast subset must finish inside 10 minutes on 4 vCPUs (§8.4); the full suites run as
    `scripts/slurm/calibration_full.sbatch` tasks `discordance` and `missed_operons` (≤ 2 jobs,
-   ≤ 32 CPUs; sum the running `giap-*` CPUs before submitting, R14).
+   ≤ 32 CPUs; sum the running `gippa-*` CPUs before submitting, R14).
 3. **Evidence recorded in PROGRESS.md:** test names, the measured FDP and level with their SEs, the
    job IDs, the power table, and the explicit note that the §15.4 half of the gate is outstanding.
 4. A failure is escalated with numbers and fixed by an ADR on the method — never by editing

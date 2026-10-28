@@ -1,4 +1,4 @@
-# M2-05: Simulator v2 (`giapsim`): 100-kb genome with features, signals and precomputed layers
+# M2-05: Simulator v2 (`gippasim`): 100-kb genome with features, signals and precomputed layers
 
 Milestone M2 · depends on: M2-02 (precomputed formats), M2-03 (Bakta field names), **M3-18** (simulator
 plasmids, rRNA/tRNA, pseudogenes, sORFs, origin-crossing genes; whichever merges second rebases) · estimate ≈ 400
@@ -13,8 +13,8 @@ code lines under `tests/sim/` (tooling; not gated by ADR-0007, kept small anyway
   ends"; "**Non-coding features:** rRNA operons whose 16S ends in `…GATCACCTCCTTA`; tRNA genes with
   anticodons; an oriC-like region next to a marker gene"; "**Planted features:** a prophage block with
   shifted GC; a BGC-like block; plasmids; a CRISPR array; pseudogenes (internal stop or frameshift);
-  sORFs (< 30 aa)"; "**Annotation.** Written as a Bakta-like JSON containing only the fields GIAP
-  parses (validated by GIAP's own parser), plus GFF3. All truth tables are written too."
+  sORFs (< 30 aa)"; "**Annotation.** Written as a Bakta-like JSON containing only the fields GIPPA
+  parses (validated by GIPPA's own parser), plus GFF3. All truth tables are written too."
 - §11.3 outputs: "precomputed layers (`operon_pairs.tsv` with UniOP-like probabilities; promoters,
   Tx rates, terminators, RBS and regions, each with true elements plus false positives at known
   rates); `truth/*.tsv`; `config.yaml` with `annotation.precomputed` filled in"; "a 100-kb genome in < 1 s".
@@ -28,11 +28,11 @@ N-terminal extensions.
 **Overlap with M3-18.** `docs/specs/M3-18-sim-genome-features.md` already adds plasmids
 (`n_plasmids`, `plasmid_length`), `n_rrna_operons` (16S ending `…GATCACCTCCTTA`), `n_trna`,
 `n_pseudogenes`, `n_sorfs`, `origin_crossing_gene`, the Bakta-style JSON (`start > stop` across the
-origin) and `annotation.gff3`, in `tests/sim/giapsim/features.py`. This issue reuses those fields and
+origin) and `annotation.gff3`, in `tests/sim/gippasim/features.py`. This issue reuses those fields and
 that module and adds only what annotation needs: signals, CRISPR, oriC, prophage/BGC blocks,
 precomputed layers, annotation truth, `SIM100K`. New modules: `signals.py`, `blocks.py`, `layers.py`.
 
-`tests/sim/giapsim/` (additions)
+`tests/sim/gippasim/` (additions)
 ```python
 @dataclass(frozen=True)
 class SimConfig:                     # new fields (M0 and M3-18 fields unchanged); defaults = off

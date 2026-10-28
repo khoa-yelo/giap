@@ -31,8 +31,8 @@ STATUSES = ["detected", "not_detected", "single_peptide_unestimated", "partial_e
 
 
 def _basic(genes: pd.DataFrame, seed: int = 11) -> pd.DataFrame:
-    from giap.context.summary import basic_rows
-    from giap.rng import for_step
+    from gippa.context.summary import basic_rows
+    from gippa.rng import for_step
 
     return basic_rows(genes, B, for_step("context_stats", seed))  # type: ignore[no-any-return]
 

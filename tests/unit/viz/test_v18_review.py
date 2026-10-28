@@ -1,4 +1,4 @@
-"""V18 ``stat_diagnostics``: review round of PR #203 (M9-07; GIAP_SPEC.md §10.2 V18, §8.2).
+"""V18 ``stat_diagnostics``: review round of PR #203 (M9-07; GIPPA_SPEC.md §10.2 V18, §8.2).
 
 Pins what the review found unpinned (lead decisions 2-6 of
 docs/specs/M9-07-v18-diagnostics-pass1.md) and the lead's rulings on the review:
@@ -32,10 +32,10 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 COLLECTIONS = ("cog", "kegg", "go_bp", "go_mf", "go_cc", "go_slim")
 CONSTANT_TEXT = "detectability constant: no calibration curve"
@@ -48,7 +48,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -165,12 +165,12 @@ def _out(tmp: Path, **tables: Sequence[Mapping[str, object]] | None) -> Path:
 
 
 def _v18() -> base.PlotSpec:
-    import giap.viz.diagnostics  # noqa: F401  (registers V18)
+    import gippa.viz.diagnostics  # noqa: F401  (registers V18)
 
     return base.registered()["V18"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v18().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -243,7 +243,7 @@ def _b1_out(tmp: Path) -> Path:
     return _out(tmp, regions_stats=regions)
 
 
-def test_b1_outside_values_are_not_in_the_bars(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_outside_values_are_not_in_the_bars(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_b1_out(tmp_path), cfg)
     counts = _family_counts(inst, "regions_stats", "o_minus_e")
     assert counts == {k: {0: 1, 19: 1}.get(k, 0) for k in range(20)}, counts
@@ -252,7 +252,7 @@ def test_b1_outside_values_are_not_in_the_bars(tmp_path: Path, cfg: GiapConfig) 
     assert "n = 2" in ax.get_title()
 
 
-def test_b1_one_n_outside_row_per_affected_family(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_one_n_outside_row_per_affected_family(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_b1_out(tmp_path), cfg)
     out = _outside_rows(inst)
     assert len(out) == 1, out
@@ -266,7 +266,7 @@ def test_b1_one_n_outside_row_per_affected_family(tmp_path: Path, cfg: GiapConfi
     assert len(_bin_rows(inst, "regions_stats", "o_minus_e")) == 20
 
 
-def test_b1_histogram_title_counts_outside(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_histogram_title_counts_outside(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_b1_out(tmp_path), cfg)
     title = _ax(inst, "b:regions_stats / o_minus_e").get_title()
     assert title.endswith(", 4 outside [0, 1]"), title
@@ -274,7 +274,7 @@ def test_b1_histogram_title_counts_outside(tmp_path: Path, cfg: GiapConfig) -> N
     assert "outside" not in clean, clean
 
 
-def test_b1_no_outside_row_when_every_p_is_in_range(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_no_outside_row_when_every_p_is_in_range(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [_region(p, i=i) for i, p in enumerate([0.0, 0.5, 1.0])]
     inst = _render(_out(tmp_path, regions_stats=regions), cfg)
     assert len(_outside_rows(inst)) == 0
@@ -285,7 +285,7 @@ def test_b1_no_outside_row_when_every_p_is_in_range(tmp_path: Path, cfg: GiapCon
 @pytest.mark.parametrize(
     "p", [-0.2, -1e-300, -5e-324, 1.0000000000000002, 1.5, 7.0, math.inf, -math.inf]
 )
-def test_b1_low_and_high_side_are_both_outside(tmp_path: Path, cfg: GiapConfig, p: float) -> None:
+def test_b1_low_and_high_side_are_both_outside(tmp_path: Path, cfg: GippaConfig, p: float) -> None:
     """No clamp on either side: -0.2 is neither bin 0 nor (by negative indexing) bin 16."""
     regions = [_region(_exact(p), i=0), _region(0.52, i=1)]
     inst = _render(_out(tmp_path, regions_stats=regions), cfg)
@@ -295,7 +295,7 @@ def test_b1_low_and_high_side_are_both_outside(tmp_path: Path, cfg: GiapConfig, 
     assert len(out) == 1 and _num(out.iloc[0]["value"]) == 1
 
 
-def test_b1_counts_are_per_family(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_counts_are_per_family(tmp_path: Path, cfg: GippaConfig) -> None:
     acf = [
         _autocorr(_exact(1.3), "morans_i", "gene_label", 1),
         _autocorr(0.4, "morans_i", "gene_label", 2),
@@ -389,7 +389,7 @@ def _seventeen_equal(size: int = 2) -> tuple[dict[str, list[dict]], list[str]]:
     return tables, labels
 
 
-def test_top16_ties_go_to_table_order_then_name(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_top16_ties_go_to_table_order_then_name(tmp_path: Path, cfg: GippaConfig) -> None:
     """17 equal families: the last by (table order, name) is dropped: enrichment_gsea / kegg."""
     tables, labels = _seventeen_equal()
     inst = _render(_out(tmp_path, **tables), cfg)
@@ -398,7 +398,7 @@ def test_top16_ties_go_to_table_order_then_name(tmp_path: Path, cfg: GiapConfig)
     assert len(set(zip(b["table"], b["family"], strict=True))) == 17
 
 
-def test_top16_ties_name_order_within_a_table(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_top16_ties_name_order_within_a_table(tmp_path: Path, cfg: GippaConfig) -> None:
     """17 equal families inside one table: the largest name is dropped."""
     names = [f"c{k:02d}" for k in range(17)]
     random.Random(3).shuffle(names)
@@ -410,7 +410,7 @@ def test_top16_ties_name_order_within_a_table(tmp_path: Path, cfg: GiapConfig) -
 # --- drawn order: spec table order, not rank order ------------------------------------------------
 
 
-def test_families_are_drawn_in_spec_order_not_rank_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_families_are_drawn_in_spec_order_not_rank_order(tmp_path: Path, cfg: GippaConfig) -> None:
     tables = {
         "regions_stats": [_region(0.1, i=0)],
         "autocorrelation": [_autocorr(0.2, "morans_i", "gene_label", k) for k in range(1, 4)],
@@ -433,7 +433,7 @@ def test_families_are_drawn_in_spec_order_not_rank_order(tmp_path: Path, cfg: Gi
 # --- titles (decision 2, 7) -----------------------------------------------------------------------
 
 
-def test_na_slope_prints_na_not_nan(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_slope_prints_na_not_nan(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.1, 0.12, 50), (0.6, 0.55, 50)]), *_overall(None, 0.02, 0.11)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     assert inst.title == "Detectability calibration slope NA (intercept 0.02), Brier 0.11"
@@ -442,19 +442,19 @@ def test_na_slope_prints_na_not_nan(tmp_path: Path, cfg: GiapConfig) -> None:
     assert "nan" not in corner.lower()
 
 
-def test_na_intercept_prints_na(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_intercept_prints_na(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.1, 0.12, 50), (0.6, 0.55, 50)]), *_overall(0.97, None, None)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     assert inst.title == "Detectability calibration slope 0.97 (intercept NA), Brier NA"
 
 
-def test_absent_detection_summary_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_absent_detection_summary_title(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [_region(0.2, i=0), _region(0.6, "hl_shift", i=1)]
     inst = _render(_out(tmp_path, regions_stats=regions), cfg)
     assert inst.title == "Detectability not available; 2 test families shown"
 
 
-def test_no_inputs_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_inputs_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path), cfg)
     assert inst.title == "Detectability not available; 0 test families shown"
     assert ABSENT_TEXT in _texts(_ax(inst, "a"))
@@ -463,7 +463,7 @@ def test_no_inputs_title(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (a) rows (decision 3, 4) ---------------------------------------------------------------
 
 
-def test_overall_rows_follow_bins_sorted_by_metric(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_overall_rows_follow_bins_sorted_by_metric(tmp_path: Path, cfg: GippaConfig) -> None:
     overall = [*_overall(0.97, 0.02, 0.11), _ds("overall", "all", "auc", 0.7)]
     random.Random(11).shuffle(overall)
     bins = _bins([(0.1, 0.12, 50), (0.6, 0.55, 50)])
@@ -478,7 +478,7 @@ def test_overall_rows_follow_bins_sorted_by_metric(tmp_path: Path, cfg: GiapConf
     assert set(a["table"]) == {"detection_summary"}
 
 
-def test_constant_fit_keeps_bin_rows_in_tsv(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_constant_fit_keeps_bin_rows_in_tsv(tmp_path: Path, cfg: GippaConfig) -> None:
     pts = [(0.05 + 0.1 * i, 0.04 + 0.1 * i, 9) for i in range(10)]
     summary = [*_bins(pts), *_overall(None, None, 0.0, constant=True)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
@@ -496,7 +496,7 @@ def test_constant_fit_keeps_bin_rows_in_tsv(tmp_path: Path, cfg: GiapConfig) -> 
 # --- decision 6 and N3: "not available" vs "constant" --------------------------------------------
 
 
-def test_basic_section_only_is_not_available(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_basic_section_only_is_not_available(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, detection_summary=[BASIC_ROW]), cfg)
     texts = _texts(_ax(inst, "a"))
     assert ABSENT_TEXT in texts
@@ -506,7 +506,7 @@ def test_basic_section_only_is_not_available(tmp_path: Path, cfg: GiapConfig) ->
 
 
 def test_n3_no_bin_rows_without_constant_flag_is_not_available(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """Lead decision 6: the constant text needs detectability_constant == 1."""
     inst = _render(_out(tmp_path, detection_summary=_overall(0.9, 0.1, 0.2)), cfg)
@@ -516,7 +516,7 @@ def test_n3_no_bin_rows_without_constant_flag_is_not_available(
     assert inst.title.startswith("Detectability not available;"), inst.title
 
 
-def test_n3_no_bin_rows_with_constant_flag_is_constant(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_no_bin_rows_with_constant_flag_is_constant(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = _overall(None, None, 0.2, constant=True)
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     assert CONSTANT_TEXT in _texts(_ax(inst, "a"))
@@ -526,7 +526,7 @@ def test_n3_no_bin_rows_with_constant_flag_is_constant(tmp_path: Path, cfg: Giap
 # --- section filter -------------------------------------------------------------------------------
 
 
-def test_section_filter_keeps_other_sections_out(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_section_filter_keeps_other_sections_out(tmp_path: Path, cfg: GippaConfig) -> None:
     other_bin = _ds("bin", 1, "mean_p", 0.5, section="basic")
     other_overall = _ds("overall", "all", "calibration_slope", 5.0, section="basic")
     summary = [other_bin, *EX1_SUMMARY, other_overall]
@@ -554,9 +554,9 @@ def test_section_filter_keeps_other_sections_out(tmp_path: Path, cfg: GiapConfig
         ("0.9", 18),
     ],
 )
-def test_exact_bin_rule_near_edges(tmp_path: Path, cfg: GiapConfig, p: str, k: int) -> None:
+def test_exact_bin_rule_near_edges(tmp_path: Path, cfg: GippaConfig, p: str, k: int) -> None:
     """Naive ``floor(p * 20)`` puts 0.44999999999999996 in 9 and 0.8999999999999999 in 18."""
-    import giap.viz.diagnostics as diag
+    import gippa.viz.diagnostics as diag
 
     assert diag.p_bin(float(p)) == k
     inst = _render(_out(tmp_path, regions_stats=[_region(p)]), cfg)

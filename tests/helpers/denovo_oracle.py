@@ -1,9 +1,9 @@
-"""Independent oracle for the giapsim de novo error tests (issue M3-20; test-author code).
+"""Independent oracle for the gippasim de novo error tests (issue M3-20; test-author code).
 
-Not part of ``giapsim``: it decides, from the true and the observed peptide alone, whether an
-observed de novo read is explained by a claimed error type (GIAP_SPEC.md §11.3 "De novo errors";
+Not part of ``gippasim``: it decides, from the true and the observed peptide alone, whether an
+observed de novo read is explained by a claimed error type (GIPPA_SPEC.md §11.3 "De novo errors";
 §7.2.4 block list), computes monoisotopic peptide masses from its own residue table (Unimod /
-GIAP_SPEC.md Appendix B.5) and bins scores into deciles.
+GIPPA_SPEC.md Appendix B.5) and bins scores into deciles.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from collections.abc import Iterable, Sequence
 
 import numpy as np
 
-#: Monoisotopic residue masses (Da), Unimod / GIAP_SPEC.md Appendix B.5 (I and L share a mass).
+#: Monoisotopic residue masses (Da), Unimod / GIPPA_SPEC.md Appendix B.5 (I and L share a mass).
 RESIDUE_MASS: dict[str, float] = {
     "G": 57.02146, "A": 71.03711, "S": 87.03203, "P": 97.05276, "V": 99.06841,
     "T": 101.04768, "C": 103.00919, "L": 113.08406, "I": 113.08406, "N": 114.04293,
@@ -23,7 +23,7 @@ AA20 = "ACDEFGHIKLMNPQRSTVWY"
 #: Unimod monoisotopic deltas used by the modification misreads.
 OXIDATION, DEAMIDATED, METHYL = 15.994915, 0.984016, 14.015650
 
-#: GIAP_SPEC.md §7.2.4, verbatim: mass-equivalent block exchanges between residue compositions
+#: GIPPA_SPEC.md §7.2.4, verbatim: mass-equivalent block exchanges between residue compositions
 #: (both orders of each pair) and the near-equal exchanges.
 SPEC_BLOCKS: frozenset[frozenset[str]] = frozenset(
     frozenset({a, b})

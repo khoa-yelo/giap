@@ -4,41 +4,41 @@ target 1.0 user path" and item 3; review B1 and mismatch claims 1, 4, 5; nit N8)
 G1, one image cache everywhere. Setup's image pull, setup's own ``ToolRunner`` (the Bakta and
 antiSMASH downloaders that run inside images), run-mode preflight and the Nextflow launch all use
 one directory: ``setup --cache-dir`` when given (setup only; the spec defines no such option for
-run/preflight), else ``NXF_APPTAINER_CACHEDIR``, else ``$GIAP_ROOT/containers``, else
-``<db_dir>/containers`` (``giap.io.image_key.image_cache``, Q-L11). "``giap run`` passes the same
+run/preflight), else ``NXF_APPTAINER_CACHEDIR``, else ``$GIPPA_ROOT/containers``, else
+``<db_dir>/containers`` (``gippa.io.image_key.image_cache``, Q-L11). "``gippa run`` passes the same
 directory to Nextflow (``apptainer.cacheDir``)".
 
 G2, images before databases. ``setup --images`` pulls the images before it runs a downloader that
 needs one, so on an Apptainer-only host (no docker) the first run already records Bakta (and
 antiSMASH with ``--antismash``) as ``ok``.
 
-G3, ``giap preflight --profile P``: the same choices and validation as ``giap run --profile``,
-then the tool check exactly as ``giap run`` does it (step 4 of the user path). Without
+G3, ``gippa preflight --profile P``: the same choices and validation as ``gippa run --profile``,
+then the tool check exactly as ``gippa run`` does it (step 4 of the user path). Without
 ``--profile`` nothing changes.
 
-G4, ``giap run`` without Nextflow on PATH points a pip user at the install docs, not AGENTS.md.
+G4, ``gippa run`` without Nextflow on PATH points a pip user at the install docs, not AGENTS.md.
 
 Interface pinned here (readings chosen where the spec leaves room):
 
 - ``ToolRunner(*, db_dir=None, cache_dir=None)``: with ``cache_dir`` the apptainer image is looked
   up there (and nowhere else); without it, as today (``image_cache(os.environ, db_dir)``).
-  ``giap setup`` passes ``cache_dir`` = ``--cache-dir`` or ``image_cache(os.environ, db_dir)``.
-- ``giap.runner.nextflow.launch_env(environ, runtime, db_dir)``: when ``db_dir`` is given and
+  ``gippa setup`` passes ``cache_dir`` = ``--cache-dir`` or ``image_cache(os.environ, db_dir)``.
+- ``gippa.runner.nextflow.launch_env(environ, runtime, db_dir)``: when ``db_dir`` is given and
   ``environ`` has no non-empty ``NXF_APPTAINER_CACHEDIR``, the returned env sets it to
-  ``image_cache(environ, absolute db_dir)`` (so ``$GIAP_ROOT/containers`` when ``$GIAP_ROOT`` is
+  ``image_cache(environ, absolute db_dir)`` (so ``$GIPPA_ROOT/containers`` when ``$GIPPA_ROOT`` is
   set, else ``<abs db_dir>/containers``). A non-empty inherited value is kept unchanged.
   ``workflow/nextflow.config`` reads that variable, so the launcher's env is what is tested; no
   real Nextflow runs.
-- ``giap preflight --profile P`` reuses ``giap run``'s profile validation (``unknown profile(s)``
+- ``gippa preflight --profile P`` reuses ``gippa run``'s profile validation (``unknown profile(s)``
   usage error) and calls ``run_preflight(..., profile=P)`` with the DB directory from
-  ``$GIAP_DB_DIR`` and ``$GIAP_ROOT`` as ``giap run`` does; its ``environment.tools`` result
+  ``$GIPPA_DB_DIR`` and ``$GIPPA_ROOT`` as ``gippa run`` does; its ``environment.tools`` result
   equals ``run_preflight(..., "run", ..., db_dir, profile=P)``'s.
-- The "nextflow not found" message of ``giap run`` contains ``get-started/install`` and
+- The "nextflow not found" message of ``gippa run`` contains ``get-started/install`` and
   ``<pkg> setup --images``, and not ``AGENTS.md``.
 
 Fakes only: a logging fake ``apptainer`` (no docker anywhere on PATH), a fake ``nextflow`` that
-dumps its environment, temporary DB and cache directories. Never the real ``$GIAP_ROOT`` or
-``$GIAP_DB_DIR``; no network.
+dumps its environment, temporary DB and cache directories. Never the real ``$GIPPA_ROOT`` or
+``$GIPPA_DB_DIR``; no network.
 """
 
 from __future__ import annotations
@@ -59,8 +59,8 @@ from helpers.fake_env import write_setup_manifest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.tools import TOOLS, read_containers_config, required_tools
-from giap.config import resolve_config
+from gippa.annotate.tools import TOOLS, read_containers_config, required_tools
+from gippa.config import resolve_config
 
 REPO = Path(__file__).resolve().parents[2]
 CONTAINERS_CONFIG = REPO / "workflow" / "conf" / "containers.config"
@@ -124,12 +124,12 @@ def _exe(path: Path, text: str) -> None:
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for var in (
-        "GIAP_DB_DIR",
-        "GIAP_ROOT",
-        "GIAP_REPO",
+        "GIPPA_DB_DIR",
+        "GIPPA_ROOT",
+        "GIPPA_REPO",
         "NXF_APPTAINER_CACHEDIR",
-        "GIAP_CONTAINER_RUNTIME",
-        "GIAP_FGSEA_PREFIX",
+        "GIPPA_CONTAINER_RUNTIME",
+        "GIPPA_FGSEA_PREFIX",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("MAMBA_ROOT_PREFIX", str(tmp_path / "no_mamba"))
@@ -139,7 +139,7 @@ def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def apptainer_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """PATH = a fake ``apptainer`` and ``mkdir``; no docker; disk space is plenty."""
-    from giap.setupdb import run
+    from gippa.setupdb import run
 
     mkdir = shutil.which("mkdir")
     assert mkdir is not None
@@ -161,7 +161,7 @@ def calls(tmp_path: Path, prefix: str = "") -> list[list[str]]:
 
 
 def setup_cli(args: list[str]) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, ["setup", *args], catch_exceptions=False)
 
@@ -173,11 +173,11 @@ def manifest_items(db: Path) -> dict[str, dict[str, Any]]:
 
 def nextflow_cache(env: dict[str, str]) -> Path | None:
     """What ``workflow/nextflow.config``'s apptainer block resolves ``apptainer.cacheDir`` to
-    (``NXF_APPTAINER_CACHEDIR ?: GIAP_ROOT + '/containers'``; Groovy treats "" as false)."""
+    (``NXF_APPTAINER_CACHEDIR ?: GIPPA_ROOT + '/containers'``; Groovy treats "" as false)."""
     if env.get("NXF_APPTAINER_CACHEDIR"):
         return Path(env["NXF_APPTAINER_CACHEDIR"])
-    if env.get("GIAP_ROOT"):
-        return Path(env["GIAP_ROOT"] + "/containers")
+    if env.get("GIPPA_ROOT"):
+        return Path(env["GIPPA_ROOT"] + "/containers")
     return None
 
 
@@ -192,7 +192,7 @@ def test_nextflow_config_reads_the_env_var() -> None:
 
 
 def test_toolrunner_cache_dir_keyword_wins(tmp_path: Path, apptainer_only: Path) -> None:
-    from giap.setupdb.run import ToolRunner
+    from gippa.setupdb.run import ToolRunner
 
     db, cache = tmp_path / "db", tmp_path / "cache"
     img = cache / simple_name(pins()["bakta"])
@@ -206,7 +206,7 @@ def test_toolrunner_cache_dir_is_the_only_place_looked(
     tmp_path: Path, apptainer_only: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An image only in the env-var cache does not count once ``cache_dir`` is explicit."""
-    from giap.setupdb.run import ToolRunner, ToolUnavailable
+    from gippa.setupdb.run import ToolRunner, ToolUnavailable
 
     other = tmp_path / "nxf"
     (other / simple_name(pins()["bakta"])).parent.mkdir(parents=True)
@@ -305,7 +305,7 @@ def test_without_images_bakta_stays_absent_on_an_apptainer_only_host(
 
 
 def _launch_env() -> Any:
-    from giap.runner.nextflow import launch_env
+    from gippa.runner.nextflow import launch_env
 
     return launch_env
 
@@ -334,8 +334,8 @@ def test_launch_env_empty_inherited_cache_counts_as_unset() -> None:
     assert env.get("NXF_APPTAINER_CACHEDIR") == "/fake/db/containers"
 
 
-def test_launch_env_giap_root_cache() -> None:
-    env = _launch_env()({"GIAP_ROOT": "/fake/root"}, "apptainer", Path("/fake/db"))
+def test_launch_env_gippa_root_cache() -> None:
+    env = _launch_env()({"GIPPA_ROOT": "/fake/root"}, "apptainer", Path("/fake/db"))
     assert nextflow_cache(env) == Path("/fake/root/containers")
 
 
@@ -355,27 +355,27 @@ def test_property_nextflow_sees_preflights_cache(
 ) -> None:
     """For every environment, the directory Nextflow's config resolves from the launch env is
     ``image_cache`` of the caller's environment: the one preflight checked."""
-    from giap.io.image_key import image_cache
+    from gippa.io.image_key import image_cache
 
     environ: dict[str, str] = {}
     if nxf is not None:
         environ["NXF_APPTAINER_CACHEDIR"] = nxf
     if root is not None:
-        environ["GIAP_ROOT"] = root
+        environ["GIPPA_ROOT"] = root
     db = Path("/fake/db")
     env = _launch_env()(environ, runtime, db)
     assert nextflow_cache(env) == image_cache(environ, db)
 
 
-# ---------------------------------------------------------------- G1c through `giap run`
+# ---------------------------------------------------------------- G1c through `gippa run`
 
 
 @pytest.fixture
 def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A fake ``nextflow`` (preflight stubbed: a launch concern, as in the 14c tests)."""
-    import giap.cli
+    import gippa.cli
 
-    monkeypatch.setattr(giap.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
+    monkeypatch.setattr(gippa.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
     bindir = tmp_path / "nfbin"
     bindir.mkdir()
     _exe(bindir / "nextflow", FAKE_NF)
@@ -398,8 +398,8 @@ def _inputs(tmp_path: Path) -> dict[str, Path]:
     return {"genome": g, "proteins": p}
 
 
-def _giap_run(tmp_path: Path, profile: str, *extra: str) -> tuple[int, str]:
-    from giap.cli import cli
+def _gippa_run(tmp_path: Path, profile: str, *extra: str) -> tuple[int, str]:
+    from gippa.cli import cli
 
     f = _inputs(tmp_path)
     argv = ["run", "--genome", str(f["genome"]), "--proteins", str(f["proteins"]),
@@ -421,36 +421,36 @@ def _nf_env(path: Path) -> dict[str, str]:
 
 
 @pytest.mark.parametrize("how", ["flag", "inherited"])
-def test_giap_run_exports_the_db_dir_cache(
+def test_gippa_run_exports_the_db_dir_cache(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_nf: Path, how: str
 ) -> None:
     db = write_setup_manifest(tmp_path / "db")
     extra: tuple[str, ...] = ("--db-dir", str(db)) if how == "flag" else ()
     if how == "inherited":
-        monkeypatch.setenv("GIAP_DB_DIR", str(db))
-    code, text = _giap_run(tmp_path, "apptainer", *extra)
+        monkeypatch.setenv("GIPPA_DB_DIR", str(db))
+    code, text = _gippa_run(tmp_path, "apptainer", *extra)
     env = _nf_env(fake_nf)
     assert env.get("NXF_APPTAINER_CACHEDIR") == str(db.absolute() / "containers"), (code, text)
     assert "NXF_APPTAINER_CACHEDIR" not in os.environ
 
 
-def test_giap_run_farmshare_with_giap_root(
+def test_gippa_run_farmshare_with_gippa_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_nf: Path
 ) -> None:
-    """FarmShare is unchanged: ``$GIAP_ROOT/containers``."""
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
+    """FarmShare is unchanged: ``$GIPPA_ROOT/containers``."""
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
     db = write_setup_manifest(tmp_path / "db")
-    _giap_run(tmp_path, "farmshare,apptainer", "--db-dir", str(db))
+    _gippa_run(tmp_path, "farmshare,apptainer", "--db-dir", str(db))
     assert nextflow_cache(_nf_env(fake_nf)) == tmp_path / "root" / "containers"
 
 
 def test_setup_preflight_and_launch_agree(
     tmp_path: Path, apptainer_only: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The user path without ``$GIAP_ROOT`` or ``NXF_APPTAINER_CACHEDIR``: the images setup
+    """The user path without ``$GIPPA_ROOT`` or ``NXF_APPTAINER_CACHEDIR``: the images setup
     pulled are where run-mode preflight looks and where Nextflow will look."""
-    from giap.io.image_key import image_cache
-    from giap.preflight.environment import missing_tools
+    from gippa.io.image_key import image_cache
+    from gippa.preflight.environment import missing_tools
 
     db = tmp_path / "db"
     res = setup_cli(["--db-dir", str(db), "--bakta", "skip", "--no-genomad",
@@ -464,11 +464,11 @@ def test_setup_preflight_and_launch_agree(
     assert got is not None and (got / simple_name(pins()["bakta"])).is_file(), env
 
 
-# ---------------------------------------------------------------- G3: giap preflight --profile
+# ---------------------------------------------------------------- G3: gippa preflight --profile
 
 
 def _preflight_cli(tmp_path: Path, *extra: str) -> tuple[int, str, Path]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     f = _inputs(tmp_path)
     out = tmp_path / "PF"
@@ -488,7 +488,7 @@ def _tools(out: Path) -> list[dict[str, Any]]:
 @pytest.fixture
 def pf_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     db = write_setup_manifest(tmp_path / "db")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     return db
 
 
@@ -520,12 +520,12 @@ def test_preflight_profile_without_a_manifest_fails(
 ) -> None:
     """With ``--profile`` a missing ``db_manifest.json`` is the run-mode error, missing tools
     included, not the plain-preflight info."""
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
     if db_dir == "unset":
-        monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+        monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
     else:
         (tmp_path / "db").mkdir()
-        monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db"))
+        monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db"))
     code, text, out = _preflight_cli(tmp_path, "--profile", "apptainer")
     assert code == 2, text
     checks = _tools(out)
@@ -537,11 +537,11 @@ def test_preflight_profile_without_a_manifest_fails(
 def test_preflight_profile_matches_run_mode(
     tmp_path: Path, pf_db: Path, monkeypatch: pytest.MonkeyPatch, profile: str
 ) -> None:
-    """The tool check of ``giap preflight --profile P`` is the one ``giap run --profile P``
-    runs (run mode, same DB directory and ``$GIAP_ROOT``)."""
-    from giap.preflight.run import PreflightInputs, run_preflight
+    """The tool check of ``gippa preflight --profile P`` is the one ``gippa run --profile P``
+    runs (run mode, same DB directory and ``$GIPPA_ROOT``)."""
+    from gippa.preflight.run import PreflightInputs, run_preflight
 
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
     _code, text, out = _preflight_cli(tmp_path, "--profile", profile)
     got = _tools(out)
     assert len(got) == 1, (got, text)
@@ -549,7 +549,7 @@ def test_preflight_profile_matches_run_mode(
     cfg = resolve_config(None, [LOW[1], LOW[3]])
     report, _ = run_preflight(PreflightInputs(genome=f["genome"], proteins=f["proteins"]), cfg,
                               None, "run", tmp_path / "RUN", pf_db,
-                              giap_root=tmp_path / "root", profile=profile)  # fmt: skip
+                              gippa_root=tmp_path / "root", profile=profile)  # fmt: skip
     want = [c for c in report.checks if c.rule_id == "environment.tools"]
     assert len(want) == 1
     assert got[0]["level"] == want[0].level
@@ -565,7 +565,7 @@ def test_preflight_profile_validation_is_runs(tmp_path: Path, pf_db: Path) -> No
 
 
 def test_preflight_profile_in_help() -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["preflight", "--help"])
     assert "--profile" in res.output
@@ -593,7 +593,7 @@ def test_property_preflight_profile_missing_images(
     """A pinned tool the default run needs is missing iff its image is not in the cache."""
     tmp = tmp_path_factory.mktemp("prop")
     db = write_setup_manifest(tmp / "db")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     cache = tmp / "nxf"
     cache.mkdir()
     monkeypatch.setenv("NXF_APPTAINER_CACHEDIR", str(cache))
@@ -614,14 +614,14 @@ def test_property_preflight_profile_missing_images(
 def test_run_without_nextflow_points_at_the_install_docs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.cli
+    import gippa.cli
 
-    monkeypatch.setattr(giap.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
+    monkeypatch.setattr(gippa.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
     empty = tmp_path / "emptybin"
     empty.mkdir()
     monkeypatch.setenv("PATH", str(empty))
     db = write_setup_manifest(tmp_path / "db")
-    code, text = _giap_run(tmp_path, "docker", "--db-dir", str(db))
+    code, text = _gippa_run(tmp_path, "docker", "--db-dir", str(db))
     assert code == 2, text
     assert "nextflow" in text.lower()
     assert "AGENTS.md" not in text, text

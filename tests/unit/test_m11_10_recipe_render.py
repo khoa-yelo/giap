@@ -2,7 +2,7 @@
 acceptance 1 and 3).
 
 Interface read from the spec: ``python scripts/release/bioconda_recipe.py --version V --sha256 H
-[--doi D] --out DIR`` renders ``packaging/bioconda/meta.yaml.j2`` into ``DIR/giap/meta.yaml``; a
+[--doi D] --out DIR`` renders ``packaging/bioconda/meta.yaml.j2`` into ``DIR/gippa/meta.yaml``; a
 bad ``--sha256`` exits 1 with ``sha256 must be 64 hex characters``. ``--sha256 auto`` (network) is
 never exercised: nothing here contacts PyPI or anaconda.org.
 
@@ -54,7 +54,7 @@ def run_render(out: Path, *args: str, cwd: Path = REPO) -> subprocess.CompletedP
 def render_ok(out: Path, *args: str) -> dict[str, Any]:
     proc = run_render(out, *args)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    meta = out / "giap" / "meta.yaml"
+    meta = out / "gippa" / "meta.yaml"
     assert meta.is_file(), f"expected {meta}"
     data = yaml.safe_load(meta.read_text())
     assert isinstance(data, dict)
@@ -85,12 +85,12 @@ def recipe(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
 
 def test_package_section(recipe: dict[str, Any]) -> None:
-    assert recipe["package"]["name"] == "giap"
+    assert recipe["package"]["name"] == "gippa"
     assert str(recipe["package"]["version"]) == "1.0.0"
 
 
 def test_source_is_pypi_sdist_with_sha(recipe: dict[str, Any]) -> None:
-    assert recipe["source"]["url"] == "https://pypi.org/packages/source/g/giap/giap-1.0.0.tar.gz"
+    assert recipe["source"]["url"] == "https://pypi.org/packages/source/g/gippa/gippa-1.0.0.tar.gz"
     assert recipe["source"]["sha256"] == SHA
 
 
@@ -99,9 +99,9 @@ def test_build_section(recipe: dict[str, Any]) -> None:
     assert build["noarch"] == "python"
     assert build["number"] == 0
     assert build["script"].strip() == PIP_SCRIPT
-    assert build["entry_points"] == ["giap = giap.cli:main"]
+    assert build["entry_points"] == ["gippa = gippa.cli:main"]
     # lead decision (#345 review B1): bioconda-utils requires run_exports on new recipes
-    assert build["run_exports"] == ['{{ pin_subpackage("giap", max_pin="x") }}']
+    assert build["run_exports"] == ['{{ pin_subpackage("gippa", max_pin="x") }}']
 
 
 def test_host_requirements(recipe: dict[str, Any]) -> None:
@@ -120,10 +120,10 @@ def test_run_has_python_nextflow_openjdk(recipe: dict[str, Any]) -> None:
 
 def test_test_section(recipe: dict[str, Any]) -> None:
     test = recipe["test"]
-    assert "giap --version" in test["commands"]
-    assert "giap --help" in test["commands"]
+    assert "gippa --version" in test["commands"]
+    assert "gippa --help" in test["commands"]
     assert "pip check" in test["commands"] and "pip" in test["requires"]
-    assert set(test["imports"]) >= {"giap", "giap.cli"}
+    assert set(test["imports"]) >= {"gippa", "gippa.cli"}
 
 
 def test_about_licence(recipe: dict[str, Any]) -> None:
@@ -133,7 +133,7 @@ def test_about_licence(recipe: dict[str, Any]) -> None:
     assert (REPO / "LICENSE").is_file()
     for key in ("home", "summary", "doc_url", "dev_url"):
         assert isinstance(about.get(key), str) and about[key].strip(), key
-    assert "github.com/khoa-yelo/giap" in about["dev_url"]
+    assert "github.com/khoa-yelo/gippa" in about["dev_url"]
 
 
 def test_extra_maintainers_and_no_doi_by_default(recipe: dict[str, Any]) -> None:
@@ -145,7 +145,7 @@ def test_extra_maintainers_and_no_doi_by_default(recipe: dict[str, Any]) -> None
 def test_no_defaults_channel(tmp_path: Path) -> None:
     """§3.2: conda-forge and bioconda only; the recipe never names the ``defaults`` channel."""
     render_ok(tmp_path, "--version", "1.0.0", "--sha256", SHA)
-    lines = (tmp_path / "giap" / "meta.yaml").read_text().splitlines()
+    lines = (tmp_path / "gippa" / "meta.yaml").read_text().splitlines()
     code = [ln.split("#", 1)[0] for ln in lines]
     assert not any("defaults" in ln for ln in code)
 
@@ -169,7 +169,7 @@ def test_bad_sha256_exits_1(tmp_path: Path, bad: str) -> None:
     proc = run_render(tmp_path, "--version", "1.0.0", "--sha256", bad)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "sha256 must be 64 hex characters" in proc.stdout + proc.stderr
-    assert not (tmp_path / "giap" / "meta.yaml").exists()
+    assert not (tmp_path / "gippa" / "meta.yaml").exists()
 
 
 @pytest.mark.parametrize("bad", ['1.0"x', "../../evil", "", "one"])
@@ -178,13 +178,13 @@ def test_invalid_version_exits_1(tmp_path: Path, bad: str) -> None:
     proc = run_render(tmp_path, "--version", bad, "--sha256", SHA)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "invalid version" in proc.stdout + proc.stderr
-    assert not (tmp_path / "giap" / "meta.yaml").exists()
+    assert not (tmp_path / "gippa" / "meta.yaml").exists()
 
 
 def test_version_is_normalised_like_the_sdist(tmp_path: Path) -> None:
     data = render_ok(tmp_path, "--version", "1.0.0-rc1", "--sha256", SHA)
     assert data["package"]["version"] == "1.0.0rc1"
-    assert data["source"]["url"].endswith("/giap-1.0.0rc1.tar.gz")
+    assert data["source"]["url"].endswith("/gippa-1.0.0rc1.tar.gz")
 
 
 def test_uppercase_hex_sha_accepted(tmp_path: Path) -> None:
@@ -214,8 +214,10 @@ def test_property_placeholders_substituted(tmp_path: Path, version: str, sha: st
     data = render_ok(out, "--version", version, "--sha256", sha)
     assert str(data["package"]["version"]) == version
     assert data["source"]["sha256"] == sha
-    assert data["source"]["url"] == f"https://pypi.org/packages/source/g/giap/giap-{version}.tar.gz"
-    text = (out / "giap" / "meta.yaml").read_text()
+    assert (
+        data["source"]["url"] == f"https://pypi.org/packages/source/g/gippa/gippa-{version}.tar.gz"
+    )
+    text = (out / "gippa" / "meta.yaml").read_text()
     assert "{{ version" not in text and "{{ sha256" not in text
 
 

@@ -1,4 +1,4 @@
-"""fgsea port I: stat preparation, the observed ES and the leading edge (issue M8-02; GIAP_SPEC.md
+"""fgsea port I: stat preparation, the observed ES and the leading edge (issue M8-02; GIPPA_SPEC.md
 §7.7.4, §2.4 G15, §8.3 row ``fgsea_multilevel``).
 
 Oracles are hand-computed from fgsea **1.36.2** (Bioconductor 3.22 source tarball
@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 from helpers.fgsea_oracle import is_exact_tie, reference_gsea_stat
 
-from giap.stats.fgsea import Prepared, gsea_es, prepare
+from gippa.stats.fgsea import Prepared, gsea_es, prepare
 
 ATOL = 1e-12
 ABC = ["a", "b", "c", "d", "e"]

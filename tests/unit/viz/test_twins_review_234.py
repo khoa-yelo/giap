@@ -1,7 +1,7 @@
 """PR #234 review B1: data TSVs are read with identifier columns as text (lead fix).
 
 A contig named ``01`` and locus tags such as ``0001`` keep their spelling through
-``giap.steps.plots.twins``: the V2 subplot is titled ``01``, the replicon length from ``meta`` is
+``gippa.steps.plots.twins``: the V2 subplot is titled ``01``, the replicon length from ``meta`` is
 found (Mb scale), and the hover shows ``0001``.
 """
 
@@ -12,8 +12,8 @@ from pathlib import Path
 
 from helpers import twins as tw
 
-from giap.io.plot_files import read_plot_files
-from giap.steps.plots import load_plot_modules, twins
+from gippa.io.plot_files import read_plot_files
+from gippa.steps.plots import load_plot_modules, twins
 
 
 def _rows() -> list[tw.Row]:

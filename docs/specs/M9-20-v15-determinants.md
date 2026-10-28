@@ -36,7 +36,7 @@ present ADR-0032/0033/0034's claims correctly
 
 Footnotes: "null p `<p>` (uncalibrated: valid only for exchangeable TUs, ADR-0034)"; "univariate
 CIs uncalibrated (ADR-0032)" when univariate rows appear in the table section; the §7.8.2 caveat
-"expect a lower R² on native genes" (from `giap.determinants.CAVEATS`).
+"expect a lower R² on native genes" (from `gippa.determinants.CAVEATS`).
 
 ## Data TSV `V15_determinants.tsv`
 

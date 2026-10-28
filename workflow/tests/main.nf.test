@@ -1,14 +1,14 @@
-// M2-06 example 8: stub run of the skeleton (GIAP_SPEC.md §6.3 "Process conventions").
+// M2-06 example 8: stub run of the skeleton (GIPPA_SPEC.md §6.3 "Process conventions").
 // ci.yml runs: nf-test test workflow/tests --profile test,stub
 // "-stub" is set here too, so the suite is in stub mode whatever the profile does.
 nextflow_pipeline {
 
-    name "GIAP skeleton (stub)"
+    name "GIPPA skeleton (stub)"
     script "../main.nf"
     options "-stub"
     tag "skeleton"
 
-    test("stub run: GIAP_STEP runs, writes its outputs and versions.yml, publishes into outdir") {
+    test("stub run: GIPPA_STEP runs, writes its outputs and versions.yml, publishes into outdir") {
 
         when {
             params {
@@ -20,10 +20,10 @@ nextflow_pipeline {
             assert workflow.success
 
             def names = workflow.trace.succeeded().collect { it.name.toString() }
-            assert names.any { it.contains("GIAP_STEP") } : "no GIAP_STEP task in ${names}"
+            assert names.any { it.contains("GIPPA_STEP") } : "no GIPPA_STEP task in ${names}"
             assert workflow.trace.failed().size() == 0
 
-            // GIAP_STEP stub outputs: a task directory holding versions.yml and at least one
+            // GIPPA_STEP stub outputs: a task directory holding versions.yml and at least one
             // other (non-hidden) output file.
             def taskDirs = []
             new File(workDir.toString()).eachDir { a ->
@@ -33,7 +33,7 @@ nextflow_pipeline {
             assert withVersions.size() > 0 : "no task emitted versions.yml"
             assert withVersions.any { t ->
                 t.listFiles().any { f -> !f.name.startsWith(".") && f.name != "versions.yml" }
-            } : "GIAP_STEP stub wrote no output file"
+            } : "GIPPA_STEP stub wrote no output file"
 
             def versions = new File(withVersions[0], "versions.yml").text
             assert versions.trim().length() > 0

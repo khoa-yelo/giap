@@ -1,9 +1,9 @@
-"""UniOP / TerminatorNet cut-off statistics (issue M6-12 part A; GIAP_SPEC.md §15.4 steps 3-5,
+"""UniOP / TerminatorNet cut-off statistics (issue M6-12 part A; GIPPA_SPEC.md §15.4 steps 3-5,
 §7.1.3, §7.4.6; spec docs/specs/M6-12-uniop-terminator-cutoffs.md with lead decisions 1-6;
 methods docs/methods/operons.md "K-12 cut-off calibration (M6-12)", the authority where it is
 more specific than the spec).
 
-Interface pinned here (``giap.stats.cutoffs``, pure functions, no I/O):
+Interface pinned here (``gippa.stats.cutoffs``, pure functions, no I/O):
 
 - constants ``STEP = "m6_12_cutoffs"``, ``DEFAULT_SEED = 20261014``, ``DEFAULT_B = 2000``,
   ``MIN_LABELLED = 500``, ``D0_DEFAULT = 50.0``, ``S_DEFAULT = 20.0``;
@@ -50,9 +50,9 @@ from sklearn.metrics import log_loss as sk_log_loss
 from sklearn.metrics import roc_auc_score
 from statsmodels.stats.proportion import proportion_confint
 
-from giap.rng import for_step
-from giap.stats.bootstrap import BootCI, tu_block_bootstrap
-from giap.stats.cutoffs import (
+from gippa.rng import for_step
+from gippa.stats.bootstrap import BootCI, tu_block_bootstrap
+from gippa.stats.cutoffs import (
     D0_DEFAULT,
     DEFAULT_B,
     DEFAULT_SEED,

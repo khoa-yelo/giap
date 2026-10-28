@@ -1,4 +1,4 @@
-"""Student-t MLE and the two-sided p (issue M6-01; GIAP_SPEC.md §7.4.2, §7.4.3, §8.3).
+"""Student-t MLE and the two-sided p (issue M6-01; GIPPA_SPEC.md §7.4.2, §7.4.3, §8.3).
 
 Spec examples 1-3 of docs/specs/M6-01-stats-tdist-decoy-fdr.md and every row of its "Degenerate
 cases" table that concerns the fit:
@@ -27,7 +27,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy import stats as sps
 
-from giap.stats.tdist import StudentT, fit_student_t, student_t_two_sided
+from gippa.stats.tdist import StudentT, fit_student_t, student_t_two_sided
 
 FAST = settings(max_examples=50, deadline=None)
 NAN = float("nan")

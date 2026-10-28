@@ -1,4 +1,4 @@
-"""Nextflow configuration and profiles (M2-06 examples 5-7, edge cases; GIAP_SPEC.md §6.3, §3.8).
+"""Nextflow configuration and profiles (M2-06 examples 5-7, edge cases; GIPPA_SPEC.md §6.3, §3.8).
 
 Examples 5 and 6 parse ``nextflow config workflow -flat``. Example 7 needs evaluated closures
 (memory x attempt, error strategy), so it runs a throw-away pipeline in ``tmp_path`` whose
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.config import load_defaults
+from gippa.config import load_defaults
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -101,11 +101,11 @@ def test_farmshare_profile_example_5() -> None:
     assert _hours(flat["process.resourceLimits.time"]) == 48
 
 
-def test_farmshare_job_names_start_with_giap() -> None:
-    """R14: every GIAP job name starts with ``giap-`` (the closure is printed as source)."""
+def test_farmshare_job_names_start_with_gippa() -> None:
+    """R14: every GIPPA job name starts with ``gippa-`` (the closure is printed as source)."""
     flat, _ = _config("farmshare")
     job = _get(flat, "executor.jobName", "executor.$slurm.jobName")
-    assert "giap-" in job
+    assert "gippa-" in job
     assert "toLowerCase" in job and "task.process" in job
 
 

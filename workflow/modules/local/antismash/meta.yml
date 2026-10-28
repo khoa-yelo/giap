@@ -5,7 +5,7 @@ tools:
       licence: ["AGPL-3.0"]
       notes: Runs as a separate process from envs/antismash.yml or its containers.config pin (R5).
 databases: >-
-  `--databases <db_dir>/antismash` (the databases `giap setup` installed and verified; M2-18 lead
+  `--databases <db_dir>/antismash` (the databases `gippa setup` installed and verified; M2-18 lead
   decision 2). The DB directory is bound read-only.
 apptainer: >-
   no `ps` in the pinned image (Nextflow task metrics need it and cannot be disabled per process).

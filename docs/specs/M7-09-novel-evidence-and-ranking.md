@@ -34,13 +34,13 @@ M7-11), but the quantile threshold is a data-derived cut-off — the statisticia
 
 ## Public interface
 
-`src/giap/novel/evidence.py` (pure)
+`src/gippa/novel/evidence.py` (pure)
 ```python
 def rbs_threshold(gene_table: pd.DataFrame, q: float, min_n: int = 20) -> float | None: ...
 def terminator_downstream(orf: Orf, terminators: Sequence[Terminator],
                           rep: Replicon) -> tuple[float | None, int | None]: ...  # conf, distance
 def pseudogene_junction(gene: Gene, genome: str, rep: Replicon) -> int | None: ...  # codon start
-def class_evidence(row: Mapping[str, object], cfg: GiapConfig, rbs_min: float | None) -> tuple[bool, list[str]]: ...
+def class_evidence(row: Mapping[str, object], cfg: GippaConfig, rbs_min: float | None) -> tuple[bool, list[str]]: ...
 def rank_key(row: Mapping[str, object]) -> tuple[object, ...]: ...
 def apply_evidence(table: pd.DataFrame, ...) -> pd.DataFrame: ...   # fills rbs_supported, flags, called, rank
 ```

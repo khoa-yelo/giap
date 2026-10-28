@@ -1,4 +1,4 @@
-"""De novo precision on giapsim, through the mapping steps (issue M3-21; GIAP_SPEC.md §7.2.5
+"""De novo precision on gippasim, through the mapping steps (issue M3-21; GIPPA_SPEC.md §7.2.5
 "De novo precision, estimated from the genome", §8.4 "De novo precision | known precision per bin
 | |bias| <= 0.05 | 50 | 300"; docs/methods/denovo-precision.md, forwarded to M3-21).
 
@@ -7,10 +7,10 @@ Replicate i (R = ``replicates_*.denovo_precision``, genome seed from ``replicate
 novo reads as input and the M3-20 reference peptides; the ``denovo_precision`` rows of
 ``mapping_fdr`` are compared with the truth.
 
-**Estimand.** GIAP bins the *distinct* de novo query peptides (preflight collapses rows by
+**Estimand.** GIPPA bins the *distinct* de novo query peptides (preflight collapses rows by
 peptide), so the precision of bin b is the share of correct peptides among the bin's queries
-(score deciles, right-closed, recomputed here with giapsim's ``decile_bins`` on the queries' input
-scores). ``truth/denovo_precision.tsv`` is the per-*read* precision of giapsim's deciles over all
+(score deciles, right-closed, recomputed here with gippasim's ``decile_bins`` on the queries' input
+scores). ``truth/denovo_precision.tsv`` is the per-*read* precision of gippasim's deciles over all
 reads: collapsing repeated correct reads of one peptide while errors stay distinct puts the
 per-peptide precision 0.01-0.085 below it (bins 1-6 measured at 100 kb, 2026-10-20), so a
 comparison with the table would fail by construction although the estimator is unbiased; the
@@ -46,9 +46,9 @@ SUITE = "denovo_precision"
 
 
 def _replicate(seed: int, d: Path) -> dict[str, np.ndarray | float]:
-    from giap.steps.mapping import length_label, select_queries
-    from giapsim.denovo import DenovoConfig, decile_bins
-    from giapsim.proteomics import ProteomicsConfig
+    from gippa.steps.mapping import length_label, select_queries
+    from gippasim.denovo import DenovoConfig, decile_bins
+    from gippasim.proteomics import ProteomicsConfig
 
     ch = run_chain(
         "denovo", seed, d, proteomics=ProteomicsConfig(pi_wrong=0.05, search_db="other"),
@@ -130,10 +130,10 @@ def _run(full: bool, tmp: Path) -> None:
     assert not low, f"π̂ = 1 - ci_low below the realised wrong share in bins {low}"
 
 
-def test_denovo_precision_on_giapsim(tmp_path: Path) -> None:
+def test_denovo_precision_on_gippasim(tmp_path: Path) -> None:
     _run(False, tmp_path)
 
 
 @pytest.mark.calibration_full
-def test_denovo_precision_on_giapsim_full(tmp_path: Path) -> None:
+def test_denovo_precision_on_gippasim_full(tmp_path: Path) -> None:
     _run(True, tmp_path)

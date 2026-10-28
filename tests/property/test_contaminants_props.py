@@ -25,8 +25,8 @@ from contaminant_oracle import (
     oracle_peptide_matches,
 )
 
-from giap.io.protein_fasta import read_protein_fasta
-from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
 
 PREFIXES = ["CON__", "Cont_"]
 AA = "ACDEFGHIKLMNPQRSTVWY"
@@ -37,7 +37,7 @@ SETTINGS = settings(
 
 
 def _c() -> ModuleType:
-    return importlib.import_module("giap.mapping.contaminants")
+    return importlib.import_module("gippa.mapping.contaminants")
 
 
 def _library(tmp: Path, entries: list[tuple[str, str]]) -> list[Any]:

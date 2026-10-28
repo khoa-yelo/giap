@@ -76,7 +76,7 @@ while i < len(argv):
         noheader = noheader or "n" in a
     i += 1
 fields = [f.split("%")[0] for f in fields]
-extra = {"Partition": "normal", "AllocCPUS": "16", "ExitCode": "0:0", "Account": "giap",
+extra = {"Partition": "normal", "AllocCPUS": "16", "ExitCode": "0:0", "Account": "gippa",
          "Start": "2026-10-16T14:01:00", "End": "2026-10-16T14:17:59", "ReqMem": "64G",
          "NNodes": "1", "CPUTime": "04:31:44", "TotalCPU": "01:12:00"}
 out = []

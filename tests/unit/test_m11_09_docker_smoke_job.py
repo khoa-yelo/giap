@@ -199,12 +199,12 @@ def test_paths_filter_selects_workflow_changes(
 
 @pytest.mark.parametrize(
     "path",
-    ["src/giap/stats/enrichment.py", "src/giap/stats/__init__.py", "docs/index.md", "README.md"],
+    ["src/gippa/stats/enrichment.py", "src/gippa/stats/__init__.py", "docs/index.md", "README.md"],
 )
 def test_paths_filter_skips_other_changes(
     wf: dict[str, Any], job: dict[str, Any], path: str
 ) -> None:
-    """Example 2: a PR touching only src/giap/stats/ skips the smoke."""
+    """Example 2: a PR touching only src/gippa/stats/ skips the smoke."""
     assert not _matches(_pr_patterns(wf, job), path), path
 
 

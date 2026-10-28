@@ -16,7 +16,7 @@ Interface fixed by these tests (in ``scripts/release/readiness.py``, which holds
     matches only itself. Pure, no git.
 ``reusable(repo: Path, c: str, r: str) -> bool``
     ``D = git diff --name-only --no-renames C R``; true iff every path of ``D`` is a
-    ``non_stats_path``, except ``src/giap/__init__.py`` when ``git diff -U0 C R -- <it>`` is one
+    ``non_stats_path``, except ``src/gippa/__init__.py`` when ``git diff -U0 C R -- <it>`` is one
     hunk with one ``-`` and one ``+`` line, both matching ``^__version__ = "[^"]+"$``; always
     false when ``D`` contains ``scripts/release/readiness.py``. Tests pass full 40-hex SHAs.
 
@@ -40,12 +40,12 @@ SPEC_NON_STATS = {
     "docs/", "changelog.d/", "README.md", "CHANGELOG.md", "CITATION.cff", "mkdocs.yml",
     "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/", ".github/",
     "scripts/dev/approval_packet.py", "scripts/dev/progress_bars.py", "scripts/dev/replant.sh",
-    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/giap/report/", "src/giap/viz/",
+    "scripts/dev/waitmerge.sh", "scripts/docs/", "src/gippa/report/", "src/gippa/viz/",
     "validation/release/",
 }  # fmt: skip
 SPEC_NEVER = {
-    "src/giap/preflight/", "src/giap/runner/", "src/giap/setupdb/", "src/giap/cli.py",
-    "src/giap/data/", "src/giap/config/", "src/giap/rng.py", "src/giap/io/", "workflow/",
+    "src/gippa/preflight/", "src/gippa/runner/", "src/gippa/setupdb/", "src/gippa/cli.py",
+    "src/gippa/data/", "src/gippa/config/", "src/gippa/rng.py", "src/gippa/io/", "workflow/",
     "pyproject.toml", "uv.lock", "tests/sim/", "tests/calibration/", "ci/",
     "scripts/release/readiness.py", "scripts/dev/island_power.py",
 }  # fmt: skip
@@ -56,7 +56,7 @@ _GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull,
 }  # fmt: skip
 
-INIT = '"""GIAP."""\n\nfrom __future__ import annotations\n\n__version__ = "1.0.0"\n'
+INIT = '"""GIPPA."""\n\nfrom __future__ import annotations\n\n__version__ = "1.0.0"\n'
 
 
 @pytest.fixture(scope="module")
@@ -95,20 +95,20 @@ class Repo:
 def repo(tmp_path: Path) -> tuple[Repo, str]:
     """A repository at C: version 1.0.0, a stats module, a viz module, docs and a readiness.py."""
     r = Repo(tmp_path / "repo")
-    r.write("src/giap/__init__.py", INIT)
-    r.write("src/giap/cli.py", '"""CLI."""\n')
-    r.write("src/giap/stats/x.py", '"""stats."""\n')
-    r.write("src/giap/report/card.py", '"""card."""\n')
-    r.write("src/giap/viz/locus.py", '"""locus."""\n')
-    r.write("docs/index.md", "# GIAP\n")
-    r.write("README.md", "# GIAP\n")
+    r.write("src/gippa/__init__.py", INIT)
+    r.write("src/gippa/cli.py", '"""CLI."""\n')
+    r.write("src/gippa/stats/x.py", '"""stats."""\n')
+    r.write("src/gippa/report/card.py", '"""card."""\n')
+    r.write("src/gippa/viz/locus.py", '"""locus."""\n')
+    r.write("docs/index.md", "# GIPPA\n")
+    r.write("README.md", "# GIPPA\n")
     r.write("CITATION.cff", "version: 1.0.0\n")
     r.write("scripts/release/readiness.py", "# readiness\n")
     return r, r.commit("C")
 
 
 def _bump(r: Repo, new: str = "1.0.1") -> None:
-    r.write("src/giap/__init__.py", INIT.replace('"1.0.0"', f'"{new}"'))
+    r.write("src/gippa/__init__.py", INIT.replace('"1.0.0"', f'"{new}"'))
 
 
 # ------------------------------------------------------------------ the predicate on git diffs
@@ -121,7 +121,7 @@ def test_same_commit_is_reusable(rd, repo: tuple[Repo, str]) -> None:  # type: i
 
 def test_example12_viz_docs_and_version_line_reusable(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.write("src/giap/viz/locus.py", '"""locus, restyled."""\n')
+    r.write("src/gippa/viz/locus.py", '"""locus, restyled."""\n')
     r.write("docs/x.md", "# x\n")
     _bump(r)
     assert rd.reusable(r.path, c, r.commit("R")) is True
@@ -132,7 +132,7 @@ def test_example12_viz_docs_and_version_line_reusable(rd, repo) -> None:  # type
     ["docs/methods/new.md", "changelog.d/+fix.bugfix.md", "README.md", "CHANGELOG.md",
      "mkdocs.yml", "PROGRESS.md", "AGENTS.md", "CLAUDE.md", ".claude/agents/x.md",
      ".github/workflows/ci.yml", "scripts/dev/waitmerge.sh", "scripts/docs/gen.py",
-     "src/giap/report/card.py", "src/giap/viz/locus.py"],
+     "src/gippa/report/card.py", "src/gippa/viz/locus.py"],
 )  # fmt: skip
 def test_each_non_stats_entry_alone_is_reusable(rd, repo, rel: str) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
@@ -142,11 +142,11 @@ def test_each_non_stats_entry_alone_is_reusable(rd, repo, rel: str) -> None:  # 
 
 @pytest.mark.parametrize(
     "rel",
-    ["src/giap/cli.py", "src/giap/stats/fdr.py", "src/giap/rng.py", "src/giap/io/x.py",
-     "workflow/main.nf", "pyproject.toml", "uv.lock", "tests/sim/giapsim/nulls.py",
+    ["src/gippa/cli.py", "src/gippa/stats/fdr.py", "src/gippa/rng.py", "src/gippa/io/x.py",
+     "workflow/main.nf", "pyproject.toml", "uv.lock", "tests/sim/gippasim/nulls.py",
      "tests/calibration/test_x.py", "ci/gates.yaml", "benchmarks/baseline.json",
      "tests/helpers/x.py", "scripts/dev/island_power.py", "scripts/dev/record_fgsea.py",
-     "validation/pilot/x.py", "src/giap/preflight/x.py"],
+     "validation/pilot/x.py", "src/gippa/preflight/x.py"],
 )  # fmt: skip
 def test_example13_any_other_path_is_not_reusable(rd, repo, rel: str) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
@@ -173,28 +173,28 @@ def test_example13b_holds_even_if_readiness_lists_itself(rd, repo, monkeypatch) 
 
 def test_example13c_move_out_of_stats_lists_both_paths(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.git("mv", "src/giap/stats/x.py", "docs/x.py")
+    r.git("mv", "src/gippa/stats/x.py", "docs/x.py")
     rr = r.commit("move stats into docs")
     names = r.git("diff", "--name-only", "--no-renames", c, rr).splitlines()
-    assert sorted(names) == ["docs/x.py", "src/giap/stats/x.py"]
+    assert sorted(names) == ["docs/x.py", "src/gippa/stats/x.py"]
     assert rd.reusable(r.path, c, rr) is False
 
 
 def test_a_deleted_stats_file_counts_as_changed(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.git("rm", "-q", "src/giap/stats/x.py")
+    r.git("rm", "-q", "src/gippa/stats/x.py")
     assert rd.reusable(r.path, c, r.commit("delete stats module")) is False
 
 
 def test_a_move_inside_non_stats_paths_is_reusable(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.git("mv", "src/giap/viz/locus.py", "docs/locus.py")
+    r.git("mv", "src/gippa/viz/locus.py", "docs/locus.py")
     assert rd.reusable(r.path, c, r.commit("move viz into docs")) is True
 
 
 def test_example13d_component_match(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.write("src/giap/report_stats.py", '"""not under report/."""\n')
+    r.write("src/gippa/report_stats.py", '"""not under report/."""\n')
     assert rd.reusable(r.path, c, r.commit("report_stats")) is False
 
 
@@ -211,7 +211,7 @@ def test_version_line_alone_is_reusable(rd, repo) -> None:  # type: ignore[no-un
     "new",
     [
         # a second hunk elsewhere in the file
-        INIT.replace('"1.0.0"', '"1.0.1"').replace('"""GIAP."""', '"""GIAP, edited."""'),
+        INIT.replace('"1.0.0"', '"1.0.1"').replace('"""GIPPA."""', '"""GIPPA, edited."""'),
         # one hunk, but a second added line
         INIT.replace('__version__ = "1.0.0"\n', '__version__ = "1.0.1"\nSEED_SALT = 1\n'),
         # one hunk, but a second removed line
@@ -231,14 +231,14 @@ def test_version_line_alone_is_reusable(rd, repo) -> None:  # type: ignore[no-un
 )  # fmt: skip
 def test_any_other_change_to_init_is_not_reusable(rd, repo, new: str) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
-    r.write("src/giap/__init__.py", new)
+    r.write("src/gippa/__init__.py", new)
     assert rd.reusable(r.path, c, r.commit("init")) is False
 
 
 def test_version_line_with_a_stats_change_is_not_reusable(rd, repo) -> None:  # type: ignore[no-untyped-def]
     r, c = repo
     _bump(r)
-    r.write("src/giap/stats/x.py", '"""stats, changed."""\n')
+    r.write("src/gippa/stats/x.py", '"""stats, changed."""\n')
     assert rd.reusable(r.path, c, r.commit("R")) is False
 
 
@@ -304,10 +304,10 @@ def test_entries_in_the_module_exist(rd, name: str) -> None:  # type: ignore[no-
 
 
 def test_component_examples(rd) -> None:  # type: ignore[no-untyped-def]
-    yes = ["docs/a.md", "docs/methods/x/y.md", "src/giap/report/card.py", "README.md",
-           "src/giap/viz/locus.py", ".github/workflows/release.yml"]  # fmt: skip
-    no = ["src/giap/report_stats.py", "src/giap/reports/x.py", "docsx/a.md", "README.md.bak",
-          "README.md/x", "src/giap/vizx.py", "scripts/devtools/x.sh", "src/giap/cli.py",
+    yes = ["docs/a.md", "docs/methods/x/y.md", "src/gippa/report/card.py", "README.md",
+           "src/gippa/viz/locus.py", ".github/workflows/release.yml"]  # fmt: skip
+    no = ["src/gippa/report_stats.py", "src/gippa/reports/x.py", "docsx/a.md", "README.md.bak",
+          "README.md/x", "src/gippa/vizx.py", "scripts/devtools/x.sh", "src/gippa/cli.py",
           "scripts/release/readiness.py", "doc/a.md", ""]  # fmt: skip
     assert [p for p in yes if not rd.non_stats_path(p)] == []
     assert [p for p in no if rd.non_stats_path(p)] == []

@@ -27,7 +27,7 @@ import scipy.optimize
 from helpers.layers_chain import Chain
 from test_operons_step import _cfg, chain, run_operons_step, step_inputs, write_gene_table
 
-import giap.stats.tdist as tdist
+import gippa.stats.tdist as tdist
 
 __all__ = ["chain"]  # the module-scoped fixture, re-exported for pytest
 
@@ -57,10 +57,10 @@ def _scaled(inputs: dict[str, Path]) -> Any:
     """``Discordance.scaled`` of the step's own chain (as ``test_operons_step.oracle``)."""
     import pandas as pd
 
-    from giap.annotate.layers import genes_of, replicons_of, terminators_of
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.operons.discordance import discordance
-    from giap.operons.pairs import RNA_TYPES, Evidence, pair_frame
+    from gippa.annotate.layers import genes_of, replicons_of, terminators_of
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.operons.discordance import discordance
+    from gippa.operons.pairs import RNA_TYPES, Evidence, pair_frame
 
     rd = pd.read_parquet
     gt = read_genes_parquet(inputs["gene_table"])
@@ -206,7 +206,7 @@ def test_fallback_logs_a_warning(chain: Chain, tmp_path: Path, monkeypatch: pyte
 
 
 def _relative_gene_table(chain: Chain, path: Path) -> Path:
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     write_gene_table(chain, path, abundance=True)
     df = read_genes_parquet(path)
@@ -244,7 +244,7 @@ def test_event_sigma_model_is_the_value_passed(
     """Stat N3: the event's ``sigma_model`` is the model ``discordance`` was actually called with,
     not the module constant ``SIGMA_MODEL``. The step has no ``sigma_model`` option yet (M6-13
     Q2), so the call is forced to ``constant`` at the ``discordance`` the step uses."""
-    import giap.steps.operons as step_mod
+    import gippa.steps.operons as step_mod
 
     real = step_mod.discordance
     seen: list[str] = []
@@ -267,7 +267,7 @@ def test_event_sigma_model_is_the_value_passed(
 
 
 def _fit(model: str, *, gamma: float, df: float, reason: str | None = None) -> Any:
-    from giap.stats.tdist import ScaledStudentT
+    from gippa.stats.tdist import ScaledStudentT
 
     nan = math.nan
     return ScaledStudentT(
@@ -280,7 +280,7 @@ def _fit(model: str, *, gamma: float, df: float, reason: str | None = None) -> A
 @pytest.mark.parametrize("df", [2.0, 50.0])
 def test_df_at_bound_is_reported_for_the_constant_null(df: float) -> None:
     """CR S-3 / stat N1: the unchanged nu-on-a-bound rule applies to the constant fallback too."""
-    from giap.steps.operons import discordance_fit_data
+    from gippa.steps.operons import discordance_fit_data
 
     data = discordance_fit_data(_fit("constant", gamma=0.0, df=df, reason="flat_abundance"))
     assert data["df_at_bound"] is True
@@ -290,9 +290,9 @@ def test_df_at_bound_is_reported_for_the_constant_null(df: float) -> None:
 
 
 def test_bound_flags_read_the_module_constants(monkeypatch: pytest.MonkeyPatch) -> None:
-    """CR S-3 / stat N2: the flags come from ``GAMMA_BOUNDS`` and ``DF_BOUNDS`` (giap.stats.tdist),
+    """CR S-3 / stat N2: the flags come from ``GAMMA_BOUNDS`` and ``DF_BOUNDS`` (gippa.stats.tdist),
     not hard-coded 2 / 50 and +-2: with the constants moved, the flags move with them."""
-    import giap.steps.operons as step_mod
+    import gippa.steps.operons as step_mod
 
     monkeypatch.setattr(tdist, "GAMMA_BOUNDS", (-1.5, 1.5))
     monkeypatch.setattr(tdist, "DF_BOUNDS", (3.0, 40.0))
@@ -316,9 +316,9 @@ def test_run_operons_returns_the_null_and_run_operons_fit_is_gone(with_abundance
     back."""
     import pandas as pd
 
-    import giap.steps.operons as step_mod
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.stats.tdist import ScaledStudentT
+    import gippa.steps.operons as step_mod
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.stats.tdist import ScaledStudentT
 
     assert not hasattr(step_mod, "run_operons_fit")
     _, ins = with_abundance

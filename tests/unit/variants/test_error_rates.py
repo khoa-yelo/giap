@@ -1,10 +1,10 @@
 """M7-10 class-specific false-ALT rates from paired de novo and database results
 (docs/specs/M7-10-class-error-rates.md rules 1-4, examples 1-6, every degenerate row; lead
-decisions 2026-10-22; GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is real", §7.5.5 ``CLASS_ERR``).
+decisions 2026-10-22; GIPPA_SPEC.md §7.5.4, §8.1 row "ALT call is real", §7.5.5 ``CLASS_ERR``).
 
 Interface pinned here (test-author reading of the spec; see the report to the lead):
 
-* ``giap.variants.error_rates`` is pure. ``ClassRate(alt_type, mass_equivalent, n, errors,
+* ``gippa.variants.error_rates`` is pure. ``ClassRate(alt_type, mass_equivalent, n, errors,
   rate)`` is a frozen, slotted dataclass in that field order; ``rate = errors / n`` and ``None``
   when ``n == 0``.
 * ``paired_observations(denovo, reference, alt_support, q_max=0.01)``:
@@ -60,7 +60,7 @@ FS_F = ("frameshift", False)
 
 
 def er() -> ModuleType:
-    return importlib.import_module("giap.variants.error_rates")
+    return importlib.import_module("gippa.variants.error_rates")
 
 
 # --------------------------------------------------------------------------- builders
@@ -523,7 +523,7 @@ def test_rates_written_by_the_merged_writer(tmp_path: Path) -> None:
     ``%.6g``, an unestimated row ``unestimated`` with ``class_error_n`` ``NA``."""
     from helpers.variant_tables_fixture import GENOME, REPS, vr
 
-    from giap.io.variant_tables import write_variants
+    from gippa.io.variant_tables import write_variants
 
     m = er()
     aligns = peptides_at(GP, 44, sub(GP, 44, "W"), 2) + peptides_at(

@@ -1,18 +1,18 @@
 """M6-05H (pass 2): the one-detected P(miss) branch of the discordance test
 (docs/specs/M6-05-discordance.md item 4, example 6, example 8 and the degenerate rows;
-GIAP_SPEC.md §7.4.3 "One detected, one not"; M6-02 for the toy model).
+GIPPA_SPEC.md §7.4.3 "One detected, one not"; M6-02 for the toy model).
 
 Interface pinned here (test-author reading of the spec and of the merged pass-1 code):
 
 * ``discordance(pairs, genes, cfg, p_miss, *, n_seen=None, k_min=1)`` takes ``p_miss`` as the
-  callable of the Protocol ``giap.operons.discordance.PMissFn`` (renamed from ``PMissModel``,
+  callable of the Protocol ``gippa.operons.discordance.PMissFn`` (renamed from ``PMissModel``,
   review N4): ``p_miss(u, a_v, ratios, v) -> float``, all positional, where ``u`` is the
   undetected gene's locus tag, ``a_v`` the detected partner's ``abundance_log2``, ``ratios`` the
   oriented within-operon log-ratios r (§7.4.3): Δ of the fit pairs when ``u`` is downstream
   (``gene_b``), -Δ when ``u`` is upstream (``gene_a``), and ``v`` the detected partner's locus
   tag. ``v`` is there so the adaptor can use the out-of-fold model of **v's** TU (M6-02 lead
   decision 9, "call ``model_for_tu`` with the TU of the detected partner"; review B1).
-  ``giap.operons.detection_limit.p_miss_for_genes`` is that adaptor:
+  ``gippa.operons.detection_limit.p_miss_for_genes`` is that adaptor:
   ``p_miss(model_for_tu(model, tu(v)), a_v, ratios, observable_peptides(aa(u)))``.
 * **The one-detected event** (M6-02 lead decision 9, review S1): with ``n_seen`` (locus tag ->
   number of distinct observable peptides of the gene seen in C11; absent = 0) a gene is *seen*
@@ -50,12 +50,12 @@ from helpers.pairs_data import frame, gene, reps
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giap.stats.tdist as tdist
-from giap.config import GiapConfig
-from giap.operons import detection_limit as dl
-from giap.operons import discordance as disc
-from giap.stats.multitest import bh
-from giap.stats.tdist import StudentT
+import gippa.stats.tdist as tdist
+from gippa.config import GippaConfig
+from gippa.operons import detection_limit as dl
+from gippa.operons import discordance as disc
+from gippa.stats.multitest import bh
+from gippa.stats.tdist import StudentT
 
 #: M6-index lead decision 1 / M6-02 lead decision 4: P(miss) gets no q and is not in the family.
 PMISS_IN_BH_FAMILY = False
@@ -67,11 +67,11 @@ _DYADIC = 2.0**20
 EX6_RATIOS = (-1.0, -0.2, 0.3, 1.5)
 
 
-def _cfg(**abundance: Any) -> GiapConfig:
+def _cfg(**abundance: Any) -> GippaConfig:
     doc: dict[str, Any] = {"seed": 1}
     if abundance:
         doc["abundance"] = abundance
-    return GiapConfig.model_validate(doc)
+    return GippaConfig.model_validate(doc)
 
 
 def _t_draws(
@@ -169,7 +169,7 @@ def run(
     pairs: pd.DataFrame,
     genes: pd.DataFrame,
     p_miss: Any = toy_pmiss,
-    cfg: GiapConfig | None = None,
+    cfg: GippaConfig | None = None,
     **kw: Any,
 ) -> Any:
     kw.setdefault("sigma_model", "constant")  # M6-05's null; M6-13 is tested separately
@@ -522,7 +522,7 @@ def test_imputed_partner_is_scored_and_carries_abundance_imputed(fixed_fit: Any)
     """S4 / F6: the detected partner's a_v is imputed. The row is scored on it (as example 5
     tests an imputed both-detected pair) and the merged pair row carries the pair-scope
     ``abundance_imputed`` flag (M6-08 lead decision 6)."""
-    from giap.operons.flags import merge_tests
+    from gippa.operons.flags import merge_tests
 
     fit_part = chain(list(EX6_RATIOS) * 5)
     h = chain([0.5], base=17.0, contig="c2", prefix="H", undetected=[1], imputed=[0])

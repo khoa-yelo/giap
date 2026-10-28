@@ -23,7 +23,7 @@ range among called rows ("FDR ≤ 0.008") or "unestimated".
 ## Panel (b): locus views (`V13_novel_orfs_locus_<orf_id>`)
 
 The 20 `called = true` rows with the smallest `rank` (§7.6.5), each rendered with
-`giap.viz.locus.render_locus` as a `Locus(kind="novel_orf")`: span from `start_longest` and `end`, which
+`gippa.viz.locus.render_locus` as a `Locus(kind="novel_orf")`: span from `start_longest` and `end`, which
 are in transcription direction (on `−`, `start_longest > end`; the schema says so), converted to
 0-based half-open [min − 1, max) on read; `start_longest` NA → the span starts at the first peptide, window ± 2 kb; the ORF drawn as a highlighted
 arrow (`#CC79A7` outline) above the annotated genes; a second tick at `start_best_ostir` when it
@@ -84,7 +84,7 @@ candidates unestimated".
 2. Example 3: a window that runs below 0 (or past the length) on a circular contig is drawn
    unwrapped, with ticks labelled by their wrapped position (`length + x`); on a linear contig the
    window clips at 0 and at the length.
-3. Stacked on `m9/locus-plots` (#209): use `giap.viz.locus` as it stands there, and take any
+3. Stacked on `m9/locus-plots` (#209): use `gippa.viz.locus` as it stands there, and take any
    interface change from #209's review round by merging that branch, never by copying.
 4. Orf-id sanitising for file names reuses the helper M9-10 uses for `locus_<id>`.
 
@@ -96,11 +96,11 @@ candidates unestimated".
 6. `RunView` subtracts 1 from `start_longest` / `start_best_ostir` on both strands; on `−` those are
    the high coordinates, so V13 adds 1 back for `−` rows when building the half-open span.
 7. Origin-crossing rows are read as the tests pin them: on `+`, `end < start_longest`; on `−`,
-   `start_longest < end` (the wrapped positions `giap.novel.outputs` writes); the span is unwrapped
+   `start_longest < end` (the wrapped positions `gippa.novel.outputs` writes); the span is unwrapped
    past the length.
 8. `#CC79A7` for the ORF outline and the pileup highlight is accepted; the BGC shading under it is at
    alpha 0.2 and the outline stays legible.
-9. The wrapped tick formatter belongs in `giap.viz.locus` (V3 shares the problem); taking it there
+9. The wrapped tick formatter belongs in `gippa.viz.locus` (V3 shares the problem); taking it there
    is in scope for M9-12 and stays within #209's renderer, not a second implementation.
 10. The test file's length (≈ 880 lines) is accepted.
 

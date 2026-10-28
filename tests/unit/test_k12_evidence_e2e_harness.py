@@ -2,7 +2,7 @@
 
 The e2e test itself only runs weekly on a real outdir; here it is run in a subprocess on the
 all-pass fixture of tests/helpers/mvp04_summary_data.py (after ``scripts/dev/mvp04_summary.py``)
-to show that it passes a passing run, fails a failing one, and skips without ``$GIAP_MVP04_OUT``.
+to show that it passes a passing run, fails a failing one, and skips without ``$GIPPA_MVP04_OUT``.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ SCRIPT = REPO / "scripts" / "dev" / "mvp04_summary.py"
 
 def _pytest(env_out: Path | None) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
-    env.pop("GIAP_MVP04_OUT", None)
+    env.pop("GIPPA_MVP04_OUT", None)
     if env_out is not None:
-        env["GIAP_MVP04_OUT"] = str(env_out)
+        env["GIPPA_MVP04_OUT"] = str(env_out)
     return subprocess.run(
         [sys.executable, "-m", "pytest", str(E2E), "-q", "-p", "no:cacheprovider", "-p",
          "no:randomly", "-n", "0", "-m", "e2e", "-W", "default"],

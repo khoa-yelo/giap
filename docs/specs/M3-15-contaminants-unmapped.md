@@ -1,14 +1,14 @@
 # M3-15: Unmapped bucket and contaminants
 
 Milestone M3 · depends on: M3-10 (rejected placements), M3-12/13 (protein leftovers), M1-03,
-M1-06 (`is_contaminant`) · creates `src/giap/mapping/contaminants.py` · pure Python for peptides
+M1-06 (`is_contaminant`) · creates `src/gippa/mapping/contaminants.py` · pure Python for peptides
 (`pyahocorasick`) + **external tool BLAST+ `blastp`** for proteins (same env as M3-13) · estimate
 ≈ 250 code lines
 
 ## Spec sections implemented
 
 - §7.2.8 "Sequences that land nowhere are matched against the universal contaminant library
-  (Frankenfield 2022, 381 entries), downloaded by `giap setup --contaminants` (vendor it only if
+  (Frankenfield 2022, 381 entries), downloaded by `gippa setup --contaminants` (vendor it only if
   its licence allows): peptides by exact substring (I = L); proteins by `blastp` at ≥ 90 %
   identity over ≥ 50 % of the query; engine protein IDs carrying a contaminant prefix also count
   as contaminants. Matches are labelled `contaminant`. Everything else is `unmapped`, with a
@@ -20,7 +20,7 @@ M1-06 (`is_contaminant`) · creates `src/giap/mapping/contaminants.py` · pure P
   of porcine trypsin and human keratins added to a peptide table).
 - Config `input.contaminant_prefixes`.
 
-The library itself is downloaded by `giap setup --contaminants` (M2-09, §7.9.1) to
+The library itself is downloaded by `gippa setup --contaminants` (M2-09, §7.9.1) to
 `DIR/contaminants/contaminants.fasta` with a `db_manifest.json` entry; this issue reads the FASTA path from there (tests use
 a small fixture FASTA with a few library-like entries).
 

@@ -2,17 +2,17 @@
 
 docs/specs/M3-17-mapping-steps.md, decision 15 after the code review of PR #96 (finding 1: the
 ``search_db`` event stayed in ``<task>/logs/events.jsonl``): the per-task ``logs/events.jsonl``
-written by ``giap _step`` is an optional GIAP_STEP output; the workflow collects them and
-``giap run`` appends them to ``OUT/logs/events.jsonl`` after Nextflow ends, in task completion
+written by ``gippa _step`` is an optional GIPPA_STEP output; the workflow collects them and
+``gippa run`` appends them to ``OUT/logs/events.jsonl`` after Nextflow ends, in task completion
 order as listed in the trace, each event keeping its step name. The test reads the run directory
 only, never a task directory.
 
-``giap run`` is invoked through the CLI with a ``nextflow`` wrapper that swaps the profile for
+``gippa run`` is invoked through the CLI with a ``nextflow`` wrapper that swaps the profile for
 ``test,stub`` and adds ``-stub-run`` (as tests/integration/test_nf_run_wiring_stub.py). Stub
-tasks never execute ``giap _step``, so the placement stub writes its ``search_db`` event (one
+tasks never execute ``gippa _step``, so the placement stub writes its ``search_db`` event (one
 §6.7 JSON line, like the loci stub's §9.3 headers): this checks the collect-and-append path end to
 end. Inputs: workflow/tests/data/annotate/genome.fa, one long protein and a peptide table; the
-database directory is a tmp copy of the real-format ``giap setup`` manifest.
+database directory is a tmp copy of the real-format ``gippa setup`` manifest.
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -54,8 +54,8 @@ exec "{real}" "$@" -stub-run
 
 @pytest.fixture(autouse=True)
 def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     real = shutil.which("nextflow")
     assert real is not None
     bindir = tmp_path / "bin"
@@ -65,14 +65,14 @@ def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setenv("NXF_ANSI_LOG", "false")
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture(scope="function")
 def run_dir(tmp_path: Path) -> Path:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     proteins = tmp_path / "in" / "proteins.faa"
     proteins.parent.mkdir()
@@ -104,7 +104,7 @@ def _is_search_db(ev: dict[str, Any]) -> bool:
 
 
 def _trace_steps(out: Path) -> list[str]:
-    """Py step names (GIAP_STEP alias tags) in trace order (task completion)."""
+    """Py step names (GIPPA_STEP alias tags) in trace order (task completion)."""
     with (out / "logs" / "trace.tsv").open() as fh:
         names = [r["name"] for r in csv.DictReader(fh, delimiter="\t")]
     tags = [n.rsplit("(", 1)[-1].rstrip(") ") for n in names if "(" in n]

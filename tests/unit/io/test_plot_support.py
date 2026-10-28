@@ -1,4 +1,4 @@
-"""``giap.io.plot_support.write_support`` and the support schemas (M9-03 acceptance: example 8;
+"""``gippa.io.plot_support.write_support`` and the support schemas (M9-03 acceptance: example 8;
 gzip above 1 MB with ``mtime=0``; schema validation with frictionless; ADR-M9-A rules).
 
 Interface assumed beyond the spec text (M9-03 test author):
@@ -6,12 +6,12 @@ Interface assumed beyond the spec text (M9-03 test author):
 - ``write_support(name, df, plots_dir)`` writes ``plots_dir/support/<name>.tsv`` (or
   ``<name>.tsv.gz`` when the TSV is larger than 1 MB), creating ``support/``; the frame is
   already in its written form (1-based, see tests/unit/viz/test_support.py), §9.2 cells
-  (``NA``, ``%.6g`` floats, integers as integers) through ``giap.io.tsv``.
+  (``NA``, ``%.6g`` floats, integers as integers) through ``gippa.io.tsv``.
 - Exactly one of ``<name>.tsv`` / ``<name>.tsv.gz`` exists after a write (a stale twin would be
   read first by ``RunView.support``, which tries ``.tsv`` before ``.tsv.gz``).
-- Schemas live at ``src/giap/schemas/plot_support/<name>.json``; ``schemas/datapackage.json``
+- Schemas live at ``src/gippa/schemas/plot_support/<name>.json``; ``schemas/datapackage.json``
   has one resource per support table named ``<name>`` with ``role: plot_support`` and a ``path``
-  under ``plots/support/``, whose ``schema`` resolves (relative to ``src/giap/schemas``) to that
+  under ``plots/support/``, whose ``schema`` resolves (relative to ``src/gippa/schemas``) to that
   file. The 1 MB threshold is tested well clear of both readings (10^6 and 2^20 bytes).
 """
 
@@ -26,20 +26,20 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import giap.schemas
+import gippa.schemas
 
-SCHEMAS = Path(giap.schemas.__file__).resolve().parent
+SCHEMAS = Path(gippa.schemas.__file__).resolve().parent
 NAMES = ("replicon_landmarks", "gc_skew")
 
 
 def _write(name: str, df: pd.DataFrame, plots_dir: Path) -> Any:
-    from giap.io.plot_support import write_support
+    from gippa.io.plot_support import write_support
 
     return write_support(name, df, plots_dir)
 
 
 def landmarks() -> pd.DataFrame:
-    from giap.viz.support import replicon_landmarks
+    from gippa.viz.support import replicon_landmarks
 
     reps = pd.DataFrame(
         [
@@ -58,7 +58,7 @@ def landmarks() -> pd.DataFrame:
 
 
 def skew(n_bp: int = 25_000, window: int = 10_000, seed: int = 7) -> pd.DataFrame:
-    from giap.viz.support import gc_skew
+    from gippa.viz.support import gc_skew
 
     rng = np.random.default_rng(seed)
     seq = "".join(rng.choice(list("ACGT"), size=n_bp))
@@ -157,7 +157,7 @@ def test_rewrite_leaves_no_stale_twin(tmp_path: Path) -> None:
 
 
 def test_run_view_reads_back_what_was_written(tmp_path: Path) -> None:
-    from giap.io.run_view import RunView
+    from gippa.io.run_view import RunView
 
     out = tmp_path / "OUT"
     (out / "tables").mkdir(parents=True)
@@ -177,7 +177,7 @@ def test_run_view_reads_back_what_was_written(tmp_path: Path) -> None:
 
 
 def test_big_table_read_back_through_run_view(tmp_path: Path) -> None:
-    from giap.io.run_view import RunView
+    from gippa.io.run_view import RunView
 
     out = tmp_path / "OUT"
     (out / "tables").mkdir(parents=True)

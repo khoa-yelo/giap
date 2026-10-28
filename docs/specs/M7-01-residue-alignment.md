@@ -8,7 +8,7 @@ tolerant DP, M3-08 frameshift splits, M3-14 loci, M3-16 outputs) · estimate ≈
 
 §7.5.2 step 1 assumes "the mapper's traceback gives a residue-level correspondence between each
 peptide and the genome translation". The merged mapper keeps **no traceback**: the M3-06 DP
-(`giap.mapping.tolerant_dp`) encodes the optimum as one additive integer key "so the DP keeps the
+(`gippa.mapping.tolerant_dp`) encodes the optimum as one additive integer key "so the DP keeps the
 exact optimum without a traceback", and `mapping/peptide_hits.tsv` keeps only `n_diff` and
 `diff_types`. The frameshift route keeps the two genomic blocks (`blocks = "a-b;c-d"`) in the work
 table `hits_tolerant.parquet`, which `peptide_hits.tsv` drops. This issue recomputes the residue
@@ -27,7 +27,7 @@ correspondence for each accepted locus, outside the mapper, without changing M3 
 
 ## Public interface
 
-`src/giap/variants/align.py` (pure; no file I/O)
+`src/gippa/variants/align.py` (pure; no file I/O)
 ```python
 OpKind = Literal["match", "il", "substitution", "swap", "block", "near_block"]
 

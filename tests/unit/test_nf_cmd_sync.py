@@ -1,7 +1,8 @@
 """Python command builders vs. Nextflow ``script:`` blocks (M2-07 example 6; M2-index decision 2).
 
-Each ``giap.annotate.<tool>_cmd`` builder and ``workflow/modules/local/<tool>/main.nf`` describe the
-same command (tool images do not contain GIAP). Every flag the builder can emit must appear in the
+Each ``gippa.annotate.<tool>_cmd`` builder and ``workflow/modules/local/<tool>/main.nf`` describe
+the
+same command (tool images do not contain GIPPA). Every flag the builder can emit must appear in the
 process script. Builders landing later (M2-12…M2-18) add their pair to ``BUILDERS`` in their own PR;
 ``test_every_cmd_builder_has_a_sync_pair`` makes that mandatory.
 
@@ -19,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-import giap.annotate
-from giap.annotate import bakta_cmd, promotech_cmd, terminatornet_cmd, transtermhp_cmd, uniop_cmd
+import gippa.annotate
+from gippa.annotate import bakta_cmd, promotech_cmd, terminatornet_cmd, transtermhp_cmd, uniop_cmd
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES = REPO / "workflow" / "modules" / "local"
@@ -113,19 +114,19 @@ def _promotech_variants() -> list[list[str]]:
 
 
 def _ostir_variants() -> list[list[str]]:
-    from giap.annotate import ostir_cmd  # M2-16
+    from gippa.annotate import ostir_cmd  # M2-16
 
     return [ostir_cmd.ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 4)]
 
 
 def _promoter_calculator_variants() -> list[list[str]]:
-    from giap.annotate import promoter_calculator_cmd  # M2-14
+    from gippa.annotate import promoter_calculator_cmd  # M2-14
 
     return [promoter_calculator_cmd.promoter_calculator_command(Path("TU_1.fa"), Path("TU_1.csv"))]
 
 
 def _genomad_variants() -> list[list[str]]:
-    from giap.annotate import genomad_cmd  # M2-18
+    from gippa.annotate import genomad_cmd  # M2-18
 
     return [
         genomad_cmd.genomad_command(Path("genome.fa"), Path("genomad"), Path("db/genomad_db"), 1),
@@ -134,7 +135,7 @@ def _genomad_variants() -> list[list[str]]:
 
 
 def _antismash_variants() -> list[list[str]]:
-    from giap.annotate import antismash_cmd  # M2-18
+    from gippa.annotate import antismash_cmd  # M2-18
 
     return [
         antismash_cmd.antismash_command(
@@ -174,7 +175,7 @@ def test_script_starts_with_the_builders_executable(tool: str) -> None:
 def test_every_cmd_builder_has_a_sync_pair() -> None:
     cmd_modules = {
         m.name[: -len("_cmd")]
-        for m in pkgutil.iter_modules(giap.annotate.__path__)
+        for m in pkgutil.iter_modules(gippa.annotate.__path__)
         if m.name.endswith("_cmd")
     }
     assert "bakta" in cmd_modules

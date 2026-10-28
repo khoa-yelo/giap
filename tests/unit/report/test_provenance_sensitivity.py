@@ -1,6 +1,6 @@
 """M9-16 behaviour 5 (sensitivity section), behaviour 6 (provenance, with and without
 ``run_manifest.json``; lead decision 1), example 6, the "databases block missing" degenerate row
-and determinism (docs/specs/M9-16-report-content.md; GIAP_SPEC.md §6.7, §8.6, §10.3 section 13;
+and determinism (docs/specs/M9-16-report-content.md; GIPPA_SPEC.md §6.7, §8.6, §10.3 section 13;
 M9-index decision 26).
 
 Interface pinned here (M9-16 test author, beyond the spec text):
@@ -46,9 +46,9 @@ from helpers.report_content import (
 from helpers.report_fixtures import INPUTS, Node, run_out, sha256, table_rows
 from helpers.viz_out_tree import schema_columns, write_resolved_config
 
-import giap
+import gippa
 
-NOT_WRITTEN = "run_manifest.json not written by this GIAP version"
+NOT_WRITTEN = "run_manifest.json not written by this GIPPA version"
 
 
 # ---------------------------------------------------------------- provenance with a manifest
@@ -59,7 +59,7 @@ def test_provenance_from_manifest(tmp_path: Path) -> None:
     path = write_manifest(out)
     text = section_text(page(out), "provenance")
     doc = manifest()
-    assert doc["giap_version"] in text and COMMIT in text, text
+    assert doc["gippa_version"] in text and COMMIT in text, text
     assert " ".join(doc["command_line"]) in text, text
     for row in MANIFEST_INPUTS:
         assert str(row["file"]) in text and str(row["sha256"]) in text, row
@@ -77,7 +77,7 @@ def test_manifest_digest_changes_with_the_manifest(tmp_path: Path) -> None:
     first = write_manifest(out)
     d1 = sha256_file(first)
     assert d1 in section_text(page(out), "provenance")
-    second = write_manifest(out, manifest(command_line=["giap", "run", "--seed", "1"]))
+    second = write_manifest(out, manifest(command_line=["gippa", "run", "--seed", "1"]))
     d2 = sha256_file(second)
     text = section_text(page(out), "provenance")
     assert d1 != d2 and d2 in text and d1 not in text
@@ -117,7 +117,7 @@ def test_example_6_no_manifest(tmp_path: Path) -> None:
     assert NOT_WRITTEN in text, text
     for item in INPUTS:
         assert str(item["sha256"]) in text, item
-    assert giap.__version__ in text and sha256(resolved) in text
+    assert gippa.__version__ in text and sha256(resolved) in text
 
 
 # ---------------------------------------------------------------- sensitivity (behaviour 5)

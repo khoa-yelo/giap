@@ -1,4 +1,4 @@
-"""Target-decoy q-values, monotone q and picked FDR (issue M4-01; GIAP_SPEC.md §7.2.5, §7.3.2,
+"""Target-decoy q-values, monotone q and picked FDR (issue M4-01; GIPPA_SPEC.md §7.2.5, §7.3.2,
 §8.3, Appendix B.6; Savitski 2015 picked rule: ties go to the decoy).
 
 Conventions pinned here (M3-10 reuses ``tda_qvalues``): higher score = better; NaN and -inf =
@@ -14,7 +14,7 @@ import inspect
 import numpy as np
 import pytest
 
-from giap.stats.tda import PickedResult, monotone_q, picked_fdr, tda_qvalues
+from gippa.stats.tda import PickedResult, monotone_q, picked_fdr, tda_qvalues
 
 NAN = float("nan")
 INF = float("inf")

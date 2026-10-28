@@ -1,4 +1,4 @@
-"""Properties of novel-ORF reconstruction on random genomes (issue M7-06; GIAP_SPEC.md §7.6.2).
+"""Properties of novel-ORF reconstruction on random genomes (issue M7-06; GIPPA_SPEC.md §7.6.2).
 
 Acceptance properties of docs/specs/M7-06-novel-candidates-and-orfs.md:
 
@@ -43,10 +43,10 @@ from helpers.novel_oracle import (
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.promoters import gene_windows
-from giap.config.model import GiapConfig
-from giap.model.coords import Replicon
-from giap.novel.candidates import (
+from gippa.annotate.promoters import gene_windows
+from gippa.config.model import GippaConfig
+from gippa.model.coords import Replicon
+from gippa.novel.candidates import (
     Orf,
     candidate_rows,
     ostir_rows,
@@ -55,7 +55,7 @@ from giap.novel.candidates import (
 )
 
 PROPS = settings(max_examples=120, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-CFG = GiapConfig(seed=1)
+CFG = GippaConfig(seed=1)
 CONTIG = "chr1"
 ANTI_SD = "ACCTCCTTA"
 

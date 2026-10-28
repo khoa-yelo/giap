@@ -1,6 +1,6 @@
 # Free entrapment: the FDP of A1's identifications
 
-Implements `validation/pilot/entrapment.py` (GIAP_SPEC.md §15.5 metric 8, §8.7; issue M10-07,
+Implements `validation/pilot/entrapment.py` (GIPPA_SPEC.md §15.5 metric 8, §8.7; issue M10-07,
 docs/specs/M10-07-free-entrapment.md with its binding statistician decisions). Validation only:
 metric 8 gates nothing (§15.6) and is in no §8.1 testing family.
 
@@ -39,7 +39,7 @@ direction; see Bias.) So the combined method's quantity is the FDP of A1's accep
 ## The universe and "present"
 
 - **Digest.** D(F) = the distinct `trypsin_p` products of 7–30 aa with ≤ 1 missed cleavage
-  (initiator M kept, `giap.mapping.digest`), I → L, with every product holding a residue outside
+  (initiator M kept, `gippa.mapping.digest`), I → L, with every product holding a residue outside
   the 20 standard letters dropped (`non_standard`). The universe is D(K-12) \ D(contaminants):
   a peptide a contaminant also yields could be a true contaminant identification, so it is removed
   on both sides.
@@ -47,7 +47,7 @@ direction; see Bias.) So the combined method's quantity is the FDP of A1's accep
   with one index. Rule 1 (`exact`): an exact match in Nissle's six-frame translation
   (`match_exact`; I → L, both strands, the origin overlap of circular replicons), or (`strain_db`)
   a substring of a Bakta protein after I → L, which covers N-terminal products of non-ATG starts.
-  Rule 2 (`mass_equivalent`): a tolerant target row (`match_tolerant`, GIAP's `mapping.tolerant`
+  Rule 2 (`mass_equivalent`): a tolerant target row (`match_tolerant`, GIPPA's `mapping.tolerant`
   defaults, ≥ 10 aa) whose `diff_types` is non-empty and only `block`, the exact-composition
   exchanges of §7.2.4. `near_block`, `swap`, `substitution` and `frameshift` rows do not make a
   peptide present. Using one function on both sides keeps every asymmetry of the rules (for
@@ -82,7 +82,7 @@ automatically"; the global, library and protein-group q-values (`Global.Q.Value`
 because "the main report is designed to be filtered". The matrices, which the pilot does not
 use, are filtered at 1 % with global protein-group q-values. A1 sets `--qvalue 0.01` and no flag
 that changes these defaults (`validation/pilot/diann_A1.cfg`). The accepted set is therefore
-the precursors with run-level `Q.Value` ≤ 0.01 (DIA-NN) **and** `Global.Q.Value` ≤ 0.01 (GIAP,
+the precursors with run-level `Q.Value` ≤ 0.01 (DIA-NN) **and** `Global.Q.Value` ≤ 0.01 (GIPPA,
 `Q_ACCEPT`). No FDR claim attaches to that intersection itself: a subset of an FDR-controlled
 list is not FDR-controlled in general. The run-level filter removes only rows that are
 low-scoring in their run, so in practice it lowers the false share, and the pooled set stays
@@ -153,7 +153,7 @@ run's intersection. Estimates are reported unclipped and flagged
 | Six-frame chance hits move short K-12-only peptides into `shared` | lower N_E (a more conservative lower bound); negligible for equation (1) |
 | E and T differ in length and charge composition, so equal chance per precursor mis-weights the peptide-level r (`sensitivity.r_prec_weighted`) | either |
 | False matches attracted to T, e.g. interference from abundant co-eluting shared proteins (equal-chance violation in the low direction) | low, unquantified |
-| A protein-level filter (`PG.Q.Value`) would remove K-12-only proteins first; neither DIA-NN's main report nor GIAP applies one (DIA-NN 2.3.1 docs, above), and adding one is a lead finding | low |
+| A protein-level filter (`PG.Q.Value`) would remove K-12-only proteins first; neither DIA-NN's main report nor GIPPA applies one (DIA-NN 2.3.1 docs, above), and adding one is a lead finding | low |
 | DIA-NN's precursor q-values use protein information unless `--no-refine-q` is set, which the docs call "essential if the goal is validation of DIA-NN's precursor-level q-values using classic entrapment"; A1 does not set it. False matches are favoured on proteins with many true identifications. In A1's database those are mostly K-12 proteins with an expressed Nissle ortholog, whose peptides are mostly shared and whose few K-12-only peptides are the variant peptides. K-12-specific proteins, almost all E, and unexpressed proteins are penalised. The E share among favoured elements is below π, so false matches go to T more often than equal chance assumes (the attack's scenario D shows this direction). This is an equal-chance violation; `fdp_lower` is unaffected | low, unquantified |
 | K-12-derived constructs in engineered strains | excluded: only wild-type runs are accepted |
 

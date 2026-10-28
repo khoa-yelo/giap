@@ -1,5 +1,5 @@
 """The nightly calibration array covers every ``replicates_full`` suite (docs/specs/
-M7-13-calibration-gate.md § Array extension; ADR-0042; backlog line 614; GIAP_SPEC.md §8.4 "one
+M7-13-calibration-gate.md § Array extension; ADR-0042; backlog line 614; GIPPA_SPEC.md §8.4 "one
 suite per task"): ``--array=0-(n-1)`` and the header comment "<n> suites" with n the number of
 ``replicates_full`` keys (15 today: task 13 ``variants``, 14 ``compare``)."""
 
@@ -34,7 +34,7 @@ def test_array_spans_every_suite() -> None:
 # Lead decision 7 (statistician B1/B2, code review B1/B2/N4): task 13 runs shards 0/n .. (n-1)/n
 # (``shard_replicates`` is 0-based), then ``--merge``; the task fails if any shard or the merge
 # is non-zero; ``--time`` >= 04:00:00; ``--shard=K/N`` / ``--merge`` given by hand are not split.
-# The wrapper runs under bash with a stub ``uv`` on PATH (no pytest, no GIAP run).
+# The wrapper runs under bash with a stub ``uv`` on PATH (no pytest, no GIPPA run).
 
 STUB_UV = r"""#!/bin/bash
 # stub uv: log the call, exit by role (STUB_RC_SHARD_<k>, STUB_RC_MERGE, STUB_RC_PLAIN)
@@ -63,10 +63,10 @@ def run_wrapper(
     full = {
         "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
         "HOME": str(tmp),
-        "GIAP_REPO": str(repo),
-        "GIAP_WORKTREE": str(repo),
-        "GIAP_ROOT": str(tmp),
-        "GIAP_CALIBRATION_LOG_DIR": str(tmp / "log"),
+        "GIPPA_REPO": str(repo),
+        "GIPPA_WORKTREE": str(repo),
+        "GIPPA_ROOT": str(tmp),
+        "GIPPA_CALIBRATION_LOG_DIR": str(tmp / "log"),
         "SLURM_ARRAY_TASK_ID": str(task),
         "SLURM_ARRAY_JOB_ID": "1",
         "STUB_LOG": str(log),

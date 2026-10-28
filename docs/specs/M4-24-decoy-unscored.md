@@ -2,7 +2,7 @@
 
 Milestone M4 (fix) · track G · depends on: M4-12 (merged) · estimate ≈ 60 code lines (+ ≈ 250 test
 lines, + one calibration attack) · **can start now** · defect found by the statistician on main in
-`src/giap/genetable/detection.py`. (M4-22 and M4-23 are unused; this issue takes the number the lead
+`src/gippa/genetable/detection.py`. (M4-22 and M4-23 are unused; this issue takes the number the lead
 gave it.)
 
 ## The defect
@@ -12,8 +12,8 @@ lexicographic key (q ascending, PEP ascending, score descending), with NA mapped
 last (`_key_rank`). The ranking uses all three columns, whichever side carries them. Two consequences:
 
 1. **All-unscored decoys.** The generic peptide TSV (§5.3: `q_value`, `pep` and `score` are all
-   optional) allows decoy rows with no q, PEP or score. giapsim's M3-19 proteomics writes exactly that
-   (`tests/sim/giapsim/proteomics.py`: decoy rows `q_value = pep = score = NA`). Every such decoy ranks
+   optional) allows decoy rows with no q, PEP or score. gippasim's M3-19 proteomics writes exactly that
+   (`tests/sim/gippasim/proteomics.py`: decoy rows `q_value = pep = score = NA`). Every such decoy ranks
    below every target, so D(t) = 0 at every target threshold, and every target-won gene gets
    q = 1/k. That is a picked FDR computed as if there were no decoys, yet the run reports
    `detection_tier = decoy_picked` and raises no warning. Evidence: Slurm 1869554
@@ -26,7 +26,7 @@ last (`_key_rank`). The ranking uses all three columns, whichever side carries t
    the q tie to a target that has a PEP, although on the columns both sides carry it is a tie (and
    ties go to the decoy, §7.3.2 step 3).
 
-DIA-NN input is not affected. The converter (`src/giap/io/converters/diann.py`) requires `q_value`
+DIA-NN input is not affected. The converter (`src/gippa/io/converters/diann.py`) requires `q_value`
 (`Global.Q.Value`, else `Q.Value`) and maps `pep` from `PEP`, both from the same report columns for
 targets and decoys, and it maps no `score`. Decoys therefore carry exactly the targets' key columns.
 The Casanovo, InstaNovo and Cascadia converters write no decoy rows, so they are not affected either.
@@ -52,7 +52,7 @@ The Casanovo, InstaNovo and Cascadia converters write no decoy rows, so they are
 
 ## Public interface
 
-`src/giap/genetable/detection.py` (pure). Additions only, and existing signatures are unchanged:
+`src/gippa/genetable/detection.py` (pure). Additions only, and existing signatures are unchanged:
 ```python
 KeyColumn = Literal["q_value", "pep", "score"]
 KEY_COLUMNS: tuple[KeyColumn, ...] = ("q_value", "pep", "score")   # lexicographic order
@@ -188,7 +188,7 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
   replicate, FDP passes. Variant `decoys_unscored`: decoy q, PEP and score NA → tier `mayu` in every
   replicate, FDP passes. The test-author records that `decoys_score_only` fails on main (teeth). Runs
   go to Slurm (`test_branch.sbatch`), not the session allocation.
-- [ ] Goldens and integration: the `sim100k_real` M4 golden (giapsim M3-19 proteomics, all-NA decoys)
+- [ ] Goldens and integration: the `sim100k_real` M4 golden (gippasim M3-19 proteomics, all-NA decoys)
   changes tier `decoy_picked` → `mayu` and gains the warning. It is regenerated in the
   implementation PR, with the diff summarised in the PR body (`n_detected`, `q_floor` → NA, curve
   rows). `tests/calibration/test_gene_fdr_real_mapping.py` (asserts `decoy_picked` on the same
@@ -199,7 +199,7 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
 
 ## Questions for the lead
 
-1. **q filter vs. the "still used to estimate FDR" comment.** §5.2 (GIAP_SPEC.md, read-only) and
+1. **q filter vs. the "still used to estimate FDR" comment.** §5.2 (GIPPA_SPEC.md, read-only) and
    `defaults.yaml` (protected) say rows above `q_value_max` are "still used to estimate FDR". The code,
    M4-12 decision 1, M4-index decision 4 and the methods note filter the decoys before picking.
    **Proposed default:** keep the filter (rule 6). It is the right population for ADR-0009's f, and
@@ -211,12 +211,12 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
    Ranking NA decoys first (+∞ score, q = 0) is the most conservative choice, but one stray NA then
    forces a decoy win. Dropping the decoy rows would be score-dependent decoy loss that 1/f does not
    cover. **Proposed default:** drop the column (rule 5), with `decoy_unscored`.
-3. **Sequencing with the goldens and the real-mapping calibration.** The fix flips every giapsim
+3. **Sequencing with the goldens and the real-mapping calibration.** The fix flips every gippasim
    M3-19 proteomics run (sim100k_real golden, `test_gene_fdr_real_mapping.py`, the e2e and report
    runs on sim100k) from `decoy_picked` to `mayu`, because those decoys carry no score.
    **Proposed default:** land this fix first, regenerate the sim100k_real golden to `mayu`, and switch
    the real-mapping calibration's tier assertion to "`mayu` while the simulator's decoys are unscored"
-   (test-author/lead edit). The giapsim backlog item (scored null decoys) then restores
+   (test-author/lead edit). The gippasim backlog item (scored null decoys) then restores
    `decoy_picked` on that path with a real D.
 4. **Report which key was used?** `detection_summary.tsv` could carry three `tier` rows
    `key_q_value`, `key_pep`, `key_score` (1/0, NA outside the picked tier). **Proposed default:** no new
@@ -229,7 +229,7 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
    shared column such as score exists, so NA-q targets lose to their decoys (conservative, lower power).
    **Proposed default:** keep it (behaviour unchanged from main); revisit only if a pilot input shows
    it.
-7. **Preflight.** `candidate_tier` (src/giap/preflight/evidence.py) reports `decoy_picked` whenever
+7. **Preflight.** `candidate_tier` (src/gippa/preflight/evidence.py) reports `decoy_picked` whenever
    any row of C9, target or decoy, has a ranking column, so all-unscored decoys still preview
    `decoy_picked`. The value is marked `provisional`. **Proposed default:** out of scope here (M4
    decides the tier); a one-line backlog follow-up if the lead wants preflight to apply
@@ -243,8 +243,8 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
 3. **Sequencing:** land this fix first.
    - The implementer regenerates the sim100k_real golden with the project's update mechanism.
    - The lead edits the tier assertion in `tests/calibration/test_gene_fdr_real_mapping.py` to
-     "`mayu` while giapsim's decoys are unscored".
-   - The giapsim backlog item (scored null decoys) restores `decoy_picked` later.
+     "`mayu` while gippasim's decoys are unscored".
+   - The gippasim backlog item (scored null decoys) restores `decoy_picked` later.
 4. **No `key_*` tier rows;** the warning is enough.
 5. **One warning,** `decoy_unscored`, for both cases; the methods note explains it.
 6. **A sparse target column stays in S** (main's behaviour, conservative).
@@ -261,7 +261,7 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
    - The spec's examples 1, 4 and 6 use target q = 1e-5·i, which keeps all 150 targets under
      `q_value_max`. The test-author's reading is accepted; the example table is amended to match.
 9. **Implementer (6e8d9217).**
-   - The `sim100k_real` M4 golden moves from `decoy_picked` to `mayu`, as rule 4 requires: giapsim's decoys carry no q, PEP or score, so S = ∅. `n_detected` stays at 85 and the same genes are detected. Accepted.
+   - The `sim100k_real` M4 golden moves from `decoy_picked` to `mayu`, as rule 4 requires: gippasim's decoys carry no q, PEP or score, so S = ∅. `n_detected` stays at 85 and the same genes are detected. Accepted.
    - Accepted: MAYU computes `p`/`p2` through `math.exp`/`math.pow`, element by element. numpy's SIMD `exp`/`power` differ in the last bits between AVX2 and AVX-512 nodes (probe 1870153), and `1 − e^−λ(1+λ)` amplifies that to about 4.5e-10 relative, which breaks the byte-compared golden. Values on iron are unchanged. The cost is a Python loop over at most n_genes elements.
    - The fast suite on HEAD passes apart from two gate-evidence tests. Those failed only because the implementer's own calibration logs sat in the worktree's local/logs; the logs were moved out and both tests pass.
    - The full calibration suite timed out at about 90 % with no failures. The targeted M4-24 calibration files passed (17/17, Slurm 1871588).

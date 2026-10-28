@@ -39,7 +39,7 @@ def _cfg(**kw: Any) -> Any:
 def _run(
     genes: pd.DataFrame, tus: pd.DataFrame, reps: pd.DataFrame, cfg: Any, seed: int = 3
 ) -> tuple[pd.DataFrame, Any]:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return idat.step(
         genes, idat.build_series(genes, tus, reps, cfg), cfg, for_step(idat.STEP, seed)
@@ -159,7 +159,7 @@ def test_no_island_wraps_on_a_linear_replicon(cs: list[Contig]) -> None:
 @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(contigs(), st.integers(0, 2**31 - 1))
 def test_same_seed_same_output(cs: list[Contig], seed: int) -> None:
-    from giap.context import islands as M
+    from gippa.context import islands as M
 
     genes, tus, reps = idat.frames(cs)
     cfg = _cfg()

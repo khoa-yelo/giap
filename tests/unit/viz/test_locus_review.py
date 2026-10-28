@@ -39,12 +39,12 @@ from matplotlib.patches import Patch
 from matplotlib.text import Text
 from matplotlib.transforms import Bbox
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
-from giap.viz.locus import render_locus, run_scale, select_loci
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
+from gippa.viz.locus import render_locus, run_scale, select_loci
 
 SCALE = (18.0, 24.0)
 KEY_LABEL = "log2 abundance"
@@ -58,7 +58,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -66,7 +66,7 @@ def cfg() -> GiapConfig:
 
 
 def _render(
-    out: Path, cfg: GiapConfig, locus_id: str, scale: tuple[float, float] = SCALE
+    out: Path, cfg: GippaConfig, locus_id: str, scale: tuple[float, float] = SCALE
 ) -> Instance:
     view = RunView.from_outdir(out)
     (lo,) = [x for x in select_loci(view, cfg) if x.locus_id == locus_id]
@@ -75,8 +75,8 @@ def _render(
     return inst
 
 
-def _run_plot(out: Path, cfg: GiapConfig) -> list[Instance]:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+def _run_plot(out: Path, cfg: GippaConfig) -> list[Instance]:
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     result = base.registered()["V03"].fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip)
@@ -162,14 +162,14 @@ def _straddle_out(tmp: Path, *, a_first: bool = True) -> Path:
     return vl.build_out(tmp, genes=[ga, gb], tus=tus, flags=[vl.flag("PAIR_1", *pair, 0.01)])
 
 
-def test_b1_flag_across_the_origin_spans_the_shorter_arc(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_flag_across_the_origin_spans_the_shorter_arc(tmp_path: Path, cfg: GippaConfig) -> None:
     (lo,) = select_loci(RunView.from_outdir(_straddle_out(tmp_path)), cfg)
     assert (lo.start0, lo.end0) == (99_500, 100_500)
 
 
 @pytest.mark.parametrize("a_first", [True, False], ids=["a_before_origin", "a_after_origin"])
 def test_b1_flag_across_the_origin_span_is_1_kb(
-    tmp_path: Path, cfg: GiapConfig, a_first: bool
+    tmp_path: Path, cfg: GippaConfig, a_first: bool
 ) -> None:
     (lo,) = select_loci(RunView.from_outdir(_straddle_out(tmp_path, a_first=a_first)), cfg)
     assert lo.end0 - lo.start0 == 1_000
@@ -178,7 +178,7 @@ def test_b1_flag_across_the_origin_span_is_1_kb(
 
 @pytest.mark.parametrize("a_first", [True, False], ids=["a_before_origin", "a_after_origin"])
 def test_b1_flag_across_the_origin_window_is_single_with_one_origin_line(
-    tmp_path: Path, cfg: GiapConfig, a_first: bool
+    tmp_path: Path, cfg: GippaConfig, a_first: bool
 ) -> None:
     inst = _render(_straddle_out(tmp_path, a_first=a_first), cfg, "PAIR_1")
     ax = _axes(inst.figure, "genes")
@@ -195,7 +195,7 @@ def test_b1_flag_across_the_origin_window_is_single_with_one_origin_line(
     assert genes["start"].max() - genes["start"].min() == 500  # adjacent in the window frame
 
 
-def test_b1_index_row_is_not_the_whole_replicon(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_index_row_is_not_the_whole_replicon(tmp_path: Path, cfg: GippaConfig) -> None:
     result = _run_plot(_straddle_out(tmp_path), cfg)
     (index,) = [i for i in result if i.suffix is None]
     row = index.data.set_index("locus_id").loc["PAIR_1"]
@@ -207,7 +207,7 @@ def test_b1_index_row_is_not_the_whole_replicon(tmp_path: Path, cfg: GiapConfig)
     assert "\t1\t100000\t" not in line
 
 
-def test_different_tu_span_when_a_ends_last(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_different_tu_span_when_a_ends_last(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         vl.gene("ga", "chr1", 12_001, 13_000, tu_id="TUa", log2=20.0),
         vl.gene("gb", "chr1", 10_001, 11_000, tu_id="TUb", log2=21.0),
@@ -221,7 +221,7 @@ def test_different_tu_span_when_a_ends_last(tmp_path: Path, cfg: GiapConfig) -> 
     assert (lo.start0, lo.end0) == (10_000, 13_000)
 
 
-def test_flag_with_missing_gene_b_is_dropped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_flag_with_missing_gene_b_is_dropped(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path,
         genes=[vl.gene("ga", "chr1", 12_001, 13_000, tu_id="TUa", log2=20.0)],
@@ -279,7 +279,7 @@ def _title_text(fig: Figure, clauses: list[str]) -> Text:
 
 
 @pytest.mark.parametrize("builder", [_single_flag_out, _merged_flags_out], ids=["one", "three"])
-def test_b2_title_keeps_every_clause(tmp_path: Path, cfg: GiapConfig, builder: Any) -> None:
+def test_b2_title_keeps_every_clause(tmp_path: Path, cfg: GippaConfig, builder: Any) -> None:
     out, clauses = builder(tmp_path)
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
     inst = _render(out, cfg, lo.locus_id)
@@ -289,7 +289,7 @@ def test_b2_title_keeps_every_clause(tmp_path: Path, cfg: GiapConfig, builder: A
 
 
 @pytest.mark.parametrize("builder", [_single_flag_out, _merged_flags_out], ids=["one", "three"])
-def test_b2_title_stays_inside_the_figure(tmp_path: Path, cfg: GiapConfig, builder: Any) -> None:
+def test_b2_title_stays_inside_the_figure(tmp_path: Path, cfg: GippaConfig, builder: Any) -> None:
     out, clauses = builder(tmp_path)
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
     inst = _render(out, cfg, lo.locus_id)
@@ -308,7 +308,7 @@ def test_b2_title_stays_inside_the_figure(tmp_path: Path, cfg: GiapConfig, build
         assert not _overlaps(bb, ab), (label, bb, ab)
 
 
-def test_b2_merged_title_is_wrapped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_merged_title_is_wrapped(tmp_path: Path, cfg: GippaConfig) -> None:
     out, clauses = _merged_flags_out(tmp_path)
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
     inst = _render(out, cfg, lo.locus_id)
@@ -348,7 +348,7 @@ def _mixed_out(tmp: Path) -> Path:
     )
 
 
-def test_b3_colorbar_is_cividis_over_the_given_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_colorbar_is_cividis_over_the_given_scale(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_mixed_out(tmp_path), cfg, "prophage_1", (18.0, 24.0))
     cax = _key_axes(inst.figure)
     assert _key_scale(cax) == pytest.approx((18.0, 24.0))
@@ -379,7 +379,7 @@ def _scale_run(tmp: Path) -> Path:
     )
 
 
-def test_b3_every_locus_key_shows_the_run_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_every_locus_key_shows_the_run_scale(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _scale_run(tmp_path)
     expected = run_scale(RunView.from_outdir(out).table("genes_tsv"))
     assert expected == pytest.approx((18.12, 23.88))
@@ -402,7 +402,7 @@ def _legend_texts(fig: Figure) -> list[str]:
 
 
 def test_b3_legend_swatches_for_undetected_imputed_unestimated(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     fig = _render(_mixed_out(tmp_path), cfg, "prophage_1").figure  # no such genes: key anyway
     handles = [h for h in _legend_handles(fig) if isinstance(h, Patch)]
@@ -415,7 +415,7 @@ def test_b3_legend_swatches_for_undetected_imputed_unestimated(
     assert any("single" in t or "unestimated" in t for t in texts), texts
 
 
-def test_b3_every_text_is_at_least_6_pt_after_drawing(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_every_text_is_at_least_6_pt_after_drawing(tmp_path: Path, cfg: GippaConfig) -> None:
     fig = _render(_mixed_out(tmp_path), cfg, "prophage_1").figure
     _agg(fig)
     sizes = [t.get_fontsize() for t in fig.findobj(Text) if t.get_visible() and t.get_text()]
@@ -431,7 +431,7 @@ def _overlaps(a: Bbox, b: Bbox, tol: float = 0.5) -> bool:
 
 @pytest.mark.parametrize("which", ["mixed", "merged"])
 def test_b3_key_title_and_tracks_do_not_overlap(
-    tmp_path: Path, cfg: GiapConfig, which: str
+    tmp_path: Path, cfg: GippaConfig, which: str
 ) -> None:
     if which == "mixed":
         fig = _render(_mixed_out(tmp_path), cfg, "prophage_1").figure
@@ -482,7 +482,7 @@ def _strand_out(tmp: Path) -> Path:
     )
 
 
-def test_b4_arrow_heads_point_downstream(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_arrow_heads_point_downstream(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _axes(_render(_strand_out(tmp_path), cfg, "bgc_1").figure, "genes")
     width = abs(ax.get_xlim()[1] - ax.get_xlim()[0])
     plus = _gene_patch(ax, 10_200, 11_000)
@@ -523,7 +523,7 @@ def _mark_lines(ax: Axes, colour: str, s: float, e: float) -> list[np.ndarray]:
     ids=["promoter+", "promoter-", "terminator+", "terminator-"],
 )
 def test_b4_marks_are_drawn_on_their_strand_side(
-    tmp_path: Path, cfg: GiapConfig, colour: str, s: int, e: int, side: int
+    tmp_path: Path, cfg: GippaConfig, colour: str, s: int, e: int, side: int
 ) -> None:
     ax = _axes(_render(_strand_out(tmp_path), cfg, "bgc_1").figure, "genes")
     centre = _track_centre(ax)
@@ -554,7 +554,7 @@ def _stem_and_head(lines: list[np.ndarray]) -> tuple[float, float]:
     ("s", "e", "strand"), [(10_000, 10_200, "+"), (13_000, 13_200, "-")], ids=["plus", "minus"]
 )
 def test_b4_promoter_bent_arrow_sits_at_its_strand_start_and_points_downstream(
-    tmp_path: Path, cfg: GiapConfig, s: int, e: int, strand: str
+    tmp_path: Path, cfg: GippaConfig, s: int, e: int, strand: str
 ) -> None:
     ax = _axes(_render(_strand_out(tmp_path), cfg, "bgc_1").figure, "genes")
     stem, head = _stem_and_head(_mark_lines(ax, PROMOTER, s, e))
@@ -566,7 +566,7 @@ def test_b4_promoter_bent_arrow_sits_at_its_strand_start_and_points_downstream(
         assert head < stem
 
 
-def test_b4_promoter_bent_arrow_points_downstream(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_promoter_bent_arrow_points_downstream(tmp_path: Path, cfg: GippaConfig) -> None:
     """Direction alone (independent of where the stem sits)."""
     ax = _axes(_render(_strand_out(tmp_path), cfg, "bgc_1").figure, "genes")
     stem_p, head_p = _stem_and_head(_mark_lines(ax, PROMOTER, 10_000, 10_200))
@@ -579,7 +579,7 @@ def test_b4_promoter_bent_arrow_points_downstream(tmp_path: Path, cfg: GiapConfi
 
 
 def test_b5_imputed_gene_row_has_na_value_and_imputed_category(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     genes = [
         vl.gene("G1", "chr1", 10_101, 10_600, log2=21.0),
@@ -609,7 +609,7 @@ def test_b5_imputed_gene_row_has_na_value_and_imputed_category(
 # --- test-gap survivors -------------------------------------------------------------------------
 
 
-def test_pct_rounds_half_up(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_pct_rounds_half_up(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path,
         genes=[vl.gene("G", "chr1", 10_101, 11_000, log2=20.0)],
@@ -650,7 +650,7 @@ def test_run_scale_ignores_imputed_rows_even_when_detected(tmp_path: Path) -> No
 
 
 def test_origin_line_is_at_the_replicon_length_to_under_1_bp(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     genes = [
         vl.gene("G1", "chr1", 98_001, 98_500, log2=20.0),

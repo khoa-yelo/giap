@@ -2,7 +2,7 @@
 
 Not a calibration claim: tiny fixed R, synthetic p-values, nothing read from ``tolerances.yaml``
 but the levels. The leading underscore keeps it out of normal collection; the teeth test names this
-file on the pytest command line and sets ``GIAP_SHARD_FIXTURE=1`` (without it the module skips).
+file on the pytest command line and sets ``GIPPA_SHARD_FIXTURE=1`` (without it the module skips).
 It lives under tests/calibration so the real conftest applies (suite keyword, shard-0 rule for
 direct tests and teeth, the owning-test record fields, the xfail outcome records).
 
@@ -22,7 +22,7 @@ import _criteria as C
 import pytest
 from _gate import calibrate_levels
 
-if os.environ.get("GIAP_SHARD_FIXTURE") != "1":
+if os.environ.get("GIPPA_SHARD_FIXTURE") != "1":
     pytest.skip("shard fixture suite: run by test_criteria_shard_equivalence.py only",
                 allow_module_level=True)  # fmt: skip
 

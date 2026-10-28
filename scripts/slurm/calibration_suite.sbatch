@@ -1,17 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=giap-cal-suite
+#SBATCH --job-name=gippa-cal-suite
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --signal=B:USR1@600
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # One full-tier calibration suite as one Slurm job, run as lanes (issue M11-03c; spec
 # docs/specs/M11-03c-calibration-full-sharding.md, "calibration_suite.sbatch"). Submitted by
-# calibration_full_launch.sh with --job-name=giap-cal-<suite>, --cpus-per-task, --mem and --time
+# calibration_full_launch.sh with --job-name=gippa-cal-<suite>, --cpus-per-task, --mem and --time
 # from scripts/slurm/calibration_plan.tsv; no --array.
-# Environment: GIAP_SUITE (a replicates_full key), GIAP_WORKTREE (the checkout to run; its plan,
-# durations and scripts/ci/calibration_lanes.py are used), GIAP_CALIBRATION_LOG_DIR.
-# Test seams: GIAP_CALIBRATION_CPUSET (CPU list replacing sched_getaffinity),
-# GIAP_CALIBRATION_SYSFS (replaces /sys/devices/system/cpu), GIAP_CALIBRATION_GRACE (seconds
+# Environment: GIPPA_SUITE (a replicates_full key), GIPPA_WORKTREE (the checkout to run; its plan,
+# durations and scripts/ci/calibration_lanes.py are used), GIPPA_CALIBRATION_LOG_DIR.
+# Test seams: GIPPA_CALIBRATION_CPUSET (CPU list replacing sched_getaffinity),
+# GIPPA_CALIBRATION_SYSFS (replaces /sys/devices/system/cpu), GIPPA_CALIBRATION_GRACE (seconds
 # between SIGINT to the pytests and the record on USR1/TERM; default 120).
 # Steps: (1) plan row and whole cores (cpus_per_lane / 2 per lane); (2) collection with
 # --calibration-lane-report, lanes from `calibration_lanes.py lanes`, one --collect-only per lane
@@ -20,7 +20,7 @@
 # its deselect list + --junitxml=<log>/task-<i>.<shard<k>|group<g>>.junit.xml (shard lanes run
 # _criteria.py --shard k/N; group lanes log to <log>/lanes/<suite>-group<g>); (4) after every
 # lane, when shards > 0, --merge with the shard deselect list on the shard lanes' cores,
-# GIAP_CALIBRATION_CONFIRM_LANES=<shards> and GIAP_CALIBRATION_CONFIRM_JUNIT=<log>/task-<i>.merge;
+# GIPPA_CALIBRATION_CONFIRM_LANES=<shards> and GIPPA_CALIBRATION_CONFIRM_JUNIT=<log>/task-<i>.merge;
 # then counts, confirm_parts.json, the exit fold and task-<i>.json (written once).
 # (5) Every step runs as `( trap - INT; exec ... ) & wait`, so USR1 (10 min before the limit) and
 # TERM are handled at once: SIGINT to the pytest descendants of this shell only (found through
@@ -28,21 +28,21 @@
 # Python runs with the venv interpreter only (no uv between the shell and pytest). Lane output:
 # <log>/lanes/<suite>-<role>.out.
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)" || exit 2
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+TMPDIR="$(mktemp -d /tmp/gippa.XXXXXX)" || exit 2
 export TMPDIR
 STATE="$TMPDIR/state"
 JOBPY="$TMPDIR/suite_job.py"
 mkdir -p "$STATE"
-SUITE="${GIAP_SUITE:-}"
-CHECKOUT="${GIAP_WORKTREE:-$GIAP_REPO}"
-LOG="${GIAP_CALIBRATION_LOG_DIR:-$GIAP_ROOT/logs/calibration/${SLURM_JOB_ID:-local}}"
-export GIAP_CALIBRATION_LOG_DIR="$LOG"
+SUITE="${GIPPA_SUITE:-}"
+CHECKOUT="${GIPPA_WORKTREE:-$GIPPA_REPO}"
+LOG="${GIPPA_CALIBRATION_LOG_DIR:-$GIPPA_ROOT/logs/calibration/${SLURM_JOB_ID:-local}}"
+export GIPPA_CALIBRATION_LOG_DIR="$LOG"
 PY="${UV_PROJECT_ENVIRONMENT:-}/bin/python"
-GRACE="${GIAP_CALIBRATION_GRACE:-120}"
+GRACE="${GIPPA_CALIBRATION_GRACE:-120}"
 TASK=""; recorded=""; in_signal=""; step_pids=()
-unset GIAP_CALIBRATION_CONFIRM GIAP_CALIBRATION_CONFIRM_LANES GIAP_CALIBRATION_CONFIRM_JUNIT \
-  GIAP_CALIBRATION_CONFIRM_SLICE GIAP_CALIBRATION_REPLICATES
+unset GIPPA_CALIBRATION_CONFIRM GIPPA_CALIBRATION_CONFIRM_LANES GIPPA_CALIBRATION_CONFIRM_JUNIT \
+  GIPPA_CALIBRATION_CONFIRM_SLICE GIPPA_CALIBRATION_REPLICATES
 
 cat > "$JOBPY" <<'PY'
 """Helpers of calibration_suite.sbatch (M11-03c PR 3); argv[1] is the command."""
@@ -53,7 +53,7 @@ from pathlib import Path
 
 def lanes_mod(checkout):
     path = Path(checkout) / "scripts" / "ci" / "calibration_lanes.py"
-    spec = importlib.util.spec_from_file_location("giap_calibration_lanes", path)
+    spec = importlib.util.spec_from_file_location("gippa_calibration_lanes", path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
@@ -395,19 +395,19 @@ collect() {  # collect <out> <rc file> <PYTEST_ADDOPTS> [pytest args]: one --col
 }
 
 if [ -z "$SUITE" ] || [ ! -d "$CHECKOUT" ] || [ ! -x "$PY" ]; then
-  echo "calibration_suite: need GIAP_SUITE, GIAP_WORKTREE and \$UV_PROJECT_ENVIRONMENT/bin/python" >&2
+  echo "calibration_suite: need GIPPA_SUITE, GIPPA_WORKTREE and \$UV_PROJECT_ENVIRONMENT/bin/python" >&2
   exit 2
 fi
 cd "$CHECKOUT" || exit 2
-# the worktree's giap, not the shared venv's editable install (_criteria.py checks giap.__file__)
+# the worktree's gippa, not the shared venv's editable install (_criteria.py checks gippa.__file__)
 export PYTHONPATH="$CHECKOUT/src:$CHECKOUT/tests/sim:$CHECKOUT/tests"
 mkdir -p "$LOG/lanes" || exit 2
 
 # 1. plan row and whole cores
 "$PY" "$JOBPY" plan "$STATE" "$CHECKOUT" "$SUITE" "$LOG" || exit 2
 . "$STATE/plan.sh"
-"$PY" "$JOBPY" cores "$STATE" "${GIAP_CALIBRATION_CPUSET:-}" \
-  "${GIAP_CALIBRATION_SYSFS:-/sys/devices/system/cpu}" "$((SHARDS + NGROUPS))" "$CPL" || exit 2
+"$PY" "$JOBPY" cores "$STATE" "${GIPPA_CALIBRATION_CPUSET:-}" \
+  "${GIPPA_CALIBRATION_SYSFS:-/sys/devices/system/cpu}" "$((SHARDS + NGROUPS))" "$CPL" || exit 2
 . "$STATE/cores.sh"
 
 # 2. collection, lanes, per-lane --collect-only, partition check
@@ -445,7 +445,7 @@ while [ "$pos" -lt "$NLANES" ]; do
     fi
     ( trap - INT; thread_env
       export PYTEST_ADDOPTS="${L_DESEL[$pos]:+${L_DESEL[$pos]} }${L_JUNIT[$pos]}"
-      export GIAP_CALIBRATION_LOG_DIR="$lane_log"
+      export GIPPA_CALIBRATION_LOG_DIR="$lane_log"
       exec taskset -c "${L_CPUS[$pos]}" "$PY" tests/calibration/_criteria.py --suite "$SUITE" \
         ${extra[@]+"${extra[@]}"} >"$LOG/lanes/$SUITE-$role.out" 2>&1 ) &
     lane_pids+=("$!"); lane_pos+=("$pos"); step_pids+=("$!")
@@ -470,7 +470,7 @@ if [ "$SHARDS" -gt 0 ]; then
   : > "$STATE/merge.launched"
   ( trap - INT; thread_env
     export PYTEST_ADDOPTS="$shard_desel"
-    export GIAP_CALIBRATION_CONFIRM_LANES="$SHARDS" GIAP_CALIBRATION_CONFIRM_JUNIT="$LOG/task-$TASK.merge"
+    export GIPPA_CALIBRATION_CONFIRM_LANES="$SHARDS" GIPPA_CALIBRATION_CONFIRM_JUNIT="$LOG/task-$TASK.merge"
     exec taskset -c "$shard_cpus" "$PY" tests/calibration/_criteria.py --suite "$SUITE" --merge \
       >"$LOG/lanes/$SUITE-merge.out" 2>&1 ) &
   mpid=$!; step_pids+=("$mpid")

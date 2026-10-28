@@ -46,8 +46,8 @@ APPTAINER_FAILED = (
 PREBUILT_HINT = "sbatch scripts/slurm/build_envs.sbatch uniop"
 UNIOP_DEF = REPO / "workflow" / "containers" / "uniop" / "uniop.def"
 UNIOP_LOCK = REPO / "workflow" / "envs" / "locks" / "uniop.explicit.txt"
-DB_SCHEMA = REPO / "src" / "giap" / "schemas" / "db_manifest.schema.json"
-RUN_SCHEMA = REPO / "src" / "giap" / "schemas" / "run_manifest.schema.json"
+DB_SCHEMA = REPO / "src" / "gippa" / "schemas" / "db_manifest.schema.json"
+RUN_SCHEMA = REPO / "src" / "gippa" / "schemas" / "run_manifest.schema.json"
 
 FAKE_APPTAINER = r"""#!/bin/sh
 printf '%s\n' "apptainer $*" >> "$FAKE_APPTAINER_LOG"
@@ -158,12 +158,12 @@ def sif_path(cache: Path) -> Path:
 
 
 def prebuilt_root(root: Path, *, share: bool = True) -> Path:
-    """A fake ``$GIAP_ROOT`` with ``micromamba/envs/giap-uniop`` (and its ``share/uniop``)."""
-    prefix = root / "micromamba" / "envs" / "giap-uniop"
+    """A fake ``$GIPPA_ROOT`` with ``micromamba/envs/gippa-uniop`` (and its ``share/uniop``)."""
+    prefix = root / "micromamba" / "envs" / "gippa-uniop"
     (prefix / "bin").mkdir(parents=True)
     if share:
         (prefix / "share" / "uniop").mkdir(parents=True)
-        (prefix / "share" / "uniop" / "GIAP_COMMIT").write_text(COMMIT + "\n")
+        (prefix / "share" / "uniop" / "GIPPA_COMMIT").write_text(COMMIT + "\n")
     return root
 
 

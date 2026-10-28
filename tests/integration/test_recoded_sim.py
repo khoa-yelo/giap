@@ -1,6 +1,6 @@
-"""Recoded Sec codons end to end on giapsim (M7-16c; spec rules 21-23, example 32; test plan C12).
+"""Recoded Sec codons end to end on gippasim (M7-16c; spec rules 21-23, example 32; test plan C12).
 
-giapsim sim100k, same strain, ``n_selenoproteins = 5``, ``search_db = same``, through preflight
+gippasim sim100k, same strain, ``n_selenoproteins = 5``, ``search_db = same``, through preflight
 and the registered steps (``drive``) to ``loci`` and ``variants``
 (``sixframe_index`` -> ``map_exact`` -> ``map_tolerant`` -> ``placement`` -> ``loci`` ->
 ``variants``):
@@ -44,12 +44,12 @@ def _flags(s: str) -> set[str]:
 
 @pytest.fixture(scope="module")
 def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    import giap.variants.align as align_mod
-    from giap.config import resolve_config
-    from giap.io.fasta import read_genome_fasta
-    from giap.mapping.sixframe import load_stop_cells
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    import gippa.variants.align as align_mod
+    from gippa.config import resolve_config
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.mapping.sixframe import load_stop_cells
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     tmp = tmp_path_factory.mktemp("rec_sim")
     res = simulate(

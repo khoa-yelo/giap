@@ -1,6 +1,6 @@
-"""An independent oracle for the giapsim read-through knob (M7-16 rule 14; PR 16b-3).
+"""An independent oracle for the gippasim read-through knob (M7-16 rule 14; PR 16b-3).
 
-Written from the spec, not from ``giapsim``: it reads only the files a build writes
+Written from the spec, not from ``gippasim``: it reads only the files a build writes
 (``genome.fasta``, ``truth/features.tsv``, ``bakta_like.json``, ``truth/peptides.tsv``,
 ``truth/readthrough.tsv``) and the table-11 code. Interpretations pinned here (reported to the
 lead as spec ambiguities):
@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from giapsim.codons import CODE_11, STOPS
+from gippasim.codons import CODE_11, STOPS
 
 READTHROUGH_COLUMNS = [
     "locus_tag",

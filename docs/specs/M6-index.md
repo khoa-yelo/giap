@@ -1,6 +1,6 @@
 # M6 "Operons": issue index
 
-Spec: GIAP_SPEC.md §13 row M6. Deliverables: "pair table, discordance, missed operons, flags;
+Spec: GIPPA_SPEC.md §13 row M6. Deliverables: "pair table, discordance, missed operons, flags;
 RegulonDB calibration on the K-12 genome (§15.4)". **Gate:** "decoy FDR calibrated on simulations;
 UniOP and TerminatorNet cut-offs recalibrated (ADR); UniOP AUROC recorded", i.e. the `missed_operons`
 suite (R = 50 per PR / 300 nightly) meets FDR ≤ 0.1 + 2 SE, the `discordance` suite (R = 100 / 1,000)
@@ -30,7 +30,7 @@ and the simulations before the code (§14.1).
 after." So this index carries the **whole** of M6 — every table, test, calibration and ADR the spec
 owes — and splits it into two passes, as MVP-01 does:
 
-- **Pass 1 (integration):** 01, 04, 05 (both-detected branch), 06, 07, 08. End state: `giap run` on
+- **Pass 1 (integration):** 01, 04, 05 (both-detected branch), 06, 07, 08. End state: `gippa run` on
   sim100k writes `tables/pairs.tsv`, `tables/operons.tsv` and `tables/operon_flags.tsv`, with the
   one-detected test emitted in its spec-sanctioned `unestimated (no_detection_limit_model)` state.
 - **Pass 2 (hardening and the gate):** 02 (+ the M6-05H follow-up that turns the one-detected test
@@ -39,7 +39,7 @@ owes — and splits it into two passes, as MVP-01 does:
   on them: every default they would change already exists as a documented placeholder.
 
 Nothing is dropped; it is scheduled. Every issue that produces a table or a step states how it
-reaches `giap run`: that is M6-08 for the three tables, and M6-10 for the sensitivity rows.
+reaches `gippa run`: that is M6-08 for the three tables, and M6-10 for the sensitivity rows.
 
 ## How this design landed (three PRs, docs only)
 
@@ -62,9 +62,9 @@ all three have merged.
 | 3 | [M6-05](M6-05-discordance.md) | R | 1 (+H) | discordance: both-detected t test, BH family, `unestimated` states; **pass 2**: the one-detected P(miss) branch | 01, 04 (H: 02) | 220 | yes |
 | 4 | [M6-06](M6-06-missed-operons.md) | R | 1 | missed operons: s = −\|Δ\|, CV and SW decoys, larger FDR wins, q and lfdr | 01, 04 | 200 | yes |
 | 5 | [M6-07](M6-07-flags-and-operons-table.md) | R | 1 | evidence "yes" rules, the seven flags, `operons.tsv` per-TU aggregation | 05, 06 | 220 | no |
-| 6 | [M6-08](M6-08-operons-step-and-run.md) | T | 1 | the `operons` step, three writers + schemas, `operons.nf`, `main.nf`, nf-test, a real `giap run` | 04–07 | 320 | no |
+| 6 | [M6-08](M6-08-operons-step-and-run.md) | T | 1 | the `operons` step, three writers + schemas, `operons.nf`, `main.nf`, nf-test, a real `gippa run` | 04–07 | 320 | no |
 | 7 | [M6-02](M6-02-detection-limit-model.md) | S | 2 | detection-limit model: peptide logistic + Poisson-binomial `P_det`, replicate model, `p_miss` | none | 300 | yes |
-| 8 | [M6-03](M6-03-sim-operon-scenarios.md) | F | 2 | giapsim: operon null, planted co-abundant NO pairs, planted discordance, AR(1) attack, detection truth | none | 40 (+260 sim) | yes (light) |
+| 8 | [M6-03](M6-03-sim-operon-scenarios.md) | F | 2 | gippasim: operon null, planted co-abundant NO pairs, planted discordance, AR(1) attack, detection truth | none | 40 (+260 sim) | yes (light) |
 | 9 | [M6-09](M6-09-calibration-gate.md) | C | 2 | **the gate**: `missed_operons` FDR, `discordance` level, attack null, power recorded | 03, 05, 06 (+02) | 60 (+tests) | yes |
 | 10 | [M6-10](M6-10-sensitivity-operon-flags.md) | R | 2 | sensitivity family `operon_flags`; `full` variants UniOP 0.3 / 0.7 | 07, 08 | 110 | yes (light) |
 | 11 | [M6-11](M6-11-regulondb-fetch.md) | V | merged (#141) | `validation/fetch_regulondb.py`, RegulonDB 14.5.0 TU and terminator truth on K-12 | network (see below) | 180 | no |
@@ -79,7 +79,7 @@ M6-03 are written in parallel.
 
 ```text
 Pass 1   01 ─┬─► 05 ──┐
-             └─► 06 ──┴─► 07 ─► 08 ─► (giap run writes the three tables)
+             └─► 06 ──┴─► 07 ─► 08 ─► (gippa run writes the three tables)
          04 ─────────────┘  ┘
 Pass 2   02 ─► 05H (one-detected branch) ─┐
          03 ───────────────────────────────┴─► 09  (the gate)
@@ -96,7 +96,7 @@ split across two authors if needed. 05, 06 and 07 all need 04's frame, so 04 is 
 |---|---|---|
 | A (now) | 01, 04 | two independent PRs; 04 is the critical path |
 | B | 05, 06 | after A; both read one frame |
-| C | 07, 08 | 08 is the integration milestone: a real `sbatch scripts/slurm/giap_run.sbatch` on sim100k |
+| C | 07, 08 | 08 is the integration milestone: a real `sbatch scripts/slurm/gippa_run.sbatch` on sim100k |
 | D (hardening) | 02, 03 in parallel; then 05H, 09, 10 | 09 submits `calibration_full.sbatch` tasks `discordance`, `missed_operons` (≤ 2 jobs, ≤ 32 CPUs) |
 | E | 11 (merged), 12 | 12's PRs A, B, C0 land now; PR C waits for ADR-0022 accepted-by-khoa |
 
@@ -110,15 +110,15 @@ split across two authors if needed. 05, 06 and 07 all need 04's frame, so 04 is 
 | C5 | `tus.parquet` | M2-12 (merged) | `tu_id`, `genes` (transcription order), coordinates — `operons.tsv` is one row per TU |
 | C15 | `features.parquet` | M2-04 (merged) | rRNA / tRNA / ncRNA / tmRNA rows for `rna_between` |
 | P | `pairs_raw.parquet` | M2-12 (merged) | `gene_a`, `gene_b`, `uniop_p`, `source`; **same-strand pairs only** (see decision 1) |
-| L1 | `promoter_windows.parquet` | M2-13 (merged) | per-window Promotech scores for `giap.annotate.promoters.promoter_between` |
-| L2 | `terminators.parquet` | M2-15 (merged) | `giap.annotate.terminators.terminator_between` (called with `yes = 0.0` so the column is the raw maximum) |
-| L3 | `tx_rates.parquet` | M2-14 (merged) | `giap.annotate.promoter_calculator.tx_rate_between` |
+| L1 | `promoter_windows.parquet` | M2-13 (merged) | per-window Promotech scores for `gippa.annotate.promoters.promoter_between` |
+| L2 | `terminators.parquet` | M2-15 (merged) | `gippa.annotate.terminators.terminator_between` (called with `yes = 0.0` so the column is the raw maximum) |
+| L3 | `tx_rates.parquet` | M2-14 (merged) | `gippa.annotate.promoter_calculator.tx_rate_between` |
 | C9/C11/C16 | `peptides.norm.parquet`, `mapping/peptide_hits.tsv`, `work/peptide_runs.parquet` | M1-12, M3-16 (merged) | M6-02 only; `peptide_runs` is **not** in the M4-06 contract (decision 9) |
-| E | `giap.stats` | merged | `bh`, `tda_qvalues` (shape reference only), `poisson_binomial_sf`, `perm_p` |
+| E | `gippa.stats` | merged | `bh`, `tda_qvalues` (shape reference only), `poisson_binomial_sf`, `perm_p` |
 | T | calibration harness | M4-05 (merged) | `calibrate`, `check_level_pooled`, `check_fdr`; `replicates_fast/full.{discordance, missed_operons}` already exist in `tolerances.yaml` (protected, unchanged) |
 | K | config | merged `OperonsConfig` (`decoys`, `distance_bins_bp`, `pi0`), `annotation.uniop.pair_threshold`, `annotation.promoters.promotech_yes`, `annotation.terminators.terminatornet_yes`, `stats.alpha.operon_flags`, `abundance.observable_len`, `detection.min_peptides_sequences_only` | no `defaults.yaml` change needed |
-| Sim | giapsim | M4-07/08/09 (merged): TU layout, convergent/divergent frequencies, AR(1) TU abundance, `gene_sd`, `stoich_sd`, peptide evidence | M6-03 adds the operon scenarios |
-| W | `workflow/subworkflows/local/{annotate,context}.nf`, `GIAP_STEP`, `stepIn/kv/pick` | MVP-01 (merged, #129/#130) | M6-08 copies the CONTEXT pattern; `annotate.nf` must also **emit** L1–L3 (decision 6) |
+| Sim | gippasim | M4-07/08/09 (merged): TU layout, convergent/divergent frequencies, AR(1) TU abundance, `gene_sd`, `stoich_sd`, peptide evidence | M6-03 adds the operon scenarios |
+| W | `workflow/subworkflows/local/{annotate,context}.nf`, `GIPPA_STEP`, `stepIn/kv/pick` | MVP-01 (merged, #129/#130) | M6-08 copies the CONTEXT pattern; `annotate.nf` must also **emit** L1–L3 (decision 6) |
 
 ## RegulonDB: the blocked work, and what is needed from Khoa
 
@@ -211,7 +211,7 @@ the Poisson-binomial, the replicate model, the oriented r sample). Updates: `mul
 | "M6 operons; RegulonDB calibration (source currently unreachable)" | this index + M6-11/M6-12; the checkbox closes when both merge |
 | "M6: the simulator plants stop-codon readthrough (C-terminal extensions, ADR-0013) for `cterm_extension` calibration" | **not M6** in substance — it is an M3/M7 calibration need parked under the M6 heading. M6-03 does not implement it; the index records that it should move to M7's backlog line (lead to confirm, Q6) |
 | "MVP-01 pass 2 (#129 review): settle publishDir discipline … with the M6 writers" | M6-08 decision 4: `tables/*.tsv` is published, work Parquet is not |
-| "M2: move the step helpers (`_genes`, `_path`, `_replicons`) from `giap.steps.operons` to a public shared module before more step modules import them" | M6-08 does import them, so M6-08 performs the move (one small refactor PR-internal, named in its scope) |
+| "M2: move the step helpers (`_genes`, `_path`, `_replicons`) from `gippa.steps.operons` to a public shared module before more step modules import them" | M6-08 does import them, so M6-08 performs the move (one small refactor PR-internal, named in its scope) |
 | "M2: one shared IUPAC-aware reverse complement (… `operons.py` …)" | not touched by M6; stays in the backlog |
 | "M2-15: test the manifest `uncalibrated` flag …" | **superseded**: ADR-0021 Amendment 1 drops the flag. M6-08 records cut-off provenance in the manifest instead and the backlog line is rewritten, not deleted (Q5) |
 | "M4-15 decision 10: step-level I/O convention (steps read Parquet directly)" | M6-08 follows the merged convention and does not change it |
@@ -241,12 +241,12 @@ the Poisson-binomial, the replicate model, the oriented r sample). Updates: `mul
 
 No external tool, database or network access is needed by 01–10; memory < 2 GB; the pair table is
 O(n_genes) rows and the heaviest loop is the per-pair evidence lookup. The full calibration
-(1,000 + 300 replicates plus the attacks and the 9-cell power grid) fits one `giap-calibration`
+(1,000 + 300 replicates plus the attacks and the 9-cell power grid) fits one `gippa-calibration`
 array within R14. Only 11–12 need the network.
 
 ## Decisions taken in these specs (for the lead to confirm)
 
-1. `giap.annotate.operons.adjacent_pairs` gains a `same_strand: bool = True` parameter so adjacency
+1. `gippa.annotate.operons.adjacent_pairs` gains a `same_strand: bool = True` parameter so adjacency
    and origin wrapping have **one** definition; M6-04 calls it with `same_strand=False` (M6-04 Q1).
 2. The pair chain contains every C2 gene (cds, sorf, pseudogene), including `partial` ones; `partial`
    genes keep their geometry but are never eligible for a test (M6-04 Q2).
@@ -275,7 +275,7 @@ array within R14. Only 11–12 need the network.
 ## Questions that need Khoa (not the lead)
 
 1. **RegulonDB TLS** (above): may the GlobalSign intermediate be fetched from GlobalSign and pinned,
-   or should GIAP wait for RegulonDB to publish a complete chain? Nothing else unblocks M6-11.
+   or should GIPPA wait for RegulonDB to publish a complete chain? Nothing else unblocks M6-11.
 2. ADR-0022 is a protected-file change and needs Khoa's acceptance once M6-12 produces numbers.
 
 ## Lead decisions on the designer's questions (2026-10-21)
@@ -285,7 +285,7 @@ array within R14. Only 11–12 need the network.
    nothing mixes. When M6-02 turns it on, `P(miss)` is reported **with no q-value** and stays out of the
    BH family, unless M6-09 attack C shows the mixture is safe — in which case an ADR records why. This
    reverses the spec's reading deliberately; the spec predates the observation.
-2. **M6-04 Q1 — extend `giap.annotate.operons.adjacent_pairs` with `same_strand=False`.** Accepted. One
+2. **M6-04 Q1 — extend `gippa.annotate.operons.adjacent_pairs` with `same_strand=False`.** Accepted. One
    definition of adjacency and origin wrapping beats two that can drift apart.
 3. **M6-08 Q1 — `annotate.nf` emits `promoter_windows`, `terminators`, `tx_rates`.** Accepted; re-recording
    the M2 fixtures to teach `context_layers` a new output costs more and buys nothing.

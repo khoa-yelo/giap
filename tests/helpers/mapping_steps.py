@@ -6,14 +6,14 @@ Conventions pinned by the tests (the spec names files, not keys; see each test m
   ``parse_bakta`` already uses), ``peptides`` (``peptides.norm.parquet``, the M4 loader key),
   ``bakta_json`` (until the ext ``bakta`` step supplies it, as in the operon tests); the proteins
   key is whatever the ext ``miniprot`` step declares besides ``genome`` (``proteins.long.faa``).
-* Intermediate keys follow the §6.2 file names: ``sixframe`` (``.npz``, ``giap.mapping.sixframe
-  .save_index`` format), ``hits_exact`` and ``hits_tolerant`` (Parquet, ``giap.mapping.hits``
+* Intermediate keys follow the §6.2 file names: ``sixframe`` (``.npz``, ``gippa.mapping.sixframe
+  .save_index`` format), ``hits_exact`` and ``hits_tolerant`` (Parquet, ``gippa.mapping.hits``
   columns), ``placement`` (Parquet, one row per placed query with ``peptide``, ``placement_q``).
 * The seven §7.2.9 Module 2 files keep their §7.2.9 file names. They are located either as one
   directory (any output key or ``OUT`` subdirectory) holding all seven, or as output keys whose
   names equal the file names without ``.tsv`` and with ``.`` → ``_`` (``mappings_bed``).
 
-``drive`` runs the mapping chain through ``giap.steps.registry.run_step`` like the local executor,
+``drive`` runs the mapping chain through ``gippa.steps.registry.run_step`` like the local executor,
 but with *injection*: an external step listed in ``inject`` is replaced by recorded files for its
 output keys (miniprot / tblastn fixtures under ``tests/data/recorded``); any other external step
 gets empty files when its outputs are needed (a tool that found nothing). Tests never start a tool.
@@ -69,19 +69,19 @@ RECORDED_TBLASTN = REPO / "tests/data/recorded/blast/2.16.0/sim100k"
 
 def fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
     """A fresh registry holding every real step (robust to earlier temporary registries)."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":  # reloading the registry itself would drop the patched dict
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
 def mapping_module() -> ModuleType:
-    return importlib.import_module("giap.steps.mapping")
+    return importlib.import_module("gippa.steps.mapping")
 
 
 # ---------------------------------------------------------------- simulator + preflight
@@ -91,7 +91,7 @@ def mapping_module() -> ModuleType:
 class SimRun:
     """A simulated genome with proteomics and its preflight work files."""
 
-    res: Any  # giapsim SimResult
+    res: Any  # gippasim SimResult
     genome: Path  # genome.norm.fa
     peptides: Path  # peptides.norm.parquet
     proteins_long: Path | None  # proteins.long.faa (only with --proteins)
@@ -99,15 +99,15 @@ class SimRun:
 
 
 def write_test_db(db: Path, contaminants: Path | None = None) -> Path:
-    """A test ``$GIAP_DB_DIR`` (M3-17 review decision 12: tests never read the real one).
+    """A test ``$GIPPA_DB_DIR`` (M3-17 review decision 12: tests never read the real one).
 
     ``db_manifest.json`` in the per-name form ``read_manifest`` accepts (``{"<name>": {"version":
-    ...}}``; the ``giap setup`` item form cannot name the ``genomad``/``antismash`` binaries)
+    ...}}``; the ``gippa setup`` item form cannot name the ``genomad``/``antismash`` binaries)
     lists every requirement of every module at its pinned version (``1.0`` when unpinned). With
     ``contaminants`` the library is copied to ``contaminants/contaminants.fasta`` (M3-15) and the
     manifest gets a ``contaminants`` entry with that ``path``.
     """
-    from giap.preflight.environment import _ROWS
+    from gippa.preflight.environment import _ROWS
 
     db.mkdir(parents=True, exist_ok=True)
     doc: dict[str, dict[str, str]] = {
@@ -126,9 +126,9 @@ def write_test_db(db: Path, contaminants: Path | None = None) -> Path:
 
 
 def preflight(res: Any, out: Path, proteins: bool = False) -> SimRun:
-    """``giap preflight`` on the simulator's genome, peptides and Bakta-like JSON (with a test
-    ``$GIAP_DB_DIR`` next to ``out``)."""
-    from giap.cli import cli
+    """``gippa preflight`` on the simulator's genome, peptides and Bakta-like JSON (with a test
+    ``$GIPPA_DB_DIR`` next to ``out``)."""
+    from gippa.cli import cli
 
     args = ["preflight", "--genome", str(res.genome_fasta), "--peptides", str(res.peptides)]
     args += ["--annotation", str(res.bakta_json), "--outdir", str(out)]
@@ -137,7 +137,7 @@ def preflight(res: Any, out: Path, proteins: bool = False) -> SimRun:
     if proteins:
         args += ["--proteins", str(res.proteins_faa)]
     db = write_test_db(out.with_name(out.name + "_db"))
-    r = CliRunner().invoke(cli, args, env={"GIAP_DB_DIR": str(db)})
+    r = CliRunner().invoke(cli, args, env={"GIPPA_DB_DIR": str(db)})
     assert r.exit_code == 0, r.output
     work = out / "work" / "preflight"
     long = work / "proteins.long.faa"
@@ -157,8 +157,8 @@ def simulate_with_proteomics(
     proteomics: Any | None = None,
     proteins: bool = False,
 ) -> SimRun:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     cfg = SimConfig(
         genome_length=length,

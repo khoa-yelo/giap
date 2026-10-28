@@ -1,4 +1,4 @@
-"""Nextflow launcher (M2-06 examples 1-4; GIAP_SPEC.md §6.3 "Launch", "Error strategy").
+"""Nextflow launcher (M2-06 examples 1-4; GIPPA_SPEC.md §6.3 "Launch", "Error strategy").
 
 Pure Python: no Nextflow is started. ``run_nextflow`` is exercised with a stand-in command (the
 current Python interpreter) so only its exit-code mapping and trace parsing are tested.
@@ -6,12 +6,12 @@ current Python interpreter) so only its exit-code mapping and trace parsing are 
 Conventions assumed here (M2-06 public interface):
 - ``write_params`` writes ``OUT/work/params.json`` and a file named ``resolved_config.yaml`` under
   ``OUT``; ``resolve_config(resolved_config.yaml)`` gives back the same configuration (the file is
-  what ``GIAP_STEP`` passes to ``giap _step --config``).
+  what ``GIPPA_STEP`` passes to ``gippa _step --config``).
 - ``params.json`` carries ``threads``, ``memory``, ``outdir``, ``modules`` and ``annotation``
   (the ``nextflow.config`` params), and every input path as given (absolute).
 - ``failed_step`` returns the last FAILED row whose task has no later COMPLETED row (review
   decision 2) and names the step by the process name's last ``:`` component, lower-cased
-  (``ANNOTATE:TERMINATORNET (chr1)`` -> ``terminatornet``); for the generic ``GIAP_STEP`` process
+  (``ANNOTATE:TERMINATORNET (chr1)`` -> ``terminatornet``); for the generic ``GIPPA_STEP`` process
   the tag (the Python step name) is the step. The work directory is the absolute task directory
   ``OUT/work/<hash dir>``.
 """
@@ -30,15 +30,15 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import GippaConfig, resolve_config
+from gippa.exitcodes import ExitCode
 
 
 def _nf() -> ModuleType:
-    return importlib.import_module("giap.runner.nextflow")
+    return importlib.import_module("gippa.runner.nextflow")
 
 
-W = Path("/opt/giap/workflow/main.nf")
+W = Path("/opt/gippa/workflow/main.nf")
 
 
 # ---------------------------------------------------------------- launch_command (examples 1, 2)
@@ -195,7 +195,7 @@ def test_write_params_deterministic_property(
     tmp_path_factory: pytest.TempPathFactory, threads: int, modules: list[str], seed: int
 ) -> None:
     base = tmp_path_factory.mktemp("wp")
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {**resolve_config().model_dump(), "threads": threads, "modules": modules, "seed": seed}
     )
     inputs = _inputs(base)
@@ -288,10 +288,10 @@ def test_failed_step_last_unrecovered_failed_row(tmp_path: Path) -> None:
     assert _nf().failed_step(trace) == ("terminatornet", _workdir(out, "6d/bbbbbb"))
 
 
-def test_failed_step_giap_step_uses_tag(tmp_path: Path) -> None:
+def test_failed_step_gippa_step_uses_tag(tmp_path: Path) -> None:
     out = tmp_path / "OUT"
     trace = _trace(
-        out, [_row(out, 1, "8e/cccccc", "ANNOTATE:GIAP_STEP (parse_bakta)", "FAILED", "4")]
+        out, [_row(out, 1, "8e/cccccc", "ANNOTATE:GIPPA_STEP (parse_bakta)", "FAILED", "4")]
     )
     assert _nf().failed_step(trace) == ("parse_bakta", _workdir(out, "8e/cccccc"))
 

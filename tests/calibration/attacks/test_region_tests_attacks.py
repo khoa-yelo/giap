@@ -1,4 +1,4 @@
-"""Attack nulls for the M4-17 region tests (GIAP_SPEC.md §8.5 attacks 2 and 4; statistician-owned).
+"""Attack nulls for the M4-17 region tests (GIPPA_SPEC.md §8.5 attacks 2 and 4; statistician-owned).
 
 Statistics as ADR-0018: studentised O - E (effect O - E), HL on log2 abundance residualised on the
 M4-13 detectability covariates. Layout as the ``regions`` suite (M4-07 default regions + 60-gene
@@ -52,7 +52,7 @@ A2_HL_BETA_ABUNDANCE = 0.5
 
 
 def _beta(**shift: float) -> dict[str, float]:
-    import giapsim.expression as ex
+    import gippasim.expression as ex
 
     b = dict(ex.DEFAULT_BETA)
     for k, v in shift.items():
@@ -177,7 +177,7 @@ def test_a2_scenarios_put_the_prophage_where_claimed() -> None:
 
 
 def _a4_results(seed: int, copy_log2: float) -> pd.DataFrame:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = np.random.default_rng(seed)
     kw = {"ar1_rho": 0.5, "plasmid_copy_log2": {"p1": copy_log2}}
@@ -241,7 +241,7 @@ def test_atu_region_specific_tu_fragmentation_hl_at_level(full: bool) -> None:
     level, pooled over the four chromosome types (m = 4) as in C1."""
     from _gate import calibrate_levels
 
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     R = C.replicates("regions", full)
     n = 4500 if full else 1000
@@ -268,7 +268,7 @@ def test_atu_missing_region_tu_labels_do_not_change_the_hl_p(seed: int) -> None:
     either the region tests refuse missing labels (ValueError, as M4-13 and the TU-block bootstrap
     do; C6 makes ``tu_id`` non-null), or the HL p with the region's labels missing equals the HL p
     with every label missing (labels ignored replicon-wide; at level, see A-TU above)."""
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     def run(blank: str) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
@@ -315,7 +315,7 @@ def test_alin_linear_replicon_hl_at_level(full: bool) -> None:
     rho = 0.9. Chromosome HL must stay at level, pooled over the four region types (m = 4)."""
     from _gate import calibrate_levels
 
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     R = C.replicates("regions", full)
     n = 4500 if full else 1000

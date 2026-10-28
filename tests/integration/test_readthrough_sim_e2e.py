@@ -5,10 +5,10 @@ through ``makedb --patch`` with ``X`` at the old stop. Each planted stop with a 
 peptide is a ``stop_codon`` ALT site with the planted residue"; test plan 16b "an e2e local run on
 sim100k"; PR 16b-3 per the lead decision in the #335 review round).
 
-Build: giapsim ``SIM100K`` with M3-19 proteomics, M3-20 de novo reads and every precomputed layer
+Build: gippasim ``SIM100K`` with M3-19 proteomics, M3-20 de novo reads and every precomputed layer
 (as ``test_m7_04_variants_run.py``), ``n_readthrough = 40`` (lead decision in 16b-3: at 10 no
-cterm row can be called); ``giap run --executor local --modules core`` on the **de novo** table
-(``genome_relation`` default), then ``giap makedb --patch`` on the run's ``annotation_patch.gff3``.
+cterm row can be called); ``gippa run --executor local --modules core`` on the **de novo** table
+(``genome_relation`` default), then ``gippa makedb --patch`` on the run's ``annotation_patch.gff3``.
 
 **Why de novo input (test-author measurement, reported to the lead; main 1549a930, seed
 20261014).** Read-through rows are cost-1 tolerant rows (pi = 1 at m >= 1), so the smallest
@@ -67,10 +67,10 @@ def _flags(s: str) -> set[str]:
 
 
 def _cli(args: list[str], db: Path) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -95,23 +95,23 @@ def _fasta(path: Path) -> dict[str, str]:
 def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     from helpers.mapping_steps import write_test_db
 
-    import giapsim
-    from giap.mapping.sixframe import load_stop_cells
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippa.mapping.sixframe import load_stop_cells
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     tmp = tmp_path_factory.mktemp("rt_e2e")
     cfg = dataclasses.replace(
-        giapsim.SIM100K,
+        gippasim.SIM100K,
         proteomics=ProteomicsConfig(),
         denovo=DenovoConfig(),
         write_precomputed=True,
         n_readthrough=N_READTHROUGH,  # type: ignore[call-arg]
     )
-    sim = giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp / "sim")
-    zero = giapsim.simulate(
+    sim = gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp / "sim")
+    zero = gippasim.simulate(
         dataclasses.replace(cfg, n_readthrough=0),  # type: ignore[call-arg]
-        giapsim.SIM100K_SEED,
+        gippasim.SIM100K_SEED,
         tmp / "sim0",
     )
     db = write_test_db(tmp / "test_db")

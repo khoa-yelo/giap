@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Fail if any file under src/ mentions ``Rscript`` (M8-12 licence boundary; GIAP_SPEC.md R5).
+"""Fail if any file under src/ mentions ``Rscript`` (M8-12 licence boundary; GIPPA_SPEC.md R5).
 
-goseq and BiasedUrn live only in the conda env giap-golden-r; R fgsea runs in giap-fgsea, and
-src/ starts R only through workflow/bin/giap_fgsea.R (ADR-0038). Every file is scanned, not only
-``*.py``. One exception (M11-14 14c): in giap/io/fgsea_r.py, the image argv list that starts
+goseq and BiasedUrn live only in the conda env gippa-golden-r; R fgsea runs in gippa-fgsea, and
+src/ starts R only through workflow/bin/gippa_fgsea.R (ADR-0038). Every file is scanned, not only
+``*.py``. One exception (M11-14 14c): in gippa/io/fgsea_r.py, the image argv list that starts
 ``["Rscript", BAKED_SCRIPT`` (optionally with ``"--vanilla"`` between) runs that same script in a
 separate process; any other mention there, ``-e`` included, still fails.
 Usage: check_no_rscript.py [ROOT] (default src).
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 NEEDLE = b"Rscript"
-IMAGE_LAUNCHER = ("giap", "io", "fgsea_r.py")
+IMAGE_LAUNCHER = ("gippa", "io", "fgsea_r.py")
 IMAGE_ARGV = re.compile(rb'\["Rscript", (?:"--vanilla", )?BAKED_SCRIPT[,\]]')
 
 

@@ -1,9 +1,9 @@
-"""M6-08 examples 1-3 through ``giap run`` on sim100k (docs/specs/M6-08-operons-step-and-run.md;
-GIAP_SPEC.md §6.4 "byte-identical tables", §9.1).
+"""M6-08 examples 1-3 through ``gippa run`` on sim100k (docs/specs/M6-08-operons-step-and-run.md;
+GIPPA_SPEC.md §6.4 "byte-identical tables", §9.1).
 
 The inputs are the M2-21 executor-equality inputs
 (tests/integration/test_m2_21_local_vs_nextflow.py):
-the giapsim SIM100K genome with M3-19 proteomics and every precomputed layer, ``--modules core``
+the gippasim SIM100K genome with M3-19 proteomics and every precomputed layer, ``--modules core``
 and one seed, with the test DB from tests/helpers/mapping_steps.py.
 
 * Example 1: ``--executor local`` with ``--abundance`` writes ``OUT/tables/pairs.tsv``,
@@ -34,18 +34,18 @@ pytestmark = [pytest.mark.slow]
 
 SEED = 7
 TABLES = ("pairs.tsv", "operons.tsv", "operon_flags.tsv")
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +56,7 @@ def db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _run(sim: Any, out: Path, db: Path, *extra: str, abundance: bool = True) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
     if abundance:
@@ -65,7 +65,7 @@ def _run(sim: Any, out: Path, db: Path, *extra: str, abundance: bool = True) -> 
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
     args += ["--outdir", str(out), "--modules", "core", "--seed", str(SEED), *extra]
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -103,8 +103,8 @@ def _validate(path: Path, stem: str) -> None:
 
 def _chain_counts(out: Path) -> tuple[int, int]:
     """Adjacent pairs and SW triples of the run's own C2 genes and C1 replicons."""
-    from giap.annotate.layers import genes_of, replicons_of
-    from giap.operons.pairs import adjacent_chain, sandwich_pairs
+    from gippa.annotate.layers import genes_of, replicons_of
+    from gippa.operons.pairs import adjacent_chain, sandwich_pairs
 
     genes = genes_of(pd.read_parquet(out / "work" / "genes"))
     reps = replicons_of(pd.read_parquet(out / "work" / "replicons"))
@@ -130,7 +130,7 @@ def test_example_1_pairs_rows_and_tests(local: Path) -> None:
 
 
 def test_m6_10_sensitivity_has_operon_flags_rows(local: Path) -> None:
-    """M6-10 acceptance: a real ``giap run`` writes the ``operon_flags`` family into
+    """M6-10 acceptance: a real ``gippa run`` writes the ``operon_flags`` family into
     ``tables/sensitivity.tsv``; sim100k calls no flag, so n is 0 and J is NA (review #243 B1)."""
     df = _read(local / "tables" / "sensitivity.tsv")
     rows = df[df["family"] == "operon_flags"]
@@ -143,7 +143,7 @@ def test_example_3_no_abundance(local_noab: Path) -> None:
     assert pairs.is_file()
     assert len(_read(pairs)) > 0
     flags = local_noab / "tables" / "operon_flags.tsv"
-    from giap.operons.flags import FLAG_COLUMNS
+    from gippa.operons.flags import FLAG_COLUMNS
 
     assert flags.read_text(encoding="utf-8") == "\t".join(FLAG_COLUMNS) + "\n"
     _validate(flags, "operon_flags")

@@ -33,7 +33,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from scipy.special import expit
 
-from giap.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
+from gippa.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
 
 CONTRACT = 1e-11
 TINY = float(np.finfo(np.float64).tiny)

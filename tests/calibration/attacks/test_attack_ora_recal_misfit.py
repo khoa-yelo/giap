@@ -1,5 +1,5 @@
 """Attack arms 4d-4f on the recalibrated TU-counted ORA, plus the skip path (statistician review
-of PR #179; spec M8-04 decision 12, ADR-0035 decision 3; GIAP_SPEC.md §8.4, §8.5).
+of PR #179; spec M8-04 decision 12, ADR-0035 decision 3; GIPPA_SPEC.md §8.4, §8.5).
 
 Proposed repo path: tests/calibration/attacks/test_attack_ora_recal_misfit.py
 
@@ -16,7 +16,7 @@ only the categories or the detection depth, to the kinds real collections have:
 - **4f, deep coverage.** 4b at c = 2.5 with eta0 = +1.5 (~75 % of genes detected), using
   4b's own ``large`` categories.
 
-Review evidence (``$GIAP_ROOT/stat/m804b/``, Slurm 1867861/1867862/1867888, R = 3,000):
+Review evidence (``$GIPPA_ROOT/stat/m804b/``, Slurm 1867861/1867862/1867888, R = 3,000):
 recalibrated rejection rates against the pooled bound (alpha 0.01 / 0.05 / 0.10). The oracle q
 (exact TU marginal) is at level in every cell, so the misfit is in the recalibration model.
 
@@ -94,7 +94,7 @@ def _sets(sim: Sim, rng: np.random.Generator, kind: str, m: int) -> dict[str, fr
 
 
 def _tables(scenario: str, i: int) -> tuple[dict[str, pd.DataFrame], Sim]:
-    from giap.function import ora
+    from gippa.function import ora
 
     kw, kinds = SCENARIOS[scenario]
     rng = C.replicate_rng(f"{SUITE}.attack_recal_misfit.{scenario}.sim", i)
@@ -159,7 +159,7 @@ def test_attack_recal_misfit_at_level_or_flagged(scenario: str, teeth_log: Path)
 
 def test_skipped_recalibration_flags_every_row() -> None:
     """folds=None (M4-13 constant model) uses the raw q: every row carries FLAG."""
-    from giap.function import ora
+    from gippa.function import ora
 
     rng = np.random.default_rng(7)
     sim = simulate(rng, c=2.5)

@@ -1,4 +1,4 @@
-"""V8 ``cog_abundance``: log2 abundance per COG category (M9-06; GIAP_SPEC.md §10.2 V8).
+"""V8 ``cog_abundance``: log2 abundance per COG category (M9-06; GIPPA_SPEC.md §10.2 V8).
 
 Tests the plotted data (``Instance.data`` = ``plots/data/V08_cog_abundance.tsv``), category order,
 the strip/violin switch at > 50 measured values, that imputed and partial genes are never drawn,
@@ -7,7 +7,7 @@ baselines (M9-25).
 
 Interface assumed where the spec leaves it open:
 
-- ``giap.viz.detection`` registers ``V08`` (name ``cog_abundance``, ``needs=("genes_tsv",)``,
+- ``gippa.viz.detection`` registers ``V08`` (name ``cog_abundance``, ``needs=("genes_tsv",)``,
   ``module="core"``, no ``layers``: ``layer_missing:cog`` draws the "none" category, it does not
   skip). One ``Instance`` with ``suffix=None``.
 - Data columns, exactly: ``category, super_category, locus_tag, abundance_log2, detected,
@@ -41,15 +41,15 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from matplotlib.axes import Axes
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k" / "m4"
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = [
     "category",
     "super_category",
@@ -72,7 +72,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -129,12 +129,12 @@ def _out(tmp: Path, genes: Sequence[dict[str, object]] | None, flags: Sequence[s
 
 
 def _v08() -> base.PlotSpec:
-    import giap.viz.detection  # noqa: F401  (registers V07 and V08)
+    import gippa.viz.detection  # noqa: F401  (registers V07 and V08)
 
     return base.registered()["V08"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v08().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -190,7 +190,7 @@ def test_v08_is_registered_as_cog_abundance() -> None:
     assert spec.layers == ()
 
 
-def test_no_genes_tsv_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_genes_tsv_is_skipped(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _v08().fn(RunView.from_outdir(_out(tmp_path, None)), cfg) == Skip(
         "input_absent:genes_tsv"
     )
@@ -199,17 +199,17 @@ def test_no_genes_tsv_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- data TSV (example 4) ---------------------------------------------------------------------
 
 
-def test_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     assert inst.suffix is None
     assert list(inst.data.columns) == COLUMNS
 
 
-def test_example4_category_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_category_order(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _order(_render(_out(tmp_path, EXAMPLE4), cfg)) == ["J", "K", "L", "C"]
 
 
-def test_example4_summary_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_summary_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     s = _summary(_render(_out(tmp_path, EXAMPLE4), cfg))
     assert sorted(s.index.astype(str)) == ["C", "J", "K", "L"]
     want = {"J": (22.0, 4, 3, 0), "K": (21.0, 1, 1, 0), "L": (21.0, 1, 1, 0), "C": (18.5, 3, 3, 1)}
@@ -223,7 +223,7 @@ def test_example4_summary_rows(tmp_path: Path, cfg: GiapConfig) -> None:
         ), cat
 
 
-def test_example4_multi_letter_gene_under_each_letter(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_multi_letter_gene_under_each_letter(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     for cat in ("K", "L"):
         rows = _genes(inst, cat)
@@ -231,7 +231,7 @@ def test_example4_multi_letter_gene_under_each_letter(tmp_path: Path, cfg: GiapC
         assert _num(rows.iloc[0]["abundance_log2"]) == 21.0
 
 
-def test_gene_rows_sorted_by_locus_tag_with_drawn_values(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_gene_rows_sorted_by_locus_tag_with_drawn_values(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     j = _genes(inst, "J")
     assert list(j["locus_tag"].astype(str)) == ["j1", "j2", "j3", "j4"]
@@ -242,14 +242,14 @@ def test_gene_rows_sorted_by_locus_tag_with_drawn_values(tmp_path: Path, cfg: Gi
     assert _isna(c.iloc[2]["abundance_log2"])  # imputed: never a drawn value
 
 
-def test_partial_genes_and_imputed_values_are_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_partial_genes_and_imputed_values_are_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     assert "jp" not in set(inst.data["locus_tag"].dropna().astype(str))
     values = {_num(v) for v in inst.data["abundance_log2"] if not _isna(v)}
     assert values.isdisjoint({30.0, 99.0})
 
 
-def test_super_category_column(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_super_category_column(tmp_path: Path, cfg: GippaConfig) -> None:
     s = _summary(_render(_out(tmp_path, EXAMPLE4), cfg))
     assert str(s.loc["J", "super_category"]) == "information"
     assert str(s.loc["C", "super_category"]) == "metabolism"
@@ -258,32 +258,32 @@ def test_super_category_column(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- drawing ----------------------------------------------------------------------------------
 
 
-def test_example4_drawn_points_are_the_measured_values(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_drawn_points_are_the_measured_values(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     assert _drawn_values(inst) == sorted(DRAWN)
     assert polys(_ax(inst)) == []  # every category has <= 50 values: strips only
 
 
-def test_example4_x_ticks_left_to_right(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_x_ticks_left_to_right(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, EXAMPLE4), cfg)
     labels = texts_left_to_right(inst.figure, _ax(inst), set())
     assert [t.split()[0] for t in labels] == ["J", "K", "L", "C"]
 
 
-def test_detected_fraction_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_detected_fraction_labels(tmp_path: Path, cfg: GippaConfig) -> None:
     found = texts(_render(_out(tmp_path, EXAMPLE4), cfg).figure)
     assert {"3/4", "1/1", "3/3"} <= set(found)
     assert found.count("1/1") == 2  # K and L
 
 
-def test_points_coloured_by_super_category(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_points_coloured_by_super_category(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _ax(_render(_out(tmp_path, EXAMPLE4), cfg))
     by_y = {round(m.y, 9): m for m in markers(ax)}
     assert style.COG_SUPER_COLOUR["information"] in by_y[20.0].colours()
     assert style.COG_SUPER_COLOUR["metabolism"] in by_y[18.0].colours()
 
 
-def test_jitter_is_deterministic_and_within_the_category(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_jitter_is_deterministic_and_within_the_category(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path / "a", EXAMPLE4)
     first, second = _render(out, cfg), _render(out, cfg)
     pts = [sorted((round(m.x, 9), round(m.y, 9)) for m in markers(_ax(i))) for i in (first, second)]
@@ -293,7 +293,7 @@ def test_jitter_is_deterministic_and_within_the_category(tmp_path: Path, cfg: Gi
     assert max(m.x for m in j) - min(m.x for m in j) < 1.0
 
 
-def test_input_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_input_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GippaConfig) -> None:
     a = _render(_out(tmp_path / "a", EXAMPLE4), cfg)
     b = _render(_out(tmp_path / "b", list(reversed(EXAMPLE4))), cfg)
     pd.testing.assert_frame_equal(a.data.reset_index(drop=True), b.data.reset_index(drop=True))
@@ -304,7 +304,7 @@ def test_input_row_order_does_not_change_the_plot(tmp_path: Path, cfg: GiapConfi
 
 @pytest.mark.parametrize(("n", "violin"), [(50, False), (51, True), (60, True)])
 def test_strip_violin_switch_above_50(
-    tmp_path: Path, cfg: GiapConfig, n: int, violin: bool
+    tmp_path: Path, cfg: GippaConfig, n: int, violin: bool
 ) -> None:
     genes = [g(f"j{i:03d}", "J", 15.0 + i / 10) for i in range(n)]
     genes += [g("c1", "C", 10.0), g("c2", "C", 11.0)]
@@ -321,14 +321,14 @@ def test_strip_violin_switch_above_50(
     assert {10.0, 11.0} <= {round(m.y, 9) for m in markers(ax)}  # C stays a strip
 
 
-def test_single_measured_value_is_one_point_no_violin(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_single_measured_value_is_one_point_no_violin(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, [g("k1", "K", 21.0), g("k2", "K", None, detected=False)]), cfg)
     ax = _ax(inst)
     assert _drawn_values(inst) == [21.0]
     assert polys(ax) == []
 
 
-def test_none_and_unmeasured_categories_last(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_none_and_unmeasured_categories_last(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         g("n1", None, 30.0),  # highest value, still last
         g("e1", "E", None, detected=False),
@@ -343,7 +343,7 @@ def test_none_and_unmeasured_categories_last(tmp_path: Path, cfg: GiapConfig) ->
     assert _isna(_summary(inst).loc["E", "median_log2"])
 
 
-def test_median_ties_broken_by_letter(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_median_ties_broken_by_letter(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [g("m1", "M", 20.0), g("e1", "E", 20.0), g("a1", "A", 20.0)]
     assert _order(_render(_out(tmp_path, genes), cfg)) == ["A", "E", "M"]
 
@@ -351,13 +351,13 @@ def test_median_ties_broken_by_letter(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- titles -----------------------------------------------------------------------------------
 
 
-def test_example4_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_title(tmp_path: Path, cfg: GippaConfig) -> None:
     title = _render(_out(tmp_path, EXAMPLE4), cfg).title
     # J has 3 measured genes: below the n >= 5 needed to claim the highest median (real-data fixes)
     assert title == "No COG category has 5 or more measured genes (most: J, 3 genes)"
 
 
-def test_no_measured_abundance_draws_bars(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_measured_abundance_draws_bars(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         g("j1", "J", None),
         g("j2", "J", None, detected=False),
@@ -372,7 +372,7 @@ def test_no_measured_abundance_draws_bars(tmp_path: Path, cfg: GiapConfig) -> No
     assert _order(inst) == ["C", "J"]  # no measured value anywhere: by letter
 
 
-def test_undetected_abundance_is_not_measured(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_undetected_abundance_is_not_measured(tmp_path: Path, cfg: GippaConfig) -> None:
     """The validation run: abundance on every gene but none detected."""
     genes = [g(f"g{i}", "J", -0.1 * i, detected=False) for i in range(4)]
     inst = _render(_out(tmp_path, genes), cfg)
@@ -380,7 +380,7 @@ def test_undetected_abundance_is_not_measured(tmp_path: Path, cfg: GiapConfig) -
     assert _num(_summary(inst).loc["J", "n_detected"]) == 0
 
 
-def test_layer_missing_cog_one_none_category(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_layer_missing_cog_one_none_category(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [g("a", None, 20.0), g("b", None, 22.0), g("c", None, None, detected=False)]
     inst = _render(_out(tmp_path, genes, flags=["layer_missing:cog"]), cfg)
     assert _order(inst) == ["none"]
@@ -393,7 +393,7 @@ def test_layer_missing_cog_one_none_category(tmp_path: Path, cfg: GiapConfig) ->
 
 
 @pytest.mark.parametrize("case", ["header_only", "partial_only"])
-def test_no_eligible_genes_is_an_empty_state(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_no_eligible_genes_is_an_empty_state(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     genes = [] if case == "header_only" else [g("p1", "J", 20.0, partial=True)]
     inst = _render(_out(tmp_path, genes), cfg)
     assert list(inst.data.columns) == COLUMNS
@@ -401,7 +401,7 @@ def test_no_eligible_genes_is_an_empty_state(tmp_path: Path, cfg: GiapConfig, ca
     assert all(not ax.axison for ax in inst.figure.axes)
 
 
-def test_example6_two_runs_identical_tsv(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_two_runs_identical_tsv(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path / "run", EXAMPLE4)
     blobs = []
     for name in ("x", "y"):
@@ -478,7 +478,7 @@ def test_property_summary_order_and_drawn_values(
 # --- golden fixture and the validation run ----------------------------------------------------
 
 
-def test_renders_on_the_sim50k_golden_genes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_sim50k_golden_genes(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     (out / "tables" / "genes.tsv").write_bytes((GOLDEN / "genes.tsv").read_bytes())
     inst = _render(out, cfg)
@@ -490,7 +490,7 @@ def test_renders_on_the_sim50k_golden_genes(tmp_path: Path, cfg: GiapConfig) -> 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     """2026-10-22 validation run: no COG letters, nothing detected."""
     inst = _render(VAL_OUT, cfg)
     assert _order(inst) == ["none"]

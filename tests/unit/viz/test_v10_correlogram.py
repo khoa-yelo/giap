@@ -1,15 +1,15 @@
 """V10 ``correlogram``: is abundance (and detection) autocorrelated along the replicon? (M9-09;
-GIAP_SPEC.md §10.2 V10, §7.3.5(c); ADR-0020: raw ``value``, envelopes ``null_lo``/``null_hi`` "for
+GIPPA_SPEC.md §10.2 V10, §7.3.5(c); ADR-0020: raw ``value``, envelopes ``null_lo``/``null_hi`` "for
 the V10 figure"; lead decision 2026-10-22: filled markers follow the TU-block null, both envelopes
 are drawn).
 
 V10 draws ``tables/autocorrelation.tsv`` and recomputes nothing: the tests patch every public
-function of ``giap.stats.autocorr`` to raise. The oracle for markers, bands, lines and the claim is
+function of ``gippa.stats.autocorr`` to raise. The oracle for markers, bands, lines and the claim is
 the fixture table itself (its ``null_lo``, ``null_hi``, ``null_mean`` and ``q_value`` columns).
 
 Interface assumed where the spec leaves it open:
 
-- The plot is registered as ``V10`` / ``correlogram`` by some ``giap.viz`` module (found by
+- The plot is registered as ``V10`` / ``correlogram`` by some ``gippa.viz`` module (found by
   walking the package); ``autocorrelation`` is in ``needs``. One double-width ``Instance``,
   ``suffix=None``.
 - Panel axes carry ``get_label()`` ``"a:<contig>"`` (Moran's I) and ``"b:<contig>"`` (join
@@ -50,12 +50,12 @@ from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection, PathCollection, PolyCollection
 from matplotlib.text import Text
 
-import giap.stats.autocorr as autocorr
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import style
-from giap.viz.base import Instance, Skip
+import gippa.stats.autocorr as autocorr
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 COLUMNS = [
@@ -91,19 +91,19 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 @pytest.fixture
 def no_autocorr(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Every public ``giap.stats.autocorr`` function raises, also where a ``giap.viz`` module
+    """Every public ``gippa.stats.autocorr`` function raises, also where a ``gippa.viz`` module
     imported it by name: V10 must not recompute a statistic or a null."""
     plot_spec("V10")  # import the viz modules first, so their bound names can be patched
 
     def boom(name: str) -> Callable[..., object]:
         def raiser(*_a: object, **_k: object) -> object:
-            raise AssertionError(f"V10 called giap.stats.autocorr.{name}")
+            raise AssertionError(f"V10 called gippa.stats.autocorr.{name}")
 
         return raiser
 
@@ -114,11 +114,11 @@ def no_autocorr(monkeypatch: pytest.MonkeyPatch) -> None:
             continue
         monkeypatch.setattr(autocorr, name, boom(name))
         for mod_name, mod in list(sys.modules.items()):
-            if mod_name.startswith("giap.viz") and getattr(mod, name, None) is obj:
+            if mod_name.startswith("gippa.viz") and getattr(mod, name, None) is obj:
                 monkeypatch.setattr(mod, name, boom(name))
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = plot_spec("V10").fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -221,7 +221,7 @@ def test_v10_is_registered_as_correlogram() -> None:
     assert spec.module == "core"
 
 
-def test_no_autocorrelation_table_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_autocorrelation_table_is_skipped(tmp_path: Path, cfg: GippaConfig) -> None:
     out = landscape_out(tmp_path, genes=[gene("g1", 10_000, 1.0)], autocorr=None)
     assert plot_spec("V10").fn(RunView.from_outdir(out), cfg) == Skip(
         "input_absent:autocorrelation"
@@ -231,7 +231,7 @@ def test_no_autocorrelation_table_is_skipped(tmp_path: Path, cfg: GiapConfig) ->
 # --- structure --------------------------------------------------------------------------------
 
 
-def test_double_width_two_panels_and_exact_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_double_width_two_panels_and_exact_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     assert inst.suffix is None
     assert round(float(inst.figure.get_size_inches()[0]), 6) == style.DOUBLE_IN
@@ -241,7 +241,7 @@ def test_double_width_two_panels_and_exact_columns(tmp_path: Path, cfg: GiapConf
     assert len(inst.data) == 2 * 2 * 20
 
 
-def test_rows_sort_by_contig_statistic_null_lag(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rows_sort_by_contig_statistic_null_lag(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [*correlogram_rows("chrA", overrides=EX4), *correlogram_rows("chrB")]
     rows = rows[::-1]  # the table order must not leak through
     inst = _render(_out(tmp_path, rows, (CHR_A, CHR_B)), cfg)
@@ -261,7 +261,7 @@ def test_rows_sort_by_contig_statistic_null_lag(tmp_path: Path, cfg: GiapConfig)
         assert [int(v) for v in d.loc[mask, "lag"]] == list(range(1, 21)), block
 
 
-def test_axes_labels_and_lag_ticks(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_axes_labels_and_lag_ticks(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     for label in ("a:chrA", "b:chrA"):
         ax = _ax(inst, label)
@@ -281,7 +281,7 @@ def test_lag_ticks_follow_moran_lags(tmp_path: Path) -> None:
     assert len(inst.data) == 2 * 2 * 10
 
 
-def test_columns_follow_fasta_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_columns_follow_fasta_order(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [*correlogram_rows("chrA"), *correlogram_rows("chrB")]
     inst = _render(_out(tmp_path, rows, (CHR_B, CHR_A)), cfg)
     assert _ax(inst, "a:chrB").get_position().x0 < _ax(inst, "a:chrA").get_position().x0
@@ -291,7 +291,7 @@ def test_columns_follow_fasta_order(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- examples 4 and 5 -------------------------------------------------------------------------
 
 
-def test_example4_filled_marker_and_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_filled_marker_and_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     assert bool(_row(inst, "chrA", "morans_i", "tu_block", 1)["significant"]) is True
     assert _marker_at(_ax(inst, "a:chrA"), 1, 0.31) == [False]  # one filled marker
@@ -300,7 +300,7 @@ def test_example4_filled_marker_and_title(tmp_path: Path, cfg: GiapConfig) -> No
     assert "express" not in inst.title.lower()
 
 
-def test_example5_inside_both_envelopes_is_open(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_inside_both_envelopes_is_open(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     for null in ("gene_label", "tu_block"):
         row = _row(inst, "chrA", "morans_i", null, 2)
@@ -309,7 +309,7 @@ def test_example5_inside_both_envelopes_is_open(tmp_path: Path, cfg: GiapConfig)
     assert _marker_at(_ax(inst, "a:chrA"), 2, 0.08) == [True]
 
 
-def test_one_marker_per_finite_lag(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_marker_per_finite_lag(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     for label, statistic in (("a:chrA", "morans_i"), ("b:chrA", "join_count_bb")):
         xs = sorted(x for x, _, _, _ in markers(_ax(inst, label)))
@@ -321,7 +321,7 @@ def test_one_marker_per_finite_lag(tmp_path: Path, cfg: GiapConfig) -> None:
     [(0.001, 0.3, True), (0.2, 0.01, False), (0.05, 0.05, False), (0.001, None, True)],
 )
 def test_filled_markers_follow_the_tu_block_null(
-    tmp_path: Path, cfg: GiapConfig, gene_q: float, tu_q: float | None, hollow: bool
+    tmp_path: Path, cfg: GippaConfig, gene_q: float, tu_q: float | None, hollow: bool
 ) -> None:
     """Lead decision 2: the TU-block q decides (≤ alpha, inclusive); the gene-label q does not."""
     over = {
@@ -352,7 +352,7 @@ def test_alpha_follows_the_config(tmp_path: Path) -> None:
 
 
 def test_both_envelopes_are_drawn_from_the_table(
-    tmp_path: Path, cfg: GiapConfig, no_autocorr: None
+    tmp_path: Path, cfg: GippaConfig, no_autocorr: None
 ) -> None:
     rows = correlogram_rows("chrA", overrides=EX4)
     inst = _render(_out(tmp_path, rows), cfg)
@@ -376,7 +376,7 @@ def test_both_envelopes_are_drawn_from_the_table(
                 assert _is_light_grey(colour), colour
 
 
-def test_null_means_are_dashed_lines(tmp_path: Path, cfg: GiapConfig, no_autocorr: None) -> None:
+def test_null_means_are_dashed_lines(tmp_path: Path, cfg: GippaConfig, no_autocorr: None) -> None:
     rows = correlogram_rows("chrA", overrides=EX4)
     inst = _render(_out(tmp_path, rows), cfg)
     for label, statistic in (("a:chrA", "morans_i"), ("b:chrA", "join_count_bb")):
@@ -390,7 +390,7 @@ def test_null_means_are_dashed_lines(tmp_path: Path, cfg: GiapConfig, no_autocor
             assert any(want <= d for d in dashed), f"{label}/{null}: {dashed}"
 
 
-def test_data_rows_copy_the_table(tmp_path: Path, cfg: GiapConfig, no_autocorr: None) -> None:
+def test_data_rows_copy_the_table(tmp_path: Path, cfg: GippaConfig, no_autocorr: None) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     row = _row(inst, "chrA", "morans_i", "tu_block", 1)
     assert [float(row[c]) for c in ("value", "null_mean", "null_lo", "null_hi", "q_value")] == (
@@ -406,7 +406,7 @@ def test_data_rows_copy_the_table(tmp_path: Path, cfg: GiapConfig, no_autocorr: 
 # --- NA rows and the empty states -------------------------------------------------------------
 
 
-def test_na_lags_draw_no_marker(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_lags_draw_no_marker(tmp_path: Path, cfg: GippaConfig) -> None:
     na: Cell = (None, None, None, None, None)
     over = {("morans_i", n, lag): na for n in ("gene_label", "tu_block") for lag in (18, 19, 20)}
     rows = correlogram_rows("chrA", overrides=over)
@@ -422,7 +422,7 @@ def test_na_lags_draw_no_marker(tmp_path: Path, cfg: GiapConfig) -> None:
     assert "few_values" in str(row["flags"])
 
 
-def test_all_na_contig_shows_not_estimable(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_all_na_contig_shows_not_estimable(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [*correlogram_rows("chrA", overrides=EX4), *na_correlogram_rows("chrB")]
     inst = _render(_out(tmp_path, rows, (CHR_A, CHR_B)), cfg)
     axes = _contig_axes(inst, "chrB")
@@ -434,7 +434,7 @@ def test_all_na_contig_shows_not_estimable(tmp_path: Path, cfg: GiapConfig) -> N
 
 
 def test_title_uses_the_first_fasta_contig_with_a_finite_row(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     rows = [*correlogram_rows("chrA", overrides=EX4), *correlogram_rows("chrB")]
     inst = _render(_out(tmp_path / "ba", rows, (CHR_B, CHR_A)), cfg)
@@ -447,7 +447,7 @@ def test_title_uses_the_first_fasta_contig_with_a_finite_row(
 
 @pytest.mark.parametrize(("value", "word"), [(-0.2, "below"), (0.05, "within"), (0.31, "above")])
 def test_title_places_lag1_against_the_tu_envelope(
-    tmp_path: Path, cfg: GiapConfig, value: float, word: str
+    tmp_path: Path, cfg: GippaConfig, value: float, word: str
 ) -> None:
     over = {
         ("morans_i", "gene_label", 1): (value, -0.002, -0.01, 0.01, 0.001),
@@ -457,7 +457,7 @@ def test_title_places_lag1_against_the_tu_envelope(
     assert inst.title == f"Lag-1 Moran's I {value:g}: {word} the TU-block envelope (q = 0.04)"
 
 
-def test_validation_like_run_is_not_estimable(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_validation_like_run_is_not_estimable(tmp_path: Path, cfg: GippaConfig) -> None:
     """Example 6 in miniature: every row NA (``few_values`` / ``not_estimable``) on two contigs."""
     rows = [*na_correlogram_rows("chrA"), *na_correlogram_rows("chrB")]
     inst = _render(_out(tmp_path, rows, (CHR_A, CHR_B)), cfg)
@@ -472,7 +472,7 @@ def test_validation_like_run_is_not_estimable(tmp_path: Path, cfg: GiapConfig) -
     assert not inst.data["significant"].astype(bool).any()
 
 
-def test_header_only_table_is_an_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_table_is_an_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, []), cfg)
     assert inst.title == NOT_ESTIMABLE
     assert list(inst.data.columns) == COLUMNS
@@ -525,20 +525,20 @@ def _rich(tmp: Path) -> Path:
     return _out(tmp, rows, (CHR_A, CHR_B))
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_rich(tmp_path), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
     assert min(sizes) >= 6
 
 
-def test_no_text_overlaps_after_an_agg_draw(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_text_overlaps_after_an_agg_draw(tmp_path: Path, cfg: GippaConfig) -> None:
     assert text_overlaps(_render(_rich(tmp_path), cfg).figure) == []
     rows = [*na_correlogram_rows("chrA"), *na_correlogram_rows("chrB")]
     assert text_overlaps(_render(_out(tmp_path / "na", rows, (CHR_A, CHR_B)), cfg).figure) == []
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _rich(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -562,7 +562,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     )
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_rich(tmp_path))
     first = plot_spec("V10").fn(view, cfg)
     second = plot_spec("V10").fn(view, cfg)
@@ -571,12 +571,12 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
     assert first[0].title == second[0].title
 
 
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_example6_validation_run_is_not_estimable(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_validation_run_is_not_estimable(tmp_path: Path, cfg: GippaConfig) -> None:
     """chr1 and plasmid_1: 160 morans_i / join_count_bb rows, all NA; oriter_slope dropped."""
     inst = _render(VAL_OUT, cfg)
     assert inst.title == NOT_ESTIMABLE

@@ -1,11 +1,11 @@
 """PR #191 review round (M9-01): the four ``RunView`` / writer blockers, as the lead decided them.
 
-Pinned here (docs/specs/M9-01-style-and-plot-framework.md, index decision 11; GIAP_SPEC.md §6.5):
+Pinned here (docs/specs/M9-01-style-and-plot-framework.md, index decision 11; GIPPA_SPEC.md §6.5):
 - B1. ``RunView.table`` returns 0-based half-open coordinates for every key. A TSV whose schema
   declares ``"coordinates": "1-based-closed"`` is converted on read (``start - 1`` for each start
-  column, ``end`` unchanged), like ``giap.io.genes_tsv``, ``giap.io.work_tables`` and
-  ``giap.io.context_tsv``; ``novel_orfs`` has two start columns (``start_longest``,
-  ``start_best_ostir``, ``giap.novel.outputs.POSITION_COLUMNS``). BED and Parquet are unchanged.
+  column, ``end`` unchanged), like ``gippa.io.genes_tsv``, ``gippa.io.work_tables`` and
+  ``gippa.io.context_tsv``; ``novel_orfs`` has two start columns (``start_longest``,
+  ``start_best_ostir``, ``gippa.novel.outputs.POSITION_COLUMNS``). BED and Parquet are unchanged.
   ``write_instance`` writes the data TSV 1-based: ``start + 1`` for each column the Instance
   names in ``Instance.coords`` (a tuple of column names; empty by default).
 - B3. ``from_inputs`` takes the local runner's input map: ``preflight`` may be the directory
@@ -26,13 +26,13 @@ import pandas as pd
 import pytest
 from helpers.viz_out_tree import ISLAND_ROW, make_out, write_schema_table
 
-from giap.io.bed import BedRecord, write_bed
-from giap.io.genes_tsv import write_genes_parquet, write_genes_tsv
-from giap.io.plot_files import write_instance
-from giap.io.run_view import PATHS, RunView
-from giap.model import Interval, Replicon
-from giap.viz import style
-from giap.viz.base import Instance
+from gippa.io.bed import BedRecord, write_bed
+from gippa.io.genes_tsv import write_genes_parquet, write_genes_tsv
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import PATHS, RunView
+from gippa.model import Interval, Replicon
+from gippa.viz import style
+from gippa.viz.base import Instance
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import gene_table_fixture as gt

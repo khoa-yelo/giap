@@ -1,8 +1,8 @@
-"""Unit tests for the defensive Bakta 1.12 JSON parser (issue M2-03; GIAP_SPEC.md §7.1.1, §7.1.2).
+"""Unit tests for the defensive Bakta 1.12 JSON parser (issue M2-03; GIPPA_SPEC.md §7.1.1, §7.1.2).
 
-M2-03 extends ``giap.model.genes`` (M3-01). What M3-01 already pins (type mapping, ``pseudo``,
+M2-03 extends ``gippa.model.genes`` (M3-01). What M3-01 already pins (type mapping, ``pseudo``,
 ``truncated``, ``hypothetical``, stop stripping, sorting, unknown contigs) is not re-tested here;
-these tests cover what M2-03 adds: ``giap.annotate.bakta.parse_bakta_json`` on the full Bakta 1.12
+these tests cover what M2-03 adds: ``gippa.annotate.bakta.parse_bakta_json`` on the full Bakta 1.12
 JSON shape (version/DB metadata, the replicon table, sORFs, ncRNA classes, CRISPR, gaps, oriC/oriV,
 ``db_xrefs``, ``edge: true`` origin-crossing features), ``BaktaParseError`` and the extra
 ``Gene``/``NcFeature`` fields. Fixtures are hand-written, minimal Bakta-shaped JSON (plain,
@@ -22,14 +22,14 @@ from typing import Any
 
 import pytest
 
-from giap.model import Interval, Replicon
+from gippa.model import Interval, Replicon
 
 # ----------------------------------------------------------------------------------------------
 # fixtures
 
 
 def _bakta() -> ModuleType:
-    import giap.annotate.bakta as mod
+    import gippa.annotate.bakta as mod
 
     return mod
 
@@ -196,7 +196,7 @@ def test_bakta_annotation_fields() -> None:
 
 
 def test_model_is_m3_gene_model(tmp_path: Path) -> None:
-    from giap.model.genes import Gene, GeneModel
+    from gippa.model.genes import Gene, GeneModel
 
     ann = _parse(tmp_path, _doc([_cds("GSIM_00005", 101, 400, "+")]))
     assert isinstance(ann.model, GeneModel)
@@ -204,7 +204,7 @@ def test_model_is_m3_gene_model(tmp_path: Path) -> None:
 
 
 def test_new_gene_and_ncfeature_fields_have_defaults() -> None:
-    from giap.model.genes import Gene, NcFeature
+    from gippa.model.genes import Gene, NcFeature
 
     g = Gene("L_1", "cds", Interval("chr1", 0, 9, "+"), "MK", None, None)
     assert g.expert == ()

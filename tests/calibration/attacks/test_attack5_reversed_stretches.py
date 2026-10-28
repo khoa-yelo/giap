@@ -1,8 +1,8 @@
-"""Attack 5 (GIAP_SPEC.md §8.5): de novo errors that reverse a stretch of sequence -> placement FDR
+"""Attack 5 (GIPPA_SPEC.md §8.5): de novo errors that reverse a stretch of sequence -> placement FDR
 with shuffled decoys (a reversed decoy would inflate D). Issue M3-21; docs/methods/placement-fdr.md
 "Why shuffle for de novo input"; M3-21 lead decisions 1-5. "A failing attack blocks the merge."
 
-Generator: 100-kb giapsim genome (1 Mb full), M3-19 table (pi_wrong 0.05, ``search_db = other``),
+Generator: 100-kb gippasim genome (1 Mb full), M3-19 table (pi_wrong 0.05, ``search_db = other``),
 M3-20 de novo reads of the same spectra with ``error_weights = {reversed_stretch: 1.0}`` (every
 erroneous read carries one reversed 3-6-residue stretch), reference peptides. De novo input ->
 shuffle decoys (``mapping.decoys.denovo_input`` default). The false-placement definition, the
@@ -38,8 +38,8 @@ BASE = "placement.attack5"
 
 
 def _kw(full: bool) -> dict[str, object]:
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     return {
         "length": 1_000_000 if full else 100_000,

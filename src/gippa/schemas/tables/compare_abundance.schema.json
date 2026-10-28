@@ -1,0 +1,21 @@
+{
+  "name": "compare_abundance",
+  "description": "gippa compare: per unordered run pair, Spearman rho of log2 abundance on the shared detected and measured genes with a TU-block bootstrap percentile CI, and Bland-Altman bias and 95% limits of agreement (GIPPA_SPEC.md §7.9.3, §8.2, §8.3; M9-22, ADR-0046). The table has no coordinate fields.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "run_a", "type": "string", "description": "First run of the pair (label order)", "constraints": {"required": true}},
+    {"name": "run_b", "type": "string", "description": "Second run of the pair", "constraints": {"required": true}},
+    {"name": "n_shared", "type": "integer", "description": "Genes detected with a measured (not imputed) abundance in both runs", "constraints": {"minimum": 0}},
+    {"name": "n_units", "type": "integer", "description": "Resampling units (TUs; a gene without a TU is its own unit) behind the CI; NA when no CI is computed; below 10 the CI is flagged ci_few_units", "constraints": {"minimum": 1}},
+    {"name": "spearman_rho", "type": "number", "description": "Spearman rank correlation (average ranks for ties)", "constraints": {"minimum": -1, "maximum": 1}},
+    {"name": "ci_low", "type": "number", "description": "Lower bound of the 95% TU-block bootstrap percentile CI of rho", "constraints": {"minimum": -1, "maximum": 1}},
+    {"name": "ci_high", "type": "number", "description": "Upper bound of the 95% TU-block bootstrap percentile CI of rho", "constraints": {"minimum": -1, "maximum": 1}},
+    {"name": "ba_bias_log2", "type": "number", "description": "Bland-Altman bias: mean of log2 a - log2 b"},
+    {"name": "ba_loa_low", "type": "number", "description": "Lower limit of agreement: bias - 1.96 SD (ddof 1)"},
+    {"name": "ba_loa_high", "type": "number", "description": "Upper limit of agreement: bias + 1.96 SD (ddof 1)"},
+    {"name": "method", "type": "string", "description": "Method that produced the row", "constraints": {"required": true, "enum": ["spearman_tu_bootstrap"]}},
+    {"name": "n_boot", "type": "integer", "description": "Bootstrap resamples requested (stats.bootstrap)", "constraints": {"minimum": 1}},
+    {"name": "flags", "type": "string", "description": "Semicolon-joined flags (§9.4)", "constraints": {"pattern": "(?:too_few_shared|ci_few_units|ci_unestimated|scale_differs|missing_in:[^;]+)(?:;(?:too_few_shared|ci_few_units|ci_unestimated|scale_differs|missing_in:[^;]+))*"}}
+  ]
+}

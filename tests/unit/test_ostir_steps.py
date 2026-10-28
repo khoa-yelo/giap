@@ -1,7 +1,7 @@
 """Steps ``ostir_input``, ``ostir`` (ext) and ``rbs_layer`` (M2-16; M2-index step contract;
-GIAP_SPEC.md §6.2, §6.5, §7.1.6, §9.3).
+GIPPA_SPEC.md §6.2, §6.5, §7.1.6, §9.3).
 
-Runs the registered steps through ``run_step`` on giapsim's SIM100K after M2-04's ``parse_bakta``.
+Runs the registered steps through ``run_step`` on gippasim's SIM100K after M2-04's ``parse_bakta``.
 
 Contract pinned here (test author; the implementer keeps ``workflow/tests/data/annotate/
 step_registry.json`` and ``annotate.nf`` consistent with it):
@@ -37,11 +37,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-import giapsim
-from giap.annotate.precomputed import PRECOMPUTED_COLUMNS
-from giap.config import GiapConfig
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Interval, Replicon
+import gippasim
+from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS
+from gippa.config import GippaConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Interval, Replicon
 
 PARSE_OUT = {
     "genes": "genes.parquet",
@@ -59,14 +59,14 @@ OSTIR_HEADER = (
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -94,13 +94,13 @@ class Sim:
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Sim:
     out = tmp_path_factory.mktemp("sim100k")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     work = out / "work"
     with pytest.MonkeyPatch.context() as mp:
         reg = _fresh_steps(mp)
         reg.run_step(
             "parse_bakta",
-            GiapConfig(seed=1),
+            GippaConfig(seed=1),
             {"bakta_json": res.bakta_json, "genome": res.genome_fasta},
             {k: work / v for k, v in PARSE_OUT.items()},
         )
@@ -108,13 +108,13 @@ def sim(tmp_path_factory: pytest.TempPathFactory) -> Sim:
 
 
 def _run_input(
-    reg: ModuleType, sim: Sim, out: Path, cfg: GiapConfig | None = None, **over: Path
+    reg: ModuleType, sim: Sim, out: Path, cfg: GippaConfig | None = None, **over: Path
 ) -> Path:
     spec = reg.get("ostir_input")
     avail = {**sim.avail, **over}
     ins = {k: avail[k] for k in spec.inputs}
     target = out / "ostir_input.csv"
-    reg.run_step("ostir_input", cfg or GiapConfig(seed=1), ins, {"ostir_input": target})
+    reg.run_step("ostir_input", cfg or GippaConfig(seed=1), ins, {"ostir_input": target})
     return target
 
 
@@ -156,8 +156,8 @@ def test_topological_order(steps: ModuleType) -> None:
 def test_ostir_input_one_row_per_gene_in_gene_order(
     steps: ModuleType, sim: Sim, tmp_path: Path
 ) -> None:
-    from giap.annotate.ostir import ostir_row, write_ostir_input
-    from giap.model.genes import Gene
+    from gippa.annotate.ostir import ostir_row, write_ostir_input
+    from gippa.model.genes import Gene
 
     path = _run_input(steps, sim, tmp_path)
     rows = _rows(path)
@@ -211,7 +211,7 @@ def test_ostir_input_covers_plasmid_sorf_and_pseudogenes(
 
 def test_ostir_input_byte_identical_on_rerun(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
     a = _run_input(steps, sim, tmp_path / "a")
-    b = _run_input(steps, sim, tmp_path / "b", GiapConfig(seed=99))
+    b = _run_input(steps, sim, tmp_path / "b", GippaConfig(seed=99))
     assert a.read_bytes() == b.read_bytes()
 
 
@@ -226,7 +226,7 @@ def test_ostir_input_uses_the_anti_sd_from_annotation_meta(
 
 
 def test_ostir_input_honours_window_config(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 1, "annotation": {"ostir": {"upstream_nt": 30, "downstream_nt": 40}}}
     )
     rows = _rows(_run_input(steps, sim, tmp_path, cfg))
@@ -263,7 +263,7 @@ def _fake_ostir(inp: Path, out: Path, drop: str, wrong_codon: str) -> list[dict[
 def _run_rbs(reg: ModuleType, inp: Path, ostir: Path, out: Path) -> Path:
     target = out / "rbs.parquet"
     reg.run_step(
-        "rbs_layer", GiapConfig(seed=1), {"ostir": ostir, "ostir_input": inp}, {"rbs": target}
+        "rbs_layer", GippaConfig(seed=1), {"ostir": ostir, "ostir_input": inp}, {"rbs": target}
     )
     return target
 

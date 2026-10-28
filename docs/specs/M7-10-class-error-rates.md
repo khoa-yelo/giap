@@ -21,7 +21,7 @@ ALT row; statistician reviews the methods note and the simulation before the cod
 
 ## Public interface
 
-`src/giap/variants/error_rates.py` (pure)
+`src/gippa/variants/error_rates.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class ClassRate:
@@ -129,7 +129,7 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    `kv` and left out of `needed`. The lead updated the existing key sets in
    test_variants_step.py `OPTIONAL`, test_contract.py `TABLE_KEYS` and
    test_nf_variants_registry.py `TAKE`.
-7. **Calibration scenario:** build from giapsim pieces now and switch to M7-12 `variant_f1` after
+7. **Calibration scenario:** build from gippasim pieces now and switch to M7-12 `variant_f1` after
    #225 merges (backlog). The planted arm is diagnostic only.
 8. **Statistician BLOCK on #239 (d8e40d28):**
    - B1 (implementer): `paired_observations` counts one observation per `(run, spectrum_id, peptide)`.

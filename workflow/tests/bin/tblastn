@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fake tblastn for workflow/tests/tblastn.nf.test (never a real search): records its argv in
 # blast.argv (one invocation per line, shared with the fake makeblastdb) and prints one tabular
-# row in the 15-column OUTFMT of giap.mapping.tblastn.
+# row in the 15-column OUTFMT of gippa.mapping.tblastn.
 set -euo pipefail
 if [[ "${1:-}" == "-version" ]]; then echo "tblastn: 2.16.0+-fake"; exit 0; fi
 echo "tblastn $*" >> blast.argv

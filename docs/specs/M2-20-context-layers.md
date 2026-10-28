@@ -18,7 +18,7 @@ counted) · capabilities: none (runs on the simulator's precomputed layers with 
 
 ## Public interface
 
-`src/giap/annotate/layers.py`; step `context_layers` (inputs: `genes`, `replicons`, `pairs_raw`,
+`src/gippa/annotate/layers.py`; step `context_layers` (inputs: `genes`, `replicons`, `pairs_raw`,
 `tus`, optional `promoter_windows`, `tx_rates`, `terminators`, `terminators_crosscheck`, `rbs`,
 `codon`, `regions`, `region_genes`, `id_map`, `tool_dirs`; outputs: `annotation_dir`, `layers`).
 ```python
@@ -32,7 +32,7 @@ LAYER_COLUMNS: tuple[str, ...] = (
 def gene_layers(genes, tus, pairs, promoters, tx, terms, rbs, codon, region_genes, replicons) -> pd.DataFrame
 def merged_gff3_features(genes, tus, promoters_bed, terms, regions) -> list[GffFeature]
 def copy_native(tool_dirs: Mapping[str, Path], dest: Path) -> None     # annotation/tools/<tool>/, byte copies
-def layer_flags(cfg: GiapConfig, present: set[str]) -> tuple[str, ...] # "layer_missing:<layer>"
+def layer_flags(cfg: GippaConfig, present: set[str]) -> tuple[str, ...] # "layer_missing:<layer>"
 def write_annotation(outdir: Path, …) -> None                           # writes every §7.1.8 file
 ```
 Column definitions (names match §9.3 `genes.tsv`):
@@ -56,13 +56,13 @@ Column definitions (names match §9.3 `genes.tsv`):
 Files in `annotation/`: `genes.gff3`, `regions.tsv`, `regions.bed`, `promoters.bed`,
 `terminators.bed`, `terminators_crosscheck.tsv` (when TransTermHP ran), `operon_pairs.tsv`,
 `tus.tsv`, `id_map.tsv` (when present), `tools/<tool>/`. Also the Frictionless schemas for these
-tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_crosscheck`) (§9.5).
+tables in `src/gippa/schemas/annotation/*.json` (incl. `id_map`, `terminators_crosscheck`) (§9.5).
 
 ## Examples (simulator SIM100K with precomputed layers, local executor)
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local` on SIM100K's `config.yaml` up to `context_layers` | all §7.1.8 files exist; `annotation/tools/` contains only tools that ran (none with full precomputed) |
+| 1 | `gippa run --executor local` on SIM100K's `config.yaml` up to `context_layers` | all §7.1.8 files exist; `annotation/tools/` contains only tools that ran (none with full precomputed) |
 | 2 | TU `TU_4` = (A, B, C) on +, p(A,B)=0.9, p(B,C)=0.7 | B: `tu_position=2`, `tu_size=3`, `uniop_p_prev=0.9`, `uniop_p_next=0.7` |
 | 3 | − TU (C, B, A) in transcription order (genome order A,B,C); the gene before A in genome order is on + | A: `tu_position=3`, `uniop_p_prev = p(A,B)`, `uniop_p_next = NA` |
 | 4 | gene in `prophage_1` and `plasmid_1` | `region_ids = "plasmid_1;prophage_1"` |
@@ -103,7 +103,7 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    from precomputed regions; missing optional layers log a `layer_missing` warning event.
 3. The run publishes OUT/annotation (`local.PUBLISHED`); `terminators_crosscheck.tsv` only when
    terminator_layer made it; annotation TSV/BED files match the existing writers byte for byte.
-4. `gc_local_dev` (§9.3: 10-kb window GC − genome GC) IS produced here (M4-index line 150; GIAP_SPEC §9.3
+4. `gc_local_dev` (§9.3: 10-kb window GC − genome GC) IS produced here (M4-index line 150; GIPPA_SPEC §9.3
    "Modules 1 and 3") and belongs in LAYER_COLUMNS — the tests from 461fa2a omit it: add a test (window
    centred on the gene midpoint, circular wrap on circular replicons, edge-truncated on linear ones) before
    or with the implementation.
@@ -117,7 +117,7 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    `terminators_crosscheck`; step_registry.json and the layers contract (gc_local_dev: optional float) follow.
 
 ## Lead decisions after the code review of PR #104 (changes requested)
-8. (blocking) GFF3 IDs are unique per file (§9.5): every ID GIAP writes carries its feature kind as a
+8. (blocking) GFF3 IDs are unique per file (§9.5): every ID GIPPA writes carries its feature kind as a
    prefix — `region:<region_id>`, `operon:<tu_id>`, `promoter:<id>`, `terminator:<id>` — while Bakta's own
    feature IDs are kept as given; a test on sim100k (contig named `plasmid_1`) asserts no duplicate IDs and
    that Parent= references resolve.

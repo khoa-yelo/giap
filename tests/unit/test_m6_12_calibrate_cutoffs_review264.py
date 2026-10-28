@@ -15,7 +15,7 @@ Lead decisions pinned here, on top of ``test_m6_12_calibrate_cutoffs.py``:
   This replaces the 20-call batch means, so any R >= 2 gives a finite SE.
 - ``precision_lower_bound`` = lb(precision, c); ``precision_lower_bound_wilson`` =
   lb(Wilson low of tp / (tp + fp), c); ``precision_lower_bound_window`` = lb(window CI low, c);
-  lb(lo, c) = max(0, (lo - c) / (1 - c)) (``giap.stats.cutoffs.precision_lower_bound``).
+  lb(lo, c) = max(0, (lo - c) / (1 - c)) (``gippa.stats.cutoffs.precision_lower_bound``).
 - ``precision_ci_window`` is ``[null, null]`` when uncalibrated, like every other CI key.
 - **B2:** ``Pins`` gains ``terms_sha256``, the SHA-256 of the ``terms.tsv.gz`` bytes. ``K12_PINS``
   holds the committed recording's value, which the committed ``PROVENANCE.md`` also lists. A
@@ -63,10 +63,10 @@ from helpers.k12_cutoffs_world import (
     write_uniop,
 )
 
-from giap.annotate.operons import intergenic_distance
-from giap.model.coords import Interval, Replicon
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.annotate.operons import intergenic_distance
+from gippa.model.coords import Interval, Replicon
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     auroc_ci,
     auroc_diff_ci,
     choose_cutoff,
@@ -99,7 +99,7 @@ K12_TERMS_SHA = "9be61c75c0d7835f7d8c8f3c3948b95adfa34445003ec570ff9bbb2ca1e3a2f
 @pytest.fixture(autouse=True)
 def _no_real_data(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     missing = tmp_path / "no-such-root"
-    for var in ("GIAP_ROOT", "GIAP_DB_DIR", "GIAP_DATA_DIR"):
+    for var in ("GIPPA_ROOT", "GIPPA_DB_DIR", "GIPPA_DATA_DIR"):
         monkeypatch.setenv(var, str(missing))
 
 

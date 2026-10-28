@@ -1,4 +1,4 @@
-"""Hypothesis properties for the terminator layer (M2-15; GIAP_SPEC.md §7.1.1, §7.1.5).
+"""Hypothesis properties for the terminator layer (M2-15; GIPPA_SPEC.md §7.1.1, §7.1.5).
 
 * parsers round-trip the real TerminatorNet (TAB, 11 columns, 1-based closed forward coordinates)
   and TransTermHP ``.tt`` formats into 0-based half-open intervals (confidence ``pred`` / CONF/100);
@@ -19,7 +19,7 @@ from tempfile import TemporaryDirectory
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.terminators import (
+from gippa.annotate.terminators import (
     Terminator,
     crosscheck,
     parse_terminatornet,
@@ -28,8 +28,8 @@ from giap.annotate.terminators import (
     terminator_conf_downstream,
     write_transterm_coords,
 )
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 L = 5_000
 LIN = Replicon("c", L, "linear")

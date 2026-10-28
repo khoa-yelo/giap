@@ -1,6 +1,6 @@
 """Static checks on the external-tool Nextflow modules (M2-07 example 7 and acceptance criteria).
 
-GIAP_SPEC.md §6.3 "Process conventions" (tag, label, conda + container, versions.yml, stub:,
+GIPPA_SPEC.md §6.3 "Process conventions" (tag, label, conda + container, versions.yml, stub:,
 explicit memory for memory-heavy tools), §7.1.1 (one process per tool), R5 (licence in meta.yml),
 R14 / M2-06 lead decision 3 (farmshare: per-task cpus <= 16, memory <= 64 GB, cpus >=
 ceil(memory / 4 GB), queueSize x max cpus <= 128). No Nextflow needed: reads committed files only.
@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-from giap.annotate.tools import TOOLS, read_containers_config
+from gippa.annotate.tools import TOOLS, read_containers_config
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
@@ -208,7 +208,7 @@ def test_every_process_maps_to_a_tools_key() -> None:
     procs = _process_names()
     assert set(LABELS) <= {p.lower() for p in procs}, sorted(procs)
     for name, path in procs.items():
-        if name == "GIAP_STEP":
+        if name == "GIPPA_STEP":
             continue
         assert _tool_key(name) in TOOLS, f"process {name} ({path}) is not a TOOLS key"
         assert not TOOLS[_tool_key(name)].in_process, f"{name}: in-process tools get no process"
@@ -290,7 +290,7 @@ def test_farmshare_concurrency_cap_still_holds() -> None:
 
 def test_stub_bakta_json_asset() -> None:
     """Q2 default: a small simulator-derived Bakta JSON that the real parser accepts."""
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     assert STUB_BAKTA.is_file(), "workflow/assets/stub/bakta.json missing"
     assert STUB_BAKTA.stat().st_size <= 5 * 1024, "stub Bakta JSON must stay <= 5 kB"

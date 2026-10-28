@@ -1,27 +1,27 @@
 """Inputs for the M8-16 tests: the ``enriched_categories`` and ``determinants`` sensitivity families
-(docs/specs/M8-16-sensitivity-function-determinants.md, lead decisions of 2026-10-23; GIAP_SPEC.md
+(docs/specs/M8-16-sensitivity-function-determinants.md, lead decisions of 2026-10-23; GIPPA_SPEC.md
 §8.6, §6.2 ``sensitivity`` row).
 
 Interface the tests assume (test author; each point is reported to the lead):
 
-* ``giap.function.sensitivity.enriched_categories_family(genes, cfg, rng, *, collections, tus,
+* ``gippa.function.sensitivity.enriched_categories_family(genes, cfg, rng, *, collections, tus,
   engine=...)`` returns a set of ``"{collection}:{term}:{kind}"`` IDs, kind in ``gsea``,
   ``ora_over``, ``ora_under``, with q <= ``stats.alpha.enrichment``. ``engine`` is a keyword-only
   ``GseaEngine`` (the spec's amendment: "its tests inject a fake or ``SIMPLE_ENGINE``"); the step
   binds R fgsea. GSEA runs at ``n_perm_simple = 199`` and ``sample_size = 101`` whatever
   ``function.gsea`` says; the ORA is ``detection_enrichment`` (deterministic).
-* ``giap.determinants.sensitivity.determinants_family(genes, cfg, rng, *, features)`` returns a
+* ``gippa.determinants.sensitivity.determinants_family(genes, cfg, rng, *, features)`` returns a
   ``DeterminantsSensitivity`` with ``flagged`` (frozenset of the locus tags flagged
   ``abundance_not_explained_by_sequence``), ``dominant`` (locus tag of every explained model
   row, i.e. not flagged, -> its agreement block, ``None`` without one; M8-16c, Khoa 2026-10-24) and
   ``cv_r2`` (mean LightGBM CV R² over ``determinants.repeats``); below the 100-row minimum, or
   without abundance, it returns ``None`` or a result with ``cv_r2`` NaN and empty ``flagged`` /
   ``dominant``. The agreement block (Khoa, option (a) of the #299 statistician review,
-  2026-10-24) is ``giap.determinants.sensitivity.agreement_block(sums)``: the block with the
+  2026-10-24) is ``gippa.determinants.sensitivity.agreement_block(sums)``: the block with the
   largest **|SHAP|** block sum (NaN ignored, ties by ``BLOCKS`` order as ``_dominant``; ``None``
   when every |sum| is 0 or NaN). ``determinants_attribution.tsv``'s ``dominant_block`` keeps M8-08
   rule 3 (largest positive sum, top decile only).
-* ``giap.context.sensitivity.sensitivity_rows`` accepts ``DeterminantsSensitivity`` values for a
+* ``gippa.context.sensitivity.sensitivity_rows`` accepts ``DeterminantsSensitivity`` values for a
   family and fills ``agreement`` for it; ``n_*`` / ``jaccard`` use ``flagged`` (lead decision 2).
 
 The gene tables here are hand-built §9.3 frames (``function_step_data.full_frame``): one gene per
@@ -50,9 +50,9 @@ DET = "determinants"
 
 
 def config(**over: Any) -> Any:
-    """``GiapConfig`` with a fast determinants block (2 repeats x 3 folds, 30 trees, one thread)
+    """``GippaConfig`` with a fast determinants block (2 repeats x 3 folds, 30 trees, one thread)
     and nested overrides."""
-    from giap.config.model import GiapConfig
+    from gippa.config.model import GippaConfig
 
     raw: dict[str, Any] = {
         "seed": SEED,
@@ -66,7 +66,7 @@ def config(**over: Any) -> Any:
             raw[k] = {**raw[k], **v}
         else:
             raw[k] = v
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
 def base_config(**over: Any) -> Any:
@@ -138,7 +138,7 @@ def tags(idx: Sequence[int] | range) -> list[str]:
 
 def gene_sets(collection: str, sets: Mapping[str, Sequence[str]]) -> Any:
     """``GeneSets`` of ``collection`` (names = term IDs; GO terms without parents)."""
-    from giap.function.collections import GeneSets
+    from gippa.function.collections import GeneSets
 
     s = {t: frozenset(m) for t, m in sets.items()}
     parents = {t: frozenset() for t in s} if collection.startswith("go_") else {}
@@ -230,7 +230,7 @@ class FakeEngine:
     method: str = "fake_engine"
 
     def __call__(self, call: Any) -> Mapping[str, tuple[Any, ...]]:
-        from giap.function.gsea import EngineRow
+        from gippa.function.gsea import EngineRow
 
         self.calls.append(call)
         score = dict(zip(call.tu_ids, np.asarray(call.scores, dtype=float), strict=True))
@@ -260,7 +260,7 @@ def example1_engine() -> FakeEngine:
 
 
 def ec_family() -> Callable[..., Any]:
-    from giap.function.sensitivity import enriched_categories_family
+    from gippa.function.sensitivity import enriched_categories_family
 
     return enriched_categories_family
 
@@ -293,7 +293,7 @@ def with_engine(family: Callable[..., Any], engine: Any) -> Callable[..., Any]:
 
 def ora_ids(genes: pd.DataFrame, colls: Sequence[Any], cfg: Any) -> frozenset[str]:
     """``{collection}:{term}:ora_<direction>`` of the M8-04 ORA rows with q <= alpha (no folds)."""
-    from giap.function.ora import detection_enrichment
+    from gippa.function.ora import detection_enrichment
 
     lo, hi = cfg.function.ora_size
     alpha = cfg.stats.alpha.enrichment
@@ -306,7 +306,7 @@ def ora_ids(genes: pd.DataFrame, colls: Sequence[Any], cfg: Any) -> frozenset[st
 
 def gsea_ids(p_by_term: Mapping[str, float], collection: str, alpha: float) -> frozenset[str]:
     """BH within one collection over the engine p-values."""
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     terms = list(p_by_term)
     q = bh(np.array([p_by_term[t] for t in terms], dtype=float))
@@ -351,7 +351,7 @@ def merged_features(genes: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame
 def _block_rule(sums: Any, *, signed: bool) -> str | None:
     """Written out without ``_dominant``: the first block in ``BLOCKS`` order whose value
     (``sums`` or ``|sums|``) is the largest, NaN ignored; ``None`` unless that value is > 0."""
-    from giap.determinants.attribution import BLOCKS
+    from gippa.determinants.attribution import BLOCKS
 
     vals = [float(x) for x in np.asarray(sums, dtype=float)]
     if not signed:
@@ -392,14 +392,14 @@ def det_oracle(genes: pd.DataFrame, features: pd.DataFrame, cfg: Any,
                rng: np.random.Generator) -> DetOracle:  # fmt: skip
     """The M8-10 chain without its null: model rows, ``model_matrix``, folds from ``rng``
     (``tu_folds``), ``cross_validate`` (seed ``cfg.seed``), SHAP and ``attribution_table``."""
-    from giap.determinants.attribution import (
+    from gippa.determinants.attribution import (
         SHAP_COLUMNS,
         UNEXPLAINED,
         attribution_table,
         shap_blocks,
     )
-    from giap.determinants.features import model_matrix
-    from giap.determinants.models import cross_validate, model_rows, tu_folds
+    from gippa.determinants.features import model_matrix
+    from gippa.determinants.models import cross_validate, model_rows, tu_folds
 
     f = merged_features(genes, features)
     rows = model_rows(f)
@@ -427,7 +427,7 @@ def det_oracle(genes: pd.DataFrame, features: pd.DataFrame, cfg: Any,
 
 
 def det_family() -> Callable[..., Any]:
-    from giap.determinants.sensitivity import determinants_family
+    from gippa.determinants.sensitivity import determinants_family
 
     return determinants_family
 
@@ -443,7 +443,7 @@ def non_none(dominant: Mapping[str, str | None]) -> dict[str, str]:
 
 
 def det_sens(flagged: Sequence[str], dominant: Mapping[str, str | None], cv_r2: float) -> Any:
-    from giap.determinants.sensitivity import DeterminantsSensitivity
+    from gippa.determinants.sensitivity import DeterminantsSensitivity
 
     return DeterminantsSensitivity(flagged=frozenset(flagged), dominant=dict(dominant),
                                    cv_r2=cv_r2)  # fmt: skip

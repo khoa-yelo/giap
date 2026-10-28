@@ -1,12 +1,12 @@
-"""M9-16b behaviour 4: ``giap report OUT`` keeps its plot rendering, then writes the page through
-the same ``rerender_report(out, cfg)`` as the ``giap run`` tail; ``write_report`` stays for the
+"""M9-16b behaviour 4: ``gippa report OUT`` keeps its plot rendering, then writes the page through
+the same ``rerender_report(out, cfg)`` as the ``gippa run`` tail; ``write_report`` stays for the
 in-graph ``report`` step only (docs/specs/M9-16b-report-after-manifest.md, "Public interface";
-acceptance "tests/unit/test_cli_report.py: giap report goes through rerender_report").
+acceptance "tests/unit/test_cli_report.py: gippa report goes through rerender_report").
 
 Interface pinned here (M9-16b test author): the command looks ``render_plots``,
-``rerender_report`` and ``write_report`` up on ``giap.steps.plots`` at call time (``from
-giap.steps import plots as P``, as today), and prints the returned path on stdout. Fake plots
-(tests/helpers/report_fixtures.py); never touches the real ``$GIAP_DB_DIR``.
+``rerender_report`` and ``write_report`` up on ``gippa.steps.plots`` at call time (``from
+gippa.steps import plots as P``, as today), and prints the returned path on stdout. Fake plots
+(tests/helpers/report_fixtures.py); never touches the real ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import pytest
 from click.testing import CliRunner, Result
 from helpers.report_fixtures import register_fake, run_out, swap_registry
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAST = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
 
@@ -27,8 +27,8 @@ FAST = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 @pytest.fixture
 def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...]]]:
     """Record ``render_plots``, ``rerender_report`` and ``write_report`` calls, in order."""
-    from giap.steps import plots as P
+    from gippa.steps import plots as P
 
     seen: list[tuple[str, tuple[Any, ...]]] = []
     for name in ("render_plots", "rerender_report", "write_report"):
@@ -47,7 +47,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...]]]:
 
         def wrapper(*a: Any, _n: str = name, _r: Any = real, **k: Any) -> Any:
             seen.append((_n, a))
-            assert _r is not None, f"giap.steps.plots.{_n} does not exist"
+            assert _r is not None, f"gippa.steps.plots.{_n} does not exist"
             return _r(*a, **k)
 
         monkeypatch.setattr(P, name, wrapper, raising=False)
@@ -55,7 +55,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...]]]:
 
 
 def _report(out: Path, *args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["report", str(out), *FAST, *args])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -63,7 +63,7 @@ def _report(out: Path, *args: str) -> Result:
     return res
 
 
-def test_giap_report_renders_plots_then_calls_rerender_report(
+def test_gippa_report_renders_plots_then_calls_rerender_report(
     fake_registry: ModuleType, tmp_path: Path, calls: list[tuple[str, tuple[Any, ...]]]
 ) -> None:
     register_fake("V07")
@@ -91,7 +91,7 @@ def test_no_interactive_reaches_rerender_report(
 def test_a_failing_rerender_is_exit_4(
     fake_registry: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.steps import plots as P
+    from gippa.steps import plots as P
 
     def boom(*_a: Any, **_k: Any) -> Path:
         raise RuntimeError("re-render failed on purpose")

@@ -1,6 +1,6 @@
 # Detectability model (cross-fitted p_detect)
 
-Implements `giap.genetable.detectability` (GIAP_SPEC.md §7.3.3, §8.2 "Adjust for detectability",
+Implements `gippa.genetable.detectability` (GIPPA_SPEC.md §7.3.3, §8.2 "Adjust for detectability",
 §8.4 row "Detectability", §8.5 attack 2; G5; issue M4-13, docs/specs/M4-13-detectability.md).
 
 **Status:** signed off by the statistician (M4-13 review, 2026-10-15; see Sign-off).
@@ -20,7 +20,7 @@ does not depend on the input row order.
 
 ## Cross-fitting and the choice of C
 
-- Outer folds: the sorted unique TU IDs are permuted with `giap.rng.for_step("detectability",
+- Outer folds: the sorted unique TU IDs are permuted with `gippa.rng.for_step("detectability",
   seed)`; fold = position mod 5. Every gene's `p_detect` comes from the model fitted without its TU
   (genes without a TU are their own TU).
 - Inner search, per outer fold, on its training TUs only: 3 TU folds from the same generator, C ∈
@@ -87,7 +87,7 @@ fast (R = 20) 0.0066 (D2 0.0035, prophage 0.0023, short decile 0.0008, teeth and
 
 ## Sign-off
 
-Statistician (M4-13 review, 2026-10-15): **approved** for `giap.genetable.detectability` as
+Statistician (M4-13 review, 2026-10-15): **approved** for `gippa.genetable.detectability` as
 implemented. Cross-fitting, the inner C search and the recalibration match an independent
 simulation of the spec; D1 and the merged D2 hold their level; the Wald intervals cover at the
 nominal rate; the attack-2 subgroup gate is at level for the correct model and fails the model

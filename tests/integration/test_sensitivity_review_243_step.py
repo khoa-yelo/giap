@@ -1,6 +1,6 @@
 """M6-10 review #243 B2 and B3 at step level: the registered ``sensitivity`` step on the SIM100K
 producer chain (docs/specs/M6-10-sensitivity-operon-flags.md, lead decisions 4, 7 and 8;
-GIAP_SPEC.md §8.6, G9).
+GIPPA_SPEC.md §8.6, G9).
 
 * B2 (lead decision 8, option a): a variant runs only for the families in ``Variant.families``
   (``None`` = every family). Under ``--sensitivity full`` the ``pair_threshold=*`` variants give
@@ -32,7 +32,7 @@ PT = tuple(so.variant_name(t) for t in so.UNIOP_THRESHOLDS)
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
@@ -59,8 +59,8 @@ def _read(path: Path) -> pd.DataFrame:
 
 
 def _run(chain: Chain, root: Path, cfg: Any, *, missing: tuple[str, ...] = ()) -> pd.DataFrame:
-    from giap.steps import load_step_modules
-    from giap.steps.registry import run_step
+    from gippa.steps import load_step_modules
+    from gippa.steps.registry import run_step
 
     load_step_modules()
     gt = so.gene_table(so.tables(chain)["genes"], imputed=(1, 2, 3))

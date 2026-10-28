@@ -1,13 +1,13 @@
 """The M9-15 twins in the report: every rendered plot with a registered twin gets one, built from
 its data TSV; a skipped plot or a header-only data TSV gets none; ``report.interactive: false``
 (``--no-interactive``) leaves no twin and no plotly.js; the page stays inside the size budget
-(M9-15 degenerate rows, M9-14 behaviour 2, 3 and 5; GIAP_SPEC.md §10.3 "< 25 MB").
+(M9-15 degenerate rows, M9-14 behaviour 2, 3 and 5; GIPPA_SPEC.md §10.3 "< 25 MB").
 
 The real plot registry and the real twins are used (no swapped registries): a small ``OUT/``
 with ``genes.tsv``, ``islands.tsv``, ``autocorrelation.tsv`` and a preflight JSON renders V2, V8,
 V10, V17 and V18; V5, V6, V7 and V11 skip (their tables are absent). The ``plots`` and ``report``
 steps run in-process (``helpers.interactive_fixtures.run_steps``). Never touches the real
-``$GIAP_DB_DIR``; no network.
+``$GIPPA_DB_DIR``; no network.
 
 Interface assumed (M9-15 test author): the twin div of an instance without a suffix is
 ``plotly-<pid>``, its JSON sits in ``<script type="application/json" data-plotly=...>`` (M9-14).
@@ -24,7 +24,7 @@ from helpers import twins as tw
 from helpers.interactive_fixtures import BANNER, page_of, run_steps, twin_divs
 from helpers.report_fixtures import Page
 
-from giap.io.plot_files import svg_title
+from gippa.io.plot_files import svg_title
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
@@ -36,7 +36,7 @@ BUDGET = 25_000_000
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 def _out(tmp: Path, *, genes: bool = True) -> Path:

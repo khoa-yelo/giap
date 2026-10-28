@@ -14,17 +14,17 @@ Interface pinned here (beyond the spec text; see also ``test_m11_14d_uniop_enabl
   (annotation.uniop.enabled=false)`` (an explicit false) and ``UniOP failed (...)`` (UniOP ran
   and produced no pair; today's text). The step reads the resolution from its config: the tests
   feed it the ``resolved_config.yaml`` that ``write_params`` writes for
-  ``resolve_uniop(...).cfg``, reloaded with ``resolve_config`` (as ``giap _step`` does).
+  ``resolve_uniop(...).cfg``, reloaded with ``resolve_config`` (as ``gippa _step`` does).
 - Both run flags are carried by the step's §6.7 events (``data.flag`` or ``data.flags``), so the
   manifest's ``flags`` and ``layers_missing`` pick them up unchanged.
-- ``giap.manifest.ManifestSources`` gains ``operon_meta: Mapping | None = None``, the parsed
+- ``gippa.manifest.ManifestSources`` gains ``operon_meta: Mapping | None = None``, the parsed
   ``operon_meta.json``. ``build_manifest`` writes the top-level ``operon_source`` and
   ``operon_source_reason`` (``None`` without it). ``run_tail`` reads it like ``annotation_meta``:
   Nextflow from the ``operon_pairs`` task directory of the trace, local from
   ``OUT/work/operon_meta``. The schema requires both keys and allows ``uniop`` |
   ``distance_model`` | ``precomputed`` | null.
 - The report reads ``operon_source``/``operon_source_reason`` from ``run_manifest.json`` and the
-  numbers through ``giap.data.calibration.load()``, called at render time as a module attribute
+  numbers through ``gippa.data.calibration.load()``, called at render time as a module attribute
   (the tests patch it). The 14s2 keys are flat under ``operon_distance`` (PR #382):
   ``precision_at_pair_threshold`` with ``_ci_low``/``_ci_high``, and the same for
   ``recall_at_pair_threshold``. Numbers are written with three decimals, as in ADR-0061 and the
@@ -45,8 +45,8 @@ from typing import Any
 
 import pytest
 
-import giapsim
-from giap.config import GiapConfig, resolve_config
+import gippasim
+from gippa.config import GippaConfig, resolve_config
 
 REASON_NOT_INSTALLED = "UniOP not installed"
 REASON_DISABLED = "UniOP disabled (annotation.uniop.enabled=false)"
@@ -68,14 +68,14 @@ PAIRS_OUT = {"pairs_raw": "pairs_raw.parquet", "tus": "tus.parquet", "tu_upstrea
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -89,15 +89,15 @@ def steps() -> Iterator[ModuleType]:
 def work(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     """SIM100K after ``parse_bakta`` and ``uniop_input``: the inputs ``operon_pairs`` needs."""
     out = tmp_path_factory.mktemp("sim100k_14d")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     w = out / "work"
     avail = {k: w / v for k, v in PARSE_OUT.items()}
     with pytest.MonkeyPatch.context() as mp:
         reg = _fresh_steps(mp)
-        reg.run_step("parse_bakta", GiapConfig(seed=1),
+        reg.run_step("parse_bakta", GippaConfig(seed=1),
                      {"bakta_json": res.bakta_json, "genome": res.genome_fasta}, avail)  # fmt: skip
         ui = {k: w / v for k, v in UNIOP_IN_OUT.items()}
-        reg.run_step("uniop_input", GiapConfig(seed=1),
+        reg.run_step("uniop_input", GippaConfig(seed=1),
                      {"genes": avail["genes"], "replicons": avail["replicons"]}, ui)  # fmt: skip
     return {**avail, **ui, "genome": res.genome_fasta}
 
@@ -129,7 +129,7 @@ class _Recorder(logging.Handler):
 
 
 def _run_pairs(
-    reg: ModuleType, work: dict[str, Path], out: Path, cfg: GiapConfig, pred: Path | None = None
+    reg: ModuleType, work: dict[str, Path], out: Path, cfg: GippaConfig, pred: Path | None = None
 ) -> tuple[dict[str, Any], set[str]]:
     """``operon_pairs`` → (``operon_meta.json``, run flags of its events)."""
     spec = reg.get("operon_pairs")
@@ -138,7 +138,7 @@ def _run_pairs(
         ins["uniop_pred"] = pred
     outs = {k: out / v for k, v in PAIRS_OUT.items()}
     rec = _Recorder()
-    log = logging.getLogger("giap")
+    log = logging.getLogger("gippa")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -159,10 +159,10 @@ def _run_pairs(
     return meta, flags
 
 
-def _step_cfg(tmp: Path, enabled: bool | str, installed: bool) -> GiapConfig:
-    """The config ``giap _step`` sees: ``resolve_uniop`` → ``write_params`` → reload."""
-    from giap.preflight.environment import resolve_uniop  # type: ignore[attr-defined]
-    from giap.runner.nextflow import write_params
+def _step_cfg(tmp: Path, enabled: bool | str, installed: bool) -> GippaConfig:
+    """The config ``gippa _step`` sees: ``resolve_uniop`` → ``write_params`` → reload."""
+    from gippa.preflight.environment import resolve_uniop  # type: ignore[attr-defined]
+    from gippa.runner.nextflow import write_params
 
     cfg = resolve_config(overrides=[f"annotation.uniop.enabled={str(enabled).lower()}"])
     res = resolve_uniop(cfg, installed=installed, publication=False)
@@ -231,7 +231,7 @@ def test_enabled_true_uniop_ran_without_pairs_is_failed(
 def test_enabled_true_without_pred_is_failed(
     steps: ModuleType, work: dict[str, Path], tmp_path: Path
 ) -> None:
-    meta, flags = _run_pairs(steps, work, tmp_path / "op", GiapConfig(seed=1))
+    meta, flags = _run_pairs(steps, work, tmp_path / "op", GippaConfig(seed=1))
     assert meta["reason"].startswith(REASON_FAILED_PREFIX), meta
     assert {DISTANCE_FLAG, LAYER_FLAG} <= flags, flags
 
@@ -334,9 +334,9 @@ def _base(out: Path, executor: str) -> dict[str, Any]:
     from helpers.manifest_data import preflight_doc, spec
 
     return {
-        "cfg": GiapConfig(seed=1), "preflight": preflight_doc(),
+        "cfg": GippaConfig(seed=1), "preflight": preflight_doc(),
         "registered": [spec("operon_pairs")], "executor": executor, "profile": None,
-        "resume": False, "outdir": str(out), "command_line": ["giap", "run"],
+        "resume": False, "outdir": str(out), "command_line": ["gippa", "run"],
         "started_at": "2026-10-25T10:00:00+00:00",
     }  # fmt: skip
 
@@ -345,7 +345,7 @@ META = {"operon_source": "distance_model", "reason": REASON_DISABLED}
 
 
 def test_run_tail_local_reads_work_operon_meta(tmp_path: Path) -> None:
-    from giap.steps.manifest import run_tail
+    from gippa.steps.manifest import run_tail
 
     out = tmp_path / "OUT"
     (out / "work").mkdir(parents=True)
@@ -361,7 +361,7 @@ def test_run_tail_local_reads_work_operon_meta(tmp_path: Path) -> None:
 def test_run_tail_nextflow_reads_the_operon_pairs_task_dir(tmp_path: Path) -> None:
     from helpers.manifest_data import trace_row
 
-    from giap.steps.manifest import run_tail
+    from gippa.steps.manifest import run_tail
 
     out = tmp_path / "OUT"
     task = out / "work" / "ab" / "cdef12"
@@ -380,7 +380,7 @@ def test_run_tail_nextflow_reads_the_operon_pairs_task_dir(tmp_path: Path) -> No
 
 
 def test_run_tail_without_operon_meta_is_null(tmp_path: Path) -> None:
-    from giap.steps.manifest import run_tail
+    from gippa.steps.manifest import run_tail
 
     out = tmp_path / "OUT"
     (out / "work").mkdir(parents=True)
@@ -422,8 +422,8 @@ def _sentence(reason: str, nums: Mapping[str, float]) -> str:
 
 @pytest.fixture
 def calib(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """Patch ``giap.data.calibration.load`` to carry a given operating point."""
-    from giap.data import calibration
+    """Patch ``gippa.data.calibration.load`` to carry a given operating point."""
+    from gippa.data import calibration
 
     real = calibration.load
 
@@ -500,9 +500,9 @@ def test_example_9b_report_caveat_under_publication(tmp_path: Path, calib: Any) 
 
 
 # -------------------------------------------------- run tail warning (Khoa 2026-10-26)
-# A run-time UniOP failure cannot be seen by preflight: ``giap run`` flags it at the end of the
+# A run-time UniOP failure cannot be seen by preflight: ``gippa run`` flags it at the end of the
 # run, with one line on stderr naming the reason and the distance model, e.g.
-# ``giap run: warning: operons used the distance model: UniOP failed (no uniop.pred)``.
+# ``gippa run: warning: operons used the distance model: UniOP failed (no uniop.pred)``.
 
 FAKE_NF = """#!/bin/sh
 prev=""
@@ -520,16 +520,16 @@ def _cli_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, meta: Mapping[str,
     import stat
 
     from click.testing import CliRunner
-    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.fake_env import fake_gippa_root, write_setup_manifest
     from helpers.manifest_data import trace_row
 
-    from giap.cli import cli
-    from giap.preflight import environment
+    from gippa.cli import cli
+    from gippa.preflight import environment
 
     monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "root")))
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
     task = tmp_path / "task" / "ab" / "cdef12"
     task.mkdir(parents=True)
     (task / "operon_meta.json").write_text(json.dumps(dict(meta)), encoding="utf-8")

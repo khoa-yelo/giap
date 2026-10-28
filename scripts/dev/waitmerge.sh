@@ -3,7 +3,7 @@
 # Decides from ONE snapshot per poll, and requires the full set of checks to be present.
 set -uo pipefail
 pr=$1; title=$2; expected=${3:-8}
-cd "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
+cd "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}"
 source scripts/farmshare_env.sh
 # A draft skips the coverage shards (ci.yml), and skipped checks count as passed below: never merge one.
 if [ "$(gh pr view "$pr" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then

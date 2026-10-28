@@ -50,7 +50,7 @@ with ``is_wrong = false`` (decision 11). Per gate (extra keys in brackets):
 7. value = ``realised_gene_fdp``; gate <= 0.02; expected [0, 0.01]; NaN (nothing detected): fail.
 8. value = eligible true genes / eligible [``n_truth_detected``, ``n_eligible``]; gate and
    expected [0.55, 0.70].
-9. value = sorted relative paths that differ between the two giapsim calls (``peptides.tsv`` and
+9. value = sorted relative paths that differ between the two gippasim calls (``peptides.tsv`` and
    ``truth/*.tsv``, a file present in one only counts as differing); ok iff empty and both have
    ``peptides.tsv`` and ``truth/{peptides,genes,islands,alt_sites,novel_orfs}.tsv``. ``again =
    None``: fail.
@@ -69,7 +69,7 @@ with ``is_wrong = false`` (decision 11). Per gate (extra keys in brackets):
     precision >= 0.97.
 12. a call is a ``novel_orfs.tsv`` row with ``called = true`` and numeric ``class_fdr <= ALPHA``;
     it is true when (contig, strand, stop) matches a truth ORF, where the stop is the lowest
-    coordinate of the stop codon (GIAP ``end - 2`` on ``+``, ``end`` on ``-``; truth ``stop``).
+    coordinate of the stop codon (GIPPA ``end - 2`` on ``+``, ``end`` on ``-``; truth ``stop``).
     ``classes[c]`` for c in intergenic, cds_outframe, antisense, nterm_extension: ``n_truth``,
     ``n_truth_with_peptide`` (``n_true_peptides >= 1``), ``n_calls``, ``n_true_calls``,
     ``precision`` (None without calls), ``below_1_over_alpha`` (``n_truth_with_peptide < 100``,
@@ -645,7 +645,7 @@ def test_gate12_classes(d: S.Dirs) -> None:
 
 def test_gate12_stop_convention_on_both_strands(d: S.Dirs) -> None:
     """A call whose ``end`` is the truth ``end`` on the minus strand (the highest coordinate,
-    not the stop) does not match: GIAP's minus-strand ``end`` is the lowest coordinate."""
+    not the stop) does not match: GIPPA's minus-strand ``end`` is the lowest coordinate."""
     truth = [r for r in S.read_tsv(d.inputs / "truth" / "novel_orfs.tsv")
              if r["class"] == "antisense"]  # fmt: skip
     minus = [r for r in truth if r["strand"] == "-"][:4]
@@ -654,7 +654,7 @@ def test_gate12_stop_convention_on_both_strands(d: S.Dirs) -> None:
     shifted = [{**r, "start": int(r["start"]), "end": int(r["end"]) + 3} for r in plus]
 
     def fn(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-        ids = {f"GIAPNOVEL_{r['orf_id']}" for r in minus + plus}
+        ids = {f"GIPPANOVEL_{r['orf_id']}" for r in minus + plus}
         keep = [r for r in rows if r["orf_id"] not in ids]
         bad = [dict(zip(S.NOVEL_HEADER, map(str, S.novel_call(t)), strict=True)) for t in shifted]
         for t in wrong:  # end = highest coordinate on '-': the minus convention broken
@@ -706,7 +706,7 @@ def test_gate12_d3_a_class_below_100_is_reported_not_failed(d: S.Dirs) -> None:
 
 
 def test_gate12_few_calls_in_a_supplied_class_is_outside_expected(d: S.Dirs) -> None:
-    drop = {f"GIAPNOVEL_NOVEL_antisense_{k:04d}" for k in range(20)}
+    drop = {f"GIPPANOVEL_NOVEL_antisense_{k:04d}" for k in range(20)}
     S.edit_tsv(d.out / "tables" / "novel_orfs.tsv",
                lambda rows: [r for r in rows if r["orf_id"] not in drop])  # fmt: skip
     res = gate(12, d)
@@ -1033,7 +1033,8 @@ def test_gate15_content_outside_the_sections_does_not_count(d: S.Dirs) -> None:
 def test_gate15_q_floor_caveat_fails(d: S.Dirs) -> None:
     page = (d.out / "report" / "report.html").read_text()
     page = page.replace(
-        "<h1>GIAP report</h1>", '<h1>GIAP report</h1>\n<p class="note">q_floor_above_alpha: ...</p>'
+        "<h1>GIPPA report</h1>",
+        '<h1>GIPPA report</h1>\n<p class="note">q_floor_above_alpha: ...</p>',
     )
     (d.out / "report" / "report.html").write_text(page)
     res = gate(15, d)

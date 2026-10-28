@@ -3,12 +3,12 @@
 Spec: docs/specs/M10-03-diann-convert.md, "The conversion job", examples 8-10, edge case
 "Partial outputs". The sandbox (``helpers.diann_convert_m10.convert_sandbox``) runs the **real**
 converter of this checkout on a hand-made 10-row report; only ``-m pytest`` (step 7) is faked,
-and ``GIAP_PYTHON`` is a recording wrapper. The determinism failure (Q8) uses the wrapper's
+and ``GIPPA_PYTHON`` is a recording wrapper. The determinism failure (Q8) uses the wrapper's
 ``FAKE_CONVERT_NONDET`` (it appends a byte to the second conversion's output), so the script
 needs no test hook.
 
-Fixed here: ``$OUT_DIR`` overrides ``$GIAP_ROOT/pilot``; ``SLURM_JOB_ID`` names the temporary
-files; the default ``GIAP_PYTHON`` is ``$UV_PROJECT_ENVIRONMENT/bin/python``.
+Fixed here: ``$OUT_DIR`` overrides ``$GIPPA_ROOT/pilot``; ``SLURM_JOB_ID`` names the temporary
+files; the default ``GIPPA_PYTHON`` is ``$UV_PROJECT_ENVIRONMENT/bin/python``.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from helpers.diann_convert_m10 import (
     table,
 )
 
-from giap.cli import cli
+from gippa.cli import cli
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def _nothing_written(box: ConvertSandbox, res) -> None:  # type: ignore[no-untyp
     assert res.returncode == 2, (res.returncode, res.stdout, res.stderr)
     assert box.inputs_files() == [], f"wrote {box.inputs_files()} on a precondition failure"
     assert not box.inputs.exists(), "$PILOT/inputs was created on a precondition failure (M13)"
-    assert box.calls("convert") == [], "giap convert ran despite a failed precondition"
+    assert box.calls("convert") == [], "gippa convert ran despite a failed precondition"
     assert box.repo_is_clean() == ""
 
 
@@ -83,7 +83,7 @@ def _directive(key: str) -> str | None:
 def test_sbatch_house_rules() -> None:
     """Criterion 7 (R14, §3.8)."""
     job = _directive("job-name")
-    assert job and job.startswith("giap-"), f"job name {job!r}"
+    assert job and job.startswith("gippa-"), f"job name {job!r}"
     assert _directive("partition") == "normal"
     assert _directive("qos") == "normal"
     assert _directive("cpus-per-task") == "2"
@@ -232,8 +232,8 @@ def test_the_convert_calls(box: ConvertSandbox) -> None:
 def test_outputs_are_moved_only_after_the_checks(box: ConvertSandbox, arm: str) -> None:
     """Steps 6-8: summary and contract checks see temporary files only, then the move.
 
-    Review B1: step 7 checks this job's report (``GIAP_M10_03_REPORT``) and this arm only
-    (``GIAP_M10_03_ARM``, ``-k "full_report and <arm>"``).
+    Review B1: step 7 checks this job's report (``GIPPA_M10_03_REPORT``) and this arm only
+    (``GIPPA_M10_03_ARM``, ``-k "full_report and <arm>"``).
     """
     stem = ARMS[arm][0]
     box.stage(arm)
@@ -249,8 +249,8 @@ def test_outputs_are_moved_only_after_the_checks(box: ConvertSandbox, arm: str) 
     assert _flag(argv, "-k") == f"full_report and {arm}", argv
     assert any(a.endswith("test_m10_03_diann_contract.py") for a in argv), argv
     assert pytests[0]["env"] == {
-        "GIAP_M10_03_REPORT": str(box.report(arm)),
-        "GIAP_M10_03_ARM": arm,
+        "GIPPA_M10_03_REPORT": str(box.report(arm)),
+        "GIPPA_M10_03_ARM": arm,
     }, pytests[0]["env"]
     for c in (*summaries, *pytests):
         assert not set(c["present"] or []) & _tables(stem), (c["kind"], c["present"])
@@ -258,7 +258,7 @@ def test_outputs_are_moved_only_after_the_checks(box: ConvertSandbox, arm: str) 
 
 def test_contract_step_checks_the_out_dir_report(box: ConvertSandbox) -> None:
     """Review B1: with ``OUT_DIR`` the contract step gets ``$OUT_DIR/<arm>/<arm>_report.parquet``,
-    not ``$GIAP_ROOT/pilot/…``."""
+    not ``$GIPPA_ROOT/pilot/…``."""
     box.stage("A1")
     alt = box.sb.tmp / "alt"
     (alt / "A1").mkdir(parents=True)
@@ -267,8 +267,8 @@ def test_contract_step_checks_the_out_dir_report(box: ConvertSandbox) -> None:
     res = box.run("A1", OUT_DIR=str(alt))
     assert res.returncode == 0, (res.stdout, res.stderr)
     (call,) = box.calls("pytest")
-    assert call["env"]["GIAP_M10_03_REPORT"] == str(alt / "A1" / "A1_report.parquet"), call
-    assert call["env"]["GIAP_M10_03_ARM"] == "A1", call
+    assert call["env"]["GIPPA_M10_03_REPORT"] == str(alt / "A1" / "A1_report.parquet"), call
+    assert call["env"]["GIPPA_M10_03_ARM"] == "A1", call
 
 
 def test_all_skipped_contract_run_fails_the_job(box: ConvertSandbox) -> None:
@@ -311,7 +311,7 @@ def test_convert_json_names_the_final_paths(box: ConvertSandbox, arm: str) -> No
     assert res.returncode == 0, (res.stdout, res.stderr)
     doc = json.loads((box.inputs / f"{stem}.convert.json").read_text())
     assert doc["command"] == [
-        "giap",
+        "gippa",
         "convert",
         "--from",
         "diann",
@@ -332,8 +332,8 @@ def test_convert_json_names_the_final_paths(box: ConvertSandbox, arm: str) -> No
     for k, name in (("peptides", f"{stem}.tsv.gz"), ("abundance", f"{stem}_abundance.tsv.gz")):
         assert doc["outputs"][k]["sha256"] == sha256(box.inputs / name), k
     # review B3: the code that ran is the sandbox checkout, committed; bytecode is not "dirty"
-    assert doc["giap"]["commit"] == box.sb.head
-    assert doc["giap"]["dirty"] is False, doc["giap"]
+    assert doc["gippa"]["commit"] == box.sb.head
+    assert doc["gippa"]["dirty"] is False, doc["gippa"]
 
 
 def test_out_dir_overrides_the_pilot_root(box: ConvertSandbox) -> None:
@@ -513,7 +513,7 @@ def _move_arm(box: ConvertSandbox, pilot: Path, arm: str = "A1") -> None:
 
 
 def test_out_dir_inside_the_checkout_and_not_ignored_exits_2(box: ConvertSandbox) -> None:
-    """Review S2: an ``OUT_DIR`` such as ``$GIAP_REPO/validation/pilot`` would write derived
+    """Review S2: an ``OUT_DIR`` such as ``$GIPPA_REPO/validation/pilot`` would write derived
     tables where ``git add -A`` stages them; it is a precondition failure. (``validation/pilot``
     itself already holds tracked M10-01 inputs, so an untracked, unignored sibling is used.)"""
     box.stage("A1")
@@ -526,7 +526,7 @@ def test_out_dir_inside_the_checkout_and_not_ignored_exits_2(box: ConvertSandbox
 
 
 def test_out_dir_under_an_ignored_directory_of_the_checkout_runs(box: ConvertSandbox) -> None:
-    """Review S2 / B2: the FarmShare default ``GIAP_ROOT=$GIAP_REPO/local`` (git-ignored)."""
+    """Review S2 / B2: the FarmShare default ``GIPPA_ROOT=$GIPPA_REPO/local`` (git-ignored)."""
     (box.repo / ".gitignore").write_text("/local/\n")
     for a in (["add", ".gitignore"], ["commit", "-q", "-m", "ignore local/"]):
         subprocess.run(["git", "-C", str(box.repo), *a], check=True, capture_output=True,
@@ -538,4 +538,4 @@ def test_out_dir_under_an_ignored_directory_of_the_checkout_runs(box: ConvertSan
     assert res.returncode == 0, (res.returncode, res.stdout, res.stderr)
     assert {p.name for p in (pilot / "inputs").iterdir()} == _outputs("a1")
     doc = json.loads((pilot / "inputs" / "a1.convert.json").read_text())
-    assert doc["giap"]["dirty"] is False, doc["giap"]
+    assert doc["gippa"]["dirty"] is False, doc["gippa"]

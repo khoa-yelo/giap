@@ -1,4 +1,4 @@
-"""giapsim M0 skeleton: one circular chromosome, genes, Bakta-like JSON (GIAP_SPEC.md §11.3)."""
+"""gippasim M0 skeleton: one circular chromosome, genes, Bakta-like JSON (GIPPA_SPEC.md §11.3)."""
 
 from __future__ import annotations
 
@@ -65,18 +65,18 @@ def at_frac(s: str) -> float:
 
 @pytest.fixture(scope="module")
 def small(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
+    import gippasim
 
     out = tmp_path_factory.mktemp("sim50k")
-    return giapsim.simulate(giapsim.SimConfig(genome_length=50_000), seed=1, outdir=out)
+    return gippasim.simulate(gippasim.SimConfig(genome_length=50_000), seed=1, outdir=out)
 
 
 @pytest.fixture(scope="module")
 def big(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
+    import gippasim
 
     out = tmp_path_factory.mktemp("sim1m")
-    return giapsim.simulate(giapsim.SimConfig(genome_length=1_000_000), seed=2, outdir=out)
+    return gippasim.simulate(gippasim.SimConfig(genome_length=1_000_000), seed=2, outdir=out)
 
 
 @pytest.fixture(scope="module")
@@ -105,9 +105,9 @@ def read_truth(path: Path) -> list[dict[str, str]]:
 
 
 def test_default_genome_length_is_50kb() -> None:
-    import giapsim
+    import gippasim
 
-    assert giapsim.SimConfig().genome_length == 50_000
+    assert gippasim.SimConfig().genome_length == 50_000
 
 
 def test_writes_expected_files(small: Any) -> None:
@@ -123,21 +123,21 @@ def test_writes_expected_files(small: Any) -> None:
 
 
 def test_same_seed_gives_identical_files(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(genome_length=30_000)
-    a = giapsim.simulate(cfg, seed=11, outdir=tmp_path / "a")
-    b = giapsim.simulate(cfg, seed=11, outdir=tmp_path / "b")
+    cfg = gippasim.SimConfig(genome_length=30_000)
+    a = gippasim.simulate(cfg, seed=11, outdir=tmp_path / "a")
+    b = gippasim.simulate(cfg, seed=11, outdir=tmp_path / "b")
     for attr in ("genome_fasta", "bakta_json", "genes_truth"):
         assert Path(getattr(a, attr)).read_bytes() == Path(getattr(b, attr)).read_bytes()
 
 
 def test_different_seed_gives_different_genome(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(genome_length=30_000)
-    a = giapsim.simulate(cfg, seed=11, outdir=tmp_path / "a")
-    b = giapsim.simulate(cfg, seed=12, outdir=tmp_path / "b")
+    cfg = gippasim.SimConfig(genome_length=30_000)
+    a = gippasim.simulate(cfg, seed=11, outdir=tmp_path / "a")
+    b = gippasim.simulate(cfg, seed=12, outdir=tmp_path / "b")
     assert read_fasta(Path(a.genome_fasta))[0][1] != read_fasta(Path(b.genome_fasta))[0][1]
 
 
@@ -320,9 +320,9 @@ def test_intergenic_more_at_rich_than_coding(small_json: dict[str, Any], small_g
 
 
 def test_100kb_genome_is_fast(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
     t0 = time.perf_counter()
-    giapsim.simulate(giapsim.SimConfig(genome_length=100_000), seed=5, outdir=tmp_path)
-    # loose 10x guard; the 2 s budget is enforced in benchmarks/test_giapsim.py
+    gippasim.simulate(gippasim.SimConfig(genome_length=100_000), seed=5, outdir=tmp_path)
+    # loose 10x guard; the 2 s budget is enforced in benchmarks/test_gippasim.py
     assert time.perf_counter() - t0 < 20.0

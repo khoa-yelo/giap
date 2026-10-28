@@ -1,5 +1,5 @@
 """Properties of the M4-17 region tests (docs/specs/M4-17-region-tests.md acceptance "Property";
-GIAP_SPEC.md §7.3.6).
+GIPPA_SPEC.md §7.3.6).
 
 - P1 O - E (observed, expected, effect) is unchanged when the values of genes outside the region
   are permuted among the outside indices;
@@ -42,7 +42,7 @@ SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=[Healt
 
 
 def _regions() -> Any:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R
 
@@ -86,7 +86,7 @@ def test_p1_o_minus_e_invariant_to_outside_relabelling(rep: dict[str, Any], perm
 @SETTINGS
 @given(rep=replicon())
 def test_p2_shifted_sets_keep_size(rep: dict[str, Any]) -> None:
-    from giap.stats.permutation import circular_shifts
+    from gippa.stats.permutation import circular_shifts
 
     n, idx = rep["n"], np.array(rep["idx"])
     shifts = circular_shifts(n, idx, rep["circular"])
@@ -113,7 +113,7 @@ def test_p3_linear_shifts_never_wrap(rep: dict[str, Any], monkeypatch_shifts: An
 @SETTINGS
 @given(rep=replicon(min_n=2, max_n=25))
 def test_p4_vectorised_nulls_equal_naive_loop(rep: dict[str, Any]) -> None:
-    from giap.stats.permutation import circular_shifts
+    from gippa.stats.permutation import circular_shifts
 
     R = _regions()
     n, idx = rep["n"], rep["idx"]
@@ -271,7 +271,7 @@ def test_p7_studentised_t_invariant_to_affine_values(
 @pytest.fixture(scope="module")
 def monkeypatch_shifts() -> Any:
     """Module-scoped spy on ``choose_shifts`` (hypothesis forbids function-scoped fixtures)."""
-    import giap.stats.permutation as perm
+    import gippa.stats.permutation as perm
 
     R = _regions()
     mp = pytest.MonkeyPatch()

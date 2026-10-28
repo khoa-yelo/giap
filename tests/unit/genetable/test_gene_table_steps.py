@@ -1,5 +1,5 @@
 """M4-15 steps ``gene_table`` and ``detectability`` (docs/specs/M4-15-gene-table-assembly.md,
-lead decisions 1-3; GIAP_SPEC.md §6.2, §6.6, §9.4; M2-02 registry).
+lead decisions 1-3; GIPPA_SPEC.md §6.2, §6.6, §9.4; M2-02 registry).
 
 Pinned by the test author (see the hand-back report):
 - Registry keys follow the existing producers: ``gene_table`` reads ``genes`` / ``layers`` /
@@ -10,7 +10,7 @@ Pinned by the test author (see the hand-back report):
 - Without the COG table ``cog_category`` is NA and a warning carrying ``layer_missing:cog`` is
   logged (the M2-19/M2-20 convention for run flags).
 - ``run_gene_table(work_dir, cfg)`` / ``run_detectability(work_dir, cfg)`` find the contract files
-  in ``work_dir`` in the real ``giap run`` layout (M3 TSVs under ``mapping/``, C14 under
+  in ``work_dir`` in the real ``gippa run`` layout (M3 TSVs under ``mapping/``, C14 under
   ``annotation/``) and in the flat ``default_paths`` layout (lead decision 8), and return
   ``work_dir/genetable/genes_pre.parquet`` / ``work_dir/genetable/genes.parquet``.
 - A contract ``error`` issue makes the step fail (``StepError`` through ``run_step``; the spec's
@@ -42,8 +42,8 @@ KNOWN_INPUTS = {
 
 
 def _reg() -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     return reg
@@ -61,7 +61,7 @@ def _frames(dup: bool = False) -> dict[str, Any]:
 def write_work(root: Path, frames: dict[str, Any], layout: str = "both") -> dict[str, Path]:
     """Contract files under ``root``; ``layout`` ``flat`` (``default_paths``), ``run`` (M3 TSVs
     under ``mapping/``, C14 under ``annotation/``) or ``both``. Returns the step input keys."""
-    from giap.io.work_tables import default_paths
+    from gippa.io.work_tables import default_paths
 
     flat = default_paths(root) | {"preflight": root / "preflight.json"}
     mf.write_work(frames, flat)
@@ -80,7 +80,7 @@ def write_work(root: Path, frames: dict[str, Any], layout: str = "both") -> dict
 def run_gene_table_step(
     root: Path, frames: dict[str, Any], cog: Path | None = None, seed: int = 1
 ) -> Path:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     reg = _reg()
     spec = reg.get("gene_table")
@@ -92,7 +92,7 @@ def run_gene_table_step(
     out = root / "out"
     outputs = {k: out / k for k in spec.outputs}
     outputs["genes_pre"] = out / "genetable" / "genes_pre.parquet"
-    reg.run_step("gene_table", GiapConfig(seed=seed), inputs, outputs)
+    reg.run_step("gene_table", GippaConfig(seed=seed), inputs, outputs)
     return outputs["genes_pre"]
 
 
@@ -179,7 +179,7 @@ def _assert_nulls_kept(pre: Path, out: Path) -> None:
 
 
 def _setup_db(root: Path, *, listed: bool, raw: bytes | None = None) -> Path:
-    """A tmp ``$GIAP_DB_DIR``: fixture ``cog/cog-20.def.tab`` and a ``giap setup`` manifest that
+    """A tmp ``$GIPPA_DB_DIR``: fixture ``cog/cog-20.def.tab`` and a ``gippa setup`` manifest that
     lists ``cog2020_def`` (``listed``) or only another item."""
     import json
 
@@ -201,21 +201,21 @@ def test_cog_table_found_through_setup_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
     cp1252: bool,
 ) -> None:  # fmt: skip
-    """Lead decisions 12/13: ``$GIAP_DB_DIR`` manifest lists ``cog2020_def`` -> categories set
+    """Lead decisions 12/13: ``$GIPPA_DB_DIR`` manifest lists ``cog2020_def`` -> categories set
     (also when the file has a cp1252 byte, as the real NCBI file does)."""
-    from giap.config import GiapConfig
-    from giap.steps.gene_table import run_gene_table
+    from gippa.config import GippaConfig
+    from gippa.steps.gene_table import run_gene_table
 
     raw = None
     if cp1252:
         raw = b"".join("\t".join(r).encode("utf-8") + b"\n" for r in gt.COG_DEF_ROWS)
         raw = raw.replace(b"DnaA\t", b"DnaA\x92\t", 1)
-    monkeypatch.setenv("GIAP_DB_DIR", str(_setup_db(tmp_path, listed=True, raw=raw)))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_setup_db(tmp_path, listed=True, raw=raw)))
     work = tmp_path / "work"
     work.mkdir()
     write_work(work, _frames(), layout="run")
     with caplog.at_level(logging.WARNING):
-        pre = run_gene_table(work, GiapConfig(seed=3))
+        pre = run_gene_table(work, GippaConfig(seed=3))
     assert not [r for r in caplog.records if "layer_missing:cog" in r.getMessage()]
     by = pd.read_parquet(pre).set_index("locus_tag")
     assert (by.loc[tag(0), "cog_category"], by.loc[tag(2), "cog_category"]) == ("J", "KT")
@@ -225,15 +225,15 @@ def test_cog_file_without_manifest_entry_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Lead decision 12: the file alone (setup never recorded it) -> NA + ``layer_missing:cog``."""
-    from giap.config import GiapConfig
-    from giap.steps.gene_table import run_gene_table
+    from gippa.config import GippaConfig
+    from gippa.steps.gene_table import run_gene_table
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(_setup_db(tmp_path, listed=False)))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_setup_db(tmp_path, listed=False)))
     work = tmp_path / "work"
     work.mkdir()
     write_work(work, _frames(), layout="run")
     with caplog.at_level(logging.WARNING):
-        pre = run_gene_table(work, GiapConfig(seed=3))
+        pre = run_gene_table(work, GippaConfig(seed=3))
     assert any("layer_missing:cog" in r.getMessage() for r in caplog.records)
     assert pd.read_parquet(pre)["cog_category"].isna().all()
 
@@ -241,7 +241,7 @@ def test_cog_file_without_manifest_entry_is_missing(
 def test_m4_paths_preflight_directory(tmp_path: Path) -> None:
     """Lead decision 20(a): a ``preflight`` input that is a directory (the local executor's
     ``work/preflight/``) resolves to the ``preflight.json`` inside it."""
-    from giap.steps.gene_table import m4_paths
+    from gippa.steps.gene_table import m4_paths
 
     pre = tmp_path / "preflight"
     pre.mkdir()
@@ -260,7 +260,7 @@ def test_abundance_scale_read_from_preflight(
     directory holding it, and no ``contract.preflight.abundance_scale`` issue is logged."""
     import json
 
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     fr = _frames()
     fr["peptides"]["intensity"] = float("nan")  # force the protein (C10) route
@@ -279,7 +279,7 @@ def test_abundance_scale_read_from_preflight(
     out = tmp_path / "out" / "genes_pre.parquet"
     outputs = {k: tmp_path / "out" / k for k in spec.outputs} | {"genes_pre": out}
     with caplog.at_level(logging.WARNING):
-        reg.run_step("gene_table", GiapConfig(seed=1), inputs, outputs)
+        reg.run_step("gene_table", GippaConfig(seed=1), inputs, outputs)
     assert not [r for r in caplog.records if "contract.preflight" in r.getMessage()]
     by = pd.read_parquet(out).set_index("locus_tag")
     assert set(by["abundance_type"]) != {"none"}
@@ -288,10 +288,10 @@ def test_abundance_scale_read_from_preflight(
 
 @pytest.fixture
 def no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point ``$GIAP_DB_DIR`` at an empty directory: tests never read the real databases."""
+    """Point ``$GIPPA_DB_DIR`` at an empty directory: tests never read the real databases."""
     empty = tmp_path / "empty_db"
     empty.mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(empty))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(empty))
     return empty
 
 
@@ -299,14 +299,14 @@ def no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_run_functions_write_genetable_files(
     tmp_path: Path, no_db: Path, caplog: pytest.LogCaptureFixture, layout: str
 ) -> None:
-    from giap.config import GiapConfig
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
+    from gippa.config import GippaConfig
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
 
     work = tmp_path / "work"
     work.mkdir()
     write_work(work, _frames(), layout=layout)
-    cfg = GiapConfig(seed=3)
+    cfg = GippaConfig(seed=3)
     with caplog.at_level(logging.WARNING):
         pre = run_gene_table(work, cfg)
     assert pre == work / "genetable" / "genes_pre.parquet" and pre.is_file()

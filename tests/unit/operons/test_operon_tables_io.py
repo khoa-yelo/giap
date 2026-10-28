@@ -1,13 +1,13 @@
 """M6-08 writers and schemas of ``tables/pairs.tsv``, ``tables/operons.tsv`` and
 ``tables/operon_flags.tsv`` (docs/specs/M6-08-operons-step-and-run.md, public interface items 3
-and 4, example 6; GIAP_SPEC.md §6.5, §6.6, §9.2, §9.3, §9.4, §9.5).
+and 4, example 6; GIPPA_SPEC.md §6.5, §6.6, §9.2, §9.3, §9.4, §9.5).
 
 Interface pinned here (test-author reading of the spec):
 
-* ``giap.io.operon_tables.write_pairs_tsv(path, df)``, ``write_operons_tsv(path, df)`` and
+* ``gippa.io.operon_tables.write_pairs_tsv(path, df)``, ``write_operons_tsv(path, df)`` and
   ``write_operon_flags_tsv(path, df)``. They take the internal frames of M6-04..M6-07
   (``merge_tests``, ``operons_table`` and ``flag_pairs``), which are 0-based half-open.
-* Cells follow ``giap.io.tsv.format_value`` (M1-04): ``NA`` for missing, floats ``%.6g``,
+* Cells follow ``gippa.io.tsv.format_value`` (M1-04): ``NA`` for missing, floats ``%.6g``,
   booleans ``true``/``false`` and ``;``-joined lists, with an empty list written as ``NA``.
 * Coordinates are converted **only** in the writer (§6.5). In ``operons.tsv`` that means
   ``start + 1`` with ``end`` unchanged, and an origin-crossing TU keeps ``end > length``. The two
@@ -16,7 +16,7 @@ Interface pinned here (test-author reading of the spec):
   ``PAIR_<n>``, because the pair-ID order is the contig/start order (M6-index decision 3).
   ``operons.tsv`` keeps the order ``operons_table`` gives (contig in C1 order, then start).
 * ``pairs.tsv`` never carries the internal ``which`` column (lead decision 4).
-* Schemas live in ``src/giap/schemas/tables/{pairs,operons,operon_flags}.schema.json``, the
+* Schemas live in ``src/gippa/schemas/tables/{pairs,operons,operon_flags}.schema.json``, the
   per-table resources the other tables already use. Each declares ``coordinates:
   1-based-closed``. The ``class``, ``test`` and ``flag`` enums are exactly those of §9.3.
 * ``pairs.tsv`` ``flags`` accepts ``rna_between`` (§9.4 Operons) and exactly the M6-08 lead
@@ -41,14 +41,14 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.tsv import format_value
-from giap.operons.flags import FLAG_COLUMNS, FLAGS
-from giap.operons.pairs import PAIR_COLUMNS, TEST_COLUMNS
-from giap.operons.tu_table import OPERON_COLUMNS
+from gippa.io.tsv import format_value
+from gippa.operons.flags import FLAG_COLUMNS, FLAGS
+from gippa.operons.pairs import PAIR_COLUMNS, TEST_COLUMNS
+from gippa.operons.tu_table import OPERON_COLUMNS
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 
-#: §9.3 enums, copied from GIAP_SPEC.md (not from the code under test)
+#: §9.3 enums, copied from GIPPA_SPEC.md (not from the code under test)
 SPEC_CLASS = {"OP", "NO", "CV", "DV", "SW"}
 SPEC_TEST = {"both_detected_t", "one_detected_pmiss", "missed_operon_decoy", "none"}
 SPEC_FLAG = {
@@ -68,7 +68,7 @@ OPERON_TOKENS = ("rna_between", *DECISION_7)
 
 
 def _writers() -> Any:
-    from giap.io import operon_tables
+    from gippa.io import operon_tables
 
     return operon_tables
 
@@ -93,7 +93,7 @@ def _field(stem: str, name: str) -> dict[str, Any]:
 
 
 def _validate(path: Path, stem: str) -> Any:
-    """Frictionless report of ``path`` against its resource (``coordinates`` is a GIAP key)."""
+    """Frictionless report of ``path`` against its resource (``coordinates`` is a GIPPA key)."""
     frictionless = pytest.importorskip("frictionless")
     d = {k: v for k, v in _schema(stem).items() if k != "coordinates"}
     schema = frictionless.Schema.from_descriptor(d)

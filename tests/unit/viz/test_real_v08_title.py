@@ -18,10 +18,10 @@ import pytest
 from helpers.viz_out_tree import gene_row, make_out, write_schema_table
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 MIN_N = 5
 #: M9-06 as amended on 2026-10-24 (#322 review S5): the claim names its eligibility rule
@@ -42,7 +42,7 @@ def g(tag: str, cog: str | None, log2: float | None, detected: bool = True) -> d
 
 
 def _render(tmp: Path, genes: Sequence[dict[str, object]]) -> Instance:
-    import giap.viz.detection  # noqa: F401  (registers V08)
+    import gippa.viz.detection  # noqa: F401  (registers V08)
 
     out = make_out(tmp)
     write_schema_table(out / "tables" / "genes.tsv", "genes", genes)

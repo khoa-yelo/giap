@@ -1,6 +1,6 @@
 // M9-17 follow-up: the CONTEXT subworkflow passes the context_stats step's optional plot support
 // on (workflow/subworkflows/local/context.nf; docs/specs/M9-17-plot-support-analysis.md lead
-// decisions 5-6; GIAP_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
+// decisions 5-6; GIPPA_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
 // nf-test test workflow/tests --profile test,stub.
 //
 // Pinned here:
@@ -9,10 +9,10 @@
 //         output; the real step always creates the directory when asked, but the wiring must not
 //         rely on it);
 //   publish: the support files (null_regions, null_islands) land in OUT/plots/support/ (as
-//         giap.runner.local.publish merges work/context_stats_support/support/ there), never in
+//         gippa.runner.local.publish merges work/context_stats_support/support/ there), never in
 //         OUT/context_stats_support/.
-// The stub test runs -stub; the other two run the real GIAP_STEP script with the fake giap of
-// workflow/tests/bin_giap (fake_giap.config): it writes <support path>/support/
+// The stub test runs -stub; the other two run the real GIPPA_STEP script with the fake gippa of
+// workflow/tests/bin_gippa (fake_gippa.config): it writes <support path>/support/
 // fake_context_stats_support.tsv when params.fake_support is true and nothing at the support
 // path when false. sensitivity runs too (through the same fake). Inputs as context.nf.test.
 
@@ -21,7 +21,7 @@ nextflow_workflow {
     name "CONTEXT subworkflow: plot support (M9-17)"
     script "../subworkflows/local/context.nf"
     workflow "CONTEXT"
-    config "./fake_giap.config"
+    config "./fake_gippa.config"
     tag "context"
     tag "support"
 
@@ -69,12 +69,12 @@ nextflow_workflow {
         }
     }
 
-    test("real GIAP_STEP, the step writes support: asked for context_stats_support, files under plots/support/") {
+    test("real GIPPA_STEP, the step writes support: asked for context_stats_support, files under plots/support/") {
 
         when {
             params {
                 outdir = "$outputDir"
-                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_bin = "${moduleTestDir}/bin_gippa"
                 fake_support = true
             }
             workflow {
@@ -103,8 +103,8 @@ nextflow_workflow {
             def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() && new File(it, 'giap.argv').readLines()[1] == 'context_stats' }
-            assert dirs.size() == 1 : "expected one fake giap context_stats task: ${dirs}"
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'gippa.argv').isFile() && new File(it, 'gippa.argv').readLines()[1] == 'context_stats' }
+            assert dirs.size() == 1 : "expected one fake gippa context_stats task: ${dirs}"
             def outs = S.argvOuts(dirs[0])
             assert outs.any { it.startsWith('context_stats_support=') } : "context_stats step not asked for context_stats_support: --out ${outs}"
             def sup = workflow.out.context_stats_support
@@ -115,12 +115,12 @@ nextflow_workflow {
         }
     }
 
-    test("real GIAP_STEP, the step writes no support: the task succeeds, context_stats_support is empty") {
+    test("real GIPPA_STEP, the step writes no support: the task succeeds, context_stats_support is empty") {
 
         when {
             params {
                 outdir = "$outputDir"
-                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_bin = "${moduleTestDir}/bin_gippa"
                 fake_support = false
             }
             workflow {
@@ -149,8 +149,8 @@ nextflow_workflow {
             def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
             assert workflow.success : "a context_stats run without support failed"
             assert workflow.trace.failed().size() == 0
-            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() && new File(it, 'giap.argv').readLines()[1] == 'context_stats' }
-            assert dirs.size() == 1 : "expected one fake giap context_stats task: ${dirs}"
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'gippa.argv').isFile() && new File(it, 'gippa.argv').readLines()[1] == 'context_stats' }
+            assert dirs.size() == 1 : "expected one fake gippa context_stats task: ${dirs}"
             assert S.argvOuts(dirs[0]).any { it.startsWith('context_stats_support=') } : "context_stats step not asked for context_stats_support"
             def sup = workflow.out.context_stats_support
             assert sup != null && sup.size() == 0 : "emit context_stats_support should be empty: ${sup}"

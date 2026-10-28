@@ -4,14 +4,14 @@ Spec: docs/specs/M10-10-a3-run.md, piece 10a (entry gate, ``cascadia_convert.sba
 ``validation/pilot/cascadia_convert.py``, the ``A3_OUT_DIR`` override of ``denovo_pilot.sbatch``,
 ``run_evidence.py`` rules A10/A11 and rule set C for N labels, the 4-argument
 ``pilot_compare.sbatch``). Nothing here reaches the network, a GPU, Cascadia, real data or the
-real ``$GIAP_ROOT``; every ``.ssl`` row, hash and count is invented in ``tmp_path``.
+real ``$GIPPA_ROOT``; every ``.ssl`` row, hash and count is invented in ``tmp_path``.
 
 * ``write_feasibility`` / ``write_assets``: an M10-08 ``a3_feasibility.json`` (aggregates only, the
   M10-08 field list) and an ``a3_assets.tsv`` whose ``cascadia_weights`` row carries a sha256.
 * ``write_ssl``: a Cascadia 0.0.7-shaped ``.ssl`` (M10-09's header, ``score-type = UNKNOWN``).
 * ``convert_sandbox``: ``helpers.slurm_sandbox.make_sandbox`` plus this checkout's ``src/`` and
   ``validation/`` (committed in the sandbox checkout), a passing gate, and a recording
-  ``GIAP_PYTHON`` (``$UV_PROJECT_ENVIRONMENT/bin/python``) that runs the **real** converter and
+  ``GIPPA_PYTHON`` (``$UV_PROJECT_ENVIRONMENT/bin/python``) that runs the **real** converter and
   summary, but fakes ``a3_feasibility.py evaluate`` (08b) by exit code: ``FAKE_L6="WT_2=3,WT_3=1"``
   (default 0 = pass). The fake writes a small aggregates JSON to the ``--out`` it is given.
   ``FAKE_CONVERT_NONDET=1`` appends one byte to the second conversion's ``--out`` (the determinism
@@ -25,7 +25,7 @@ Conventions settled by the test author (the spec leaves them open; listed in the
   ``--assets`` (defaults: the committed files of the checkout it runs from).
 * ``summarize(ssl_rows, peptides, issues, acquisition_runs) -> dict`` takes ``ssl_rows`` as
   ``{run: data rows}``, ``peptides`` as the converted table (a DataFrame with the file's columns),
-  ``issues`` as ``giap.io.issues.Issue`` objects (the parsed log) and the acquisition run labels in
+  ``issues`` as ``gippa.io.issues.Issue`` objects (the parsed log) and the acquisition run labels in
   file order; it returns at least ``counts``, ``issues`` and ``failures``. A failure string starts
   with ``rule <n>`` (as M10-03's ``diann_convert.summarize``).
 * ``a3.convert.json``: ``ssl`` is keyed by run, each ``{path, sha256, bytes, rows}``; ``outputs``
@@ -104,7 +104,7 @@ def load(path: Path, name: str, what: str) -> ModuleType:
 
 
 def load_cascadia_convert() -> ModuleType:
-    return load(CASCADIA_CONVERT, "giap_pilot_cascadia_convert", "M10-10a deliverable 3")
+    return load(CASCADIA_CONVERT, "gippa_pilot_cascadia_convert", "M10-10a deliverable 3")
 
 
 def m10_04() -> ModuleType:
@@ -162,10 +162,10 @@ def write_assets(path: Path, weights_sha: str = WEIGHTS_SHA) -> Path:
         {"asset": "cascadia_weights", "version": "0.0.7 (Drive file cascadia.ckpt)",
          "url": "https://drive.usercontent.google.com/download?id=x", "sha256": weights_sha,
          "bytes": "1000", "licence": "Apache-2.0",
-         "path": "$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt", "retrieved": "2026-10-24"},
+         "path": "$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt", "retrieved": "2026-10-24"},
         {"asset": "unimod_table", "version": "psims 1.4.0", "url": "https://anaconda.org/x",
          "sha256": "6" * 64, "bytes": "500", "licence": "public domain",
-         "path": "$GIAP_DB_DIR/cascadia/unimod_tables.xml", "retrieved": "2026-10-24"},
+         "path": "$GIPPA_DB_DIR/cascadia/unimod_tables.xml", "retrieved": "2026-10-24"},
     ]  # fmt: skip
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["\t".join(ASSET_COLUMNS)] + ["\t".join(r[c] for c in ASSET_COLUMNS) for r in rows]
@@ -211,7 +211,7 @@ JOB_SSL: dict[str, list[tuple[str, int, float]]] = {
 # ------------------------------------------------------------------ the conversion job sandbox
 
 _PYTHON = r"""#!{python}
-'''Recording GIAP_PYTHON for the M10-10 conversion job (tests/helpers/a3_run_m10_10.py).'''
+'''Recording GIPPA_PYTHON for the M10-10 conversion job (tests/helpers/a3_run_m10_10.py).'''
 import json, os, subprocess, sys
 argv = sys.argv[1:]
 state = os.environ["FAKE_SLURM_DIR"]
@@ -220,7 +220,7 @@ rest = argv[argv.index("-c") + 2:] if code else []
 script = next((a for a in argv if a.endswith(".py")), "")
 if script.endswith("a3_feasibility.py") and "evaluate" in argv:
     kind = "evaluate"
-elif "giap.cli" in code and "convert" in rest:
+elif "gippa.cli" in code and "convert" in rest:
     kind = "convert"
 elif script.endswith("cascadia_convert.py"):
     kind = "gate" if "gate" in argv else "summary" if "summary" in argv else "cascadia_convert"
@@ -308,9 +308,9 @@ class ConvertSandbox:
         if not script.is_file():
             shutil.copy2(CONVERT_JOB, script)
             self._commit("M10-10 sandbox: the job script")
-        from helpers.slurm_sandbox import assert_honours_giap_repo
+        from helpers.slurm_sandbox import assert_honours_gippa_repo
 
-        assert_honours_giap_repo(script.read_text(), script.name)
+        assert_honours_gippa_repo(script.read_text(), script.name)
         return self.sb.run(["bash", str(script), *args], env=env, cwd=self.sb.tmp, timeout=300)
 
     def calls(self, kind: str | None = None) -> list[dict[str, Any]]:
@@ -340,7 +340,7 @@ def convert_sandbox(tmp: Path) -> ConvertSandbox:
     for name in ("python", "python3"):
         write_exe(sb.bin / name, _PYTHON.replace("{python!r}", repr(py)).replace("{python}", py))
     sb.env.update({"SLURM_JOB_ID": "5151", "PYTHONDONTWRITEBYTECODE": "1"})
-    sb.env.pop("GIAP_PYTHON", None)
+    sb.env.pop("GIPPA_PYTHON", None)
     return box
 
 
@@ -423,16 +423,16 @@ def a3_cli_args(out: Path, dest: Path, out_a2: Path, **kw: str) -> list[str]:
     return [*args, "--expect-input", f"{REFERENCE_ROLE}={kit.SHA_PEPTIDES}", "--a2", str(out_a2)]
 
 
-def giap_compare_n(
+def gippa_compare_n(
     runs: Sequence[Path], labels: Sequence[str], cmp: Path, *, env_root: Path, bootstrap: int = 200
 ) -> subprocess.CompletedProcess[str]:
-    """The real ``giap compare RUN… --outdir CMP --labels L1,L2,…`` of this checkout."""
+    """The real ``gippa compare RUN… --outdir CMP --labels L1,L2,…`` of this checkout."""
     env_root.mkdir(parents=True, exist_ok=True)
     env = {"PATH": "/usr/bin:/bin", "HOME": str(env_root), "LANG": "C.UTF-8",
-           "PYTHONPATH": str(REPO / "src"), "GIAP_DB_DIR": str(env_root),
-           "GIAP_ROOT": str(env_root), "PYTHONDONTWRITEBYTECODE": "1",
+           "PYTHONPATH": str(REPO / "src"), "GIPPA_DB_DIR": str(env_root),
+           "GIPPA_ROOT": str(env_root), "PYTHONDONTWRITEBYTECODE": "1",
            "MPLCONFIGDIR": str(env_root / "mpl")}  # fmt: skip
-    cmd = [sys.executable, "-c", "from giap.cli import cli; cli()", "compare",
+    cmd = [sys.executable, "-c", "from gippa.cli import cli; cli()", "compare",
            *(str(r) for r in runs), "--outdir", str(cmp), "--labels", ",".join(labels),
            "--set", f"stats.bootstrap={bootstrap}"]  # fmt: skip
     return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=600, check=False)

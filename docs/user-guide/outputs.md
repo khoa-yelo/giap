@@ -36,7 +36,7 @@ OUT/
 ```
 
 Some files sit outside this list. `genetable/`, `context/` and `novel/` hold Parquet
-intermediates that later steps and `giap report` read. `work/` is Nextflow's work directory. These
+intermediates that later steps and `gippa report` read. `work/` is Nextflow's work directory. These
 are not part of the published table set, and their layout may change between versions.
 
 Optional modules that are switched off write no files. `run_manifest.json` lists them under
@@ -117,7 +117,7 @@ G_0002     chr1    9801   10300  +       true
 
 ```text
 ##sequence-region chr1 1 10000
-chr1  giap  region  1     10000  .  .  .  ID=chr1;Is_circular=true
+chr1  gippa  region  1     10000  .  .  .  ID=chr1;Is_circular=true
 chr1  Bakta  CDS     1201  2100   .  -  0  ID=G_0001
 chr1  Bakta  CDS     9801  10300  .  +  0  ID=G_0002
 ```
@@ -142,7 +142,7 @@ origin has `end` greater than the replicon length, `crosses_origin = true` and t
 
 ## Manifest
 
-`run_manifest.json` validates against `src/giap/schemas/run_manifest.schema.json`. It records:
+`run_manifest.json` validates against `src/gippa/schemas/run_manifest.schema.json`. It records:
 
 - the status (`completed` or `failed`) and the exit code;
 - the command line;
@@ -152,4 +152,4 @@ origin has `end` greater than the replicon length, `crosses_origin = true` and t
 - per-step time and peak memory;
 - skipped steps and `modules_off`.
 
-`giap compare` uses the genome SHA-256 recorded here to check that runs share a genome.
+`gippa compare` uses the genome SHA-256 recorded here to check that runs share a genome.

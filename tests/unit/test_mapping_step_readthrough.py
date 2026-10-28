@@ -23,10 +23,10 @@ import pytest
 from helpers.readthrough_index import FIXTURE, SEED, inputs, world
 from helpers.readthrough_toys import model, write_annotation
 
-from giap.config import resolve_config
-from giap.mapping.sixframe import build_sixframe, decode
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.config import resolve_config
+from gippa.mapping.sixframe import build_sixframe, decode
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 EVENT = "mapping.stop_sites"
 
@@ -60,7 +60,7 @@ def test_sixframe_index_declares_the_genes_input() -> None:
 def test_sixframe_index_writes_format_2_cells_and_the_event(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     caplog.set_level(logging.INFO)
     out = _six(tmp_path, inputs(tmp_path))
@@ -83,7 +83,7 @@ def test_sixframe_index_writes_format_2_cells_and_the_event(
 def test_empty_gene_model_gives_zero_sites_and_the_same_frames(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     caplog.set_level(logging.INFO)
     ins = inputs(tmp_path)
@@ -180,7 +180,7 @@ def test_map_tolerant_passes_the_cells_to_the_frameshift_route(tmp_path: Path) -
     ``match_frameshift`` receives the cells; the tolerant route reports the read-through row."""
     from helpers.readthrough_toys import CODON, gene, write_genome
 
-    from giap.model import Replicon
+    from gippa.model import Replicon
 
     gene_aa = "MCFHPYWCFHPYWCF"
     q = gene_aa[-8:] + "E" + "K" * 6

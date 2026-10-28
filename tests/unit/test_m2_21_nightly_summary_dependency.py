@@ -7,7 +7,7 @@ first on ``PATH``). Nothing is submitted, updated or posted.
 Conventions settled by the test author:
 
 * Task 1 on a non-wheat node resubmits itself (fake job ID ``NEW``, distinct from the array ID).
-  The fake ``squeue`` answers a query by name ``giap-nightly-summary`` with ``<id> <comment>``
+  The fake ``squeue`` answers a query by name ``gippa-nightly-summary`` with ``<id> <comment>``
   lines: one summary job of another night (``nightly:9999``) listed first, then the one of this
   night (``nightly:<array>``). The task then calls
   ``scontrol update JobId=<this night's id> Dependency=afterany:<ids>`` where the ``afterany``
@@ -29,7 +29,7 @@ import pytest
 from helpers.slurm_sandbox import (
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     make_sandbox,  # fmt: skip
     option,
 )
@@ -45,7 +45,7 @@ OTHER = "6099"  # another night's summary job
 
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     s = make_sandbox(tmp_path)
     s.set_next_job_id(NEW)
     return s
@@ -58,7 +58,7 @@ def _task1(sb: Sandbox, **env: str):  # type: ignore[no-untyped-def]
         "SLURM_JOB_ID": "5001",
         "SLURM_ARRAY_TASK_COUNT": "4",
         "SLURM_CPUS_PER_TASK": "2",
-        "SLURM_JOB_NAME": "giap-nightly",
+        "SLURM_JOB_NAME": "gippa-nightly",
         "FAKE_HOSTNAME": "barley-01",
     }
     return sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly.sbatch")],
@@ -75,7 +75,7 @@ def _updates(sb: Sandbox) -> list[str]:
 
 def _summary_queries(sb: Sandbox) -> list[str]:
     return [c for c in sb.calls_log()
-            if c.startswith("squeue") and "giap-nightly-summary" in c]  # fmt: skip
+            if c.startswith("squeue") and "gippa-nightly-summary" in c]  # fmt: skip
 
 
 def _resubmitted(sb: Sandbox, res) -> None:  # type: ignore[no-untyped-def]
@@ -86,10 +86,10 @@ def _resubmitted(sb: Sandbox, res) -> None:  # type: ignore[no-untyped-def]
 
 
 def test_resubmission_extends_the_pending_summary_dependency(sb: Sandbox) -> None:
-    sb.set_squeue("giap-nightly-summary", [f"{OTHER} nightly:9999", f"{SID} nightly:{JOB}"])
+    sb.set_squeue("gippa-nightly-summary", [f"{OTHER} nightly:9999", f"{SID} nightly:{JOB}"])
     res = _task1(sb, NIGHTLY_POST="dry")
     _resubmitted(sb, res)
-    assert _summary_queries(sb), f"no squeue query for giap-nightly-summary: {sb.calls_log()}"
+    assert _summary_queries(sb), f"no squeue query for gippa-nightly-summary: {sb.calls_log()}"
     ups = _updates(sb)
     assert len(ups) == 1, f"expected one scontrol update, got {ups}\n{res.stdout}\n{res.stderr}"
     up = ups[0]
@@ -111,10 +111,10 @@ def test_resubmission_extends_the_pending_summary_dependency(sb: Sandbox) -> Non
 
 
 def test_no_summary_job_writes_a_warning_row_and_posts_nothing(sb: Sandbox) -> None:
-    sb.set_squeue("giap-nightly-summary", [f"{OTHER} nightly:9999"])
+    sb.set_squeue("gippa-nightly-summary", [f"{OTHER} nightly:9999"])
     res = _task1(sb)  # posting enabled: any post would reach the fake gh
     _resubmitted(sb, res)
-    assert _summary_queries(sb), f"no squeue query for giap-nightly-summary: {sb.calls_log()}"
+    assert _summary_queries(sb), f"no squeue query for gippa-nightly-summary: {sb.calls_log()}"
     assert not _updates(sb), f"no summary job of {JOB}, yet scontrol update: {_updates(sb)}"
     notes = _rows(sb, "note")
     assert len(notes) == 1, f"expected one {JOB}_note row: {sb.tsv_rows()}\n{res.stdout}"
@@ -126,7 +126,7 @@ def test_no_summary_job_writes_a_warning_row_and_posts_nothing(sb: Sandbox) -> N
 
 
 def test_launcher_summary_job_carries_the_nightly_comment(tmp_path: Path) -> None:
-    assert_honours_giap_repo(LAUNCH.read_text(), "nightly_launch.sh")
+    assert_honours_gippa_repo(LAUNCH.read_text(), "nightly_launch.sh")
     sb = make_sandbox(tmp_path)
     res = sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly_launch.sh")])
     assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"

@@ -1,4 +1,4 @@
-"""Runtime budgets of the M7-12 giapsim scenarios (docs/specs/M7-12-sim-variant-novel-scenarios.md
+"""Runtime budgets of the M7-12 gippasim scenarios (docs/specs/M7-12-sim-variant-novel-scenarios.md
 rule 4 and lead decision 5): each scenario best of 3 under 2 s at 100 kb and under 20 s at 1 Mb
 (``variant_f1`` and ``novel_orf_power``, the two with a ``size``), seed 20261022.
 
@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-import giapsim
-import giapsim.scenarios as sc
+import gippasim
+import gippasim.scenarios as sc
 
 from ._unit_helpers import timed
 
@@ -37,7 +37,7 @@ def test_sim_m7_scenario_budget(
     cfg = fn(SEED) if size is None else fn(SEED, size)
 
     def once(i: int) -> float:
-        return timed(lambda: giapsim.simulate(cfg, SEED, tmp_path / str(i)))[0]
+        return timed(lambda: gippasim.simulate(cfg, SEED, tmp_path / str(i)))[0]
 
     def run() -> float:
         return min(once(i) for i in range(3))

@@ -1,12 +1,12 @@
 """farmshare,apptainer: conda only for the conda-only tools (M2-07 decisions 4, 12 and 13).
 
 The six tools without an image (uniop, promotech, promoter_calculator, terminatornet, ostir and
-the opt-in bactermfinder, decision 12) run in the prebuilt micromamba envs under ``$GIAP_ROOT``
+the opt-in bactermfinder, decision 12) run in the prebuilt micromamba envs under ``$GIPPA_ROOT``
 (``conda.enabled``, ``conda.useMicromamba``); the pinned-container tools (bakta, transtermhp,
 genomad, antiSMASH) run in their containers with conda off; no conda env is ever built on the fly
 under farmshare or farmshare,apptainer. The ``ps`` shim bound into the bakta/antiSMASH containers
 is read-only (decision 13). Parses ``nextflow config workflow -flat -profile <profile>`` with a
-fake ``GIAP_ROOT``; the per-process ``conda`` is the last matching ``withName`` setting (the
+fake ``GIPPA_ROOT``; the per-process ``conda`` is the last matching ``withName`` setting (the
 selector is a regex on the process name, ``ANNOTATE:<TOOL>`` in the pipeline), else the module's
 env file.
 """
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.needs_nextflow
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
-FAKE_ROOT = "/fake/giap_root"
+FAKE_ROOT = "/fake/gippa_root"
 
 CONDA_TOOLS = [
     "UNIOP",
@@ -40,7 +40,7 @@ _OFF = {"null", "''", '""', "false"}
 
 
 def _flat(profile: str) -> list[str]:
-    env = {**os.environ, "NXF_ANSI_LOG": "false", "GIAP_ROOT": FAKE_ROOT}
+    env = {**os.environ, "NXF_ANSI_LOG": "false", "GIPPA_ROOT": FAKE_ROOT}
     env.pop("NXF_APPTAINER_CACHEDIR", None)
     cmd = ["nextflow", "config", str(WF), "-flat", "-profile", profile]
     res = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=300)
@@ -94,13 +94,13 @@ def test_conda_is_enabled_with_micromamba(flat: list[str]) -> None:
 
 @pytest.mark.parametrize("profile", PROFILES)
 @pytest.mark.parametrize("tool", CONDA_TOOLS)
-def test_conda_only_tool_uses_the_prebuilt_env_under_giap_root(profile: str, tool: str) -> None:
+def test_conda_only_tool_uses_the_prebuilt_env_under_gippa_root(profile: str, tool: str) -> None:
     """Decision 12: all six conda-only tools (bactermfinder included) use a prebuilt env."""
     flat = _flat_cached(profile)
     value = _setting(flat, f"ANNOTATE:{tool}", "conda")
     assert value is not None, f"{tool}: no withName conda setting (would build the yml env)"
     path = value.strip("'\"")
-    assert path.startswith(FAKE_ROOT + "/"), f"{tool}: conda {path} is not under $GIAP_ROOT"
+    assert path.startswith(FAKE_ROOT + "/"), f"{tool}: conda {path} is not under $GIPPA_ROOT"
     assert tool.lower() in Path(path).name, f"{tool}: env {path} is not the tool's env"
     container = _setting(flat, f"ANNOTATE:{tool}", "container")
     assert container is None or container in _OFF, f"{tool} is conda-only but has {container}"

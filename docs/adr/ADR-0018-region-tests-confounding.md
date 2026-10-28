@@ -2,11 +2,11 @@
 
 - Status: accepted-by-khoa (2026-10-15)
 - Date: 2026-10-15
-- Issue: M4-17 (PR #89); statistician review https://github.com/khoa-yelo/giap/pull/89#issuecomment-6198595819
+- Issue: M4-17 (PR #89); statistician review https://github.com/khoa-yelo/gippa/pull/89#issuecomment-6198595819
 
 ## Context
 Under the attack-2 scenario (detection depends on abundance; prophage genes are short), the region tests
-of GIAP_SPEC.md §7.3.5 are anti-conservative (statistician, Slurm runs under local/scratch/review-m4-17):
+of GIPPA_SPEC.md §7.3.5 are anti-conservative (statistician, Slurm runs under local/scratch/review-m4-17):
 - (b) HL abundance shift: prophage HL rejects 0.21–0.25 at α = 0.05 (bias ≈ +0.75 log2).
 - O−E detection: when a region's p_detect sits nearer 0.5 than the replicon's, plain O−E rejects 0.074 at
   α = 0.05 (A2 only covered the conservative direction).
@@ -25,7 +25,7 @@ Region-test p-values change on real data where detectability differs between reg
 report text follow. Calibration gates (C1, A2 both directions) verify level under attack 2.
 
 ## Amendment 1 (accepted-by-khoa 2026-10-16)
-Statistician review round 2 (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6205786444;
+Statistician review round 2 (https://github.com/khoa-yelo/gippa/pull/89#issuecomment-6205786444;
 docs/methods/region-tests.md "Review round 2"; local/scratch/review-m4-17/v2): residualisation (decision 1)
 removes the bias (prophage HL −0.08 log2 vs +0.74 raw) but HL stays anti-conservative because a region's
 detected-gene count differs from that at shifted positions (≈ 7 vs ≈ 22 of 40), so the raw HL's spread under
@@ -39,7 +39,7 @@ the reported HL effect and CI are unchanged (residual scale). Evidence at α 0.0
 C1 pooled at level; power without confounding unchanged (0.166 vs 0.156).
 
 ## Amendment 2 (accepted-by-khoa 2026-10-16)
-Statistician final review (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6208970265;
+Statistician final review (https://github.com/khoa-yelo/gippa/pull/89#issuecomment-6208970265;
 local/scratch/review-m4-17/v3): amendment 1's per-TU variance V depends on the TU labels, so a region whose
 TUs are fragmented more finely than the rest of the replicon (new attack A-TU) is anti-conservative:
 0.019 / 0.071 / 0.128 at α 0.01 / 0.05 / 0.10 (full mode, Slurm 1850492).

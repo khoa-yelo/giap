@@ -1,4 +1,4 @@
-"""M8-13 §1.1: GIAP's Wallenius ORA against goseq and the exact reference, on the committed
+"""M8-13 §1.1: GIPPA's Wallenius ORA against goseq and the exact reference, on the committed
 golden data (golden layer: every PR, CI, no R). ADR-0044 (accepted 2026-10-23) amends the gate.
 
 - Universe: all 3,000 genes of ``inputs/ora_genes.tsv.gz`` (goseq ran with
@@ -49,12 +49,12 @@ class OraWorld:
     p_detect: np.ndarray
     cats: dict[str, np.ndarray]  # category -> in-category mask, file order
     goseq: dict[str, dict[str, str]]
-    giap: dict[str, Any]  # category -> OraResult
+    gippa: dict[str, Any]  # category -> OraResult
 
 
 @pytest.fixture(scope="module")
 def world() -> OraWorld:
-    from giap.stats.wallenius import wallenius_ora
+    from gippa.stats.wallenius import wallenius_ora
 
     rows = read_gz(GOLDEN / "inputs" / "ora_genes.tsv.gz")
     genes = [r["gene"] for r in rows]
@@ -66,14 +66,14 @@ def world() -> OraWorld:
         mask = cats.setdefault(r["category"], np.zeros(len(genes), dtype=bool))
         mask[index[r["gene"]]] = True
     goseq = {r["category"]: r for r in read_gz(GOLDEN / "outputs" / "goseq.tsv.gz")}
-    giap = {c: wallenius_ora(det, p, m) for c, m in cats.items()}
-    return OraWorld(genes, det, p, cats, goseq, giap)
+    gippa = {c: wallenius_ora(det, p, m) for c, m in cats.items()}
+    return OraWorld(genes, det, p, cats, goseq, gippa)
 
 
 @pytest.fixture(scope="module")
 def urn(world: OraWorld) -> dict[tuple[str, str], float]:
     out = {}
-    for c, o in world.giap.items():
+    for c, o in world.gippa.items():
         over, under = urn_tails(o.k, o.M, o.n, o.N, o.odds)
         out[(c, "over")], out[(c, "under")] = over, under
     return out
@@ -97,7 +97,7 @@ def _rel(p: float, ref: float) -> float:
 def test_universe_is_every_golden_gene(world: OraWorld) -> None:
     assert len(world.cats) == N_CATEGORIES == len(world.goseq)
     assert list(world.cats) == list(world.goseq)
-    for o in world.giap.values():
+    for o in world.gippa.values():
         assert o.M == len(world.genes) == 3000
         assert int(world.detected.sum()) == o.N
 
@@ -105,7 +105,7 @@ def test_universe_is_every_golden_gene(world: OraWorld) -> None:
 def test_example_1_counts_equal_goseq_on_all_150(world: OraWorld) -> None:
     bad = [
         c
-        for c, o in world.giap.items()
+        for c, o in world.gippa.items()
         if (o.n, o.k) != (int(world.goseq[c]["numInCat"]), int(world.goseq[c]["numDEInCat"]))
     ]
     assert bad == []
@@ -118,7 +118,7 @@ def test_odds_equal_the_goseq_weight_identity(world: OraWorld) -> None:
         n = int(mask.sum())
         avg = math.fsum(world.p_detect[mask].tolist()) / n
         identity = avg * (mask.size - n) / (total - n * avg)
-        assert world.giap[c].odds == pytest.approx(identity, rel=1e-12, abs=0.0), c
+        assert world.gippa[c].odds == pytest.approx(identity, rel=1e-12, abs=0.0), c
 
 
 # ---------------------------------------------------------------- criterion 1: the exact reference
@@ -131,7 +131,7 @@ def test_example_2_tails_match_the_exact_reference(world: OraWorld) -> None:
     assert set(exact) == {(c, t) for c in world.cats for t in TAILS}
     bad = {
         (c, t): (_p(o, t), exact[(c, t)])
-        for c, o in world.giap.items()
+        for c, o in world.gippa.items()
         for t in TAILS
         if not abs(_p(o, t) - exact[(c, t)]) <= tol * exact[(c, t)]
     }
@@ -148,11 +148,11 @@ def test_exact_reference_agrees_with_the_urn_definition(
 
 
 def test_tails_match_the_urn_definition(world: OraWorld, urn: dict[tuple[str, str], float]) -> None:
-    """GIAP against the definition at wallenius_rel_tol (needs no committed reference)."""
+    """GIPPA against the definition at wallenius_rel_tol (needs no committed reference)."""
     tol = golden_r_tol()["wallenius_rel_tol"]
     bad = {
         (c, t): (_p(o, t), urn[(c, t)])
-        for c, o in world.giap.items()
+        for c, o in world.gippa.items()
         for t in TAILS
         if not abs(_p(o, t) - urn[(c, t)]) <= tol * urn[(c, t)]
     }
@@ -180,7 +180,7 @@ def test_tails_within_goseq_documented_accuracy(world: OraWorld) -> None:
     tol = _goseq_tol()
     bad = {
         (c, t): (_p(o, t), _goseq_p(world.goseq[c], t))
-        for c, o in world.giap.items()
+        for c, o in world.gippa.items()
         for t in TAILS
         if not _goseq_rule(_p(o, t), _goseq_p(world.goseq[c], t), tol)
     }
@@ -192,11 +192,11 @@ def test_example_10_inverted_odds_is_caught(
 ) -> None:
     """Mutation: ``category_odds`` returning out/in. The definition rule catches every category;
     the goseq rule every category but the deep-tail five (ADR-0044: 145 of 150)."""
-    from giap.stats.wallenius import wallenius_tails
+    from gippa.stats.wallenius import wallenius_tails
 
     tol = _goseq_tol()
     by_urn, by_goseq = set(), set()
-    for c, o in world.giap.items():
+    for c, o in world.gippa.items():
         mutant = wallenius_tails(o.k, o.M, o.n, o.N, 1.0 / o.odds)
         for t, p in zip(TAILS, mutant, strict=True):
             if not abs(p - urn[(c, t)]) <= tol["wallenius_rel_tol"] * urn[(c, t)]:
@@ -212,8 +212,8 @@ def test_example_10_inverted_odds_is_caught(
 
 def test_example_3_p_classic_is_wallenius_ora(world: OraWorld) -> None:
     """One gene per TU, all eligible, no folds: ``p_classic`` == ``wallenius_ora`` (float ==)."""
-    from giap.function.collections import GeneSets
-    from giap.function.ora import detection_enrichment
+    from gippa.function.collections import GeneSets
+    from gippa.function.ora import detection_enrichment
 
     genes = pd.DataFrame(
         {
@@ -229,8 +229,8 @@ def test_example_3_p_classic_is_wallenius_ora(world: OraWorld) -> None:
     df = detection_enrichment(genes, [coll], (1, 3000), 0.05, folds=None)
     got = {(r.term, r.direction): r.p_classic for r in df.itertuples()}
     assert set(got) == {(c, t) for c in world.cats for t in TAILS}
-    bad = {key: (v, _p(world.giap[key[0]], key[1])) for key, v in got.items()
-           if v != _p(world.giap[key[0]], key[1])}  # fmt: skip
+    bad = {key: (v, _p(world.gippa[key[0]], key[1])) for key, v in got.items()
+           if v != _p(world.gippa[key[0]], key[1])}  # fmt: skip
     assert bad == {}
 
 
@@ -256,7 +256,7 @@ def test_report_wallenius_section(world: OraWorld, urn: dict[tuple[str, str], fl
         part: dict[str, Any] = {}
         for t in TAILS:
             rel = {
-                c: _rel(_p(world.giap[c], t), ref[(c, t)]) for c in world.cats if ref[(c, t)] > 0
+                c: _rel(_p(world.gippa[c], t), ref[(c, t)]) for c in world.cats if ref[(c, t)] > 0
             }  # p_ref = 0 rows are listed separately
             worst = max(rel, key=rel.__getitem__)
             part[t] = {"max_rel": rel[worst], "argmax": worst,

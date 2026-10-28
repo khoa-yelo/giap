@@ -1,5 +1,5 @@
 """Steps ``promoter_calculator`` (ext) and ``tx_layer`` (M2-14; M2-index step contract;
-GIAP_SPEC.md §6.2, §7.1.1, §7.1.4).
+GIPPA_SPEC.md §6.2, §7.1.1, §7.1.4).
 
 Contract pinned here (test author; the implementer keeps ``workflow/tests/data/annotate/
 step_registry.json`` and ``annotate.nf`` consistent with it):
@@ -30,7 +30,7 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.promoter_calculator_fixtures import header_only, write_pc_csv
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
@@ -47,14 +47,14 @@ _REP_COLS = [
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -111,7 +111,7 @@ WANT = {
 
 def _run(reg: ModuleType, work: dict[str, object], out: Path, **over: object) -> Path:
     ins = {**work, **over}
-    reg.run_step("tx_layer", GiapConfig(seed=1), ins, {"tx_rates": out})
+    reg.run_step("tx_layer", GippaConfig(seed=1), ins, {"tx_rates": out})
     return out
 
 
@@ -210,7 +210,7 @@ def test_tx_layer_tss_is_a_valid_precomputed_position(
     steps: ModuleType, work: dict[str, object], tmp_path: Path
 ) -> None:
     """0 <= tss < length: the layer converts 1:1 into a valid precomputed ``tx_rates`` TSV."""
-    from giap.annotate.precomputed import PRECOMPUTED_COLUMNS
+    from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS
 
     out = _run(steps, work, tmp_path / "tx_rates.parquet")
     lengths = {"chr1": 10_000, "p1": 2_000}

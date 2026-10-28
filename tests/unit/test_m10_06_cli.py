@@ -3,12 +3,12 @@
 
 Spec: docs/specs/M10-06-te-real-and-te7.md ("Inputs" preconditions, "Outputs", "Interface",
 example 2, edge case "Contaminant FASTA changed since the searches"). Inputs: M10-05's synthetic
-pilot (``helpers.pilot_metrics_m10.build_pilot``: giapsim SIM100K, schema-valid manifests) plus
+pilot (``helpers.pilot_metrics_m10.build_pilot``: gippasim SIM100K, schema-valid manifests) plus
 an A2 ``genes.tsv`` with r-proteins and the four TE4 genes, a ``variants.tsv`` and a ``Cont_``
-contaminant FASTA (``helpers.te_real_m10.build_te_pilot``). Nothing from ``$GIAP_ROOT``.
+contaminant FASTA (``helpers.te_real_m10.build_te_pilot``). Nothing from ``$GIPPA_ROOT``.
 
 Interface fixed here: a manifest pins the contaminant library through a ``databases`` entry named
-``contaminants`` whose ``checksum`` is ``sha256:<hex>`` (the ``giap setup`` form); exceptions
+``contaminants`` whose ``checksum`` is ``sha256:<hex>`` (the ``gippa setup`` form); exceptions
 kinds ``te2_violation`` and ``te3_not_detected`` with ``id`` = the locus tag.
 """
 
@@ -68,7 +68,7 @@ def test_compute_layout_and_all_pass(tmp_path: Path, world: World) -> None:
     raw = (out / "te_real.json").read_text(encoding="utf-8")
     doc = json.loads(raw)
     assert raw == json.dumps(doc, sort_keys=True, indent=2) + "\n"
-    assert doc["schema"] == "giap-pilot-te-real/1"
+    assert doc["schema"] == "gippa-pilot-te-real/1"
     assert re.fullmatch(r"[0-9a-f]{40}", str(doc["spec"]))
     assert set(doc) >= {"schema", "inputs", "spec", "te2", "te3", "te4", "te5", "warnings"}
     for name, rec in doc["inputs"].items():
@@ -192,7 +192,7 @@ def test_contaminant_fasta_changed_exit_2(tmp_path: Path, world: World) -> None:
 
 
 def test_unknown_checksum_algorithm_exit_2(tmp_path: Path, world: World) -> None:
-    """N7: a contaminants checksum with an algorithm GIAP does not know is a precondition (exit
+    """N7: a contaminants checksum with an algorithm GIPPA does not know is a precondition (exit
     2), not an internal inconsistency."""
     p, contam = build_te_pilot(tmp_path / "pilot", world)
     for out_dir in (p.out_a1, p.out_a2):

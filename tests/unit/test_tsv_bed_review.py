@@ -1,6 +1,6 @@
-"""Review pins for TSV/BED/proBed writers (ADR-0006; GIAP_SPEC.md §6.5, §6.6, §9.2, §9.5).
+"""Review pins for TSV/BED/proBed writers (ADR-0006; GIPPA_SPEC.md §6.5, §6.6, §9.2, §9.5).
 
-Covers: CRLF/BOM tolerance of ``read_tsv`` (must survive consolidation onto ``giap.io._open``),
+Covers: CRLF/BOM tolerance of ``read_tsv`` (must survive consolidation onto ``gippa.io._open``),
 numpy scalar formatting, ±inf/NaN encoding, strict list cells, and strict BED12/proBed writing.
 """
 
@@ -13,10 +13,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from giap.io.bed import BedRecord, bed_lines
-from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
-from giap.io.tsv import format_value, read_tsv, write_tsv
-from giap.model import Interval, Replicon
+from gippa.io.bed import BedRecord, bed_lines
+from gippa.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
+from gippa.io.tsv import format_value, read_tsv, write_tsv
+from gippa.model import Interval, Replicon
 
 C = Replicon("c1", 1000, "circular")
 L = Replicon("c1", 1000, "linear")

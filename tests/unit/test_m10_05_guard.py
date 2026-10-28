@@ -3,7 +3,7 @@
 Spec: docs/specs/M10-05-pilot-metrics.md, "Outputs" and "REPORT.md draft / What it may contain".
 Khoa's answer to Q-K1 (2026-10-24): aggregates and example gene names may be committed. The guard
 forbids only row-level files: peptide tables (the converted DIA-NN tables, any ``.parquet``),
-the TE1 exception lists (``te1_exceptions*.tsv``, anywhere) and GIAP run tables (``genes.tsv``,
+the TE1 exception lists (``te1_exceptions*.tsv``, anywhere) and GIPPA run tables (``genes.tsv``,
 ``peptide_hits.tsv``, ``compare_*.tsv``, ...) under ``validation/pilot/``; under
 ``validation/pilot/metrics/`` only the aggregates. An aggregate ``metrics.json``, ``te1.json``
 or ``REPORT.md`` is allowed,
@@ -25,7 +25,7 @@ from helpers.pilot_metrics_m10 import REPO, TEMPLATE
 
 #: row-level outputs, forbidden anywhere in the checkout
 FORBIDDEN_NAMES = ("te1_exceptions*.tsv", "te1_exceptions*.tsv.gz")
-#: row-level tables, forbidden under validation/pilot/ (peptide tables and GIAP run tables)
+#: row-level tables, forbidden under validation/pilot/ (peptide tables and GIPPA run tables)
 FORBIDDEN_UNDER_PILOT = (
     "a1.tsv*", "a2.tsv*", "a3.tsv*", "*peptide*.tsv*", "report*.tsv*", "*.parquet",
     "genes.tsv*", "peptide_hits.tsv*", "unmapped.tsv*", "detection_summary.tsv*",
@@ -36,9 +36,9 @@ FORBIDDEN_UNDER_PILOT = (
 AGGREGATES = ("metrics.json", "te1.json", "REPORT.md", "a3_feasibility.json")
 #: the peptide-like pattern of ``metrics.check_notes`` (spec: 7 or more amino-acid letters)
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
-#: top-level keys of metrics.json (spec "Outputs"; giap_commit: review S4; te_real and te7:
+#: top-level keys of metrics.json (spec "Outputs"; gippa_commit: review S4; te_real and te7:
 #: M10-06, m8: M10-07, both stacked on this branch)
-TOP_KEYS = {"schema", "inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
+TOP_KEYS = {"schema", "inputs", "spec", "gippa_commit", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
             "m8", "te1", "te1_a1_diagnostic", "te_real", "te7", "h1", "h3", "h4", "checklist",
             "evidence", "warnings"}  # fmt: skip
 

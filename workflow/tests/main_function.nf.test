@@ -1,5 +1,5 @@
 // M8-06b: main.nf runs FUNCTION after GENETABLE when 'function' is in params.modules, the first
-// module switch in workflow/ (GIAP_SPEC.md §6.2, §6.3 "Optional modules ... are switched with
+// module switch in workflow/ (GIPPA_SPEC.md §6.2, §6.3 "Optional modules ... are switched with
 // params.modules", §7.7.1, §9.1; docs/specs/M8-06-function-step-and-run.md items 6-8, lead
 // decision 1 / Q5). Stub runs only; ci.yml runs: nf-test test workflow/tests --profile test,stub.
 //
@@ -11,7 +11,7 @@
 // kegg/pathway_names.tsv, cog/fun-20.tab). tables/{category_summary,enrichment_detection,
 // enrichment_gsea}.tsv and genetable/tu_folds.parquet are published. With modules = ['core'], or
 // without peptides, it does not run. The tmp db_dir holds empty stand-ins (stub tasks never read
-// their inputs) and a per-name manifest (giap.preflight.environment.read_manifest's provisional
+// their inputs) and a per-name manifest (gippa.preflight.environment.read_manifest's provisional
 // form, as data/genetable/db uses).
 
 nextflow_pipeline {
@@ -45,7 +45,7 @@ nextflow_pipeline {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name FUNCTION)
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->
@@ -62,7 +62,7 @@ nextflow_pipeline {
             assert ranTagged('function') == 1 : "function ran ${ranTagged('function')}x; tasks: ${H.names(workflow.trace)}"
             assert H.names(workflow.trace).any { H.procOf(it) == 'FUNCTION_STEP' } : "no FUNCTION_STEP alias: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def fd = dirsTagged(work, 'function')[0]
             def din = H.stepInputs(fd)

@@ -1,6 +1,6 @@
 """De novo precision per score bin, bootstrap CI and the de novo π̂ (issue M3-11).
 
-GIAP_SPEC.md §7.2.5 ("De novo precision, estimated from the genome"; step 4, m = 0 de novo),
+GIPPA_SPEC.md §7.2.5 ("De novo precision, estimated from the genome"; step 4, m = 0 de novo),
 §8.1, §9.3 (`mapping_fdr.tsv` de novo rows), §9.4 (`c_assumed`);
 docs/specs/M3-11-denovo-precision.md
 examples 1-9, edge cases and properties; M3-index lead decision 7 (drop unreportable classes within
@@ -24,14 +24,14 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.denovo_precision import (
+from gippa.mapping.denovo_precision import (
     BinPrecision,
     c_by_class,
     denovo_precision,
     pi_wrong_denovo,
     score_bins,
 )
-from giap.rng import for_step
+from gippa.rng import for_step
 
 CLASSES = [[7, 7], [8, 8], [9, 9], [10, 11], [12, 14], [15, 19], [20, 40]]
 LABELS = ["7", "8", "9", "10-11", "12-14", "15-19", "20-40"]

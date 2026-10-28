@@ -1,4 +1,4 @@
-"""V17 ``qc``: are the inputs sane? (M9-04; GIAP_SPEC.md §10.2 V17, §7.0, §9.3).
+"""V17 ``qc``: are the inputs sane? (M9-04; GIPPA_SPEC.md §10.2 V17, §7.0, §9.3).
 
 Tests the plotted data (the ``Instance`` data frame = ``plots/data/V17_qc.tsv``), the axes
 structure, the title, the degenerate cases, determinism and the colours the spec names. No
@@ -6,9 +6,9 @@ structure, the title, the degenerate cases, determinism and the colours the spec
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.qc``; importing it registers ``V17`` (name ``qc``,
+- The plot lives in ``gippa.viz.qc``; importing it registers ``V17`` (name ``qc``,
   ``needs=["preflight"]``, ``optional`` ⊇ {``genes_tsv``, ``peptide_hits``, ``unmapped``}). The
-  tests call it through ``giap.viz.base.registered()["V17"].fn(view, cfg)``, which returns a list
+  tests call it through ``gippa.viz.base.registered()["V17"].fn(view, cfg)``, which returns a list
   of exactly one ``Instance`` with ``suffix=None`` and ``coords=()``.
 - The five panel axes carry ``Axes.get_label()`` ``"a"`` … ``"e"``; the sixth cell (the warning
   list) is the axes labelled ``"warnings"``. Panels (c), (d) are vertical histograms (one
@@ -53,15 +53,15 @@ from matplotlib.collections import PathCollection
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 VAL_PREFLIGHT = REPO / "tests" / "data" / "viz" / "val_mvp_preflight.json"
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = ["panel", "group", "key", "value", "n"]
 LEVELS = ("ok", "info", "warn", "error")
 FEATURE_GROUPS: dict[str, tuple[str, ...]] = {
@@ -89,7 +89,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -114,7 +114,7 @@ def _preflight(
     counts = {lvl: sum(c["level"] == lvl for c in checks) for lvl in LEVELS}
     return {
         "schema_version": "1.0",
-        "giap_version": "0.0.1",
+        "gippa_version": "0.0.1",
         "inputs": [],
         "checks": list(checks),
         "summary": {f"n_{lvl}": counts[lvl] for lvl in LEVELS},
@@ -226,12 +226,12 @@ def _default_out(tmp: Path, **kw: Any) -> Path:
 
 
 def _v17() -> base.PlotSpec:
-    import giap.viz.qc  # noqa: F401  (registers V17)
+    import gippa.viz.qc  # noqa: F401  (registers V17)
 
     return base.registered()["V17"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v17().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -317,7 +317,7 @@ def test_v17_is_registered_as_qc_needing_preflight() -> None:
     assert spec.module == "core"
 
 
-def test_no_preflight_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_preflight_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path, genes=EXAMPLE4_GENES)
     assert _v17().fn(RunView.from_outdir(out), cfg) == Skip("input_absent:preflight")
 
@@ -325,7 +325,9 @@ def test_no_preflight_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig
 # --- structure, title, style ------------------------------------------------------------------
 
 
-def test_one_instance_double_width_with_six_labelled_cells(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_instance_double_width_with_six_labelled_cells(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -335,7 +337,7 @@ def test_one_instance_double_width_with_six_labelled_cells(tmp_path: Path, cfg: 
     assert list(inst.data.columns) == COLUMNS
 
 
-def test_axis_labels_per_panel(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_axis_labels_per_panel(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     assert _ax(inst, "b").get_xlabel() == "length (bp)"
     assert _ax(inst, "b").get_xscale() == "log"
@@ -344,7 +346,7 @@ def test_axis_labels_per_panel(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _ax(inst, "e").get_xlabel() == "missing (%)"
 
 
-def test_title_states_counts_and_measured_share(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_states_counts_and_measured_share(tmp_path: Path, cfg: GippaConfig) -> None:
     """Example 4: 3 of 4 non-partial genes measured; 1 warning, 0 errors."""
     inst = _render(_default_out(tmp_path), cfg)
     expected = "1 preflight warnings, 0 errors; 75 % of genes have a measured abundance"
@@ -353,14 +355,14 @@ def test_title_states_counts_and_measured_share(tmp_path: Path, cfg: GiapConfig)
     assert "express" not in inst.title.lower()
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
     assert min(sizes) >= 6
 
 
-def test_rows_are_sorted_by_panel_group_key(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rows_are_sorted_by_panel_group_key(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     data = inst.data
     panels = list(data["panel"])
@@ -380,7 +382,7 @@ def test_rows_are_sorted_by_panel_group_key(tmp_path: Path, cfg: GiapConfig) -> 
 # --- panel (a) --------------------------------------------------------------------------------
 
 
-def test_example1_validation_preflight_counts_and_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_validation_preflight_counts_and_title(tmp_path: Path, cfg: GippaConfig) -> None:
     pf = json.loads(VAL_PREFLIGHT.read_text(encoding="utf-8"))
     inst = _render(_out(tmp_path, preflight=pf, genes=EXAMPLE4_GENES), cfg)
     a = _rows(inst, "a")
@@ -393,7 +395,7 @@ def test_example1_validation_preflight_counts_and_title(tmp_path: Path, cfg: Gia
     assert inst.title.startswith("1 preflight warnings, 0 errors")
 
 
-def test_example1_validation_replicons_are_panel_b(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_validation_replicons_are_panel_b(tmp_path: Path, cfg: GippaConfig) -> None:
     pf = json.loads(VAL_PREFLIGHT.read_text(encoding="utf-8"))
     inst = _render(_out(tmp_path, preflight=pf, genes=EXAMPLE4_GENES), cfg)
     b = _rows(inst, "b")
@@ -402,7 +404,7 @@ def test_example1_validation_replicons_are_panel_b(tmp_path: Path, cfg: GiapConf
     assert _num(_cell(b, "plasmid", "plasmid_1")["value"]) == 8_000
 
 
-def test_warning_cell_lists_warn_and_error_messages(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_warning_cell_lists_warn_and_error_messages(tmp_path: Path, cfg: GippaConfig) -> None:
     checks = [
         *OK_CHECKS,
         _check("genome.contiguity", "warn", "largest contig 100000 bp"),
@@ -420,7 +422,7 @@ def test_warning_cell_lists_warn_and_error_messages(tmp_path: Path, cfg: GiapCon
     assert inst.title.startswith("1 preflight warnings, 1 errors;")
 
 
-def test_warning_cell_truncates_to_10_lines(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_warning_cell_truncates_to_10_lines(tmp_path: Path, cfg: GippaConfig) -> None:
     warns = [_check(f"genome.rule_{chr(97 + i)}", "warn", f"message {i}") for i in range(13)]
     inst = _render(_default_out(tmp_path, preflight=_preflight([*OK_CHECKS, *warns])), cfg)
     lines = "\n".join(_texts(_ax(inst, "warnings"))).splitlines()
@@ -430,7 +432,7 @@ def test_warning_cell_truncates_to_10_lines(tmp_path: Path, cfg: GiapConfig) -> 
     assert len(a[a["group"] == "message"]) == 13  # the data TSV keeps every message
 
 
-def test_every_check_ok_draws_one_bar_and_no_warnings(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_check_ok_draws_one_bar_and_no_warnings(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path, preflight=_preflight(OK_CHECKS)), cfg)
     assert len(_drawn(_ax(inst, "a"))) == 1
     assert "no warnings" in _texts(_ax(inst, "warnings"))
@@ -462,7 +464,7 @@ def test_property_panel_a_counts_every_check(levels: list[str]) -> None:
 # --- panel (b) --------------------------------------------------------------------------------
 
 
-def test_example2_contig_bars_coloured_by_kind(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_contig_bars_coloured_by_kind(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     b = _rows(inst, "b")
     assert sorted(zip(b["group"], b["key"], strict=True)) == [
@@ -476,7 +478,7 @@ def test_example2_contig_bars_coloured_by_kind(tmp_path: Path, cfg: GiapConfig) 
     assert by_end == {100_000: "#0072B2", 8_000: "#009E73"}
 
 
-def test_unknown_kind_is_grey_and_one_contig_one_bar(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_unknown_kind_is_grey_and_one_contig_one_bar(tmp_path: Path, cfg: GippaConfig) -> None:
     rep = [{"id": "ctg7", "kind": "unknown", "length": 54_321, "topology": "linear"}]
     pf = _preflight(OK_CHECKS, replicons=rep)
     inst = _render(_default_out(tmp_path, preflight=pf), cfg)
@@ -487,7 +489,7 @@ def test_unknown_kind_is_grey_and_one_contig_one_bar(tmp_path: Path, cfg: GiapCo
     assert [_hex(r) for r in rects] == ["#999999"]
 
 
-def test_circular_replicons_carry_a_marker(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_circular_replicons_carry_a_marker(tmp_path: Path, cfg: GippaConfig) -> None:
     rep = [
         {"id": "chr1", "kind": "chromosome", "length": 2_000_000, "topology": "circular"},
         {"id": "ctg2", "kind": "unknown", "length": 30_000, "topology": "linear"},
@@ -504,7 +506,7 @@ def test_dashed_line_at_min_largest_contig_warn(tmp_path: Path) -> None:
     assert _vlines(_ax(_render(out, cfg), "b"), "--") == [50_000.0]
 
 
-def test_contig_bars_follow_fasta_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_contig_bars_follow_fasta_order(tmp_path: Path, cfg: GippaConfig) -> None:
     rep = [
         {"id": "zeta", "kind": "chromosome", "length": 500_000, "topology": "linear"},
         {"id": "alpha", "kind": "plasmid", "length": 7_000, "topology": "linear"},
@@ -524,7 +526,7 @@ def test_contig_bars_follow_fasta_order(tmp_path: Path, cfg: GiapConfig) -> None
 # --- panel (c) --------------------------------------------------------------------------------
 
 
-def test_example3_distinct_peptide_lengths(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_distinct_peptide_lengths(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     c = _rows(inst, "c")
     assert _int_key_counts(c, "placed") == {8: 1, 10: 1}
@@ -544,7 +546,7 @@ def test_peptide_length_bounds_are_dotted_lines(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("protein_only", ["absent", "no_peptide_rows"])
 def test_no_peptides_draws_no_peptide_input(
-    tmp_path: Path, cfg: GiapConfig, protein_only: str
+    tmp_path: Path, cfg: GippaConfig, protein_only: str
 ) -> None:
     if protein_only == "absent":
         out = _default_out(tmp_path, hits=None, unmapped=None)
@@ -557,7 +559,7 @@ def test_no_peptides_draws_no_peptide_input(
     assert _drawn(ax) == []
 
 
-def test_many_peptides_draw_at_most_34_lengths(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_many_peptides_draw_at_most_34_lengths(tmp_path: Path, cfg: GippaConfig) -> None:
     alphabet = "ACDEFGHIKLMNPQRSTVWY"
     peptides = []
     for i in range(20_400):
@@ -581,7 +583,7 @@ def test_many_peptides_draw_at_most_34_lengths(tmp_path: Path, cfg: GiapConfig) 
 # --- panel (d) --------------------------------------------------------------------------------
 
 
-def test_example4_measured_and_imputed_layers(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_measured_and_imputed_layers(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     d = _rows(inst, "d")
     assert set(d["group"]) == {"measured", "imputed"}
@@ -598,14 +600,14 @@ def test_example4_measured_and_imputed_layers(tmp_path: Path, cfg: GiapConfig) -
     assert "#E69F00" in {_hex(r) for r in drawn}
 
 
-def test_imputed_layer_is_orange_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_imputed_layer_is_orange_only(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [_abundance_gene("g1", 20.0, imputed=True), _abundance_gene("g2", 24.0, imputed=True)]
     inst = _render(_default_out(tmp_path, genes=genes), cfg)
     assert {_hex(r) for r in _drawn(_ax(inst, "d"))} == {"#E69F00"}
 
 
 @pytest.mark.parametrize("case", ["abundance_type_none", "all_na"])
-def test_no_abundance_empty_panel_and_title(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_no_abundance_empty_panel_and_title(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     kind = "none" if case == "abundance_type_none" else "ibaq"
     genes = [
         gene_row(
@@ -625,7 +627,7 @@ def test_no_abundance_empty_panel_and_title(tmp_path: Path, cfg: GiapConfig, cas
 # --- panel (e) --------------------------------------------------------------------------------
 
 
-def test_example5_cai_missing_share(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_cai_missing_share(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [_abundance_gene(f"g{i}", 20.0 + i, cai=None if i == 0 else 0.7) for i in range(4)]
     genes.append(_abundance_gene("gp", None, partial=True, cai=None))
     inst = _render(_default_out(tmp_path, genes=genes), cfg)
@@ -635,7 +637,7 @@ def test_example5_cai_missing_share(tmp_path: Path, cfg: GiapConfig) -> None:
     assert int(_num(row["n"])) == 4
 
 
-def test_missingness_rows_are_the_93_feature_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_missingness_rows_are_the_93_feature_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_default_out(tmp_path), cfg)
     e = _rows(inst, "e")
     expected = {(g, c) for g, cols in FEATURE_GROUPS.items() for c in cols}
@@ -686,7 +688,9 @@ def test_property_missingness_and_measured_share(genes: list[tuple[bool, bool, b
 # --- degenerate: no genes_tsv -----------------------------------------------------------------
 
 
-def test_example6_no_genes_tsv_marks_d_and_e_not_available(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_no_genes_tsv_marks_d_and_e_not_available(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     inst = _render(_default_out(tmp_path, genes=None), cfg)
     assert set(inst.data["panel"]) == {"a", "b", "c"}
     for label in ("d", "e"):
@@ -700,7 +704,7 @@ def test_example6_no_genes_tsv_marks_d_and_e_not_available(tmp_path: Path, cfg: 
 # --- files and determinism --------------------------------------------------------------------
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _default_out(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -719,7 +723,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert "e\tcodon usage\tcai\t1\t4" in tsv  # cai is NA on every example-4 gene
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _default_out(tmp_path)
     view = RunView.from_outdir(out)
     first = _v17().fn(view, cfg)
@@ -734,7 +738,7 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(VAL_OUT, cfg)
     assert set(inst.data["panel"]) >= {"a", "b", "c"}
     assert inst.title.startswith("1 preflight warnings")
@@ -743,7 +747,7 @@ def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_long_warnings_stay_in_the_figure_and_keep_the_more_line(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """Review B1 (#197): wrapped messages fit the cell; "+ n more" is drawn, not cut off."""
     long = "largest contig 54321 bp is below the threshold; N50 12345 bp; WWWW mmmm " * 2
@@ -763,7 +767,7 @@ def test_long_warnings_stay_in_the_figure_and_keep_the_more_line(
             assert ext.y0 >= box.y0 - 1 and ext.x1 <= box.x1 + 1
 
 
-def test_missingness_bars_have_one_colour_and_no_legend(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_missingness_bars_have_one_colour_and_no_legend(tmp_path: Path, cfg: GippaConfig) -> None:
     """Review B2 (#197): no legend over the bars; the feature groups live in the data TSV."""
     inst = _render(_default_out(tmp_path), cfg)
     ax = _ax(inst, "e")

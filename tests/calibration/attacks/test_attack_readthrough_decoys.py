@@ -1,5 +1,5 @@
 """Attack nulls for the annotated-stop decoy cells (M7-16a, ADR-0058 items 1-2; statistician review
-change 6; GIAP_SPEC.md §7.2.1, §8.2, §8.5).
+change 6; GIPPA_SPEC.md §7.2.1, §8.2, §8.5).
 
 Placement FDR counts decoy hits to estimate chance target hits. ADR-0058 lets the tolerant
 matcher consume a ``*`` at an annotated terminal stop (a *cell*) at cost 1, and gives each decoy
@@ -20,7 +20,7 @@ exactly the substitution mass.
 
 Two worlds:
 
-- ``giapsim``: giapsim genomes of ``GENOME_NT`` (circular chromosome with its origin-crossing
+- ``gippasim``: gippasim genomes of ``GENOME_NT`` (circular chromosome with its origin-crossing
   gene, one circular plasmid, one linear contig), one per replicate, the biological gene density.
   Laws: i.i.d. from the target six-frame composition, and tryptic (C-terminal K/R, no internal
   K/R).
@@ -63,7 +63,7 @@ import pytest
 from helpers.readthrough_index import peptides_table
 from helpers.readthrough_toys import rc, write_annotation, write_genome
 
-from giap.mapping.sixframe import READTHROUGH, STOP, Frame, encode_target
+from gippa.mapping.sixframe import READTHROUGH, STOP, Frame, encode_target
 
 SUITE = "placement"
 GENOME_NT = 100_000
@@ -89,8 +89,8 @@ Law = Callable[[int], np.ndarray]  # L -> (L, 19) per-position residue probabili
 
 
 def _budgets() -> dict[int, int]:
-    from giap.config import resolve_config
-    from giap.mapping.tolerant import budget, parse_max_diff
+    from gippa.config import resolve_config
+    from gippa.mapping.tolerant import budget, parse_max_diff
 
     tcfg = resolve_config().mapping.tolerant
     ranges = parse_max_diff(tcfg.max_diff)
@@ -161,10 +161,10 @@ def _composition(frames: tuple[Frame, ...]) -> np.ndarray:
 
 def _index(genome: Mapping[str, str], gm, tmp: Path, seed: int):  # type: ignore[no-untyped-def]
     """``sixframe_index`` (registered step, both decoy types) -> (index, decoys, StopCells)."""
-    from giap.config import resolve_config
-    from giap.mapping.sixframe import load_index, load_stop_cells
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import resolve_config
+    from gippa.mapping.sixframe import load_index, load_stop_cells
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     tmp.mkdir(parents=True, exist_ok=True)
@@ -183,13 +183,13 @@ def _index(genome: Mapping[str, str], gm, tmp: Path, seed: int):  # type: ignore
     return index, decoys, load_stop_cells(out)
 
 
-def giapsim_world(seed: int, tmp: Path):  # type: ignore[no-untyped-def]
-    import giapsim
-    from giap.annotate.bakta import parse_bakta_json
+def gippasim_world(seed: int, tmp: Path):  # type: ignore[no-untyped-def]
+    import gippasim
+    from gippa.annotate.bakta import parse_bakta_json
 
-    cfg = giapsim.SimConfig(genome_length=GENOME_NT, n_plasmids=1, plasmid_length=(8_000, 20_000),
+    cfg = gippasim.SimConfig(genome_length=GENOME_NT, n_plasmids=1, plasmid_length=(8_000, 20_000),
                             linear_contig_length=10_000)  # fmt: skip
-    res = giapsim.simulate(cfg, seed=seed, outdir=tmp / "sim")
+    res = gippasim.simulate(cfg, seed=seed, outdir=tmp / "sim")
     ann = parse_bakta_json(res.bakta_json)
     return _index(ann.sequences, ann.model, tmp / "idx", seed)
 
@@ -345,20 +345,20 @@ def _stream(world: str, i: int) -> int:
 
 
 @pytest.mark.parametrize("full", SUITES)
-def test_attack_readthrough_decoys_giapsim(full: bool, tmp_path: Path) -> None:
+def test_attack_readthrough_decoys_gippasim(full: bool, tmp_path: Path) -> None:
     R = C.replicates(SUITE, full)
     k = C.load_tolerances().se_multiplier
     reps = []
     n_cells = []
     for i in range(R):
-        index, decoys, cells = giapsim_world(_stream("giapsim", i), tmp_path / f"g{i}")
+        index, decoys, cells = gippasim_world(_stream("gippasim", i), tmp_path / f"g{i}")
         f = _composition(index.frames)
         res = replicate(index, decoys, cells, {"iid": _iid(f), "tryptic": _tryptic(f)},
                         broken_sets(index, cells))  # fmt: skip
         _structural(index, decoys, cells, res)
         n_cells.append(sum(len(c) for c in cells.target))
         reps.append(res)
-    rec = _summary(reps, ["built", "no_decoy_cells"], ["iid", "tryptic"], full, "giapsim")
+    rec = _summary(reps, ["built", "no_decoy_cells"], ["iid", "tryptic"], full, "gippasim")
     rec["mean_cells"] = float(np.mean(n_cells))
     _log(rec)
     assert min(n_cells) >= 50, f"too few cells per genome: {min(n_cells)}"

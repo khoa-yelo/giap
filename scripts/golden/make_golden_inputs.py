@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Write the frozen synthetic inputs of the R golden references (M8-12 item 1; GIAP_SPEC.md §11.5).
+"""Write the frozen synthetic inputs of the R golden references (M8-12 item 1; GIPPA_SPEC.md §11.5).
 
     python scripts/golden/make_golden_inputs.py [--out DIR] [--seed INT]
 
 ``--out`` defaults to ``tests/data/golden/r/inputs``; ``--seed`` to ``GOLDEN_SEED`` from
 ``tests/calibration/tolerances.yaml``. Four gzip TSVs (mtime 0, no file name, so the bytes depend
 only on the seed): ``gsea_stats``, ``gsea_sets``, ``ora_genes``, ``ora_categories``. numpy, the
-standard library and PyYAML only, never ``giap``. The IDs and memberships are random: no KEGG,
+standard library and PyYAML only, never ``gippa``. The IDs and memberships are random: no KEGG,
 GO or COG content. Numbers are written as fixed 6-decimal strings so R and Python parse them
 to the same doubles. The GSEA scores have median exactly 0.0 (M8-12b): 997 negative, 6 zero and
 997 positive.

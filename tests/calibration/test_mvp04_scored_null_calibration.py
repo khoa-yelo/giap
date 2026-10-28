@@ -1,5 +1,5 @@
 """Calibration of the MVP-04 scored null decoys (docs/specs/MVP-04-ecoli-evidence-run.md pipeline
-step 6, rule 6, Q2, lead decision 1; M7-12 decisions 21 and 24; GIAP_SPEC.md §7.3.2, §8.4 suite
+step 6, rule 6, Q2, lead decision 1; M7-12 decisions 21 and 24; GIPPA_SPEC.md §7.3.2, §8.4 suite
 "gene FDR"). The interface is the one in tests/unit/test_mvp04_scored_null.py, the oracle
 tests/helpers/mvp04_decoys.py.
 
@@ -42,7 +42,7 @@ null peptides x 3 runs = 54 null PSMs per replicate. Claims, each pooled over th
 above is a named check. Block 1 is replicates 0..R-1, block 2 replicates R..2R-1 (the harness
 blocks). A check that fails on block 1 is re-run on block 2 and the test fails only if both
 blocks fail; a block-1 failure that block 2 does not confirm is ``unconfirmed`` (a warning).
-Each check writes one record per block it ran to ``<GIAP_CALIBRATION_LOG_DIR>/gene_fdr.jsonl``
+Each check writes one record per block it ran to ``<GIPPA_CALIBRATION_LOG_DIR>/gene_fdr.jsonl``
 (``criterion = "pooled_p"``, ``check``, ``observed`` = p, ``bound`` = its gate, ``block``,
 ``status``, ``seed`` of the block's first replicate, the estimate and its 95 % CI), so
 ``unconfirmed`` reaches the nightly summary. The records carry no ``values``, so
@@ -82,7 +82,7 @@ from helpers import mvp04_data as M
 from helpers import mvp04_decoys as D
 from scipy import stats
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 pytestmark = pytest.mark.calsuite("gene_fdr")
 
@@ -94,7 +94,7 @@ ISLANDS = ((2, 3.0), (18, -3.0), (34, 3.0), (50, -3.0), (66, 3.0), (82, -3.0))
 
 
 def _cfg() -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
@@ -103,7 +103,7 @@ def _cfg() -> Any:
 
 
 def _rep(ex: M.Excerpt, out: Path, seed: int) -> D.View:
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         _cfg(), seed, out, genome_fasta=ex.fasta, bakta_json=ex.bakta_json, tu_set=None,
         check_hashes=False,
     )  # fmt: skip

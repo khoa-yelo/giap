@@ -44,7 +44,7 @@ from helpers.cpb_oracle import (
     rel_err,
 )
 
-from giap.stats.poisson_binomial import (
+from gippa.stats.poisson_binomial import (
     CpbTails,
     conditional_poisson_binomial,
     poisson_binomial_pmf,

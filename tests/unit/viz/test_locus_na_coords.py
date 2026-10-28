@@ -3,9 +3,9 @@
 not 'NAType'``).
 
 Cause: ``annotation/regions.tsv`` writes AMR gene sets with ``NA`` start/end by design
-(GIAP_SPEC.md §7.1.7: ``amr`` is "a gene set rather than a contiguous region";
-``giap.annotate.regions`` writes ``NA`` for them). ``RunView`` reads them as nullable ``Int64``
-``<NA>``. The region shading in ``giap.viz.locus.render_locus`` passes every ``regions.tsv`` row of
+(GIPPA_SPEC.md §7.1.7: ``amr`` is "a gene set rather than a contiguous region";
+``gippa.annotate.regions`` writes ``NA`` for them). ``RunView`` reads them as nullable ``Int64``
+``<NA>``. The region shading in ``gippa.viz.locus.render_locus`` passes every ``regions.tsv`` row of
 the locus's contig through ``_in_window``, which calls ``int(r.start)`` before any overlap test, so
 any locus on a contig that carries an AMR set raised. V13 renders its locus views with the same
 ``render_locus``, so it fails the same way.
@@ -27,11 +27,11 @@ from helpers import viz_locus as vl
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance
-from giap.viz.locus import Locus, OrfMark, render_locus, select_loci
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance
+from gippa.viz.locus import Locus, OrfMark, render_locus, select_loci
 
 SCALE = (18.0, 24.0)
 
@@ -42,7 +42,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -65,38 +65,38 @@ def _region_rows(inst: Instance) -> list[tuple[str, int, int, str]]:
     return sorted((str(r.id), int(r.start), int(r.end), str(r.category)) for r in d.itertuples())
 
 
-def _render(out: Path, cfg: GiapConfig, locus_id: str) -> Instance:
+def _render(out: Path, cfg: GippaConfig, locus_id: str) -> Instance:
     view = RunView.from_outdir(out)
     (lo,) = [x for x in select_loci(view, cfg) if x.locus_id == locus_id]
     return render_locus(lo, view, cfg, SCALE)
 
 
-def test_amr_set_without_coordinates_is_not_shaded(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_amr_set_without_coordinates_is_not_shaded(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path, [vl.region("prophage_1", "prophage", "chr1", 10_001, 12_000), _amr_set()])
     inst = _render(out, cfg, "prophage_1")
     assert _region_rows(inst) == [("prophage_1", 10_000, 12_000, "prophage")]
 
 
-def test_amr_set_alone_on_the_contig_renders(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_amr_set_alone_on_the_contig_renders(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, [_amr_set()]), cfg, "prophage_1")
     assert _region_rows(inst) == []
     assert ("gene", "G1") in {(str(r.track), str(r.id)) for r in inst.data.itertuples()}
 
 
-def test_amr_set_on_another_contig_is_ignored(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_amr_set_on_another_contig_is_ignored(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _out(tmp_path, [_amr_set("amr_2", "lin1"), _amr_set("amr_1", "chr1")])
     assert _region_rows(_render(out, cfg, "prophage_1")) == []
 
 
-def test_region_with_only_end_missing_is_not_shaded(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_with_only_end_missing_is_not_shaded(tmp_path: Path, cfg: GippaConfig) -> None:
     half = ("crispr_1", "crispr", "chr1", 10_501, None, "Bakta", None, "", "")
     out = _out(tmp_path, [half, vl.region("prophage_1", "prophage", "chr1", 10_001, 12_000)])
     assert [r[0] for r in _region_rows(_render(out, cfg, "prophage_1"))] == ["prophage_1"]
 
 
-def test_v03_plot_runs_with_an_amr_set(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v03_plot_runs_with_an_amr_set(tmp_path: Path, cfg: GippaConfig) -> None:
     """The failing call of the MVP-04 run: the registered V03 function, not only the renderer."""
-    import giap.viz.locus  # noqa: F401  (registers V03)
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     out = _out(tmp_path, [vl.region("prophage_1", "prophage", "chr1", 10_001, 12_000), _amr_set()])
     result = base.registered()["V03"].fn(RunView.from_outdir(out), cfg)
@@ -104,7 +104,7 @@ def test_v03_plot_runs_with_an_amr_set(tmp_path: Path, cfg: GiapConfig) -> None:
     assert [i.suffix for i in result] == ["prophage_1", None]
 
 
-def test_v13_locus_view_with_an_amr_set(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v13_locus_view_with_an_amr_set(tmp_path: Path, cfg: GippaConfig) -> None:
     """V13 draws its novel ORF views with ``render_locus`` (``Locus(kind="novel_orf")``)."""
     out = _out(tmp_path, [_amr_set()])
     lo = Locus("ORF_1", "novel_orf", "chr1", 10_400, 10_700, 0.001, "ORF_1")
@@ -113,7 +113,9 @@ def test_v13_locus_view_with_an_amr_set(tmp_path: Path, cfg: GiapConfig) -> None
     assert "novel_orf" in set(inst.data["track"])
 
 
-def test_prophage_stat_row_without_coordinates_is_left_out(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_prophage_stat_row_without_coordinates_is_left_out(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     """Proposed default: a prophage / BGC ``regions_stats`` row with NA start/end has no window,
     so it is not a V3 locus; the other loci are unaffected."""
     out = vl.build_out(

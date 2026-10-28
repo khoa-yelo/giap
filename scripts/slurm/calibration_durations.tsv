@@ -143,7 +143,7 @@ tests/calibration/attacks/test_attack_operons_sigma.py::test_attack_d1b_step[ful
 tests/calibration/attacks/test_attack_operons_sigma.py::test_attack_d1c_gene_noise[full]	69.566	1894441
 tests/calibration/attacks/test_attack_operons_sigma.py::test_recorded_null_quartiles_on_m_and_a[constant-full]	38.058	1894441
 tests/calibration/attacks/test_attack_operons_sigma.py::test_recorded_null_quartiles_on_m_and_a[loglinear-full]	199.406	1894441
-tests/calibration/attacks/test_attack_readthrough_recoded.py::test_attack_d1_d2_recoded_giapsim[full]	2450.0	probe-1895351-n8
+tests/calibration/attacks/test_attack_readthrough_recoded.py::test_attack_d1_d2_recoded_gippasim[full]	2450.0	probe-1895351-n8
 tests/calibration/attacks/test_attack_readthrough_recoded.py::test_attack_d3_recordings[k12]	125.0	probe-1895351-n8
 tests/calibration/attacks/test_attack_readthrough_recoded.py::test_attack_d3_recordings[nissle]	140.0	probe-1895351-n8
 tests/calibration/attacks/test_attack_readthrough_recoded.py::test_attack_d4_index_and_variants_site_sets[full]	22.0	probe-1895351-n8
@@ -181,7 +181,7 @@ tests/calibration/test_compare_rho_ci.py::test_c1_tu_block_ci_covers_rho_at_leve
 tests/calibration/test_compare_rho_ci.py::test_c3_teeth_gene_level_resampling_under_covers[full]	502.438	1894441
 tests/calibration/test_criteria.py::test_full_fixture_true_under_calibration_full	0.0	probe-1895352-n8
 tests/calibration/test_denovo_precision_calibration.py::test_denovo_precision_calibrated_full	6.523	1894441
-tests/calibration/test_denovo_precision_sim.py::test_denovo_precision_on_giapsim_full	803.351	1894441
+tests/calibration/test_denovo_precision_sim.py::test_denovo_precision_on_gippasim_full	803.351	1894441
 tests/calibration/test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance[full]	248.169	1894441
 tests/calibration/test_detectability_calibration.py::test_d2_bonferroni_bins_slope_intercept_under_perfect_calibration[full]	1.249	1894441
 tests/calibration/test_detection_limit_calibration.py::test_dl1_mean_gene_level_slope_in_tolerance[full]	103.173	1894441

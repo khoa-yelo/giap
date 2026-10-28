@@ -12,9 +12,9 @@ from helpers.placement_truth import Truth
 
 @pytest.fixture(scope="module")
 def dbstrain(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
-    from giapsim.strain import StrainConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
+    from gippasim.strain import StrainConfig
 
     tmp = tmp_path_factory.mktemp("dbstrain")
     cfg = SimConfig(

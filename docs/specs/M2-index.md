@@ -1,7 +1,7 @@
 # M2 "Annotation wrappers and benchmarks": issue index
 
-Spec: GIAP_SPEC.md §13 row M2. Deliverables: "`workflow/envs/*`, Nextflow skeleton with stubs, wrappers
-and parsers for every tool in §7.1.1; `giap setup`; recorded fixtures for the 100-kb genome; UniOP
+Spec: GIPPA_SPEC.md §13 row M2. Deliverables: "`workflow/envs/*`, Nextflow skeleton with stubs, wrappers
+and parsers for every tool in §7.1.1; `gippa setup`; recorded fixtures for the 100-kb genome; UniOP
 adapter; TUs; promoter windows; anti-SD; codon usage; regions". **Gate:** "a contract test per tool;
 the full Bakta DB downloaded and the full-DB fixtures recorded (G17); `nightly.sbatch` and
 `weekly.sbatch` proposed to Khoa for `scrontab`; measured FarmShare runtimes per tool (with node
@@ -9,8 +9,8 @@ class) replace the estimates".
 
 One issue = one PR. Size budget ≈ 400 **code** lines under `src/`, `workflow/`, `scripts/`
 (ADR-0007: tests, fixtures, docs not counted). Estimates below are code lines only. Command builders
-go in `src/giap/annotate/<tool>_cmd.py` (thin, coverage-excluded by `ci/gates.yaml`); input builders
-and parsers go in `src/giap/annotate/<tool>.py` (full coverage). GPL/AGPL/unlicensed tools are only
+go in `src/gippa/annotate/<tool>_cmd.py` (thin, coverage-excluded by `ci/gates.yaml`); input builders
+and parsers go in `src/gippa/annotate/<tool>.py` (full coverage). GPL/AGPL/unlicensed tools are only
 ever run as processes (R5); `scripts/ci/check_imports.py` already forbids importing them.
 
 ## Issues
@@ -18,14 +18,14 @@ ever run as processes (R5); `scripts/ci/check_imports.py` already forbids import
 | # | Issue | Scope | Depends on | Code est. | Capabilities (§3.6) |
 |---|---|---|---|---|---|
 | 01 | [M2-01](M2-01-tool-envs-containers.md) | tool registry `annotate/tools.py`; `workflow/envs/*.yml` exact pins; `containers.config` digests; Dockerfiles for git-pinned tools; `scripts/build_envs.sh` + `slurm/build_envs.sbatch`; NOTICE rows | M0 | 380 | build: `needs_slurm`, `needs_conda`, `needs_apptainer`, `needs_net`; unit: none |
-| 02 | [M2-02](M2-02-step-registry-precomputed.md) | step registry + `giap _step`; local executor (§6.4); `annotation.precomputed` formats + loaders | M0, M1-04 | 330 | none |
+| 02 | [M2-02](M2-02-step-registry-precomputed.md) | step registry + `gippa _step`; local executor (§6.4); `annotation.precomputed` formats + loaders | M0, M1-04 | 330 | none |
 | 03 | [M2-03](M2-03-gene-model-bakta-json.md) | extends M3-01's `model/genes.py`; defensive Bakta 1.12.2 JSON parser; `bakta_cmd.py` | M1-01, M1-02; shares file with M3-01 | 330 | none (contract: recorded JSON, `pending_sample` until M2-10) |
 | 04 | [M2-04](M2-04-parse-bakta-step.md) | `parse_bakta` step: `genes.parquet`, `features.parquet`, `rrna16s.fa`, `trna_counts.tsv`, `xrefs.parquet`; anti-SD; ribosomal set; TE6 | 02, 03 | 300 | none (TE6 on recorded K-12) |
-| 05 | [M2-05](M2-05-simulator-v2.md) | `giapsim` additions on top of M3-18: signals (RBS, σ70, terminators), CRISPR, oriC, prophage/BGC blocks, real rRNA/tRNA option, precomputed layers, annotation truth, `SIM100K` | 02 (formats), 03 (field names), M3-18 | 400 (tooling) | none |
-| 06 | [M2-06](M2-06-nextflow-skeleton.md) | `main.nf`, `nextflow.config`, `conf/*`, profiles, labels, `GIAP_STEP` process, `runner/nextflow.py` launcher, stub nf-test | 02 | 330 | `needs_nextflow` |
+| 05 | [M2-05](M2-05-simulator-v2.md) | `gippasim` additions on top of M3-18: signals (RBS, σ70, terminators), CRISPR, oriC, prophage/BGC blocks, real rRNA/tRNA option, precomputed layers, annotation truth, `SIM100K` | 02 (formats), 03 (field names), M3-18 | 400 (tooling) | none |
+| 06 | [M2-06](M2-06-nextflow-skeleton.md) | `main.nf`, `nextflow.config`, `conf/*`, profiles, labels, `GIPPA_STEP` process, `runner/nextflow.py` launcher, stub nf-test | 02 | 330 | `needs_nextflow` |
 | 07 | [M2-07](M2-07-nextflow-tool-processes.md) | one process per external tool (10) with `stub:` + `versions.yml` + `meta.yml`; `subworkflows/local/annotate.nf`; precomputed bypass; module switches | 01, 06 | 400 | `needs_nextflow` (stub); real runs in 21 |
-| 08 | [M2-08](M2-08-giap-setup-core.md) | `giap setup` core: items, `db_manifest.json`, `--check`, exit 2; Bakta light/full, geNOMAD, antiSMASH, Promotech models; `slurm/giap_setup.sbatch` | 01 | 360 | unit: none (fake runner); live: `needs_slurm`, `needs_net`, `needs_conda` |
-| 09 | [M2-09](M2-09-giap-setup-resources.md) | `giap setup --go --kegg --cog --contaminants` | 08 | 220 | unit: none; live: `needs_net` |
+| 08 | [M2-08](M2-08-gippa-setup-core.md) | `gippa setup` core: items, `db_manifest.json`, `--check`, exit 2; Bakta light/full, geNOMAD, antiSMASH, Promotech models; `slurm/gippa_setup.sbatch` | 01 | 360 | unit: none (fake runner); live: `needs_slurm`, `needs_net`, `needs_conda` |
+| 09 | [M2-09](M2-09-gippa-setup-resources.md) | `gippa setup --go --kegg --cog --contaminants` | 08 | 220 | unit: none; live: `needs_net` |
 | 10 | [M2-10](M2-10-recording-harness-wave-a.md) | recording harness (`scripts/record_fixture.py`, `slurm/record_fixtures.sbatch`, `slurm/record_bakta_full.sbatch`); genomes K-12/Nissle/sim100k committed; wave-A fixtures (Bakta light+full, TerminatorNet, geNOMAD, antiSMASH, BacTermFinder) | 01, 03 (cmd), 05, 08 | 300 | `needs_slurm`, `needs_conda`/`needs_apptainer`, `needs_bakta_db`, `needs_bakta_full`, `needs_genomad_db`, `needs_net` |
 | 11 | [M2-11](M2-11-user-annotation-id-map.md) | `--annotation` GFF3/GBFF → Bakta `--regions` file and `annotation/id_map.tsv` | 03 | 240 | none |
 | 12 | [M2-12](M2-12-uniop-pairs-tus.md) | UniOP adapter (Prodigal GFF ↔ locus tags), distance-model fallback, `operon_pairs.tsv`, TUs, TU upstream regions, `calibration.yaml` | 04 | 380 | none (UniOP fixture via harness) |
@@ -57,7 +57,7 @@ M0/M1 ──┬─► 01 envs ──┬─► 08 setup core ──► 09 setup r
                                          └─► 11 user annotation / id_map
 {02, 04, 11–19} ──► 20 context_layers ──► 21 integration + nightly/weekly + runtimes ◄── {06, 07, 10}
 
-03 shares src/giap/model/genes.py with M3-01; 05 builds on M3-18 (see "Overlap with the M3 specs").
+03 shares src/gippa/model/genes.py with M3-01; 05 builds on M3-18 (see "Overlap with the M3 specs").
 ```
 
 ## Parallel tracks (separate agents, separate worktrees under `local/worktrees/`)
@@ -88,7 +88,7 @@ are marked `pending_sample` until the fixture lands, then switched on in the rec
 |---|---|---|---|
 | 01 | building envs, pulling images, resolving digests | `needs_net`, `needs_conda`, `needs_apptainer`, `needs_slurm` | `sbatch scripts/slurm/build_envs.sbatch` |
 | 06, 07 | nf-test in stub mode | `needs_nextflow` | session allocation, and CI (`ci.yml` installs Nextflow) |
-| 08, 09 | live downloads (84 GB full Bakta DB) | `needs_net`, `needs_conda`, `needs_slurm` | `sbatch scripts/slurm/giap_setup.sbatch` |
+| 08, 09 | live downloads (84 GB full Bakta DB) | `needs_net`, `needs_conda`, `needs_slurm` | `sbatch scripts/slurm/gippa_setup.sbatch` |
 | 10 | recording wave A | `needs_bakta_db`, `needs_bakta_full`, `needs_genomad_db`, `needs_conda`/`needs_apptainer`, `needs_slurm` | `record_bakta_full.sbatch` (16 CPU, 64 GB), `record_fixtures.sbatch` |
 | 12–16 | recording each tool's wave-B fixture (acceptance item; can be done by T-REC) | `needs_conda`, `needs_promotech_models` (13) | `record_fixtures.sbatch TOOLS=<tool>` |
 | 21 | real-tool integration, nightly/weekly, runtimes | all of the above + `needs_nextflow` | Slurm only |
@@ -99,7 +99,7 @@ downloading again.
 
 ## Annotation step contract (single source for 02, 06, 07 and 20)
 
-Work-directory file names. "py" steps run through `giap _step`; "ext" steps are Nextflow processes.
+Work-directory file names. "py" steps run through `gippa _step`; "ext" steps are Nextflow processes.
 A `precomputed` key replaces the listed steps and supplies the listed output (formats in M2-02).
 
 | Step | Kind | Inputs | Outputs | Replaced by `precomputed.` | Issue |
@@ -134,11 +134,11 @@ any output; see Questions.
 
 ## Overlap with the M3 specs already written
 
-- **M3-01** defines `src/giap/model/genes.py` (`Gene`, `NcFeature`, `GeneModel`,
+- **M3-01** defines `src/gippa/model/genes.py` (`Gene`, `NcFeature`, `GeneModel`,
   `gene_model_from_bakta_json`) and requires M2's `parse_bakta` to return the same `GeneModel`.
   M2-03 extends that module (extra optional fields, full parser) instead of creating a second gene
   model; whichever PR merges second rebases. Assign M2-03 and M3-01 to the same agent, or merge M3-01 first.
-- **M3-18** adds plasmids, rRNA/tRNA, pseudogenes, sORFs and origin-crossing genes to `giapsim`
+- **M3-18** adds plasmids, rRNA/tRNA, pseudogenes, sORFs and origin-crossing genes to `gippasim`
   (`features.py`). M2-05 adds only the annotation-specific parts (`signals.py`, `blocks.py`,
   `layers.py`) and reuses M3-18's `SimConfig` fields. Merge M3-18 before M2-05.
 - **M4-21** checks M2's `parse_bakta`, TU and region outputs against the simulator's truth; the
@@ -148,7 +148,7 @@ any output; see Questions.
 
 1. A precomputed layer = the **output of the layer's parse step** (one TSV format per key, M2-02),
    so tools and injection share one downstream code path.
-2. Nextflow tool processes call the tool directly (GIAP is not installed in tool images); each
+2. Nextflow tool processes call the tool directly (GIPPA is not installed in tool images); each
    `*_cmd.py` builder is kept in sync with its `main.nf` by a test that checks every flag.
 3. Recording runs tools **directly in their micromamba envs** through `scripts/record_fixture.py`,
    not through Nextflow, so recordings do not wait for the workflow (wave A in 10, wave B with 12–16).
@@ -188,7 +188,7 @@ any output; see Questions.
 7. `annotation_source` from the Bakta DB type; `user` only when unknown. Accepted.
 8. New table columns defined in M2-11/M2-15; `check_imports.py` gains terminatornet/bactermfinder;
    miniprot/tblastn parsers live in M3 (envs only in M2). Accepted.
-Shared foundations with M3: M3-01 (`giap.model.genes`) and M3-18 (simulator features) are built first;
+Shared foundations with M3: M3-01 (`gippa.model.genes`) and M3-18 (simulator features) are built first;
 M2-03 and M2-05 extend them.
 - From the M4 design: M2-20's layers table also produces `gc_local_dev` (local GC deviation per gene),
   which M4 consumes; `cog_category` is mapped from Bakta COG cross-references via the COG 2020 table.

@@ -1,6 +1,6 @@
 """Contract test: BacTermFinder parser on its real output table.
 
-Spec: docs/specs/fix-bactermfinder-parser.md (GIAP_SPEC.md §5.4, §6.5, §7.1.1; backlog M2-15).
+Spec: docs/specs/fix-bactermfinder-parser.md (GIPPA_SPEC.md §5.4, §6.5, §7.1.1; backlog M2-15).
 
 Recordings in ``tests/data/recorded/bactermfinder/024870447f62/`` (PROVENANCE.md in each):
 
@@ -24,9 +24,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.terminators import Terminator, parse_bactermfinder
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Interval, Replicon, check_interval
+from gippa.annotate.terminators import Terminator, parse_bactermfinder
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Interval, Replicon, check_interval
 
 REC = Path(__file__).resolve().parents[1] / "data" / "recorded" / "bactermfinder" / "024870447f62"
 REF = REC / "ref_genome_test"

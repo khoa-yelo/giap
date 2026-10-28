@@ -1,5 +1,5 @@
 """Hypothesis properties of the M4-15 gene table (docs/specs/M4-15-gene-table-assembly.md;
-GIAP_SPEC.md §6.5 sort order and writer coordinates, §9.4 closed flag vocabulary).
+GIPPA_SPEC.md §6.5 sort order and writer coordinates, §9.4 closed flag vocabulary).
 
 - ``gene_flags``: the union of its parts, unique, in vocabulary order, idempotent; any word outside
   the §9.4 Gene vocabulary raises ``ValueError``.
@@ -51,7 +51,7 @@ def _table() -> pd.DataFrame:
 @given(st.dictionaries(st.sampled_from(["layers", "evidence", "abundance", "detectability"]),
                        st.lists(FLAGS, max_size=8), max_size=4))  # fmt: skip
 def test_gene_flags_union_order_idempotent(parts: dict[str, list[str]]) -> None:
-    from giap.genetable.assemble import gene_flags
+    from gippa.genetable.assemble import gene_flags
 
     out = gene_flags(parts)
     assert set(out) == {f for v in parts.values() for f in v}
@@ -66,7 +66,7 @@ def test_gene_flags_union_order_idempotent(parts: dict[str, list[str]]) -> None:
 def test_gene_flags_closed_vocabulary(ok: list[str], word: str) -> None:
     import pytest
 
-    from giap.genetable.assemble import gene_flags
+    from gippa.genetable.assemble import gene_flags
 
     if word in gt.GENE_FLAGS:
         return
@@ -85,7 +85,7 @@ _XREF = st.one_of(
 @SETTINGS
 @given(st.lists(_XREF, min_size=1, max_size=25), st.randoms(use_true_random=False))
 def test_function_columns_order_free(rows: list[tuple[str, str, str]], rnd: Any) -> None:
-    from giap.genetable.assemble import function_columns
+    from gippa.genetable.assemble import function_columns
 
     cols = ["locus_tag", "db", "id"]
     a = function_columns(pd.DataFrame(rows, columns=cols), None)
@@ -126,7 +126,7 @@ def test_assemble_independent_of_input_order(perm: list[int]) -> None:
 @given(st.lists(st.tuples(st.integers(0, 10**7), st.integers(1, 30_000)), min_size=20,
                 max_size=20))  # fmt: skip
 def test_writer_converts_coordinates_once(spans: list[tuple[int, int]]) -> None:
-    from giap.io.genes_tsv import read_genes_tsv, write_genes_tsv
+    from gippa.io.genes_tsv import read_genes_tsv, write_genes_tsv
 
     df = _table().copy()
     df["start"] = [s for s, _ in spans]

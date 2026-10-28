@@ -29,7 +29,7 @@ Milestone M4 · track R · depends on: M4-01 (BH), M4-03 (shifts, perm_p), M4-04
 
 ## Public interface
 
-`src/giap/context/regions.py` (pure)
+`src/gippa/context/regions.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class RegionTest:
@@ -41,7 +41,7 @@ def replicon_index(genes: pd.DataFrame, contig: str) -> pd.DataFrame: ...
     # eligible genes of the contig in genome order with columns idx, locus_tag, tu_id, d, p, a (log2 or NaN)
 def o_minus_e_null(r: npt.NDArray, idx: npt.NDArray, shifts: npt.NDArray) -> npt.NDArray: ...   # r = d − p
 def hl_null(a: npt.NDArray, det: npt.NDArray, idx: npt.NDArray, shifts: npt.NDArray) -> npt.NDArray: ...
-def test_region(genes, region_genes: Sequence[str], region_type: str, contig: str, cfg: GiapConfig,
+def test_region(genes, region_genes: Sequence[str], region_type: str, contig: str, cfg: GippaConfig,
                 rng: np.random.Generator) -> list[RegionTest]: ...
 def test_all_regions(genes, regions, region_genes, replicons, cfg, rng) -> pd.DataFrame: ...
     # adds q_value (BH per (region_type, stat)), method, null_model, test columns
@@ -60,7 +60,7 @@ def test_all_regions(genes, regions, region_genes, replicons, cfg, rng) -> pd.Da
 - **CI:** `tu_block_bootstrap` with B = `stats.bootstrap`: O − E resamples the region's TUs (only region
   members in each TU count); HL resamples inside and outside TUs as two strata.
 - **Flags:** `small_region` when n_eligible < 3 (tests still run if K > 0).
-- RNG: `giap.rng.for_step("context_stats", seed)`, regions processed in sorted `region_id` order.
+- RNG: `gippa.rng.for_step("context_stats", seed)`, regions processed in sorted `region_id` order.
 - `method` = `circular_shift_o_minus_e` / `circular_shift_hodges_lehmann`; `null_model = circular_shift`.
 - Plasmid regions are **not** handled here (M4-18).
 
@@ -168,7 +168,7 @@ tolerances. Branch is not mergeable until A2-HL passes.
     docs/methods/region-tests.md "Review round 2"); reported HL effect and CI unchanged. New attack null
     A2-HL-MAR (detection independent of abundance) gates it too. Resolves the "Open" item above.
 12. (lead, after the test-author's b3f7d4c) Interface `tu_variance_components`, `hl_variance`,
-    `studentised_hl_null` in giap.context.regions as pinned; a replicon with one TU has σ_u² = 0; V = 0
+    `studentised_hl_null` in gippa.context.regions as pinned; a replicon with one TU has σ_u² = 0; V = 0
     gives T = 0; V counts as 0 below a data-scaled tolerance (relative to the residual variance, so
     fit rounding never makes T random).
 13. (lead, statistician final review) Missing `tu_id` labels raise `ValueError` (C6 makes `tu_id`

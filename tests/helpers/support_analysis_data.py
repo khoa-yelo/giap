@@ -14,10 +14,10 @@ the lead):
   ``<dir>/support/<name>.tsv`` (``write_support(name, df, dir)``) both pass. Without the key the
   step writes the same ``tables/`` bytes as before (acceptance "No change to any tables/ file
   bytes").
-* **Publishing.** ``giap.runner.local.publish`` puts each file at
+* **Publishing.** ``gippa.runner.local.publish`` puts each file at
   ``OUT/plots/support/<name>.tsv[.gz]``, where ``RunView.from_outdir(OUT).support(name)`` reads
   it.
-* **Cells.** §9.2 through ``giap.io.tsv`` (``%.6g`` floats, ``NA``, ``true``/``false``), so
+* **Cells.** §9.2 through ``gippa.io.tsv`` (``%.6g`` floats, ``NA``, ``true``/``false``), so
   identities the spec states to 1e-9 in memory are checked on the files to the ``%.6g``
   rounding.
 """
@@ -146,8 +146,8 @@ def close(a: float, b: float, rel: float = REL, abs_: float = 1e-9) -> bool:
 
 
 def step_spec(name: str) -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     return reg.get(name)
@@ -155,7 +155,7 @@ def step_spec(name: str) -> Any:
 
 def run_with_spec_outputs(step: str, cfg: Any, inputs: Mapping[str, Path], workdir: Path) -> None:
     """``run_step`` with every declared output at ``workdir / key``, as ``run_local`` does."""
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     spec = step_spec(step)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -163,9 +163,9 @@ def run_with_spec_outputs(step: str, cfg: Any, inputs: Mapping[str, Path], workd
 
 
 def publish_and_view(workdir: Path, out: Path) -> Any:
-    """``publish`` the work directory to ``out`` and open it as ``giap report`` does."""
-    from giap.io.run_view import RunView
-    from giap.runner.local import publish
+    """``publish`` the work directory to ``out`` and open it as ``gippa report`` does."""
+    from gippa.io.run_view import RunView
+    from gippa.runner.local import publish
 
     (out / "tables").mkdir(parents=True, exist_ok=True)
     publish(workdir, out)

@@ -1,6 +1,6 @@
 """M7-10 lead decision 1 in the Nextflow wiring (static, no Nextflow needed): the VARIANTS
 subworkflow hands the optional C17 ``peptide_spectra`` to the ``variants`` step, and main.nf
-passes the preflight-written file to it (``giap run`` puts it in params like the other
+passes the preflight-written file to it (``gippa run`` puts it in params like the other
 normalised preflight files). The key names follow the step registry, as in
 tests/unit/test_nf_variants_registry.py.
 """

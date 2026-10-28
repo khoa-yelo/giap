@@ -1,7 +1,7 @@
 """M2-20 on SIM100K with every precomputed layer, local executor (docs/specs/M2-20-context-layers.md
-examples 1, 5, 7, 8, 9 and the truth-check acceptance criterion; GIAP_SPEC.md §6.4, §7.1.8, §9.1).
+examples 1, 5, 7, 8, 9 and the truth-check acceptance criterion; GIPPA_SPEC.md §6.4, §7.1.8, §9.1).
 
-``giap.runner.local.run_local(cfg, work, ["context_layers"], roots)`` runs "up to
+``gippa.runner.local.run_local(cfg, work, ["context_layers"], roots)`` runs "up to
 context_layers" on the simulator's ``config.yaml`` (``bakta_json`` and every M2-02 layer
 precomputed), then ``publish`` copies the published keys to ``OUT`` (§9.1 ``OUT/annotation/``).
 No tools run (seconds).
@@ -28,31 +28,31 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.gff3 import read_gff3
-from giap.io.tsv import read_tsv
-from giap.model.coords import Replicon
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.gff3 import read_gff3
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Replicon
 
 FILES = (
     "genes.gff3", "regions.tsv", "regions.bed", "promoters.bed", "terminators.bed",
     "operon_pairs.tsv", "tus.tsv",
 )  # fmt: skip
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "annotation"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "annotation"
 
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
+    import gippasim
 
-    return giapsim.simulate(
-        giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
+    return gippasim.simulate(
+        gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim"
     )
 
 
-def _run(sim: Any, out: Path, *overrides: str) -> tuple[Path, GiapConfig]:
+def _run(sim: Any, out: Path, *overrides: str) -> tuple[Path, GippaConfig]:
     """Run up to context_layers into ``out/work`` and publish to ``out``."""
-    from giap.runner import local
-    from giap.steps import load_step_modules
+    from gippa.runner import local
+    from gippa.steps import load_step_modules
 
     load_step_modules()
     cfg = resolve_config(sim.config_yaml, overrides)
@@ -63,7 +63,7 @@ def _run(sim: Any, out: Path, *overrides: str) -> tuple[Path, GiapConfig]:
 
 
 @pytest.fixture(scope="module")
-def run_a(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, GiapConfig]:
+def run_a(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, GippaConfig]:
     return _run(sim, tmp_path_factory.mktemp("A"))
 
 
@@ -82,8 +82,8 @@ def _tree(root: Path) -> dict[str, bytes]:
 
 
 def test_context_layers_is_planned_without_tools(sim: Any) -> None:
-    from giap.runner import local
-    from giap.steps import load_step_modules
+    from gippa.runner import local
+    from gippa.steps import load_step_modules
 
     load_step_modules()
     cfg = resolve_config(sim.config_yaml)
@@ -92,7 +92,7 @@ def test_context_layers_is_planned_without_tools(sim: Any) -> None:
     assert "parse_bakta" in order and "operon_pairs" in order
 
 
-def test_example_1_every_file_published(run_a: tuple[Path, GiapConfig]) -> None:
+def test_example_1_every_file_published(run_a: tuple[Path, GippaConfig]) -> None:
     ann, _ = run_a
     for name in FILES:
         assert (ann / name).is_file(), f"OUT/annotation/{name}"
@@ -103,7 +103,7 @@ def test_example_1_every_file_published(run_a: tuple[Path, GiapConfig]) -> None:
     assert (ann.parent / "work" / "layers").is_file()
 
 
-def test_example_7_gff3_round_trip(run_a: tuple[Path, GiapConfig]) -> None:
+def test_example_7_gff3_round_trip(run_a: tuple[Path, GippaConfig]) -> None:
     ann, _ = run_a
     work = ann.parent / "work"
     reps = _replicons(work)
@@ -124,7 +124,7 @@ def test_example_7_gff3_round_trip(run_a: tuple[Path, GiapConfig]) -> None:
 
 
 def test_example_8_rerun_byte_identical(
-    sim: Any, run_a: tuple[Path, GiapConfig], tmp_path: Path
+    sim: Any, run_a: tuple[Path, GippaConfig], tmp_path: Path
 ) -> None:
     ann_b, _ = _run(sim, tmp_path / "B")
     ta, tb = _tree(run_a[0]), _tree(ann_b)
@@ -136,7 +136,7 @@ def test_example_8_rerun_byte_identical(
 
 
 @pytest.mark.parametrize("table", ["regions", "operon_pairs", "tus"])
-def test_example_9_tsvs_validate(run_a: tuple[Path, GiapConfig], table: str) -> None:
+def test_example_9_tsvs_validate(run_a: tuple[Path, GippaConfig], table: str) -> None:
     frictionless = pytest.importorskip("frictionless")
     found = [p for p in (SCHEMA_DIR / f"{table}.json", SCHEMA_DIR / f"{table}.schema.json")
              if p.exists()]  # fmt: skip
@@ -150,7 +150,7 @@ def test_example_9_tsvs_validate(run_a: tuple[Path, GiapConfig], table: str) -> 
 
 
 def test_truth_tus_reproduced_from_precomputed_pairs(
-    sim: Any, run_a: tuple[Path, GiapConfig]
+    sim: Any, run_a: tuple[Path, GippaConfig]
 ) -> None:
     head, rows = read_tsv(sim.truth["tus"])
     ix = {c: head.index(c) for c in ("contig", "strand", "genes")}
@@ -164,7 +164,7 @@ def test_truth_tus_reproduced_from_precomputed_pairs(
     assert truth and hit / len(truth) >= 0.95, f"{hit}/{len(truth)} truth TUs reproduced"
 
 
-def test_every_planted_region_in_regions_tsv(sim: Any, run_a: tuple[Path, GiapConfig]) -> None:
+def test_every_planted_region_in_regions_tsv(sim: Any, run_a: tuple[Path, GippaConfig]) -> None:
     head, rows = read_tsv(sim.truth["regions"])
     cols = ("region_id", "region_type", "contig", "start", "end")
     t = head.index("true_element")
@@ -175,7 +175,7 @@ def test_every_planted_region_in_regions_tsv(sim: Any, run_a: tuple[Path, GiapCo
     assert planted <= have, sorted(planted - have)
 
 
-def test_layers_cover_every_gene_with_precomputed_values(run_a: tuple[Path, GiapConfig]) -> None:
+def test_layers_cover_every_gene_with_precomputed_values(run_a: tuple[Path, GippaConfig]) -> None:
     work = run_a[0].parent / "work"
     lay = pd.read_parquet(work / "layers")
     genes = pd.read_parquet(work / "genes")

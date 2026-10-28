@@ -3,7 +3,7 @@ docs/specs/M10-06-te-real-and-te7.md). The TE7 (M10-06b) builders are in ``helpe
 
 Everything is synthetic or hand-made: genes / variants / peptide frames and the M10-05 synthetic
 pilot (``helpers.pilot_metrics_m10``) for the CLI; ``git`` and ``edit_manifest`` serve both
-halves. No network, nothing from ``$GIAP_ROOT``, nothing derived from a DIA-NN report.
+halves. No network, nothing from ``$GIPPA_ROOT``, nothing derived from a DIA-NN report.
 """
 
 from __future__ import annotations

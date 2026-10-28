@@ -1,4 +1,4 @@
-"""Attack nulls for the M3-09 chance-hit model (GIAP_SPEC.md §7.2.5, Appendix B.2; statistician).
+"""Attack nulls for the M3-09 chance-hit model (GIPPA_SPEC.md §7.2.5, Appendix B.2; statistician).
 
 E(L, m) = N sum_{j<=m} C(L, j) (1 - s)^j s^(L - j) assumes that every one of the N six-frame
 positions starts a searchable window of L residues drawn i.i.d. from the genome's composition f.
@@ -23,7 +23,7 @@ closed form for m <= 2. A sampled exact-match count cross-checks that identity.
 Reported ratios (methods note): ``stop`` = W_L / N, ``cond`` = observed / (W_L * tail),
 ``total`` = observed / E(L, m) = stop * cond. Assertions encode the *directions*, with margins:
 i.i.d.-nucleotide genomes (any GC) must have cond within 3 % of 1 (the model is exact there once
-stops are accounted for; replicate SE ~ 0.6 % at L = 8-10); giapsim and low-complexity genomes
+stops are accounted for; replicate SE ~ 0.6 % at L = 8-10); gippasim and low-complexity genomes
 must have cond > 1, with the low-complexity genome worse; total < 1 at L >= 8 on every genome
 without low-complexity blocks and total > 1 at m = 0, L >= 8 with them. R = 8 genomes of 100 kb
 per family (~10 s).
@@ -37,11 +37,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.chance import expected_hits_uniform, residue_freqs
-from giap.mapping.sixframe import STOP, SixFrameIndex, build_sixframe
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.chance import expected_hits_uniform, residue_freqs
+from gippa.mapping.sixframe import STOP, SixFrameIndex, build_sixframe
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 GENOME_NT = 100_000
 LENGTHS = (7, 8, 10, 12)
@@ -54,10 +54,10 @@ _SSR_UNITS = (b"CAG", b"GCC", b"AGCGCA", b"AT", b"GA", b"A", b"CCGCCA", b"GGCTCA
 # --- genomes ---------------------------------------------------------------------------------
 
 
-def _giapsim(seed: int, outdir: Path) -> str:
-    import giapsim
+def _gippasim(seed: int, outdir: Path) -> str:
+    import gippasim
 
-    res = giapsim.simulate(giapsim.SimConfig(genome_length=GENOME_NT), seed=seed, outdir=outdir)
+    res = gippasim.simulate(gippasim.SimConfig(genome_length=GENOME_NT), seed=seed, outdir=outdir)
     (rec,) = read_genome_fasta(res.genome_fasta)
     return rec.sequence
 
@@ -141,15 +141,15 @@ def _ratios(index: SixFrameIndex) -> dict[tuple[int, int], tuple[float, float, f
 
 def _genomes(base: int, tmp: Path) -> dict[str, list[SixFrameIndex]]:
     out: dict[str, list[SixFrameIndex]] = {
-        k: [] for k in ("iid_gc50", "iid_gc75", "giapsim", "giapsim_lowcx")
+        k: [] for k in ("iid_gc50", "iid_gc75", "gippasim", "gippasim_lowcx")
     }
     for i in range(R_FAST):
         rng = for_step(f"calibration.attack.chance_hits.{i}", base)
         out["iid_gc50"].append(_index(_iid_nt(rng, 0.50)))
         out["iid_gc75"].append(_index(_iid_nt(rng, 0.75)))
-        seq = _giapsim(base + i, tmp / f"g{i}")
-        out["giapsim"].append(_index(seq))
-        out["giapsim_lowcx"].append(_index(_low_complexity(seq, rng)))
+        seq = _gippasim(base + i, tmp / f"g{i}")
+        out["gippasim"].append(_index(seq))
+        out["gippasim_lowcx"].append(_index(_low_complexity(seq, rng)))
     return out
 
 
@@ -191,7 +191,7 @@ def test_attack_chance_hit_model_directions(tolerances: dict[str, object], tmp_p
             print(
                 f"{name:14s} L={length:2d} m={m} stop={stop:.3f} cond={cond:.3f} total={total:.3f}"
             )
-    for key in res["giapsim"]:
+    for key in res["gippasim"]:
         length, m = key
         # 1. stops: W_L / N < 1 and decreasing in L (the conservative factor)
         for name in res:
@@ -201,13 +201,13 @@ def test_attack_chance_hit_model_directions(tolerances: dict[str, object], tmp_p
             for name in ("iid_gc50", "iid_gc75"):
                 assert abs(res[name][key][1] - 1.0) <= 0.03, (name, key, res[name][key])
         # 2./3. heterogeneous frames and low complexity: E under-states the conditional count
-        assert res["giapsim"][key][1] > 1.0, (key, res["giapsim"][key])
-        assert res["giapsim_lowcx"][key][1] > res["giapsim"][key][1], key
+        assert res["gippasim"][key][1] > 1.0, (key, res["gippasim"][key])
+        assert res["gippasim_lowcx"][key][1] > res["gippasim"][key][1], key
         if length >= 8:  # net effect on realistic genomes without repeats: still conservative
-            for name in ("iid_gc50", "iid_gc75", "giapsim"):
+            for name in ("iid_gc50", "iid_gc75", "gippasim"):
                 assert res[name][key][2] < 1.0, (name, key)
             if m == 0:  # simple-sequence repeats: E is anti-conservative as an absolute count
-                assert res["giapsim_lowcx"][key][2] > 1.0, key
+                assert res["gippasim_lowcx"][key][2] > 1.0, key
     for name in res:
         stops = [res[name][(length, 0)][0] for length in LENGTHS]
         assert all(a > b for a, b in pairwise(stops)), (name, stops)

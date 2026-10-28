@@ -7,7 +7,7 @@ exactly what its producers return. Nothing here re-implements assembly.
 
 ``COG_DEF`` is a tiny stand-in for the COG 2020 ``cog-20.def.tab`` (tab-separated, no header:
 COG ID, functional category letters, name, gene, pathway, PubMed, PDB); the tests never read the
-real ``$GIAP_DB_DIR``.
+real ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -107,9 +107,9 @@ def tag(i: int) -> str:
 
 
 def cfg(**kw: Any) -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(**kw)
+    return GippaConfig(**kw)
 
 
 def cog_def_frame() -> pd.DataFrame:
@@ -142,7 +142,7 @@ class World:
     cfg: Any
 
     def assemble(self, cog_def: pd.DataFrame | None = None, **override: Any) -> pd.DataFrame:
-        from giap.genetable.assemble import assemble_genes
+        from gippa.genetable.assemble import assemble_genes
 
         if cog_def is not None:  # lead decision 5: keyword, default None
             override["_cog"] = cog_def
@@ -165,7 +165,7 @@ def detectability_result(
     p: dict[str, float], constant: bool = False, tags: list[str] | None = None
 ) -> Any:
     """An M4-13 ``DetectabilityResult`` with the given ``p_detect`` (NaN for unlisted tags)."""
-    from giap.genetable.detectability import DetectabilityResult
+    from gippa.genetable.detectability import DetectabilityResult
 
     idx = list(tags if tags is not None else p)
     s = pd.Series([p.get(t, NAN) for t in idx], index=idx, dtype=float, name="p_detect")
@@ -185,10 +185,10 @@ def build_world(
     ``p_detect`` is 0.5 + 0.01 i for eligible (non-partial) gene i and NaN otherwise
     (``constant`` sets ``DetectabilityResult.constant``).
     """
-    from giap.genetable.abundance import gene_abundance
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detection import detect
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.genetable.abundance import gene_abundance
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detection import detect
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
 
     fr = frames if frames is not None else mf.build_frames(n_genes)
     inputs = mf.make_inputs(fr)

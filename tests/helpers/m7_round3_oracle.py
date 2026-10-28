@@ -2,11 +2,11 @@
 docs/specs/M7-12-sim-variant-novel-scenarios.md (the statistician's round-2 block on PR #225,
 comment 6358601933).
 
-Nothing here imports giapsim. The decoy IDs are checked against what GIAP itself would build:
-``giap.makedb.build.build_strain_db`` with ``six_frame_orfs = True`` and ``min_orf_aa = 7`` (the
-shortest simulated peptide) on the simulator's ``bakta_like.json`` + the genome GIAP receives.
-That is the ``giap makedb`` database M7-11's picked class FDR pairs decoys against (M7-11 rule 2:
-"decoy rows whose stripped ID is ``<decoy_prefix>GIAPORF_…`` of that entry").
+Nothing here imports gippasim. The decoy IDs are checked against what GIPPA itself would build:
+``gippa.makedb.build.build_strain_db`` with ``six_frame_orfs = True`` and ``min_orf_aa = 7`` (the
+shortest simulated peptide) on the simulator's ``bakta_like.json`` + the genome GIPPA receives.
+That is the ``gippa makedb`` database M7-11's picked class FDR pairs decoys against (M7-11 rule 2:
+"decoy rows whose stripped ID is ``<decoy_prefix>GIPPAORF_…`` of that entry").
 
 * ``makedb_entries``: every class-tagged makedb entry (six-frame ORFs and ``nterm_extension``
   entries) by ``db_id``, with its 1-based closed unwrapped interval and its protein.
@@ -35,9 +35,9 @@ from helpers import m7_sim_oracle as O
 
 CLASSES4 = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
 DECOY_ID = re.compile(
-    r"^rev_GIAPORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
+    r"^rev_GIPPAORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
 )
-SIXFRAME_DECOY_PREFIX = "rev_GIAPORF_"
+SIXFRAME_DECOY_PREFIX = "rev_GIPPAORF_"
 MIN_ORF_AA = 7
 
 
@@ -58,8 +58,8 @@ def ids(cell: str) -> list[str]:
 
 
 def makedb_entries(out: Path, workdir: Path) -> dict[str, Entry]:
-    """Class-tagged entries of ``giap makedb --six-frame-orfs`` on the simulator outputs."""
-    from giap.makedb.build import MakedbOptions, build_strain_db
+    """Class-tagged entries of ``gippa makedb --six-frame-orfs`` on the simulator outputs."""
+    from gippa.makedb.build import MakedbOptions, build_strain_db
 
     ref = out / "reference.fasta"
     genome = ref if ref.exists() else out / "genome.fasta"
@@ -70,7 +70,7 @@ def makedb_entries(out: Path, workdir: Path) -> dict[str, Entry]:
     seqs = O.read_fasta(res.fasta)
     entries = {}
     for r in O.rows(res.id_map):
-        if not r["db_id"].startswith("GIAPORF_"):
+        if not r["db_id"].startswith("GIPPAORF_"):
             continue
         tag = r["locus_tag"] if r["locus_tag"] not in ("", "NA") else None
         entries[r["db_id"]] = Entry(r["db_id"], r["class"], r["contig"], int(r["start"]),

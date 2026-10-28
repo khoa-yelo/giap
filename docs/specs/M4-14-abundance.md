@@ -10,7 +10,7 @@ lines (+ ≈ 350 test lines) · **can start now** (fixtures; the M4-12 dependenc
 - §2.1 decision 2: "`median` by default, since these proteins were detected. `min` and `exclude` run as
   sensitivity checks; `zero` and `mean` are also accepted. Genes never identified are *not detected*
   and are never imputed."
-- §2.1 decision 3: "With peptide intensities, GIAP computes gene-level iBAQ (primary) and Top3 itself,
+- §2.1 decision 3: "With peptide intensities, GIPPA computes gene-level iBAQ (primary) and Top3 itself,
   after mapping, from unique peptides. Protein-level values are used only when no peptide intensities
   are given: `ibaq` and `top3` count as molar; `maxlfq` and `intensity` count as relative".
 - §7.3.4 quoted: "Use the accepted peptides of gene g with uniqueness `unique` (plus tolerant hits under
@@ -34,7 +34,7 @@ lines (+ ≈ 350 test lines) · **can start now** (fixtures; the M4-12 dependenc
 
 ## Public interface
 
-`src/giap/genetable/abundance.py` (pure)
+`src/gippa/genetable/abundance.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class AbundanceResult:
@@ -49,7 +49,7 @@ def protein_abundance(abundance: pd.DataFrame, pmap: pd.DataFrame, declared_type
 def impute(log2: pd.Series, detected: pd.Series, policy: AbundanceMissing) -> tuple[pd.Series, pd.Series, float | None]: ...
     # (filled log2, imputed mask, fill value)
 def gene_abundance(genes, accepted, covariates, detection, abundance, pmap,
-                   cfg: GiapConfig, policy: AbundanceMissing | None = None) -> AbundanceResult: ...
+                   cfg: GippaConfig, policy: AbundanceMissing | None = None) -> AbundanceResult: ...
 ```
 - Source: `peptide_intensity` if any `abundance_eligible` accepted peptide has a non-NA intensity;
   else `protein_table` if C10 exists; else `none` (`abundance_type = none`, scale NA, all values NA).

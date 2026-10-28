@@ -7,10 +7,10 @@ single ``sequences_predictions.csv``) and ``PROVENANCE.md``.
 
 - ``annotate-real-1847900`` (committed): a real ``-s -m RF-HOT`` run from the reviewer's ANNOTATE
   job 1847900 on a stub-written chunk (locus-tag headers). Always runs.
-- ``k12_mg1655_excerpt`` (committed, M2-21): the first 100 records of the GIAP-written chunk
+- ``k12_mg1655_excerpt`` (committed, M2-21): the first 100 records of the GIPPA-written chunk
   ``windows_000.fa`` (``w0 …``) and the last 100 of ``windows_009.fa`` (``… w950227``) of the real
   K-12 recording (``record_tools.sbatch`` job 1849513_6), with their prediction rows. Always runs.
-  (The ``sim100k`` recording under ``$GIAP_ROOT`` is a genome-wide ``-g`` run, not GIAP's ``-s``
+  (The ``sim100k`` recording under ``$GIPPA_ROOT`` is a genome-wide ``-g`` run, not GIPPA's ``-s``
   mode; see the excerpt's ``PROVENANCE.md``.)
 
 Real format (pinned ``sequences/process_sequences.py``): tab-separated despite the ``.csv`` name,
@@ -85,8 +85,8 @@ def test_k12_excerpt_has_provenance_for_every_file() -> None:
     assert "1849513" in prov and "-s -m RF-HOT" in prov
 
 
-def test_k12_giap_w_headers_round_trip_unmangled() -> None:
-    """M2-13 example 10 on GIAP-written windows: ``w<index>`` keys survive Promotech unchanged."""
+def test_k12_gippa_w_headers_round_trip_unmangled() -> None:
+    """M2-13 example 10 on GIPPA-written windows: ``w<index>`` keys survive Promotech unchanged."""
     headers = _check_sample(K12)
     first = [f"w{i}" for i in range(100)]
     last = [f"w{i}" for i in range(950128, 950228)]

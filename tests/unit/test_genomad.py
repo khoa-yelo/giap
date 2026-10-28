@@ -1,4 +1,4 @@
-"""geNOMAD command builder and summary parser (M2-18 examples 1-5; GIAP_SPEC.md §7.1.1, §6.5).
+"""geNOMAD command builder and summary parser (M2-18 examples 1-5; GIPPA_SPEC.md §7.1.1, §6.5).
 
 Rules (spec M2-18): ``seq_name`` ``<contig>|provirus_<a>_<b>`` → ``Interval(contig, a-1, b, ".")``;
 ``seq_name`` without ``|provirus_`` → whole-contig virus (``interval=None``, Q1); ``NA`` → ``None``;
@@ -30,7 +30,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon, check_interval, to_one_based_closed
+from gippa.model.coords import Interval, Replicon, check_interval, to_one_based_closed
 
 VS_HEADER = (
     "seq_name\tlength\ttopology\tcoordinates\tn_genes\tgenetic_code\tvirus_score\tfdr\t"
@@ -54,7 +54,7 @@ REPS = {
 
 
 def _g() -> ModuleType:
-    from giap.annotate import genomad
+    from gippa.annotate import genomad
 
     return genomad
 
@@ -123,7 +123,7 @@ def _write(
 
 
 def test_example_1_command() -> None:
-    from giap.annotate.genomad_cmd import genomad_command
+    from gippa.annotate.genomad_cmd import genomad_command
 
     got = genomad_command(Path("genome.fa"), Path("out"), Path("/db/genomad_db"), 16)
     assert got == [
@@ -143,7 +143,7 @@ def test_example_1_command() -> None:
 
 @pytest.mark.parametrize("threads", [1, 4, 128])
 def test_command_threads_and_fixed_splits(threads: int) -> None:
-    from giap.annotate.genomad_cmd import genomad_command
+    from gippa.annotate.genomad_cmd import genomad_command
 
     got = genomad_command(Path("g.fa"), Path("o"), Path("db/genomad_db"), threads)
     assert got[got.index("--threads") + 1] == str(threads)

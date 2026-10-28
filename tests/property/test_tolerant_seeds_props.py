@@ -42,11 +42,11 @@ from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from oracle_tolerant import align_window
 
-import giap
-from giap.config.model import TolerantConfig
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.qgram import build_qgram_index, candidate_diagonals, choose_q
-from giap.mapping.sixframe import (
+import gippa
+from gippa.config.model import TolerantConfig
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.qgram import build_qgram_index, candidate_diagonals, choose_q
+from gippa.mapping.sixframe import (
     Frame,
     SixFrameIndex,
     build_sixframe,
@@ -54,10 +54,10 @@ from giap.mapping.sixframe import (
     encode_query,
     encode_target,
 )
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Replicon
-from giap.rng import for_step
-from giapsim.codons import CODE_11
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Replicon
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
 
 CFG = TolerantConfig()
 RESIDUES = "ACDEFGHKLMNPQRSTVWY"
@@ -403,12 +403,12 @@ def test_fifty_kb_genomes_equal_brute_force(topology: str) -> None:
 THREAD_SCRIPT = textwrap.dedent(
     """
     import numpy as np
-    from giap.config.model import TolerantConfig
-    from giap.mapping.decoys import build_decoys
-    from giap.mapping.sixframe import build_sixframe, decode
-    from giap.mapping.tolerant import match_tolerant
-    from giap.model import Replicon
-    from giap.rng import for_step
+    from gippa.config.model import TolerantConfig
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.sixframe import build_sixframe, decode
+    from gippa.mapping.tolerant import match_tolerant
+    from gippa.model import Replicon
+    from gippa.rng import for_step
 
     out = []
     for seed in range(3):
@@ -437,9 +437,9 @@ THREAD_SCRIPT = textwrap.dedent(
 def _run_threads(n: int) -> str:
     root = Path(__file__).resolve().parents[2]
     env = dict(os.environ, NUMBA_NUM_THREADS=str(n), OMP_NUM_THREADS=str(n))
-    giap_src = str(Path(giap.__file__).resolve().parents[1])  # the giap under test
+    gippa_src = str(Path(gippa.__file__).resolve().parents[1])  # the gippa under test
     env["PYTHONPATH"] = os.pathsep.join(
-        p for p in (giap_src, str(root / "tests" / "sim"), env.get("PYTHONPATH", "")) if p
+        p for p in (gippa_src, str(root / "tests" / "sim"), env.get("PYTHONPATH", "")) if p
     )
     proc = subprocess.run(
         [sys.executable, "-c", THREAD_SCRIPT], capture_output=True, text=True, env=env, timeout=900

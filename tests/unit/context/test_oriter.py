@@ -1,6 +1,6 @@
 """M5-08 ori-ter rows: spec examples 1-6 and 8 and the degenerate table.
 
-docs/specs/M5-08-oriter.md with lead decisions 31-35, GIAP_SPEC.md §7.3.5(e) and §9.3, ADR-0021
+docs/specs/M5-08-oriter.md with lead decisions 31-35, GIPPA_SPEC.md §7.3.5(e) and §9.3, ADR-0021
 decision 1 (the CI block length l') **with Amendment 1** (the validity domain is a dependence
 regime; the `uncalibrated` flag is dropped -- no row here may carry it).
 
@@ -40,7 +40,7 @@ NISSLE_ORIC = 5_010_344.0
 
 
 def _oriter() -> Any:
-    from giap.context import oriter
+    from gippa.context import oriter
 
     return oriter
 
@@ -96,7 +96,7 @@ def test_example3_k12_two_oric_calls_give_their_circular_mean() -> None:
 def test_example3_k12_logs_multiple_oric(caplog: pytest.LogCaptureFixture) -> None:
     """The two calls are listed in a ``context_stats.oriter.multiple_oric`` log event (Q1)."""
     feats, _ = od.recorded("k12")
-    with caplog.at_level(logging.INFO, logger="giap"):
+    with caplog.at_level(logging.INFO, logger="gippa"):
         _oriter().oric_position(feats, "U00096.3", K12_LENGTH)
     events = [r for r in caplog.records if getattr(r, "event", None) == od.MULTIPLE_ORIC_EVENT]
     assert events, [getattr(r, "event", r.getMessage()) for r in caplog.records]
@@ -110,7 +110,7 @@ def test_decision31_calls_farther_than_five_percent_apart_are_no_oric(
 ) -> None:
     """Lead decision 31: beyond 0.05 L apart the circular mean is refused (``no_oric``)."""
     feats = od.oric_at("chr1", 1_000, 300_000)  # 0.0643 of L = 4,641,652
-    with caplog.at_level(logging.INFO, logger="giap"):
+    with caplog.at_level(logging.INFO, logger="gippa"):
         assert _oriter().oric_position(feats, "chr1", K12_LENGTH) is None
     assert any(getattr(r, "event", None) == od.MULTIPLE_ORIC_EVENT for r in caplog.records)
     # just inside the window: averaged
@@ -287,7 +287,7 @@ def test_example8_every_row_is_descriptive_without_a_p_value() -> None:
 
 def test_rows_use_the_autocorrelation_columns_in_order() -> None:
     """The frame is §9.3 ``autocorrelation.tsv`` shaped (M5-05 ``AUTOCORR_COLUMNS``)."""
-    from giap.context.autocorrelation import AUTOCORR_COLUMNS
+    from gippa.context.autocorrelation import AUTOCORR_COLUMNS
 
     genes, tus, replicons, feats = _mixed_genome()
     out = od.rows(genes, tus, replicons, feats, od.config(bootstrap=20, permutations=9))
@@ -482,8 +482,8 @@ def test_integer_block_len_overrides_the_rule() -> None:
 
 def test_auto_block_len_follows_block_len_prime() -> None:
     """``auto``: l-hat from ``choose_block_len`` on the pooled residuals, then l' (lead 35)."""
-    from giap.rng import for_step
-    from giap.stats.autocorr import block_len_prime
+    from gippa.rng import for_step
+    from gippa.stats.autocorr import block_len_prime
 
     genes, tus, replicons, feats = _mixed_genome()
     cfg = od.config(bootstrap=40, permutations=19)

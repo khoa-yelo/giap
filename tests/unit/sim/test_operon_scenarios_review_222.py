@@ -1,4 +1,4 @@
-"""giapsim operon scenarios: the two lead decisions the PR #222 review found unpinned (issue M6-03,
+"""gippasim operon scenarios: the two lead decisions the PR #222 review found unpinned (issue M6-03,
 docs/specs/M6-03-sim-operon-scenarios.md).
 
 * **B1, decision 10.** In ``operon_attack_detection`` the detection logit is recomputed on the final
@@ -34,7 +34,7 @@ CHI2_10DF_CRIT = 29.588  # scipy.stats.chi2.isf(0.001, 10)
 
 @cache
 def _sim(name: str, args: tuple[Any, ...], seed: int) -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc.simulate_operons(getattr(sc, name)(*args), seed)
 

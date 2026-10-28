@@ -1,4 +1,4 @@
-"""Pilot metrics for the arms A1 and A2 (GIAP_SPEC.md §15.5 metrics 1-5 and 7, §11.6 TE1 on real
+"""Pilot metrics for the arms A1 and A2 (GIPPA_SPEC.md §15.5 metrics 1-5 and 7, §11.6 TE1 on real
 data, §15.6 checklist, §15.7 hypotheses 1 and 3); spec docs/specs/M10-05-pilot-metrics.md.
 
 Pure functions (frames and dicts in, dicts out) plus a thin CLI that reads and writes::
@@ -40,16 +40,16 @@ import pandas as pd
 from scipy.stats import binomtest
 from validation.proxies.te_proxies import INFRAME, non_atg_nterm, read_coding_genes, te1_result
 
-from giap.config import GiapConfig
-from giap.io.peptides import validate_peptides
-from giap.mapping.digest import digest
-from giap.model.genes import Gene
-from giap.stats.cutoffs import wilson_ci
-from giap.steps.mapping import select_queries
+from gippa.config import GippaConfig
+from gippa.io.peptides import validate_peptides
+from gippa.mapping.digest import digest
+from gippa.model.genes import Gene
+from gippa.stats.cutoffs import wilson_ci
+from gippa.steps.mapping import select_queries
 
 REPO = Path(__file__).resolve().parents[2]
 SPEC = "docs/specs/M10-05-pilot-metrics.md"
-SCHEMA = "giap-pilot-metrics/1"
+SCHEMA = "gippa-pilot-metrics/1"
 ARMS = ("A1", "A2")
 Q_ACCEPT = 0.01  # accepted: q_value <= 0.01 (inclusive), the converter's written value
 TE1_MIN = 0.995  # §11.6, point estimate (R3: not tuned)
@@ -175,9 +175,9 @@ def identifications(P: pd.DataFrame, prefixes: Sequence[str]) -> dict[str, Any]:
 
 
 def split_contaminants(
-    P: pd.DataFrame, cfg: GiapConfig
+    P: pd.DataFrame, cfg: GippaConfig
 ) -> tuple[list[str], list[str], pd.DataFrame]:
-    """(U, D, R) as GIAP's mapping step sees the table: **U** =
+    """(U, D, R) as GIPPA's mapping step sees the table: **U** =
     ``select_queries(validate_peptides(P)[0], cfg)``; R its validated target rows that
     ``select_queries`` keeps (q <= q_value_max or NA); D = U minus the peptides whose rows of R
     are all contaminant-only (``validate_peptides``' ``is_contaminant``)."""
@@ -211,7 +211,7 @@ def unplaced_reason(reasons: Collection[str] | None) -> str:
 
 
 def mapping_shares(
-    P: pd.DataFrame, peptide_hits: pd.DataFrame, unmapped: pd.DataFrame, cfg: GiapConfig
+    P: pd.DataFrame, peptide_hits: pd.DataFrame, unmapped: pd.DataFrame, cfg: GippaConfig
 ) -> dict[str, Any]:
     """Metric 2: exact / tolerant / unmapped shares of **D** (U minus contaminant-only)."""
     U, D, _ = split_contaminants(P, cfg)
@@ -456,7 +456,7 @@ def te1_real(
     genes: Iterable[Gene],
     circular: Mapping[str, int | None],
     non_atg: Mapping[str, str],
-    cfg: GiapConfig,
+    cfg: GippaConfig,
     *,
     q_crossings: int = 0,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -525,7 +525,7 @@ def te1_real(
     return te1, exc
 
 
-def te1_diagnostic(P: pd.DataFrame, peptide_hits: pd.DataFrame, cfg: GiapConfig) -> dict[str, Any]:
+def te1_diagnostic(P: pd.DataFrame, peptide_hits: pd.DataFrame, cfg: GippaConfig) -> dict[str, Any]:
     """A1 diagnostic (no pass flag): share of A1's **D** with an exact in-frame CDS/sORF row at
     any gene (A1's sources are UniProt accessions, not locus tags)."""
     _, D, _ = split_contaminants(P, cfg)
@@ -856,7 +856,7 @@ H4_LEVEL = 0.95
 H4_VERDICTS = ("not_supported", "consistent_with_lower_bound", "not_evaluable")
 PLACEMENT_LOG = re.compile(r"placement: \d+ queries \((\d+) de novo\)")
 SEARCHABLE_DIGEST = (
-    "GIAP's digest (trypsin_p, at most 1 missed cleavage, 7-30 residues, no N-terminal Met "
+    "GIPPA's digest (trypsin_p, at most 1 missed cleavage, 7-30 residues, no N-terminal Met "
     "excision; not DIA-NN's settings) of --strain-db, I folded to L"
 )
 H4_CAVEATS = (
@@ -881,10 +881,10 @@ def _fold(p: str) -> str:
     return p.replace("I", "L")
 
 
-def _selected_denovo(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+def _selected_denovo(P: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame:
     """The placement step's de novo queries (``validate_peptides``, ``aggregate_peptides``
     (score = max over a peptide's rows), ``select_queries``), before the length-class filter."""
-    from giap.io.peptides import aggregate_peptides
+    from gippa.io.peptides import aggregate_peptides
 
     V, _ = validate_peptides(P, cfg.input)
     Q = select_queries(aggregate_peptides(V)[0], cfg)
@@ -892,16 +892,16 @@ def _selected_denovo(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
     return Q.loc[keep, ["peptide", "score", "source"]].reset_index(drop=True)
 
 
-def denovo_count(P: pd.DataFrame, cfg: GiapConfig) -> int:
+def denovo_count(P: pd.DataFrame, cfg: GippaConfig) -> int:
     """The placement log's "(M de novo)": de novo queries before the length-class filter,
     unscored ones included (B1)."""
     return len(_selected_denovo(P, cfg))
 
 
-def denovo_queries(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+def denovo_queries(P: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame:
     """Definition 1: the de novo queries as the mapping step bins them (``_selected_denovo``),
     keeping rows whose length falls in a ``mapping.length_classes`` class."""
-    from giap.steps.mapping import length_label
+    from gippa.steps.mapping import length_label
 
     Q = _selected_denovo(P, cfg)
     classes = cfg.mapping.length_classes
@@ -930,7 +930,7 @@ def _nested(peps: Sequence[str]) -> set[str]:
 
 def h4_bin(n_b: int, k_b: int, genome: Mapping[str, Any], n_reportable: int) -> dict[str, Any]:
     """Definition 7 for one reportable bin: ``L_b`` (Wilson 95 %), ``L_b_adj`` (Wilson at
-    1 - 0.05/B), ``U_b`` (GIAP's upper half-width rescaled to 1 - 0.025/B, capped at 1;
+    1 - 0.05/B), ``U_b`` (GIPPA's upper half-width rescaled to 1 - 0.025/B, capped at 1;
     descriptive) and the relations ``relation_95`` (descriptive) and ``relation_adj`` (the
     verdict's: the unrescaled genome upper limit below ``L_b_adj``'s lower limit, the adopted
     fallback)."""
@@ -977,7 +977,7 @@ def hypothesis4(
     ``mapping_fdr``'s or ``n_denovo_logged`` differs from ``n_denovo`` (the de novo queries
     before the length-class filter; default ``len(queries)``). Unscored (NaN) queries form no
     bin, as in the mapping step, but count in ``n_denovo``."""
-    from giap.mapping.denovo_precision import score_bins
+    from gippa.mapping.denovo_precision import score_bins
 
     peps = [_fold(p) for p in queries["peptide"].astype(str)]
     bins = score_bins(pd.to_numeric(queries["score"], errors="coerce").to_numpy(dtype=float))
@@ -1054,7 +1054,7 @@ def hypothesis4(
     }
 
 
-def contaminant_rows(P: pd.DataFrame, cfg: GiapConfig) -> dict[str, Any]:
+def contaminant_rows(P: pd.DataFrame, cfg: GippaConfig) -> dict[str, Any]:
     """S3: the share of A2's accepted target rows (q <= 0.01) that are contaminant rows, the
     rows ``c_by_class`` counts into c_value."""
     V, _ = validate_peptides(P, cfg.input)
@@ -1151,7 +1151,7 @@ def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list
 # ---------------------------------------------------------------- M10-15 gate inputs
 
 BULLETS = (
-    "GIAP runs end to end on A1, A2 and A3",
+    "GIPPA runs end to end on A1, A2 and A3",
     ">= 99.5 % of A2 peptides map exactly (TE1)",
     "A1 and A2 detections and abundances are compared",
     "Measured runtimes replace the estimates",
@@ -1274,7 +1274,7 @@ def te_placeholders() -> dict[str, Any]:
                                 "abundance": {"percentile_rank": None}},
                     "te4": p | {"pairs": pairs},
                     "te5": p | {"A1": {"share_bucket": None}, "A2": {"share_bucket": None}}},
-        "te7": {"giap": p | {"n_gate": None}, "diann": dict(p), "end_to_end": None},
+        "te7": {"gippa": p | {"n_gate": None}, "diann": dict(p), "end_to_end": None},
     }  # fmt: skip
 
 
@@ -1282,7 +1282,7 @@ def _not_passed(metrics: Mapping[str, Any]) -> list[str]:
     """TEs (``TE3``) with a computed status other than ``pass``; pending ones are not listed."""
     te, te7 = metrics.get("te_real") or {}, metrics.get("te7") or {}
     out = [f"TE{k[2:]}" for k in TE_KEYS if "schema" in te and te[k].get("status") != "pass"]
-    return out + (["TE7"] if "schema" in te7 and te7["giap"].get("status") != "pass" else [])
+    return out + (["TE7"] if "schema" in te7 and te7["gippa"].get("status") != "pass" else [])
 
 
 def _bullet5(metrics: Mapping[str, Any]) -> str:
@@ -1543,7 +1543,7 @@ def final_problems(metrics: Mapping[str, Any]) -> list[str]:
             out.append(f"checklist.{i}.evidence is empty")
     te, te7 = metrics.get("te_real") or {}, metrics.get("te7") or {}
     statuses = {f"te_real.{k}.status": (te.get(k) or {}).get("status") for k in TE_KEYS}
-    statuses["te7.giap.status"] = (te7.get("giap") or {}).get("status")
+    statuses["te7.gippa.status"] = (te7.get("gippa") or {}).get("status")
     out += [f"{p} is {s!r}" for p, s in statuses.items() if s is None or s.startswith("pending")]
     m6 = metrics.get("m6")
     for arm in M6_FINAL_ARMS if isinstance(m6, Mapping) else ():
@@ -1638,7 +1638,7 @@ def _json(path: Path) -> dict[str, Any]:
 
 
 def table_schema(stem: str) -> dict[str, Any]:
-    res = resources.files("giap.schemas").joinpath("tables", f"{stem}.schema.json")
+    res = resources.files("gippa.schemas").joinpath("tables", f"{stem}.schema.json")
     doc: dict[str, Any] = json.loads(res.read_text(encoding="utf-8"))
     return doc
 
@@ -1646,7 +1646,7 @@ def table_schema(stem: str) -> dict[str, Any]:
 def _table(path: Path, stem: str) -> pd.DataFrame:
     # read_schema_tsv keeps the written 1-based coordinates, which te1_result expects;
     # RunView.table would convert them to 0-based.
-    from giap.io.run_view import read_schema_tsv
+    from gippa.io.run_view import read_schema_tsv
 
     return _load(path, lambda p: read_schema_tsv(p, stem, table_schema(stem)))
 
@@ -1660,7 +1660,7 @@ def _rows(path: Path | None) -> list[dict[str, str]]:
 
 
 def _run_table(out: Path, name: str) -> Path | None:
-    """GIAP writes ``mapping/{peptide_hits,unmapped}.tsv`` and ``tables/detection_summary.tsv``."""
+    """GIPPA writes ``mapping/{peptide_hits,unmapped}.tsv`` and ``tables/detection_summary.tsv``."""
     return next((f for d in ("tables", "mapping") if (f := out / d / name).is_file()), None)
 
 
@@ -1683,11 +1683,11 @@ def resolve_attempt(path: Path) -> tuple[Path, str | None]:
     return path.parent / Path(rows[-1]["outdir"]).name, rows[-1].get("job")
 
 
-def _cfg(manifest: Mapping[str, Any], path: Path) -> GiapConfig:
+def _cfg(manifest: Mapping[str, Any], path: Path) -> GippaConfig:
     if not manifest.get("config"):
         raise Precondition(f"{path}: no resolved config")
     try:
-        return GiapConfig.model_validate(manifest["config"])
+        return GippaConfig.model_validate(manifest["config"])
     except ValueError as err:
         raise Precondition(f"{path}: invalid config: {err}") from err
 
@@ -1720,7 +1720,7 @@ def _git_ignored(path: Path) -> bool:
 
 def _outside_repo(path: Path, flag: str, allow_ignored: bool = False) -> None:
     """``path`` lies outside the checkout, or (``allow_ignored``, M10-07 B2) in a git-ignored
-    part of it such as ``local/``, where farmshare_env.sh puts ``GIAP_ROOT``."""
+    part of it such as ``local/``, where farmshare_env.sh puts ``GIPPA_ROOT``."""
     p = path.resolve()
     if (p == REPO or REPO in p.parents) and not (allow_ignored and _git_ignored(p)):
         raise Precondition(f"{flag} {path} is inside the repository")
@@ -1729,8 +1729,8 @@ def _outside_repo(path: Path, flag: str, allow_ignored: bool = False) -> None:
 def _arm(label: str, out: Path, a: argparse.Namespace, genome_sha: str, job: str | None,
          sacct: list[dict[str, str]]) -> dict[str, Any]:  # fmt: skip
     """Reads one arm and checks its preconditions."""
-    from giap.io.compare_io import genome_digest
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.compare_io import genome_digest
+    from gippa.io.peptides import read_peptide_table
 
     x = label.lower()
     pep, summary = getattr(a, f"peptides_{x}"), getattr(a, f"summary_{x}")
@@ -1816,7 +1816,7 @@ def _arm_tables(out: Path) -> dict[str, pd.DataFrame | None]:
 def _placement_logged(out: Path) -> int | None:
     """The placement line's de novo count from the ``.command.log`` of the last COMPLETED
     placement task of ``OUT/logs/trace.tsv`` (B1); None without a trace, task dir or line."""
-    from giap.runner.nextflow import _step_name, _task_dir
+    from gippa.runner.nextflow import _step_name, _task_dir
 
     trace = out / "logs" / "trace.tsv"
     if not trace.is_file():
@@ -1839,8 +1839,8 @@ def _placement_logged(out: Path) -> int | None:
 
 def _read_a3(a: argparse.Namespace, genome_sha: str) -> dict[str, Any]:
     """The A3 inputs and their preconditions (spec "metrics.py changes (10b)")."""
-    from giap.io.compare_io import genome_digest
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.compare_io import genome_digest
+    from gippa.io.peptides import read_peptide_table
 
     out = _need(resolve_attempt(a.a3)[0])
     mp = out / "run_manifest.json"
@@ -1873,8 +1873,8 @@ def _read_a3(a: argparse.Namespace, genome_sha: str) -> dict[str, Any]:
 
 
 def _searchable(path: Path | None) -> set[str] | None:
-    """In-silico tryptic peptides of ``--strain-db`` (GIAP's digest, I→L), or None."""
-    from giap.io.protein_fasta import read_protein_fasta
+    """In-silico tryptic peptides of ``--strain-db`` (GIPPA's digest, I→L), or None."""
+    from gippa.io.protein_fasta import read_protein_fasta
 
     if path is None:
         return None
@@ -1904,14 +1904,14 @@ def _m6_h4(
                      n_denovo=denovo_count(a3["P"], a3["cfg"]),
                      a2_contaminant_rows=contaminant_rows(a2["P"], a2["cfg"]))  # fmt: skip
     if a3["manifest"].get("git_commit") != arms["A2"]["manifest"].get("git_commit"):
-        warnings.append({"code": "giap_commit_differs", "A3": a3["manifest"].get("git_commit")})
+        warnings.append({"code": "gippa_commit_differs", "A3": a3["manifest"].get("git_commit")})
     return m6, h4
 
 
 def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Every metric from the parsed arguments (reads only; raises on a precondition)."""
-    from giap.io.output_checks import check_tsv
-    from giap.io.protein_fasta import read_protein_fasta
+    from gippa.io.output_checks import check_tsv
+    from gippa.io.protein_fasta import read_protein_fasta
 
     _a3_options(a)
     _outside_repo(a.out, "--out")
@@ -1937,9 +1937,9 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     k12 = _load(a.k12_fasta, lambda p: {r.id: r.sequence for r in read_protein_fasta(p)})
     classes = strain_specific_set({g.locus_tag: g.aa for g in genes}, k12)
     doc: dict[str, Any] = {"schema": SCHEMA, "spec": _spec_sha(), "warnings": warnings,
-                           "giap_commit": a2["manifest"].get("git_commit")}  # fmt: skip
-    if a1["manifest"].get("git_commit") != doc["giap_commit"]:
-        warnings.append({"code": "giap_commit_differs", "A1": a1["manifest"].get("git_commit")})
+                           "gippa_commit": a2["manifest"].get("git_commit")}  # fmt: skip
+    if a1["manifest"].get("git_commit") != doc["gippa_commit"]:
+        warnings.append({"code": "gippa_commit_differs", "A1": a1["manifest"].get("git_commit")})
     doc["m1"], doc["m2"], doc["m3"], doc["m7"] = {}, {}, {}, {}
     for label, arm in arms.items():
         doc["m1"][label] = identifications(arm["P"], arm["cfg"].input.contaminant_prefixes)
@@ -1955,7 +1955,7 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         doc["m7"][label] = arm["runtime"]
     cmp: dict[str, pd.DataFrame | None] = {}
     compare_ok = True
-    for stem in COMPARE:  # giap compare writes CMP/tables/<stem>.tsv
+    for stem in COMPARE:  # gippa compare writes CMP/tables/<stem>.tsv
         f = a.cmp / "tables" / f"{stem}.tsv"
         cmp[stem] = _table(f, stem) if f.is_file() else None
         compare_ok &= cmp[stem] is not None
@@ -2017,8 +2017,8 @@ M8_KEYS = ("peptide", "precursor", "universe", "caveats", "cross_checks", "warni
 
 def entrapment_block(ent: Mapping[str, Any]) -> dict[str, Any]:
     """Metric 8: the blocks of ``entrapment.json`` (validation/pilot/entrapment.py, M10-07)."""
-    if ent.get("schema") != "giap-pilot-entrapment/1" or any(k not in ent for k in M8_KEYS):
-        raise Precondition(f"--entrapment: not a giap-pilot-entrapment/1 document with {M8_KEYS}")
+    if ent.get("schema") != "gippa-pilot-entrapment/1" or any(k not in ent for k in M8_KEYS):
+        raise Precondition(f"--entrapment: not a gippa-pilot-entrapment/1 document with {M8_KEYS}")
     codes = sorted({str(w.get("code") if isinstance(w, Mapping) else w) for w in ent["warnings"]})
     return {k: ent[k] for k in M8_KEYS} | {"warning_codes": codes}
 
@@ -2041,7 +2041,7 @@ def _dump(doc: Any) -> str:
 def write_outputs(
     out: Path, doc: Mapping[str, Any], exceptions: Sequence[Mapping[str, Any]]
 ) -> None:
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     text = _dump(doc)  # before any file is written (a NaN raises)
     out.mkdir(parents=True, exist_ok=True)

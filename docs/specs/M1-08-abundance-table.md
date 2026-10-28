@@ -15,7 +15,7 @@ Milestone M1 · depends on: M1-04, M1-06 (`Issue`) · estimate ≈ 220 changed l
   detection); zeros and NA counted; > 20 % missing → warn"; scale "log or linear auto-detected;
   `--abundance-scale` overrides" (Info). Config: `abundance.scale`, `preflight.abundance_missing_warn_frac`.
 
-## Public interface (`src/giap/io/abundance.py`)
+## Public interface (`src/gippa/io/abundance.py`)
 
 ```python
 Scale = Literal["log2", "linear"]

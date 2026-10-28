@@ -18,7 +18,7 @@ the shipped mitigation) · estimate ≈ 85 counted code lines (+ ≈ 280 test li
   flag, added through `schemas/tables/novel_orfs.schema.json`, as M7-06/07/09 did.
 - §7.6.3 "**RBS support** means the OSTIR initiation score at the chosen start is ≥ the
   `novel_orfs.rbs_min_quantile` (default 0.10) quantile of scores at annotated starts of detected
-  genes." This is the only RBS/TIR evidence GIAP computes for novel ORFs: OSTIR's `expression` is
+  genes." This is the only RBS/TIR evidence GIPPA computes for novel ORFs: OSTIR's `expression` is
   the TIR (§7.1.6), so "RBS support" and "TIR support" are one test, `rbs_supported`.
 - §7.6.4 and M7-11 decision 3 (de novo ORF q = minimum peptide subgroup q): **unchanged**.
 - §7.6.6 "Calibration: class FDR on simulations with planted novel ORFs and de novo errors";
@@ -86,14 +86,14 @@ denovo_only_unsupported  :=  has_denovo  and  not db_support  and  not rbs_exemp
    the side-table cell is null: the sources are unknown.
 
 **Nothing else changes.** `class_fdr`, `q`, `called`, `rank` and the class rules are computed
-exactly as in M7-11b; the flag is applied after them and read by nothing in GIAP's call path.
+exactly as in M7-11b; the flag is applied after them and read by nothing in GIPPA's call path.
 So G3 power, every G4 number and the ADR-0050 strict xfails (G4-k3 cds_outframe and antisense at
 0.01 and 0.05, intergenic and GC at 0.01) are unaffected; a fix to the method still shows as
 XPASS.
 
 ## Public interface
 
-### `src/giap/novel/class_call.py` (pure; additions)
+### `src/gippa/novel/class_call.py` (pure; additions)
 
 ```python
 def db_supported(orfs: Sequence[Orf], peptides: pd.DataFrame,
@@ -102,7 +102,7 @@ def db_supported(orfs: Sequence[Orf], peptides: pd.DataFrame,
     # index-aligned with peptides; decoy and contaminant rows ignored (rules 1-3)
 ```
 
-### `src/giap/novel/evidence.py`
+### `src/gippa/novel/evidence.py`
 
 - `apply_evidence(..., denovo_support: Mapping[str, tuple[bool, bool]] | None = None)`. When it
   is `None` (library callers, all existing tests) nothing changes. Otherwise, after
@@ -110,7 +110,7 @@ def db_supported(orfs: Sequence[Orf], peptides: pd.DataFrame,
 - `denovo_only_unsupported(cls: str, has_denovo: bool, db_support: bool,
   rbs: bool | None) -> bool` — the rule, one line, exported for the unit tests.
 
-### `src/giap/novel/outputs.py` and the schema
+### `src/gippa/novel/outputs.py` and the schema
 
 - `FLAG_ORDER` gains `denovo_only_unsupported` **last** (after `readthrough_candidate`). If the
   pending `class_mismatch` (M7-11b Q3) lands, it goes after `class_fdr_unestimated` as planned;
@@ -242,7 +242,7 @@ Tests ≈ 280, not gated: unit ≈ 140, step ≈ 70, report ≈ 20, calibration 
      the G4 de novo arm) and class: the share of **true** ORFs (truth matches, rule 5 of M7-13)
      with `q ≤ 0.01` and the class rule met that carry the flag. Expected by construction: 0 in
      the picked arm, 1 for `intergenic`/`nterm_extension` in the de novo arm, and 1 − (chance
-     RBS rate) for `cds_outframe`/`antisense` there (giapsim plants RBS only at intergenic and
+     RBS rate) for `cds_outframe`/`antisense` there (gippasim plants RBS only at intergenic and
      N-terminal true starts).
 7. **Methods note** `docs/methods/novel-orfs.md` §"Class FDR" gains §"Exact systematic de novo
    errors (ADR-0050)" with the paragraph below and the recorded shares; the statistician signs off.
@@ -261,13 +261,13 @@ Tests ≈ 280, not gated: unit ≈ 140, step ≈ 70, report ≈ 20, calibration 
 > chances at a small q (decision 3). In M7-13 G4-k3 (20 injected false ORFs per class, 3–5 wrong
 > reads each) the ORF-level FDP was 0.075 for `cds_outframe` and 0.072 for `antisense` at both
 > q = 0.01 and 0.05, and 0.017 for `intergenic` at 0.01; the exact reads alone account for all of
-> it. GIAP therefore does not claim class-FDR control against exact systematic de novo errors.
+> it. GIPPA therefore does not claim class-FDR control against exact systematic de novo errors.
 > q values and calls are unchanged. Calls that this limitation can affect carry
 > `denovo_only_unsupported`: every peptide is de novo, none is a database PSM, and there is no RBS
 > support beyond what the class rule already requires. RBS support at the 0.10 quantile is weak
 > evidence: in the simulator a non-coding start passes it with probability <escape share>, so the
 > flag is a pointer to the evidence gap, not a second error estimate. Users who need such calls
-> should confirm them by a database search against the `giap makedb` six-frame database, or by
+> should confirm them by a database search against the `gippa makedb` six-frame database, or by
 > independent evidence.
 
 ## Questions for the lead (each with the reversible default in use)
@@ -276,7 +276,7 @@ Tests ≈ 280, not gated: unit ≈ 140, step ≈ 70, report ≈ 20, calibration 
    database or RBS/TIR support". Read literally, two things go wrong:
    - `intergenic` and `nterm_extension` calls always have RBS support (class rule), so they
      would never be flagged, yet `intergenic` is one of the failing G4-k3 cells;
-   - in giapsim a non-coding start's TIR is lognormal(6, 0.8) against a threshold near the 10 %
+   - in gippasim a non-coding start's TIR is lognormal(6, 0.8) against a threshold near the 10 %
      quantile of gene TIRs (mostly lognormal(8, 0.8)); with several candidate starts and the best
      one chosen, an injected false `cds_outframe`/`antisense` ORF passes RBS by chance often
      (unmeasured; plausibly 10–40 %). Those ORFs escape the flag, so "every exact-arm ORF called

@@ -15,7 +15,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.stats.tda import picked_fdr, picked_fdr_rescaled
+from gippa.stats.tda import picked_fdr, picked_fdr_rescaled
 
 NAN = math.nan
 

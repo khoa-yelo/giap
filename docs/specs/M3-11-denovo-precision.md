@@ -1,7 +1,7 @@
 # M3-11: De novo precision estimated from the genome
 
 Milestone M3 · depends on: M3-04 (exact target and shuffled-decoy hits; synthetic inputs suffice
-for unit tests) · creates `src/giap/mapping/denovo_precision.py` · pure Python · estimate
+for unit tests) · creates `src/gippa/mapping/denovo_precision.py` · pure Python · estimate
 ≈ 220 code lines · **statistical**: `docs/methods/denovo-precision.md`, signed off by the
 statistician (§14.1)
 
@@ -46,7 +46,7 @@ def pi_wrong_denovo(bins: Sequence[BinPrecision], bin_of_peptide: np.ndarray) ->
   remaining weights renormalised; if none remain, `precision = NA` with flag `unreported` and π̂ = 1
   (Q1).
 - **Bootstrap.** 1,000 resamples of the bin's peptides with replacement (`c_ℓ` fixed), percentile
-  95 % CI; RNG `giap.rng.for_step("placement", seed)`.
+  95 % CI; RNG `gippa.rng.for_step("placement", seed)`.
 
 ## Examples
 
@@ -77,7 +77,7 @@ def pi_wrong_denovo(bins: Sequence[BinPrecision], bin_of_peptide: np.ndarray) ->
 - [ ] Calibration, statistics-only (`tests/calibration/test_denovo_precision.py`, `calibration`,
   R from `tolerances.yaml`): per bin a known precision p_b; correct peptides match the target with
   probability c_ℓ, wrong ones with probability r; mean |bias| per bin ≤ 0.05
-  (`denovo_precision_max_abs_bias`). The genome-level version with giapsim de novo errors is M3-21.
+  (`denovo_precision_max_abs_bias`). The genome-level version with gippasim de novo errors is M3-21.
 - [ ] `docs/methods/denovo-precision.md` exists (estimator, bins, bootstrap, the reportability
   rule, how π̂ feeds M3-10) and is signed off.
 

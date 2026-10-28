@@ -4,11 +4,11 @@ behaviour 3, examples 4 and 10, the degenerate rows "``OUT/plots/`` absent or em
 
 Interface pinned here (M9-16b test author, beyond the spec text):
 
-* ``giap.steps.plots.rerender_report(outdir: Path, cfg: GiapConfig) -> Path`` returns
+* ``gippa.steps.plots.rerender_report(outdir: Path, cfg: GippaConfig) -> Path`` returns
   ``outdir / "report" / "report.html"``;
 * the page is byte-identical to what ``write_report(RunView.from_outdir(outdir), outdir /
   "plots" or None, <dir>, cfg)`` writes (``build_report`` on ``read_plot_files``, with the
-  interactive twins once M9-14 is in the tree): the same page ``giap report`` builds;
+  interactive twins once M9-14 is in the tree): the same page ``gippa report`` builds;
 * the atomic write goes through ``os.replace(report/.report.html.tmp, report/report.html)``
   (``Path.replace`` calls ``os.replace`` too), and the target still holds its old bytes when
   ``os.replace`` is called;
@@ -16,7 +16,7 @@ Interface pinned here (M9-16b test author, beyond the spec text):
   ``.report.html.tmp`` behind.
 
 Fake plots (tests/helpers/report_fixtures.py) stand in for the real ones. Never touches the real
-``$GIAP_DB_DIR``.
+``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ TMP_NAME = ".report.html.tmp"
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -47,10 +47,10 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _rerender() -> Callable[[Path, Any], Path]:
-    from giap.steps import plots as P
+    from gippa.steps import plots as P
 
     fn = getattr(P, "rerender_report", None)
-    assert fn is not None, "giap.steps.plots.rerender_report is not implemented (M9-16b)"
+    assert fn is not None, "gippa.steps.plots.rerender_report is not implemented (M9-16b)"
     return fn  # type: ignore[no-any-return]
 
 
@@ -70,8 +70,8 @@ def _tree(root: Path) -> dict[str, str]:
 
 def _rendered_out(tmp_path: Path) -> Path:
     """``OUT/`` with tables, a preflight, a manifest and ``plots/`` drawn by two fake plots."""
-    from giap.io.run_view import RunView
-    from giap.steps import plots as P
+    from gippa.io.run_view import RunView
+    from gippa.steps import plots as P
 
     register_fake("V07")
     register_fake("V17", suffixes=(None, "b"))
@@ -84,9 +84,9 @@ def _rendered_out(tmp_path: Path) -> Path:
 
 def _expected_page(out: Path, c: Any, scratch: Path) -> str:
     """What ``write_report`` (the in-graph step's writer) gives on ``RunView.from_outdir(out)``
-    and ``out/plots``: the same page ``giap report`` builds."""
-    from giap.io.run_view import RunView
-    from giap.steps import plots as P
+    and ``out/plots``: the same page ``gippa report`` builds."""
+    from gippa.io.run_view import RunView
+    from gippa.steps import plots as P
 
     plots_dir = out / "plots" if (out / "plots").is_dir() else None
     page = P.write_report(RunView.from_outdir(out), plots_dir, scratch, c)
@@ -95,8 +95,8 @@ def _expected_page(out: Path, c: Any, scratch: Path) -> str:
 
 def _forbid_drawing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Every way of drawing or writing under ``plots/`` raises."""
-    from giap.steps import plots as P
-    from giap.viz import base
+    from gippa.steps import plots as P
+    from gippa.viz import base
 
     def boom(*_a: Any, **_k: Any) -> Any:
         raise AssertionError("rerender_report must not draw plots or write under plots/")
@@ -111,7 +111,7 @@ def _forbid_drawing(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------- behaviour 3
 
 
-def test_returns_the_report_path_and_writes_the_giap_report_page(
+def test_returns_the_report_path_and_writes_the_gippa_report_page(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
     out = _rendered_out(tmp_path)
@@ -128,7 +128,7 @@ def test_the_page_reads_the_manifest_on_disk(fake_registry: ModuleType, tmp_path
     page = parse(_rerender()(out, cfg()).read_text(encoding="utf-8"))
     text = " ".join(page.section("provenance").text().split())
     assert sha256_file(out / "run_manifest.json") in text, text
-    assert "run_manifest.json not written by this GIAP version" not in text
+    assert "run_manifest.json not written by this GIPPA version" not in text
 
 
 def test_example_4_twice_identical_and_plots_untouched(
@@ -149,7 +149,7 @@ def test_example_4_twice_identical_and_plots_untouched(
 def test_the_run_cfg_reaches_build_report(
     fake_registry: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.report.build as B
+    import gippa.report.build as B
 
     out = _rendered_out(tmp_path)
     seen: list[Any] = []
@@ -227,8 +227,8 @@ def test_atomic_replace_from_a_temp_file_in_the_same_directory(
 def test_build_report_raising_keeps_the_old_page_and_leaves_no_temp(
     fake_registry: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.report.build as B
-    from giap.steps import plots as P
+    import gippa.report.build as B
+    from gippa.steps import plots as P
 
     out = _rendered_out(tmp_path)
     page = out / "report" / "report.html"

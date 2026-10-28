@@ -1,6 +1,6 @@
 """M11-14w surfaces: AC 6 (``run_manifest.json`` ``warnings``) and AC 7 (the report summary
 alert), plus the optional slow real-genome validation (docs/specs/M11-14w-wrong-genetic-code-
-warning.md "Where it runs and where it surfaces" items 3-4, "Test plan"; GIAP_SPEC.md §9.2, §10.3).
+warning.md "Where it runs and where it surfaces" items 3-4, "Test plan"; GIPPA_SPEC.md §9.2, §10.3).
 
 Interface pinned here (beyond the spec text): the alert is the first element of the ``summary``
 section after its heading, ``<div class="alert" data-warning="genome.genetic_code">``, whose text
@@ -21,7 +21,7 @@ from helpers.manifest_data import build, preflight_doc
 from helpers.report_content import html, page, words
 from helpers.report_fixtures import run_out
 
-from giap.preflight.checks import Check
+from gippa.preflight.checks import Check
 
 RULE_ID = "genome.genetic_code"
 ALERT = f'data-warning="{RULE_ID}"'
@@ -32,7 +32,7 @@ def _check_dict(c: Check) -> dict[str, Any]:
 
 
 def _real(code: int) -> Check:
-    from giap.preflight.genetic_code import genetic_code_check
+    from gippa.preflight.genetic_code import genetic_code_check
 
     return genetic_code_check([synthetic_genome(7, 0.28, code)], 11)
 
@@ -149,11 +149,11 @@ REAL = [
 @pytest.mark.parametrize(("rel", "ratio", "level"), REAL, ids=["mhyo", "k12", "gsulf", "msmeg"])
 def test_real_genomes_match_the_spec_table(rel: str, ratio: float, level: str) -> None:
     """Spec "Thresholds" table, ratios to +-0.01; skipped when the local copies are absent."""
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if not root or not (Path(root) / rel).is_file():
-        pytest.skip(f"{rel} not under $GIAP_ROOT")
-    from giap.io.fasta import read_genome_fasta
-    from giap.preflight.genetic_code import genetic_code_check
+        pytest.skip(f"{rel} not under $GIPPA_ROOT")
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.preflight.genetic_code import genetic_code_check
 
     records = read_genome_fasta(Path(root) / rel)
     c = genetic_code_check([r.sequence for r in records], 11)

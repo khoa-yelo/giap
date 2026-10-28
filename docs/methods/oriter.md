@@ -1,6 +1,6 @@
 # Origin-to-terminus gradient
 
-Issue M5-08 (GIAP_SPEC.md §7.3.5(e), §9.3), module `giap.context.oriter`. The step plumbing that
+Issue M5-08 (GIPPA_SPEC.md §7.3.5(e), §9.3), module `gippa.context.oriter`. The step plumbing that
 writes the rows into `autocorrelation.tsv` and the two `genes.tsv` columns is M5-09.
 
 ## Why the regression is descriptive
@@ -10,7 +10,7 @@ exponential growth, and highly expressed transcription and translation genes sit
 *because* of it. The ori–ter gradient of protein abundance is therefore an evolved property of the
 gene order, not a deviation from an exchangeable null: no permutation of the genes (or of the
 values) reproduces "the same genome without a gradient", because the placement of the genes is the
-effect we would be testing. GIAP consequently reports the slope and an interval, never a p-value:
+effect we would be testing. GIPPA consequently reports the slope and an interval, never a p-value:
 every row carries `p_value = NA`, `q_value = NA` and the flag `descriptive` (§7.3.5(e)). The
 interval answers "how precisely is this genome's gradient measured", not "could it have arisen by
 chance".
@@ -96,7 +96,7 @@ sequence — the pooled fit in genome order, an arm ordered from oriC to terminu
 blocks of (x, y) pairs and refitting; the reported interval is the 95 % percentile interval of the
 `stats.bootstrap` refitted slopes. Replicates whose resampled x has no variance give a NaN slope
 and are dropped; `n_perm` counts the valid ones, and fewer than B/2 of them leaves the CI NA with
-`not_estimable` added (B ≥ 1 is assumed, as everywhere else in `giap.stats.bootstrap`).
+`not_estimable` added (B ≥ 1 is assumed, as everywhere else in `gippa.stats.bootstrap`).
 
 Resampling *pairs* in blocks, rather than residuals, is deliberate. A TU's y is the mean of however
 many of its genes were detected, so Var y_t falls with that count and unweighted OLS is
@@ -123,7 +123,7 @@ are not neighbours on the chromosome; ℓ′/T of the blocks straddle that join 
 
 Coverage of the 95 % pooled interval for the OLS slope of the planted curve, on
 `scenarios.oriter_gradient` (4,500 genes, ≈ 1,720 TUs with a value, B = 199, the real
-`giap.context.oriter.oriter_rows`). The estimand is the OLS slope of the planted cosine over the
+`gippa.context.oriter.oriter_rows`). The estimand is the OLS slope of the planted cosine over the
 TUs that enter the fit, which the closed form puts at −12a/π² = −2.432 for a = 2 log2 under a
 uniform design; the estimator is unbiased for it (mean −2.424 against mean estimand −2.432 at
 R = 300). Statistician re-measurement for this review, Slurm 1863166
@@ -142,7 +142,7 @@ replicates of the first row and reproduces exactly.
 
 **Validity domain.** The interval is nominal to within a few points over the whole range measured:
 0.90–0.94 against a nominal 0.95, never grossly wrong, and never conservative. What is claimed is
-**coverage ≥ 0.90 everywhere in the table above**, and ≈ 0.94 for giapsim `ar1_background` at
+**coverage ≥ 0.90 everywhere in the table above**, and ≈ 0.94 for gippasim `ar1_background` at
 ρ ≤ 0.5 on a ≈ 4,500-gene chromosome (the gate cell); the gate's numeric bound below is the
 finite-R form of the first claim, not a second one. Unlike the island FWER
 (ADR-0021 Amendment 1) there is no regime here in which the procedure breaks down — at ρ 0.9 the
@@ -169,7 +169,7 @@ These do:
    §7.3.5(e) refuses that test on purpose, because gene placement is the effect, not the null.
 2. **Conditional on what was detected.** y is observed abundance among detected proteins. The
    bootstrap never re-draws detection, so the interval is for the gradient of the *observed*
-   abundances of *this* detected set, not for the complete-data gradient. Under giapsim's
+   abundances of *this* detected set, not for the complete-data gradient. Under gippasim's
    abundance-driven detection the coverage of the planted curve is unchanged (0.940, above), but
    that is a statement about the simulator's selection strength, not a licence: if detectability
    covaries with position — ribosomal and transcription genes near oriC are short, abundant and

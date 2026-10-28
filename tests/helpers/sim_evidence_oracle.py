@@ -1,6 +1,6 @@
-"""Independent oracle for giapsim evidence (docs/specs/M4-09-sim-evidence.md; test-author code).
+"""Independent oracle for gippasim evidence (docs/specs/M4-09-sim-evidence.md; test-author code).
 
-Written from the spec text, not from ``giapsim.evidence``:
+Written from the spec text, not from ``gippasim.evidence``:
 
 * Trypsin/P digestion (cut after every K/R, also before P), 7-30 aa, at most one missed cleavage
   for true and decoy source peptides; ``n_observable`` is the M4-10 count (0 missed, distinct);
@@ -163,7 +163,7 @@ def m3_path(work: Path, key: str) -> Path:
 
 
 def work_paths(work: Path) -> dict[str, Path]:
-    from giap.io.work_tables import default_paths
+    from gippa.io.work_tables import default_paths
 
     paths = default_paths(work)
     for key in M3_NAMES:
@@ -172,7 +172,7 @@ def work_paths(work: Path) -> dict[str, Path]:
 
 
 def load(work: Path) -> tuple[Any, list[Any]]:
-    from giap.io.work_tables import load_m4_inputs
+    from gippa.io.work_tables import load_m4_inputs
 
     return load_m4_inputs(work_paths(work))
 

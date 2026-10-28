@@ -1,4 +1,4 @@
-"""giapsim expression: lead decisions 5 and 6 after the PR #71 code review (M4-08).
+"""gippasim expression: lead decisions 5 and 6 after the PR #71 code review (M4-08).
 
 docs/specs/M4-08-sim-expression.md, "Lead decisions after code review":
 
@@ -29,13 +29,13 @@ import expression_oracle as eo
 
 
 def _m() -> Any:
-    import giapsim.expression
+    import gippasim.expression
 
-    return giapsim.expression
+    return gippasim.expression
 
 
 def layout(seed: int = 1, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 

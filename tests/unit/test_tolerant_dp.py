@@ -1,4 +1,4 @@
-"""Unit tests for the banded tolerant verifier (issue M3-06; GIAP_SPEC.md §7.2.4, G4).
+"""Unit tests for the banded tolerant verifier (issue M3-06; GIPPA_SPEC.md §7.2.4, G4).
 
 Spec examples 1-10, the edge cases of docs/specs/M3-06-tolerant-verifier.md, both orientations of
 every ``BlockTables`` row (rows are directional; the DP tries both, lead decision 5 of PR #35),
@@ -17,10 +17,10 @@ from itertools import permutations
 import numpy as np
 import pytest
 
-from giap.mapping.diffops import BLOCKS, DIFF_TYPES, NEAR_BLOCKS, block_tables
-from giap.mapping.sixframe import build_sixframe, decode, encode_query, encode_target
-from giap.mapping.tolerant_dp import Alignment, verify
-from giap.model import Replicon
+from gippa.mapping.diffops import BLOCKS, DIFF_TYPES, NEAR_BLOCKS, block_tables
+from gippa.mapping.sixframe import build_sixframe, decode, encode_query, encode_target
+from gippa.mapping.tolerant_dp import Alignment, verify
+from gippa.model import Replicon
 
 TABLES = block_tables()
 ORDER = {name: i for i, name in enumerate(DIFF_TYPES)}

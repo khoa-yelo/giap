@@ -3,8 +3,8 @@
 Acceptance criteria 1-5 and examples 1, 2, 5-9: the static header and text checks, the dry run,
 the preconditions, a stubbed full run and the validity rules. Nothing is submitted and nothing
 reaches the network: the script runs in the sandbox of ``tests/helpers/bench_m10_12.py`` (fake
-``srun``/``sacct``/``squeue``/``scontrol``/``giap``/``timeout``/``sleep`` first on ``PATH``, a
-throw-away checkout with a local ``origin``, a temporary ``GIAP_ROOT``). The conventions the
+``srun``/``sacct``/``squeue``/``scontrol``/``gippa``/``timeout``/``sleep`` first on ``PATH``, a
+throw-away checkout with a local ``origin``, a temporary ``GIPPA_ROOT``). The conventions the
 spec leaves open are listed in that module's docstring.
 """
 
@@ -44,14 +44,14 @@ from helpers.bench_m10_12 import (
     commit_files,
     commit_without_bench_record,
     flag,
-    giap_argv,
+    gippa_argv,
     gz_variant,
     make_bench,
     planned_lines,
     run_dir_of,
     sets,
 )
-from helpers.slurm_sandbox import REPO, assert_honours_giap_repo
+from helpers.slurm_sandbox import REPO, assert_honours_gippa_repo
 
 BENCH_ID = "2026-10-30_1f56790"
 
@@ -114,13 +114,13 @@ def test_bash32_compatible_and_not_exempt() -> None:
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
-def test_honours_giap_repo() -> None:
-    assert_honours_giap_repo(_text(), "benchmark_standard.sbatch")
+def test_honours_gippa_repo() -> None:
+    assert_honours_gippa_repo(_text(), "benchmark_standard.sbatch")
     assert re.search(r"^\s*(source|\.)\s+\S*scripts/farmshare_env\.sh", _code(), re.M)
 
 
 def test_header() -> None:
-    assert _sbatch("job-name") == "giap-bench"
+    assert _sbatch("job-name") == "gippa-bench"
     assert _sbatch("partition") == "normal"
     assert _sbatch("qos") == "normal"
     assert _sbatch("cpus-per-task") == "16"
@@ -206,7 +206,7 @@ def test_dry_run_order_and_flags(bench: Bench, task: int) -> None:
     res = bench.run(task, BENCH_DRY_RUN="1", BENCH_ID=BENCH_ID)
     assert res.returncode == 0, _out(res)
     lines = planned_lines(res.stdout)
-    cells = [cell_of(giap_argv(t)) for t in lines]
+    cells = [cell_of(gippa_argv(t)) for t in lines]
     assert cells == ROTATION[task], _out(res)
     root = bench.bench_dir / BENCH_ID / f"r{task + 1}"
     db = str(bench.root / "db")
@@ -218,7 +218,7 @@ def test_dry_run_order_and_flags(bench: Bench, task: int) -> None:
             assert opt in srun, (opt, toks)
         tmo = toks[toks.index("timeout") :]
         assert "--signal=TERM" in tmo and "--kill-after=5m" in tmo and "5h" in tmo, toks
-        g = giap_argv(toks)
+        g = gippa_argv(toks)
         assert run_dir_of(g) == root / f"{genome}_{variant}", g
         assert flag(g, "--threads") == "16" and flag(g, "--memory") == "56.GB", g
         assert flag(g, "--profile") == "farmshare_local,apptainer", g
@@ -254,7 +254,7 @@ def test_dry_run_runs_and_creates_nothing(bench: Bench) -> None:
     assert res.returncode == 0, _out(res)
     assert len(planned_lines(res.stdout)) == 4
     assert not bench.jsonl("srun.jsonl"), "a dry run calls no srun"
-    assert not bench.giap_runs(), "a dry run calls no giap run"
+    assert not bench.gippa_runs(), "a dry run calls no gippa run"
     assert not list(bench.bench_dir.glob("*/r*/*")), "a dry run creates no RUN_DIR"
     again = bench.run(0)  # a real run afterwards is not refused as "RUN_DIR exists"
     assert again.returncode == 0, _out(again)
@@ -265,7 +265,7 @@ def test_dry_run_default_bench_id(bench: Bench) -> None:
     assert res.returncode == 0, _out(res)
     days = {(date.today() - timedelta(days=d)).isoformat() for d in (0, 1)}
     for toks in planned_lines(res.stdout):
-        rd = run_dir_of(giap_argv(toks))
+        rd = run_dir_of(gippa_argv(toks))
         assert rd is not None
         bench_id = rd.parent.parent.name
         day, _, sha7 = bench_id.partition("_")
@@ -278,12 +278,12 @@ def test_dry_run_bench_dir_and_subsets(bench: Bench) -> None:
                     BENCH_RUN_TIMEOUT="7m")  # fmt: skip
     assert res.returncode == 0, _out(res)
     lines = planned_lines(res.stdout)
-    assert [cell_of(giap_argv(t)) for t in lines] == ["k12/core", "k12/standard"]
+    assert [cell_of(gippa_argv(t)) for t in lines] == ["k12/core", "k12/standard"]
     for toks in lines:
-        assert str(run_dir_of(giap_argv(toks))).startswith(str(other)), toks
+        assert str(run_dir_of(gippa_argv(toks))).startswith(str(other)), toks
         assert "7m" in toks[toks.index("timeout") :], toks
     res = bench.run(2, BENCH_DRY_RUN="1", BENCH_VARIANTS="core")
-    assert [cell_of(giap_argv(t)) for t in planned_lines(res.stdout)] == ["sim5m/core", "k12/core"]
+    assert [cell_of(gippa_argv(t)) for t in planned_lines(res.stdout)] == ["sim5m/core", "k12/core"]
 
 
 def test_dry_run_replacement_attempt(bench: Bench) -> None:
@@ -292,7 +292,7 @@ def test_dry_run_replacement_attempt(bench: Bench) -> None:
     assert res.returncode == 0, _out(res)
     lines = planned_lines(res.stdout)
     assert len(lines) == 1, _out(res)
-    assert run_dir_of(giap_argv(lines[0])) == bench.bench_dir / BENCH_ID / "r2.b" / "k12_core"
+    assert run_dir_of(gippa_argv(lines[0])) == bench.bench_dir / BENCH_ID / "r2.b" / "k12_core"
 
 
 # ================================================================== criterion 3: preconditions
@@ -301,7 +301,7 @@ def test_dry_run_replacement_attempt(bench: Bench) -> None:
 def _assert_refused(bench: Bench, res: subprocess.CompletedProcess[str]) -> None:
     assert res.returncode == 2, _out(res)
     assert not bench.jsonl("srun.jsonl"), "no srun before the preconditions pass"
-    assert not bench.giap_runs()
+    assert not bench.gippa_runs()
     assert not list(bench.root.rglob("bench_run.json"))
     assert (res.stdout + res.stderr).strip(), "a one-line reason"
 
@@ -363,7 +363,7 @@ def test_k12_sha256_differs_from_the_committed_file(bench: Bench, rel: str) -> N
 def test_failing_setup_check(bench: Bench) -> None:
     bench.configure(setup_rc=1)
     _assert_refused(bench, bench.run(0))
-    setup = [r["argv"] for r in bench.jsonl("giap.jsonl") if r["argv"][:1] == ["setup"]]
+    setup = [r["argv"] for r in bench.jsonl("gippa.jsonl") if r["argv"][:1] == ["setup"]]
     assert setup and "--check" in setup[0], setup
 
 
@@ -376,7 +376,7 @@ def full(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     _text()
     b = make_bench(tmp_path_factory.mktemp("full"))
     first = b.run(0, BENCH_ID=BENCH_ID)
-    runs1 = len(b.giap_runs())
+    runs1 = len(b.gippa_runs())
     second = b.run(0, BENCH_ID=BENCH_ID, BENCH_DIR=str(b.root / "bench2"),
                    SLURM_JOB_ID=str(JOB_BASE + 100))  # fmt: skip
     return {"b": b, "first": first, "second": second, "runs1": runs1}
@@ -403,7 +403,7 @@ def test_full_run_records_validate(full: dict[str, Any]) -> None:
     for name, r in _records(b, b.bench_dir).items():
         missing = RUN_KEYS - set(r)
         assert not missing, (name, missing)
-        assert r["schema"] == "giap-bench-run/1"
+        assert r["schema"] == "gippa-bench-run/1"
         assert set(r["sacct"]) >= SACCT_KEYS, r["sacct"]
         assert set(r["trace"]) >= TRACE_KEYS, r["trace"]
         assert set(r["cotenancy"]) >= COTENANCY_KEYS, r["cotenancy"]
@@ -482,19 +482,19 @@ def test_full_run_srun_and_timeout_shape(full: dict[str, Any]) -> None:
         assert t["duration"] == "5h", t
 
 
-def test_full_run_giap_argv(full: dict[str, Any]) -> None:
+def test_full_run_gippa_argv(full: dict[str, Any]) -> None:
     b = full["b"]
-    for r in b.giap_runs()[:4]:
+    for r in b.gippa_runs()[:4]:
         g = r["argv"]
         assert "--resume" not in g and "-resume" not in g
         assert flag(g, "--profile") == "farmshare_local,apptainer"
         assert flag(g, "--threads") == "16" and flag(g, "--memory") == "56.GB"
-        assert r["env"]["SLURM_CPUS_PER_TASK"] == "16", "giap runs inside the srun step"
+        assert r["env"]["SLURM_CPUS_PER_TASK"] == "16", "gippa runs inside the srun step"
 
 
 def test_full_run_k12_core_json_is_decompressed(full: dict[str, Any]) -> None:
     b = full["b"]
-    core = [r for r in b.giap_runs()[:4] if r["cell"] == "k12/core"]
+    core = [r for r in b.gippa_runs()[:4] if r["cell"] == "k12/core"]
     assert len(core) == 1
     ann = flag(core[0]["argv"], "--annotation")
     assert ann and ann.endswith(".json"), ann
@@ -516,10 +516,10 @@ def test_full_run_inputs_sha256(full: dict[str, Any]) -> None:
 
 def test_full_run_sim5m_from_the_pinned_worktree(full: dict[str, Any]) -> None:
     b = full["b"]
-    calls = b.jsonl("giapsim.jsonl")
-    assert calls, "SIM5M generated by the worktree's giapsim"
+    calls = b.jsonl("gippasim.jsonl")
+    assert calls, "SIM5M generated by the worktree's gippasim"
     assert {(c["config"], c["seed"]) for c in calls} == {("SIM5M", SEED)}, calls
-    for r in b.giap_runs()[:4]:
+    for r in b.gippa_runs()[:4]:
         if r["cell"].startswith("sim5m/"):
             gen = Path(flag(r["argv"], "--genome") or "")
             assert gen.is_file() and gen.name == "genome.fasta", r["argv"]
@@ -531,14 +531,14 @@ def test_full_run_pinned_worktree_on_pythonpath(full: dict[str, Any]) -> None:
     head = subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"], capture_output=True,
                           text=True, env=b.sb.env)  # fmt: skip
     assert head.stdout.strip() == b.commit, head.stderr
-    for r in b.giap_runs()[:4]:
+    for r in b.gippa_runs()[:4]:
         pp = (r["env"]["PYTHONPATH"] or "").split(":")
         assert str(wt / "src") in pp and str(wt / "tests" / "sim") in pp, pp
 
 
 def test_full_run_fresh_numba_cache_and_launch_dir(full: dict[str, Any]) -> None:
     b = full["b"]
-    runs = b.giap_runs()[:4]
+    runs = b.gippa_runs()[:4]
     numba = [r["env"]["NUMBA_CACHE_DIR"] for r in runs]
     assert len(set(numba)) == 4, numba
     assert all(r["numba_state"] == "empty" for r in runs), [r["numba_state"] for r in runs]
@@ -551,13 +551,13 @@ def test_full_run_fresh_numba_cache_and_launch_dir(full: dict[str, Any]) -> None
 
 def test_full_run_setup_check(full: dict[str, Any]) -> None:
     b = full["b"]
-    setup = [r["argv"] for r in b.jsonl("giap.jsonl") if r["argv"][:1] == ["setup"]]
-    assert setup, "giap setup --check runs first"
+    setup = [r["argv"] for r in b.jsonl("gippa.jsonl") if r["argv"][:1] == ["setup"]]
+    assert setup, "gippa setup --check runs first"
     assert "--check" in setup[0] and flag(setup[0], "--db-dir") == str(b.root / "db"), setup
 
 
 def test_cotenancy_looks_only_at_our_own_jobs(full: dict[str, Any]) -> None:
-    """R14: ``squeue -u $USER``; another user's same-node giap-* job never invalidates."""
+    """R14: ``squeue -u $USER``; another user's same-node gippa-* job never invalidates."""
     b = full["b"]
     calls = b.jsonl("squeue.jsonl")
     assert calls, "the sampler queries squeue"
@@ -571,7 +571,7 @@ def test_cotenancy_looks_only_at_our_own_jobs(full: dict[str, Any]) -> None:
         else:
             raise AssertionError(f"unexpected scontrol call {argv}")
     for r in _records(b, b.bench_dir).values():
-        assert r["cotenancy"]["giap_other"] == [], "the benchmark's own job is excluded"
+        assert r["cotenancy"]["gippa_other"] == [], "the benchmark's own job is excluded"
         assert r["cotenancy"]["samples"] >= 2
 
 
@@ -604,19 +604,19 @@ def _pair(bench: Bench) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 INVALID = [
-    ("cached_tasks", {"giap": {"k12/core": {"cached": 3}}}, "cached_tasks:3"),
-    ("manifest_resume", {"giap": {"k12/core": {"resume": True}}}, "manifest_resume"),
-    ("commit_other", {"giap": {"k12/core": {"commit": "f" * 40}}}, "commit_mismatch"),
-    ("commit_dirty", {"giap": {"k12/core": {"dirty": True}}}, "commit_mismatch"),
-    ("host_mismatch", {"giap": {"k12/core": {"host": "wheat-07"}}}, "host_mismatch"),
-    ("bakta_ran_in_core", {"giap": {"k12/core": {"bakta_in_core": True}}}, "bakta_ran_in_core"),
-    ("image_created", {"giap": {"k12/core": {"image": True}}}, "image_or_env_created"),
-    ("env_created", {"giap": {"k12/core": {"conda": True}}}, "image_or_env_created"),
+    ("cached_tasks", {"gippa": {"k12/core": {"cached": 3}}}, "cached_tasks:3"),
+    ("manifest_resume", {"gippa": {"k12/core": {"resume": True}}}, "manifest_resume"),
+    ("commit_other", {"gippa": {"k12/core": {"commit": "f" * 40}}}, "commit_mismatch"),
+    ("commit_dirty", {"gippa": {"k12/core": {"dirty": True}}}, "commit_mismatch"),
+    ("host_mismatch", {"gippa": {"k12/core": {"host": "wheat-07"}}}, "host_mismatch"),
+    ("bakta_ran_in_core", {"gippa": {"k12/core": {"bakta_in_core": True}}}, "bakta_ran_in_core"),
+    ("image_created", {"gippa": {"k12/core": {"image": True}}}, "image_or_env_created"),
+    ("env_created", {"gippa": {"k12/core": {"conda": True}}}, "image_or_env_created"),
     ("alloc_cpus", {"sacct": {"k12/core": {"alloc_cpus": 18}}}, "alloc_cpus:18"),
     # lead, PR #300 review finding 2: exit 0 without a manifest or without its commit
-    ("manifest_missing", {"giap": {"k12/core": {"no_manifest": True}}}, "manifest_missing"),
-    ("commit_empty", {"giap": {"k12/core": {"commit": ""}}}, "commit_missing"),
-    ("commit_absent", {"giap": {"k12/core": {"commit_absent": True}}}, "commit_missing"),
+    ("manifest_missing", {"gippa": {"k12/core": {"no_manifest": True}}}, "manifest_missing"),
+    ("commit_empty", {"gippa": {"k12/core": {"commit": ""}}}, "commit_missing"),
+    ("commit_absent", {"gippa": {"k12/core": {"commit_absent": True}}}, "commit_missing"),
 ]
 
 
@@ -635,7 +635,7 @@ def test_invalid_run_and_the_other_runs_still_run(
 
 
 def test_cached_step_in_manifest_is_invalid(bench: Bench) -> None:
-    bench.configure(giap={"k12/core": {"cached_step": True}})
+    bench.configure(gippa={"k12/core": {"cached_step": True}})
     res = _k12(bench)
     assert res.returncode == 1, _out(res)
     core = _pair(bench)[1]
@@ -643,32 +643,32 @@ def test_cached_step_in_manifest_is_invalid(bench: Bench) -> None:
     assert any(r.startswith("cached") for r in core["invalid_reasons"]), core["invalid_reasons"]
 
 
-def test_example7a_same_node_giap_job(bench: Bench) -> None:
-    bench.configure(squeue=["777|giap-run-pilot-a1|2|" + NODE])
+def test_example7a_same_node_gippa_job(bench: Bench) -> None:
+    bench.configure(squeue=["777|gippa-run-pilot-a1|2|" + NODE])
     res = _k12(bench)
     assert res.returncode == 1, _out(res)
     for r in _pair(bench):
-        assert r["status"] == "invalid" and "same_node_giap:777" in r["invalid_reasons"], r
-        others = r["cotenancy"]["giap_other"]
+        assert r["status"] == "invalid" and "same_node_gippa:777" in r["invalid_reasons"], r
+        others = r["cotenancy"]["gippa_other"]
         assert [str(o["job"]) for o in others] == ["777"], others
         assert {"job", "name", "cpus", "node"} <= set(others[0])
 
 
 def test_example7b_contended_other_nodes_is_valid(bench: Bench) -> None:
-    bench.configure(squeue=["778|giap-diann-a2|16|wheat-07"])
+    bench.configure(squeue=["778|gippa-diann-a2|16|wheat-07"])
     res = _k12(bench)
     assert res.returncode == 0, _out(res)
     for r in _pair(bench):
         assert r["status"] == "ok" and r["invalid_reasons"] == [], r
         assert "contended_other_nodes" in json.dumps(r["warnings"]), r["warnings"]
-        o = r["cotenancy"]["giap_other"]
+        o = r["cotenancy"]["gippa_other"]
         assert len(o) == 1 and str(o[0]["job"]) == "778" and int(o[0]["cpus"]) == 16, o
-        assert o[0]["node"] == "wheat-07" and o[0]["name"] == "giap-diann-a2", o
+        assert o[0]["node"] == "wheat-07" and o[0]["name"] == "gippa-diann-a2", o
 
 
-def test_eight_cpu_giap_job_on_another_node_is_contended(bench: Bench) -> None:
+def test_eight_cpu_gippa_job_on_another_node_is_contended(bench: Bench) -> None:
     """``>= 8`` CPUs, the boundary included (review finding 12, M4)."""
-    bench.configure(squeue=["781|giap-eight|8|wheat-07"])
+    bench.configure(squeue=["781|gippa-eight|8|wheat-07"])
     res = _k12(bench)
     assert res.returncode == 0, _out(res)
     for r in _pair(bench):
@@ -676,14 +676,14 @@ def test_eight_cpu_giap_job_on_another_node_is_contended(bench: Bench) -> None:
         assert "contended_other_nodes" in json.dumps(r["warnings"]), r["warnings"]
 
 
-def test_small_giap_job_on_another_node_adds_no_flag(bench: Bench) -> None:
-    bench.configure(squeue=["780|giap-tiny|2|wheat-07", "779|jupyter|4|" + NODE])
+def test_small_gippa_job_on_another_node_adds_no_flag(bench: Bench) -> None:
+    bench.configure(squeue=["780|gippa-tiny|2|wheat-07", "779|jupyter|4|" + NODE])
     res = _k12(bench)
     assert res.returncode == 0, _out(res)
     for r in _pair(bench):
         assert r["status"] == "ok", r
         assert "contended_other_nodes" not in json.dumps(r["warnings"]), r["warnings"]
-        assert [str(o["job"]) for o in r["cotenancy"]["giap_other"]] == ["780"], "giap-* only"
+        assert [str(o["job"]) for o in r["cotenancy"]["gippa_other"]] == ["780"], "gippa-* only"
 
 
 def test_example7c_node_load_reported_never_invalidates(bench: Bench) -> None:
@@ -709,10 +709,10 @@ def test_node_class_outside_the_pinned_sku_is_invalid(bench: Bench) -> None:
 @pytest.mark.parametrize(
     ("cfg", "status"),
     [
-        ({"giap": {"k12/core": {"failed_in": "OPERONS", "cached": 3}}}, "failed"),
-        ({"giap": {"k12/core": {"cached": 3}}, "timeout": {"k12/core": {"rc": 124, "run": True}}},
+        ({"gippa": {"k12/core": {"failed_in": "OPERONS", "cached": 3}}}, "failed"),
+        ({"gippa": {"k12/core": {"cached": 3}}, "timeout": {"k12/core": {"rc": 124, "run": True}}},
          "timeout"),
-        ({"giap": {"k12/core": {"cached": 3, "resume": True}}}, "invalid"),
+        ({"gippa": {"k12/core": {"cached": 3, "resume": True}}}, "invalid"),
     ],
     ids=["failed_over_invalid", "timeout_over_invalid", "two_invalid_reasons"],
 )  # fmt: skip
@@ -727,7 +727,7 @@ def test_status_precedence(bench: Bench, cfg: dict[str, Any], status: str) -> No
 
 
 def test_nextflow_retry_is_valid(bench: Bench) -> None:
-    bench.configure(giap={"k12/core": {"retried": True}})
+    bench.configure(gippa={"k12/core": {"retried": True}})
     res = _k12(bench)
     assert res.returncode == 0, _out(res)
     core = _pair(bench)[1]
@@ -738,7 +738,7 @@ def test_nextflow_retry_is_valid(bench: Bench) -> None:
 
 
 def test_example5_failed_run_is_kept(bench: Bench) -> None:
-    bench.configure(giap={"k12/core": {"failed_in": "OPERONS"}},
+    bench.configure(gippa={"k12/core": {"failed_in": "OPERONS"}},
                     sacct={"k12/core": {"state": "FAILED", "exit": "4:0"}})  # fmt: skip
     res = _k12(bench)
     assert res.returncode == 1, _out(res)
@@ -749,7 +749,7 @@ def test_example5_failed_run_is_kept(bench: Bench) -> None:
 
 
 def test_failure_before_nextflow_still_writes_a_record(bench: Bench) -> None:
-    bench.configure(giap={"k12/standard": {"early_fail": True}})
+    bench.configure(gippa={"k12/standard": {"early_fail": True}})
     res = _k12(bench)
     assert res.returncode == 1, _out(res)
     std, core = _pair(bench)
@@ -759,13 +759,13 @@ def test_failure_before_nextflow_still_writes_a_record(bench: Bench) -> None:
 
 
 def test_out_of_memory_is_failed_with_its_state(bench: Bench) -> None:
-    bench.configure(giap={"k12/core": {"rc": 1}},
+    bench.configure(gippa={"k12/core": {"rc": 1}},
                     sacct={"k12/core": {"state": "OUT_OF_MEMORY", "exit": "0:125"}})  # fmt: skip
     res = _k12(bench)
     assert res.returncode == 1, _out(res)
     core = _pair(bench)[1]
     assert core["status"] == "failed" and core["sacct"]["state"] == "OUT_OF_MEMORY", core
-    assert len([r for r in bench.giap_runs() if r["cell"] == "k12/core"]) == 1, "never retried"
+    assert len([r for r in bench.gippa_runs() if r["cell"] == "k12/core"]) == 1, "never retried"
 
 
 @pytest.mark.parametrize("rc", [124, 137])
@@ -798,7 +798,7 @@ def test_run_timeout_override_reaches_timeout(bench: Bench) -> None:
 
 
 def test_sigterm_marks_the_current_run_timeout(bench: Bench) -> None:
-    bench.configure(giap={"k12/standard": {"term": True}})
+    bench.configure(gippa={"k12/standard": {"term": True}})
     res = _k12(bench)
     assert res.returncode == 143, _out(res)
     std = bench.record("r1/k12_standard", BENCH_ID)
@@ -867,7 +867,7 @@ def test_replacement_attempt_writes_its_own_dir(bench: Bench) -> None:
     assert res.returncode == 0, _out(res)
     r = bench.record("r2.b/k12_core", BENCH_ID)
     assert (r["repeat"], r["attempt"], r["genome"], r["variant"]) == (2, "b", "k12", "core")
-    assert [x["cell"] for x in bench.giap_runs()] == ["k12/core"]
+    assert [x["cell"] for x in bench.gippa_runs()] == ["k12/core"]
     assert not (bench.bench_dir / BENCH_ID / "r2").exists()
 
 
@@ -962,12 +962,12 @@ def test_k12_json_with_wrong_bytes_is_replaced_atomically(bench: Bench) -> None:
     )
 
 
-def test_bench_record_is_called_from_giap_repo() -> None:
+def test_bench_record_is_called_from_gippa_repo() -> None:
     """The heredoc moved to scripts/dev/bench_record.py, run from the submitting checkout
     (finding 13), so an older BENCH_COMMIT can still be benchmarked."""
     code = _code()
-    assert re.search(r"\$\{?GIAP_REPO\}?/scripts/dev/bench_record\.py", code), (
-        'python "$GIAP_REPO/scripts/dev/bench_record.py"'
+    assert re.search(r"\$\{?GIPPA_REPO\}?/scripts/dev/bench_record\.py", code), (
+        'python "$GIPPA_REPO/scripts/dev/bench_record.py"'
     )
     assert not re.search(r"<<-?\s*['\"]?PY\b", code), "no Python heredoc left in the sbatch"
 
@@ -995,7 +995,7 @@ def test_a_crash_of_bench_record_still_leaves_a_failed_record(bench: Bench) -> N
         p = bench.bench_dir / BENCH_ID / "r1" / cell / "bench_run.json"
         assert p.is_file(), (cell, _out(res))
         r = json.loads(p.read_text())
-        assert r["schema"] == "giap-bench-run/1", r
+        assert r["schema"] == "gippa-bench-run/1", r
         assert (r["genome"], r["variant"]) == tuple(cell.split("_")), r
         assert r["status"] == "failed", r
         assert any(str(x).startswith("record_error") for x in r["invalid_reasons"]), r

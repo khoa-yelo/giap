@@ -188,7 +188,7 @@ gnu_userland.have_x87_longdouble = lambda: False
 
 def test_markers_skip_at_collection_without_the_capability(tmp_path: Path) -> None:
     # a -p plugin makes both probes report "missing", as on macOS arm64
-    (tmp_path / "giap_force_missing.py").write_text(_FORCE_MISSING)
+    (tmp_path / "gippa_force_missing.py").write_text(_FORCE_MISSING)
     pythonpath = os.pathsep.join(
         [str(tmp_path), str(REPO / "tests"), os.environ.get("PYTHONPATH", "")]
     )
@@ -199,7 +199,7 @@ def test_markers_skip_at_collection_without_the_capability(tmp_path: Path) -> No
     ]
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-p", "no:xdist",
-         "-p", "giap_force_missing", "-q", "-rs", *nodes],
+         "-p", "gippa_force_missing", "-q", "-rs", *nodes],
         cwd=REPO, env=env, capture_output=True, text=True, timeout=300, check=False,
     )  # fmt: skip
     assert proc.returncode == 0, proc.stdout + proc.stderr

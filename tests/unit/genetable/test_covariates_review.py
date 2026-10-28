@@ -13,7 +13,7 @@ import pytest
 
 
 def _cov():
-    from giap.genetable import covariates as cov
+    from gippa.genetable import covariates as cov
 
     return cov
 

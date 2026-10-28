@@ -1,9 +1,9 @@
 """MVP-03a: every D-E "add an event" site emits a §6.7 event carrying ``data.flag``
 (docs/specs/MVP-03-manifest-finalize.md D-E and acceptance item
-``tests/unit/steps/test_run_flag_events.py``; GIAP_SPEC.md §6.7, §9.4 Run row).
+``tests/unit/steps/test_run_flag_events.py``; GIPPA_SPEC.md §6.7, §9.4 Run row).
 
 The D-E event shape is the existing one: the step logs through ``ctx.log`` with
-``extra={"event": <name>, "data": {"flag": <token>, ...}}``; ``giap.io.events.EventsHandler``
+``extra={"event": <name>, "data": {"flag": <token>, ...}}``; ``gippa.io.events.EventsHandler``
 turns such a record into an ``events.jsonl`` line. The event *name* is not pinned
 (``<step>.run_flag`` or ``<step>.layer_missing``); a record counts when its ``event`` is a string
 and its ``data`` maps ``flag`` to the token. Sites (step: trigger -> token):
@@ -18,7 +18,7 @@ and its ``data`` maps ``flag`` to the token. Sites (step: trigger -> token):
 * ``operon_pairs``: no ``uniop_pred`` input -> ``operon_source_distance_model``;
 * ``codon_usage``: no ribosomal-protein CAI reference -> ``cai_reference_missing``.
 
-Inputs: ``helpers.layers_chain.build_chain`` (merged producers on giapsim SIM100K), the
+Inputs: ``helpers.layers_chain.build_chain`` (merged producers on gippasim SIM100K), the
 ``context_tables_data`` fixture without features (M5-09 example 5) and the M3-17 mapping chain on
 de novo peptides (``test_mapping_steps.py`` example 6). The raw simulator Bakta JSON has no
 ``ribosomal protein`` product, so ``parse_bakta`` on it gives a gene set without a CAI reference.
@@ -39,7 +39,7 @@ import pandas as pd
 import pytest
 from helpers.layers_chain import PARSE_OUT, Chain, build_chain, registry
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 HELPERS = Path(__file__).resolve().parents[2] / "helpers"
 
@@ -55,9 +55,9 @@ class _Recorder(logging.Handler):
 
 @contextmanager
 def recording() -> Iterator[list[logging.LogRecord]]:
-    """Every record of the ``giap.steps`` loggers (any level) while the block runs."""
+    """Every record of the ``gippa.steps`` loggers (any level) while the block runs."""
     rec = _Recorder()
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -81,7 +81,7 @@ def assert_flag_event(records: list[logging.LogRecord], token: str, step: str) -
     hits = flag_events(records, token)
     named = [r.name for r in records if token in r.getMessage()]
     assert hits, f"no event with data.flag == {token!r}; log-only records: {named}"
-    assert any(r.name == f"giap.steps.{step}" for r in hits), [r.name for r in hits]
+    assert any(r.name == f"gippa.steps.{step}" for r in hits), [r.name for r in hits]
 
 
 # ----------------------------------------------------------------------------- fixtures
@@ -104,7 +104,7 @@ def test_region_layer_layer_missing_event(chain: Chain, tmp_path: Path, layer: s
     ins = {k: chain.inputs[k] for k in ("genes", "features", "replicons")}
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
     with registry() as reg, recording() as recs:
-        reg.run_step("region_layer", GiapConfig(seed=1), ins, outs)
+        reg.run_step("region_layer", GippaConfig(seed=1), ins, outs)
     assert_flag_event(recs, f"layer_missing:{layer}", "region_layer")
 
 
@@ -120,7 +120,7 @@ def test_operon_pairs_distance_model_event(chain: Chain, tmp_path: Path) -> None
             "tu_upstream": tmp_path / "tu_upstream",
             "operon_meta": tmp_path / "operon_meta.json"}  # fmt: skip
     with registry() as reg, recording() as recs:
-        reg.run_step("operon_pairs", GiapConfig(seed=1), ins, outs)
+        reg.run_step("operon_pairs", GippaConfig(seed=1), ins, outs)
     assert_flag_event(recs, "operon_source_distance_model", "operon_pairs")
 
 
@@ -130,11 +130,11 @@ def test_operon_pairs_distance_model_event(chain: Chain, tmp_path: Path) -> None
 def test_codon_usage_cai_reference_missing_event(chain: Chain, tmp_path: Path) -> None:
     w = tmp_path / "raw"
     with registry() as reg:
-        reg.run_step("parse_bakta", GiapConfig(seed=1),
+        reg.run_step("parse_bakta", GippaConfig(seed=1),
                      {"bakta_json": Path(chain.sim.bakta_json), "genome": chain.inputs["genome"]},
                      {k: w / v for k, v in PARSE_OUT.items()})  # fmt: skip
         with recording() as recs:
-            reg.run_step("codon_usage", GiapConfig(seed=1),
+            reg.run_step("codon_usage", GippaConfig(seed=1),
                          {"genes": w / "genes.parquet", "trna_counts": w / "trna_counts.tsv"},
                          {"codon": tmp_path / "codon.parquet"})  # fmt: skip
     assert_flag_event(recs, "cai_reference_missing", "codon_usage")
@@ -144,7 +144,7 @@ def test_codon_usage_no_event_with_a_reference(chain: Chain, tmp_path: Path) -> 
     """The chain's Bakta JSON names ribosomal proteins: no ``cai_reference_missing`` event."""
     w = _work(chain)
     with registry() as reg, recording() as recs:
-        reg.run_step("codon_usage", GiapConfig(seed=1),
+        reg.run_step("codon_usage", GippaConfig(seed=1),
                      {"genes": w / "genes.parquet", "trna_counts": w / "trna_counts.tsv"},
                      {"codon": tmp_path / "codon.parquet"})  # fmt: skip
     assert not flag_events(recs, "cai_reference_missing")
@@ -155,8 +155,8 @@ def test_codon_usage_no_event_with_a_reference(chain: Chain, tmp_path: Path) -> 
 
 def _gene_table(chain: Chain, path: Path) -> Path:
     """A §9.3 gene table over the C2 genes (as tests/unit/steps/test_operons_step.py builds it)."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.io.genes_tsv import write_genes_parquet
 
     c2 = chain.frame("genes")
     n = len(c2)
@@ -185,7 +185,7 @@ def operons_bare(chain: Chain, tmp_path_factory: pytest.TempPathFactory) -> list
     outs = {"pairs": out / "pairs.tsv", "operons": out / "operons.tsv",
             "operon_flags": out / "operon_flags.tsv"}  # fmt: skip
     with registry() as reg, recording() as recs:
-        reg.run_step("operons", GiapConfig(seed=1), ins, outs)
+        reg.run_step("operons", GippaConfig(seed=1), ins, outs)
     return recs
 
 
@@ -213,7 +213,7 @@ def test_context_stats_layer_missing_features_event(tmp_path: Path) -> None:
         import context_tables_data as cd
     finally:
         sys.path.remove(str(HELPERS))
-    from giap.steps.context_stats import run_context_stats
+    from gippa.steps.context_stats import run_context_stats
 
     work = tmp_path / "work"
     cd.build(work, features=False)
@@ -228,8 +228,8 @@ def test_context_stats_layer_missing_features_event(tmp_path: Path) -> None:
 def test_placement_c_assumed_event(tmp_path: Path) -> None:
     from helpers.mapping_steps import SimRun, drive, roots_of, simulate_with_proteomics
 
-    from giap.config import resolve_config
-    from giapsim.proteomics import ProteomicsConfig
+    from gippa.config import resolve_config
+    from gippasim.proteomics import ProteomicsConfig
 
     seed = 11
     run = simulate_with_proteomics(

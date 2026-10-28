@@ -1,8 +1,8 @@
 # Fix: isolate tool runs from user-site Python packages (PYTHONNOUSERSITE)
 
 ## Problem
-The Python 3.10 tool environments (giap-ostir, giap-promoter_calculator, giap-terminatornet,
-giap-cascadia) import packages from `~/.local/lib/python3.10/site-packages` (ViennaRNA 2.7.1,
+The Python 3.10 tool environments (gippa-ostir, gippa-promoter_calculator, gippa-terminatornet,
+gippa-cascadia) import packages from `~/.local/lib/python3.10/site-packages` (ViennaRNA 2.7.1,
 biopython 1.83, ...) because nothing sets `PYTHONNOUSERSITE`. OSTIR results differed on 6 of
 ~9,000 genes depending on the user's `~/.local`. Apptainer runs have no `--cleanenv` and see
 `$HOME` as well, so containers are affected too.
@@ -12,7 +12,7 @@ biopython 1.83, ...) because nothing sets `PYTHONNOUSERSITE`. OSTIR results diff
    under every profile) that sets `PYTHONNOUSERSITE = '1'`.
 2. Under the `docker` profile the variable reaches the container: `docker.envWhitelist` lists
    `PYTHONNOUSERSITE` (comma-separated, next to `TMPDIR`).
-3. `giap.setupdb.run.ToolRunner.run` starts the child with an explicit `env=` mapping that is a
+3. `gippa.setupdb.run.ToolRunner.run` starts the child with an explicit `env=` mapping that is a
    copy of `os.environ` (every other variable passes through unchanged) with
    `PYTHONNOUSERSITE=1`; a pre-existing value (e.g. `0`) is overridden. `os.environ` itself is
    not modified. The return value is still the child's return code.

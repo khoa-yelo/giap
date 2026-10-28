@@ -1,6 +1,6 @@
-"""Wallenius ORA with p_detect odds (issue M8-01; GIAP_SPEC.md §7.7.3, §8.2, §8.3).
+"""Wallenius ORA with p_detect odds (issue M8-01; GIPPA_SPEC.md §7.7.3, §8.2, §8.3).
 
-Interface pinned here (docs/specs/M8-01-stats-wallenius-elim.md, module ``giap.stats.wallenius``):
+Interface pinned here (docs/specs/M8-01-stats-wallenius-elim.md, module ``gippa.stats.wallenius``):
 
 - ``OraResult``: frozen dataclass ``(M, n, N, k, odds, p_over, p_under)``;
 - ``category_odds(p_detect, in_cat) -> float``: mean(p in C) / mean(p outside C); NaN when C or
@@ -34,7 +34,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy.stats import hypergeom, nchypergeom_wallenius
 
-from giap.stats.wallenius import OraResult, category_odds, wallenius_ora, wallenius_tails
+from gippa.stats.wallenius import OraResult, category_odds, wallenius_ora, wallenius_tails
 
 # ----------------------------------------------------------------------------- oracles
 

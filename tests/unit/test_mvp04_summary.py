@@ -11,7 +11,7 @@ Assumed interface (test-author reading; the implementer may add keys, not rename
 
 ``gate7(outdir: Path, inputs: Path) -> dict`` reads only published outputs
 (``tables/genes.tsv``: ``locus_tag``, ``detected``; ``mapping/peptide_hits.tsv``: ``peptide``,
-``route``, ``gene``) and the giapsim inputs (``peptides.tsv``: ``peptide``, ``protein_ids``,
+``route``, ``gene``) and the gippasim inputs (``peptides.tsv``: ``peptide``, ``protein_ids``,
 ``is_decoy``; ``truth/peptides.tsv``: ``peptide``, ``is_wrong``, ``origin``, ``locus_tag``) and
 returns
 
@@ -24,7 +24,7 @@ returns
 
   - ``protein_null``: truth ``origin = undetected_product`` (decision 9);
   - ``nterm_extension_sixframe_null``: truth ``origin = sixframe_noncoding`` whose target rows in
-    the input ``peptides.tsv`` carry a ``GIAPORF_nterm_extension_*`` entry (any route);
+    the input ``peptides.tsv`` carry a ``GIPPAORF_nterm_extension_*`` entry (any route);
   - ``tolerant_sixframe_null``: any other six-frame null whose hit on the gene has
     ``route = tolerant`` (the one-mismatch route under ``--genome-relation related``);
   - ``other``: false-detected genes with none of the three.
@@ -45,8 +45,8 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "dev" / "mvp04_summary.py"
-NT = "GIAPORF_nterm_extension_U00096.3_4901_5300_p"
-AS = "GIAPORF_antisense_U00096.3_9001_9150_m"
+NT = "GIPPAORF_nterm_extension_U00096.3_4901_5300_p"
+AS = "GIPPAORF_antisense_U00096.3_9001_9150_m"
 CHANNELS = ("protein_null", "nterm_extension_sixframe_null", "tolerant_sixframe_null", "other")
 
 

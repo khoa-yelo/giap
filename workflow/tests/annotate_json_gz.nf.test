@@ -45,7 +45,7 @@ nextflow_pipeline {
             def pb = H.stepDirs(work, 'parse_bakta')
             assert pb.size() == 1
             def bj = H.stepInputs(pb[0]).findAll { it[0] == 'bakta_json' }
-            assert bj.size() == 1 : "parse_bakta .giap_inputs has no single bakta_json entry: ${H.stepInputs(pb[0])}"
+            assert bj.size() == 1 : "parse_bakta .gippa_inputs has no single bakta_json entry: ${H.stepInputs(pb[0])}"
             def given = new File(pb[0], bj[0][1])
             assert given.name == 'bakta_like.JSON.GZ' : "parse_bakta bakta_json is ${bj[0][1]}"
             assert given.canonicalPath == json : "parse_bakta bakta_json resolves to ${given.canonicalPath}, not ${json}"

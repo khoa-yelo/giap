@@ -1,4 +1,4 @@
-"""Hypothesis properties of the exact matcher (issue M3-04; GIAP_SPEC.md §7.2.2, §7.2.9, §11.2).
+"""Hypothesis properties of the exact matcher (issue M3-04; GIPPA_SPEC.md §7.2.2, §7.2.9, §11.2).
 
 - "A peptide cut from a random genome maps back to its origin": random genomes <= 50 kb (both
   topologies), a window of 7-40 aa from any strand and phase (origin-crossing on circular
@@ -13,13 +13,13 @@ import pandas as pd
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.decoys import DecoyType, build_decoys, mirror_aa
-from giap.mapping.exact import match_exact
-from giap.mapping.hits import HIT_COLUMNS
-from giap.mapping.sixframe import SixFrameIndex, build_sixframe, decode, dedupe_loci, encode_query
-from giap.model import Interval, Replicon
-from giap.rng import for_step
-from giapsim.codons import CODE_11
+from gippa.mapping.decoys import DecoyType, build_decoys, mirror_aa
+from gippa.mapping.exact import match_exact
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.mapping.sixframe import SixFrameIndex, build_sixframe, decode, dedupe_loci, encode_query
+from gippa.model import Interval, Replicon
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
 
 _RC = str.maketrans("ACGT", "TGCA")
 

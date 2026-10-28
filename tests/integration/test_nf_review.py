@@ -11,7 +11,7 @@
 - (4) ``farmshare_local``: ``executor.cpus`` = ``SLURM_CPUS_PER_TASK`` (default 4) and
   ``executor.memory`` = ``SLURM_MEM_PER_NODE`` (MB) - 2 GB (default 30 GB).
 - (5) User ``threads``/``memory`` (params.json) and the profile limits combine as the minimum.
-- (7) ``apptainer.cacheDir`` defaults to ``$GIAP_ROOT/containers`` when ``NXF_APPTAINER_CACHEDIR``
+- (7) ``apptainer.cacheDir`` defaults to ``$GIPPA_ROOT/containers`` when ``NXF_APPTAINER_CACHEDIR``
   is unset.
 """
 
@@ -28,8 +28,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.config import resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import resolve_config
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -111,7 +111,7 @@ workflow {
 def test_real_failing_stub_run_through_run_nextflow(
     tmp_path: Path, code: int, capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    nf = importlib.import_module("giap.runner.nextflow")
+    nf = importlib.import_module("gippa.runner.nextflow")
     proj = tmp_path / "proj"
     proj.mkdir()
     (proj / "main.nf").write_text(_BROKEN % {"code": code})
@@ -273,11 +273,11 @@ def test_farmshare_local_user_limits_vs_allocation(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- decision 7
 
 
-def test_apptainer_cache_dir_defaults_to_giap_root() -> None:
-    flat = _config("apptainer", GIAP_ROOT="/scratch/giap_root")
-    assert _unq(flat["apptainer.cacheDir"]) == "/scratch/giap_root/containers"
+def test_apptainer_cache_dir_defaults_to_gippa_root() -> None:
+    flat = _config("apptainer", GIPPA_ROOT="/scratch/gippa_root")
+    assert _unq(flat["apptainer.cacheDir"]) == "/scratch/gippa_root/containers"
 
 
 def test_apptainer_cache_dir_env_wins() -> None:
-    flat = _config("apptainer", GIAP_ROOT="/scratch/giap_root", NXF_APPTAINER_CACHEDIR="/c/x")
+    flat = _config("apptainer", GIPPA_ROOT="/scratch/gippa_root", NXF_APPTAINER_CACHEDIR="/c/x")
     assert _unq(flat["apptainer.cacheDir"]) == "/c/x"

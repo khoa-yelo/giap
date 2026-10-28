@@ -37,7 +37,7 @@ spec-06 (871fce56), spec-07, spec-08, spec-09, spec-12 and spec-14 (071d3947).
 | `entrapment.py`, the `--entrapment` hook (`m8`), H2 shown `deferred` beside `fdp_combined` | m10/spec-07 | metric 8 |
 | `a3_feasibility.json` (committed verdict `pass`/`fail`, `reason`) | m10/spec-08 | which A3 branch the report describes |
 | `benchmark_standard.sbatch`, `benchmark_summary.py --write` → `benchmarks/baseline.json › standard_run.wheat.<cell>` (4 cells), ADR-M10-D, `docs/user-guide/runtimes.md` | m10/spec-12, spec-12a | bullet 4. M10-12 says bullet 4 "becomes `pass` when the 4 entries exist and ADR-M10-D is accepted (M10-15 reads it)"; **no branch implements that yet**: `checklist()` still returns `pending (M10-12)` |
-| `reproduce.md` (header `freeze_commit`, `a3_branch`; Evidence table `step, label, job, state, exit, elapsed, maxrss, node, commit`), `reproduce_check.py parse`, `verify-<F7>.json`, freeze metrics at `$GIAP_ROOT/pilot/metrics/freeze-<F7>/` | m10/spec-14 | the source of every job ID and of F |
+| `reproduce.md` (header `freeze_commit`, `a3_branch`; Evidence table `step, label, job, state, exit, elapsed, maxrss, node, commit`), `reproduce_check.py parse`, `verify-<F7>.json`, freeze metrics at `$GIPPA_ROOT/pilot/metrics/freeze-<F7>/` | m10/spec-14 | the source of every job ID and of F |
 | `tests/unit/test_m10_05_guard.py` | m10/spec-05 | allows `metrics.json`, `te1.json`, `REPORT.md` under `validation/pilot/` (no peptide-like string); forbids every other name under `validation/pilot/metrics/` |
 | M10-14's R11 audit rule 5 | m10/spec-14 | `validation/pilot/metrics/` holds only `a3_feasibility.json` "and whatever Khoa's Q-K1 answer later allows, added to the allow-list by the lead" |
 | Review packets | `local/review/m9-*` (gitignored), M9-25's `local/review/m9-approval/` | the precedent: a gitignored directory, the path and a summary posted to Khoa, the PR labelled `needs-khoa`, merge only after their decision |
@@ -65,7 +65,7 @@ unchanged (byte for byte), so the committed report can be re-rendered on CI.
 **Sections** (the template's order; each number followed by its source, as M10-05):
 
 1. **Status.** The §15.6 table with four columns: bullet · status · evidence · explanation. The
-   GIAP commit F, the spec SHA, the report's own statement "Submitted for Khoa's review (§14.8
+   GIPPA commit F, the spec SHA, the report's own statement "Submitted for Khoa's review (§14.8
    item 4)". The report never states that it was reviewed (see "Khoa's review").
 2. **Data and arms.** PXD078459 runs, DIA-NN 2.3.1 Academia (ADR-0051), the databases, the A3
    branch: `Cascadia 0.0.7 on the same runs` or `Casanovo 5.2.1 on PXD053727 / UTI89 (fallback,
@@ -100,7 +100,7 @@ Evidence table for the rows S8–S14 and S-bench).
 
 | Bullet | Status rule (final) | Evidence string |
 |---|---|---|
-| 1 GIAP runs end to end on A1, A2 and A3 | `pass` when A1, A2 and A3 exit 0 at F; the label names the A3 branch: `pass (A3 = Cascadia)` or `pass (A3 = Casanovo fallback on UTI89, different strain)`. `fail (A3 not run: <reason>)` when no A3 run exists and the runbook's `a3_branch` is not `pending`. `fail (<arm> exit <n>)` otherwise | the Evidence rows S8, S9, S11 (job, state, exit, commit) |
+| 1 GIPPA runs end to end on A1, A2 and A3 | `pass` when A1, A2 and A3 exit 0 at F; the label names the A3 branch: `pass (A3 = Cascadia)` or `pass (A3 = Casanovo fallback on UTI89, different strain)`. `fail (A3 not run: <reason>)` when no A3 run exists and the runbook's `a3_branch` is not `pending`. `fail (<arm> exit <n>)` otherwise | the Evidence rows S8, S9, S11 (job, state, exit, commit) |
 | 2 TE1 | unchanged from M10-05 (`te1.passed`; ≥ 0.995 inclusive) | `metrics.json › te1.share_exact_inframe`, `te1.passed`, S14 job |
 | 3 A1 and A2 compared | unchanged from M10-05 | `metrics.json › m4`, `m5`; S12 job |
 | 4 Measured runtimes replace the estimates | `pass` when `baseline.json › standard_run.wheat` holds the 4 cells, each `complete`, **and** ADR-M10-D's `Status:` is `accepted` or `accepted-by-khoa`; `pending (ADR-M10-D <status>)` when the cells exist but the ADR is `proposed`; `fail (incomplete: <cells>)` when a cell is missing or not `complete` | `baseline.json › standard_run.wheat.<cell>.median_s`, ADR path and status, `docs/user-guide/runtimes.md` |
@@ -112,7 +112,7 @@ All are read-only, committed inputs; their sha256 go into `metrics.json › inpu
 
 ## The review packet (`local/review/m10-pilot/r<k>/`, D3)
 
-`python validation/pilot/review_packet.py --metrics-dir $GIAP_ROOT/pilot/metrics/freeze-<F7>
+`python validation/pilot/review_packet.py --metrics-dir $GIPPA_ROOT/pilot/metrics/freeze-<F7>
 --runbook validation/pilot/reproduce.md --round <k> --out local/review/m10-pilot` (session, one
 CPU, under a minute; it copies files and hashes them). Never committed (`/local/` is gitignored).
 
@@ -122,7 +122,7 @@ CPU, under a minute; it copies files and hashes them). Never committed (`/local/
 | `REPORT.md`, `metrics.json`, `report_notes.md` | the committed files at the PR head |
 | `runs/A1/report.html`, `runs/A2/report.html`, `runs/A3/report.html`, `runs/compare.html` | the freeze outdirs (`$R/out_*/report/`) |
 | `reproduce.md`, `verify-<F7>.json` | the runbook and S-check's result |
-| `benchmark/summary.md` | `$GIAP_ROOT/bench/<bench_id>/summary.md` (M10-12) |
+| `benchmark/summary.md` | `$GIPPA_ROOT/bench/<bench_id>/summary.md` (M10-12) |
 | `a3_feasibility.json` | the committed verdict |
 | `adrs/` | copies of ADR-0051, ADR-M10-B, -C (when it exists), -D and any M10 waiver ADR, with their `Status:` lines listed in `index.md` |
 | `MANIFEST.sha256` | `sha256  path` for every file above, sorted by path |
@@ -134,7 +134,7 @@ Khoa reads it on FarmShare; nothing from it is posted to GitHub except the path 
 
 1. `render --final` on the committed `metrics.json` and `report_notes.md` reproduces the committed
    `REPORT.md` byte for byte.
-2. `metrics.json › giap_commit` = the runbook's `freeze_commit` = every `commit` of the Evidence
+2. `metrics.json › gippa_commit` = the runbook's `freeze_commit` = every `commit` of the Evidence
    rows S8–S14; the runbook is `status=final`.
 3. No `**missing:` string and no status starting with `pending` in `REPORT.md`.
 4. Every checklist row has a non-empty `evidence` string.
@@ -152,7 +152,7 @@ Khoa reads it on FarmShare; nothing from it is posted to GitHub except the path 
 3. **The report's identity:** the sha256 of `validation/pilot/REPORT.md` (file content, so it
    survives the squash merge), F, the packet path and round.
 4. **The §14.9 checklist for M10:** tests per layer (the M10 test files, CI run link), coverage of
-   `src/giap` from the latest main CI (validation scripts are outside the 90 % gate and are listed
+   `src/gippa` from the latest main CI (validation scripts are outside the 90 % gate and are listed
    with their test files), the methods note `docs/methods/free-entrapment.md` signed off by the
    statistician, schemas validated (`compare_*` tables, `metrics.json` schema string), the
    benchmark (M10-12), the reviews (PR links). An unchecked item is named.
@@ -204,7 +204,7 @@ Numbers are hand-made, not measurements.
 | 2 | As 1, but TE3 `fail` and `report_notes.md` has `## Diagnosis: TE3` with cause class `biology` | bullet 5 `reported (1 not passed, explained)`, satisfied; section 5 shows the diagnosis; the gate block lists TE3 under open items; status `awaiting Khoa's review` |
 | 3 | As 2, but the notes have no TE3 diagnosis | `render` exit 1 naming TE3 (M10-06 rule); no `REPORT.md`, no packet; nothing is committed |
 | 4 | TE1 `share_exact_inframe` 0.994 (`passed: false`), explained in the notes as a mapping defect (`pipeline_bug`) | bullet 2 `fail`; status `not met: TE1`. The packet is still built (Khoa reviews failures too), and the summary leads with the failure. Fixing the defect means a new freeze; the 0.995 threshold is not touched (R3) |
-| 5 | M10-08 verdict `fail` (`low_genome_match`); M10-11b ran Casanovo on UTI89, `giap run` exit 0; compare of A1, A2 only | bullet 1 `pass (A3 = Casanovo fallback on UTI89, different strain)`; metric 6 `null`, `reason: different_genome`, listed in "Not evaluated"; H4 `unestimated`; section 10 names the fallback |
+| 5 | M10-08 verdict `fail` (`low_genome_match`); M10-11b ran Casanovo on UTI89, `gippa run` exit 0; compare of A1, A2 only | bullet 1 `pass (A3 = Casanovo fallback on UTI89, different strain)`; metric 6 `null`, `reason: different_genome`, listed in "Not evaluated"; H4 `unestimated`; section 10 names the fallback |
 | 6 | M10-08 verdict `fail` (`route_unavailable`) and Khoa declined ADR-M10-C, so no A3 run exists; runbook `a3_branch=fallback`, A3 steps without Evidence | bullet 1 `fail (A3 not run: route_unavailable; ADR-M10-C declined)`; status `not met: bullet 1`; metric 6 and H4 under "Not evaluated"; the lead drafts a waiver ADR ("M10 gate without A3", Needs Khoa: yes) for the same review round |
 | 7 | The template has `{{m6.A2_A3.jaccard}}` but `metrics.json` has no `m6` key (M10-10's hook never ran) | `**missing: m6.A2_A3.jaccard**`, `render` exit 1; the packet script refuses (check 1 or 3); this is a defect to fix, not a "Not evaluated" line |
 | 8 | `m8.peptide` has `fdp_combined: null`, `assessment: not_evaluable`, `reason: empty_discoveries` | rendered as "not evaluable (empty_discoveries)" in metric 8 and in "Not evaluated"; exit 0 (a key that exists with a null value and a reason is allowed) |
@@ -224,7 +224,7 @@ Numbers are hand-made, not measurements.
 | **A3 skipped by the M10-08 verdict** | Fallback ran: example 5. No A3 at all: example 6. The runbook still at `a3_branch=pending`: bullet 1 stays `partial`, which `render --final` rejects; the report is not built |
 | **A missing metric** | A key that is absent is a defect (example 7). A key with `null` and a `reason` is a finding (example 8), listed under "Not evaluated" |
 | **A freeze bug found after the packet** | A new F′ (M10-14); every arm re-runs at F′; a new `metrics.json`, a new report sha256, a new round. A verdict on the old sha256 does not carry over |
-| **`metrics.json` from another commit** | `giap_commit` ≠ `freeze_commit`: packet check 2 fails (exit 1). The lead re-runs S14 at F |
+| **`metrics.json` from another commit** | `gippa_commit` ≠ `freeze_commit`: packet check 2 fails (exit 1). The lead re-runs S14 at F |
 | **Main moves between packet and verdict** | The report is identified by its sha256 and by F, not by main's HEAD. Merging main into the 15b branch changes no committed report file. A change to `metrics.py` or the template on main is a conflict for the lead to resolve; the CI re-render test (criterion 2) catches a renderer change that alters the report |
 | **Khoa answers with a question** (no verdict) | Answered in chat; recorded in PROGRESS as a question; no verdict is inferred |
 | **Khoa accepts but asks for later work** (for example a full validation item) | verdict `accept`; the requests become backlog lines linked from the gate block |
@@ -232,7 +232,7 @@ Numbers are hand-made, not measurements.
 
 ## Acceptance criteria
 
-On CI (every commit; fixtures only, no `$GIAP_ROOT`):
+On CI (every commit; fixtures only, no `$GIPPA_ROOT`):
 
 1. **Checklist hooks.** `checklist()` gives the statuses of the table above on fixtures for:
    bullet 1 with Cascadia, fallback, no A3 (example 6) and `pending`; bullet 4 with 4 complete
@@ -250,7 +250,7 @@ On CI (every commit; fixtures only, no `$GIAP_ROOT`):
    placeholders for metric 6, metric 8, H2 and H4; the M10-05 guard tests still pass on it.
 5. **Packet.** `review_packet.py` on a sandbox (`tmp_path`) writes exactly the files of the packet
    table plus `MANIFEST.sha256`, whose hashes match; it exits 1 and writes nothing when the
-   re-render differs, when `giap_commit` ≠ `freeze_commit`, or when the round exists; exit 2 when
+   re-render differs, when `gippa_commit` ≠ `freeze_commit`, or when the round exists; exit 2 when
    an input is missing; it never writes outside `--out`.
 6. **Data rule on the committed files.** `REPORT.md`, `metrics.json`, `te1.json` and
    `report_notes.md` contain no 7+ amino-acid string, and `metrics.json` holds no array of more
@@ -262,7 +262,7 @@ On CI (every commit; fixtures only, no `$GIAP_ROOT`):
    Khoa entry with verdict `accept`, a quoted string, and a 64-hex sha256 equal to the sha256 of
    the committed `REPORT.md`. The test checks the shape only; it cannot check who wrote the quote,
    which is why the recording rule above binds the lead.
-8. **Consistency.** `metrics.json › giap_commit` equals `reproduce.md`'s `freeze_commit`, and its
+8. **Consistency.** `metrics.json › gippa_commit` equals `reproduce.md`'s `freeze_commit`, and its
    `inputs` entries for committed files hash to their committed contents.
 
 On FarmShare and in the PRs (evidence):
@@ -328,8 +328,8 @@ no Slurm job.
 | L8 | Merge 15b only after Khoa's verdict (M9-25 precedent), or merge first and record the review afterwards? | after the verdict; the branch is kept current by merging main |
 | L9 | Named example genes (Khoa allowed them): add any beyond the ones TE3/TE4 already name? | no new names in the template; at most five in `report_notes.md`, each tied to a TE or metric |
 | L10 | Metric 6 / H4 key names before M10-10 is specced (G1): placeholders `m6.<class>.<confidence>` and `h4.verdict`, with M10-10 conforming, or wait for M10-10? | provisional placeholders now; M10-10's spec must match them or update this template in its own PR |
-| L11 | `metrics.json` gains `evidence` and the A3 label: keep the schema string `giap-pilot-metrics/1` (additive keys) or bump to `/2`? | keep `/1`; keys are additive and M10-05's guard lists top-level keys, so the lead adds `evidence` to that list in 15b |
-| L12 | §14.9 "coverage ≥ 90 %": the validation scripts sit outside `src/giap`. Report their test files only, or add them to a coverage run? | report only; no new coverage gate (R3: gates are not changed here) |
+| L11 | `metrics.json` gains `evidence` and the A3 label: keep the schema string `gippa-pilot-metrics/1` (additive keys) or bump to `/2`? | keep `/1`; keys are additive and M10-05's guard lists top-level keys, so the lead adds `evidence` to that list in 15b |
+| L12 | §14.9 "coverage ≥ 90 %": the validation scripts sit outside `src/gippa`. Report their test files only, or add them to a coverage run? | report only; no new coverage gate (R3: gates are not changed here) |
 
 ## Questions for Khoa (asked with the packet; nothing here has a default)
 

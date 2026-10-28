@@ -1,4 +1,4 @@
-"""Properties of giapsim's proteomics module (issue M3-19; GIAP_SPEC.md §11.2-§11.3).
+"""Properties of gippasim's proteomics module (issue M3-19; GIPPA_SPEC.md §11.2-§11.3).
 
 * ``digest`` equals the independent Trypsin/P oracle (tests/helpers/peptide_oracle.py) for any
   protein, length range and number of missed cleavages;
@@ -33,9 +33,9 @@ from helpers.peptide_oracle import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giapsim
-from giap.config.model import InputConfig
-from giap.io.peptides import read_peptide_table, validate_peptides
+import gippasim
+from gippa.config.model import InputConfig
+from gippa.io.peptides import read_peptide_table, validate_peptides
 
 AA = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -48,7 +48,7 @@ AA = "ACDEFGHIKLMNPQRSTVWY"
     missed=st.integers(0, 2),
 )
 def test_digest_equals_oracle(protein: str, lo: int, width: int, missed: int) -> None:
-    from giapsim.proteomics import digest
+    from gippasim.proteomics import digest
 
     got = sorted(digest(protein, digest_len=(lo, lo + width), missed_cleavages=missed))
     want = sorted(protein[a:b] for a, b in trypsin_p(protein, (lo, lo + width), missed))
@@ -60,7 +60,7 @@ def test_digest_equals_oracle(protein: str, lo: int, width: int, missed: int) ->
 @settings(max_examples=100, deadline=None)
 @given(protein=st.text(alphabet=st.sampled_from(AA), min_size=1, max_size=200))
 def test_digest_default_rule(protein: str) -> None:
-    from giapsim.proteomics import digest
+    from gippasim.proteomics import digest
 
     for p in digest(protein, digest_len=(7, 30), missed_cleavages=1):
         assert 7 <= len(p) <= 30
@@ -70,7 +70,7 @@ def test_digest_default_rule(protein: str) -> None:
 
 @st.composite
 def sim_cases(draw: Any) -> dict[str, Any]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     prot = ProteomicsConfig(
         pi_wrong=draw(st.sampled_from([0.0, 0.01, 0.05, 0.2])),
@@ -95,8 +95,8 @@ def sim_cases(draw: Any) -> dict[str, Any]:
 @given(case=sim_cases())
 def test_truth_agrees_with_genome(case: dict[str, Any]) -> None:
     with tempfile.TemporaryDirectory() as d:
-        cfg = giapsim.SimConfig(proteomics=case["prot"], **case["kw"])
-        giapsim.simulate(cfg, case["seed"], Path(d))
+        cfg = gippasim.SimConfig(proteomics=case["prot"], **case["kw"])
+        gippasim.simulate(cfg, case["seed"], Path(d))
         run = Run(Path(d))
         pi = case["prot"].pi_wrong
         mix = tuple(case["prot"].score_mixture)

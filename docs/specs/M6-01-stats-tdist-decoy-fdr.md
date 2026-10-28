@@ -1,7 +1,7 @@
 # M6-01: Within-operon Student-t, distance-reweighted decoy FDR, monotone q and local fdr
 
 Milestone M6 · track S (statistics engine) · **pass 1** · depends on: nothing (reuses merged
-`giap.stats.bh`) · estimate ≈ 260 code lines (+ ≈ 320 test lines) · **statistical** (label `stats`)
+`gippa.stats.bh`) · estimate ≈ 260 code lines (+ ≈ 320 test lines) · **statistical** (label `stats`)
 
 ## Spec sections implemented
 
@@ -17,7 +17,7 @@ Milestone M6 · track S (statistics engine) · **pass 1** · depends on: nothing
 
 ## Public interface
 
-`src/giap/stats/tdist.py` (pure)
+`src/gippa/stats/tdist.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class StudentT:
@@ -26,7 +26,7 @@ class StudentT:
 def fit_student_t(x: ArrayLike, df_bounds: tuple[float, float] = (2.0, 50.0)) -> StudentT: ...
 def student_t_two_sided(x: ArrayLike, fit: StudentT) -> F64: ...
 ```
-`src/giap/stats/decoy_fdr.py` (pure)
+`src/gippa/stats/decoy_fdr.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class DecoyFdr:

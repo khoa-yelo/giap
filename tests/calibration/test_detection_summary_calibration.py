@@ -6,7 +6,7 @@ group covers the true expectation 0 in at least 95 % of null replicates**, i.e. 
 rate is <= 0.05 + k sqrt(0.05 * 0.95 / R) (the ``fwer`` criterion applied to 0/1 miss indicators;
 k = ``se_multiplier``, R = ``replicates_fast/full.regions``, lead decision 6: reuse existing R).
 
-Null generator, per replicate: a giapsim M4-07 layout (one circular chromosome of 400 genes, real
+Null generator, per replicate: a gippasim M4-07 layout (one circular chromosome of 400 genes, real
 TU structure and feature classes) and the M4-08 ``p_detect_true``; detection is drawn
 comonotonically within each TU (one uniform u per TU, d_g = 1{u < p_g}), so each gene keeps
 P(d_g = 1) = p_g exactly (E[O - E] = 0 with ``p_detect = p_detect_true``) while detections inside a
@@ -38,8 +38,8 @@ N_GENES = 400
 
 
 def null_genes(rng: np.random.Generator) -> pd.DataFrame:
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     layout = simulate_layout(LayoutConfig(n_genes_chromosome=N_GENES), rng)
     expr = simulate_expression(layout, ExpressionConfig(), rng)
@@ -69,7 +69,7 @@ def null_genes(rng: np.random.Generator) -> pd.DataFrame:
 
 
 def miss(rng: np.random.Generator) -> float:
-    from giap.context.summary import basic_rows
+    from gippa.context.summary import basic_rows
 
     genes = null_genes(rng)
     out = basic_rows(genes, B, np.random.default_rng(rng.integers(2**63)))

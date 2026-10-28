@@ -1,4 +1,4 @@
-"""Generic peptide table: read, validate, aggregate (issue M1-06; GIAP_SPEC.md §5.3; ADR-0005/6).
+"""Generic peptide table: read, validate, aggregate (issue M1-06; GIPPA_SPEC.md §5.3; ADR-0005/6).
 
 Tables are literal TSV text written to ``tmp_path``. ``_load`` runs ``read_peptide_table`` then
 ``validate_peptides`` and returns the issues of both steps, so a check may live in either one.
@@ -14,9 +14,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import InputConfig
-from giap.io.issues import Issue as IssuesIssue
-from giap.io.peptides import (
+from gippa.config.model import InputConfig
+from gippa.io.issues import Issue as IssuesIssue
+from gippa.io.peptides import (
     PEPTIDE_COLUMNS,
     Issue,
     aggregate_peptides,

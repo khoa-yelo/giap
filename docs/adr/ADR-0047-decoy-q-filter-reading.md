@@ -2,7 +2,7 @@
 - Status: accepted-by-khoa (2026-10-22: the reading, and the defaults.yaml comment reworded)
 - Date: 2026-10-22
 - Spec sections: §5.2, §7.3.2; M4-12 decision 1; M4-24
-- Needs Khoa: yes, for the wording change to the protected `src/giap/config/defaults.yaml`
+- Needs Khoa: yes, for the wording change to the protected `src/gippa/config/defaults.yaml`
   comment; Khoa approved it on 2026-10-22. The code already behaves this way.
 
 ## Context

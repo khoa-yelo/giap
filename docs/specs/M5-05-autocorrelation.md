@@ -22,7 +22,7 @@ hand-built frames; calibration full mode on **Slurm** (R = 1,000)
 
 ## Public interface
 
-`src/giap/context/autocorrelation.py` (pure)
+`src/gippa/context/autocorrelation.py` (pure)
 ```python
 AUTOCORR_COLUMNS: tuple[str, ...]   # contig, statistic, lag, null_model, value, null_mean, null_lo,
                                     # null_hi, stat, effect, ci_low, ci_high, p_value, q_value, method,
@@ -30,10 +30,10 @@ AUTOCORR_COLUMNS: tuple[str, ...]   # contig, statistic, lag, null_model, value,
 def moran_values(ix: pd.DataFrame, circular: bool, span_frac: float = 0.10) -> F64: ...
 def replicon_autocorrelation(ix: pd.DataFrame, contig: str, circular: bool, lags: Sequence[int],
                              B: int, rng: np.random.Generator) -> pd.DataFrame: ...
-def autocorrelation_rows(genes: pd.DataFrame, replicons: pd.DataFrame, cfg: GiapConfig,
+def autocorrelation_rows(genes: pd.DataFrame, replicons: pd.DataFrame, cfg: GippaConfig,
                          rng: np.random.Generator) -> pd.DataFrame: ...   # adds q_value
 ```
-- **Index.** `giap.context.regions.replicon_index(genes, contig)` (merged M4-17): eligible genes = not
+- **Index.** `gippa.context.regions.replicon_index(genes, contig)` (merged M4-17): eligible genes = not
   partial and `p_detect` present, genome order, idx 0 … N − 1, columns `d`, `a` (log2 abundance of
   detected genes, NaN otherwise), `tu_id`. Same index as the region tests.
 - **Values (`moran_values`).** Genes with finite `a`: subtract their mean, then `loess_detrend` with
@@ -53,12 +53,12 @@ def autocorrelation_rows(genes: pd.DataFrame, replicons: pd.DataFrame, cfg: Giap
   `null_hi`, `p_value`, `n_perm` = valid null draws; `stat` = statistic name; `effect` = value −
   null_mean; `ci_low`/`ci_high` = NA (see Q2); `method` = `moran_i_permutation` /
   `join_count_permutation`.
-- **q_value.** BH (`giap.stats.multitest.bh`, NaN-aware) within each (contig, statistic, null_model) over
+- **q_value.** BH (`gippa.stats.multitest.bh`, NaN-aware) within each (contig, statistic, null_model) over
   its lags.
 - **Flags.** `not_estimable` whenever the value or p is NA (invalid lag, n < 2 values, no pair, zero
   variance, degenerate null); additionally `few_values` when fewer than 10 genes have values (the test
   still runs). (Vocabulary additions: M5-09.)
-- **RNG.** `giap.rng.for_step("context_stats.autocorrelation", seed)`; replicons in C1 order, within a
+- **RNG.** `gippa.rng.for_step("context_stats.autocorrelation", seed)`; replicons in C1 order, within a
   replicon: label matrix for x, label matrix for d, then the TU-block matrix.
 
 ## Degenerate cases (the estimator does not exist)
@@ -162,7 +162,7 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
 26. `moran_values` on a degenerate replicon returns all-zero residuals, never NaN (consumers test k < 4).
 27. Degenerate join-count rows ("no detected gene", "every gene detected") are written for a **constant**
     `p_detect`; with the Pearson statistic and varying p the null is not constant and the row is estimable.
-28. **Join-count teeth (statistician question).** With giapsim's truth `p_detect` the Pearson residuals are
+28. **Join-count teeth (statistician question).** With gippasim's truth `p_detect` the Pearson residuals are
     exact Bernoulli residuals, so the join count has almost no power under any abundance-structured
     scenario (recorded 0.04 at lag 1 under the TU null, against 1.00 for Moran). Spec example 3's teeth
     claim therefore holds for `morans_i` only. Record both rates and gate neither for now; the
@@ -181,7 +181,7 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
     implementation is measured (the implementer records it with node, CPU and job metadata). The
     stand-in's 2.57 s against a 30 s budget is a sanity check, not an accepted number.
 33. #119 (M5-04) is merged, so `tests/helpers/autocorr_calib.py` and the attack file drop their local
-    scenario definitions for `giapsim.scenarios`, and ADR-0020 attack arms (a) (TU null + a 2 log2
+    scenario definitions for `gippasim.scenarios`, and ADR-0020 attack arms (a) (TU null + a 2 log2
     ori–ter cosine) and (b) (label null + gradient) are written now.
 34. (after the scenario switch) `tu_null_1000.morans_i.tu_block.lag1` at α 0.10 moved 0.100 → 0.190
     against a bound of 0.160 in the **fast** tier: block 1 fails, block 2 passes, so it records

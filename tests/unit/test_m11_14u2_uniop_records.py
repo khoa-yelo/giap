@@ -112,8 +112,8 @@ def _built(tmp_path: Path) -> Path:
 
 
 def _reasons(db: Path, profile: str = "docker") -> dict[str, str]:
-    from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tool_reasons
+    from gippa.annotate.tools import TOOLS
+    from gippa.preflight.environment import missing_tool_reasons
 
     return missing_tool_reasons([TOOLS["uniop"]], profile, db / "containers", None,
                                 db / LOCAL_TOOLS)  # fmt: skip
@@ -294,9 +294,9 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
 def _preflight_tools(tmp_path: Path, db: Path, profile: str,
                      monkeypatch: pytest.MonkeyPatch) -> Any:  # fmt: skip
-    from giap.config import resolve_config
-    from giap.preflight import environment
-    from giap.preflight.run import PreflightInputs, run_preflight
+    from gippa.config import resolve_config
+    from gippa.preflight import environment
+    from gippa.preflight.run import PreflightInputs, run_preflight
 
     monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""))
     g = tmp_path / "in" / "g.fa"

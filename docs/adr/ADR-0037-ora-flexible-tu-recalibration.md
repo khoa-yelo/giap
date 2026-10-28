@@ -10,7 +10,7 @@
 - PR #179 implements it with a damped Newton fit (M8-04 decision 13).
 - The conditional law is exact for whatever q it is given. Q itself is still misfit, so pass 1 puts `ora_uncalibrated` on every ORA row (decision 13; `ora.CALIBRATION_FLAGS`).
 
-**Pass-1 failures.** The statistician re-checked #179 at c1e3ca0 with R = 2,000 per world, split into ADR-0015 blocks (replicates 0–999 and 1000–1999). Source: `$GIAP_ROOT/stat/m804b/recheck/pr179_recheck_comment.txt` and `summ_blocks.txt`, Slurm 1867941 and 1867942. Rates are at α 0.01 / 0.05 / 0.10, with the flag ignored. Every row below is above the §8.4 bound in both blocks.
+**Pass-1 failures.** The statistician re-checked #179 at c1e3ca0 with R = 2,000 per world, split into ADR-0015 blocks (replicates 0–999 and 1000–1999). Source: `$GIPPA_ROOT/stat/m804b/recheck/pr179_recheck_comment.txt` and `summ_blocks.txt`, Slurm 1867941 and 1867942. Rates are at α 0.01 / 0.05 / 0.10, with the flag ignored. Every row below is above the §8.4 bound in both blocks.
 
 | World | Cell | Block 1 | Block 2 | Bound per block |
 |---|---|---|---|---|
@@ -34,7 +34,7 @@ What holds at level in both blocks:
 
 So the failures come from the 3-parameter model, not from the conditional law. Any category selected on TU size or on q is at risk (methods note, "Pass-1 limit").
 
-**The flexible comparator.** In the first review the statistician fitted a more flexible cross-fitted model on the same detections and categories. Source: `$GIAP_ROOT/stat/m804b/probe_flex.py`, `flex.sbatch` and `flex_*.jsonl`; Slurm 1867892 (4b c 1.5, 4b c 2.5, hidet, lowdet, small) and 1867900 (combo, csize); worktree head 3f82e0f; R = 3,000 per world. The statistician reported it "at level in every cell of all 8 worlds" (`pr179_comment.txt`). Seven `flex_*.jsonl` world files exist, listed below; the "8" is not reconciled (owed, see the questions at the end). Selected cells, pooled over R = 3,000, at α 0.01 / 0.05 / 0.10, with the pooled bound in parentheses:
+**The flexible comparator.** In the first review the statistician fitted a more flexible cross-fitted model on the same detections and categories. Source: `$GIPPA_ROOT/stat/m804b/probe_flex.py`, `flex.sbatch` and `flex_*.jsonl`; Slurm 1867892 (4b c 1.5, 4b c 2.5, hidet, lowdet, small) and 1867900 (combo, csize); worktree head 3f82e0f; R = 3,000 per world. The statistician reported it "at level in every cell of all 8 worlds" (`pr179_comment.txt`). Seven `flex_*.jsonl` world files exist, listed below; the "8" is not reconciled (owed, see the questions at the end). Selected cells, pooled over R = 3,000, at α 0.01 / 0.05 / 0.10, with the pooled bound in parentheses:
 
 | World | Cell | Flexible model |
 |---|---|---|
@@ -52,7 +52,7 @@ So the failures come from the 3-parameter model, not from the conditional law. A
 | lowdet c 2.5 | big_multi, over | 0.0053 / 0.0343 / 0.0742 (0.0121 / 0.0546 / 0.1063) |
 
 How these numbers were obtained and what they do not show:
-- The 4b c 2.5 large-under row is the statistician's own figure. The lead recomputed the other rows by running `$GIAP_ROOT/stat/m804b/summ.py`, unchanged, on the seven `flex_*.jsonl` files. That pass found no flexible-model cell above its bound in any world, in either direction, at any α.
+- The 4b c 2.5 large-under row is the statistician's own figure. The lead recomputed the other rows by running `$GIPPA_ROOT/stat/m804b/summ.py`, unchanged, on the seven `flex_*.jsonl` files. That pass found no flexible-model cell above its bound in any world, in either direction, at any α.
 - Splitting the same records at replicate 1000 (`recheck/summ_blocks.py`, unchanged) also gives no exceedance. Those are 1,000 and 2,000 replicates, not two equal ADR-0015 blocks, and no statistician has reviewed that split.
 - **The flexible model has no measured rates yet** in the null world, 4b c 3.5, 4c at a = ±0.5, or slope b = 0.7 and 1.4 (owed).
 - **Its power has not been measured** against the 3-parameter model on any planted-effect arm (owed).
@@ -138,7 +138,7 @@ This is stricter than an ADR-0015 gate, where a failure only in the first block 
   - Neither has measured rates (owed). (a) is a fixed-basis, lightly penalised version of the same idea, with evidence.
 - **(d) A stratified exact TU marginal: model the oracle q directly.** Not chosen for pass 2.
   - The statistician notes that the oracle q, 1 − E_u ∏_g (1 − expit(η_g + c·u)), is at level in every cell of every world.
-  - **It is not computable from GIAP's inputs as they stand.** It needs the per-gene conditional linear predictor η_g and the strength and distribution of the shared TU effect, c and u ~ N(0, 1). M4-13 provides only the marginal p̂, and the probe computes the oracle from the generator's true η and c with 40-node Gauss–Hermite quadrature (`probe.py` `world`).
+  - **It is not computable from GIPPA's inputs as they stand.** It needs the per-gene conditional linear predictor η_g and the strength and distribution of the shared TU effect, c and u ~ N(0, 1). M4-13 provides only the marginal p̂, and the probe computes the oracle from the generator's true η and c with 40-node Gauss–Hermite quadrature (`probe.py` `world`).
   - Making it computable needs three things:
     - a TU random-intercept detectability model in M4-13, which is a change to another module and needs its own ADR;
     - an estimate of c, per size stratum, because csize shows c varies with size;

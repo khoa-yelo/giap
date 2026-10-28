@@ -1,4 +1,4 @@
-"""Hypothesis properties of the M4-20 fixture builder ``giapsim.fixtures.build_m4_fixture``.
+"""Hypothesis properties of the M4-20 fixture builder ``gippasim.fixtures.build_m4_fixture``.
 
 For any seed and any ``EvidenceConfig`` the fixture must be a usable M4 input: the C1-C14 files
 exist in both layouts the steps read (flat for ``run_context_stats`` / ``run_sensitivity``,
@@ -37,7 +37,7 @@ EMITS = [
 
 
 def _inputs(work: Path) -> tuple[Any, list[Any]]:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     paths = {k: p for k, p in default_paths(work).items() if p.exists()}
     return load_m4_inputs(paths)

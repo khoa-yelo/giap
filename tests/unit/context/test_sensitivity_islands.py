@@ -1,5 +1,5 @@
 """M5-10 ``islands`` sensitivity family: examples 1-5, edge cases, the flagged-set rule and the
-signature of lead decision 38 (docs/specs/M5-10-sensitivity-islands.md; GIAP_SPEC.md §8.6, G9,
+signature of lead decision 38 (docs/specs/M5-10-sensitivity-islands.md; GIPPA_SPEC.md §8.6, G9,
 §7.3.5(d); M4-19 lead decisions 2 and 5).
 
 Example 4 (``output.sensitivity = off``) and the step-level B = 199 / stream checks live in
@@ -25,13 +25,13 @@ import sensitivity_islands_data as sid
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(sid.STREAM, 20261022)
 

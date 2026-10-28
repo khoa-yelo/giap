@@ -35,7 +35,7 @@ def test_sbatch_header() -> None:
     text = BUILD_SBATCH.read_text()
     lines = text.splitlines()
     assert lines[0] == "#!/bin/bash"
-    assert re.search(r"^#SBATCH --job-name=giap-\S+$", text, re.M)
+    assert re.search(r"^#SBATCH --job-name=gippa-\S+$", text, re.M)
     assert re.search(r"^#SBATCH --output=\S*/local/logs/%x\.%j\.out$", text, re.M)
     assert "#SBATCH --partition=normal" in lines
     assert "#SBATCH --cpus-per-task=4" in lines
@@ -43,7 +43,7 @@ def test_sbatch_header() -> None:
     assert "#SBATCH --time=08:00:00" in lines
     assert "set -euo pipefail" in lines
     assert "scripts/farmshare_env.sh" in text
-    assert 'cd "$GIAP_REPO"' in text
+    assert 'cd "$GIPPA_REPO"' in text
 
 
 def test_sbatch_builds_envs_and_pulls_images() -> None:
@@ -65,7 +65,7 @@ def test_build_envs_sh_contract() -> None:
 
 def test_build_envs_sh_unknown_tool_exits_2() -> None:
     env = {k: v for k, v in os.environ.items() if k in {"PATH", "HOME", "LANG"}}
-    env["GIAP_REPO"] = str(REPO)
+    env["GIPPA_REPO"] = str(REPO)
     proc = subprocess.run(
         ["bash", str(BUILD_SH), "no_such_tool"],
         capture_output=True,
@@ -93,7 +93,7 @@ def test_dockerfiles_exist(tool: str) -> None:
 
 @pytest.mark.parametrize("tool", ["uniop", "promotech", "terminatornet", "bactermfinder"])
 def test_dockerfile_clones_pinned_commit(tool: str) -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     sha = TOOLS[tool].version.removeprefix("git:")
     assert sha in (REPO / "workflow" / "containers" / tool / "Dockerfile").read_text()
@@ -132,7 +132,7 @@ def _notice_rows() -> dict[str, str]:
 
 
 def test_notice_lists_every_tool_with_licence() -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     rows = _notice_rows()
     for name, spec in TOOLS.items():

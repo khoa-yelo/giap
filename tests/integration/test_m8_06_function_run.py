@@ -1,8 +1,8 @@
-"""M8-06 examples 1, 2, 3 and 9 through ``giap run`` on sim100k (docs/specs/M8-06-function-step-
-and-run.md, 06b; GIAP_SPEC.md §6.3 module switch, §6.4 "byte-identical tables", §9.1).
+"""M8-06 examples 1, 2, 3 and 9 through ``gippa run`` on sim100k (docs/specs/M8-06-function-step-
+and-run.md, 06b; GIPPA_SPEC.md §6.3 module switch, §6.4 "byte-identical tables", §9.1).
 
-Inputs: the M6-08 / M2-21 executor-equality inputs (``test_m6_08_operons_run.py``): giapsim
-SIM100K with M3-19 proteomics and every precomputed layer, seed 7. ``$GIAP_DB_DIR`` is the
+Inputs: the M6-08 / M2-21 executor-equality inputs (``test_m6_08_operons_run.py``): gippasim
+SIM100K with M3-19 proteomics and every precomputed layer, seed 7. ``$GIPPA_DB_DIR`` is the
 synthetic function DB of ``tests/helpers/function_db.py`` (Q6, lead decision 1), merged with the
 M3-17 test DB (``helpers.mapping_steps.write_test_db``: every preflight requirement listed); never
 the real databases.
@@ -42,7 +42,7 @@ pytestmark = [pytest.mark.slow]
 SEED = 7
 TABLES = ("category_summary.tsv", "enrichment_detection.tsv", "enrichment_gsea.tsv")
 RESOURCES = ("go_basic", "goslim_generic", "kegg_ko_pathway", "kegg_pathway_names", "cog2020_fun")
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 
 
 def _xrefs_for(i: int) -> list[str]:
@@ -63,13 +63,13 @@ def _add_xrefs(bakta_json: Path) -> None:
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    res = giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    res = gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
     _add_xrefs(Path(res.bakta_json))
     return res
 
@@ -79,7 +79,7 @@ def db(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
     from helpers.function_db import ITEMS, PATHS, write_function_db
     from helpers.mapping_steps import write_test_db
 
-    from giapsim.layout import layout_from_simulation
+    from gippasim.layout import layout_from_simulation
 
     xrefs = layout_from_simulation(sim).xrefs
     assert {"COG", "GO", "KEGG"} <= set(xrefs["db"]), "the fixture's db_xrefs were not parsed"
@@ -93,7 +93,7 @@ def db(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _run(sim: Any, out: Path, db: Path, modules: str, *extra: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
     assert sim.abundance is not None, "the fixture writes abundance.tsv"
@@ -101,7 +101,7 @@ def _run(sim: Any, out: Path, db: Path, modules: str, *extra: str) -> None:
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
     args += ["--outdir", str(out), "--modules", modules, "--seed", str(SEED), *extra]
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -159,7 +159,7 @@ def test_example_1_tables_written_and_valid(local: Path, name: str) -> None:
 
 
 def test_example_1_header_rows_equal_the_module_columns(local: Path) -> None:
-    from giap.function import gsea, ora, summary
+    from gippa.function import gsea, ora, summary
 
     for name, cols in zip(TABLES, (summary.COLUMNS, ora.COLUMNS, gsea.COLUMNS), strict=True):
         head = (local / "tables" / name).read_text(encoding="utf-8").splitlines()[0]

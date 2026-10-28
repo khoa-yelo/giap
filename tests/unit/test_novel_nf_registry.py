@@ -1,10 +1,10 @@
 """NOVEL subworkflow and main.nf wiring against the step registry (issue M7-08 rules 7-8;
-GIAP_SPEC.md §6.3, §9.1). Static checks, no Nextflow needed, as
+GIPPA_SPEC.md §6.3, §9.1). Static checks, no Nextflow needed, as
 tests/unit/test_mapping_nf_registry.py does for MAPPING:
 
 * ``workflow/subworkflows/local/novel.nf`` takes ``genome, gene_model, contract, mapping,
   peptides, contaminants, gene_table, layers`` (in that order);
-* every py step of ``giap.steps.novel`` runs exactly once through a ``GIAP_STEP`` alias named
+* every py step of ``gippa.steps.novel`` runs exactly once through a ``GIPPA_STEP`` alias named
   after the step, its out-spec keys equal the registry's outputs, and every static ``stepIn`` key
   is a declared input;
 * the tools are ``PROMOTECH as PROMOTECH_NOVEL`` and ``OSTIR as OSTIR_NOVEL`` from the existing
@@ -39,15 +39,15 @@ PUBLISHED = {
 
 
 def _registry() -> dict[str, dict[str, list[str]]]:
-    from giap.steps import load_step_modules
-    from giap.steps.registry import all_steps
+    from gippa.steps import load_step_modules
+    from gippa.steps.registry import all_steps
 
     load_step_modules()
     return {
         s.name: {"inputs": sorted(s.inputs), "optional_inputs": sorted(s.optional_inputs),
                  "outputs": sorted(s.outputs)}
         for s in all_steps()
-        if s.kind == "py" and getattr(s.func, "__module__", "") == "giap.steps.novel"
+        if s.kind == "py" and getattr(s.func, "__module__", "") == "gippa.steps.novel"
     }  # fmt: skip
 
 
@@ -122,14 +122,14 @@ def test_take_block_in_order() -> None:
     assert names == TAKE
 
 
-def test_every_novel_step_runs_once_through_its_giap_step_alias() -> None:
+def test_every_novel_step_runs_once_through_its_gippa_step_alias() -> None:
     text = _text()
     calls = _step_calls(text)
     assert set(calls) == PY_STEPS, sorted(calls)
-    gs = next((v for k, v in _includes(text).items() if k.endswith("giap_step/main")), set())
+    gs = next((v for k, v in _includes(text).items() if k.endswith("gippa_step/main")), set())
     for step, (alias, _, _) in calls.items():
         assert alias == step.upper(), f"alias {alias} runs {step}"
-        assert f"GIAP_STEP as {alias}" in gs, f"{alias} is not `GIAP_STEP as {alias}`"
+        assert f"GIPPA_STEP as {alias}" in gs, f"{alias} is not `GIPPA_STEP as {alias}`"
     assert set(_step_vars(text).values()) == PY_STEPS
 
 
@@ -167,7 +167,7 @@ def test_tools_reuse_the_existing_modules() -> None:
 
 
 def test_steps_never_import_the_gpl_tools() -> None:
-    src = (REPO / "src" / "giap" / "steps" / "novel.py").read_text(encoding="utf-8")
+    src = (REPO / "src" / "gippa" / "steps" / "novel.py").read_text(encoding="utf-8")
     assert not re.search(r"^\s*(import|from)\s+(ostir|promotech)\b", src, flags=re.M)
 
 
@@ -181,13 +181,13 @@ def test_novel_orfs_publishes_the_four_tables() -> None:
 
 
 def test_local_executor_publishes_the_same_names() -> None:
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     assert {k: PUBLISHED_FILES.get(k) for k in PUBLISHED} == PUBLISHED
 
 
 def test_local_publish_copies_the_four_tables(tmp_path: Path) -> None:
-    from giap.runner.local import publish
+    from gippa.runner.local import publish
 
     work, out = tmp_path / "work", tmp_path / "OUT"
     work.mkdir()

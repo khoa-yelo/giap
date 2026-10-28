@@ -1,6 +1,6 @@
 """The local executor publishes the same files under the same names as Nextflow (§6.4, §9.1).
 
-The ``key=path`` names live in the Nextflow subworkflows; ``giap.runner.local.PUBLISHED_FILES``
+The ``key=path`` names live in the Nextflow subworkflows; ``gippa.runner.local.PUBLISHED_FILES``
 repeats them, so this pins the two together (lead fix after the code review of #145: the local
 executor wrote no ``tables/`` at all).
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.runner.local import PUBLISHED_FILES, publish
+from gippa.runner.local import PUBLISHED_FILES, publish
 
 ROOT = Path(__file__).resolve().parents[2]
 

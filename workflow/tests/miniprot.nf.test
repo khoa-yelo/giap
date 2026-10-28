@@ -1,8 +1,8 @@
 // M3-12 lead decision 3 after code review (PR #47): the MINIPROT process
-// (workflow/modules/local/miniprot/main.nf; GIAP_SPEC.md §7.2.3, §7.1.1).
+// (workflow/modules/local/miniprot/main.nf; GIPPA_SPEC.md §7.2.3, §7.1.1).
 // - stub run: emits miniprot.gff (a minimal valid GFF) and versions.yml;
 // - module contract: task.ext.args reaches the alignment command;
-// - pipeline wiring: mapping.proteins.miniprot_args (params.mapping, written by `giap run` like
+// - pipeline wiring: mapping.proteins.miniprot_args (params.mapping, written by `gippa run` like
 //   params.annotation) reaches the command via ext.args, with no hard-coded default in main.nf.
 // The non-stub tests put a fake miniprot (workflow/tests/bin/miniprot) on PATH that records its argv.
 // ci.yml runs: nf-test test workflow/tests --profile test,stub

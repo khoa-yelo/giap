@@ -1,12 +1,12 @@
 """``scripts/slurm/calibration_sharded.sh SUITE N [extra]``: N shard jobs plus one dependent
-``--merge`` job of ``calibration_full.sbatch`` sharing one ``GIAP_CALIBRATION_LOG_DIR``.
+``--merge`` job of ``calibration_full.sbatch`` sharing one ``GIPPA_CALIBRATION_LOG_DIR``.
 
 Runs under bash with a stub ``sbatch`` on PATH (no job is submitted): the stub logs its arguments
-(one call per line, fields separated by ``\\x1f``), logs the ``GIAP_CALIBRATION_LOG_DIR`` it was
+(one call per line, fields separated by ``\\x1f``), logs the ``GIPPA_CALIBRATION_LOG_DIR`` it was
 called with, and prints an increasing job id. A stub ``squeue`` (review of PR #327, R14 guard)
 prints the jobs of ``STUB_SQUEUE_ROWS`` (JSON) as real squeue does: ``-o``/``--format`` (``%i
 %A %j %C %T %t %u %D %P %M %N %R``, with widths and truncation), ``-O``/``--Format``, ``-h``,
-``-u``/``--user``/``--me`` (without one, another user's ``giap-*`` jobs are listed too),
+``-u``/``--user``/``--me`` (without one, another user's ``gippa-*`` jobs are listed too),
 ``-t``/``--states`` and ``-n``/``--name``; ``STUB_SQUEUE_FAIL=1`` makes it exit 1.
 """
 
@@ -32,7 +32,7 @@ STUB_SBATCH = r"""#!/bin/bash
 n=$(( $(cat "$STUB_COUNT" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$STUB_COUNT"
 if [ "${STUB_FAIL_AT:-0}" = "$n" ]; then echo "sbatch: error" >&2; exit 1; fi
 (IFS=$'\x1f'; echo "$*") >> "$STUB_LOG"
-printf '%s\n' "${GIAP_CALIBRATION_LOG_DIR-<unset>}" >> "$STUB_ENV_LOG"
+printf '%s\n' "${GIPPA_CALIBRATION_LOG_DIR-<unset>}" >> "$STUB_ENV_LOG"
 echo "$((1000 + n));cluster"
 """
 
@@ -115,7 +115,7 @@ for r in rows:
 def run(
     tmp: Path, *args: str, env: dict[str, str] | None = None
 ) -> tuple[int, list[list[str]], str]:
-    stub_repo = tmp / "giap"
+    stub_repo = tmp / "gippa"
     (stub_repo / "scripts").mkdir(parents=True, exist_ok=True)
     (stub_repo / "scripts" / "farmshare_env.sh").write_text("# stub\n")
     bindir = tmp / "bin"
@@ -130,9 +130,9 @@ def run(
     full = {
         "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
         "HOME": str(tmp),
-        "GIAP_REPO": str(stub_repo),
-        "GIAP_ROOT": str(tmp / "root"),
-        "GIAP_PYTHON": sys.executable,
+        "GIPPA_REPO": str(stub_repo),
+        "GIPPA_ROOT": str(tmp / "root"),
+        "GIPPA_PYTHON": sys.executable,
         "STUB_LOG": str(log),
         "STUB_COUNT": str(tmp / "count"),
         "STUB_ENV_LOG": str(tmp / "env.txt"),
@@ -148,7 +148,7 @@ def run(
 
 
 def submit_envs(tmp: Path) -> list[str]:
-    """``GIAP_CALIBRATION_LOG_DIR`` in the environment of each sbatch call."""
+    """``GIPPA_CALIBRATION_LOG_DIR`` in the environment of each sbatch call."""
     path = tmp / "env.txt"
     return path.read_text().splitlines() if path.exists() else []
 
@@ -157,7 +157,7 @@ def exported_log_dir(call: list[str], submit_env: str) -> str | None:
     """The log dir the job gets, as sbatch parses ``--export`` (comma-separated, ``ALL`` keeps
     the submitting environment): an explicit assignment wins, else the inherited value."""
     entries = str(opt(call, "export")).split(",")
-    assigned = [e.split("=", 1)[1] for e in entries if e.startswith("GIAP_CALIBRATION_LOG_DIR=")]
+    assigned = [e.split("=", 1)[1] for e in entries if e.startswith("GIPPA_CALIBRATION_LOG_DIR=")]
     if assigned:
         return assigned[-1]
     return submit_env if "ALL" in entries and submit_env != "<unset>" else None
@@ -177,7 +177,7 @@ def harness_args(call: list[str]) -> list[str]:
 def test_submits_n_shards_then_a_dependent_merge(tmp_path: Path, n: int) -> None:
     logdir = tmp_path / "shared"
     rc, calls, out = run(tmp_path, "discordance", str(n), "--fast",
-                         env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)})  # fmt: skip
+                         env={"GIPPA_CALIBRATION_LOG_DIR": str(logdir)})  # fmt: skip
     assert rc == 0, out
     assert len(calls) == n + 1, calls
     task = str(C.array_suites().index("discordance"))
@@ -185,15 +185,15 @@ def test_submits_n_shards_then_a_dependent_merge(tmp_path: Path, n: int) -> None
     for k, call in enumerate(calls[:n]):
         assert opt(call, "array") == task and opt(call, "dependency") is None, call
         assert harness_args(call) == ["--shard", f"{k}/{n}", "--fast"], call
-        assert opt(call, "job-name") == f"giap-cal-discordance-s{k}"
+        assert opt(call, "job-name") == f"gippa-cal-discordance-s{k}"
     merge = calls[-1]
     assert opt(merge, "dependency") == "afterany:" + ":".join(ids), merge
     assert harness_args(merge) == ["--merge", "--fast"] and opt(merge, "array") == task
-    assert str(opt(merge, "job-name")).startswith("giap-")
+    assert str(opt(merge, "job-name")).startswith("gippa-")
     for call, env in zip(calls, submit_envs(tmp_path), strict=True):  # one shared log dir
         exp = str(opt(call, "export"))
         assert exported_log_dir(call, env) == str(logdir), (exp, env)
-        assert f"GIAP_WORKTREE={REPO}" in exp.split(","), exp
+        assert f"GIPPA_WORKTREE={REPO}" in exp.split(","), exp
         assert call[-len(harness_args(call)) - 1] == str(
             REPO / "scripts/slurm/calibration_full.sbatch"
         )
@@ -211,7 +211,7 @@ def test_shards_cover_every_replicate_of_the_suite(tmp_path: Path) -> None:
     assert got == list(range(R))
 
 
-def test_default_log_dir_is_fresh_under_giap_root(tmp_path: Path) -> None:
+def test_default_log_dir_is_fresh_under_gippa_root(tmp_path: Path) -> None:
     rc, calls, out = run(tmp_path, "discordance", "2")
     assert rc == 0, out
     dirs = {exported_log_dir(c, e) for c, e in zip(calls, submit_envs(tmp_path), strict=True)}
@@ -221,7 +221,7 @@ def test_default_log_dir_is_fresh_under_giap_root(tmp_path: Path) -> None:
 
 def test_sbatch_extra_options_reach_every_job(tmp_path: Path) -> None:
     rc, calls, out = run(
-        tmp_path, "discordance", "2", env={"GIAP_SBATCH_EXTRA": "--time=01:00:00 --qos=normal"}
+        tmp_path, "discordance", "2", env={"GIPPA_SBATCH_EXTRA": "--time=01:00:00 --qos=normal"}
     )
     assert rc == 0, out
     assert all(opt(c, "time") == "01:00:00" and opt(c, "qos") == "normal" for c in calls), calls
@@ -247,7 +247,7 @@ def test_existing_suite_log_is_refused(tmp_path: Path) -> None:
     logdir.mkdir()
     (logdir / "discordance.jsonl").write_text("{}\n")
     rc, calls, out = run(
-        tmp_path, "discordance", "3", env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)}
+        tmp_path, "discordance", "3", env={"GIPPA_CALIBRATION_LOG_DIR": str(logdir)}
     )
     assert rc == 2 and calls == [], out
 
@@ -278,7 +278,7 @@ def test_any_existing_suite_file_is_refused(tmp_path: Path, stale: str) -> None:
     logdir.mkdir()
     (logdir / stale).write_text("{}\n")
     rc, calls, out = run(
-        tmp_path, "discordance", "3", env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)}
+        tmp_path, "discordance", "3", env={"GIPPA_CALIBRATION_LOG_DIR": str(logdir)}
     )
     assert rc == 2 and calls == [], out
 
@@ -289,17 +289,17 @@ def test_other_suites_files_are_not_stale(tmp_path: Path) -> None:
     (logdir / "regions.jsonl").write_text("{}\n")
     (logdir / "discordance_notes.txt").write_text("x\n")
     rc, calls, out = run(
-        tmp_path, "discordance", "2", env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)}
+        tmp_path, "discordance", "2", env={"GIPPA_CALIBRATION_LOG_DIR": str(logdir)}
     )
     assert rc == 0 and len(calls) == 3, out
 
 
 def test_a_comma_in_the_log_dir_reaches_the_jobs_whole(tmp_path: Path) -> None:
-    """Nit: ``--export=ALL,GIAP_CALIBRATION_LOG_DIR=/x/a,b`` hands the job ``/x/a``. Either refuse
+    """Nit: ``--export=ALL,GIPPA_CALIBRATION_LOG_DIR=/x/a,b`` hands the job ``/x/a``. Either refuse
     the path (exit 2, nothing submitted) or pass it so that sbatch gives every job all of it."""
     logdir = tmp_path / "a,b"
     rc, calls, out = run(tmp_path, "discordance", "2",
-                         env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)})  # fmt: skip
+                         env={"GIPPA_CALIBRATION_LOG_DIR": str(logdir)})  # fmt: skip
     if rc == 2:
         assert calls == [], out
         return
@@ -312,8 +312,8 @@ def _job(i: int, name: str, cpus: int, state: str = "RUNNING", user: str = "test
     return {"id": str(500 + i), "name": name, "cpus": cpus, "state": state, "user": user}
 
 
-#: jobs that never count: another user's giap-* job, the user's own non-giap job
-NOISE = [_job(90, "giap-someone-else", 200, "PENDING", user="other"), _job(91, "jupyter", 100)]
+#: jobs that never count: another user's gippa-* job, the user's own non-gippa job
+NOISE = [_job(90, "gippa-someone-else", 200, "PENDING", user="other"), _job(91, "jupyter", 100)]
 
 
 def _budget(tmp_path: Path, rows: list[dict], n: int, **env: str) -> tuple[int, list, str]:
@@ -325,15 +325,15 @@ def _budget(tmp_path: Path, rows: list[dict], n: int, **env: str) -> tuple[int, 
 @pytest.mark.parametrize(
     ("rows", "n", "ok"),
     [
-        ([_job(0, "giap-run-x", 96)], 7, True),  # 96 + 8 jobs x 4 CPUs = 128
-        ([_job(0, "giap-run-x", 96)], 8, False),  # 96 + 36 = 132 CPUs
-        ([_job(0, "giap-run-x", 96, "PENDING")], 8, False),  # pending CPUs count too
-        ([_job(0, "giap-a", 60), _job(1, "giap-b", 40, "PENDING")], 6, True),  # 100 + 28
-        ([_job(0, "giap-a", 60), _job(1, "giap-b", 40, "PENDING")], 7, False),  # 100 + 32
-        ([_job(i, f"giap-t{i}", 1) for i in range(15)], 4, True),  # 15 + 5 = 20 jobs
-        ([_job(i, f"giap-t{i}", 1) for i in range(15)], 5, False),  # 21 jobs
-        ([_job(i, f"giap-t{i}", 1, "PENDING") for i in range(15)], 5, False),
-        ([_job(i, f"giap-t{i}", 1, "PENDING" if i % 2 else "RUNNING") for i in range(19)], 1,
+        ([_job(0, "gippa-run-x", 96)], 7, True),  # 96 + 8 jobs x 4 CPUs = 128
+        ([_job(0, "gippa-run-x", 96)], 8, False),  # 96 + 36 = 132 CPUs
+        ([_job(0, "gippa-run-x", 96, "PENDING")], 8, False),  # pending CPUs count too
+        ([_job(0, "gippa-a", 60), _job(1, "gippa-b", 40, "PENDING")], 6, True),  # 100 + 28
+        ([_job(0, "gippa-a", 60), _job(1, "gippa-b", 40, "PENDING")], 7, False),  # 100 + 32
+        ([_job(i, f"gippa-t{i}", 1) for i in range(15)], 4, True),  # 15 + 5 = 20 jobs
+        ([_job(i, f"gippa-t{i}", 1) for i in range(15)], 5, False),  # 21 jobs
+        ([_job(i, f"gippa-t{i}", 1, "PENDING") for i in range(15)], 5, False),
+        ([_job(i, f"gippa-t{i}", 1, "PENDING" if i % 2 else "RUNNING") for i in range(19)], 1,
          False),  # 19 + 2 = 21 jobs
         ([], 10, True),  # only noise: 0 + 11 jobs x 4 = 44 CPUs
     ],
@@ -341,9 +341,9 @@ def _budget(tmp_path: Path, rows: list[dict], n: int, **env: str) -> tuple[int, 
 def test_r14_budget_is_checked_before_any_submission(
     tmp_path: Path, rows: list[dict], n: int, ok: bool
 ) -> None:
-    """Should-fix 5 (R14): sum the user's running + pending ``giap-*`` jobs and CPUs (squeue) and
+    """Should-fix 5 (R14): sum the user's running + pending ``gippa-*`` jobs and CPUs (squeue) and
     refuse when the N + 1 new jobs (4 CPUs each, calibration_full.sbatch) would pass 128 CPUs or
-    20 jobs. Another user's jobs and the user's non-giap jobs do not count."""
+    20 jobs. Another user's jobs and the user's non-gippa jobs do not count."""
     rc, calls, out = _budget(tmp_path, rows, n)
     assert (tmp_path / "squeue.jsonl").exists(), "the script never queried squeue"
     if ok:

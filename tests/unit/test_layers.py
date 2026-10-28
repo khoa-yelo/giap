@@ -1,7 +1,7 @@
-"""M2-20 ``giap.annotate.layers``: ``LAYER_COLUMNS``, ``gene_layers``, ``layer_flags``
-(docs/specs/M2-20-context-layers.md examples 2-6, edge cases; GIAP_SPEC.md §9.3, §9.4, §6.3).
+"""M2-20 ``gippa.annotate.layers``: ``LAYER_COLUMNS``, ``gene_layers``, ``layer_flags``
+(docs/specs/M2-20-context-layers.md examples 2-6, edge cases; GIPPA_SPEC.md §9.3, §9.4, §6.3).
 
-Inputs are the merged producers' outputs on giapsim SIM100K (``helpers.layers_chain``): every
+Inputs are the merged producers' outputs on gippasim SIM100K (``helpers.layers_chain``): every
 ``gene_layers`` argument is the DataFrame read with ``pd.read_parquet`` from the producer's file
 (``genes``, ``tus``, ``pairs_raw``, ``promoter_windows``, ``tx_rates``, ``terminators``, ``rbs``,
 ``codon``, ``region_genes``, ``replicons``), ``None`` for a missing optional layer.
@@ -9,7 +9,7 @@ Inputs are the merged producers' outputs on giapsim SIM100K (``helpers.layers_ch
 Pinned where the spec is silent (test author):
 
 * One row per gene of ``genes.parquet``, in that order; columns exactly ``LAYER_COLUMNS``.
-* ``region_ids`` and ``flags`` are native list cells (C6 contract, ``giap.genetable.contract``);
+* ``region_ids`` and ``flags`` are native list cells (C6 contract, ``gippa.genetable.contract``);
   ``flags`` is exactly the set {partial, crosses_origin, pseudogene, cai_reference} that applies.
 * Promoter / tx / terminator columns equal the merged per-gene functions (M2-13
   ``gene_promoter_features`` with ``promotech_yes``; M2-14 ``tu_tx_features`` of the gene's TU;
@@ -21,7 +21,7 @@ Pinned where the spec is silent (test author):
   result sorted, unique, every item ``layer_missing:<layer>``; ``genomad`` / ``antismash`` follow
   ``cfg.modules`` (``mobile`` / ``bgc``), ``tx_rates`` follows the key (and
   ``promoter_calculator.enabled``).
-* ``gc_local_dev`` (lead decision 4; GIAP_SPEC §7.8.1 / §9.3 "10-kb window GC - genome GC"):
+* ``gc_local_dev`` (lead decision 4; GIPPA_SPEC §7.8.1 / §9.3 "10-kb window GC - genome GC"):
   a float ``LAYER_COLUMNS`` column right after ``region_ids`` (its §9.3 context block);
   ``gene_layers(..., genome=<contig -> sequence>)`` fills it, ``genome=None`` gives NA. The pure
   function ``gc_local_dev(genes, replicons, genome, window=10_000)`` returns one float per gene
@@ -54,7 +54,7 @@ from helpers.layers_chain import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 SPEC_COLUMNS = (
     "locus_tag", "tu_id", "tu_position", "tu_size", "uniop_p_prev", "uniop_p_next", "region_ids",
@@ -110,15 +110,15 @@ def _gene_runs(chain: Chain, strand: str) -> list[tuple[str, str, str]]:
 
 
 def test_layer_columns_are_the_spec_tuple() -> None:
-    from giap.annotate.layers import LAYER_COLUMNS
+    from gippa.annotate.layers import LAYER_COLUMNS
 
     assert tuple(LAYER_COLUMNS) == SPEC_COLUMNS
 
 
 def test_layer_columns_equal_the_c6_contract_columns() -> None:
     """M4-06 C6 consumes layers.parquet with exactly these columns."""
-    from giap.annotate.layers import LAYER_COLUMNS
-    from giap.genetable.contract import CONTRACT_COLUMNS
+    from gippa.annotate.layers import LAYER_COLUMNS
+    from gippa.genetable.contract import CONTRACT_COLUMNS
 
     assert tuple(LAYER_COLUMNS) == CONTRACT_COLUMNS["layers"]
 
@@ -129,7 +129,7 @@ def test_one_row_per_gene_in_gene_table_order(chain: Chain, layers: pd.DataFrame
 
 
 def test_layers_frame_passes_the_c6_contract(chain: Chain, layers: pd.DataFrame) -> None:
-    from giap.genetable.contract import validate_inputs, validate_table
+    from gippa.genetable.contract import validate_inputs, validate_table
 
     errors = [i for i in validate_table("layers", layers) if i.severity == "error"]
     assert not errors, errors
@@ -236,7 +236,7 @@ def test_property_tu_positions_and_shared_pair_probabilities(
     df = call_gene_layers(read_layers_frames(chain, pairs_raw=pairs, tus=tus)).set_index(
         "locus_tag"
     )
-    thr = GiapConfig().annotation.uniop.pair_threshold
+    thr = GippaConfig().annotation.uniop.pair_threshold
     for gs in pd.read_parquet(tus)["genes"]:
         gs = list(gs)
         assert [int(df.loc[x, "tu_position"]) for x in gs] == list(range(1, len(gs) + 1))
@@ -249,7 +249,7 @@ def test_property_tu_positions_and_shared_pair_probabilities(
 
 
 # ----------------------------------------------------------------------------- gc_local_dev
-# Lead decision 4: GIAP_SPEC §7.8.1 / §9.3 "gc_local_dev (10-kb window GC - genome GC)".
+# Lead decision 4: GIPPA_SPEC §7.8.1 / §9.3 "gc_local_dev (10-kb window GC - genome GC)".
 #
 # Small genome (hand-computed, window = 10 so the half-window is 5):
 #   c1 circular, 20 bp: GGGGG AAAAAAAAAA CCCCC   (0-4 G, 5-14 A, 15-19 C)  ACGT 20, GC 10
@@ -295,7 +295,7 @@ def _gc_frames(
 
 
 def _gc(genes: pd.DataFrame, reps: pd.DataFrame, seqs: dict[str, str], **kw: int) -> list[float]:
-    from giap.annotate.layers import gc_local_dev
+    from gippa.annotate.layers import gc_local_dev
 
     got = gc_local_dev(genes, reps, seqs, **kw)
     assert len(got) == len(genes)
@@ -303,7 +303,7 @@ def _gc(genes: pd.DataFrame, reps: pd.DataFrame, seqs: dict[str, str], **kw: int
 
 
 def test_layer_columns_include_gc_local_dev() -> None:
-    from giap.annotate.layers import LAYER_COLUMNS
+    from gippa.annotate.layers import LAYER_COLUMNS
 
     assert "gc_local_dev" in LAYER_COLUMNS
     assert LAYER_COLUMNS.index("gc_local_dev") == LAYER_COLUMNS.index("region_ids") + 1
@@ -468,20 +468,20 @@ def test_example_4_gene_in_prophage_and_plasmid(chain: Chain, layers: pd.DataFra
 def test_example_5_core_only_has_no_prophage_or_bgc_ids(chain: Chain, tmp_path: Path) -> None:
     """modules=[core]: region_layer runs without geNOMAD / antiSMASH (annotate.nf), so no
     prophage / bgc ids; the run flags name both missing tools."""
-    from giap.annotate.layers import layer_flags
+    from gippa.annotate.layers import layer_flags
 
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
         reg.run_step(
-            "region_layer", GiapConfig(seed=1, modules=["core"]),
+            "region_layer", GippaConfig(seed=1, modules=["core"]),
             {k: chain.inputs[k] for k in ("genes", "features", "replicons")}, outs,
         )  # fmt: skip
     df = call_gene_layers(read_layers_frames(chain, region_genes=outs["region_genes"]))
     ids = {x for cell in df["region_ids"] for x in _list(cell)}
     assert not {x for x in ids if x.startswith(("prophage_", "bgc_"))}
     assert "plasmid_1" in ids  # the Bakta replicon table still gives the plasmid region
-    flags = layer_flags(GiapConfig(seed=1, modules=["core"]), ALL_KEYS)
+    flags = layer_flags(GippaConfig(seed=1, modules=["core"]), ALL_KEYS)
     assert {"layer_missing:genomad", "layer_missing:antismash"} <= set(flags)
 
 
@@ -489,12 +489,12 @@ def test_example_5_core_only_has_no_prophage_or_bgc_ids(chain: Chain, tmp_path: 
 
 
 def test_example_6_no_tx_rates_gives_na_and_flag(chain: Chain) -> None:
-    from giap.annotate.layers import layer_flags
+    from gippa.annotate.layers import layer_flags
 
     df = call_gene_layers(read_layers_frames(chain, tx_rates=None))
     for c in TX_COLS:
         assert df[c].isna().all(), c
-    cfg = GiapConfig.model_validate({"annotation": {"promoter_calculator": {"enabled": False}}})
+    cfg = GippaConfig.model_validate({"annotation": {"promoter_calculator": {"enabled": False}}})
     assert "layer_missing:tx_rates" in layer_flags(cfg, ALL_KEYS - {"tx_rates"})
 
 
@@ -512,7 +512,7 @@ def test_tx_columns_are_the_tu_features(chain: Chain, layers: pd.DataFrame) -> N
 def test_promoter_columns_are_the_gene_promoter_features(
     chain: Chain, layers: pd.DataFrame
 ) -> None:
-    yes = GiapConfig().annotation.promoters.promotech_yes
+    yes = GippaConfig().annotation.promoters.promotech_yes
     want = orc.promoter_features(read_layers_frames(chain), yes)
     for r in layers.itertuples(index=False):
         w = want.loc[r.locus_tag]
@@ -609,9 +609,9 @@ def test_partial_gene_keeps_its_layer_values(chain: Chain, layers: pd.DataFrame)
 
 
 def test_layer_flags_all_present_all_modules_is_empty() -> None:
-    from giap.annotate.layers import layer_flags
+    from gippa.annotate.layers import layer_flags
 
-    assert tuple(layer_flags(GiapConfig(), ALL_KEYS)) == ()
+    assert tuple(layer_flags(GippaConfig(), ALL_KEYS)) == ()
 
 
 @pytest.mark.parametrize(
@@ -624,9 +624,9 @@ def test_layer_flags_all_present_all_modules_is_empty() -> None:
     ],
 )
 def test_layer_flags(modules: list[str], present: set[str], want: set[str]) -> None:
-    from giap.annotate.layers import layer_flags
+    from gippa.annotate.layers import layer_flags
 
-    got = tuple(layer_flags(GiapConfig(modules=modules), set(present)))
+    got = tuple(layer_flags(GippaConfig(modules=modules), set(present)))
     assert want <= set(got)
     assert list(got) == sorted(set(got))
     assert all(f.startswith("layer_missing:") for f in got)

@@ -1,7 +1,7 @@
 """M8-04b: TU-counted detection ORA (docs/specs/M8-04-category-summary-ora.md §2, §4-§7, examples
 1-10 and the degenerate-case table; ADR-0029, ADR-0035).
 
-Interface pinned here (module ``giap.function.ora``):
+Interface pinned here (module ``gippa.function.ora``):
 
 - ``tu_universe(genes, folds) -> TuUniverse`` and ``tu_members(u, genes) -> frozenset[int]``;
 - ``detection_enrichment(genes, colls, size, alpha, *, folds) -> DataFrame`` with the columns
@@ -56,7 +56,7 @@ from helpers.ora_data import (
 )
 from scipy.stats import hypergeom
 
-from giap.stats.multitest import bh
+from gippa.stats.multitest import bh
 
 ALPHA = 0.05
 ALL = (1, 500)
@@ -370,7 +370,7 @@ def test_elim_is_over_only_under_rows_use_the_full_set() -> None:
 def test_p_classic_is_gene_level_wallenius_on_the_full_set() -> None:
     """``p_classic`` is never elim'd: A's over row uses all five genes (k = 3 of them: g1, g4,
     g5) with ω = mean p in A / mean p outside, as M8-01's ``wallenius_ora``."""
-    from giap.stats.wallenius import wallenius_ora
+    from gippa.stats.wallenius import wallenius_ora
 
     g = _elim_frame(0.05)
     out = _run(g, [_go()])

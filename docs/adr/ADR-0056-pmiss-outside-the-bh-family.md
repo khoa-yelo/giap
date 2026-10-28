@@ -47,7 +47,7 @@ through the step, with the M6-02 model *fitted*
 Setup: `operon_null(1800)` genomes (TU blocks and the `OPERON_T` within-TU walk). Detection is
 redrawn at peptide level, with logit = −11.5 + 0.5 a − 0.03 L + 0.8 GRAVY + o_g, and a gene is
 detected at ≥ 1 seen peptide (k_min = 1). C11 holds the seen peptides, and P(miss) comes from
-`giap.steps.operons.detection_limit` → `discordance`. Arms:
+`gippa.steps.operons.detection_limit` → `discordance`. Arms:
 - `null`: o_g = 0;
 - `gene_effect`: o_g ~ N(0, 1), a per-protein detectability the model does not see;
 - `gene_effect_05`: o_g ~ N(0, 0.5²);

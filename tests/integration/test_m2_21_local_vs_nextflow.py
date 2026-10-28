@@ -1,15 +1,15 @@
 """``--executor local`` and ``--executor nextflow`` give byte-identical tables (M2-21 example 4;
-GIAP_SPEC.md §6.4 "an integration test checks that they produce byte-identical tables on the
+GIPPA_SPEC.md §6.4 "an integration test checks that they produce byte-identical tables on the
 synthetic genome", §11.2 "local and Nextflow executors give identical tables").
 
 Example 4: ``test_local_vs_nextflow`` → ``cmp`` equal for ``operon_pairs.tsv``, ``tus.tsv``,
 ``regions.tsv`` and every BED.
 
-Inputs: the giapsim SIM100K genome with M3-19 proteomics and every precomputed layer
+Inputs: the gippasim SIM100K genome with M3-19 proteomics and every precomputed layer
 (``config.yaml``, §6.4), peptides only (the local executor cannot run miniprot), ``--modules
-core,mobile,bgc``, one seed. The same ``giap run`` arguments run once with ``--executor local`` and
-once with ``--executor nextflow --profile farmshare_local`` (real Nextflow, prebuilt GIAP env under
-the real ``$GIAP_ROOT``; no annotation tool runs because every layer is precomputed). The database
+core,mobile,bgc``, one seed. The same ``gippa run`` arguments run once with ``--executor local`` and
+once with ``--executor nextflow --profile farmshare_local`` (real Nextflow, prebuilt GIPPA env under
+the real ``$GIPPA_ROOT``; no annotation tool runs because every layer is precomputed). The database
 directory is the test DB of tests/helpers/mapping_steps.py, never the real one.
 
 Compared byte for byte: every ``*.tsv`` and ``*.bed`` under ``OUT/annotation/`` (the same file
@@ -34,17 +34,17 @@ NAMED = ("operon_pairs.tsv", "tus.tsv", "regions.tsv")
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 def _run(sim: Any, out: Path, *extra: str) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
     args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
@@ -71,7 +71,7 @@ def both(
     try:
         from helpers.mapping_steps import write_test_db
 
-        mp.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db_mod"))))
+        mp.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db_mod"))))
         mp.setenv("NXF_ANSI_LOG", "false")
         local = tmp_path_factory.mktemp("LOCAL") / "OUT"
         nf = tmp_path_factory.mktemp("NF") / "OUT"

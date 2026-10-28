@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.manifest_sources import read_detection_tier
+from gippa.io.manifest_sources import read_detection_tier
 
 GENES_HEADER = "gene_id\tproduct\tdetection_tier\n"
 SUMMARY_HEADER = "section\tgroup_type\tgroup\tvalue\n"

@@ -2,7 +2,7 @@
 
 ``summarize`` is pure: report columns, the converted tables read back, and the converter's issues
 in; counts, issues and rule failures out. The ``summary`` CLI reads the files, adds paths, hashes,
-the giap version and the job, and writes ``<a>.convert.json`` (paths, hashes and counts only, no
+the gippa version and the job, and writes ``<a>.convert.json`` (paths, hashes and counts only, no
 row; Q-K1). Exit 1 when a summary rule fails.
 
     python -I validation/pilot/diann_convert.py summary --arm A1 --report R --peptides P \\
@@ -27,20 +27,20 @@ from typing import Any
 
 _REPO = Path(__file__).resolve().parents[2]
 _SRC = _REPO / "src"
-if not _SRC.is_dir() and os.environ.get("GIAP_REPO"):
-    _SRC = Path(os.environ["GIAP_REPO"]) / "src"
+if not _SRC.is_dir() and os.environ.get("GIPPA_REPO"):
+    _SRC = Path(os.environ["GIPPA_REPO"]) / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 import pandas as pd  # noqa: E402
 
-from giap.config.model import InputConfig  # noqa: E402
-from giap.io.issues import Issue  # noqa: E402
-from giap.io.tsv import format_value  # noqa: E402
+from gippa.config.model import InputConfig  # noqa: E402
+from gippa.io.issues import Issue  # noqa: E402
+from gippa.io.tsv import format_value  # noqa: E402
 
 SEARCH_DB = {"A1": "other", "A2": "same"}
 Q_CUT = 0.01
-_ISSUE = re.compile(r"^giap convert: (error|warn|info): (\S+?): (.*)$")
+_ISSUE = re.compile(r"^gippa convert: (error|warn|info): (\S+?): (.*)$")
 _ROWS = re.compile(r"\((\d+) rows\)")
 
 
@@ -105,7 +105,7 @@ def summarize(
 
 
 def parse_log(text: str) -> list[Issue]:
-    """The issue lines ``giap convert`` printed to stderr."""
+    """The issue lines ``gippa convert`` printed to stderr."""
     out = []
     for line in text.splitlines():
         m = _ISSUE.match(line)
@@ -145,7 +145,7 @@ def _git(repo: Path, *args: str) -> str | None:
     return r.stdout.strip() if r.returncode == 0 else None
 
 
-def _giap() -> dict[str, Any]:
+def _gippa() -> dict[str, Any]:
     """Version, commit and dirty flag of the checkout this module runs from (``_REPO``).
 
     ``dirty`` counts tracked edits and untracked files under the code directories, bytecode
@@ -153,7 +153,7 @@ def _giap() -> dict[str, Any]:
     """
     import platform
 
-    import giap
+    import gippa
 
     commit = _git(_REPO, "rev-parse", "--verify", "HEAD")
     status = _git(
@@ -168,7 +168,7 @@ def _giap() -> dict[str, Any]:
         ]
         dirty = bool(lines)
     return {
-        "version": {"giap": giap.__version__, "python": platform.python_version()},
+        "version": {"gippa": gippa.__version__, "python": platform.python_version()},
         "commit": commit or None,
         "dirty": dirty,
     }
@@ -181,7 +181,7 @@ def _now() -> str:
 def main(argv: list[str] | None = None) -> int:
     import pyarrow.parquet as pq
 
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     ap = argparse.ArgumentParser(prog="diann_convert.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -198,7 +198,7 @@ def main(argv: list[str] | None = None) -> int:
     abundance = pd.read_csv(a.abundance, sep="\t")
     log = a.log.read_text()
     out = summarize(report, peptides, abundance, parse_log(log))
-    command = ["giap", "convert", "--from", "diann", str(a.report), "--out"]
+    command = ["gippa", "convert", "--from", "diann", str(a.report), "--out"]
     command += [str(_final(a.peptides)), "--abundance-out", str(_final(a.abundance))]
     command += ["--search-db", SEARCH_DB[a.arm]]
     doc = {
@@ -210,12 +210,12 @@ def main(argv: list[str] | None = None) -> int:
             "abundance": _file(a.abundance, len(abundance)),
             "log": _file(a.log, len(log.splitlines())),
         },
-        "giap": _giap(),
+        "gippa": _gippa(),
         "command": command,
         "job": {
             "id": os.environ.get("SLURM_JOB_ID", ""),
             "node": os.environ.get("SLURMD_NODENAME") or socket.gethostname(),
-            "start": os.environ.get("GIAP_JOB_START", ""),
+            "start": os.environ.get("GIPPA_JOB_START", ""),
             "end": _now(),
         },
         **out,

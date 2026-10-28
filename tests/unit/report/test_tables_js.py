@@ -1,18 +1,18 @@
 """Sortable and filterable report tables (M9-14 behaviour 4; examples 4 and 5; degenerate row
-"a table with 0 rows"; GIAP_SPEC.md §10.3 "Every table section shows the top rows, sortable and
+"a table with 0 rows"; GIPPA_SPEC.md §10.3 "Every table section shows the top rows, sortable and
 filterable"; index decision 24).
 
 Lead decision 1: no headless browser, so the rules are tested through a pure-Python mirror of the
 JS rules plus a structural check of the inlined ``tables.js``.
 
 Interface assumed beyond the spec text (M9-14 test author):
-- the mirror is ``giap.report.tables`` (pure, no I/O), the reference the JS follows:
+- the mirror is ``gippa.report.tables`` (pure, no I/O), the reference the JS follows:
   ``NA = "NA"``; ``is_number(cell) -> bool``; ``numeric_column(cells) -> bool`` (every
   non-``NA`` cell is a number); ``sort_order(cells, descending=False) -> list[int]`` (row indices
   in display order: numeric sort when ``numeric_column``, else string sort; ties keep their order;
   ``NA`` always last in both directions); ``row_matches(cells, query) -> bool``
   (case-insensitive substring over the row; an empty query matches every row);
-- ``src/giap/report/templates/tables.js`` is inlined verbatim (stripped) in one ``<script>``
+- ``src/gippa/report/templates/tables.js`` is inlined verbatim (stripped) in one ``<script>``
   without ``src``, under both ``report.interactive`` settings (it is not Plotly);
 - each ``<table data-table=K>`` has exactly one ``<input data-filter=K>`` filter box.
 
@@ -40,7 +40,7 @@ from hypothesis import strategies as st
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _mirror() -> ModuleType:
-    import giap.report.tables as tables
+    import gippa.report.tables as tables
 
     return tables
 
@@ -191,7 +191,7 @@ def test_property_any_cell_substring_matches(row: list[str], data: st.DataObject
 
 
 def _js() -> str:
-    return (resources.files("giap.report") / "templates" / "tables.js").read_text(encoding="utf-8")
+    return (resources.files("gippa.report") / "templates" / "tables.js").read_text(encoding="utf-8")
 
 
 def test_tables_js_is_small_vanilla_and_offline() -> None:

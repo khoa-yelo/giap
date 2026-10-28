@@ -1,7 +1,7 @@
-# M6-03: giapsim — operon nulls, planted co-abundance, planted discordance and the attacks
+# M6-03: gippasim — operon nulls, planted co-abundance, planted discordance and the attacks
 
 Milestone M6 · track F (simulator; tooling written by the implementer, tested by the test-author) ·
-**pass 2** · depends on: nothing (merged giapsim M4-07/08/09, M5-04) · estimate ≈ 40 code lines in
+**pass 2** · depends on: nothing (merged gippasim M4-07/08/09, M5-04) · estimate ≈ 40 code lines in
 `src/` (contract additions) + ≈ 260 lines in `tests/sim/` (+ ≈ 250 test lines) · statistical
 (light): the statistician signs off the generators M6-09 gates on
 
@@ -17,7 +17,7 @@ Milestone M6 · track F (simulator; tooling written by the implementer, tested b
 
 ## What the simulator must add
 
-`tests/sim/giapsim/scenarios.py`
+`tests/sim/gippasim/scenarios.py`
 ```python
 def operon_null(n_genes: int, *, rho: float = 0.0) -> Pair: ...
 def missed_operon_power(n_genes: int, n_planted: int, effect_sd: float) -> Pair: ...
@@ -44,14 +44,14 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    lesson) with small intergenic gaps, so detection and distance are confounded: the decoy
    reweighting bins on distance, and the detection filter removes targets and decoys at different
    rates.
-6. **UniOP-like probabilities.** The merged `giapsim.layers._operon_pairs` already writes
+6. **UniOP-like probabilities.** The merged `gippasim.layers._operon_pairs` already writes
    `precomputed/operon_pairs.tsv`; these scenarios must guarantee a configurable share of pairs
    above and below 0.5 and record the *true* operon membership separately, so "UniOP is wrong"
    can be simulated (a planted co-abundant NO pair is exactly a UniOP false negative).
 7. **Peptide-level truth** for M6-02: the merged evidence simulator (M4-09) already emits observable
    peptides and per-run observations; these scenarios set a detection regime in which a known set of
    genes is undetected while its partner is detected.
-8. **Contract entry.** The new truth files are declared in `giapsim.contract_tables`, as M5-04
+8. **Contract entry.** The new truth files are declared in `gippasim.contract_tables`, as M5-04
    declared C15.
 
 ## Degenerate cases
@@ -73,7 +73,7 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
 | 4 | `discordance_power(1800, 40, 2.0)` | 20 pairs with a planted promoter and Δ > 0, 20 with a planted terminator and Δ < 0, all in the truth file |
 | 5 | `operon_attack_ar1(1800, 0.9)` | lag-1 Moran's I of TU abundance ≥ 0.5; **no** planted operon effect in the truth |
 | 6 | `operon_attack_detection(1800, "prophage")` | detected fraction inside the block is ≤ half that outside, and the block's median intergenic gap is below the genome median |
-| 7 | the same seed twice | identical outputs (the standing giapsim property) |
+| 7 | the same seed twice | identical outputs (the standing gippasim property) |
 
 ## Acceptance criteria
 
@@ -82,7 +82,7 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
 - [ ] A calibration-style sanity test (`tests/calibration/test_sim_operon_calibration.py`, R = 20
   fast): the generators do what they claim — the null has no excess of small |Δ| among NO pairs
   relative to decoys, and the power scenarios do.
-- [ ] Runtime: a 1,800-gene scenario in < 5 s (the giapsim budget), recorded in `benchmarks/`.
+- [ ] Runtime: a 1,800-gene scenario in < 5 s (the gippasim budget), recorded in `benchmarks/`.
 - [ ] Documented in `docs/methods/operons.md` §"Simulations", including what each attack is built
   to break.
 
@@ -102,7 +102,7 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    level check is clean; the attack scenarios carry the realistic false-positive rates.
 2. The stop-codon read-through simulator line moves to the M7 backlog (M7-12 / M7-16); M6-03 does not
    implement it. Done in this commit.
-3. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+3. Feature loop: test-author → implementer (gippasim is tooling the implementer writes) → the
    statistician signs off the generators M6-09 gates on → code review.
 
 ## Lead decisions on the tests (2026-10-22, after 1e35b08)

@@ -1,6 +1,6 @@
 # De novo precision, estimated from the genome
 
-Implements `giap.mapping.denovo_precision` (GIAP_SPEC.md §7.2.5 "De novo precision, estimated from
+Implements `gippa.mapping.denovo_precision` (GIPPA_SPEC.md §7.2.5 "De novo precision, estimated from
 the genome" and step 4, §8.1, §8.4, §9.3, §9.4; issue M3-11; ADR-0010).
 
 **Status:** signed off by the statistician (M3-11 review, 2026-10-14; see Sign-off).
@@ -10,17 +10,17 @@ the genome" and step 4, §8.1, §8.4, §9.3, §9.4; issue M3-11; ADR-0010).
 **Status:** signed off by the statistician (M3-25 review of #124, 2026-10-20; ADR-0019 decisions
 1–5).
 
-`prec_b` estimates the **correct share among the distinct de novo peptides of GIAP score bin b**.
-Two consequences of "distinct" and "GIAP's bins":
+`prec_b` estimates the **correct share among the distinct de novo peptides of GIPPA score bin b**.
+Two consequences of "distinct" and "GIPPA's bins":
 
 - the unit is the distinct peptide string, after §5.3 collapses the rows of a peptide (`score` =
   max over its rows), not the spectrum or the read; a peptide is **correct** when its string
   (I = L) equals the `true_peptide` of at least one of the reads it was collapsed from;
-- the bins are GIAP's own score deciles over those aggregated scores (see Bins), not the bins or
+- the bins are GIPPA's own score deciles over those aggregated scores (see Bins), not the bins or
   the design parameters of whatever produced the input.
 
 Calibration therefore gates against that realised share, computed per bin from the truth table.
-giapsim's `truth/denovo_precision.tsv` is the **per-read design precision** of the error model —
+gippasim's `truth/denovo_precision.tsv` is the **per-read design precision** of the error model —
 a different quantity, over another unit and other bins — and is not the target of these gates.
 The two drift apart whenever correct and wrong reads collapse into peptides at different rates
 (a correct peptide is usually read several times; a wrong one once), which is the ordinary case.
@@ -59,7 +59,7 @@ class left has precision NA and flag `unreported`. `c_value` = Σ_l w_bl c_l ove
 1,000 resamples of the bin's peptides with replacement (drawn as one multinomial over the
 class × target-match × decoy-match cells, which is the same distribution and is invariant to row
 order), c_l held fixed; the same reportability rule is applied to each resample. CI = 2.5 % and
-97.5 % percentiles. RNG: `giap.rng.for_step("placement", seed)`. A bin with n = 1 yields a degenerate
+97.5 % percentiles. RNG: `gippa.rng.for_step("placement", seed)`. A bin with n = 1 yields a degenerate
 CI and is reported (n is visible).
 
 Equivalence. The estimator depends on a bin's rows only through the 4k cell counts (k classes), so
@@ -103,7 +103,7 @@ FDR holds with 5 peptides per bin.
 
 `tests/calibration/test_denovo_precision_calibration.py`: known p_b per bin, two classes; per-bin
 |bias| ≤ `denovo_precision_max_abs_bias` (0.05), 95 % CI coverage, and P(π̂ ≥ π) ≥ 0.975 within a
-binomial band. Genome-level validation with giapsim de novo errors is M3-21.
+binomial band. Genome-level validation with gippasim de novo errors is M3-21.
 
 `tests/calibration/attacks/test_attack_denovo_precision.py` (§8.5) feeds π̂ = 1 − ci_low into the
 ADR-0010 rule written out directly, FDR(e) = (Σ π̂ over decoy hits with E ≤ e + max π̂) / T(e),
@@ -143,12 +143,12 @@ Directions to remember:
 
 ## Sign-off
 
-Statistician (M3-11 review, 2026-10-14): **approved** for `giap.mapping.denovo_precision` as
+Statistician (M3-11 review, 2026-10-14): **approved** for `gippa.mapping.denovo_precision` as
 implemented: the estimator is §7.2.5's (a de novo peptide counts as matching only on an exact
 target hit, I = L; r_bl from exact shuffled-decoy hits; c_l per class from q ≤ 0.01 target
 reference peptides, entering only the denominator), the multinomial bootstrap is exactly the row
 bootstrap, and π̂ = 1 − ci_low keeps the ADR-0010 placement FDR at level in every at-level attack,
-including 5-peptide bins. Forwarded to M3-21 (genome-level, giapsim): measure c_ref − c_true and
+including 5-peptide bins. Forwarded to M3-21 (genome-level, gippasim): measure c_ref − c_true and
 the wrong-peptide target-vs-decoy match ratio, the two directions that make π̂ anti-conservative;
 consider a minimum reference count per class (or resampling c_l) and counting unreportable
 resamples as precision 0.

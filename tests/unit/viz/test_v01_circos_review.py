@@ -1,7 +1,7 @@
 """V1 ``circos``, review round of PR #212 (M9-08 lead decisions 5-19; review items B1-B8).
 
 Builders and readers come from ``tests/unit/viz/test_v01_circos.py``; nothing here touches
-``$GIAP_DB_DIR`` or the network. Angles are read from the drawn artists (polar data coordinates,
+``$GIPPA_DB_DIR`` or the network. Angles are read from the drawn artists (polar data coordinates,
 radians) and converted to replicon positions with a per-layout calibration: a ``+`` gene
 ``1..half`` on one replicon is one arc whose angular extent is exactly ``[x(0), x(half))``.
 
@@ -76,11 +76,11 @@ from unit.viz.test_v01_circos import (
     tsv,
 )
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.tsv import write_tsv
-from giap.viz import style
-from giap.viz.base import Instance
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.tsv import write_tsv
+from gippa.viz import style
+from gippa.viz.base import Instance
 
 L = 100_000
 BASE_TITLE = "3 of 5 genes detected (60 %)"
@@ -92,7 +92,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -147,7 +147,7 @@ class Axis:
 
 
 def calibrate(
-    tmp: Path, cfg: GiapConfig, replicons: Sequence[tuple[str, int, str]], contig: str
+    tmp: Path, cfg: GippaConfig, replicons: Sequence[tuple[str, int, str]], contig: str
 ) -> Axis:
     length = next(n for c, n, _ in replicons if c == contig)
     half = length // 2
@@ -192,7 +192,7 @@ def orf(
 
 
 def test_b1_origin_crossing_novel_orfs_rows_unwrap_with_the_strand(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     orfs = [
         orf("nplus", "+", 150, 99_901, 99_901),  # 99,901 .. 100,150 across the origin
@@ -203,7 +203,7 @@ def test_b1_origin_crossing_novel_orfs_rows_unwrap_with_the_strand(
 
 
 def test_b1_origin_crossing_novel_orfs_are_drawn_at_the_origin(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     orfs = [orf("nplus", "+", 150, 99_901, 99_901), orf("nminus", "-", 99_950, 100, 100)]
@@ -214,7 +214,7 @@ def test_b1_origin_crossing_novel_orfs_are_drawn_at_the_origin(
     assert max(far) <= 300, far  # every drawn piece lies on the short arc across the origin
 
 
-def test_b2_minus_tu_across_the_origin_wraps_its_start(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b2_minus_tu_across_the_origin_wraps_its_start(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     tus = [["TU_x", "chr1", 99_001, 101_000, "-", ["g1"], 101_001, 101_200]]
     inst = render(make_run(tmp_path, tus=tus), cfg)
@@ -244,7 +244,7 @@ def test_b1_novel_orf_rows_are_positions_modulo_length_never_clamped(
 # --- decision 15: novel-ORF position fallback -----------------------------------------------
 
 
-def test_decision15_novel_orf_position_fallback(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision15_novel_orf_position_fallback(tmp_path: Path, cfg: GippaConfig) -> None:
     orfs = [
         orf("a", "+", 80_300, 80_001, 80_101),  # OSTIR start wins
         orf("b", "+", 82_300, 82_001, None),  # then the longest start
@@ -271,7 +271,7 @@ def test_b3_style_rc_pins_savefig_bbox_and_padding() -> None:
 
 
 def test_b3_other_figures_keep_their_pixel_size_after_importing_circos(tmp_path: Path) -> None:
-    import giap.viz.circos  # noqa: F401  (imports pyCirclize)
+    import gippa.viz.circos  # noqa: F401  (imports pyCirclize)
 
     style.apply()
     fig = style.new_figure("single", 2.0)
@@ -290,7 +290,7 @@ def test_b3_other_figures_keep_their_pixel_size_after_importing_circos(tmp_path:
     assert png_size(png.read_bytes()) == (350, 200)
 
 
-def test_b3_v01_saves_at_double_width(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b3_v01_saves_at_double_width(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path), cfg)
     h = float(inst.figure.get_size_inches()[1])
     (png,) = [
@@ -338,7 +338,7 @@ def _support(out: Path, replicons: Sequence[tuple[str, int, str]]) -> None:
 
 
 @pytest.fixture
-def ncbi_inst(tmp_path: Path, cfg: GiapConfig) -> Instance:
+def ncbi_inst(tmp_path: Path, cfg: GippaConfig) -> Instance:
     genes = [
         gene("a1", "NZ_CP000001.1", 1_001, 2_000, "+", "detected", 20.0, length=4_600_000),
         gene("b1", "NZ_CP000002.1_plasmid_unnamed1", 101, 900, "-", "not_detected", length=60_000),
@@ -380,7 +380,7 @@ def test_b4_every_text_inside_the_canvas_5_replicons(ncbi_inst: Instance) -> Non
     assert _inside(ncbi_inst.figure) == []
 
 
-def test_b4_every_text_inside_the_canvas_full_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b4_every_text_inside_the_canvas_full_run(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(tmp_path, peptides=None, flags=["layer_missing:genomad"])
     assert _inside(render(out, cfg).figure) == []
 
@@ -421,7 +421,7 @@ def test_example7_landmark_and_gc_skew_rows(ncbi_inst: Instance, tmp_path: Path)
 NO_RING = ("cog", "go", "kegg", "tx_rates", "features", "hits_tolerant")
 
 
-def test_b6_missing_layers_note_names_only_v1_rings(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b6_missing_layers_note_names_only_v1_rings(tmp_path: Path, cfg: GippaConfig) -> None:
     base_texts = set(texts(render(full_run(tmp_path, name="A"), cfg).figure))
     flags = [f"layer_missing:{x}" for x in (*NO_RING, "genomad", "antismash")]
     flagged = set(texts(render(full_run(tmp_path, name="B", flags=flags), cfg).figure))
@@ -432,7 +432,7 @@ def test_b6_missing_layers_note_names_only_v1_rings(tmp_path: Path, cfg: GiapCon
 
 
 def test_b6_only_ringless_layers_missing_adds_no_layer_note(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     base_texts = set(texts(render(full_run(tmp_path, name="A"), cfg).figure))
     flags = [f"layer_missing:{x}" for x in NO_RING]
@@ -570,7 +570,7 @@ def test_b8_binned_abundance_is_the_bin_median(big: tuple[Instance, pd.DataFrame
     assert any(w is not None and w != max(w2 for w2 in want if w2 is not None) for w in want)
 
 
-def test_b8_exactly_20000_genes_are_not_binned(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b8_exactly_20000_genes_are_not_binned(tmp_path: Path, cfg: GippaConfig) -> None:
     n = 5_000_000
     genes = [
         gene(f"g{i}", "chr1", 1 + 200 * i, 150 + 200 * i, "+", length=n) for i in range(20_000)
@@ -587,7 +587,7 @@ def test_b8_exactly_20000_genes_are_not_binned(tmp_path: Path, cfg: GiapConfig) 
 
 
 def test_decision5_amr_without_coordinates_not_drawn_and_noted(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     with_xy = render(full_run(tmp_path, name="A"), cfg)
     regs = [*FULL_REGIONS, region("amr_2", "amr", "chr1", None, None)]
@@ -599,7 +599,7 @@ def test_decision5_amr_without_coordinates_not_drawn_and_noted(
     assert any("amr" in t.lower() for t in extra), extra
 
 
-def test_decision6_minus_tu_start_is_the_high_coordinate(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision6_minus_tu_start_is_the_high_coordinate(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     tus = [
         ["TU_1", "chr1", 1_001, 2_000, "+", ["g2"], 801, 1_000],
@@ -617,7 +617,7 @@ def test_decision6_minus_tu_start_is_the_high_coordinate(tmp_path: Path, cfg: Gi
     assert abs(got[0] - 1_000) <= 1.5 and abs(got[1] - 6_000) <= 1.5, got
 
 
-def test_promoter_ticks_at_the_transcription_start(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_promoter_ticks_at_the_transcription_start(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     beds = [("chr1", 2_000, 2_050, "p_plus", 500, "+"), ("chr1", 900, 950, "p_minus", 500, "-")]
     inst = render(make_run(tmp_path, promoters=beds), cfg)
@@ -628,7 +628,7 @@ def test_promoter_ticks_at_the_transcription_start(tmp_path: Path, cfg: GiapConf
     assert abs(got[0] - 950) <= 1.5 and abs(got[1] - 2_000) <= 1.5, got
 
 
-def test_decision8_singular_counts_in_the_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision8_singular_counts_in_the_title(tmp_path: Path, cfg: GippaConfig) -> None:
     out = full_run(
         tmp_path, islands=FULL_ISLANDS[:1], variants=FULL_VARIANTS[:1], novel_orfs=FULL_NOVEL[:1]
     )
@@ -638,7 +638,7 @@ def test_decision8_singular_counts_in_the_title(tmp_path: Path, cfg: GiapConfig)
 
 
 def test_decision8_suffix_lists_only_present_tables_zero_is_plural(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     a = render(full_run(tmp_path, name="A", variants=None), cfg)
     assert a.title == f"{BASE_TITLE}; 2 islands at FWER ≤ 0.05; 2 novel ORFs"
@@ -646,7 +646,7 @@ def test_decision8_suffix_lists_only_present_tables_zero_is_plural(
     assert b.title == f"{BASE_TITLE}; 2 islands at FWER ≤ 0.05; 0 ALT sites, 2 novel ORFs"
 
 
-def test_decision10_every_density_bin_has_a_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision10_every_density_bin_has_a_row(tmp_path: Path, cfg: GippaConfig) -> None:
     data = tsv(render(full_run(tmp_path), cfg), tmp_path)
     d = data[data["track"] == "peptide_density"]
     want = [("chr1", 1 + 10_000 * k, 10_000 * (k + 1)) for k in range(10)]
@@ -654,7 +654,7 @@ def test_decision10_every_density_bin_has_a_row(tmp_path: Path, cfg: GiapConfig)
     assert d["value"].astype(float).tolist() == [2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
-def test_density_bars_use_a_per_sector_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_density_bars_use_a_per_sector_scale(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     peps = [pep("chr1", s) for s in (5, 9_999, 10_001)] + [pep("plasmid_1", 101)]
     fig = render(make_run(tmp_path, peptides=peps), cfg).figure
@@ -671,12 +671,12 @@ def test_density_bars_use_a_per_sector_scale(tmp_path: Path, cfg: GiapConfig) ->
     assert p == pytest.approx(tall, rel=1e-6)  # the plasmid's 1 is its own maximum
 
 
-def test_decision12_islands_absent_drop_the_island_clause(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision12_islands_absent_drop_the_island_clause(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = render(full_run(tmp_path, islands=None), cfg)
     assert inst.title == f"{BASE_TITLE}; 2 ALT sites, 2 novel ORFs"
 
 
-def test_decision13a_zero_genes_draws_the_circle(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision13a_zero_genes_draws_the_circle(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_run(tmp_path, regions=FULL_REGIONS)
     inst = render(out, cfg)
     assert inst.title == "0 of 0 genes detected (NA)"
@@ -686,7 +686,7 @@ def test_decision13a_zero_genes_draws_the_circle(tmp_path: Path, cfg: GiapConfig
     assert len(elements(inst.figure, "region")) == 5
 
 
-def test_rows_with_equal_coordinates_sort_by_category(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rows_with_equal_coordinates_sort_by_category(tmp_path: Path, cfg: GippaConfig) -> None:
     regs = [
         region("x_plasmid", "plasmid", "chr1", 10_001, 20_000),
         region("x_crispr", "crispr", "chr1", 10_001, 20_000),
@@ -699,7 +699,7 @@ def test_rows_with_equal_coordinates_sort_by_category(tmp_path: Path, cfg: GiapC
 
 
 def test_second_piece_of_a_wrapped_gene_spans_0_to_end_minus_length(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     ax = calibrate(tmp_path, cfg, TWO, "chr1")
     g = [gene("g1", "chr1", 99_001, 101_000, "+", "detected")]
@@ -717,7 +717,7 @@ def test_second_piece_of_a_wrapped_gene_spans_0_to_end_minus_length(
 LINEAR = [("chr1", L, "linear")]
 
 
-def test_linear_contig_clips_a_feature_past_its_end(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_linear_contig_clips_a_feature_past_its_end(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, LINEAR, "chr1")
     g = [gene("g1", "chr1", 99_501, 100_400, "+", "detected")]
     fig = render(make_run(tmp_path, replicons=LINEAR, genes=g), cfg).figure
@@ -726,7 +726,7 @@ def test_linear_contig_clips_a_feature_past_its_end(tmp_path: Path, cfg: GiapCon
     assert abs(lo - 99_500) <= 0.25 and abs(hi - L) <= 0.25, (lo, hi)
 
 
-def test_linear_contig_has_gap_marks_at_both_ends(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_linear_contig_has_gap_marks_at_both_ends(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = calibrate(tmp_path, cfg, LINEAR, "chr1")
     fig = render(make_run(tmp_path, replicons=LINEAR), cfg).figure
     marks = [ax.pos(float(np.mean(s[:, 0]))) for s in shapes(fig, "sector")]

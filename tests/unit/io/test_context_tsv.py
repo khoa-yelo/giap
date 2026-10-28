@@ -2,16 +2,16 @@
 schemas (docs/specs/M5-09-context-tables-step.md "Public interface", examples 2, 3, 9, the edge
 cases and the acceptance item "examples 2, 3, 9 and round trips (dtype-aware) of both tables").
 
-GIAP_SPEC.md §9.2 (table conventions and test columns), §9.3 (the two column dictionaries), §9.5
+GIPPA_SPEC.md §9.2 (table conventions and test columns), §9.3 (the two column dictionaries), §9.5
 (Frictionless resources), §6.5 (0-based half-open internally, 1-based closed in the writer; an
 origin-crossing span keeps ``end > length``), ADR-0006 (``NA``, ``;`` lists, ``%.6g``).
 
 Interface assumed (spec "Public interface"; the writers do not exist yet)::
 
-    giap.io.context_tsv.write_autocorrelation(path, df)   # AUTOCORR_COLUMNS, no coordinates
-    giap.io.context_tsv.read_autocorrelation(path)        # inverse
-    giap.io.context_tsv.write_islands(path, df)           # ISLAND_COLUMNS, start + 1
-    giap.io.context_tsv.read_islands(path)                # inverse, start - 1
+    gippa.io.context_tsv.write_autocorrelation(path, df)   # AUTOCORR_COLUMNS, no coordinates
+    gippa.io.context_tsv.read_autocorrelation(path)        # inverse
+    gippa.io.context_tsv.write_islands(path, df)           # ISLAND_COLUMNS, start + 1
+    gippa.io.context_tsv.read_islands(path)                # inverse, start - 1
 
 Reader dtypes (the "dtype-aware" round trip): every ``integer`` field of the schema comes back as
 pandas nullable ``Int64`` (``lag`` carries NA, edge case 2, and so may ``start`` ... ``n_perm`` in
@@ -33,10 +33,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import context_tables_data as cd
 
-from giap.context.autocorrelation import AUTOCORR_COLUMNS
-from giap.context.islands import ISLAND_COLUMNS
+from gippa.context.autocorrelation import AUTOCORR_COLUMNS
+from gippa.context.islands import ISLAND_COLUMNS
 
-TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 NA = float("nan")
 
 
@@ -91,7 +91,7 @@ def _cell(path: Path, column: str, row: int = 0) -> str:
 
 
 def test_autocorrelation_header_is_the_module_constant(tmp_path: Path) -> None:
-    from giap.io.context_tsv import write_autocorrelation
+    from gippa.io.context_tsv import write_autocorrelation
 
     out = tmp_path / "autocorrelation.tsv"
     write_autocorrelation(out, _frame([_autocorr_row()], AUTOCORR_COLUMNS))
@@ -99,7 +99,7 @@ def test_autocorrelation_header_is_the_module_constant(tmp_path: Path) -> None:
 
 
 def test_islands_header_is_the_module_constant(tmp_path: Path) -> None:
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     out = tmp_path / "islands.tsv"
     write_islands(out, _frame([_island_row()], ISLAND_COLUMNS))
@@ -109,7 +109,7 @@ def test_islands_header_is_the_module_constant(tmp_path: Path) -> None:
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_empty_frame_writes_the_header_line_only(tmp_path: Path, table: str) -> None:
     """Example 4 at the writer: no island → ``islands.tsv`` is the header line only."""
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     columns = AUTOCORR_COLUMNS if table == "autocorrelation" else ISLAND_COLUMNS
     out = tmp_path / f"{table}.tsv"
@@ -122,7 +122,7 @@ def test_empty_frame_writes_the_header_line_only(tmp_path: Path, table: str) -> 
 
 def test_example_2_island_coordinates_are_one_based_closed(tmp_path: Path) -> None:
     """Example 2: 0-based half-open [1000, 9500) → TSV ``start`` 1001, ``end`` 9500."""
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     out = tmp_path / "islands.tsv"
     write_islands(out, _frame([_island_row(start=1000, end=9500)], ISLAND_COLUMNS))
@@ -132,7 +132,7 @@ def test_example_2_island_coordinates_are_one_based_closed(tmp_path: Path) -> No
 def test_example_3_origin_crossing_island_keeps_an_unwrapped_end(tmp_path: Path) -> None:
     """Example 3: an island crossing the origin of a 50,000-bp replicon (0-based 49,000 - 51,200)
     is written ``start`` 49001, ``end`` 51200 — ``end > length`` is kept (§6.5)."""
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     out = tmp_path / "islands.tsv"
     write_islands(out, _frame([_island_row(start=49_000, end=51_200)], ISLAND_COLUMNS))
@@ -140,7 +140,7 @@ def test_example_3_origin_crossing_island_keeps_an_unwrapped_end(tmp_path: Path)
 
 
 def test_islands_round_trip_restores_zero_based_coordinates(tmp_path: Path) -> None:
-    from giap.io.context_tsv import read_islands, write_islands
+    from gippa.io.context_tsv import read_islands, write_islands
 
     df = _frame([_island_row(start=49_000, end=51_200)], ISLAND_COLUMNS)
     out = tmp_path / "islands.tsv"
@@ -161,7 +161,7 @@ def test_autocorrelation_has_no_coordinates_to_convert(tmp_path: Path) -> None:
 
 def test_lag_is_an_integer_cell_and_na_when_absent(tmp_path: Path) -> None:
     """Edge case: ``lag`` is an integer column with NA (an ``oriter_slope`` row has no lag)."""
-    from giap.io.context_tsv import write_autocorrelation
+    from gippa.io.context_tsv import write_autocorrelation
 
     oriter = _autocorr_row(
         statistic="oriter_slope", stat="oriter_slope_pooled", lag=NA, null_model="bootstrap",
@@ -178,7 +178,7 @@ def test_lag_is_an_integer_cell_and_na_when_absent(tmp_path: Path) -> None:
 
 def test_very_small_floats_use_six_significant_digits(tmp_path: Path) -> None:
     """Edge case: ``%.6g`` as everywhere (M1-04 ``write_tsv``)."""
-    from giap.io.context_tsv import write_autocorrelation
+    from gippa.io.context_tsv import write_autocorrelation
 
     out = tmp_path / "autocorrelation.tsv"
     write_autocorrelation(out, _frame([_autocorr_row(p_value=1e-7, value=1 / 3)],
@@ -188,7 +188,7 @@ def test_very_small_floats_use_six_significant_digits(tmp_path: Path) -> None:
 
 
 def test_island_gene_list_is_semicolon_joined(tmp_path: Path) -> None:
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     out = tmp_path / "islands.tsv"
     write_islands(out, _frame([_island_row(genes=("G_1", "G_2", "G_3"))], ISLAND_COLUMNS))
@@ -198,7 +198,7 @@ def test_island_gene_list_is_semicolon_joined(tmp_path: Path) -> None:
 @pytest.mark.parametrize("empty", [(), []])
 def test_empty_flags_are_na(tmp_path: Path, empty: Any) -> None:
     """§9.2: a row with no flag writes ``NA`` (``regions_stats.tsv`` convention), never ``''``."""
-    from giap.io.context_tsv import write_islands
+    from gippa.io.context_tsv import write_islands
 
     out = tmp_path / "islands.tsv"
     write_islands(out, _frame([_island_row(flags=empty)], ISLAND_COLUMNS))
@@ -206,7 +206,7 @@ def test_empty_flags_are_na(tmp_path: Path, empty: Any) -> None:
 
 
 def test_several_flags_are_semicolon_joined(tmp_path: Path) -> None:
-    from giap.io.context_tsv import write_autocorrelation
+    from gippa.io.context_tsv import write_autocorrelation
 
     out = tmp_path / "autocorrelation.tsv"
     flags = ("ci_unestimated", "few_values", "not_estimable")
@@ -224,7 +224,7 @@ def test_flags_column_is_not_the_pandas_flags_attribute(tmp_path: Path, table: s
     object, so a writer that reaches for the attribute writes
     ``<Flags(allows_duplicate_labels=True)>`` into every cell. The writer must use
     ``row["flags"]``."""
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     if table == "autocorrelation":
         columns, rows = AUTOCORR_COLUMNS, [_autocorr_row(flags=("not_estimable",))]
@@ -242,7 +242,7 @@ def test_flags_column_is_not_the_pandas_flags_attribute(tmp_path: Path, table: s
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_every_row_keeps_its_own_flags(tmp_path: Path, table: str) -> None:
     """No row loses or inherits another row's error label on the way through the writer."""
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     if table == "autocorrelation":
         columns = AUTOCORR_COLUMNS
@@ -265,7 +265,7 @@ def test_every_row_keeps_its_own_flags(tmp_path: Path, table: str) -> None:
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_example_9_unknown_flag_raises(tmp_path: Path, table: str) -> None:
     """Example 9: an unknown flag reaching the writer is a ``ValueError`` (§9.4 is closed)."""
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     if table == "autocorrelation":
         columns, rows = AUTOCORR_COLUMNS, [_autocorr_row(flags=("wobbly",))]
@@ -277,8 +277,8 @@ def test_example_9_unknown_flag_raises(tmp_path: Path, table: str) -> None:
 
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_every_vocabulary_flag_is_accepted(tmp_path: Path, table: str) -> None:
-    from giap.context.vocab import CONTEXT_FLAGS
-    from giap.io import context_tsv
+    from gippa.context.vocab import CONTEXT_FLAGS
+    from gippa.io import context_tsv
 
     if table == "autocorrelation":
         columns, make = AUTOCORR_COLUMNS, _autocorr_row
@@ -314,7 +314,7 @@ def _canonical(df: pd.DataFrame, lists: tuple[str, ...]) -> list[tuple[Any, ...]
 
 
 def test_autocorrelation_round_trip(tmp_path: Path) -> None:
-    from giap.io.context_tsv import read_autocorrelation, write_autocorrelation
+    from gippa.io.context_tsv import read_autocorrelation, write_autocorrelation
 
     rows = [
         _autocorr_row(lag=1),
@@ -337,7 +337,7 @@ def test_autocorrelation_round_trip(tmp_path: Path) -> None:
 
 
 def test_islands_round_trip(tmp_path: Path) -> None:
-    from giap.io.context_tsv import read_islands, write_islands
+    from gippa.io.context_tsv import read_islands, write_islands
 
     low = _island_row(
         island_id="ISL_2", direction="low", start=49_000, end=51_200, genes=("G_1",), n_tus=2,
@@ -361,7 +361,7 @@ def test_reader_dtypes_are_the_schema_types(tmp_path: Path, table: str,
                                             columns: tuple[str, ...]) -> None:  # fmt: skip
     """Dtype-aware round trip: ``integer`` → nullable ``Int64``, ``number`` → ``float64``,
     ``string`` → ``object``, and the list cells hold tuples of ``str``."""
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     make = _autocorr_row if table == "autocorrelation" else _island_row
     out = tmp_path / f"{table}.tsv"
@@ -384,7 +384,7 @@ def test_reader_dtypes_are_the_schema_types(tmp_path: Path, table: str,
 
 @pytest.mark.parametrize("table", ["autocorrelation", "islands"])
 def test_reader_of_a_header_only_table(tmp_path: Path, table: str) -> None:
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     columns = AUTOCORR_COLUMNS if table == "autocorrelation" else ISLAND_COLUMNS
     out = tmp_path / f"{table}.tsv"
@@ -398,14 +398,14 @@ def test_producer_frames_round_trip(tmp_path: Path) -> None:
     ``ISLAND_COLUMNS`` dtypes) survive the writer unchanged in value."""
     import islands_data as isd
 
-    from giap.context.autocorrelation import autocorrelation_rows
-    from giap.io.context_tsv import (
+    from gippa.context.autocorrelation import autocorrelation_rows
+    from gippa.io.context_tsv import (
         read_autocorrelation,
         read_islands,
         write_autocorrelation,
         write_islands,
     )
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     cfg = isd.config(bootstrap=39, permutations=19, block_len=1, alpha=0.5, span_frac=0.30)
     rng = np.random.default_rng(3)
@@ -496,7 +496,7 @@ def test_islands_schema_enums_and_types() -> None:
 def test_written_table_validates_as_a_frictionless_resource(tmp_path: Path, name: str) -> None:
     """§9.5: the shipped schema validates the writer's own output."""
     frictionless = pytest.importorskip("frictionless")
-    from giap.io import context_tsv
+    from gippa.io import context_tsv
 
     if name == "autocorrelation":
         columns = AUTOCORR_COLUMNS
@@ -531,7 +531,7 @@ def test_autocorrelation_schema_states_the_q_value_rule() -> None:
 
 def test_islands_schema_pins_the_constant_columns() -> None:
     """Schema rules: ``method = scan_max_stat``, ``null_model`` the M5-06 constant (§9.3)."""
-    from giap.context.islands import METHOD, NULL_MODEL
+    from gippa.context.islands import METHOD, NULL_MODEL
 
     fields = {f["name"]: f for f in _schema("islands")["fields"]}
     assert fields["method"]["constraints"]["enum"] == [METHOD]

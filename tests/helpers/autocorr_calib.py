@@ -1,11 +1,11 @@
-"""Replicate machinery for the M5-05 autocorrelation calibration suite (GIAP_SPEC.md §8.4).
+"""Replicate machinery for the M5-05 autocorrelation calibration suite (GIPPA_SPEC.md §8.4).
 
 One simulated genome per replicate feeds every (statistic, null_model, criterion) check of a
 scenario, as in ``region_tests_calib``: each check has its own ``_criteria`` stream, and
 replicate ``i`` of any stream maps back to the scenario's replicate ``i`` (seed
 ``suite_seed(<scenario stream>, i)``), simulated and tabulated once per process.
 
-**Scenarios** are the M5-04 generators (``giapsim.scenarios``, merged in PR #119; lead
+**Scenarios** are the M5-04 generators (``gippasim.scenarios``, merged in PR #119; lead
 decision 33); this module only wraps them in a ``Scenario`` with its ``_criteria`` stream:
 
 * ``label_null``: ``tu_sd = 0``, ``ar1_rho = 0``, no position decay, iid gene and stoichiometry
@@ -48,7 +48,7 @@ class Scenario:
 
     name: str
     n_genes: int
-    #: ``(LayoutConfig, ExpressionConfig)`` from ``giapsim.scenarios``
+    #: ``(LayoutConfig, ExpressionConfig)`` from ``gippasim.scenarios``
     pair: tuple[Any, Any]
     #: null models whose level this scenario can gate
     nulls: tuple[str, ...] = ("gene_label", "tu_block")
@@ -68,7 +68,7 @@ class Scenario:
 
 def label_null(n_genes: int, *, oriter_log2: float = 0.0, name: str | None = None) -> Scenario:
     """``scenarios.label_null``: no structure at all, so both nulls hold."""
-    import giapsim.scenarios as scen
+    import gippasim.scenarios as scen
 
     pair = scen.label_null(n_genes, oriter_log2=oriter_log2)
     return Scenario(name or f"label_null_{n_genes}", n_genes, pair)
@@ -82,7 +82,7 @@ def tu_null(
     name: str | None = None,
 ) -> Scenario:
     """``scenarios.tu_null``: within-TU structure only, so the TU-block null holds."""
-    import giapsim.scenarios as scen
+    import gippasim.scenarios as scen
 
     return Scenario(
         name or f"tu_null_{n_genes}",
@@ -94,8 +94,8 @@ def tu_null(
 
 def simulate(sc: Scenario, rng: np.random.Generator) -> Any:
     """The M4-06 tables of one draw of ``sc`` (``p_detect`` = ``p_detect_true``)."""
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(sc.layout_cfg, rng)
     expr = ex.simulate_expression(lay, sc.expr_cfg, rng)

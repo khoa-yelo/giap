@@ -1,5 +1,5 @@
 """The R licence boundary and the golden-provenance guard (M8-12 "Licences and the boundary",
-"Regeneration"; M8-index §Licences; GIAP_SPEC.md R5, §11.5, §14.6).
+"Regeneration"; M8-index §Licences; GIPPA_SPEC.md R5, §11.5, §14.6).
 
 Interface assumed (the spec leaves the names open):
 
@@ -70,7 +70,7 @@ def test_rpy2_is_forbidden() -> None:
     ],
 )
 def test_check_imports_exits_1_on_rpy2(tmp_path: Path, line: str) -> None:
-    src = tmp_path / "src" / "giap"
+    src = tmp_path / "src" / "gippa"
     src.mkdir(parents=True)
     (src / "bridge.py").write_text(line)
     proc = _run(CHECK_IMPORTS, str(tmp_path / "src"))
@@ -100,9 +100,9 @@ def test_rscript_guard_exits_1_on_any_file_mentioning_rscript(
     tmp_path: Path, name: str, text: str
 ) -> None:
     root = tmp_path / "src"
-    (root / "giap" / "sub").mkdir(parents=True)
-    (root / "giap" / "sub" / name).write_text(text)
-    (root / "giap" / "clean.py").write_text("x = 1\n")
+    (root / "gippa" / "sub").mkdir(parents=True)
+    (root / "gippa" / "sub" / name).write_text(text)
+    (root / "gippa" / "clean.py").write_text("x = 1\n")
     proc = _run(CHECK_RSCRIPT, str(root))
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert name in proc.stdout
@@ -159,19 +159,19 @@ def test_rscript_guard_flags_exactly_the_files_that_mention_it(
 @pytest.mark.parametrize(
     ("rel", "line", "flagged"),
     [
-        ("giap/io/fgsea_r.py", 'tail = ["Rscript", BAKED_SCRIPT]', False),
-        ("giap/io/fgsea_r.py", 'tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *opts]', False),
-        ("giap/io/fgsea_r.py", 'cmd = ["Rscript", "other.R"]', True),
-        ("giap/io/fgsea_r.py", 'run(["Rscript", "-e", code])  # not BAKED_SCRIPT', True),
-        ("giap/io/fgsea_r.py", '["Rscript", "-e", code, BAKED_SCRIPT]', True),
-        ("giap/io/fgsea_r.py", '"""runs ``Rscript`` on the baked-in script"""', True),
-        ("giap/io/other.py", 'tail = ["Rscript", BAKED_SCRIPT]', True),
+        ("gippa/io/fgsea_r.py", 'tail = ["Rscript", BAKED_SCRIPT]', False),
+        ("gippa/io/fgsea_r.py", 'tail = ["Rscript", "--vanilla", BAKED_SCRIPT, *opts]', False),
+        ("gippa/io/fgsea_r.py", 'cmd = ["Rscript", "other.R"]', True),
+        ("gippa/io/fgsea_r.py", 'run(["Rscript", "-e", code])  # not BAKED_SCRIPT', True),
+        ("gippa/io/fgsea_r.py", '["Rscript", "-e", code, BAKED_SCRIPT]', True),
+        ("gippa/io/fgsea_r.py", '"""runs ``Rscript`` on the baked-in script"""', True),
+        ("gippa/io/other.py", 'tail = ["Rscript", BAKED_SCRIPT]', True),
     ],
 )
 def test_rscript_guard_allows_only_the_baked_script_in_the_fgsea_launcher(
     tmp_path: Path, rel: str, line: str, flagged: bool
 ) -> None:
-    """M11-14 14c: the image argv in fgsea_r.py runs the baked-in giap_fgsea.R; any other
+    """M11-14 14c: the image argv in fgsea_r.py runs the baked-in gippa_fgsea.R; any other
     Rscript mention, there or elsewhere, still fails."""
     root = tmp_path / "src"
     (root / rel).parent.mkdir(parents=True)
@@ -192,10 +192,10 @@ def _prov_violations(changed: Iterable[str]) -> list[str]:
     [
         ([f"{GOLDEN_R}/outputs/fgsea.tsv.gz"], True),
         ([f"{GOLDEN_R}/VERSIONS.txt"], True),
-        ([f"{GOLDEN_R}/inputs/gsea_sets.tsv.gz", "src/giap/x.py"], True),
+        ([f"{GOLDEN_R}/inputs/gsea_sets.tsv.gz", "src/gippa/x.py"], True),
         ([f"{GOLDEN_R}/outputs/fgsea.tsv.gz", PROVENANCE], False),
         ([PROVENANCE], False),
-        (["src/giap/stats/fgsea.py", "tests/data/golden/sim50k/mapping/a.tsv"], False),
+        (["src/gippa/stats/fgsea.py", "tests/data/golden/sim50k/mapping/a.tsv"], False),
         ([], False),
         (["tests/data/golden/rx/a.tsv"], False),  # a sibling directory, not golden/r/
     ],
@@ -211,7 +211,7 @@ _PATHS = st.sampled_from(
         f"{GOLDEN_R}/inputs/ora_genes.tsv.gz",
         f"{GOLDEN_R}/VERSIONS.txt",
         PROVENANCE,
-        "src/giap/stats/wallenius.py",
+        "src/gippa/stats/wallenius.py",
         "docs/specs/M8-12-golden-r-env.md",
         "tests/data/golden/sim50k/m4/x.tsv",
     ]

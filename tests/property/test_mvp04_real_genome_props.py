@@ -1,4 +1,4 @@
-"""Invariants of giapsim on the real K-12 genome for any seed (MVP-04 part 1; spec steps 2-4, 8).
+"""Invariants of gippasim on the real K-12 genome for any seed (MVP-04 part 1; spec steps 2-4, 8).
 
 On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py), for random seeds:
 
@@ -29,7 +29,7 @@ from helpers import mvp04_data as M
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 pytestmark = pytest.mark.slow
 
@@ -46,17 +46,17 @@ def _excerpt() -> M.Excerpt:
 )
 @given(seed=st.integers(min_value=0, max_value=2**31 - 1))
 def test_excerpt_invariants_hold_for_any_seed(seed: int) -> None:
-    from giapsim.proteomics import LOG_ABUNDANCE
+    from gippasim.proteomics import LOG_ABUNDANCE
 
     ex = _excerpt()
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
     cfg = replace(base, expression=expr, n_novel_per_class=15)
     before = M.sha256(ex.fasta)
     out = Path(tempfile.mkdtemp(prefix=f"mvp04_props_{seed}_"))
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         cfg, seed, out, genome_fasta=ex.fasta, bakta_json=ex.bakta_json, tu_set=None,
         check_hashes=False,
     )  # fmt: skip

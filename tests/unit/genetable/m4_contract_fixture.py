@@ -1,6 +1,7 @@
 """Hand-built, valid M4 input tables (M4-06 contract C1-C14) for the contract tests.
 
-Independent of ``giapsim`` (M4-07 is not merged yet) and of ``giap.genetable.contract``: the frames
+Independent of ``gippasim`` (M4-07 is not merged yet) and of ``gippa.genetable.contract``: the
+frames
 below are written from the M4-06 spec table, so they check the validator rather than mirror it.
 
 Layout: one circular contig ``chr1``; gene ``i`` (0-based) is ``GSIM_<5(i+1):05d>`` at
@@ -95,7 +96,7 @@ def tag(i: int) -> str:
 def _modified_peptides_value(peptide: str) -> Any:
     """``modified_peptides`` encoding is not fixed by M4-06; follow ``TABLES`` when it exists."""
     try:
-        from giap.genetable.contract import TABLES
+        from gippa.genetable.contract import TABLES
 
         col = next(c for c in TABLES["peptides"] if c.name == "modified_peptides")
         return [peptide] if col.dtype == "list" else peptide
@@ -443,10 +444,10 @@ def empty_like(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_inputs(frames: dict[str, Any]) -> Any:
-    """``giap.io.work_tables.M4Inputs`` from ``build_frames`` output."""
+    """``gippa.io.work_tables.M4Inputs`` from ``build_frames`` output."""
     import dataclasses
 
-    from giap.io.work_tables import M4Inputs
+    from gippa.io.work_tables import M4Inputs
 
     # Lead decision 1 after review: the abundance scale (from preflight.json) is an M4Inputs field.
     names = {f.name for f in dataclasses.fields(M4Inputs)}
@@ -487,7 +488,7 @@ def _tsv_rows(df: pd.DataFrame, one_based: bool) -> list[list[Any]]:
 
 def write_work(frames: dict[str, Any], paths: dict[str, Path], skip: Sequence[str] = ()) -> None:
     """Write every contract file to ``paths`` (as ``default_paths`` returns), except ``skip``."""
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     for key, path in paths.items():
         if key == "preflight" and key not in skip:

@@ -1,21 +1,21 @@
-"""M11-14c: ``giap.io.fgsea_r`` runs R fgsea from the image when no prefix or env is found.
+"""M11-14c: ``gippa.io.fgsea_r`` runs R fgsea from the image when no prefix or env is found.
 
 Spec docs/specs/M11-14-container-install.md item 1 ("fgsea (14c)": resolution order, the image
 argv), item 3 (``image_cache``, shared with preflight; 14a), examples 15 and 15b, AC 7.
 
-Interface pinned here (implementer, ``src/giap/io/fgsea_r.py``):
+Interface pinned here (implementer, ``src/gippa/io/fgsea_r.py``):
 
 - ``resolve_launcher(environ)`` keeps its signature and tries, in order:
-  1. ``GIAP_FGSEA_PREFIX``: an explicit prefix never falls through (bad prefix raises
+  1. ``GIPPA_FGSEA_PREFIX``: an explicit prefix never falls through (bad prefix raises
      ``FgseaEngineUnavailable`` even when an image is available; example 15b);
-  2. the prebuilt ``$GIAP_ROOT/micromamba/envs/giap-fgsea`` (marker = sha256 of ``fgsea.yml``);
-  3. the image, through ``environ["GIAP_CONTAINER_RUNTIME"]`` (``docker`` | ``apptainer``; unset or
+  2. the prebuilt ``$GIPPA_ROOT/micromamba/envs/gippa-fgsea`` (marker = sha256 of ``fgsea.yml``);
+  3. the image, through ``environ["GIPPA_CONTAINER_RUNTIME"]`` (``docker`` | ``apptainer``; unset or
      any other value → ``FgseaEngineUnavailable``). The ref is ``images.json["fgsea"]["ref"]`` of
      ``workflow_main().parent / "conf" / "images.json"`` (looked up as the module attribute
-     ``giap.io.fgsea_r.workflow_main``, which the tests patch with a fake workflow tree); no
+     ``gippa.io.fgsea_r.workflow_main``, which the tests patch with a fake workflow tree); no
      ``fgsea`` entry → ``FgseaEngineUnavailable``. Under apptainer the image is
-     ``image_cache(environ, Path(environ["GIAP_DB_DIR"])) / <simpleName>.img`` (14a's helper:
-     ``NXF_APPTAINER_CACHEDIR`` → ``$GIAP_ROOT/containers`` → ``<db_dir>/containers``;
+     ``image_cache(environ, Path(environ["GIPPA_DB_DIR"])) / <simpleName>.img`` (14a's helper:
+     ``NXF_APPTAINER_CACHEDIR`` → ``$GIPPA_ROOT/containers`` → ``<db_dir>/containers``;
      ``simpleName``: ``/`` and ``:`` → ``-``, ADR-0059); a missing ``.img`` →
      ``FgseaEngineUnavailable``. Under docker nothing local is checked (``docker run`` pulls).
   The returned ``Launcher.kind`` is ``"prefix"``, ``"docker"`` or ``"apptainer"``. The shebang
@@ -24,9 +24,9 @@ Interface pinned here (implementer, ``src/giap/io/fgsea_r.py``):
   list (script + nine options). For an image launcher, the exact argv of item 1 with ``call_dir``
   (the call's temporary directory) bound:
   - docker: ``docker run --rm --cidfile <d>.cid -u <uid>:<gid> -v <d>:<d> -w <d> -e LC_ALL=C
-    <ref> Rscript --vanilla /opt/<pkg>/giap_fgsea.R <options>``;
+    <ref> Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <options>``;
   - apptainer: ``apptainer exec --cleanenv -B <d> --pwd <d> <cache>/<simpleName>.img Rscript
-    --vanilla /opt/<pkg>/giap_fgsea.R <options>``
+    --vanilla /opt/<pkg>/gippa_fgsea.R <options>``
   (lead amendment 2026-10-26, #386 review B1/S1).
 - Under docker, on a timeout or any exception while the call runs, the engine runs ``docker kill
   <id>`` and then ``docker rm -f <id>`` with the ID that ``docker run`` wrote to ``<d>.cid``;
@@ -38,7 +38,7 @@ Interface pinned here (implementer, ``src/giap/io/fgsea_r.py``):
 
 Fakes only: a fake workflow tree, fake prefixes (``helpers.fgsea_r_data``), and fake ``docker`` /
 ``apptainer`` binaries that hand the call to the fake R front end. No network, no real
-``$GIAP_ROOT``/``$GIAP_DB_DIR``.
+``$GIPPA_ROOT``/``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / "workflow"
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 REF = f"ghcr.io/khoa-yelo/{PKG}-fgsea@sha256:" + "c3" * 32
-BAKED = f"/opt/{PKG}/giap_fgsea.R"
+BAKED = f"/opt/{PKG}/gippa_fgsea.R"
 UIDGID = f"{os.getuid()}:{os.getgid()}"
 
 
@@ -74,14 +74,14 @@ def simple_name(ref: str) -> str:
 
 
 def _fr() -> Any:
-    from giap.io import fgsea_r
+    from gippa.io import fgsea_r
 
     return fgsea_r
 
 
 def _call(seed: int = 424242) -> Any:
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     ids = tuple(f"TU_{i}" for i in (5, 2, 7, 1, 4, 6, 3, 8))
     return EngineCall(
@@ -164,12 +164,12 @@ os.execv(fake_r, [fake_r, *rest])
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for var in (
-        "GIAP_DB_DIR",
-        "GIAP_ROOT",
+        "GIPPA_DB_DIR",
+        "GIPPA_ROOT",
         "NXF_APPTAINER_CACHEDIR",
-        "GIAP_FGSEA_PREFIX",
-        "GIAP_CONTAINER_RUNTIME",
-        "GIAP_FGSEA_IMAGE",
+        "GIPPA_FGSEA_PREFIX",
+        "GIPPA_CONTAINER_RUNTIME",
+        "GIPPA_FGSEA_IMAGE",
     ):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
@@ -190,13 +190,13 @@ def runtime_calls(tmp_path: Path) -> list[dict[str, Any]]:
 
 
 def fake_workflow(root: Path, images: dict[str, Any] | None, *, shebang: str | None = None) -> Path:
-    """A fake ``workflow/`` tree: main.nf, bin/giap_fgsea.R, envs (repo), conf/images.json."""
+    """A fake ``workflow/`` tree: main.nf, bin/gippa_fgsea.R, envs (repo), conf/images.json."""
     wf = root / "wf"
     (wf / "bin").mkdir(parents=True, exist_ok=True)
     (wf / "conf").mkdir(parents=True, exist_ok=True)
     (wf / "main.nf").write_text("// fake\n")
-    script = wf / "bin" / "giap_fgsea.R"
-    shutil.copy2(WORKFLOW / "bin" / "giap_fgsea.R", script)
+    script = wf / "bin" / "gippa_fgsea.R"
+    shutil.copy2(WORKFLOW / "bin" / "gippa_fgsea.R", script)
     if shebang is not None:
         body = script.read_text(encoding="utf-8").split("\n", 1)[1]
         script.write_text(shebang + "\n" + body, encoding="utf-8")
@@ -232,10 +232,10 @@ def wf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def built_env(root: Path) -> Path:
-    env = root / "micromamba" / "envs" / "giap-fgsea"
+    env = root / "micromamba" / "envs" / "gippa-fgsea"
     fake_prefix(env)
     sha = hashlib.sha256((WORKFLOW / "envs" / "fgsea.yml").read_bytes()).hexdigest()
-    (env / ".giap-built").write_text(sha + "\n")
+    (env / ".gippa-built").write_text(sha + "\n")
     return env
 
 
@@ -251,7 +251,7 @@ def cached_img(cache: Path, ref: str = REF) -> Path:
 
 def test_example_15_docker_no_prefix_no_env(wf: Path, tmp_path: Path) -> None:
     fr = _fr()
-    launcher = fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+    launcher = fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"})
     assert launcher.kind == "docker"
     d = tmp_path / "call"
     d.mkdir()
@@ -266,7 +266,7 @@ def test_docker_argv_runs_as_the_calling_user_and_binds_only_the_call_dir(
     fr = _fr()
     d = tmp_path / "x" / "call"
     d.mkdir(parents=True)
-    got = fr.command(_call(), launcher=fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"}),
+    got = fr.command(_call(), launcher=fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"}),
                      call_dir=d)  # fmt: skip
     assert got[got.index("-u") + 1] == UIDGID
     assert [got[i + 1] for i, w in enumerate(got) if w == "-v"] == [f"{d}:{d}"]
@@ -275,8 +275,8 @@ def test_docker_argv_runs_as_the_calling_user_and_binds_only_the_call_dir(
 
 
 def test_docker_needs_no_local_image_and_no_root(wf: Path, tmp_path: Path) -> None:
-    """Nothing local is checked under docker: no cache, no GIAP_ROOT, no db dir."""
-    launcher = _fr().resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+    """Nothing local is checked under docker: no cache, no GIPPA_ROOT, no db dir."""
+    launcher = _fr().resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"})
     assert launcher.kind == "docker"
     assert runtime_calls(tmp_path) == [], "resolution must not call docker"
 
@@ -288,7 +288,7 @@ def test_docker_ref_comes_from_images_json(tmp_path: Path, monkeypatch: pytest.M
     fr = _fr()
     d = tmp_path / "call"
     d.mkdir()
-    got = fr.command(_call(), launcher=fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"}),
+    got = fr.command(_call(), launcher=fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"}),
                      call_dir=d)  # fmt: skip
     assert _norm(got) == docker_argv(d, _call(), other)
 
@@ -296,21 +296,21 @@ def test_docker_ref_comes_from_images_json(tmp_path: Path, monkeypatch: pytest.M
 # ---------------------------------------------------------------- apptainer
 
 
-@pytest.mark.parametrize("where", ["nxf", "giap_root", "db_dir"])
+@pytest.mark.parametrize("where", ["nxf", "gippa_root", "db_dir"])
 def test_apptainer_argv_uses_the_shared_cache_helper(wf: Path, tmp_path: Path, where: str) -> None:
     fr = _fr()
-    environ = {"GIAP_CONTAINER_RUNTIME": "apptainer", "GIAP_DB_DIR": str(tmp_path / "db")}
+    environ = {"GIPPA_CONTAINER_RUNTIME": "apptainer", "GIPPA_DB_DIR": str(tmp_path / "db")}
     if where == "nxf":
         cache = tmp_path / "nxf"
         environ["NXF_APPTAINER_CACHEDIR"] = str(cache)
-        environ["GIAP_ROOT"] = str(tmp_path / "root")  # ignored for the cache: NXF wins
-    elif where == "giap_root":
+        environ["GIPPA_ROOT"] = str(tmp_path / "root")  # ignored for the cache: NXF wins
+    elif where == "gippa_root":
         cache = tmp_path / "root" / "containers"
-        environ["GIAP_ROOT"] = str(tmp_path / "root")
+        environ["GIPPA_ROOT"] = str(tmp_path / "root")
     else:
         cache = tmp_path / "db" / "containers"
     img = cached_img(cache)
-    from giap.io.image_key import image_cache
+    from gippa.io.image_key import image_cache
 
     assert image_cache(environ, tmp_path / "db") == cache
     launcher = fr.resolve_launcher(environ)
@@ -325,7 +325,7 @@ def test_apptainer_without_the_img_is_unavailable(wf: Path, tmp_path: Path) -> N
     fr = _fr()
     (tmp_path / "nxf").mkdir()
     environ = {
-        "GIAP_CONTAINER_RUNTIME": "apptainer",
+        "GIPPA_CONTAINER_RUNTIME": "apptainer",
         "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf"),
     }
     with pytest.raises(fr.FgseaEngineUnavailable):
@@ -336,7 +336,7 @@ def test_apptainer_other_img_in_cache_does_not_count(wf: Path, tmp_path: Path) -
     fr = _fr()
     cached_img(tmp_path / "nxf", f"ghcr.io/khoa-yelo/{PKG}-fgsea@sha256:" + "00" * 32)
     environ = {
-        "GIAP_CONTAINER_RUNTIME": "apptainer",
+        "GIPPA_CONTAINER_RUNTIME": "apptainer",
         "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf"),
     }
     with pytest.raises(fr.FgseaEngineUnavailable):
@@ -357,7 +357,7 @@ def test_runtime_unset_is_unavailable_even_with_an_image(wf: Path, tmp_path: Pat
 def test_other_runtime_values_are_unavailable(wf: Path, value: str) -> None:
     fr = _fr()
     with pytest.raises(fr.FgseaEngineUnavailable):
-        fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": value})
+        fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": value})
 
 
 @pytest.mark.parametrize("runtime", ["docker", "apptainer"])
@@ -370,7 +370,7 @@ def test_no_fgsea_entry_in_images_json_is_unavailable(
     fr = _fr()
     with pytest.raises(fr.FgseaEngineUnavailable):
         fr.resolve_launcher(
-            {"GIAP_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+            {"GIPPA_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
         )
 
 
@@ -379,7 +379,7 @@ def test_the_built_env_wins_over_the_image(wf: Path, tmp_path: Path, runtime: st
     env = built_env(tmp_path / "root")
     cached_img(tmp_path / "root" / "containers")
     launcher = _fr().resolve_launcher(
-        {"GIAP_CONTAINER_RUNTIME": runtime, "GIAP_ROOT": str(tmp_path / "root")}
+        {"GIPPA_CONTAINER_RUNTIME": runtime, "GIPPA_ROOT": str(tmp_path / "root")}
     )
     assert launcher.kind == "prefix" and Path(launcher.path) == env
 
@@ -389,9 +389,9 @@ def test_the_explicit_prefix_wins_over_env_and_image(wf: Path, tmp_path: Path) -
     built_env(tmp_path / "root")
     launcher = _fr().resolve_launcher(
         {
-            "GIAP_FGSEA_PREFIX": str(prefix),
-            "GIAP_ROOT": str(tmp_path / "root"),
-            "GIAP_CONTAINER_RUNTIME": "docker",
+            "GIPPA_FGSEA_PREFIX": str(prefix),
+            "GIPPA_ROOT": str(tmp_path / "root"),
+            "GIPPA_CONTAINER_RUNTIME": "docker",
         }
     )
     assert launcher.kind == "prefix" and Path(launcher.path) == prefix
@@ -411,12 +411,12 @@ def test_example_15b_a_bad_prefix_never_falls_through(
     with pytest.raises(fr.FgseaEngineUnavailable) as info:
         fr.resolve_launcher(
             {
-                "GIAP_FGSEA_PREFIX": str(prefix),
-                "GIAP_ROOT": str(tmp_path / "root"),
-                "GIAP_CONTAINER_RUNTIME": runtime,
+                "GIPPA_FGSEA_PREFIX": str(prefix),
+                "GIPPA_ROOT": str(tmp_path / "root"),
+                "GIPPA_CONTAINER_RUNTIME": runtime,
             }
         )
-    assert "GIAP_FGSEA_PREFIX" in str(info.value)
+    assert "GIPPA_FGSEA_PREFIX" in str(info.value)
     assert runtime_calls(tmp_path) == []
 
 
@@ -424,7 +424,7 @@ def test_unbuilt_env_message_is_unchanged_without_a_runtime(wf: Path, tmp_path: 
     """FarmShare (no runtime): the M8-17 message still names build_envs."""
     fr = _fr()
     with pytest.raises(fr.FgseaEngineUnavailable) as info:
-        fr.resolve_launcher({"GIAP_ROOT": str(tmp_path / "empty")})
+        fr.resolve_launcher({"GIPPA_ROOT": str(tmp_path / "empty")})
     assert "sbatch scripts/slurm/build_envs.sbatch fgsea" in str(info.value)
 
 
@@ -437,7 +437,7 @@ def test_image_path_does_not_read_the_shebang(
     cached_img(tmp_path / "nxf")
     fr = _fr()
     launcher = fr.resolve_launcher(
-        {"GIAP_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+        {"GIPPA_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
     )
     assert launcher.kind == runtime
     d = tmp_path / "call"
@@ -452,7 +452,7 @@ def test_command_without_a_launcher_is_unchanged(wf: Path, tmp_path: Path) -> No
     fr = _fr()
     call = _call()
     assert fr.command(call) == [str(fr.script_path()), *_options(call)]
-    prefix = fr.resolve_launcher({"GIAP_FGSEA_PREFIX": str(fake_prefix(tmp_path / "p"))})
+    prefix = fr.resolve_launcher({"GIPPA_FGSEA_PREFIX": str(fake_prefix(tmp_path / "p"))})
     d = tmp_path / "call"
     d.mkdir()
     assert fr.command(call, launcher=prefix, call_dir=d) == fr.command(call)
@@ -472,7 +472,7 @@ def test_engine_runs_the_image_argv_and_parses_its_output(
     img = cached_img(tmp_path / "nxf")
     fr = _fr()
     launcher = fr.resolve_launcher(
-        {"GIAP_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+        {"GIPPA_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
     )
     work = tmp_path / "work"
     work.mkdir()
@@ -502,7 +502,7 @@ def test_engine_image_failure_is_an_engine_error(wf: Path, tmp_path: Path) -> No
     fr = _fr()
     work = tmp_path / "work"
     work.mkdir()
-    engine = _engine(fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"}), work)
+    engine = _engine(fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"}), work)
     with pytest.raises(fr.FgseaEngineError) as info:
         engine(_call())
     assert "boom" in str(info.value)
@@ -520,7 +520,7 @@ def test_engine_docker_missing_on_path_is_unavailable(
     work = tmp_path / "work"
     work.mkdir()
     with pytest.raises(fr.FgseaEngineUnavailable):
-        launcher = fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+        launcher = fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"})
         _engine(launcher, work)(_call())
 
 
@@ -548,7 +548,7 @@ def test_property_resolution_order(
     write_images(wf, fgsea_entry() if entry else {})
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)
-        environ: dict[str, str] = {"GIAP_ROOT": str(t / "root"), "GIAP_DB_DIR": str(t / "db")}
+        environ: dict[str, str] = {"GIPPA_ROOT": str(t / "root"), "GIPPA_DB_DIR": str(t / "db")}
         (t / "root").mkdir()
         if prefix_state == "good":
             prefix = fake_prefix(t / "explicit")
@@ -558,12 +558,12 @@ def test_property_resolution_order(
         else:
             prefix = t / "explicit"
         if prefix_state != "none":
-            environ["GIAP_FGSEA_PREFIX"] = str(prefix)
+            environ["GIPPA_FGSEA_PREFIX"] = str(prefix)
         env_prefix = built_env(t / "root") if env else None
         if img:
             cached_img(t / "root" / "containers")
         if runtime is not None:
-            environ["GIAP_CONTAINER_RUNTIME"] = runtime
+            environ["GIPPA_CONTAINER_RUNTIME"] = runtime
 
         if prefix_state == "good":
             want: tuple[str, Path | None] | None = ("prefix", prefix)
@@ -600,7 +600,7 @@ def test_image_argv_runs_rscript_vanilla_on_the_baked_script(
     cached_img(tmp_path / "nxf")
     fr = _fr()
     launcher = fr.resolve_launcher(
-        {"GIAP_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+        {"GIPPA_CONTAINER_RUNTIME": runtime, "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
     )
     d = tmp_path / "call"
     d.mkdir()
@@ -619,7 +619,7 @@ def _docker_engine(tmp_path: Path, timeout_s: float = 60) -> tuple[Any, Path]:
     fr = _fr()
     work = tmp_path / "work"
     work.mkdir()
-    launcher = fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+    launcher = fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"})
     return fr.r_fgsea_engine(launcher, timeout_s=timeout_s, tmp_root=work), work
 
 
@@ -741,7 +741,7 @@ def test_apptainer_timeout_makes_no_docker_calls(wf: Path, tmp_path: Path) -> No
     _sleep_r()
     fr = _fr()
     launcher = fr.resolve_launcher(
-        {"GIAP_CONTAINER_RUNTIME": "apptainer", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+        {"GIPPA_CONTAINER_RUNTIME": "apptainer", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
     )
     work = tmp_path / "work"
     work.mkdir()
@@ -764,7 +764,7 @@ def test_unknown_runtime_with_a_cached_img_does_not_take_the_apptainer_path(
     fr = _fr()
     with pytest.raises(fr.FgseaEngineUnavailable) as info:
         fr.resolve_launcher(
-            {"GIAP_CONTAINER_RUNTIME": "podman", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
+            {"GIPPA_CONTAINER_RUNTIME": "podman", "NXF_APPTAINER_CACHEDIR": str(tmp_path / "nxf")}
         )
     assert "podman" in str(info.value)
 
@@ -772,13 +772,13 @@ def test_unknown_runtime_with_a_cached_img_does_not_take_the_apptainer_path(
 def test_apptainer_without_any_cache_setting_is_unavailable(
     wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """m8: no ``NXF_APPTAINER_CACHEDIR``, ``GIAP_ROOT`` or ``GIAP_DB_DIR``: the cache is not
+    """m8: no ``NXF_APPTAINER_CACHEDIR``, ``GIPPA_ROOT`` or ``GIPPA_DB_DIR``: the cache is not
     guessed relative to the working directory (``./containers``), even if an image is there."""
     monkeypatch.chdir(tmp_path)
     cached_img(tmp_path / "containers")
     fr = _fr()
     with pytest.raises(fr.FgseaEngineUnavailable) as info:
-        fr.resolve_launcher({"GIAP_CONTAINER_RUNTIME": "apptainer"})
+        fr.resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "apptainer"})
     assert "cache" in str(info.value)
 
 
@@ -787,7 +787,7 @@ def test_a_non_string_ref_is_no_image(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ref: Any
 ) -> None:
     """m15: ``_step_images`` keeps only non-empty string refs."""
-    from giap.preflight.environment import _step_images
+    from gippa.preflight.environment import _step_images
 
     entry = fgsea_entry()
     entry["fgsea"]["ref"] = ref
@@ -795,4 +795,4 @@ def test_a_non_string_ref_is_no_image(
     assert _step_images(tree / "conf" / "images.json") == {}
     monkeypatch.setattr(_fr(), "workflow_main", lambda: tree / "main.nf")
     with pytest.raises(_fr().FgseaEngineUnavailable):
-        _fr().resolve_launcher({"GIAP_CONTAINER_RUNTIME": "docker"})
+        _fr().resolve_launcher({"GIPPA_CONTAINER_RUNTIME": "docker"})

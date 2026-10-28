@@ -1,10 +1,10 @@
-"""``giap report OUT`` (M9-02 behaviour 7, examples 3, 4, 5, 7, 8 and the degenerate cases;
-GIAP_SPEC.md §5.1 exit codes 0, 1, 4; §7.9.4 "Running it twice MUST produce identical
+"""``gippa report OUT`` (M9-02 behaviour 7, examples 3, 4, 5, 7, 8 and the degenerate cases;
+GIPPA_SPEC.md §5.1 exit codes 0, 1, 4; §7.9.4 "Running it twice MUST produce identical
 ``plots/data/*.tsv``").
 
 Fake plots (tests/helpers/report_fixtures.py) stand in for the real ones, so these tests do not
 depend on which plot issues have merged. ``--set report.formats=[svg] --set report.dpi=50`` keeps
-them fast unless a test needs the other formats. Never touches the real ``$GIAP_DB_DIR``.
+them fast unless a test needs the other formats. Never touches the real ``$GIPPA_DB_DIR``.
 
 Interface assumed beyond the spec text: the report path is printed on stdout; error messages go to
 the combined CliRunner output; the HTML hooks of tests/helpers/report_fixtures.py.
@@ -27,7 +27,7 @@ from helpers.report_fixtures import (
 )
 from helpers.viz_out_tree import write_resolved_config, write_schema_table
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAST = ["--set", "report.formats=[svg]", "--set", "report.dpi=50"]
 EXTERNAL = re.compile(r"^\s*(https?:|//|file:)", re.I)
@@ -36,8 +36,8 @@ EXTERNAL = re.compile(r"^\s*(https?:|//|file:)", re.I)
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _report(out: Path, *args: str, fast: bool = True) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["report", str(out), *(FAST if fast else []), *args])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -161,7 +161,7 @@ def test_example_5_empty_directory_exits_1(tmp_path: Path) -> None:
 
 
 def test_missing_out_directory_exits_1(tmp_path: Path) -> None:
-    from giap.cli import main  # main maps click usage errors to 1 (test_cli_exit_codes.py)
+    from gippa.cli import main  # main maps click usage errors to 1 (test_cli_exit_codes.py)
 
     with pytest.raises(SystemExit) as info:
         main(["report", str(tmp_path / "nope")])

@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from giap.stats.wallenius import ODDS_RANGE, wallenius_tails
+from gippa.stats.wallenius import ODDS_RANGE, wallenius_tails
 
 
 @pytest.mark.parametrize("odds", [1e-7, 1e-12, 1e8, 1e300])

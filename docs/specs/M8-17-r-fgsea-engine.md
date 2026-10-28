@@ -7,7 +7,7 @@ and outputs, the R pins) · estimate ≈ 470 code lines (+ ≈ 450 test lines), 
 the step, Nextflow and preflight wiring, ≈ 180) · statistical (label `stats`) for 14b only
 
 > **Numbering.** `docs/specs/M8-17-sim-function-determinants.md` already holds the number M8-17
-> (giapsim scenarios). The lead named this file; see lead decision 1.
+> (gippasim scenarios). The lead named this file; see lead decision 1.
 
 ## Spec sections implemented
 
@@ -24,16 +24,16 @@ the step, Nextflow and preflight wiring, ≈ 180) · statistical (label `stats`)
 - R6 and §3.2: packages come only from `conda.anaconda.org` (conda-forge and bioconda). The image
   comes only from `quay.io/biocontainers`, pulled by digest. **Nothing is downloaded from
   bioconductor.org**, because the environment has no Bioconductor data package.
-- R7 and §6.6: one seed integer from `giap.rng.for_step("function.gsea", seed)`, and `nproc = 1`.
+- R7 and §6.6: one seed integer from `gippa.rng.for_step("function.gsea", seed)`, and `nproc = 1`.
   The same inputs and seed give a byte-identical `tables/enrichment_gsea.tsv`.
 - §6.4: both executors call the same step function. The R call happens inside the `function` step,
   so local and Nextflow runs stay byte-identical (lead decision 2).
 - §11.4: recorded R outputs under `tests/data/recorded/fgsea/1.36.2/`. CI never runs R.
 - ADR-0038 item 5 (accepted): **the detection ORA stays on `scipy.stats.nchypergeom_wallenius`.
   The pipeline never calls goseq**, and goseq is not in the engine environment. goseq runs only
-  in `giap-golden-r` to produce the §11.5 golden data.
+  in `gippa-golden-r` to produce the §11.5 golden data.
 
-Not in scope: removing `giap.stats.fgsea` and its kernels. That belongs to the hardening pass
+Not in scope: removing `gippa.stats.fgsea` and its kernels. That belongs to the hardening pass
 (ADR-0038 item 6). PR #193 stays a draft. M8-13's fgsea half is superseded by the contract test
 here; its Wallenius half is unchanged.
 
@@ -42,22 +42,22 @@ here; its Wallenius half is unchanged.
 `gsea_table` stays pure. It builds the TU ranking, the in-range sets per collection and, after
 BH, the GO re-test sets, exactly as it does today. It then hands them to an **injected engine**,
 a callable that takes one `EngineCall` (a ranking plus a list of jobs) and returns rows per job.
-The step injects `RFgseaEngine` from `giap.io.fgsea_r`. That engine writes three TSVs to a
-temporary directory, runs `workflow/bin/giap_fgsea.R` as a subprocess in the `giap-fgsea` env or
+The step injects `RFgseaEngine` from `gippa.io.fgsea_r`. That engine writes three TSVs to a
+temporary directory, runs `workflow/bin/gippa_fgsea.R` as a subprocess in the `gippa-fgsea` env or
 image, and parses one result TSV. Unit tests inject fakes or a replay of recorded R outputs. A
 step makes **at most two R calls**: one for every collection's main run, and one for every GO
 re-test, batched across namespaces, made only when at least one re-test exists.
 
 ---
 
-## M8-17a: the environment, `giap_fgsea.R` and the Python wrapper
+## M8-17a: the environment, `gippa_fgsea.R` and the Python wrapper
 
 ### 1. Environment `workflow/envs/fgsea.yml` and its lock
 
 ```yaml
-# R fgsea engine for the function step's GSEA (ADR-0038; GIAP_SPEC.md §7.7.4, R5).
+# R fgsea engine for the function step's GSEA (ADR-0038; GIPPA_SPEC.md §7.7.4, R5).
 # fgsea is MIT, R is GPL-2: run only as a separate process. Exact solve: locks/fgsea.explicit.txt.
-name: giap-fgsea
+name: gippa-fgsea
 channels: [conda-forge, bioconda]
 dependencies:
   - r-base=4.5.3
@@ -68,8 +68,8 @@ dependencies:
 - These pins match #192's `golden_r.explicit.txt`: `r-base-4.5.3-h502d0c9_4`,
   `bioconductor-fgsea-1.36.2-r45ha27e39d_0` and `r-data.table-1.18.6.1-r45hbd9402d_0`. The same
   build of fgsea is what makes the contract test (T4) meaningful.
-- The file passes `giap.annotate.tools.env_problems`: the channels are exactly conda-forge and
-  bioconda, every dependency is pinned exactly, and the name is `giap-<stem>`.
+- The file passes `gippa.annotate.tools.env_problems`: the channels are exactly conda-forge and
+  bioconda, every dependency is pinned exactly, and the name is `gippa-<stem>`.
 - `workflow/envs/locks/fgsea.explicit.txt` is written by `sbatch scripts/slurm/build_envs.sbatch
   fgsea` (`micromamba env export --explicit`), the same way the ostir and uniop locks are. There
   is no pip lock.
@@ -85,18 +85,18 @@ dependencies:
 - The tag is `quay.io/biocontainers/bioconductor-fgsea:1.36.2--r45ha27e39d_0`, the bioconda build
   in the lock. The implementer resolves it to a digest with `python scripts/resolve_digest.py`,
   which reads quay.io, an allowed §3.2 source.
-- The pin lives in one place: `giap.annotate.tools.FGSEA_IMAGE =
+- The pin lives in one place: `gippa.annotate.tools.FGSEA_IMAGE =
   "docker://quay.io/biocontainers/bioconductor-fgsea@sha256:<digest>"`, plus a dated
   "resolved from" comment in `workflow/conf/containers.config`, in the same style as the
   existing tags.
 - `scripts/slurm/build_envs.sbatch fgsea` also pulls the image to
-  `$GIAP_ROOT/containers/<mangled ref>.img`. That is the path `missing_tools` already derives
+  `$GIPPA_ROOT/containers/<mangled ref>.img`. That is the path `missing_tools` already derives
   with `_image_file_name`.
 - If the tag does not exist on quay.io, the implementer records it under PROGRESS.md › Blocked
   (R6) and fgsea stays conda-only under apptainer, as uniop and ostir are today. The image is
   never built or mirrored by us.
 
-### 3. `workflow/bin/giap_fgsea.R`
+### 3. `workflow/bin/gippa_fgsea.R`
 
 The script lives outside `src/` (R5). Its shebang is `#!/usr/bin/env -S Rscript --vanilla`. Nextflow
 puts `workflow/bin` on the task `PATH`; the wrapper calls the script by absolute path.
@@ -104,7 +104,7 @@ puts `workflow/bin` on the task `PATH`; the wrapper calls the script by absolute
 **CLI** (every argument is required; there is no default inside R):
 
 ```
-giap_fgsea.R --stats stats.tsv --sets sets.tsv --jobs jobs.tsv \
+gippa_fgsea.R --stats stats.tsv --sets sets.tsv --jobs jobs.tsv \
              --sample-size 101 --eps 0 --n-perm-simple 1000 --seed <int> \
              --out results.tsv --versions versions.txt
 ```
@@ -171,14 +171,14 @@ table. It never writes a partial `results.tsv`: it writes to `results.tsv.tmp` a
 | 3 | invalid input: non-finite or NA score, duplicate `tu_id`, a member not in `stats`, a job in `sets.tsv` missing from `jobs.tsv`, `min_size < 1` or `max_size < min_size` |
 | 1 | any R error (R's default), including errors from `library(fgsea)` |
 
-### 4. Python wrapper `src/giap/io/fgsea_r.py`
+### 4. Python wrapper `src/gippa/io/fgsea_r.py`
 
 Process I/O is allowed only in `io/` and `steps/` (AGENTS.md). This module is that I/O. It never
 spells `Rscript`.
 
 ```python
 FGSEA_VERSION = "1.36.2"
-SCRIPT = "giap_fgsea.R"               # resolved as workflow_main().parent / "bin" / SCRIPT
+SCRIPT = "gippa_fgsea.R"               # resolved as workflow_main().parent / "bin" / SCRIPT
 TIMEOUT_S = 3600                      # per call (lead decision 6)
 
 class FgseaEngineError(StepError): ...      # exit code 4, like ToolUnavailable / bad resources
@@ -199,14 +199,14 @@ def read_versions(path: Path) -> EngineProvenance: ...
 
 **Launcher resolution.** The first match wins:
 
-1. `GIAP_FGSEA_PREFIX`: a micromamba env prefix. The command is `[script, *args]`, with `PATH`
+1. `GIPPA_FGSEA_PREFIX`: a micromamba env prefix. The command is `[script, *args]`, with `PATH`
    set to `<prefix>/bin` followed by the inherited `PATH`.
-2. `GIAP_FGSEA_IMAGE`: an `.img` file. The command is `["apptainer", "exec", "--cleanenv",
+2. `GIPPA_FGSEA_IMAGE`: an `.img` file. The command is `["apptainer", "exec", "--cleanenv",
    "--bind", tmp, "--bind", script_dir, img, script, *args]`.
-3. `$GIAP_ROOT/micromamba/envs/giap-fgsea`, if its `.giap-built` matches the sha256 of
+3. `$GIPPA_ROOT/micromamba/envs/gippa-fgsea`, if its `.gippa-built` matches the sha256 of
    `workflow/envs/fgsea.yml`. This is the same test as `preflight.environment._env_built`, and
    the function is reused, not copied.
-4. Otherwise `FgseaEngineUnavailable("the R fgsea environment giap-fgsea is not built: sbatch
+4. Otherwise `FgseaEngineUnavailable("the R fgsea environment gippa-fgsea is not built: sbatch
    scripts/slurm/build_envs.sbatch fgsea")`.
 
 The child environment always sets `R_LIBS_USER`, `R_LIBS` and `R_PROFILE_USER` to empty or
@@ -274,11 +274,11 @@ All of the following run in CI without R unless marked otherwise.
   - `read_results` parses each recorded `results.tsv` and rejects each mutation: a wrong header,
     an unknown job, a size mismatch, a leading-edge TU outside its set, or a non-numeric ES.
   - `read_versions` rejects fgsea 1.38.0.
-- **T3 subprocess behaviour (unit, no R).** A fake script stands in for `giap_fgsea.R`: a small
-  `sh` script in `tmp_path` reached through `GIAP_FGSEA_PREFIX`. It covers:
+- **T3 subprocess behaviour (unit, no R).** A fake script stands in for `gippa_fgsea.R`: a small
+  `sh` script in `tmp_path` reached through `GIPPA_FGSEA_PREFIX`. It covers:
   - exit 1 with stderr, which becomes `FgseaEngineError` with the stderr tail;
   - `sleep` past a 1 s timeout, which becomes a timeout error and leaves no process behind;
-  - a missing prefix or a missing `.giap-built`, which becomes `FgseaEngineUnavailable`;
+  - a missing prefix or a missing `.gippa-built`, which becomes `FgseaEngineUnavailable`;
   - a success, after which the temporary directory is removed;
   - launcher resolution order 1 to 4, and the `apptainer exec` argv;
   - the child environment, with `R_LIBS_USER` empty and `LC_ALL=C`.
@@ -286,7 +286,7 @@ All of the following run in CI without R unless marked otherwise.
   - Turn #192's `inputs/gsea_stats.tsv.gz` and `gsea_sets.tsv.gz` into one job: `job_id =
     main:golden`, min 10, max 500, `--seed` GOLDEN_SEED from `tolerances.yaml`, and the
     `function.gsea` defaults.
-  - Run `giap_fgsea.R` under the prefix launcher. Columns `pathway`, `pval`, `log2err`, `ES`,
+  - Run `gippa_fgsea.R` under the prefix launcher. Columns `pathway`, `pval`, `log2err`, `ES`,
     `NES`, `size` and `leadingEdge` must equal `outputs/fgsea.tsv.gz` **as strings, row for
     row** (exact; ADR-0038 item 7).
   - Repeat under the image launcher when the image is present. Without it, that test is
@@ -296,7 +296,7 @@ All of the following run in CI without R unless marked otherwise.
   - On a ranking where 40 % of the scores tie, two calls that differ only in the order of the
     tied TUs give leading edges that follow that order.
   - Two identical calls give byte-identical `results.tsv`.
-- **Recorded outputs (§11.4).** `scripts/slurm/record_fgsea.sbatch` (giap-record-fgsea, 2 CPUs,
+- **Recorded outputs (§11.4).** `scripts/slurm/record_fgsea.sbatch` (gippa-record-fgsea, 2 CPUs,
   30 min) records `tests/data/recorded/fgsea/1.36.2/<input>/`, each with `stats.tsv`, `jobs.tsv`,
   `sets.tsv`, `command.txt`, `results.tsv`, `versions.txt` and `PROVENANCE.md` (the command, the
   lock sha256, the date, the host and the job ID). The inputs are:
@@ -316,7 +316,7 @@ All of the following run in CI without R unless marked otherwise.
 
 ## M8-17b: the engine switch, the step, Nextflow and preflight
 
-### 7. The engine interface (pure, in `src/giap/function/gsea.py`)
+### 7. The engine interface (pure, in `src/gippa/function/gsea.py`)
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -367,7 +367,7 @@ is not called**: the table is header-only and gets no new run flag. This keeps t
 for an empty collection.
 
 **BH.** BH runs within each collection over the returned rows, exactly as today, through
-`giap.stats.multitest.bh`. A NaN p keeps a NaN q and is excluded from the BH count, as today.
+`gippa.stats.multitest.bh`. A NaN p keeps a NaN q and is excluded from the BH count, as today.
 
 **Re-tests (one batched call).**
 - For every GO collection and every significant term with significant descendants, compute
@@ -421,15 +421,15 @@ run with no abundance or with no testable set never needs R. It passes the engin
 existing unit tests are unchanged. Exceptions from the engine propagate and the step exits with
 code 4. No table is written: the step writes after computing, as it does today.
 
-- **Local executor.** It calls the same function. The launcher comes from `$GIAP_ROOT` (rule 3) or
-  `GIAP_FGSEA_PREFIX`.
+- **Local executor.** It calls the same function. The launcher comes from `$GIPPA_ROOT` (rule 3) or
+  `GIPPA_FGSEA_PREFIX`.
 - **Nextflow.**
-  - `workflow/conf/prebuilt_envs.config` adds `env { GIAP_FGSEA_PREFIX =
-    "${GIAP_ROOT ?: projectDir/../local}/micromamba/envs/giap-fgsea" }`.
-  - The apptainer profile adds `env { GIAP_FGSEA_IMAGE = "<GIAP_ROOT>/containers/<mangled>.img" }`.
+  - `workflow/conf/prebuilt_envs.config` adds `env { GIPPA_FGSEA_PREFIX =
+    "${GIPPA_ROOT ?: projectDir/../local}/micromamba/envs/gippa-fgsea" }`.
+  - The apptainer profile adds `env { GIPPA_FGSEA_IMAGE = "<GIPPA_ROOT>/containers/<mangled>.img" }`.
     This runs after `prebuilt_envs` and takes precedence, because rule 2 is only consulted when
-    rule 1 is unset. The apptainer profile therefore also unsets `GIAP_FGSEA_PREFIX`.
-  - `GIAP_STEP` itself stays uncontainerised, so `apptainer exec` runs on the host, as Nextflow's
+    rule 1 is unset. The apptainer profile therefore also unsets `GIPPA_FGSEA_PREFIX`.
+  - `GIPPA_STEP` itself stays uncontainerised, so `apptainer exec` runs on the host, as Nextflow's
     own tasks do.
 - **Resources.**
   - `function.nf` keeps its `FUNCTION_STEP` alias.
@@ -443,10 +443,10 @@ code 4. No table is written: the step writes after computing, as it does today.
     with `-profile farmshare` on Slurm only. It asserts a non-empty `enrichment_gsea.tsv` whose
     `method` is `fgsea_multilevel` on every row, and a byte-identical file on a second run.
 
-### 10. Preflight and `giap check`
+### 10. Preflight and `gippa check`
 
-- `giap.annotate.tools.TOOLS` gains `ToolSpec("fgsea", "1.36.2", "MIT", env_file
-  "workflow/envs/fgsea.yml", env_name "giap-fgsea", version_cmd ("R", "--vanilla", "--slave",
+- `gippa.annotate.tools.TOOLS` gains `ToolSpec("fgsea", "1.36.2", "MIT", env_file
+  "workflow/envs/fgsea.yml", env_name "gippa-fgsea", version_cmd ("R", "--vanilla", "--slave",
   "-e", "cat(as.character(packageVersion('fgsea')))"), module "function")`.
   - `ToolSpec` gains `image: str | None = None`, set to `FGSEA_IMAGE`.
   - `version_cmd` must not mention `Rscript` (check_no_rscript).
@@ -454,15 +454,15 @@ code 4. No table is written: the step writes after computing, as it does today.
   should also be required.
 - `missing_tools`: use `ref = pinned.get(tool.name) or tool.image`. The rest is unchanged. Under
   apptainer the tool is missing when the image file is absent; otherwise it is missing when
-  `.giap-built` does not match the yml's sha256.
+  `.gippa-built` does not match the yml's sha256.
 - A missing fgsea is reported exactly like a missing ostir: the same check ID, message shape and
-  severity, and `giap run` refuses to start. One unit test per profile (A9).
+  severity, and `gippa run` refuses to start. One unit test per profile (A9).
 - Schema `enrichment_gsea.schema.json`:
   - the flags pattern gains `log2err_unestimated`;
   - the `method` description drops "reserved for M8-11";
   - the enum is unchanged.
-- `scripts/ci/check_no_rscript.py`: the docstring's "GIAP never shells out to R" becomes "src/
-  starts R only through workflow/bin/giap_fgsea.R (ADR-0038)". The check itself is unchanged.
+- `scripts/ci/check_no_rscript.py`: the docstring's "GIPPA never shells out to R" becomes "src/
+  starts R only through workflow/bin/gippa_fgsea.R (ADR-0038)". The check itself is unchanged.
 
 ### 11. Tests (14b)
 
@@ -479,7 +479,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 - **T8 mapping and flags (unit).** Examples 3, 4 and 5; the size-mismatch error; and the
   whole-ranking set (example 10).
 - **T9 step (unit).**
-  - `function_step` with `GIAP_FGSEA_PREFIX` pointing to a missing directory exits with code 4
+  - `function_step` with `GIPPA_FGSEA_PREFIX` pointing to a missing directory exits with code 4
     when there is abundance, and runs fine without abundance.
   - The event `function.gsea_engine` is logged once per call.
 - **T10 preflight (unit).** fgsea is required when `function` is in the modules and missing
@@ -528,7 +528,7 @@ code 4. No table is written: the step writes after computing, as it does today.
      `redundant = True`.
 7. **No abundance.** `abundance_scale` and `abundance_log2` are all NA → zero engine calls, the
    engine is never constructed, the table is header-only, and the run flag is
-   `layer_missing:abundance`. This holds even when `GIAP_FGSEA_PREFIX` points nowhere.
+   `layer_missing:abundance`. This holds even when `GIPPA_FGSEA_PREFIX` points nowhere.
 8. **Every set out of range.** Every term has 3 to 8 TUs against `[10, 500]`, or the collection is
    empty → zero calls, the table is header-only, and there is no run flag.
 9. **R failure.**
@@ -543,7 +543,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 
 ## Acceptance criteria (each checked by a test)
 
-- **A1** (T4) On #192's inputs with GOLDEN_SEED, `giap_fgsea.R` reproduces `fgsea.tsv.gz`
+- **A1** (T4) On #192's inputs with GOLDEN_SEED, `gippa_fgsea.R` reproduces `fgsea.tsv.gz`
   exactly. This runs as a slow test on Slurm, and its job ID goes in the PR.
 - **A2** (T5, nf-test real) Two runs with the same seed give byte-identical `results.tsv` and
   `tables/enrichment_gsea.tsv`.
@@ -561,7 +561,7 @@ code 4. No table is written: the step writes after computing, as it does today.
   schema.
 - **A8** (T9) The step exits with code 4 on an engine error, and runs without R when there is no
   abundance.
-- **A9** (T10) preflight and `giap check` list `fgsea` as missing under farmshare and under
+- **A9** (T10) preflight and `gippa check` list `fgsea` as missing under farmshare and under
   apptainer when it is absent, and never under `test` or `stub`.
 - **A10** (T11) The `gsea` level suite and attack 3 pass on the R engine on Slurm. The job ID goes
   in PROGRESS.md.
@@ -572,7 +572,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 
 | Part | Files | Code lines |
 |---|---|---|
-| 14a | `fgsea.yml` (12), `giap_fgsea.R` (≈ 120), `io/fgsea_r.py` (≈ 150), `record_fgsea.sbatch` (≈ 25), `build_envs` entry (≈ 5) | **≈ 290** (+ ≈ 230 test lines; the lock and recorded files are data) |
+| 14a | `fgsea.yml` (12), `gippa_fgsea.R` (≈ 120), `io/fgsea_r.py` (≈ 150), `record_fgsea.sbatch` (≈ 25), `build_envs` entry (≈ 5) | **≈ 290** (+ ≈ 230 test lines; the lock and recorded files are data) |
 | 14b | `gsea.py` engine types and switch (≈ 100 changed), `steps/function.py` (≈ 15), `tools.py` + `environment.py` (≈ 15), configs (≈ 12), schema (2), `function_rfgsea.nf.test` (≈ 30), calibration parameter (≈ 10) | **≈ 180** (+ ≈ 220 test lines) |
 
 14a lands first, and its T4 job is the evidence that the wrapper is right. 14b depends on 14a.
@@ -612,7 +612,7 @@ code 4. No table is written: the step writes after computing, as it does today.
    (simple, as specified), or only when abundance is also given (`required_tools` would then need
    inputs, not just cfg)? As specified, a no-abundance `function` run still demands the env at
    preflight.
-9. **Apptainer under a non-container GIAP_STEP.** Running `apptainer exec` from inside a Python
+9. **Apptainer under a non-container GIPPA_STEP.** Running `apptainer exec` from inside a Python
    task works on FarmShare, but it is not Nextflow-managed. Is that acceptable, or should fgsea
    stay conda-only under every profile (like uniop and ostir) and drop the image pin from
    ADR-0038 item 1?
@@ -622,7 +622,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 ## Lead decisions (2026-10-22)
 
 1. **Number.** The issue is M8-17 (M8-14 is the simulator issue), split into M8-17a and M8-17b.
-2. **Where R runs.** R is started from inside the Python `function` step through `giap.io.fgsea_r`. Both executors share one code path.
+2. **Where R runs.** R is started from inside the Python `function` step through `gippa.io.fgsea_r`. Both executors share one code path.
 3. **A set covering every ranked TU.** It gets an `unestimated` row with NA statistics, matching the ORA's whole-universe rule.
 4. **Old test numbers.** The M8-05/M8-06 tests that pin port numbers are re-pinned by the lead after M8-17b's implementation. The test author writes new tests only (role guard).
 5. **R failure.** Any R error fails the step with exit 4, the same as every other tool failure. No partial GSEA table.
@@ -635,7 +635,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 ## Lead decisions on the M8-17a tests (2026-10-22, after 9d1b517)
 
 1. **Golden contract.** Python restricts each set to the ranked TUs before handing it to R, in file order, as `gsea.py` already does. The R script's exit 3 for unranked members stays as an input check. So the contract compares 119 rows: SET_027 drops below minSize.
-2. The §7 types `GseaJob`, `EngineCall`, `EngineRow` and `EngineProvenance(r, fgsea, warnings)` are added to `giap.function.gsea` in M8-17a, without the engine switch, which stays in 17b.
+2. The §7 types `GseaJob`, `EngineCall`, `EngineRow` and `EngineProvenance(r, fgsea, warnings)` are added to `gippa.function.gsea` in M8-17a, without the engine switch, which stays in 17b.
 3. **Results header.** `job_id pathway size ES NES pval log2err leadingEdge`, as pinned.
 4. **Warnings.** The R script replaces embedded newlines in warnings with a space.
 5. **Provenance.** The engine object keeps the `EngineProvenance` of its last call as `engine.provenance`, which is `None` before the first call. 17b reads it for the `function.gsea_engine` event.
@@ -658,7 +658,7 @@ code 4. No table is written: the step writes after computing, as it does today.
    test docstring says so.
 3. "Abundance given" (lead decision 8) means the same condition under which the function step runs
    GSEA today: the `--abundance` input. Peptide intensities alone do not require fgsea.
-4. A9 is tested through `run_preflight` and `giap run`; `giap check` reuses the same preflight when it
+4. A9 is tested through `run_preflight` and `gippa run`; `gippa check` reuses the same preflight when it
    exists.
 5. `function_rfgsea.nf.test` is written after #187 (FUNCTION subworkflow) merges; the `requires_r`
    Python step test stands in for A2 until then (backlog).

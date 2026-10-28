@@ -1,6 +1,6 @@
 """Gene-frame generators for the M8-04b ORA calibration and attack arms (spec M8-04 decision 12).
 
-The reference is the statistician's ``$GIAP_ROOT/stat/m8-04a-review/attack_tusize.py`` (Slurm
+The reference is the statistician's ``$GIPPA_ROOT/stat/m8-04a-review/attack_tusize.py`` (Slurm
 1867453/1867454; ADR-0035), rewritten to emit what ``detection_enrichment`` consumes: a gene frame,
 ``GeneSets`` and M4-13-style TU folds.
 
@@ -14,7 +14,7 @@ The reference is the statistician's ``$GIAP_ROOT/stat/m8-04a-review/attack_tusiz
   single (1 gene)}; fewer when the pool is short (as the reference).
 - ``random_gene_sets(sim, rng, n, size)``: ``n`` disjoint categories of ``size`` random genes
   (arm 1/6 style; TU membership then follows the any-eligible-gene rule).
-- ``folds``: ``giap.genetable.detectability.tu_folds`` over the TU IDs, k = 5 (M4-13's default),
+- ``folds``: ``gippa.genetable.detectability.tu_folds`` over the TU IDs, k = 5 (M4-13's default),
   drawn from the replicate generator.
 """
 
@@ -28,8 +28,8 @@ import pandas as pd
 from numpy.polynomial.hermite_e import hermegauss
 from scipy.special import expit, logit
 
-from giap.function.collections import GeneSets
-from giap.genetable.detectability import tu_folds
+from gippa.function.collections import GeneSets
+from gippa.genetable.detectability import tu_folds
 
 G = 3000
 SET_TUS = 15

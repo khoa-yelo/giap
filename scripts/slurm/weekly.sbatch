@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-weekly
+#SBATCH --job-name=gippa-weekly
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --array=0-2
@@ -7,40 +7,40 @@
 #SBATCH --mem=60G
 #SBATCH --time=12:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
-# Weekly end-to-end runs on origin/main (GIAP_SPEC.md §12; M2-21), one array task per genome:
-#   0 = k12_mg1655 (U00096.3), 1 = nissle1917 (CP171242-CP171245), from $GIAP_ROOT/data/genomes
+# Weekly end-to-end runs on origin/main (GIPPA_SPEC.md §12; M2-21), one array task per genome:
+#   0 = k12_mg1655 (U00096.3), 1 = nissle1917 (CP171242-CP171245), from $GIPPA_ROOT/data/genomes
 #   (every replicon marked [topology=circular]: all are closed); 2 = k12_distance_model (14s2).
 # R14: 3 x 16 = 48 CPUs; with the Sunday nightly (65) that is 113 of 128 during the overlap.
 # Per genome: (a) the farmshare_weekly capability gate (pytest --require-capabilities, the Bakta
-# full-DB contract tests; a missing DB fails); (b) real `giap run` with live full-DB Bakta and every
-# annotation tool, including the antiSMASH live run (its trace row must be COMPLETED); (c) `giap
+# full-DB contract tests; a missing DB fails); (b) real `gippa run` with live full-DB Bakta and every
+# annotation tool, including the antiSMASH live run (its trace row must be COMPLETED); (c) `gippa
 # run` with the recorded full-DB JSON (annotation.precomputed.bakta_json =
-# $GIAP_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json);
+# $GIPPA_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json);
 # (d) K-12 only: TE6 (§11.6) on the live Bakta JSON: an oriC call whose nearest gene is mnmG or
 # mioC with mnmG within 2 kb; (e) K-12 only: TE8 (§11.6, M3-22): validation/fetch_uniprot_k12.py,
-# then validation/proxies/te_proxies.py te8 -> $GIAP_ROOT/ci/validation/<date>_te8_<job>.json;
+# then validation/proxies/te_proxies.py te8 -> $GIPPA_ROOT/ci/validation/<date>_te8_<job>.json;
 # (f) Nissle only: TE2 (§11.6, M7-14): validation/proxies/te_proxies.py te2 on the committed Nissle
-# genome and recorded full-DB JSON -> $GIAP_ROOT/ci/validation/<date>_te2_<job>.json.
-# (g) task 2 only (M11-14 14s2, AC 10): K-12 `giap run` with the recorded full-DB JSON and
+# genome and recorded full-DB JSON -> $GIPPA_ROOT/ci/validation/<date>_te2_<job>.json.
+# (g) task 2 only (M11-14 14s2, AC 10): K-12 `gippa run` with the recorded full-DB JSON and
 # `annotation.uniop.enabled=false` (the distance-model operon fallback), row label
 # k12_distance_model (never k12_mg1655, so readiness keeps reading TE8 from task 0). The row has
 # the run's exit, operon_source from its run_manifest.json and the TU pair precision / recall vs
 # RegulonDB (scripts/tu_agreement.py) next to the UniOP K-12 arm's (task 0's recorded_json of this
 # job, else the newest earlier one; "not available" if none). Reported, not gated: task 2 exits 0.
 # Measured runtimes: scripts/measure_runtimes.py on each trace.
-# Evidence stand-in (M2 annotation track only; MAPPING is M3): `giap run` requires --proteins or
+# Evidence stand-in (M2 annotation track only; MAPPING is M3): `gippa run` requires --proteins or
 # --peptides, so the evidence is a deterministic 60 % subset of the recorded Bakta proteins
 # (records 0,1,2 of every 5 of bakta/<genome>.faa), as in the lead's hand run of 2026-10-16.
 # MODE=test (default) | record: record also keeps the live Bakta outputs (JSON, GBFF, FAA, TSV with
-# SHA256SUMS) under $GIAP_ROOT/recordings/weekly/<genome>/<job>/; both modes report whether the
+# SHA256SUMS) under $GIPPA_ROOT/recordings/weekly/<genome>/<job>/; both modes report whether the
 # live JSON's features equal the recorded one's.
 # Overrides: WEEKLY_REF (default origin/main), WEEKLY_PROFILE (default farmshare_local,apptainer:
 # every Nextflow task inside this 16-CPU allocation; a list with the Slurm-executor profile
 # `farmshare` is refused with exit 2, R14 and lead decisions 12, 22).
-# Every task writes exactly one line to $GIAP_ROOT/logs/weekly.tsv and prints WEEKLY_EXIT=<rc>, also
+# Every task writes exactly one line to $GIPPA_ROOT/logs/weekly.tsv and prints WEEKLY_EXIT=<rc>, also
 # on an early exit or SIGTERM (exit 143; EXIT/TERM traps, decision 27). Never pushes or commits.
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
 module load apptainer 2>/dev/null || true
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
@@ -54,17 +54,17 @@ SAMPLES=(k12_mg1655 nissle1917 k12_mg1655)
 LABELS=(k12_mg1655 nissle1917 k12_distance_model)
 S="${SAMPLES[$TASK]:-none}"
 L="${LABELS[$TASK]:-none}"
-CI="$GIAP_ROOT/ci"
-W="$GIAP_ROOT/ci/weekly-$(echo "${REF#origin/}" | tr '/' '-')-t$TASK"
+CI="$GIPPA_ROOT/ci"
+W="$GIPPA_ROOT/ci/weekly-$(echo "${REF#origin/}" | tr '/' '-')-t$TASK"
 RUN="$CI/runs/weekly_${JOB}_$TASK"
-REC="$GIAP_ROOT/recordings/bakta_full/$S"
-commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
+REC="$GIPPA_ROOT/recordings/bakta_full/$S"
+commit=$(git -C "$GIPPA_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
 rc=0; summary="$L:"; stage="setup"; reported=""; numba_tmp=""
-mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
+mkdir -p "$CI/runs" "$GIPPA_ROOT/logs"
 
 report() {  # report <exit> <summary>: this task's one weekly.tsv line
   reported=1
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "${JOB}_$TASK" "$commit" "$1" "$2" >> "$GIAP_ROOT/logs/weekly.tsv"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "${JOB}_$TASK" "$commit" "$1" "$2" >> "$GIPPA_ROOT/logs/weekly.tsv"
   echo "WEEKLY_EXIT=$1 $2"
 }
 on_exit() {
@@ -86,12 +86,12 @@ rm -rf "$RUN"; mkdir -p "$RUN/tmp"
 stage="checkout of $REF"
 (
   flock 9
-  git -C "$GIAP_REPO" fetch -q origin
-  [ -d "$W" ] || git -C "$GIAP_REPO" worktree add -q --detach "$W" "$REF"
+  git -C "$GIPPA_REPO" fetch -q origin
+  [ -d "$W" ] || git -C "$GIPPA_REPO" worktree add -q --detach "$W" "$REF"
   git -C "$W" checkout -q -f --detach "$REF"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
-numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
+numba_tmp="$(mktemp -d /tmp/gippa-numba.XXXXXX)"
 export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
 commit=$(git -C "$W" rev-parse --short HEAD)
@@ -100,7 +100,7 @@ echo "weekly genome=$S arm=$L mode=$MODE ref=$REF commit=$commit node=$(hostname
 step() { [ "$1" -gt "$rc" ] && rc=$1; summary="$summary $2;"; echo "STEP exit=$1 $2"; }
 
 # inputs: genome (circular replicons) and the 60 % protein stand-in
-zcat "$GIAP_ROOT"/data/genomes/"$S"/*.fna.gz | sed -E 's/^>(\S+)/>\1 [topology=circular]/' > "$RUN/genome.fa"
+zcat "$GIPPA_ROOT"/data/genomes/"$S"/*.fna.gz | sed -E 's/^>(\S+)/>\1 [topology=circular]/' > "$RUN/genome.fa"
 awk '/^>/ {n++} (n - 1) % 5 < 3' "$REC/bakta/$S.faa" > "$RUN/proteins.faa"
 common=(--genome "$RUN/genome.fa" --proteins "$RUN/proteins.faa" --threads "$N" --memory 56.GB --profile "$PROFILE")
 
@@ -108,7 +108,7 @@ common=(--genome "$RUN/genome.fa" --proteins "$RUN/proteins.faa" --threads "$N" 
 if [ "$TASK" = 2 ]; then
   stage="the distance-model fallback run"
   out="$RUN/distance_model"
-  giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json" \
+  gippa run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json" \
     --set annotation.uniop.enabled=false
   r=$?
   src=$(python -c 'import json, sys
@@ -120,9 +120,9 @@ except (OSError, ValueError, AttributeError): print("missing")' "$out/run_manife
     [ -z "$last" ] || uni="${last%/tables/operons.tsv}"
   fi
   # a crash reports "not available", never its last stderr line (stderr stays in the job log)
-  agree=$(python scripts/tu_agreement.py --regulondb-dir "$GIAP_DATA_DIR/regulondb/14.5.0" --arm "fallback=$out" \
+  agree=$(python scripts/tu_agreement.py --regulondb-dir "$GIPPA_DATA_DIR/regulondb/14.5.0" --arm "fallback=$out" \
     --arm "uniop ($(basename "$(dirname "$uni")"))=$uni" | tail -1 | tr '\t' ' '; exit "${PIPESTATUS[0]}") || agree=""
-  report "$r" "$summary giap run distance_model exit $r; operon_source=$src; ${agree:-TU pairs vs regulondb: not available; uniop: not available};"
+  report "$r" "$summary gippa run distance_model exit $r; operon_source=$src; ${agree:-TU pairs vs regulondb: not available; uniop: not available};"
   exit 0
 fi
 
@@ -136,12 +136,12 @@ step "${PIPESTATUS[0]}" "gate $(grep -E '[0-9]+ (passed|failed|error)' "$RUN/gat
 for variant in live recorded_json; do
   out="$RUN/$variant"
   if [ "$variant" = live ]; then
-    giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=full
+    gippa run "${common[@]}" --outdir "$out" --set annotation.bakta.db=full
   else
-    giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json"
+    gippa run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json"
   fi
   r=$?
-  step "$r" "giap run $variant exit $r"
+  step "$r" "gippa run $variant exit $r"
   python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-0}}${SLURM_ARRAY_JOB_ID:+_$SLURM_ARRAY_TASK_ID}" --genome "$S ($variant)" \
     | tee "$RUN/runtimes_$variant.md"
 done
@@ -159,7 +159,7 @@ f = lambda p: [(x.get("type"), x.get("contig"), x.get("start"), x.get("stop"), x
 print("identical" if f(sys.argv[1]) == f(sys.argv[2]) else "changed")' "$live_json" "$REC/bakta/$S.json")
   step 0 "live Bakta features vs recording: $same"
   if [ "$MODE" = record ]; then
-    keep="$GIAP_ROOT/recordings/weekly/$S/$JOB"; mkdir -p "$keep"
+    keep="$GIPPA_ROOT/recordings/weekly/$S/$JOB"; mkdir -p "$keep"
     p=$(basename "$live_json" .json)
     for x in json gbff faa tsv; do cp "$bdir/$p.$x" "$keep/$S.$x"; done
     (cd "$keep" && sha256sum "$S".* > SHA256SUMS)
@@ -171,9 +171,9 @@ print("identical" if f(sys.argv[1]) == f(sys.argv[2]) else "changed")' "$live_js
 import sys
 from pathlib import Path
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.bakta_layers import nearest_genes
-from giap.io.fasta import read_genome_fasta
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.bakta_layers import nearest_genes
+from gippa.io.fasta import read_genome_fasta
 
 seqs = {r.id: r.sequence for r in read_genome_fasta(Path(sys.argv[2]))}
 ann = parse_bakta_json(Path(sys.argv[1]), genome=seqs)
@@ -199,7 +199,7 @@ if [ "$S" = k12_mg1655 ]; then
   python validation/fetch_uniprot_k12.py \
     && python validation/proxies/te_proxies.py te8 "$D/genomes/k12_mg1655.fna.gz" \
          "$B/k12/k12_mg1655.json.gz" "$D/genomes/nissle1917.fna.gz" "$B/nissle/nissle1917.json.gz" \
-         "$GIAP_DATA_DIR/uniprot/UP000000625.fasta" --out "$te8" 2>&1 | tee "$RUN/te8.log" | tail -1
+         "$GIPPA_DATA_DIR/uniprot/UP000000625.fasta" --out "$te8" 2>&1 | tee "$RUN/te8.log" | tail -1
   step "${PIPESTATUS[0]}" "TE8 $te8"
 fi
 # (f) Nissle task only: TE2 (§11.6, M7-14) on the committed genome and the recorded full-DB Bakta

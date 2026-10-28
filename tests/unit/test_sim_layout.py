@@ -1,11 +1,11 @@
-"""giapsim sequence-free layout and M4-06 contract tables (issue M4-07; GIAP_SPEC.md §11.3, §6.5).
+"""gippasim sequence-free layout and M4-06 contract tables (issue M4-07; GIPPA_SPEC.md §11.3, §6.5).
 
 Examples 1-9, the edge cases and acceptance criteria of docs/specs/M4-07-sim-layout-tables.md:
-``simulate_layout`` → ``write_contract_tables`` passes ``giap.io.work_tables.load_m4_inputs`` with
+``simulate_layout`` → ``write_contract_tables`` passes ``gippa.io.work_tables.load_m4_inputs`` with
 no error (and every written table passes ``validate_table`` with no issue at all),
-``CONTRACT_COLUMNS`` equals ``giap.genetable.contract.TABLES``, the layout agrees with itself
+``CONTRACT_COLUMNS`` equals ``gippa.genetable.contract.TABLES``, the layout agrees with itself
 (TUs, pairs, layers, regions) and with the M0 simulator truth (adapter), runs are deterministic,
-the M0 outputs are unchanged, and the new modules import nothing from ``giap``.
+the M0 outputs are unchanged, and the new modules import nothing from ``gippa``.
 
 Checks come from tests/helpers/layout_oracle.py (written from the spec, not from the simulator).
 This file lives in tests/unit (like test_sim_basic.py) because tests/sim is implementer tooling.
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import layout_oracle as lo
 
 REPO = Path(__file__).resolve().parents[2]
-GIAPSIM = REPO / "tests" / "sim" / "giapsim"
+GIPPASIM = REPO / "tests" / "sim" / "gippasim"
 
 # M0 digests (tests/unit/test_sim_features.py, main at 4c72c2a): unchanged by M4-07.
 M0_SHA256 = {
@@ -47,15 +47,15 @@ NUMERIC_LAYER_COLUMNS = (
 
 
 def _layout_mod() -> ModuleType:
-    import giapsim.layout
+    import gippasim.layout
 
-    return giapsim.layout
+    return gippasim.layout
 
 
 def _tables_mod() -> ModuleType:
-    import giapsim.contract_tables
+    import gippasim.contract_tables
 
-    return giapsim.contract_tables
+    return gippasim.contract_tables
 
 
 def simulate(seed: int = 1, **kw: Any) -> Any:
@@ -118,7 +118,7 @@ def test_example2_contract_tables_load_without_errors(default: Any) -> None:
 @pytest.mark.parametrize("key", lo.WRITTEN_TABLES)
 def test_example2_each_written_table_has_no_issue_at_all(default: Any, key: str) -> None:
     """No error and no warning (e.g. extra columns) for any written table."""
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     _, t, _ = default
     assert validate_table(key, t[key]) == []
@@ -126,7 +126,7 @@ def test_example2_each_written_table_has_no_issue_at_all(default: Any, key: str)
 
 def test_example2_cross_table_invariants_hold_in_memory(default: Any) -> None:
     """``validate_inputs`` on the loaded frames (genes in TUs, layers, region subsets, bounds)."""
-    from giap.genetable.contract import validate_inputs
+    from gippa.genetable.contract import validate_inputs
 
     _, _, work = default
     inputs, _ = lo.load_work(work)
@@ -145,7 +145,7 @@ def test_writes_exactly_the_m2_side_files_and_creates_work_dir(tmp_path: Path) -
 
 
 def test_contract_columns_equal_tables_for_every_written_table() -> None:
-    from giap.genetable.contract import TABLES
+    from gippa.genetable.contract import TABLES
 
     cc = _tables_mod().CONTRACT_COLUMNS
     assert set(lo.WRITTEN_TABLES) <= set(cc)
@@ -156,14 +156,14 @@ def test_contract_columns_equal_tables_for_every_written_table() -> None:
 
 
 def test_contract_columns_is_a_literal_copy() -> None:
-    """The simulator keeps its own literal copy (independence): not the giap object itself."""
-    from giap.genetable import contract
+    """The simulator keeps its own literal copy (independence): not the gippa object itself."""
+    from gippa.genetable import contract
 
     assert _tables_mod().CONTRACT_COLUMNS is not contract.CONTRACT_COLUMNS
 
 
 def test_written_columns_follow_contract_order(default: Any) -> None:
-    from giap.genetable.contract import TABLES
+    from gippa.genetable.contract import TABLES
 
     _, t, _ = default
     for key in lo.WRITTEN_TABLES:
@@ -631,9 +631,9 @@ def _truth_rows(path: Path) -> list[dict[str, str]]:
 
 @pytest.fixture(scope="module")
 def m0(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Any]:
-    import giapsim
+    import gippasim
 
-    sim = giapsim.simulate(giapsim.SimConfig(), 1, tmp_path_factory.mktemp("m0"))
+    sim = gippasim.simulate(gippasim.SimConfig(), 1, tmp_path_factory.mktemp("m0"))
     return sim, _layout_mod().layout_from_simulation(sim)
 
 
@@ -685,7 +685,7 @@ def test_example8_adapter_has_no_regions_and_valid_tables(m0: Any, tmp_path: Pat
     t = write(layout, work)
     assert lo.errors(lo.load_work(work)[1]) == []
     assert lo.check_tus(t["genes"], t["tus"], t["replicons"]) == []
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     for key in lo.WRITTEN_TABLES:
         assert lo.errors(validate_table(key, t[key])) == [], key
@@ -693,10 +693,10 @@ def test_example8_adapter_has_no_regions_and_valid_tables(m0: Any, tmp_path: Pat
 
 def test_adapter_feature_rich_m0_output_is_contract_valid(tmp_path: Path) -> None:
     """Pseudogenes, sORFs and a plasmid (M3-18 features) still give a valid gene partition."""
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(n_plasmids=1, n_pseudogenes=2, n_sorfs=2, plasmid_length=(8000, 8000))
-    sim = giapsim.simulate(cfg, 3, tmp_path / "sim")
+    cfg = gippasim.SimConfig(n_plasmids=1, n_pseudogenes=2, n_sorfs=2, plasmid_length=(8000, 8000))
+    sim = gippasim.simulate(cfg, 3, tmp_path / "sim")
     layout = _layout_mod().layout_from_simulation(sim)
     work = tmp_path / "w"
     t = write(layout, work)
@@ -706,9 +706,9 @@ def test_adapter_feature_rich_m0_output_is_contract_valid(tmp_path: Path) -> Non
 
 
 def test_adapter_does_not_modify_simulator_output(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    sim = giapsim.simulate(giapsim.SimConfig(), 1, tmp_path / "sim")
+    sim = gippasim.simulate(gippasim.SimConfig(), 1, tmp_path / "sim")
     before = {
         p: hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted((tmp_path / "sim").rglob("*"))
@@ -727,10 +727,10 @@ def test_adapter_does_not_modify_simulator_output(tmp_path: Path) -> None:
 
 
 def test_m0_outputs_unchanged_with_layout_modules_loaded(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
     _layout_mod(), _tables_mod()
-    giapsim.simulate(giapsim.SimConfig(), seed=1, outdir=tmp_path)
+    gippasim.simulate(gippasim.SimConfig(), seed=1, outdir=tmp_path)
     for name, digest in M0_SHA256.items():
         assert hashlib.sha256((tmp_path / name).read_bytes()).hexdigest() == digest, name
 
@@ -738,36 +738,36 @@ def test_m0_outputs_unchanged_with_layout_modules_loaded(tmp_path: Path) -> None
 def test_existing_public_api_unchanged() -> None:
     import inspect
 
-    import giapsim
+    import gippasim
 
     _layout_mod()
-    assert list(inspect.signature(giapsim.simulate).parameters) == ["config", "seed", "outdir"]
+    assert list(inspect.signature(gippasim.simulate).parameters) == ["config", "seed", "outdir"]
     for name in ("SIM100K", "SIM100K_SEED", "SimConfig", "SimResult", "StrainConfig", "simulate"):
-        assert hasattr(giapsim, name), name
+        assert hasattr(gippasim, name), name
 
 
 # ---------------------------------------------------------------------------- independence
 
 
-_GIAP_IMPORT = re.compile(
-    r"^\s*(?:from\s+giap(?:\.\w+)*\s+import|import\s+giap(?:\.|\s|,|$))", re.M
+_GIPPA_IMPORT = re.compile(
+    r"^\s*(?:from\s+gippa(?:\.\w+)*\s+import|import\s+gippa(?:\.|\s|,|$))", re.M
 )
-# Modules that predate M4-07 and already use giap's writers (M0, M2-05); every other giapsim
-# module, in particular the M4-07 ones, must import nothing from ``giap``.
+# Modules that predate M4-07 and already use gippa's writers (M0, M2-05); every other gippasim
+# module, in particular the M4-07 ones, must import nothing from ``gippa``.
 _GRANDFATHERED = frozenset({"simulate.py", "layers.py"})
 
 
-def test_new_giapsim_modules_import_nothing_from_giap() -> None:
+def test_new_gippasim_modules_import_nothing_from_gippa() -> None:
     _layout_mod(), _tables_mod()
-    files = sorted(p for p in GIAPSIM.rglob("*.py") if p.name not in _GRANDFATHERED)
+    files = sorted(p for p in GIPPASIM.rglob("*.py") if p.name not in _GRANDFATHERED)
     assert {"layout.py", "contract_tables.py"} <= {p.name for p in files}
-    bad = [str(p.relative_to(REPO)) for p in files if _GIAP_IMPORT.search(p.read_text())]
+    bad = [str(p.relative_to(REPO)) for p in files if _GIPPA_IMPORT.search(p.read_text())]
     assert bad == []
 
 
 def test_import_regex_sanity() -> None:
-    assert _GIAP_IMPORT.search("from giap.genetable.contract import TABLES")
-    assert _GIAP_IMPORT.search("import giap.io")
-    assert _GIAP_IMPORT.search("    from giap import rng")
-    assert not _GIAP_IMPORT.search("from giapsim.codons import STOPS")
-    assert not _GIAP_IMPORT.search("import giapsim")
+    assert _GIPPA_IMPORT.search("from gippa.genetable.contract import TABLES")
+    assert _GIPPA_IMPORT.search("import gippa.io")
+    assert _GIPPA_IMPORT.search("    from gippa import rng")
+    assert not _GIPPA_IMPORT.search("from gippasim.codons import STOPS")
+    assert not _GIPPA_IMPORT.search("import gippasim")

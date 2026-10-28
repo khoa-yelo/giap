@@ -1,4 +1,4 @@
-r"""K-12 pair and terminator truth from RegulonDB (GIAP_SPEC.md §15.4 steps 1-2; issue M6-11).
+r"""K-12 pair and terminator truth from RegulonDB (GIPPA_SPEC.md §15.4 steps 1-2; issue M6-11).
 
 Pure parsing and labelling: everything here takes paths or already-parsed objects and returns
 values, so the module is offline-testable (the network lives in ``validation/fetch_regulondb.py``).
@@ -15,10 +15,10 @@ reported, and a share below 0.8 is escalated rather than worked around.
 Usage::
 
     python validation/regulondb_truth.py \
-        --regulondb-dir $GIAP_DATA_DIR/regulondb/14.5.0 \
+        --regulondb-dir $GIPPA_DATA_DIR/regulondb/14.5.0 \
         --bakta-json tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz \
         --genome tests/data/genomes/k12_mg1655.fna.gz \
-        --out-dir $GIAP_DATA_DIR/regulondb/14.5.0/truth
+        --out-dir $GIPPA_DATA_DIR/regulondb/14.5.0/truth
 
 ``--genome`` is needed whenever the Bakta JSON omits ``sequences[].nt``, as the recorded one does.
 """
@@ -35,11 +35,11 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.operons import adjacent_pairs
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Interval, Replicon, Strand
-from giap.model.genes import Gene, GeneModel
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.operons import adjacent_pairs
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Interval, Replicon, Strand
+from gippa.model.genes import Gene, GeneModel
 
 #: RegulonDB gene coordinates agree with Bakta exactly on K-12; a few bp of slack absorbs
 #: annotation differences at the start codon without letting a neighbour win.
@@ -73,7 +73,7 @@ class ProvenanceError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class RegulonDBGene:
-    """A gene row of ``GeneProductSet`` with its interval in GIAP coordinates."""
+    """A gene row of ``GeneProductSet`` with its interval in GIPPA coordinates."""
 
     gene_id: str
     name: str
@@ -95,7 +95,7 @@ class TranscriptionUnit:
 
 @dataclass(frozen=True, slots=True)
 class RegulonDBTerminator:
-    """A row of ``TerminatorSet`` with its interval in GIAP coordinates."""
+    """A row of ``TerminatorSet`` with its interval in GIPPA coordinates."""
 
     terminator_id: str
     interval: Interval
@@ -145,7 +145,7 @@ def _strand(value: str, what: str) -> Strand:
 
 
 def _interval(contig: str, left: str, right: str, strand: Strand, what: str) -> Interval:
-    """RegulonDB is 1-based closed; GIAP is 0-based half-open (spec §6.5)."""
+    """RegulonDB is 1-based closed; GIPPA is 0-based half-open (spec §6.5)."""
     try:
         start, end = int(left), int(right)
     except ValueError:
@@ -400,7 +400,7 @@ class PairRow:
 
 @dataclass(frozen=True, slots=True)
 class TerminatorRow:
-    """One RegulonDB terminator in GIAP coordinates."""
+    """One RegulonDB terminator in GIPPA coordinates."""
 
     contig: str
     start: int
@@ -412,7 +412,7 @@ class TerminatorRow:
 def adjacent_same_strand_pairs(model: GeneModel, contig: str) -> tuple[tuple[Gene, Gene], ...]:
     """The pipeline's adjacent pairs (M2-12, ``pairs_raw`` and UniOP) restricted to ``contig``.
 
-    ``giap.annotate.operons.adjacent_pairs`` keeps same-strand pairs only and adds the wrap pair
+    ``gippa.annotate.operons.adjacent_pairs`` keeps same-strand pairs only and adds the wrap pair
     of a circular replicon (lead decision 2).
     """
     return tuple(
@@ -479,7 +479,7 @@ def label_pair(
     mapped_loci: frozenset[str],
     blocked: bool,
 ) -> PairRow:
-    """Label one adjacent same-strand pair as GIAP_SPEC.md §15.4 step 2 says (lead decision 3).
+    """Label one adjacent same-strand pair as GIPPA_SPEC.md §15.4 step 2 says (lead decision 3).
 
     In order: **positive** when some RegulonDB TU holds both genes — even when a RegulonDB-only
     gene lies between them, and two overlapping TUs still count; otherwise **ambiguous** when

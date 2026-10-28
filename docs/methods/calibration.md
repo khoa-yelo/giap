@@ -1,6 +1,6 @@
 # Calibration harness: criteria, error rates, seeds
 
-Implements `tests/calibration/_criteria.py` and the nightly job array (GIAP_SPEC.md §8.4, §8.5,
+Implements `tests/calibration/_criteria.py` and the nightly job array (GIPPA_SPEC.md §8.4, §8.5,
 §11.2, §12; issue M4-05). Constants come only from the protected `tests/calibration/tolerances.yaml`
 (`levels` = {0.01, 0.05, 0.10}, `se_multiplier` k = 2, `ks_min_p` = 0.001, `seeds.calibration_base`,
 `replicates_fast`, `replicates_full`). Statistician sign-off: see the end of this note.
@@ -106,7 +106,7 @@ of exact U(0, 1) p at R = 1,000 gave 0 confirmed `fail` in 600 checks (expected 
 `unconfirmed` (5 / 8 / 11 at α = 0.01 / 0.05 / 0.10; expected ≈ 5–6 each, within the 99.9 %
 binomial band). Oracle BH at FDR = 1.5 q is a confirmed `fail` at every q, fast and full.
 
-**Sharded runs.** `--shard K/N` (N up to 10) sets `GIAP_CALIBRATION_REPLICATES=start:stop@K/N`.
+**Sharded runs.** `--shard K/N` (N up to 10) sets `GIPPA_CALIBRATION_REPLICATES=start:stop@K/N`.
 `calibrate()` then runs `shard_replicates(R, N, K)` of every check's own R, so a check whose R is
 not the suite's R is sharded too. It runs that range of block 1 and logs a `shard` record with the
 per-replicate values; an empty range (R < N) logs nothing. `--merge` puts the full R back together

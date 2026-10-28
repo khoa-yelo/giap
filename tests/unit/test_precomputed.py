@@ -1,6 +1,6 @@
-"""Precomputed annotation layers (M2-02 examples 9-10; GIAP_SPEC.md §5.2, §6.4, §9.2).
+"""Precomputed annotation layers (M2-02 examples 9-10; GIPPA_SPEC.md §5.2, §6.4, §9.2).
 
-Files follow the ``giap.io.tsv`` conventions (1-based closed coordinates, ``NA``, ``;`` lists);
+Files follow the ``gippa.io.tsv`` conventions (1-based closed coordinates, ``NA``, ``;`` lists);
 ``load_precomputed`` returns a validated frame with 0-based half-open intervals.
 """
 
@@ -13,8 +13,8 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.io.tsv import write_tsv
-from giap.model.coords import Replicon
+from gippa.io.tsv import write_tsv
+from gippa.model.coords import Replicon
 
 COLUMNS: dict[str, tuple[str, ...]] = {
     "operon_pairs": ("gene_a", "gene_b", "uniop_p", "source"),
@@ -51,7 +51,7 @@ REPLICONS = {
 
 
 def _load(key: str, path: Path) -> pd.DataFrame:
-    from giap.annotate.precomputed import load_precomputed
+    from gippa.annotate.precomputed import load_precomputed
 
     return load_precomputed(key, path, REPLICONS)
 
@@ -63,15 +63,15 @@ def _write(tmp_path: Path, key: str, rows: list[list[Any]], cols: Any = None) ->
 
 
 def test_precomputed_columns_match_spec_table() -> None:
-    from giap.annotate.precomputed import PRECOMPUTED_COLUMNS
+    from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS
 
     for key, cols in COLUMNS.items():
         assert tuple(PRECOMPUTED_COLUMNS[key]) == cols, key
 
 
 def test_precomputed_keys_are_config_keys() -> None:
-    from giap.annotate.precomputed import PRECOMPUTED_COLUMNS
-    from giap.config.model import PrecomputedConfig
+    from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS
+    from gippa.config.model import PrecomputedConfig
 
     assert set(COLUMNS) <= set(PRECOMPUTED_COLUMNS) <= set(PrecomputedConfig.model_fields)
 

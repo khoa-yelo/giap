@@ -1,13 +1,13 @@
 """M7-01 conformance on the merged sim100k producer chain (docs/specs/M7-01-residue-alignment.md,
 acceptance: "every row of the real peptide_hits.tsv aligns without error").
 
-The genome is giapsim ``SIM100K`` (seed ``SIM100K_SEED``) with a strain layer (SNVs and short
+The genome is gippasim ``SIM100K`` (seed ``SIM100K_SEED``) with a strain layer (SNVs and short
 indels, M3-18): the peptides are digested from the *sample* strain and mapped to the *reference*
 genome, so the tolerant route (substitutions, frameshift splits) has rows to align. Preflight
 and the merged mapping steps run through ``run_step`` (``helpers.mapping_steps.drive``); the
 test reads the published ``peptide_hits.tsv`` (1-based closed -> 0-based half-open, as the
 ``variants`` step converts it, rule 1), the ``hits_tolerant`` work table, the normalised genome
-and ``replicons.parquet``, and aligns every row. ``$GIAP_DB_DIR`` is a test database (never the
+and ``replicons.parquet``, and aligns every row. ``$GIPPA_DB_DIR`` is a test database (never the
 real one).
 
 Checks: one alignment per row; no ``ValueError`` (the recomputation agrees with the mapper on
@@ -25,18 +25,18 @@ import pandas as pd
 import pytest
 from helpers.mapping_steps import drive, fresh_steps, key_like, module2_files, preflight, roots_of
 
-from giap.config import resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.model import Replicon
+from gippa.config import resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.model import Replicon
 
 pytestmark = pytest.mark.slow
 
 
 @pytest.fixture(scope="module")
 def chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, object]:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SIM100K, SIM100K_SEED, simulate
-    from giapsim.strain import StrainConfig
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SIM100K, SIM100K_SEED, simulate
+    from gippasim.strain import StrainConfig
 
     tmp = Path(tmp_path_factory.mktemp("align_sim100k"))
     cfg_sim = dataclasses.replace(
@@ -65,7 +65,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, object]:
 
 
 def test_every_accepted_hit_aligns(chain: dict[str, object]) -> None:
-    mod = importlib.import_module("giap.variants.align")
+    mod = importlib.import_module("gippa.variants.align")
     ph = chain["ph"]
     assert isinstance(ph, pd.DataFrame)
     tolerant = ph[ph["route"] == "tolerant"]

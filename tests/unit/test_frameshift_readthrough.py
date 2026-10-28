@@ -25,13 +25,13 @@ import numpy as np
 import pandas as pd
 from helpers.readthrough_toys import CODON, gene, model
 
-from giap.config.model import TolerantConfig
-from giap.mapping.decoys import build_decoys
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, decode
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.config.model import TolerantConfig
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, decode
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 CFG = TolerantConfig()
 GENE_AA = "MCFHPYWCFHPYWCF"
@@ -51,7 +51,7 @@ def world_h():  # type: ignore[no-untyped-def]
 
 
 def stop_cells(index: SixFrameIndex, decoys, gm, genome, *, broken: bool = False):  # type: ignore[no-untyped-def]
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     sites, _ = rt.annotated_stops(gm, genome)
     target = rt.frame_cells(index, sites)

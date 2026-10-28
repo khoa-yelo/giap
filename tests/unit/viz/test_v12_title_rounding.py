@@ -1,4 +1,4 @@
-"""V12 title: the class-error range is printed with ``giap.viz.base.sig`` (2 significant digits),
+"""V12 title: the class-error range is printed with ``gippa.viz.base.sig`` (2 significant digits),
 not ``%g`` (viz batch 2, 2026-10-24: the snapshot fixture printed "0.872576" as the low end).
 A range whose ends round to the same text prints once.
 """
@@ -10,10 +10,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import style
-from giap.viz.variants import EN_DASH, title, variants
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import style
+from gippa.viz.variants import EN_DASH, title, variants
 
 #: V12 title clause (M9-18 amendment: the class error is pooled per class)
 POOLED = ", pooled per class over ALT and mixed sites"

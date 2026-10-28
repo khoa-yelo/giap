@@ -1,5 +1,5 @@
 """M8-07 ``determinants_features.tsv``: examples 1-10 and every degenerate row of
-docs/specs/M8-07-determinants-features.md (GIAP_SPEC.md §7.8.1, §7.8.2 step 1, §7.8.3).
+docs/specs/M8-07-determinants-features.md (GIPPA_SPEC.md §7.8.1, §7.8.2 step 1, §7.8.3).
 
 The world is ``determinants_features_data.toy()`` (13 genes; see that module for the layout and
 for the argument conventions this file assumes). Examples 1-4 are the §7.8.3 "Unit: the

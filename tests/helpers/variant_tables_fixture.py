@@ -1,7 +1,7 @@
 """Fixture genome, builders and oracles for the M7-03 tests (docs/specs/M7-03-*.md).
 
 Written by the test author from the spec text. The oracle (:func:`minimal_codon`) does not import
-``giap``; inputs reach ``vcf_records`` and the writers only through the public M7-02 functions
+``gippa``; inputs reach ``vcf_records`` and the writers only through the public M7-02 functions
 ``pileup`` and ``sites`` (whatever ``pileup`` returns is passed through untouched), so these tests
 do not depend on how the pileup carries its per-codon ALT detail (M7-03 lead decision 2).
 
@@ -28,10 +28,10 @@ from typing import Any
 
 import pandas as pd
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 from helpers.align_oracle import place
 from helpers.fs_genomes import background, codons_for
 from helpers.pileup_oracle import make_hit
@@ -138,7 +138,7 @@ def _gene(g: GSpec) -> Gene:
 
 
 GMODEL = GeneModel(REPS, (_gene(GP), _gene(GM_)), ())
-CFG = GiapConfig.model_validate({})
+CFG = GippaConfig.model_validate({})
 
 assert gene_codon_nt(GP, 44) == "GCT" and GP.codon(44) == 1000
 assert SEQ_CHR[1567:1570] == "AGC" and gene_codon_nt(GM_, 10) == "GCT"
@@ -149,23 +149,23 @@ assert SEQ_C2[996:999] == "TCT" and SEQ_C2[999] + SEQ_C2[:2] == "GAT"
 
 
 def pl() -> ModuleType:
-    return importlib.import_module("giap.variants.pileup")
+    return importlib.import_module("gippa.variants.pileup")
 
 
 def al() -> ModuleType:
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
 def vr() -> ModuleType:
-    return importlib.import_module("giap.variants.vcf_records")
+    return importlib.import_module("gippa.variants.vcf_records")
 
 
 def vt() -> ModuleType:
-    return importlib.import_module("giap.io.variant_tables")
+    return importlib.import_module("gippa.io.variant_tables")
 
 
 def vcf_io() -> ModuleType:
-    return importlib.import_module("giap.io.vcf")
+    return importlib.import_module("gippa.io.vcf")
 
 
 # --------------------------------------------------------------------------- hit builders
@@ -273,7 +273,7 @@ def write(path: Any, recs: Sequence[Any], reps: Mapping[str, Replicon] = REPS,
           genome: Mapping[str, str] = GENOME, sample: str = SAMPLE) -> None:  # fmt: skip
     v = vr()
     vcf_io().write_vcf(
-        path, recs, list(reps.values()), giap_version=VERSION, genome_sha256=SHA, sample=sample,
+        path, recs, list(reps.values()), gippa_version=VERSION, genome_sha256=SHA, sample=sample,
         info_fields=v.INFO_FIELDS, format_fields=v.FORMAT_FIELDS, sequences=genome,
     )  # fmt: skip
 

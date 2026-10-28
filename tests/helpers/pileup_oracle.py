@@ -1,6 +1,6 @@
 """Builders and an independent oracle for the M7-02 pileup tests (docs/specs/M7-02-*.md).
 
-Written by the test author from the spec text; the oracle does not import ``giap.variants.pileup``.
+Written by the test author from the spec text; the oracle does not import ``gippa.variants.pileup``.
 
 * :data:`G1P` / :data:`G2P` / :data:`G3P` are the proteins written into the circular 1,000-nt
   contig ``c1`` of the examples: G1 ``+`` [100, 400) (codon 112 = ``N``, aa_pos 5; an annotated

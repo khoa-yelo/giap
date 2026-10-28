@@ -1,4 +1,4 @@
-"""Review follow-ups for the evidence preflight rules (issue M1-10; GIAP_SPEC.md §7.0, §7.3.2).
+"""Review follow-ups for the evidence preflight rules (issue M1-10; GIPPA_SPEC.md §7.0, §7.3.2).
 
 Pins the "Lead decisions after code review" in docs/specs/M1-10-preflight-evidence-rules.md and
 kills mutations that survived the first test file:
@@ -28,19 +28,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.abundance import AbundanceTable, resolve_scale
-from giap.io.issues import Issue
-from giap.io.peptides import validate_peptides
-from giap.io.protein_fasta import (
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.abundance import AbundanceTable, resolve_scale
+from gippa.io.issues import Issue
+from gippa.io.peptides import validate_peptides
+from gippa.io.protein_fasta import (
     COUNTED_AA,
     STANDARD_AA,
     LetterCounts,
     ProteinRecord,
     resolve_protein_id,
 )
-from giap.preflight.checks import LIST_CAP, Check
-from giap.preflight.evidence import (
+from gippa.preflight.checks import LIST_CAP, Check
+from gippa.preflight.evidence import (
     abundance_checks,
     candidate_tier,
     inputs_checks,
@@ -53,7 +53,7 @@ PEPLEN = (7, 40)
 # ---------------------------------------------------------------- helpers
 
 
-def cfg(*overrides: str) -> GiapConfig:
+def cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
@@ -107,11 +107,11 @@ def raw_peptides(**cols: Sequence[object]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-def validated(config: GiapConfig, **cols: Sequence[object]) -> tuple[pd.DataFrame, list[Issue]]:
+def validated(config: GippaConfig, **cols: Sequence[object]) -> tuple[pd.DataFrame, list[Issue]]:
     return validate_peptides(raw_peptides(**cols), config.input)
 
 
-def pepchecks(config: GiapConfig, **cols: Sequence[object]) -> dict[str, Check]:
+def pepchecks(config: GippaConfig, **cols: Sequence[object]) -> dict[str, Check]:
     df, issues = validated(config, **cols)
     return by_id(peptide_checks(issues, df, config.input))
 

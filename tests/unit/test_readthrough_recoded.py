@@ -30,16 +30,16 @@ from helpers.readthrough_index import peptides_table
 from helpers.readthrough_index import world as rt_world
 from helpers.readthrough_toys import gene, model, rc, toy_c1, toy_c2, write_annotation, write_genome
 
-from giap.mapping.sixframe import STOP, build_sixframe
-from giap.model import Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.mapping.sixframe import STOP, build_sixframe
+from gippa.model import Replicon
+from gippa.model.genes import Gene, GeneModel
 
 EVENT = "mapping.stop_sites"
 FILL = "GCT"
 
 
 def _rt():  # type: ignore[no-untyped-def]
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     return rt
 
@@ -227,8 +227,8 @@ def test_example_24_minus_circular_wrap_two_cells() -> None:
 
 def test_every_recoded_cell_round_trips_and_mirrors() -> None:
     """Rule 2's round trip and rule 3's mirror for the recoded cells of examples 21-24."""
-    from giap.mapping.decoys import build_decoys
-    from giap.rng import for_step
+    from gippa.mapping.decoys import build_decoys
+    from gippa.rng import for_step
 
     rt = _rt()
     for genome, gm in (ex21(), ex22(), circular_gene("+", 12), circular_gene("-", 2)):
@@ -372,9 +372,9 @@ def test_two_features_recoding_one_codon_merge_their_tags() -> None:
 
 
 def _run_six(tmp: Path, genome: dict[str, str], gm: GeneModel) -> Path:
-    from giap.config import resolve_config
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import resolve_config
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     paths = write_annotation(gm, tmp / "ann")
@@ -404,7 +404,7 @@ def _event(caplog: pytest.LogCaptureFixture) -> dict:  # type: ignore[type-arg]
 def test_example_27_event_counts_a_merged_site_once_as_recoded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     caplog.set_level(logging.INFO)
     genome, gm = ex27()

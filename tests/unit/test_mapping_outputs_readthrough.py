@@ -23,15 +23,15 @@ import pandas as pd
 import pytest
 from helpers.readthrough_toys import gene, model, toy_c1
 
-import giap.mapping.loci as _loci_mod
-from giap.mapping.outputs import (
+import gippa.mapping.loci as _loci_mod
+from gippa.mapping.outputs import (
     MAPPING_FDR_COLUMNS,
     PEPTIDE_HITS_COLUMNS,
     PROTEIN_HITS_COLUMNS,
     write_mapping_outputs,
 )
-from giap.mapping.readthrough import StopSite
-from giap.model import Replicon
+from gippa.mapping.readthrough import StopSite
+from gippa.model import Replicon
 
 G1_SITE = StopSite("c1", "+", 54, ("G1",), "TGA", "terminal")
 SHA = "cd" * 32

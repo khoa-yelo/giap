@@ -1,20 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=giap-diann
+#SBATCH --job-name=gippa-diann
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64000M
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
-# DIA-NN for the pilot arms A1 and A2 (GIAP_SPEC.md §15.2 step 5; M3-24 decisions 1-6; M10-02).
+# DIA-NN for the pilot arms A1 and A2 (GIPPA_SPEC.md §15.2 step 5; M3-24 decisions 1-6; M10-02).
 #
-#   sbatch -J giap-diann-A1 scripts/slurm/diann_pilot.sbatch A1
-#   sbatch -J giap-diann-A2 scripts/slurm/diann_pilot.sbatch A2
+#   sbatch -J gippa-diann-A1 scripts/slurm/diann_pilot.sbatch A1
+#   sbatch -J gippa-diann-A2 scripts/slurm/diann_pilot.sbatch A2
 #
 # The search settings live in validation/pilot/diann_<arm>.cfg, not here: this script only resolves
 # the FASTA paths, the raw runs and the output names. DIA-NN 2.3.1 Academia runs only from the
 # verified read-only copy that scripts/slurm/diann_image.sbatch installs (M10-02, index lead
-# decision 2): $DIANN_SIF, defaulting to $GIAP_ROOT/images/diann_2.3.1.sif. Its sha256 (pin:
+# decision 2): $DIANN_SIF, defaulting to $GIPPA_ROOT/images/diann_2.3.1.sif. Its sha256 (pin:
 # validation/pilot/diann_image.sha256), its mode and the acquisition mode are checked before any
 # container call.
 #
@@ -28,17 +28,17 @@
 # CPU count (--mem=64G gave 17 CPUs per task, 18 allocated; PR #293 review S1).
 #
 # Environment: DIANN_SIF (image), RAW_DIR (the *.d runs of PXD078459, §15.1), ACQUISITION_JSON
-# (M10-01's run list and mode), OUT_DIR (parent of the per-arm output directory), GIAP_PYTHON.
-# Everything is written under $GIAP_ROOT; provenance.json is written on every exit.
+# (M10-01's run list and mode), OUT_DIR (parent of the per-arm output directory), GIPPA_PYTHON.
+# Everything is written under $GIPPA_ROOT; provenance.json is written on every exit.
 # Exit 0 report written; 1 DIA-NN failed or wrote no report; 2 a precondition; 3 the acquisition
 # mode forbids these settings (§17, ADR-0051); 143/130/129 killed by TERM/INT/HUP (scancel,
 # TIMEOUT), recorded as status failed with FAILED.
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
 
 usage() {
-  echo "usage: sbatch [-J giap-diann-A1] scripts/slurm/diann_pilot.sbatch A1|A2" >&2
+  echo "usage: sbatch [-J gippa-diann-A1] scripts/slurm/diann_pilot.sbatch A1|A2" >&2
   exit 2
 }
 [ $# -eq 1 ] || usage
@@ -48,15 +48,15 @@ case "$ARM" in
   *) echo "unknown arm '$ARM': the pilot arms searched with DIA-NN are A1 and A2 (§15.1)" >&2; usage ;;
 esac
 
-SIF="${DIANN_SIF:-$GIAP_ROOT/images/diann_2.3.1.sif}"
+SIF="${DIANN_SIF:-$GIPPA_ROOT/images/diann_2.3.1.sif}"
 DIANN="/diann-2.3.1/diann-linux"   # the binary inside the image (decision 1)
-PIN_FILE="$GIAP_REPO/validation/pilot/diann_image.sha256"
-CFG="${GIAP_REPO}/validation/pilot/diann_${ARM}.cfg"
-ACQ_JSON="${ACQUISITION_JSON:-$GIAP_REPO/validation/pilot/inputs/acquisition.json}"
-PY="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
-REPORT_PY="$GIAP_REPO/validation/pilot/diann_report.py"
-RAW_DIR="${RAW_DIR:-$GIAP_DATA_DIR/pxd078459}"
-OUT="${OUT_DIR:-$GIAP_ROOT/pilot}/$ARM"
+PIN_FILE="$GIPPA_REPO/validation/pilot/diann_image.sha256"
+CFG="${GIPPA_REPO}/validation/pilot/diann_${ARM}.cfg"
+ACQ_JSON="${ACQUISITION_JSON:-$GIPPA_REPO/validation/pilot/inputs/acquisition.json}"
+PY="${GIPPA_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
+REPORT_PY="$GIPPA_REPO/validation/pilot/diann_report.py"
+RAW_DIR="${RAW_DIR:-$GIPPA_DATA_DIR/pxd078459}"
+OUT="${OUT_DIR:-$GIPPA_ROOT/pilot}/$ARM"
 FASTA_DIR="$OUT/fasta"
 THREADS="${SLURM_CPUS_PER_TASK:-16}"
 PREDICTED_LIB="$OUT/${ARM}.predicted.speclib"   # DIA-NN names it after --out-lib
@@ -94,7 +94,7 @@ on_exit() {
   "$PY" -I "$REPORT_PY" provenance --arm "$ARM" --out "$OUT" --status "$status" \
     --exit-code "$rc" --step1 "$STEP1" --step1-rc "$STEP1_RC" --step2 "$STEP2" \
     --step2-rc "$STEP2_RC" --image "$SIF" --pin-file "$PIN_FILE" --cfg "$CFG" \
-    --repo "$GIAP_REPO" --acquisition "$ACQ_JSON" --raw-dir "$RAW_DIR" \
+    --repo "$GIPPA_REPO" --acquisition "$ACQ_JSON" --raw-dir "$RAW_DIR" \
     --fastas "$INPUT_FASTAS" --apptainer "$APPTAINER_VERSION" --node "$(hostname)" \
     --start "$START_EPOCH" || echo "warning: provenance.json was not written" >&2
   exit "$rc"
@@ -136,7 +136,7 @@ fi
 
 # ---- rule 2: the acquisition mode (exit 3); rule 3: the runs, in the file's order
 if [ ! -f "$PY" ] || [ ! -x "$PY" ]; then
-  echo "GIAP_PYTHON=$PY is not an executable file (default \$UV_PROJECT_ENVIRONMENT/bin/python)" >&2
+  echo "GIPPA_PYTHON=$PY is not an executable file (default \$UV_PROJECT_ENVIRONMENT/bin/python)" >&2
   exit 2
 fi
 RUN_LIST="" rc=0
@@ -144,8 +144,8 @@ RUN_LIST="$("$PY" -I "$REPORT_PY" runs "$ACQ_JSON")" || rc=$?
 case "$rc" in
   0) ;;
   3) exit 3 ;;
-  2) echo "cannot read the runs of $ACQ_JSON (GIAP_PYTHON=$PY)" >&2; exit 2 ;;
-  *) echo "GIAP_PYTHON=$PY failed with exit $rc reading the runs of $ACQ_JSON" >&2; exit 2 ;;
+  2) echo "cannot read the runs of $ACQ_JSON (GIPPA_PYTHON=$PY)" >&2; exit 2 ;;
+  *) echo "GIPPA_PYTHON=$PY failed with exit $rc reading the runs of $ACQ_JSON" >&2; exit 2 ;;
 esac
 RAW_FILES=()
 RAW_N=0
@@ -173,12 +173,17 @@ done
 command -v apptainer >/dev/null 2>&1 || { echo "apptainer is not on PATH (module load apptainer/1.4.4)" >&2; exit 2; }
 
 # bash 3.2 (macOS CI) runs these functions too: no ${v,,}, no ${!v}, no empty-array expansion.
-expand() {  # $VAR / ${VAR} of the GIAP environment in a cfg value
-  local s="$1" name val
-  for name in GIAP_REPO GIAP_ROOT GIAP_DATA_DIR GIAP_DB_DIR GIAP_TOOLS_DIR; do
+expand() {  # $VAR / ${VAR} of the GIPPA environment in a cfg value
+  local s="$1" name val old
+  for name in GIPPA_REPO GIPPA_ROOT GIPPA_DATA_DIR GIPPA_DB_DIR GIPPA_TOOLS_DIR; do
     eval "val=\${$name:-}"
     s="${s//\$\{$name\}/$val}"
     s="${s//\$$name/$val}"
+    # ADR-0064: the sha-pinned validation/pilot/diann_A*.cfg stay as written (rename_gippa.py
+    # KEEP_PATHS) and name the pre-rename variables; each maps to the same value.
+    old="GIAP_${name#GIPPA_}"
+    s="${s//\$\{$old\}/$val}"
+    s="${s//\$$old/$val}"
   done
   printf '%s' "$s"
 }
@@ -257,7 +262,7 @@ resolve_fastas() {  # expand every --fasta of CFG_ARGS; unpack a gzipped one out
       INPUT_FASTAS="$INPUT_FASTAS$val$NL"
       val="$FASTA_DIR/$base"
     fi
-    [ -f "$val" ] || { echo "missing FASTA: $val (giap setup / fetch_resources.sbatch)" >&2; exit 2; }
+    [ -f "$val" ] || { echo "missing FASTA: $val (gippa setup / fetch_resources.sbatch)" >&2; exit 2; }
     STEP_ARGS+=(--fasta "$val")
     INPUT_FASTAS="$INPUT_FASTAS$val$NL"
     i=$((i + 2))
@@ -314,7 +319,7 @@ else
   STEP1_RC=$rc
   [ "$STEP1_RC" -eq 0 ] || fail step1 "$STEP1_RC"
   [ -s "$PREDICTED_LIB" ] || { echo "step 1 wrote no $PREDICTED_LIB" >&2; fail step1 1 no_output; }
-  COMMIT="$(git -C "$GIAP_REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
+  COMMIT="$(git -C "$GIPPA_REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
   {
     printf '%s  %s\n' "$(sha "$PREDICTED_LIB")" "$(basename "$PREDICTED_LIB")"
     printf 'job_id=%s\ncommit=%s\n' "${SLURM_JOB_ID:-}" "$COMMIT"

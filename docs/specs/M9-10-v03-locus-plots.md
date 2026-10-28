@@ -15,7 +15,7 @@ not statistical
 
 ## Public interface
 
-`src/giap/viz/locus.py`
+`src/gippa/viz/locus.py`
 ```python
 @dataclass(frozen=True)
 class Locus:
@@ -26,8 +26,8 @@ class Locus:
     error: float | None    # the ordering estimate (q, FWER p, class FDR); None = NA
     label: str             # e.g. "prophage_1, O − E −4.8, q 0.003"
 
-def select_loci(view: RunView, cfg: GiapConfig) -> list[Locus]
-def render_locus(locus: Locus, view: RunView, cfg: GiapConfig, scale: tuple[float, float]) -> Instance
+def select_loci(view: RunView, cfg: GippaConfig) -> list[Locus]
+def render_locus(locus: Locus, view: RunView, cfg: GippaConfig, scale: tuple[float, float]) -> Instance
 ```
 
 ## Selection and order (index decision 18)

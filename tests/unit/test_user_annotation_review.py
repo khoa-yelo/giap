@@ -20,14 +20,14 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.user_annotation import (
+from gippa.annotate.user_annotation import (
     UserCds,
     build_id_map,
     detect_format,
     read_user_cds,
     write_bakta_regions,
 )
-from giap.model import Gene, Interval, Replicon
+from gippa.model import Gene, Interval, Replicon
 
 CHR = Replicon("chr1", 100_000, "circular", "chromosome")
 PL = Replicon("plasmid_1", 8_000, "circular", "plasmid")

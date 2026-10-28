@@ -1,4 +1,4 @@
-"""The M6 gate, simulation half (issue M6-09; GIAP_SPEC.md §7.4.7 "Calibration" criteria 1 and 3,
+"""The M6 gate, simulation half (issue M6-09; GIPPA_SPEC.md §7.4.7 "Calibration" criteria 1 and 3,
 §8.1 rows "Operon discordance" and "Missed operon", §8.4 suites ``missed_operons`` and
 ``discordance``; docs/specs/M6-09-calibration-gate.md with its lead defaults and Khoa's decision
 of 2026-10-22). Criterion 2 (the attack null) is attacks/test_attack_operons.py.
@@ -67,7 +67,7 @@ def test_missed_operon_fdr_gate(full: bool) -> None:
     stream = f"{MO}.gate.power_1800_50_0.1"
     cfgs = G.scenario("missed_operon_power", G.N_GENES, 50, 0.1)
     recs = G.missed_fdr_gate(
-        MO, stream, G.missed_replicate_fn(stream, cfgs, G.giap_cfg()), C.replicates(MO, full)
+        MO, stream, G.missed_replicate_fn(stream, cfgs, G.gippa_cfg()), C.replicates(MO, full)
     )
     G.assert_fdr_ok(recs, allow_vacuous=True)
 
@@ -78,7 +78,7 @@ def test_missed_operon_fdr_nonvacuous(full: bool) -> None:
     k, sd = G.NONVAC_PLANT
     stream = f"{MO}.gate.nonvacuous_cv_only"
     cfgs = G.scenario("missed_operon_power", G.N_GENES, k, sd)
-    records = G.missed_replicate_fn(stream, cfgs, G.giap_cfg(G.CV_ONLY))
+    records = G.missed_replicate_fn(stream, cfgs, G.gippa_cfg(G.CV_ONLY))
     r = C.replicates(MO, full)
     recs = G.missed_fdr_gate(MO, stream, records, r)
     if C.owns_direct_checks():  # need_calls_at = 0.1 on block 1 = some call in replicates 0..R-1
@@ -94,7 +94,7 @@ def test_teeth_pi0_misconfigured_fails(teeth_log: object) -> None:
     k, sd = G.NONVAC_PLANT
     stream = f"{MO}.teeth.pi0_0.1"
     cfgs = G.scenario("missed_operon_power", G.N_GENES, k, sd)
-    records = G.missed_replicate_fn(stream, cfgs, G.giap_cfg(G.CV_ONLY, pi0=0.1))
+    records = G.missed_replicate_fn(stream, cfgs, G.gippa_cfg(G.CV_ONLY, pi0=0.1))
     rec = C.calibrate_fdr_counts(
         MO, stream, "q0.1", 0.1, records, C.replicates(MO, False), log_dir=teeth_log
     )  # type: ignore[arg-type]
@@ -112,7 +112,7 @@ def test_missed_operon_power_grid() -> None:
         for e in POWER_EFFECTS:
             stream = f"{MO}.power.k{k}.sd{e:g}"
             cfgs = G.scenario("missed_operon_power", G.N_GENES, k, e)
-            records = G.missed_replicate_fn(stream, cfgs, G.giap_cfg())
+            records = G.missed_replicate_fn(stream, cfgs, G.gippa_cfg())
             rows.append({"n_planted": k, "effect_sd": e, "stream": stream,
                          **G.fdp_summary(records, POWER_R, 0.1)})  # fmt: skip
     for row in rows:

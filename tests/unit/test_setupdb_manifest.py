@@ -1,4 +1,4 @@
-"""`db_manifest.json` (issue M2-08; GIAP_SPEC.md §7.9.1, §6.7): schema, determinism, merging,
+"""`db_manifest.json` (issue M2-08; GIPPA_SPEC.md §7.9.1, §6.7): schema, determinism, merging,
 atomic writes, and the readers (`environment.tools` in preflight, `scripts/probe_env.py`).
 
 Ambiguities resolved here:
@@ -28,7 +28,7 @@ from hypothesis import strategies as st
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA = ROOT / "src" / "giap" / "schemas" / "db_manifest.schema.json"
+SCHEMA = ROOT / "src" / "gippa" / "schemas" / "db_manifest.schema.json"
 FIELDS = {
     "name",
     "version",
@@ -43,7 +43,7 @@ FIELDS = {
 
 
 def rec(name: str, status: str = "ok", version: str = "6.0", **kw: Any) -> Any:
-    from giap.setupdb import DbRecord
+    from gippa.setupdb import DbRecord
 
     base: dict[str, Any] = {
         "name": name,
@@ -81,7 +81,7 @@ def test_schema_is_a_valid_draft_2020_12_schema() -> None:
 
 
 def test_written_manifest_validates_and_has_the_documented_shape(tmp_path: Path) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     write_manifest(tmp_path, [rec("genomad", version="1.9"), rec("bakta_light")])
     data = read(tmp_path)
@@ -117,7 +117,7 @@ def test_schema_status_is_an_enum() -> None:
 
 
 def test_write_manifest_merges_by_name(tmp_path: Path) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     write_manifest(tmp_path, [rec("bakta_light"), rec("genomad", version="1.9")])
     write_manifest(tmp_path, [rec("genomad", status="mismatch", version="1.9")])
@@ -127,7 +127,7 @@ def test_write_manifest_merges_by_name(tmp_path: Path) -> None:
 
 
 def test_write_manifest_leaves_no_temporary_files(tmp_path: Path) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     write_manifest(tmp_path, [rec("bakta_light")])
     write_manifest(tmp_path, [rec("genomad")])
@@ -137,7 +137,7 @@ def test_write_manifest_leaves_no_temporary_files(tmp_path: Path) -> None:
 
 
 def test_write_manifest_is_atomic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     write_manifest(tmp_path, [rec("bakta_light")])
     before = (tmp_path / "db_manifest.json").read_bytes()
@@ -164,7 +164,7 @@ _names = st.lists(
 def test_manifest_bytes_do_not_depend_on_record_order(
     tmp_path_factory: pytest.TempPathFactory, names: list[str], data: st.DataObject
 ) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     records = [
         rec(n, status=data.draw(st.sampled_from(["ok", "absent", "mismatch"]))) for n in names
@@ -184,7 +184,7 @@ def test_manifest_bytes_do_not_depend_on_record_order(
 def test_merge_is_union_with_later_records_winning(
     tmp_path_factory: pytest.TempPathFactory, first: list[str], second: list[str]
 ) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     d = tmp_path_factory.mktemp("m")
     write_manifest(d, [rec(n, message="first") for n in first])
@@ -198,7 +198,7 @@ def test_merge_is_union_with_later_records_winning(
 
 
 def _setup_manifest(db: Path) -> None:
-    from giap.setupdb import write_manifest
+    from gippa.setupdb import write_manifest
 
     write_manifest(
         db,
@@ -212,7 +212,7 @@ def _setup_manifest(db: Path) -> None:
 
 
 def test_preflight_reads_the_setup_manifest(tmp_path: Path) -> None:
-    from giap.preflight.environment import read_manifest
+    from gippa.preflight.environment import read_manifest
 
     _setup_manifest(tmp_path)
     found = read_manifest(str(tmp_path))
@@ -224,7 +224,7 @@ def test_preflight_reads_the_setup_manifest(tmp_path: Path) -> None:
 
 
 def test_environment_tools_sees_setup_databases(tmp_path: Path) -> None:
-    from giap.preflight.environment import (
+    from gippa.preflight.environment import (
         EnvProbe,
         environment_checks,
         read_manifest,
@@ -250,7 +250,7 @@ def test_probe_env_reads_the_manifest(tmp_path: Path, monkeypatch: pytest.Monkey
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path))
     without = json.dumps(mod.databases())
     _setup_manifest(tmp_path)
     with_manifest = json.dumps(mod.databases())

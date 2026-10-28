@@ -49,17 +49,17 @@ def test_example11_paperwork_commit_passes(computed: Fixture) -> None:
 def test_verify_paperwork_mix_passes(computed: Fixture) -> None:
     computed.write_text("docs/user-guide/install.md", "# Install\n\nEdited.\n")
     computed.write_text("CHANGELOG.md", (computed.repo / "CHANGELOG.md").read_text() + "\nMore.\n")
-    computed.write_text("README.md", "# GIAP 1.0\n")
+    computed.write_text("README.md", "# GIPPA 1.0\n")
     computed.commit("docs")
     assert computed.verify().returncode == 0
 
 
 def test_example12_code_commit_is_stale(computed: Fixture) -> None:
-    computed.write_text("src/giap/cli.py", '"""CLI (fixture), changed."""\n')
+    computed.write_text("src/gippa/cli.py", '"""CLI (fixture), changed."""\n')
     computed.commit("touch cli")
     proc = computed.verify()
     assert proc.returncode == 1
-    assert "fail (stale: src/giap/cli.py)" in _out(proc)
+    assert "fail (stale: src/gippa/cli.py)" in _out(proc)
 
 
 def test_methods_note_is_not_paperwork(computed: Fixture) -> None:
@@ -130,7 +130,7 @@ ALLOWED = [
     "changelog.d/+m11.feature.md",
 ]
 DENIED = [
-    "src/giap/cli.py",
+    "src/gippa/cli.py",
     "docs/methods/bh.md",
     "docs/methods/sub/x.md",
     "validation/pilot/metrics/metrics.json",

@@ -1,18 +1,18 @@
 """Contract test: Promoter Calculator 1.2.4 regions, parser and ``tx_layer`` on recorded runs
-(M2-14; GIAP_SPEC.md §5.4, §7.1.1, §7.1.4).
+(M2-14; GIPPA_SPEC.md §5.4, §7.1.1, §7.1.4).
 
 Committed excerpts (``tests/data/recorded/promoter_calculator/PROVENANCE.md``): 5 sim100k TU
 regions (both strands, chromosome and plasmid, the shortest region) and 5 K-12 MG1655 regions
 (both strands, and two regions for which the tool wrote **no CSV**), each with the recorded
 ``regions/<TU>.fa``, ``csv/<TU>.csv`` and the region coordinates in ``tus.tsv``.
 
-* ``region_fasta_text`` reproduces the recorded sim100k region files byte for byte from giapsim's
+* ``region_fasta_text`` reproduces the recorded sim100k region files byte for byte from gippasim's
   regenerated SIM100K genome.
 * every recorded row parses; ``PcHit.tss`` is the 1-based +1 base: the 20 nt the tool reports as
   ``ITR`` start there (forward region strand for ``+``, reverse complement for ``-``).
 * ``tx_layer`` keeps exactly the ``+`` rows (TU strand), maps them to the genome TSS where the
   ``ITR`` is found on the TU's genome strand, and ``tu_tx_features`` gives max/sum/distance.
-* the full K-12 run under ``$GIAP_ROOT/recordings/promoter_calculator/k12_mg1655`` (not committed;
+* the full K-12 run under ``$GIPPA_ROOT/recordings/promoter_calculator/k12_mg1655`` (not committed;
   skipped when missing): all 2,751 CSVs parse with the ITR property, exactly the 20 known short
   regions have no CSV, and with the recorded Bakta JSON the regions and genome TSSs are checked
   genome-wide.
@@ -37,17 +37,17 @@ from helpers.promoter_calculator_fixtures import (
     region_seq,
 )
 
-from giap.annotate.operons import Tu
-from giap.model.coords import Replicon
+from gippa.annotate.operons import Tu
+from gippa.model.coords import Replicon
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded"
 RECORDED = DATA / "promoter_calculator" / "1.2.4"
 SAMPLES = ["sim100k", "k12_mg1655"]
 NO_CSV = {"sim100k": set(), "k12_mg1655": {"TU_00058", "TU_00318"}}
 SIM_GENOME_SHA = "dd10216ee21cb0ac13940b2f7d5a26bf0fdc8c2af54af8baf26b380fc65a8d69"
-GIAP_ROOT = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings"
-FULL_K12 = GIAP_ROOT / "promoter_calculator" / "k12_mg1655"
-K12_JSON = GIAP_ROOT / "bakta_full" / "k12_mg1655" / "bakta" / "k12_mg1655.json"
+GIPPA_ROOT = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings"
+FULL_K12 = GIPPA_ROOT / "promoter_calculator" / "k12_mg1655"
+K12_JSON = GIPPA_ROOT / "bakta_full" / "k12_mg1655" / "bakta" / "k12_mg1655.json"
 K12_JSON_SHA = "13c54a8961651053cda596ffa4cc0c611565588112275faf7f3ddc27e28bacec"
 K12_NO_CSV = {
     "TU_00058", "TU_00059", "TU_00318", "TU_00319", "TU_00493", "TU_00494", "TU_00768",
@@ -57,7 +57,7 @@ K12_NO_CSV = {
 
 
 def _pc():
-    from giap.annotate import promoter_calculator as pc
+    from gippa.annotate import promoter_calculator as pc
 
     return pc
 
@@ -226,14 +226,14 @@ def test_tu_features_on_recorded_hits(sample: str) -> None:
 
 
 def test_sim100k_regions_byte_for_byte_and_genome_tss(tmp_path: Path) -> None:
-    import giapsim
-    from giap.io.fasta import read_genome_fasta
+    import gippasim
+    from gippa.io.fasta import read_genome_fasta
 
     pc = _pc()
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path / "sim")
     fa = Path(res.genome_fasta)
     if hashlib.sha256(fa.read_bytes()).hexdigest() != SIM_GENOME_SHA:
-        pytest.fail("giapsim SIM100K genome changed: the recording no longer matches it")
+        pytest.fail("gippasim SIM100K genome changed: the recording no longer matches it")
     seq = {r.id: r.sequence for r in read_genome_fasta(fa)}
     tus, reps, _ = _sample("sim100k")
     assert {c: r.length for c, r in reps.items()} == {c: len(s) for c, s in seq.items()}

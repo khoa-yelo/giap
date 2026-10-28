@@ -1,4 +1,4 @@
-"""The abundance-dependent Student-t scale (issue M6-13, ADR-0055 option (a); GIAP_SPEC.md §7.4.2,
+"""The abundance-dependent Student-t scale (issue M6-13, ADR-0055 option (a); GIPPA_SPEC.md §7.4.2,
 §7.4.3 as amended; docs/specs/M6-13-discordance-abundance-sigma.md).
 
 Interface pinned here (the spec's "Public interface"):
@@ -32,8 +32,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy import stats as sps
 
-import giap.stats.tdist as tdist
-from giap.stats.tdist import (
+import gippa.stats.tdist as tdist
+from gippa.stats.tdist import (
     ScaledStudentT,
     fit_student_t,
     fit_student_t_scaled,

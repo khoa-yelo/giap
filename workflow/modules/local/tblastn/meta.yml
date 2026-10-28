@@ -1,5 +1,5 @@
 name: tblastn
-description: Search leftover proteins against the genome with tblastn (GIAP_SPEC.md §7.2.3).
+description: Search leftover proteins against the genome with tblastn (GIPPA_SPEC.md §7.2.3).
 keywords: [protein, alignment, mapping, blast]
 tools:
   - tblastn:
@@ -20,7 +20,7 @@ output:
   - hits:
       - tblastn.tsv:
           type: file
-          description: Tabular hits in the 15-column outfmt of giap.mapping.tblastn.OUTFMT.
+          description: Tabular hits in the 15-column outfmt of gippa.mapping.tblastn.OUTFMT.
   - versions:
       - versions.yml:
           type: file

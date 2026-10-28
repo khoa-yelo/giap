@@ -1,5 +1,5 @@
 {
-  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md §12; updates by ADR with before/after numbers). Seconds are wall clock.",
+  "_comment": "Accepted runtime and accuracy numbers (GIPPA_SPEC.md §12; updates by ADR with before/after numbers). Seconds are wall clock.",
   "annotation_steps": {
     "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
     "wheat": {
@@ -124,7 +124,7 @@
     "note": "single run, median of 3 invocations (0.221-0.227 s), interactive allocation"
   },
   "m4_chain": {
-    "_comment": "M4-20: wall clock per M4 step on the giapsim sim4500 fixture; secs is the timed step alone (the prerequisite steps of the same case are not counted).",
+    "_comment": "M4-20: wall clock per M4 step on the gippasim sim4500 fixture; secs is the timed step alone (the prerequisite steps of the same case are not counted).",
     "benchmark": "benchmarks/test_m4_chain_bench.py::test_m4_step_budget_sim4500",
     "gene_table": {
       "budget_s": 120.0,
@@ -357,7 +357,7 @@
     "benchmark": "benchmarks/test_function_step_bench.py::test_function_step_4500_genes_budget",
     "source": "docs/specs/M8-06-function-step-and-run.md M8-06a acceptance (the 4,500-gene simulated layout with synthetic resources, stats.bootstrap = 1000); M8 index feasibility: seconds to minutes",
     "n_genes": 4500,
-    "fixture": "giapsim build_m4_fixture size sim4500, seed 20261022; helpers.function_db synthetic GO/KEGG/COG DB from its xrefs",
+    "fixture": "gippasim build_m4_fixture size sim4500, seed 20261022; helpers.function_db synthetic GO/KEGG/COG DB from its xrefs",
     "bootstrap": 1000,
     "budget_s": 45.0,
     "secs": 14.08,

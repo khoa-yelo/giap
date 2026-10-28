@@ -1,5 +1,5 @@
 name: bakta
-description: Bakta genome annotation (GIAP_SPEC.md §7.1.1).
+description: Bakta genome annotation (GIPPA_SPEC.md §7.1.1).
 tools:
   - bakta:
       licence: ["GPL-3.0"]

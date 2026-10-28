@@ -1,12 +1,12 @@
 """M9-25 example 2: changing ``style.DETECTION["detected"]`` to another hex makes snapshots fail
-(RMS > 2) (docs/specs/M9-25-snapshot-baselines.md; GIAP_SPEC.md §10.1).
+(RMS > 2) (docs/specs/M9-25-snapshot-baselines.md; GIPPA_SPEC.md §10.1).
 
 The spec lists "V01, V02, V03, ..."; V03 colours genes by the cividis abundance scale and never
-uses ``DETECTION["detected"]`` (giap.viz.locus), so the plots checked are V01 (circos status
+uses ``DETECTION["detected"]`` (gippa.viz.locus), so the plots checked are V01 (circos status
 track), V02 (detected markers) and V16 (UpSet bars) (test-author's reading, reported to the lead).
 
 Every snapshot instance of these plots on ``sim_plots`` is drawn in a fresh interpreter in which
-``giap.viz.style`` is loaded from its source with only the ``"detected"`` entry of ``DETECTION``
+``gippa.viz.style`` is loaded from its source with only the ``"detected"`` entry of ``DETECTION``
 changed (``STATUS_COLOUR`` and every module that copies the colour at import pick it up), then
 compared with the committed baselines by ``matplotlib.testing.compare.compare_images``; each
 plot's most affected instance must exceed RMS 2. With ``--mpl`` (the ubuntu 3.12 leg) the
@@ -32,18 +32,18 @@ import importlib.util, json, sys
 from pathlib import Path
 old, new, dest = sys.argv[1], sys.argv[2], Path(sys.argv[3])
 pids = sys.argv[4:]
-import giap.viz
-src = Path(giap.viz.__file__).with_name("style.py").read_text(encoding="utf-8")
+import gippa.viz
+src = Path(gippa.viz.__file__).with_name("style.py").read_text(encoding="utf-8")
 needle = f'"detected": "{old}"'
 assert src.count(needle) == 1, "DETECTION['detected'] literal not found once in style.py"
 if new != old:
     src = src.replace(needle, f'"detected": "{new}"')
-spec = importlib.util.spec_from_loader("giap.viz.style", loader=None)
+spec = importlib.util.spec_from_loader("gippa.viz.style", loader=None)
 mod = importlib.util.module_from_spec(spec)
-mod.__file__ = giap.viz.__file__.replace("__init__.py", "style.py")
-sys.modules["giap.viz.style"] = mod
+mod.__file__ = gippa.viz.__file__.replace("__init__.py", "style.py")
+sys.modules["gippa.viz.style"] = mod
 exec(compile(src, mod.__file__, "exec"), mod.__dict__)
-giap.viz.style = mod
+gippa.viz.style = mod
 from helpers import snapshot_fixture as sf
 cases = {(c.pid, c.stem): c for c in sf.cases() if c.fixture == sf.RICH and c.error is None}
 out = {}

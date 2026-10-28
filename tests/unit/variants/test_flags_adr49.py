@@ -1,14 +1,14 @@
 """ADR-0049 flag changes (Khoa's decision, 2026-10-23; local/handoff/adr0049_decision.md).
 
 Supersedes M7-05 lead decision 1 ("swaps carry no ``mass_equivalent``") and adds the A6a 2->1
-block reading of substitutions. GIAP_SPEC.md §7.5.3: ``mass_equivalent`` when an equal-mass
+block reading of substitutions. GIPPA_SPEC.md §7.5.3: ``mass_equivalent`` when an equal-mass
 reading explains the ALT, blocks included.
 
 Interfaces pinned here (test-author choices, reported to the lead):
 
-* ``giap.variants.flags.flags_for(site, starts, cfg, alt_sources)`` (signature unchanged) flags
+* ``gippa.variants.flags.flags_for(site, starts, cfg, alt_sources)`` (signature unchanged) flags
   every ``alt_type = swap`` row ``mass_equivalent`` (decision 2, A6b), whatever the tolerance.
-* ``giap.variants.flags.left_block_read(peptide, q, ref, k, tol_da) -> bool`` (new, pure): the
+* ``gippa.variants.flags.left_block_read(peptide, q, ref, k, tol_da) -> bool`` (new, pure): the
   ALT peptide ``peptide`` reads its residue ``q`` at the site, which is residue ``k`` of the
   reference residues ``ref`` (transcription order). True iff the peptide also aligns as the 2->1
   block ``ref[k-1:k+1] -> peptide[q]`` with its prefix shifted left by one, i.e. ``k >= 1``,
@@ -17,11 +17,11 @@ Interfaces pinned here (test-author choices, reported to the lead):
   Only the left form: never the right-hand ``ref[k:k+2]`` form, never a prefix that is not
   shifted. The caller (the variants step) supplies ``q``, ``ref`` and ``k``; the step-level
   behaviour is pinned in tests/unit/steps/test_variants_step_adr49.py.
-* ``giap.variants.flags.identifiable(ref_aa, alt_aa, tol_da) -> bool`` (new, pure): the G1
+* ``gippa.variants.flags.identifiable(ref_aa, alt_aa, tol_da) -> bool`` (new, pure): the G1
   identifiable-truth rule (decision 4) for the M7-13a gate helpers, exactly
   ``not mass_equivalent(ref_aa, alt_aa, tol_da)``, so the gate and the call flag cannot drift.
 
-Masses come from GIAP's own table (``giap.mapping.masses.RESIDUE_MASS``), as the decision asks.
+Masses come from GIPPA's own table (``gippa.mapping.masses.RESIDUE_MASS``), as the decision asks.
 """
 
 from __future__ import annotations
@@ -32,27 +32,27 @@ from typing import Any
 
 import pytest
 
-from giap.config.model import GiapConfig
-from giap.mapping.masses import RESIDUE_MASS
+from gippa.config.model import GippaConfig
+from gippa.mapping.masses import RESIDUE_MASS
 
 ME = "mass_equivalent"
-TOL = GiapConfig().variants.mass_equivalent_tol_da  # 0.05 Da, the configured default
+TOL = GippaConfig().variants.mass_equivalent_tol_da  # 0.05 Da, the configured default
 
 
 def fl() -> ModuleType:
     """The module under test (imported per test, so each test fails on its own)."""
-    return importlib.import_module("giap.variants.flags")
+    return importlib.import_module("gippa.variants.flags")
 
 
-def cfg(tol: float | None = None, relation: str = "related") -> GiapConfig:
+def cfg(tol: float | None = None, relation: str = "related") -> GippaConfig:
     over: dict[str, Any] = {"genome_relation": relation}
     if tol is not None:
         over["variants"] = {"mass_equivalent_tol_da": tol}
-    return GiapConfig.model_validate(over)
+    return GippaConfig.model_validate(over)
 
 
 def site(ref_codon: str, ref_aa: str, alt_aa: str, alt_type: str) -> dict[str, Any]:
-    """One ``giap.variants.pileup.sites`` row (0-based ``codon_start``)."""
+    """One ``gippa.variants.pileup.sites`` row (0-based ``codon_start``)."""
     return {
         "variant_id": "VAR_1", "contig": "c1", "codon_start": 99, "strand": "+",
         "gene": "G1", "aa_pos": 2, "ref_codon": ref_codon, "ref_aa": ref_aa, "alt_aa": alt_aa,

@@ -1,14 +1,14 @@
-"""``giap.io.run_view.RunView``: every file read of the plot framework (M9-01 behaviour 3-6,
+"""``gippa.io.run_view.RunView``: every file read of the plot framework (M9-01 behaviour 3-6,
 examples 7 and 10, degenerate cases).
 
 Interface assumed beyond the spec text:
-- ``giap.io.run_view.PATHS: Mapping[str, str]`` is the one key -> ``OUT/``-relative-path table
+- ``gippa.io.run_view.PATHS: Mapping[str, str]`` is the one key -> ``OUT/``-relative-path table
   (behaviour 3). It extends ``PUBLISHED_FILES`` with, at least, ``preflight``, the four mapping
   tables (``peptide_hits``, ``protein_hits``, ``unmapped``, ``mapping_fdr``) and the annotation
   files (``tus``, ``regions``, ``promoters``, ``terminators``).
 - ``from_inputs`` takes the step input map: file keys point at files (work files carry no
   extension), the ``PUBLISHED`` directory keys (``mapping``, ``annotation``) point at directories.
-- ``NotAGiapRun`` lives in ``giap.io.run_view``; ``table`` of a key not in ``PATHS`` raises
+- ``NotAGippaRun`` lives in ``gippa.io.run_view``; ``table`` of a key not in ``PATHS`` raises
   ``KeyError``.
 """
 
@@ -31,8 +31,8 @@ from helpers.viz_out_tree import (
     write_schema_table,
 )
 
-from giap.io.run_view import PATHS, NotAGiapRun, RunView
-from giap.runner.local import PUBLISHED, PUBLISHED_FILES, publish
+from gippa.io.run_view import PATHS, NotAGippaRun, RunView
+from gippa.runner.local import PUBLISHED, PUBLISHED_FILES, publish
 
 ROOT = Path(__file__).resolve().parents[3]
 VAL_RUN = Path("local/runs/val-mvp-2026-10-22/OUT")
@@ -69,10 +69,10 @@ def test_unknown_key_raises_key_error(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- what counts as a run
 
 
-def test_not_a_giap_run(tmp_path: Path) -> None:
+def test_not_a_gippa_run(tmp_path: Path) -> None:
     (tmp_path / "OUT").mkdir()
     (tmp_path / "OUT" / "notes.txt").write_text("hi\n")
-    with pytest.raises(NotAGiapRun):
+    with pytest.raises(NotAGippaRun):
         RunView.from_outdir(tmp_path / "OUT")
 
 

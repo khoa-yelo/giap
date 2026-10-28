@@ -31,13 +31,13 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    | Model R² | elastic-net `cv_r2_mean` ± `cv_r2_sd` (ADR-0033 primary) | "null p `<p>` (uncalibrated)" while rows carry `null_uncalibrated` (ADR-0034) |
 
 2. **Methods and caveats.** Snippets are plain HTML fragments under
-   `src/giap/report/snippets/<topic>.html` (package data, so an installed GIAP has them). Each is
+   `src/gippa/report/snippets/<topic>.html` (package data, so an installed GIPPA has them). Each is
    generated from a marked block in the matching `docs/methods/<topic>.md`
    (`<!-- report:begin -->` … `<!-- report:end -->`, plain paragraphs and lists only) by
    `scripts/dev/sync_report_snippets.py`; a unit test fails when a snippet and its source differ.
    No Markdown library at run time (`markdown` is not a runtime dependency).
 3. **Mandatory caveats** (constant text, each placed in its section): §7.4 σ70/intrinsic-only note
-   (operons); §7.8.2 caveats from `giap.determinants.CAVEATS` (determinants; #178); GSEA "conditional
+   (operons); §7.8.2 caveats from `gippa.determinants.CAVEATS` (determinants; #178); GSEA "conditional
    on detection, no p_detect adjustment" (ADR-0026), "no level claim for rows flagged
    `genomic_cluster`" (ADR-0025), "NES has no interval" (ADR-0027); determinants "univariate CIs
    uncalibrated" (ADR-0032), "elastic-net ΔR² is the primary attribution; LightGBM and SHAP are
@@ -51,15 +51,15 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    (backlog M6-06); `-Infinity`/`Infinity` bounds printed as "−∞"/"∞".
 5. **Sensitivity section:** `tables/sensitivity.tsv` rendered whole (it is small), grouped by
    `family`, `jaccard` printed `%.2f` or `NA` ("no flagged set in either run" when both n are 0).
-6. **Provenance** (index decision 26): with `run_manifest.json`: GIAP version and commit, command
+6. **Provenance** (index decision 26): with `run_manifest.json`: GIPPA version and commit, command
    line, input SHA-256s, tool versions and digests, database versions and checksums (including the
    KEGG retrieval date and GO release), seed, and the SHA-256 of the manifest itself ("manifest
    digest"). Without it: the M9-02 pass-1 subset and the sentence "run_manifest.json not written by
-   this GIAP version".
-7. **Wording check** (index decision 25): `giap.report.checks.wording(html) -> list[str]` finds
+   this GIPPA version".
+7. **Wording check** (index decision 25): `gippa.report.checks.wording(html) -> list[str]` finds
    `express` (any case, word-start) outside quoted citations; the `report` step fails a unit test,
    not the run.
-8. **Error-estimate check:** `giap.report.checks.unlabelled_numbers(cards) -> list[str]`: every card
+8. **Error-estimate check:** `gippa.report.checks.unlabelled_numbers(cards) -> list[str]`: every card
    value has an attached estimate string or `unestimated`.
 
 ## Degenerate cases
@@ -82,7 +82,7 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
 | 3 | elastic net cv_r2_mean 0.21, sd 0.03, null p 0.001 flagged `null_uncalibrated` | "Model R² 0.21 ± 0.03 (CV); null p 0.001 (uncalibrated)" |
 | 4 | a snippet edited without editing its `docs/methods` source | the sync test fails |
 | 5 | a template string "expressed genes" | `wording()` returns it |
-| 6 | no manifest | provenance shows preflight SHA-256s and "run_manifest.json not written by this GIAP version" |
+| 6 | no manifest | provenance shows preflight SHA-256s and "run_manifest.json not written by this GIPPA version" |
 
 ## Acceptance criteria
 
@@ -105,7 +105,7 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
 
 ## Lead decisions (2026-10-22)
 
-1. The run manifest exists since MVP-03a (#196, `giap.manifest`): M9-16 reads it when present and
+1. The run manifest exists since MVP-03a (#196, `gippa.manifest`): M9-16 reads it when present and
    says so when absent; it never recomputes provenance itself.
 2. The KEGG retrieval date is printed from the manifest's database entries when recorded there;
    otherwise "KEGG retrieval date: not recorded in this run", never guessed.
@@ -132,9 +132,9 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
 ## Lead decisions after the implementation (2026-10-22, 4c7592d)
 
 11. **Manifest in pipeline runs.** The manifest is written after the run, so the pipeline's report
-    step cannot read it. `giap run` (both executors) re-renders `report.html` once the manifest is
+    step cannot read it. `gippa run` (both executors) re-renders `report.html` once the manifest is
     written; that is a follow-up issue (M9-16b, backlog), not this PR. Until then the absent-manifest
-    sentence stays as tested and `giap report OUT` gives full provenance.
+    sentence stays as tested and `gippa report OUT` gives full provenance.
 12. **checks.py add/add with M9-13 (#224).** Whichever merges second keeps both modules' functions
     and both `__all__` lists.
 13. **Sensitivity tables** carry both `data-table="sensitivity"` and `data-sensitivity-family`;

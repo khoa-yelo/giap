@@ -1,7 +1,7 @@
 # M3-01: `GeneModel`, the gene-model interface Module 2 consumes
 
 Milestone M3 · depends on: M1-01 (`Interval`, `Replicon`), M1-02 (genome FASTA) · creates
-`src/giap/model/genes.py` · pure Python · estimate ≈ 230 code lines
+`src/gippa/model/genes.py` · pure Python · estimate ≈ 230 code lines
 
 ## Why this issue exists
 
@@ -11,7 +11,7 @@ between the mapping track and the annotation track is the Bakta locus tag"). The
 that implements `parse_bakta`; M2 issue files do not exist yet, so the lead should name it when M2
 is split). M3 must not wait for it. This issue fixes the **interface** that every M3 issue
 consumes and gives it one minimal constructor that reads the simulator's Bakta-like JSON (§11.3:
-"a Bakta-like JSON containing only the fields GIAP parses (validated by GIAP's own parser)").
+"a Bakta-like JSON containing only the fields GIPPA parses (validated by GIPPA's own parser)").
 M2's `parse_bakta` MUST return the same `GeneModel` (contract: `GeneModel` is the API; parquet is
 its serialisation), so nothing in M3 changes when M2 lands.
 
@@ -27,7 +27,7 @@ its serialisation), so nothing in M3 changes when M2 lands.
 - §7.2.6 needs, per feature: type (rRNA/tRNA/ncRNA for `rna_overlap`; `pseudogene`; `sorf`; CDS),
   interval, strand, frame and the protein sequence (for `multi_identical`).
 
-## Public interface (`src/giap/model/genes.py`)
+## Public interface (`src/gippa/model/genes.py`)
 
 ```python
 GeneType = Literal["cds", "sorf", "pseudogene"]
@@ -101,7 +101,7 @@ on an unknown contig is an error.
 ## Acceptance criteria
 
 - [ ] `tests/unit/test_gene_model.py`: examples 1–9, one test each.
-- [ ] Property: for simulated genomes (giapsim, random seeds), `overlapping(g.interval)` contains
+- [ ] Property: for simulated genomes (gippasim, random seeds), `overlapping(g.interval)` contains
   `g` for every gene, and `nt` translated with table 11 equals `aa` (+ `*`).
 - [ ] mypy strict; `GeneModel` is immutable (frozen).
 - [ ] Docstring states that M2's `parse_bakta` must construct the same type (contract test lives
@@ -109,7 +109,7 @@ on an unknown contig is an error.
 
 ## Questions for the lead
 
-1. Where does `GeneModel` live? **Proposed default:** `giap.model.genes` (spec §4: `model/` holds
+1. Where does `GeneModel` live? **Proposed default:** `gippa.model.genes` (spec §4: `model/` holds
    "Interval, Replicon, Gene, Feature"); M2's `parse_bakta` imports it and adds
    `to_parquet`/`from_parquet`.
 2. Should the minimal JSON reader stay after M2? **Proposed default:** no; M2's `parse_bakta`
@@ -121,5 +121,5 @@ The reader keeps its signature (returns only `GeneModel`) because M2-03 shares i
 types are skipped. Reporting them as Issues is the job of the wrapping parse step (M2-04), which can
 compare the JSON's feature types with the known set.
 - Lead decision (implementer question): the reader takes `path: StrPath` (str or Path) and reads JSON via
-  `giap.io._open.read_json`, because `giap.model` does no file I/O (tests/unit/test_coords.py). M2-03
+  `gippa.io._open.read_json`, because `gippa.model` does no file I/O (tests/unit/test_coords.py). M2-03
   uses the same signature.

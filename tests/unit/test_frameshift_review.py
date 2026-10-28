@@ -9,10 +9,10 @@
    circular shifts at the origin.
 2. ``mapping.tolerant.frameshift.min_side_aa <= 0`` is rejected when the config is parsed.
 3. Public helper names (test-author choice, the implementer adopts them):
-   ``giap.mapping.tolerant.Search``, ``giap.mapping.tolerant.budget``,
-   ``giap.mapping.tolerant.parse_max_diff``, ``giap.mapping.tolerant_dp.rank_weight``; the two
+   ``gippa.mapping.tolerant.Search``, ``gippa.mapping.tolerant.budget``,
+   ``gippa.mapping.tolerant.parse_max_diff``, ``gippa.mapping.tolerant_dp.rank_weight``; the two
    M3-08 re-implementations of M3-06 operations are importable as
-   ``giap.mapping.frameshift.band_row`` and ``giap.mapping.frameshift.nonfs_overlap`` (current
+   ``gippa.mapping.frameshift.band_row`` and ``gippa.mapping.frameshift.nonfs_overlap`` (current
    signatures) and are cross-checked against ``tolerant_dp.verify`` on random cases.
 """
 
@@ -35,11 +35,11 @@ from fs_genomes import background, codons_for, join_split, rc
 from oracle_frameshift import frameshift_oracle
 from oracle_tolerant import align_window
 
-from giap.config.model import FrameshiftConfig, TolerantConfig
-from giap.mapping.decoys import DecoyType, build_decoys, mirror_aa
-from giap.mapping.diffops import block_tables
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.sixframe import (
+from gippa.config.model import FrameshiftConfig, TolerantConfig
+from gippa.mapping.decoys import DecoyType, build_decoys, mirror_aa
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.sixframe import (
     Frame,
     SixFrameIndex,
     build_sixframe,
@@ -47,12 +47,12 @@ from giap.mapping.sixframe import (
     encode_query,
     encode_target,
 )
-from giap.mapping.tolerant_dp import decode_key, exchange_lookup, verify
-from giap.model import Interval, Replicon
-from giap.rng import for_step
+from gippa.mapping.tolerant_dp import decode_key, exchange_lookup, verify
+from gippa.model import Interval, Replicon
+from gippa.rng import for_step
 
 CFG = TolerantConfig()
-FS_SRC = Path(__file__).resolve().parents[2] / "src" / "giap" / "mapping" / "frameshift.py"
+FS_SRC = Path(__file__).resolve().parents[2] / "src" / "gippa" / "mapping" / "frameshift.py"
 KEY = ["contig", "start", "end", "strand", "frame", "n_diff", "diff_types", "blocks"]
 BIG = 1 << 62
 UNIT = 1 << 45  # key of one difference (B**3, B = 2**15; M3-06)
@@ -102,7 +102,7 @@ def test_min_side_aa_not_positive_is_rejected_by_the_config_model(value: int) ->
 
 @pytest.mark.parametrize("value", [0, -2])
 def test_min_side_aa_not_positive_is_rejected_by_resolve_config(value: int) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     with pytest.raises(ValueError, match="min_side_aa"):
         resolve_config(overrides=[f"mapping.tolerant.frameshift.min_side_aa={value}"])
@@ -119,7 +119,7 @@ def test_min_side_aa_one_is_still_accepted() -> None:
 
 
 def test_tolerant_helpers_are_public_with_docstrings() -> None:
-    from giap.mapping import tolerant, tolerant_dp
+    from gippa.mapping import tolerant, tolerant_dp
 
     for mod, names in (
         (tolerant, ("Search", "budget", "parse_max_diff")),
@@ -141,7 +141,7 @@ def test_frameshift_imports_no_private_names_from_tolerant_modules() -> None:
         (node.module, a.name)
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
-        and node.module in ("giap.mapping.tolerant", "giap.mapping.tolerant_dp")
+        and node.module in ("gippa.mapping.tolerant", "gippa.mapping.tolerant_dp")
         for a in node.names
         if a.name.startswith("_")
     ]
@@ -149,14 +149,14 @@ def test_frameshift_imports_no_private_names_from_tolerant_modules() -> None:
 
 
 def test_frameshift_dp_helpers_are_importable_by_public_name() -> None:
-    from giap.mapping import frameshift
+    from gippa.mapping import frameshift
 
     for name in ("band_row", "nonfs_overlap"):
         assert callable(getattr(frameshift, name)), name
 
 
 def test_parse_max_diff_and_budget() -> None:
-    from giap.mapping.tolerant import budget, parse_max_diff
+    from gippa.mapping.tolerant import budget, parse_max_diff
 
     ranges = parse_max_diff({"12-40": 2, "10-11": 1})
     assert ranges == [(10, 11, 1), (12, 40, 2)]
@@ -175,7 +175,7 @@ def test_parse_max_diff_and_budget() -> None:
 
 
 def test_rank_weight_is_the_m306_key_increment() -> None:
-    from giap.mapping.tolerant_dp import rank_weight
+    from gippa.mapping.tolerant_dp import rank_weight
 
     b = 1 << 15
     assert [rank_weight(r, b) for r in range(4)] == [
@@ -190,7 +190,7 @@ def test_rank_weight_is_the_m306_key_increment() -> None:
 
 
 def test_search_run_returns_frame_local_windows() -> None:
-    from giap.mapping.tolerant import Search
+    from gippa.mapping.tolerant import Search
 
     idx = _index({"fs1": "GGCCGGAACCGACCATTGATAGAAAAACTGATGAACGCGTAA"})
     text = decode(idx.frames[2].aa)[:12]  # PEPTLDRKTDER (+3)
@@ -209,7 +209,7 @@ TEXT_ALPHA = ALPHA + "*X"
 def _band_cells(q: np.ndarray, t: np.ndarray, d0: int, k: int) -> dict[int, int]:
     """Row-L keys (end column -> key) of ``band_row`` run with a free start inside the
     ``±2`` band around ``d0`` (the M3-06 band: every cell has ``|j - i - d0| <= 2``)."""
-    from giap.mapping.frameshift import band_row
+    from gippa.mapping.frameshift import band_row
 
     L, n = len(q), len(t)
     nd = 5
@@ -280,7 +280,7 @@ def test_band_row_matches_verify_on_planted_blocks() -> None:
 
 
 def _nonfs(q: str, t: str, o: int, a: int, b: int, c: int) -> bool:
-    from giap.mapping.frameshift import nonfs_overlap
+    from gippa.mapping.frameshift import nonfs_overlap
 
     tc = encode_target(t)
     return bool(nonfs_overlap(encode_query(q), tc, 0, len(tc), o, a, b, c, _ex()))

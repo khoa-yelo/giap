@@ -1,5 +1,5 @@
 """The M6-04 pair table: classes, orientation, distances, evidence (docs/specs/M6-04-pair-table.md;
-GIAP_SPEC.md §7.4.1, §7.1.3-§7.1.5, §9.3).
+GIPPA_SPEC.md §7.4.1, §7.1.3-§7.1.5, §9.3).
 
 Examples 1-11 and the degenerate-case table on hand-built frames (``helpers.pairs_data``). The
 ``layer_missing:<layer>`` run flag of example 11 is emitted by the ``operons`` step (M6-08) and is
@@ -26,10 +26,10 @@ from helpers.pairs_data import (
     row,
 )
 
-from giap.annotate.promoter_calculator import tx_rate_between
-from giap.annotate.promoters import promoter_between
-from giap.annotate.terminators import Terminator, terminator_between
-from giap.model.coords import Interval
+from gippa.annotate.promoter_calculator import tx_rate_between
+from gippa.annotate.promoters import promoter_between
+from gippa.annotate.terminators import Terminator, terminator_between
+from gippa.model.coords import Interval
 
 G = genes_of(BASE)
 BY = {g.locus_tag: g for g in G}
@@ -50,7 +50,7 @@ def _flags(r: pd.Series) -> object:
 
 
 def test_adjacent_pairs_same_strand_false_keeps_mixed_pairs() -> None:
-    from giap.annotate.operons import adjacent_pairs
+    from gippa.annotate.operons import adjacent_pairs
 
     tags = lambda ps: [(a.locus_tag, b.locus_tag) for a, b in ps]  # noqa: E731
     assert tags(adjacent_pairs(G, ring())) == [("G1", "G2"), ("G3", "G4"), ("G5", "G1")]
@@ -60,7 +60,7 @@ def test_adjacent_pairs_same_strand_false_keeps_mixed_pairs() -> None:
 
 
 def test_adjacent_chain_is_genome_order_with_wrap() -> None:
-    from giap.operons.pairs import adjacent_chain, sandwich_pairs
+    from gippa.operons.pairs import adjacent_chain, sandwich_pairs
 
     chain = [(a.locus_tag, b.locus_tag) for a, b in adjacent_chain(G, ring())]
     assert chain == [("G1", "G2"), ("G2", "G3"), ("G3", "G4"), ("G4", "G5"), ("G5", "G1")]

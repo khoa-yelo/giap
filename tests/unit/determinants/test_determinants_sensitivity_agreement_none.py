@@ -1,7 +1,7 @@
 """M8-16 review round, lead decision 5 (statistician B1, code review N2): ``agreement`` leaves out
 the genes whose dominant block is ``None`` in both runs, is NA when no gene is left, and counts
 ``None`` in only one run as a disagreement; a run compared with itself gives 1
-(docs/specs/M8-16-sensitivity-function-determinants.md "Lead decision 5"; GIAP_SPEC.md §8.6
+(docs/specs/M8-16-sensitivity-function-determinants.md "Lead decision 5"; GIPPA_SPEC.md §8.6
 "plus ``agreement`` for the dominant determinant block").
 
 This reverses decision 4's "a block of None in both runs does not count as agreeing". The
@@ -24,7 +24,7 @@ from hypothesis import strategies as st
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
@@ -138,7 +138,7 @@ def test_missing_min_on_imputed_genes_reads_jaccard_1_agreement_1() -> None:
     top-decile gene without a positive block): the ``missing=min`` rerun equals the primary,
     so its row reads jaccard 1 and agreement 1. Since M8-16c (|SHAP| rule) a None block needs an
     all-zero row, so the fixture only requires explained genes with a block."""
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     S = _S()
     cfg = sf.base_config()

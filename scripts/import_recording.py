@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Import a FarmShare tool recording into tests/data/recorded/ (M2-10; GIAP_SPEC.md §11.4, R11).
+"""Import a FarmShare tool recording into tests/data/recorded/ (M2-10; GIPPA_SPEC.md §11.4, R11).
 
-A recording directory ($GIAP_ROOT/recordings/<tool>/<sample>/, written by the record_*.sbatch
+A recording directory ($GIPPA_ROOT/recordings/<tool>/<sample>/, written by the record_*.sbatch
 jobs) holds the raw outputs plus ``command.txt``, ``versions.txt`` (image digest or env-lock
 sha256), ``runtime.txt`` (wall time, node, job) and ``.giap-complete``. This script copies the
 kept outputs gzipped (no name, mtime 0) and writes ``PROVENANCE.md``: command, image digest or env
@@ -81,7 +81,7 @@ def provenance(src: Path, dest: Path, inputs: list[Path], db: str, notes: list[s
     ins = "\n".join(f"  - `{s}`: sha256 `{sha(p)}`" for s, p in zip(shown, inputs, strict=True))
     text = (
         f"# {dest.parent.parent.name} {dest.parent.name} on {dest.name}"
-        " (M2-10, GIAP_SPEC.md §11.4)\n\n"
+        " (M2-10, GIPPA_SPEC.md §11.4)\n\n"
         f"- Command: `{cmd}`{remarks}\n"
         f"{environment(versions)}\n"
         + (f"- Database: {db}\n" if db else "")
@@ -122,7 +122,7 @@ def bakta(src: Path, dest: Path, strip: list[str], tsv: bool) -> None:
     db = f"Bakta DB {v['type']} v{v['version']} ({vj.get('date')}, doi {vj.get('doi')})"
     genome = Path((src / "input.sha256").read_text().split()[1])
     notes.append(
-        f"Preflight (`giap preflight`) wrote replicons.tsv and contig_map.tsv from `{genome.name}`"
+        f"Preflight (`gippa preflight`) wrote replicons.tsv and contig_map.tsv from `{genome.name}`"
     )
     provenance(src, dest, [genome, pre / "genome.norm.fa"], db, notes)
 

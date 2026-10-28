@@ -17,7 +17,7 @@ The §9.4 Run row gains these four tokens:
 | `input_prefiltered` | `placement` | the peptide input was already FDR-filtered upstream, so the placement FDR is conditional on that filter |
 | `cai_reference_missing` | `codon_usage` | no ribosomal-protein reference set was found, so CAI is NA |
 | `no_detection_limit_model` | `operons` | the detection-limit model was not fitted, so missed-operon calls fall back (also a `pairs` row token) |
-| `uncalibrated:<key>` | the manifest (MVP-03c), from `src/giap/data/calibration.yaml` | the claim `<key>` has no passing calibration on record (§7.1 "`uncalibrated` in the manifest", parameterised by claim) |
+| `uncalibrated:<key>` | the manifest (MVP-03c), from `src/gippa/data/calibration.yaml` | the claim `<key>` has no passing calibration on record (§7.1 "`uncalibrated` in the manifest", parameterised by claim) |
 
 - `RUN_FLAGS_PENDING` becomes part of the accepted run vocabulary.
 - Steps that only log `cai_reference_missing` or `no_detection_limit_model` now emit an event (MVP-03a).

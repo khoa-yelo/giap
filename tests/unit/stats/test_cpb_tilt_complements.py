@@ -40,7 +40,7 @@ from helpers.cpb_pair_oracle import (
     tilted_reference,
 )
 
-from giap.stats.poisson_binomial import (
+from gippa.stats.poisson_binomial import (
     conditional_poisson_binomial,
     tilt,
     tilt_pair,

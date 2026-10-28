@@ -1,11 +1,11 @@
-// ANNOTATE: the annotation track (GIAP_SPEC.md §6.1, §6.3, §6.4; M2-index step contract; M2-07).
-// py steps run through GIAP_STEP aliases; a non-null annotation.precomputed.<key> replaces its
+// ANNOTATE: the annotation track (GIPPA_SPEC.md §6.1, §6.3, §6.4; M2-index step contract; M2-07).
+// py steps run through GIPPA_STEP aliases; a non-null annotation.precomputed.<key> replaces its
 // tool(s) and parse step; geNOMAD / antiSMASH run only with the mobile / bgc module.
-include { GIAP_STEP as PARSE_BAKTA; GIAP_STEP as UNIOP_INPUT; GIAP_STEP as OPERON_PAIRS;
-          GIAP_STEP as PROMOTER_WINDOWS; GIAP_STEP as PROMOTER_LAYER; GIAP_STEP as TX_LAYER;
-          GIAP_STEP as TRANSTERM_INPUT; GIAP_STEP as TERMINATOR_LAYER; GIAP_STEP as OSTIR_INPUT;
-          GIAP_STEP as RBS_LAYER; GIAP_STEP as CODON_USAGE; GIAP_STEP as REGION_LAYER;
-          GIAP_STEP as CONTEXT_LAYERS } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as PARSE_BAKTA; GIPPA_STEP as UNIOP_INPUT; GIPPA_STEP as OPERON_PAIRS;
+          GIPPA_STEP as PROMOTER_WINDOWS; GIPPA_STEP as PROMOTER_LAYER; GIPPA_STEP as TX_LAYER;
+          GIPPA_STEP as TRANSTERM_INPUT; GIPPA_STEP as TERMINATOR_LAYER; GIPPA_STEP as OSTIR_INPUT;
+          GIPPA_STEP as RBS_LAYER; GIPPA_STEP as CODON_USAGE; GIPPA_STEP as REGION_LAYER;
+          GIPPA_STEP as CONTEXT_LAYERS } from '../../modules/local/gippa_step/main'
 include { BAKTA } from '../../modules/local/bakta/main'
 include { UNIOP } from '../../modules/local/uniop/main'
 include { PROMOTECH } from '../../modules/local/promotech/main'
@@ -20,7 +20,7 @@ include { ANTISMASH } from '../../modules/local/antismash/main'
 // The step's config slice hash (params.config_hashes; M7-15 decision 7), '' when absent.
 def configHash(String step) { (params.config_hashes ?: [:])[step] ?: '' }
 
-// Channels of [key, path | list] → GIAP_STEP inputs: files = [step, paths, config hash], keys
+// Channels of [key, path | list] → GIPPA_STEP inputs: files = [step, paths, config hash], keys
 // aligned (key order). Emits nothing unless every key of `need` arrived (a step gated on an
 // optional input, e.g. proteins).
 def stepIn(String step, List chans, List need = []) {
@@ -66,11 +66,11 @@ workflow ANNOTATE {
     main:
     def ann = params.annotation
     def pc = ann.precomputed
-    def db = params.db_dir ?: System.getenv('GIAP_DB_DIR') ?: "${launchDir}/db"
+    def db = params.db_dir ?: System.getenv('GIPPA_DB_DIR') ?: "${launchDir}/db"
     def gid = genome.map { f -> f.simpleName }
     def gin = genome.map { f -> [f.simpleName, f] }
     def layers = []
-    def ev = []   // every GIAP_STEP's optional logs/events.jsonl, for REPORT (M9-13)
+    def ev = []   // every GIPPA_STEP's optional logs/events.jsonl, for REPORT (M9-13)
 
     def bjson = channel.empty()
     def gbff = null   // null: no GBFF (precomputed bakta_json alone) -> antiSMASH skipped
@@ -113,7 +113,7 @@ workflow ANNOTATE {
         ev += [UNIOP_INPUT.out.events]
         def cds = pick(U, 'uniop_cds.gff')
         pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv'))]
-        // params.run_uniop = the resolved annotation.uniop.enabled (giap run, M11-14d): when
+        // params.run_uniop = the resolved annotation.uniop.enabled (gippa run, M11-14d): when
         // false UNIOP is skipped and operon_pairs builds the distance-model pairs
         if (params.run_uniop != false) {
             UNIOP(gid.combine(cds))

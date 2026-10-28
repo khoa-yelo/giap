@@ -1,4 +1,4 @@
-"""Attack null for ADR-0009: picked gene FDR under random decoy loss (M4-12; GIAP_SPEC.md §7.3.2,
+"""Attack null for ADR-0009: picked gene FDR under random decoy loss (M4-12; GIPPA_SPEC.md §7.3.2,
 §8.5; M4-index lead decision 8).
 
 Generator: the ``gene_fdr`` replicate of tests/helpers/detection_tiers_calsim.py (M4-07 -> M4-08 ->

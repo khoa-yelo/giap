@@ -1,6 +1,6 @@
 """Hand-built genomes, C9/C11 frames, mirrors and a brute-force ORF oracle for M7-06 tests.
 
-Independent of ``giap.novel``: the oracle walks codon by codon on the strand-oriented sequence
+Independent of ``gippa.novel``: the oracle walks codon by codon on the strand-oriented sequence
 ("transcription coordinates": the plus string for ``+``, its reverse complement for ``-``) and maps
 back to 0-based genome coordinates (docs/specs/M7-06-novel-candidates-and-orfs.md rules 2-6).
 
@@ -22,8 +22,8 @@ from typing import Any
 
 import pandas as pd
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 COMP = str.maketrans("ACGT", "TGCA")
 # Stops in all three phases on both strands every 22 nt (as tests/unit/test_loci.py).
@@ -117,7 +117,7 @@ def hit_row(
     route: str = "exact",
     flags: str = "",
 ) -> dict[str, Any]:
-    """One C11 ``peptide_hits`` row (contract columns of giap.genetable.contract)."""
+    """One C11 ``peptide_hits`` row (contract columns of gippa.genetable.contract)."""
     return {
         "peptide": peptide,
         "peptide_len": len(peptide),

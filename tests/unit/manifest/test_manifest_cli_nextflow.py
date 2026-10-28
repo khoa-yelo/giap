@@ -1,14 +1,14 @@
-"""MVP-03a ``giap run`` (Nextflow executor) run tail: the manifest after success and after a failed
+"""MVP-03a ``gippa run`` (Nextflow executor) run tail: the manifest after success and after a failed
 step, the events rotation and the trace → steps/tools gathering
 (docs/specs/MVP-03-manifest-finalize.md D-A, D-B, D-C ``steps``/``tools``/``seeds`` rows; edge
 cases "A failed run", "trace.tsv absent", "-resume", "Preflight error"; lead decisions 5, 8, 9, 12).
 
 A fake ``nextflow`` on ``PATH`` (as tests/unit/test_cli_run_nextflow.py) exits ``$FAKE_NF_RC``,
 copies ``$FAKE_NF_TRACE`` to the ``-with-trace`` path and, with ``$FAKE_NF_STEP_EVENTS``, publishes
-that file as ``OUT/logs/steps/parse_bakta.events.jsonl`` (what a GIAP_STEP task publishes;
+that file as ``OUT/logs/steps/parse_bakta.events.jsonl`` (what a GIPPA_STEP task publishes;
 ``append_step_events`` copies it into ``OUT/logs/events.jsonl``). The trace rows point at task
-directories holding ``versions.yml``. Nothing real is launched; ``$GIAP_ROOT`` and
-``$GIAP_DB_DIR`` are fakes from ``helpers.fake_env``.
+directories holding ``versions.yml``. Nothing real is launched; ``$GIPPA_ROOT`` and
+``$GIPPA_DB_DIR`` are fakes from ``helpers.fake_env``.
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 from helpers.manifest_data import validate
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -51,11 +51,11 @@ STEP_EVENT = {"ts": "2026-10-22T00:00:00+00:00", "step": "parse_bakta", "level":
 
 @pytest.fixture
 def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE"):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
@@ -106,10 +106,10 @@ def _trace(tmp_path: Path, rows: list[dict[str, str]]) -> Path:
 
 
 def _ok_trace(tmp_path: Path) -> Path:
-    pb = _task(tmp_path, "pb", '"ANNOTATE:GIAP_STEP":\n    giap: 0.1.0\n')
+    pb = _task(tmp_path, "pb", '"ANNOTATE:GIPPA_STEP":\n    gippa: 0.1.0\n')
     gm = _task(tmp_path, "gm", '"ANNOTATE:GENOMAD":\n    genomad: 1.12.0\n')
     return _trace(tmp_path, [
-        {"name": "ANNOTATE:GIAP_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "5.5s",
+        {"name": "ANNOTATE:GIPPA_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "5.5s",
          "%cpu": "65.8%", "peak_rss": "269.9 MB", "workdir": str(pb)},
         {"name": "ANNOTATE:GENOMAD (genome)", "status": "COMPLETED", "realtime": "2m",
          "%cpu": "100.0%", "peak_rss": "1 GB", "workdir": str(gm),
@@ -118,7 +118,7 @@ def _ok_trace(tmp_path: Path) -> Path:
 
 
 def _run(nf: dict[str, Path], out: Path, *extra: str) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["run", "--genome", str(nf["genome"]), "--proteins", str(nf["proteins"]),
             "--outdir", str(out), *extra]  # fmt: skip
@@ -176,7 +176,7 @@ def test_success_steps_from_the_trace(ok: Path) -> None:
 
 def test_success_tools_from_versions_yml(ok: Path) -> None:
     tools = _manifest(ok)["tools"]
-    assert [(t["name"], t["version"]) for t in tools] == [("genomad", "1.12.0")]  # giap left out
+    assert [(t["name"], t["version"]) for t in tools] == [("genomad", "1.12.0")]  # gippa left out
     assert tools[0]["container_digest"] == f"sha256:{DIGEST}"
     assert tools[0]["processes"]
 
@@ -240,10 +240,10 @@ def test_rerun_holds_each_step_event_once(
 def test_failed_step_writes_a_failed_manifest(
     nf: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pb = _task(tmp_path, "pb", '"ANNOTATE:GIAP_STEP":\n    giap: 0.1.0\n')
+    pb = _task(tmp_path, "pb", '"ANNOTATE:GIPPA_STEP":\n    gippa: 0.1.0\n')
     pt = _task(tmp_path, "pt", '"ANNOTATE:PROMOTECH":\n    promotech: 1.0\n')
     trace = _trace(tmp_path, [
-        {"name": "ANNOTATE:GIAP_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "1s",
+        {"name": "ANNOTATE:GIPPA_STEP (parse_bakta)", "status": "COMPLETED", "realtime": "1s",
          "workdir": str(pb)},
         {"name": "ANNOTATE:PROMOTECH (chunk_1)", "status": "FAILED", "exit": "137",
          "attempt": "1", "realtime": "3s", "workdir": str(pt)},
@@ -282,7 +282,7 @@ def test_failure_without_trace_still_writes_a_manifest(
 
 
 def test_preflight_error_writes_no_manifest(nf: dict[str, Path], tmp_path: Path) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     out = tmp_path / "OUT"
     res = CliRunner().invoke(cli, ["run", "--genome", str(nf["genome"]), "--outdir", str(out)])

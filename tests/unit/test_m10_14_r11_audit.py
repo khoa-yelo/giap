@@ -1,5 +1,5 @@
 """The R11 audit over ``git ls-files`` (docs/specs/M10-14-pilot-reproducibility.md, "The R11
-audit", acceptance criterion 5; GIAP_SPEC.md §0.2 R11; Khoa's data rule as the M10-14 lead
+audit", acceptance criterion 5; GIPPA_SPEC.md §0.2 R11; Khoa's data rule as the M10-14 lead
 decisions restate it: no row-level DIA-NN content is committed).
 
 It consolidates the per-issue guards (``test_m10_01_committed.py``,
@@ -131,8 +131,8 @@ def rule3_parquet(entries: Iterable[Entry]) -> list[str]:
 #: committed M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
 NOT_DIANN = {
     "validation/pilot/a3_assets.tsv",
-    # M9-25 snapshot fixtures: giapsim output of `giap compare` (tests/data/snapshot/PROVENANCE.md),
-    # no DIA-NN content; the name is the compare table's own
+    # M9-25 snapshot fixtures: gippasim output of `gippa compare`
+    # (tests/data/snapshot/PROVENANCE.md), no DIA-NN content; the name is the compare table's own
     "tests/data/snapshot/sim_empty/CMP/tables/compare_abundance.tsv",
     "tests/data/snapshot/sim_plots/CMP/tables/compare_abundance.tsv",
 }
@@ -189,14 +189,14 @@ def test_tree_passes(tree: list[Entry], rule: str) -> None:
 # ---------------------------------------------------------------- each rule fails on its fixture
 
 OK: list[Entry] = [
-    ("src/giap/cli.py", 1000, b'"""g'),
+    ("src/gippa/cli.py", 1000, b'"""g'),
     ("tests/data/genomes/nissle1917.fna.gz", 1_506_323, b"\x1f\x8b\x08\x00"),
     ("changelog.d/m0-scaffold.feature.md", 50, b"Scaf"),
     ("workflow/tests/data/mapping/peptides.parquet", 2000, b"PAR1"),
     ("validation/pilot/metrics/a3_feasibility.json", 300, b"{\n  "),
     ("validation/fetch_regulondb.py", 4000, b'"""F'),
     ("docs/adr/ADR-0023-kegg-overview-maps-excluded.md", 900, b"# AD"),
-    ("src/giap/report/templates/report.html.j2", 900, b"<!DO"),
+    ("src/gippa/report/templates/report.html.j2", 900, b"<!DO"),
 ]
 
 BREAKERS: dict[str, list[Entry]] = {

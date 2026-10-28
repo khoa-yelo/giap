@@ -1,4 +1,4 @@
-"""Attack nulls for the M4-03 permutation engine (GIAP_SPEC.md §8.5; statistician-owned).
+"""Attack nulls for the M4-03 permutation engine (GIPPA_SPEC.md §8.5; statistician-owned).
 
 Each generator is built to push ``perm_p``, the circular/linear shift null or ``besag_clifford``
 above level while staying inside the assumptions in docs/methods/permutation-and-shifts.md:
@@ -39,8 +39,8 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.rng import for_step
-from giap.stats.permutation import (
+from gippa.rng import for_step
+from gippa.stats.permutation import (
     apply_shift,
     besag_clifford,
     choose_shifts,

@@ -1,4 +1,4 @@
-"""Fast FDR calibration of the M4-01 engine (GIAP_SPEC.md §8.4 FDR criterion).
+"""Fast FDR calibration of the M4-01 engine (GIPPA_SPEC.md §8.4 FDR criterion).
 
 Mean FDP over R replicates <= q + 2 SE(FDP) for q in ``levels``, R = ``replicates_fast.gene_fdr``
 (tests/calibration/tolerances.yaml). Three generators, all with known truth: BH on independent
@@ -17,8 +17,8 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.multitest import bh
-from giap.stats.tda import picked_fdr, tda_qvalues
+from gippa.stats.multitest import bh
+from gippa.stats.tda import picked_fdr, tda_qvalues
 
 pytestmark = pytest.mark.calibration
 

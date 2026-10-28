@@ -20,7 +20,7 @@ Slurm
 
 ## Public interface
 
-`src/giap/context/oriter.py` (pure)
+`src/gippa/context/oriter.py` (pure)
 ```python
 def oric_position(features: pd.DataFrame | None, contig: str, length: int) -> float | None: ...
 def replichore(mid: ArrayLike, oric: float, length: int) -> tuple[npt.NDArray[np.str_], F64]: ...
@@ -49,7 +49,7 @@ def oriter_rows(genes, tus, replicons, features, cfg, rng) -> pd.DataFrame: ... 
   replicates `circular_block_bootstrap(arange(T_s), ℓ, B, rng)` of the TU rows of each fit's sequence (the
   replichore's TUs in order from oriC to terminus; pooled: all TUs in genome order); refit; 95 %
   `percentile_ci` of the valid slopes; fewer than B/2 valid → CI NA.
-- **RNG.** `giap.rng.for_step("context_stats.oriter", seed)`; replicons in C1 order; pooled, right,
+- **RNG.** `gippa.rng.for_step("context_stats.oriter", seed)`; replicons in C1 order; pooled, right,
   left.
 
 ## Degenerate cases (the estimator does not exist)
@@ -123,7 +123,7 @@ the oriC choice with several calls, TU values, the block-bootstrap CI and its bl
    replicon the ℓ̂ permutations, then bootstrap replicates for pooled, right, left, skipping absent fits.
 3. **Row order** within a replicon is pooled, right, left (M5-09 re-sorts for the table; the parity tests
    need a fixed order).
-4. **`multiple_oric` is a logging record** from the pure module, using `giap.io.events`' convention
+4. **`multiple_oric` is a logging record** from the pure module, using `gippa.io.events`' convention
    (`extra={"event": ..., "data": ...}`) rather than a diagnostics object threaded back through the step.
    Logging is not file I/O; this keeps the signature clean.
 5. The event fires on **both** branches — when the calls are averaged and when they are > 0.05·L apart

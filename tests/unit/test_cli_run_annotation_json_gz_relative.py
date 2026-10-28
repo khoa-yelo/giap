@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
-    _fake_giap_root,
+    _fake_gippa_root,
     _run,
     db,
     fake_nf,
@@ -24,7 +24,7 @@ from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
     proteins,
 )
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FIXTURE = (
     Path(__file__).resolve().parents[1]
@@ -72,7 +72,7 @@ def test_bakta_json_helper_returns_cwd_absolute_path(
 ) -> None:
     """``cli._bakta_json`` itself makes a relative Bakta JSON absolute against the cwd (the end
     to end test above also passes if a later stage absolutises the path)."""
-    from giap.cli import _bakta_json
+    from gippa.cli import _bakta_json
 
     monkeypatch.chdir(tmp_path)
     got = _bakta_json(Path("ann") / name)

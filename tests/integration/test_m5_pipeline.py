@@ -1,4 +1,4 @@
-"""M5 end to end on giapsim fixtures (docs/specs/M5-11-integration-golden.md examples 1-5).
+"""M5 end to end on gippasim fixtures (docs/specs/M5-11-integration-golden.md examples 1-5).
 
 ``build_m4_fixture`` (M4-20, extended by M5-11 with ``oric_frac`` and ``islands``) writes the
 contract tables C1-C15, then ``run_gene_table`` -> ``run_detectability`` -> ``run_context_stats``
@@ -253,7 +253,7 @@ def test_example_4_more_seeds(tmp_path: Path, db: Path, golden_seed: int, seed: 
 def test_the_oric_does_not_change_the_m4_tables(tmp_path: Path, db: Path) -> None:
     """Spec Interface: the oriC is a new file and the gradient stays 0, so a fixture with and one
     without the oriC give the same M4 tables (and the same genes.tsv outside the M5 columns)."""
-    from giapsim.fixtures import build_m4_fixture
+    from gippasim.fixtures import build_m4_fixture
 
     cfg = mc.config(11, stats={"permutations": 199, "bootstrap": 200})
     out = {}
@@ -280,10 +280,10 @@ def test_example_5_k12_bakta_json_resolves_the_oric(tmp_path: Path) -> None:
     resolves one origin (the mean of the two calls, 3,904,925.5 +- 1; the circular mean equals it
     here, as nothing wraps) and labels every chromosome gene
     ``right`` / ``left``; nothing needs proteomics."""
-    from giap.config.model import GiapConfig
-    from giap.context.oriter import gene_replichores, oric_position
-    from giap.steps.annotation import parse_bakta
-    from giap.steps.registry import StepContext
+    from gippa.config.model import GippaConfig
+    from gippa.context.oriter import gene_replichores, oric_position
+    from gippa.steps.annotation import parse_bakta
+    from gippa.steps.registry import StepContext
 
     rec = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full" / "k12"
     names = ("genes", "features", "replicons", "rrna16s", "trna_counts", "xrefs",
@@ -291,7 +291,7 @@ def test_example_5_k12_bakta_json_resolves_the_oric(tmp_path: Path) -> None:
     ext = {"rrna16s": ".fna", "trna_counts": ".tsv", "annotation_meta": ".json"}
     outputs = {n: tmp_path / f"{n}{ext.get(n, '.parquet')}" for n in names}
     ctx = StepContext(
-        cfg=GiapConfig.model_validate({"seed": 1}),
+        cfg=GippaConfig.model_validate({"seed": 1}),
         inputs={"bakta_json": rec / "k12_mg1655.json.gz",
                 "genome": REPO / "tests" / "data" / "genomes" / "k12_mg1655.fna.gz"},
         outputs=outputs, rng=np.random.default_rng(0), log=logging.getLogger("test"),

@@ -1,5 +1,5 @@
 name: miniprot
-description: Align proteins > 40 aa to the genome with miniprot (GIAP_SPEC.md §7.2.3, §7.1.1).
+description: Align proteins > 40 aa to the genome with miniprot (GIPPA_SPEC.md §7.2.3, §7.1.1).
 keywords: [protein, alignment, mapping]
 tools:
   - miniprot:

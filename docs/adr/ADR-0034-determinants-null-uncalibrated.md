@@ -33,7 +33,7 @@ The statistician tried three alternatives, and none fixes every arm:
 - **Rejected:** shipping the p unflagged with a caveat in the methods note only. The p would then read as a discovery claim.
 
 ## Evidence (before → after: metrics, tests, simulations)
-- Statistician probes: `$GIAP_ROOT/stat/m809-null/` (probe*.py, results*.jsonl, summ.py, the sbatch files). In the original runs the attack arms failed at the fast tier: 5 of 6 cases in Slurm 1867349.
+- Statistician probes: `$GIPPA_ROOT/stat/m809-null/` (probe*.py, results*.jsonl, summ.py, the sbatch files). In the original runs the attack arms failed at the fast tier: 5 of 6 cases in Slurm 1867349.
 - The attack file runs at the fast tier, R = 20. Unflagged, 5 of its 6 cases fail; flagged, it records the rates.
 
 ## Consequences

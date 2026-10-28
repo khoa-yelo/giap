@@ -1,6 +1,7 @@
-"""``giap run --genome G`` reaches ANNOTATE in stub mode (M2-07 follow-up, review item 1 of PR #65).
+"""``gippa run --genome G`` reaches ANNOTATE in stub mode (M2-07 follow-up, review item 1 of PR
+#65).
 
-``giap run`` is invoked through the CLI; a ``nextflow`` wrapper first on ``PATH`` forwards the
+``gippa run`` is invoked through the CLI; a ``nextflow`` wrapper first on ``PATH`` forwards the
 runner's exact command line to the real Nextflow, swapping the profile for ``test,stub`` and adding
 ``-stub-run`` (no tool, container or database is touched). Before the follow-up, params.json had
 no ``inputs.replicons`` and main.nf ran the one-task smoke branch instead.
@@ -16,9 +17,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -40,16 +41,16 @@ exec "{real}" "$@" -stub-run
 
 
 @pytest.fixture(autouse=True)
-def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _fake_gippa_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     return root
 
 
 def _db(path: Path) -> Path:
     path.mkdir()
-    write_setup_manifest(path)  # real `giap setup` format (decision 4c)
+    write_setup_manifest(path)  # real `gippa setup` format (decision 4c)
     return path
 
 
@@ -68,12 +69,12 @@ def wrapped_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(var, raising=False)
 
 
-def test_giap_run_reaches_annotate_in_stub_mode(
+def test_gippa_run_reaches_annotate_in_stub_mode(
     wrapped_nf: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_db(tmp_path / "db")))
     proteins = tmp_path / "proteins.faa"
     proteins.write_text(">prot1\nM" + "ACDEFGHIKLMNPQRSTVWY" * 8 + "\n")
     out = tmp_path / "OUT"

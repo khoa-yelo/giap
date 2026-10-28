@@ -1,6 +1,6 @@
-"""Independent oracle for the giapsim expression model (docs/specs/M4-08-sim-expression.md).
+"""Independent oracle for the gippasim expression model (docs/specs/M4-08-sim-expression.md).
 
-Written from the spec text, not from ``giapsim.expression``: Trypsin/P digestion and distinct
+Written from the spec text, not from ``gippasim.expression``: Trypsin/P digestion and distinct
 7-30 aa peptides (via ``covariates_oracle``, the M4-10 definition), Kyte-Doolittle GRAVY as a plain
 mean, the detection logit of the spec, TU order per replicon from the ``TU_<n>`` numbering (contig
 order, then start; spec §6.5), the AR(1) whitening transform, lag-1 autocorrelation and a small

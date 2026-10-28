@@ -1,4 +1,4 @@
-"""Attack nulls of the M6 gate (issue M6-09; GIAP_SPEC.md §7.4.7 "Calibration" criterion 2, §8.5;
+"""Attack nulls of the M6 gate (issue M6-09; GIPPA_SPEC.md §7.4.7 "Calibration" criterion 2, §8.5;
 docs/specs/M6-09-calibration-gate.md, its lead defaults, and the attacks owed by the PR #147 / #148
 statistician reviews in docs/methods/operons.md). Helpers: ``../_operon_gate.py``.
 
@@ -56,7 +56,7 @@ import pytest
 from _gate import calibrate_levels
 from scipy.special import expit, logit
 
-from giapsim.scenarios import OPERON_T
+from gippasim.scenarios import OPERON_T
 
 MODES = [
     pytest.param(False, marks=pytest.mark.calibration, id="fast"),
@@ -77,12 +77,12 @@ def _r(pair: tuple[int, int], full: bool) -> int:
 
 
 def _arms(name: str, *args: Any) -> list[tuple[str, Any, Any]]:
-    """(label, scenario, giap cfg): the shipped configuration and the non-vacuous arm."""
+    """(label, scenario, gippa cfg): the shipped configuration and the non-vacuous arm."""
     k, sd = G.NONVAC_PLANT
     return [
-        ("shipped", G.scenario(name, *args), G.giap_cfg()),
+        ("shipped", G.scenario(name, *args), G.gippa_cfg()),
         ("nonvacuous_cv_only", G.scenario(name, *args, n_planted=k, effect_sd=sd),
-         G.giap_cfg(G.CV_ONLY)),
+         G.gippa_cfg(G.CV_ONLY)),
     ]  # fmt: skip
 
 
@@ -154,7 +154,7 @@ def _m2(sim: Any, rng: np.random.Generator) -> tuple[pd.DataFrame, None]:
 def test_attack_m2_abundance_mix(full: bool) -> None:
     k, sd = G.NONVAC_PLANT
     cfgs = G.scenario("missed_operon_power", G.N_GENES, k, sd)
-    _gate(f"{MO}.attack_m2.no_shift1", cfgs, G.giap_cfg(G.CV_ONLY), C.replicates(MO, full), True,
+    _gate(f"{MO}.attack_m2.no_shift1", cfgs, G.gippa_cfg(G.CV_ONLY), C.replicates(MO, full), True,
           _m2)  # fmt: skip
 
 
@@ -189,7 +189,7 @@ def _co_impute(sim: Any, rng: np.random.Generator) -> tuple[pd.DataFrame, pd.Dat
 @pytest.mark.parametrize("full", MODES)
 @pytest.mark.parametrize("decoys", ["shipped", "cv_only"])
 def test_recorded_attack_m1_co_imputation(decoys: str, full: bool) -> None:
-    gcfg = G.giap_cfg() if decoys == "shipped" else G.giap_cfg(G.CV_ONLY)
+    gcfg = G.gippa_cfg() if decoys == "shipped" else G.gippa_cfg(G.CV_ONLY)
     cfgs = G.scenario("operon_null", G.N_GENES)
     stream = f"{MO}.attack_m1.co_impute.{decoys}"
     r = C.replicates(MO, full)
@@ -206,7 +206,7 @@ def test_recorded_attack_m1_large_genome() -> None:
     R = ``R_M1_LARGE`` (module constant; full tier only, ~1 s per replicate)."""
     cfgs = G.scenario("operon_null", M1_LARGE_GENES)
     stream = f"{MO}.attack_m1.co_impute.large"
-    s = G.fdp_summary(G.missed_replicate_fn(stream, cfgs, G.giap_cfg(), _co_impute),
+    s = G.fdp_summary(G.missed_replicate_fn(stream, cfgs, G.gippa_cfg(), _co_impute),
                       R_M1_LARGE, 0.1)  # fmt: skip
     print(f"recorded M-1 large genome: {json.dumps(s)}")
     _log("attack_m1", {"decoys": "shipped", "n_genes": M1_LARGE_GENES, **s})
@@ -283,7 +283,7 @@ def _oracle_pmiss(sim: Any, cfgs: Any) -> np.ndarray:
     """P(miss) of every eligible one-detected OP pair under the generating detection model:
     mean over the fitted Delta sample r of 1 - expit(L_u + b (a_v +- r)), with
     L_u = logit(p_detect_u) - b a_u (b = the abundance slope, 0 under covariates_only)."""
-    from giap.operons.discordance import fit_rows
+    from gippa.operons.discordance import fit_rows
 
     ecfg = cfgs[1]
     b = float(ecfg.beta["log2_abundance"]) if ecfg.detection == "abundance" else 0.0

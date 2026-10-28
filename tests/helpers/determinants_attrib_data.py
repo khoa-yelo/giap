@@ -54,11 +54,11 @@ FLAG = "abundance_not_explained_by_sequence"
 
 
 def null_mod() -> ModuleType:
-    return importlib.import_module("giap.determinants.null")
+    return importlib.import_module("gippa.determinants.null")
 
 
 def attr_mod() -> ModuleType:
-    return importlib.import_module("giap.determinants.attribution")
+    return importlib.import_module("gippa.determinants.attribution")
 
 
 def tu_from_sizes(sizes: Sequence[int], names: Sequence[str] | None = None) -> list[str]:

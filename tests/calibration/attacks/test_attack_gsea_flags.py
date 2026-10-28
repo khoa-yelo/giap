@@ -1,5 +1,5 @@
 """Calibration and attack arms of the M8-05b GSEA row flags (M8-05 spec, lead decision 9;
-ADR-0025, ADR-0026; GIAP_SPEC.md §8.4, §8.5).
+ADR-0025, ADR-0026; GIPPA_SPEC.md §8.4, §8.5).
 
 The strict xfails on *all* rows (one run of 15 under AR(1) phi 0.5; detectability confounded with
 membership) stay in test_attack_gsea_structure.py. This file gates what the flags claim, in the
@@ -46,8 +46,8 @@ import pytest
 from _gate import calibrate_levels
 from helpers.gsea_data import as_list, gene_sets
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("gsea")]
 
@@ -70,7 +70,7 @@ NULL_FAST_FULL = [
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 

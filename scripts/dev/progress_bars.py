@@ -30,7 +30,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 ISSUE = re.compile(r"\bM(\d+)-(\d{2})[a-z]?\b")
 START, END = "<!-- progress:start -->", "<!-- progress:end -->"
-MILESTONES = {  # GIAP_SPEC.md §13 milestone table
+MILESTONES = {  # GIPPA_SPEC.md §13 milestone table
     0: "Scaffold",
     1: "Inputs and preflight",
     2: "Annotation wrappers",

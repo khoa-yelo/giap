@@ -8,7 +8,7 @@
 * Writers for the step's files: the gene table (``write_genes_parquet``), C1 replicons and
   ``tu_folds.parquet`` (``tu_id`` string, ``fold`` int64).
 
-Nothing here imports ``giap.steps.function`` or ``giap.io.function_tables``.
+Nothing here imports ``gippa.steps.function`` or ``gippa.io.function_tables``.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def natural_key(s: str) -> tuple[tuple[int, int | str], ...]:
 
 def full_frame(cols: Mapping[str, Sequence[Any]]) -> pd.DataFrame:
     """A §9.3 gene table: every ``GENES_COLUMNS`` column, defaults where ``cols`` gives none."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
 
     n = len(next(iter(cols.values())))
     default = {"list": lambda: [], "bool": lambda: False, "int": lambda: None,
@@ -52,7 +52,7 @@ def full_frame(cols: Mapping[str, Sequence[Any]]) -> pd.DataFrame:
 
 
 def write_gene_table(path: Path, df: pd.DataFrame) -> Path:
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.io.genes_tsv import write_genes_parquet
 
     path.parent.mkdir(parents=True, exist_ok=True)
     write_genes_parquet(path, df)
@@ -60,7 +60,7 @@ def write_gene_table(path: Path, df: pd.DataFrame) -> Path:
 
 
 def write_replicons(path: Path, topology: str = "circular", length: int = GENOME_LENGTH) -> Path:
-    from giap.io.parquet import write_parquet_deterministic
+    from gippa.io.parquet import write_parquet_deterministic
 
     path.parent.mkdir(parents=True, exist_ok=True)
     cols = [("contig", pa.string()), ("length", pa.int64()), ("topology", pa.string()),
@@ -71,7 +71,7 @@ def write_replicons(path: Path, topology: str = "circular", length: int = GENOME
 
 def write_tu_folds(path: Path, folds: Mapping[str, int]) -> Path:
     """``genetable/tu_folds.parquet`` as item 1 describes it (header-only for ``{}``)."""
-    from giap.io.parquet import write_parquet_deterministic
+    from gippa.io.parquet import write_parquet_deterministic
 
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = [(t, int(folds[t])) for t in sorted(folds, key=natural_key)]
@@ -129,7 +129,7 @@ KO_POOL = tuple(f"K{n:05d}" for n in range(101, 30_000, 997))  # 31 sim-like KOs
 
 
 def world_xrefs(tags: Sequence[str], seed: int = SEED) -> pd.DataFrame:
-    """A C3 ``xrefs`` frame in the giapsim shape: ~80 % of genes get a COG, ~60 % of those GO
+    """A C3 ``xrefs`` frame in the gippasim shape: ~80 % of genes get a COG, ~60 % of those GO
     terms and a KO."""
     r = np.random.default_rng(seed + 101)
     rows: list[tuple[str, str, str]] = []
@@ -149,8 +149,8 @@ def world_pre(xrefs_db: Path | None = None, seed: int = SEED) -> tuple[pd.DataFr
     """(``genes_pre`` frame, its C3 ``xrefs``). ``xrefs_db`` (a function DB root with
     ``cog/cog-20.def.tab``) fills ``cog_category``; without it the category is derived from the
     same rule (:func:`helpers.function_db.cog_letters`)."""
-    from giap.genetable.assemble import function_columns
-    from giap.io.genes_tsv import read_cog_def
+    from gippa.genetable.assemble import function_columns
+    from gippa.io.genes_tsv import read_cog_def
     from helpers.function_db import cog_letters
 
     gs = synthetic(N_TUS, seed)
@@ -219,19 +219,19 @@ def oracle_tables(
     """Spec item 2's chain on the step's own files, written with the M8-06a writers: the three
     table paths and the run-flag union (first-seen order). ``folds`` empty means None
     (lead decision 3)."""
-    from giap.function.collections import build_collections
-    from giap.function.gsea import gsea_table
-    from giap.function.ora import detection_enrichment
-    from giap.function.summary import category_summary
-    from giap.genetable.eligibility import eligible
-    from giap.io.function_resources import read_resources
-    from giap.io.function_tables import (
+    from gippa.function.collections import build_collections
+    from gippa.function.gsea import gsea_table
+    from gippa.function.ora import detection_enrichment
+    from gippa.function.summary import category_summary
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.function_resources import read_resources
+    from gippa.io.function_tables import (
         write_category_summary_tsv,
         write_enrichment_detection_tsv,
         write_enrichment_gsea_tsv,
     )
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.rng import for_step
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.rng import for_step
 
     genes = read_genes_parquet(gene_table)
     reps = pd.read_parquet(replicons)

@@ -18,8 +18,8 @@ before merge) · roles: implementer, test-author, lead (edits to existing launch
 - **R3:** this issue changes scheduling only. R, tolerances, α, bounds, seeds and the two-block rule
   (ADR-0015) stay as they are. Every replicate `i` of stream `s` still draws from
   `replicate_rng(s, i)` (or `records(i)` with the absolute index), whichever process runs it.
-  **R14:** ≤ 128 CPUs and ≤ 20 queued or running `giap-*` jobs, checked before every `sbatch`; job
-  names start with `giap-`.
+  **R14:** ≤ 128 CPUs and ≤ 20 queued or running `gippa-*` jobs, checked before every `sbatch`; job
+  names start with `gippa-`.
 
 ## The problem (array 1894441, commit ef4a4cc77d7b, 2026-10-25 14:48)
 
@@ -32,7 +32,7 @@ record)`; `nightly.tsv` lines 37–38).
 
 | Task | Suite | Elapsed | CPU-h used / 4 CPUs | MaxRSS | Longest tests (single process) | Single-process work, estimated | Basis |
 |---|---|---|---|---|---|---|---|
-| 0 | placement | **TIMEOUT** (41/58 tests) | 5.0 | 1.7 G | `attack5_reversed_stretches…shuffle_decoys_full`: **one check, 3.36 h** (R 300, harness, shardable). **28 shard-0-only tests** (conftest's predicates, below): the 17 under `test_placement_fdr_sim.py` / `test_readthrough_*` / `…readthrough_recoded`, each **≥ 69 min** for 13 of them, plus 11 more (`test_attack_denovo_precision` ×3, `…genome_decoys` ×2, the `…has_power…` tests, `…readthrough_decoys_{giapsim,stressed}`) | **≥ 13.4 h, likely 15–20 h**, of which ≥ 10 h shard-0-only | records; probe 1895351: 7 tests still running after 169 min under 8 workers |
+| 0 | placement | **TIMEOUT** (41/58 tests) | 5.0 | 1.7 G | `attack5_reversed_stretches…shuffle_decoys_full`: **one check, 3.36 h** (R 300, harness, shardable). **28 shard-0-only tests** (conftest's predicates, below): the 17 under `test_placement_fdr_sim.py` / `test_readthrough_*` / `…readthrough_recoded`, each **≥ 69 min** for 13 of them, plus 11 more (`test_attack_denovo_precision` ×3, `…genome_decoys` ×2, the `…has_power…` tests, `…readthrough_decoys_{gippasim,stressed}`) | **≥ 13.4 h, likely 15–20 h**, of which ≥ 10 h shard-0-only | records; probe 1895351: 7 tests still running after 169 min under 8 workers |
 | 1 | gene_fdr | 3:46:52 | 3.8 | 1.6 G | 30, 29, 23 min | 3.8 h | JUnit |
 | 2 | detectability | 0:14:06 | 0.2 | 0.4 G | 4 min | 0.23 h | JUnit |
 | 3 | regions | **TIMEOUT** (22/50) | 4.0 | 0.6 G | `a2_short…`, `a2_mid…`: 70 min each; `c1_level_full[rho0.0]` ≈ 69 min | **≥ 11 h, likely ≈ 12 h** | records; probe 1895352 |
@@ -95,7 +95,7 @@ Findings that shape the design:
 
 ### Idea: one job per suite, one process per core ("lanes"), merge in the same job
 
-Each of the 15 suites gets **one Slurm job** (`giap-cal-<suite>`) sized by a committed plan. Inside
+Each of the 15 suites gets **one Slurm job** (`gippa-cal-<suite>`) sized by a committed plan. Inside
 the job, the suite runs as **L lanes**, one process per physical core (`cpus_per_lane` = 2 Slurm
 CPUs: one core, two hyperthreads; ora and autocorrelation use 4). There are two lane kinds:
 
@@ -196,8 +196,8 @@ wall time is about 3–3.5 h, set by placement and novel_orfs. A one-lane `*` ro
 today's unsharded task.
 
 **Thread limits per lane (S1).** Lanes share the job's cpuset. Without limits, BLAS, OpenMP and
-LightGBM size their pools from the whole allocation, and `src/giap/steps/determinants.py`,
-`src/giap/determinants/sensitivity.py` size from `sched_getaffinity`. That would bring back
+LightGBM size their pools from the whole allocation, and `src/gippa/steps/determinants.py`,
+`src/gippa/determinants/sensitivity.py` size from `sched_getaffinity`. That would bring back
 finding 2's slowdown. Each lane therefore:
 - is pinned with `taskset -c <siblings>` to its own core's hyperthreads (`cpus_per_lane / 2`
   cores, sibling lists read from `/sys/devices/system/cpu/cpu<n>/topology/thread_siblings_list`
@@ -269,7 +269,7 @@ M11-03b):
   - `task-<i>.group<g>.junit.xml` for every non-empty group lane;
   - the block-2 parts that `--merge` reports it launched (PR 2).
 
-  All are plain names in `$GIAP_CALIBRATION_LOG_DIR`, as `_safe_part` requires.
+  All are plain names in `$GIPPA_CALIBRATION_LOG_DIR`, as `_safe_part` requires.
 - Extra keys, ignored by the rows script:
   - `lanes`: `[{"kind", "index", "exit", "tests", "junit_tests"}]`;
   - `plan`: the plan row as a dict;
@@ -286,8 +286,8 @@ Criterion 4 pins it.
 
 ### `scripts/slurm/calibration_suite.sbatch` (new)
 
-Takes `GIAP_SUITE`, `GIAP_WORKTREE` and `GIAP_CALIBRATION_LOG_DIR` from the environment. The
-resources (`--cpus-per-task`, `--mem`, `--time`, `--job-name=giap-cal-<suite>`) come from the
+Takes `GIPPA_SUITE`, `GIPPA_WORKTREE` and `GIPPA_CALIBRATION_LOG_DIR` from the environment. The
+resources (`--cpus-per-task`, `--mem`, `--time`, `--job-name=gippa-cal-<suite>`) come from the
 launcher's `sbatch` options, so the script carries no `#SBATCH --array`.
 
 1. Set up as `calibration_full.sbatch` does (`farmshare_env.sh`, its own `TMPDIR`, the worktree
@@ -298,14 +298,14 @@ launcher's `sbatch` options, so the script carries no `#SBATCH --array`.
    `--collect-only` checks. A `PlanError`, a collection error or a partition problem ends the job
    with exit 2 and a record.
 3. **Start every lane** in the background with its `taskset`, thread variables, `PYTEST_ADDOPTS`
-   (`--junitxml=$GIAP_CALIBRATION_LOG_DIR/task-<i>.<shard<k>|group<g>>.junit.xml` plus the deselect
-   list), and, for group lanes, `GIAP_CALIBRATION_LOG_DIR=<log>/lanes/<suite>-group<g>` (JUnit
+   (`--junitxml=$GIPPA_CALIBRATION_LOG_DIR/task-<i>.<shard<k>|group<g>>.junit.xml` plus the deselect
+   list), and, for group lanes, `GIPPA_CALIBRATION_LOG_DIR=<log>/lanes/<suite>-group<g>` (JUnit
    still goes to `<log>/`). The suite's `<suite>.jsonl` and `<suite>.shards.jsonl` then hold only
    shard records, which is what `merge_shards` and `shard_exit_verdict` expect. Diagnostics files
    (`*_gate_replicates.jsonl` and others) of group tests land under `lanes/<suite>-group<g>/`.
    Nothing reads them for verdicts; whoever rebuilds durations or evidence must look there too.
 4. **Wait** for all lanes. If `shards > 0`, run `--merge` with the shard lanes' deselect list,
-   `GIAP_CALIBRATION_CONFIRM_LANES=<shards>`, `GIAP_CALIBRATION_CONFIRM_JUNIT=<log>/task-<i>.merge`
+   `GIPPA_CALIBRATION_CONFIRM_LANES=<shards>`, `GIPPA_CALIBRATION_CONFIRM_JUNIT=<log>/task-<i>.merge`
    and the shard lanes' cpus (PR 2). Then check the counts and write the record.
 5. **Signals and time limit.** Add `#SBATCH --signal=B:USR1@600`.
    - **Every step runs in the background** and is then waited for: collection, each lane and the
@@ -320,7 +320,7 @@ launcher's `sbatch` options, so the script carries no `#SBATCH --array`.
      process group shared with other jobs (a launch can put several suite jobs on one node). It
      signals pytest, not the `_criteria.py` wrapper, because `subprocess.run` kills its child
      0.25 s after its own KeyboardInterrupt.
-   - The job then waits ≤ 120 s (`GIAP_CALIBRATION_GRACE`, for tests). pytest writes its JUnit with
+   - The job then waits ≤ 120 s (`GIPPA_CALIBRATION_GRACE`, for tests). pytest writes its JUnit with
      the tests finished so far. The job writes the record with `exit 143`, once (as in M11-03b).
      Any process still alive after the grace gets SIGKILL from Slurm; its JUnit is missing and the
      rows fail closed.
@@ -332,7 +332,7 @@ once the lanes land goes to the backlog (lead decision Q7).
 ### `calibration_full_launch.sh` (changed)
 
 1. Unchanged: argument refusal, `git fetch`, resolving the SHA, the detached worktree under flock,
-   a fresh log directory, `GIAP_NOW` / `GIAP_NIGHTLY_AT`, and the fail-closed `squeue`.
+   a fresh log directory, `GIPPA_NOW` / `GIPPA_NIGHTLY_AT`, and the fail-closed `squeue`.
 2. Validate the plan of the **worktree** (`calibration_lanes.py check`); a `PlanError` gives exit 2
    and nothing submitted.
 3. **R14 jobs:** refuse when `used_jobs + 16 > 20` (15 suite jobs + aggregator; same rule as today).
@@ -345,7 +345,7 @@ once the lanes land goes to the backlog (lead decision Q7).
    last accepted launch is **19:09** for a 01:30 nightly (19:10 ends exactly at 01:30 and is
    refused).
 6. Submit the 15 suite jobs in task order. If any `sbatch` fails, `scancel` **exactly** the jobs
-   already submitted, by ID, and exit 1. Then submit the aggregator (`giap-calibration-rows`, 1 CPU,
+   already submitted, by ID, and exit 1. Then submit the aggregator (`gippa-calibration-rows`, 1 CPU,
    `--dependency=afterany:<j0>:<j1>:…:<j14>`, `--job <j0>`, `--expect 15`, otherwise as today). If
    that fails, `scancel` all 15 jobs and exit 1.
 7. Print `jobs=<j0>,…,<j14> rows=<id> log=<dir> cpus=<Σ>`.
@@ -356,20 +356,20 @@ says `array <j0>` (lead decision Q5: fine).
 ### PR 2 (stats): block 2 on the shard lanes, and `shard0_only`
 
 `tests/calibration/_criteria.py`:
-- **A separate variable.** `GIAP_CALIBRATION_CONFIRM_SLICE=k/L` is read **only** inside the confirm
+- **A separate variable.** `GIPPA_CALIBRATION_CONFIRM_SLICE=k/L` is read **only** inside the confirm
   branches of `calibrate` **and** `_calibrate_counts` (the latter serves `calibrate_pooled` and
   `calibrate_fdr_counts`). There, `reps = shard_replicates(R, L, k)` of block 2 for a listed check
-  (each check uses its own R), logged as a block-2 `shard` record. `GIAP_CALIBRATION_REPLICATES`
-  and `GIAP_CALIBRATION_BLOCK` stay unset under CONFIRM, so `replicate_range`, `owns_direct_checks`
+  (each check uses its own R), logged as a block-2 `shard` record. `GIPPA_CALIBRATION_REPLICATES`
+  and `GIPPA_CALIBRATION_BLOCK` stay unset under CONFIRM, so `replicate_range`, `owns_direct_checks`
   and every conftest reader see exactly what the sequential confirm run sees today (e.g. `_gc`'s
   `first = gc_record(next(iter(C.replicate_range(R))))` vacuity guard still reads replicate 0).
   Without the slice variable, behaviour is byte-unchanged.
 - **Empty slices** (R < L, e.g. R = 2, L = 3): the confirm branch logs nothing for that lane,
   mirroring "an empty shard logs nothing" (today it would `_append` a `start == stop` record that
   `_collect` rejects as malformed).
-- **`_run_block2`** with `GIAP_CALIBRATION_CONFIRM_LANES=L`:
+- **`_run_block2`** with `GIPPA_CALIBRATION_CONFIRM_LANES=L`:
   - `L ≥ 2`: starts `L` pytest processes at once, each with `CONFIRM`, `CONFIRM_SLICE=k/L` and
-    `--junitxml=<GIAP_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml` **on the command line** (it wins
+    `--junitxml=<GIPPA_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml` **on the command line** (it wins
     over the merge's inherited `PYTEST_ADDOPTS` `--junitxml`, so the L processes never share a
     file). It waits for all of them, folds their exits with `fold_shard_exits`, then merges again.
   - Every run with `CONFIRM_LANES` set (`L ≥ 1`) writes `<log>/<suite>.confirm_parts.json`: the
@@ -405,9 +405,9 @@ closed, already true for shard lanes). Per-lane record files would remove the ri
 | 3 | placement row (`2 8 direct`), lane report marking the 28 shard-0-only tests | shard lanes 0/2 and 1/2 deselect exactly those 28 and keep the same 30 tests; the 28 are spread over 8 group lanes by LPT; `attack5_reversed_stretches…full` runs in both shard lanes (replicates 0–149, 150–299); the merge deselects the 28; record `sharded: true` |
 | 4 | novel_orfs row with `group_select` `-` | `PlanError` at collection: 6 shard-0-only tests present (`test_planted_tir_calibration_300k_full[…]` ×2, …); exit 2, no lane starts |
 | 5 | `fold_exit([0, 0, 1], 0)` / `([0, 143, 1], 0)` / `([0, 0], 2)` / `([0, 0], None)` | 1 / 143 / 2 / 0 |
-| 6 | Launcher at 10:00, queue = `giap-nightly-launch` (1 CPU, pending) | 15 `sbatch` calls, `giap-cal-placement` with `--cpus-per-task=20 --mem=40000 --time=06:00:00`, …; aggregator `--dependency=afterany:<15 IDs>`; prints `cpus=98`; jobs 1 + 16 = 17 ≤ 20; CPUs 1 + 99 = 100 ≤ 128 |
-| 7 | Launcher with 30 CPUs of other `giap-*` jobs queued | 30 + 98 + 1 = 129 > 128: exit 2, no `sbatch`, message `R14: … 30 CPUs queued + 99 > 128` |
-| 8 | Launcher with `GIAP_NOW` = 19:09 / 19:10 local, nightly 01:30, max `time` 6 h | 19:09: end 01:29, submits. 19:10: end 01:30 ≥ 01:30, exit 2, nothing submitted. (Without PR 2, novel_orfs needs `08:00:00`; the last launch is then 17:09) |
+| 6 | Launcher at 10:00, queue = `gippa-nightly-launch` (1 CPU, pending) | 15 `sbatch` calls, `gippa-cal-placement` with `--cpus-per-task=20 --mem=40000 --time=06:00:00`, …; aggregator `--dependency=afterany:<15 IDs>`; prints `cpus=98`; jobs 1 + 16 = 17 ≤ 20; CPUs 1 + 99 = 100 ≤ 128 |
+| 7 | Launcher with 30 CPUs of other `gippa-*` jobs queued | 30 + 98 + 1 = 129 > 128: exit 2, no `sbatch`, message `R14: … 30 CPUs queued + 99 > 128` |
+| 8 | Launcher with `GIPPA_NOW` = 19:09 / 19:10 local, nightly 01:30, max `time` 6 h | 19:09: end 01:29, submits. 19:10: end 01:30 ≥ 01:30, exit 2, nothing submitted. (Without PR 2, novel_orfs needs `08:00:00`; the last launch is then 17:09) |
 | 9 | The 9th `sbatch` (suite `ora`) fails | `scancel` of exactly the 8 IDs already submitted; no aggregator; exit 1 |
 | 10 | A lane and then the merge are still running at limit − 10 min (stub pytest sleeps, traps SIGINT, writes JUnit) | USR1 handled within a second (the step runs as `& wait`); SIGINT reaches only the job's own pytest descendants (a decoy `sleep` named pytest outside the tree survives); partial JUnit exists; `task-<i>.json` `exit: 143`, written once; the rows fail closed with `(<suite> exit 143)` |
 
@@ -460,14 +460,14 @@ closed, already true for shard lanes). Per-lane record files would remove the ri
    - there is one `task-<i>.json`, with `job` = `SLURM_JOB_ID` and `parts` = the parts launched
      (a stub lane that writes no JUnit gives `junit missing` in `calibration_rows.suite_result`);
    - **R4 strictness:** a sharded suite whose group lane fails one non-attack test fails both rows.
-5. Example 10, with the stub trapping SIGINT and a shortened `GIAP_CALIBRATION_GRACE`. Also: a stub
+5. Example 10, with the stub trapping SIGINT and a shortened `GIPPA_CALIBRATION_GRACE`. Also: a stub
    that ignores SIGINT still yields a record after the grace, and the decoy process outside the
    job's tree is not signalled.
 6. Launcher, in the `slurm_sandbox` fakes:
    - examples 6–9;
    - `squeue` runs before the first `sbatch`;
    - a plan error refuses before any `sbatch`;
-   - every job name starts with `giap-`;
+   - every job name starts with `gippa-`;
    - the aggregator depends on exactly the 15 IDs;
    - harness arguments are still refused.
 7. **PR 2 equivalence** (`test_criteria_shard_equivalence.py` pattern, on

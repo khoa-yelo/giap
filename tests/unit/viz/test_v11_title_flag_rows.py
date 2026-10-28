@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import style
-from giap.viz.operon_pairs import operon_pairs, title
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import style
+from gippa.viz.operon_pairs import operon_pairs, title
 
 MEDS = {"OP": 0.4, "NO": 1.3}
 SNAPSHOT = Path(__file__).resolve().parents[2] / "data" / "snapshot" / "sim_plots" / "OUT"

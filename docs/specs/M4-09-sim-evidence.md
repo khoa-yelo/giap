@@ -1,6 +1,6 @@
-# M4-09: giapsim evidence: peptides, identification errors, decoys and placed hits
+# M4-09: gippasim evidence: peptides, identification errors, decoys and placed hits
 
-Milestone M4 · track F (simulator) · depends on: M4-08 · estimate ≈ 380 lines in `tests/sim/giapsim/`
+Milestone M4 · track F (simulator) · depends on: M4-08 · estimate ≈ 380 lines in `tests/sim/gippasim/`
 (tooling) · **can start now**
 
 Produces the evidence half of the M4-06 contract (C9 `peptides.norm.parquet`, C10
@@ -22,7 +22,7 @@ identification error at the gene level.
 - §7.2.6 uniqueness classes and §7.3.2 decoy pairing ("Strip the decoy prefix from a decoy row's
   protein ID and map the resulting target protein to its gene").
 
-## Interface (`tests/sim/giapsim/evidence.py`)
+## Interface (`tests/sim/gippasim/evidence.py`)
 
 ```python
 @dataclass(frozen=True)
@@ -96,8 +96,8 @@ Rules:
 ## Acceptance criteria
 
 - [ ] `tests/sim/test_evidence.py`: examples 1–10.
-- [ ] Output passes `giap.genetable.contract.validate_table` for C9–C12 (cross-check, once M4-06 merges).
-- [ ] No import of `giap` in `giapsim`.
+- [ ] Output passes `gippa.genetable.contract.validate_table` for C9–C12 (cross-check, once M4-06 merges).
+- [ ] No import of `gippa` in `gippasim`.
 - [ ] 4,500 genes, default config: < 3 s.
 
 ## Methods note
@@ -111,8 +111,8 @@ Described in `docs/methods/detection-tiers.md` (M4-12) as the gene-FDR null; sta
    end-to-end through real M3 once it lands.
 2. Default π_wrong for calibration: {0.01, 0.05}? **Proposed default:** fast suite 0.01 and 0.05 (half
    the replicates each); nightly adds 0.10.
-3. M3-19 (`giapsim/proteomics.py`) defines the same score mixture, PEP and q model on the full
-   simulator. **Proposed default:** one shared helper `giapsim/scores.py` (mixture → PEP, q); whichever
+3. M3-19 (`gippasim/proteomics.py`) defines the same score mixture, PEP and q model on the full
+   simulator. **Proposed default:** one shared helper `gippasim/scores.py` (mixture → PEP, q); whichever
    of M3-19 / M4-09 merges first creates it and the other imports it, so both FDR calibrations use
    one error model.
 

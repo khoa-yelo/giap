@@ -18,13 +18,13 @@ and with a fixed block the ADR-0021 calibration does not apply at all.
 
 Interface assumed (**new in M5-09; no lead decision names it yet — see the test-author report**)::
 
-    giap.context.diagnostics.DIAGNOSTICS_COLUMNS
+    gippa.context.diagnostics.DIAGNOSTICS_COLUMNS
         ("contig", "scanned", "block_rule", "l_hat", "block_len", "morans_i_lag1", "flags")
-    giap.context.diagnostics.BLOCK_RULES == ("auto", "fixed", "not_scanned")
-    giap.context.diagnostics.island_diagnostics(scan, cfg) -> pd.DataFrame  # one row per
+    gippa.context.diagnostics.BLOCK_RULES == ("auto", "fixed", "not_scanned")
+    gippa.context.diagnostics.island_diagnostics(scan, cfg) -> pd.DataFrame  # one row per
         replicon, C1 order, nullable integers for l_hat / block_len
-    giap.context.diagnostics.render_l_hat(l_hat, block_rule) -> str
-    giap.context.diagnostics.calibration_applies(block_rule) -> bool
+    gippa.context.diagnostics.render_l_hat(l_hat, block_rule) -> str
+    gippa.context.diagnostics.calibration_applies(block_rule) -> bool
 
 The step persists the frame as ``work/context/island_diagnostics.parquet`` (checked in
 ``tests/integration/test_context_stats_m5.py``).
@@ -59,7 +59,7 @@ def _contigs() -> list[Contig]:
 
 def _scan(cfg: Any) -> Any:
     """``IslandScan`` of the two replicons (M5-06, merged)."""
-    from giap.context.islands import scan_replicons
+    from gippa.context.islands import scan_replicons
 
     genes, tus, replicons = isd.frames(_contigs())
     series = isd.build_series(genes, tus, replicons, cfg)
@@ -67,7 +67,7 @@ def _scan(cfg: Any) -> Any:
 
 
 def _diagnostics(cfg: Any) -> pd.DataFrame:
-    from giap.context.diagnostics import island_diagnostics
+    from gippa.context.diagnostics import island_diagnostics
 
     return island_diagnostics(_scan(cfg), cfg)
 
@@ -82,7 +82,7 @@ def _row(df: pd.DataFrame, contig: str) -> pd.Series:
 
 
 def test_columns_and_one_row_per_replicon_in_c1_order() -> None:
-    from giap.context.diagnostics import DIAGNOSTICS_COLUMNS
+    from gippa.context.diagnostics import DIAGNOSTICS_COLUMNS
 
     df = _diagnostics(isd.config(bootstrap=39, permutations=19))
     assert tuple(df.columns) == DIAGNOSTICS_COLUMNS
@@ -94,7 +94,7 @@ def test_auto_block_length_reports_an_estimated_l_hat() -> None:
     (ADR-0021 decision 1) and a finite Î₁."""
     cfg = isd.config(bootstrap=39, permutations=19, block_len="auto")
     scan = _scan(cfg)
-    from giap.context.diagnostics import island_diagnostics
+    from gippa.context.diagnostics import island_diagnostics
 
     row = _row(island_diagnostics(scan, cfg), "chr1")
     assert row["scanned"] is True or bool(row["scanned"])
@@ -111,7 +111,7 @@ def test_fixed_block_length_reports_l_hat_as_not_estimated() -> None:
     cfg = isd.config(bootstrap=39, permutations=19, block_len=4)
     scan = _scan(cfg)
     assert scan.l_hat[0] == 0 and scan.block_len[0] == 4  # the trap in the producer
-    from giap.context.diagnostics import island_diagnostics
+    from gippa.context.diagnostics import island_diagnostics
 
     row = _row(island_diagnostics(scan, cfg), "chr1")
     assert row["block_rule"] == "fixed"
@@ -126,7 +126,7 @@ def test_unscanned_replicon_reports_everything_missing() -> None:
     cfg = isd.config(bootstrap=39, permutations=19, block_len=4)
     scan = _scan(cfg)
     assert scan.scanned == (True, False)
-    from giap.context.diagnostics import island_diagnostics
+    from gippa.context.diagnostics import island_diagnostics
 
     row = _row(island_diagnostics(scan, cfg), "p1")
     assert not bool(row["scanned"])
@@ -158,7 +158,7 @@ def test_the_three_cases_are_distinguishable() -> None:
 
 
 def test_block_rules_are_the_three_documented_values() -> None:
-    from giap.context.diagnostics import BLOCK_RULES
+    from gippa.context.diagnostics import BLOCK_RULES
 
     assert set(BLOCK_RULES) == {"auto", "fixed", "not_scanned"}
 
@@ -170,7 +170,7 @@ def test_block_rules_are_the_three_documented_values() -> None:
 @pytest.mark.parametrize("value", [0, None, float("nan")])
 def test_l_hat_without_an_estimate_renders_as_not_estimated(rule: str, value: Any) -> None:
     """ADR-0021 Amendment 1: printed as a number, l-hat = 0 reads "no autocorrelation"."""
-    from giap.context.diagnostics import render_l_hat
+    from gippa.context.diagnostics import render_l_hat
 
     text = render_l_hat(value, rule)
     assert isinstance(text, str)
@@ -179,13 +179,13 @@ def test_l_hat_without_an_estimate_renders_as_not_estimated(rule: str, value: An
 
 
 def test_the_two_reasons_render_differently() -> None:
-    from giap.context.diagnostics import render_l_hat
+    from gippa.context.diagnostics import render_l_hat
 
     assert render_l_hat(None, "fixed") != render_l_hat(None, "not_scanned")
 
 
 def test_an_estimated_l_hat_renders_as_its_number() -> None:
-    from giap.context.diagnostics import render_l_hat
+    from gippa.context.diagnostics import render_l_hat
 
     assert render_l_hat(3, "auto") == "3"
     assert render_l_hat(1, "auto") == "1"
@@ -194,7 +194,7 @@ def test_an_estimated_l_hat_renders_as_its_number() -> None:
 def test_a_fixed_block_voids_the_calibration() -> None:
     """ADR-0021 decision 1 fixes l' = min(20, 2l-hat + 1, T); the FWER evidence of Amendment 1 is
     conditional on that rule, so with an overridden ``block_len`` nothing is calibrated."""
-    from giap.context.diagnostics import calibration_applies
+    from gippa.context.diagnostics import calibration_applies
 
     assert calibration_applies("auto") is True
     assert calibration_applies("fixed") is False

@@ -5,9 +5,9 @@ Interface pinned here (test-author reading of §9):
 
 - ``function_step`` builds ``r_fgsea_engine(resolve_launcher(os.environ), tmp_root=Path.cwd())``
   lazily: only when ``gsea_table`` would call it. A run without abundance, or without a testable
-  set, never resolves the launcher, so it succeeds even when ``GIAP_FGSEA_PREFIX`` points
+  set, never resolves the launcher, so it succeeds even when ``GIPPA_FGSEA_PREFIX`` points
   nowhere.
-- An engine error propagates: ``giap _step function`` exits 4 (``ExitCode.STEP_FAILED``) and no
+- An engine error propagates: ``gippa _step function`` exits 4 (``ExitCode.STEP_FAILED``) and no
   ``tables/enrichment_*.tsv`` is written.
 - Each engine call logs one §6.7 event ``function.gsea_engine`` with data
   ``{"call": "main" | "retest", "jobs": n, "r": ..., "fgsea": "1.36.2", "launcher": "prefix",
@@ -16,7 +16,7 @@ Interface pinned here (test-author reading of §9):
 
 The R side is the fake front end of ``helpers.fgsea_r_data`` (every sent set gets ES 0.5, p 0.01,
 so GO parents with tested descendants are significant and a re-test call follows). Tests never
-read the real ``$GIAP_ROOT``: it is pointed at an empty directory.
+read the real ``$GIPPA_ROOT``: it is pointed at an empty directory.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from helpers.fgsea_switch_data import RecordingEngine, SimWorld, sim_cfg, sim_wo
 from helpers.function_db import FUNCTION_RESOURCES
 from helpers.function_step_data import oracle_tables, write_gene_table, write_tu_folds
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 OUTPUTS = {
     "category_summary": "tables/category_summary.tsv",
@@ -57,12 +57,12 @@ def folds(world: SimWorld) -> Path:
 
 @pytest.fixture
 def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """cwd = a fresh directory; ``$GIAP_ROOT`` empty; no inherited fgsea variables."""
-    root = tmp_path / "empty_giap_root"
+    """cwd = a fresh directory; ``$GIPPA_ROOT`` empty; no inherited fgsea variables."""
+    root = tmp_path / "empty_gippa_root"
     root.mkdir()
-    monkeypatch.setenv("GIAP_ROOT", str(root))
-    monkeypatch.delenv("GIAP_FGSEA_PREFIX", raising=False)
-    monkeypatch.delenv("GIAP_FGSEA_IMAGE", raising=False)
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
+    monkeypatch.delenv("GIPPA_FGSEA_PREFIX", raising=False)
+    monkeypatch.delenv("GIPPA_FGSEA_IMAGE", raising=False)
     cwd = tmp_path / "task"
     cwd.mkdir()
     monkeypatch.chdir(cwd)
@@ -79,7 +79,7 @@ def _inputs(world: SimWorld, folds: Path, gene_table: Path | None = None) -> dic
 
 
 def _no_abundance(world: SimWorld, where: Path) -> Path:
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     genes = read_genes_parquet(world.gene_table)
     genes["abundance_log2"] = float("nan")
@@ -89,7 +89,7 @@ def _no_abundance(world: SimWorld, where: Path) -> Path:
 
 
 def _cli(ins: dict[str, Path], sets: tuple[str, ...] = ()) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["_step", "function"]
     for k, v in ins.items():
@@ -117,12 +117,12 @@ class _Recorder(logging.Handler):
 
 def _run_step(ins: dict[str, Path], out: Path, cfg: Any = None) -> list[dict[str, Any]]:
     """``run_step("function")``; returns the data of every ``function.gsea_engine`` event."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     rec = _Recorder()
-    log = logging.getLogger("giap.steps.function")
+    log = logging.getLogger("gippa.steps.function")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -146,7 +146,7 @@ def _gsea(out: Path) -> pd.DataFrame:
 def test_missing_prefix_with_abundance_exits_4_without_tables(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
     res = _cli(_inputs(world, folds))
     assert res.exit_code == ExitCode.STEP_FAILED == 4, res.output
     for k in ("enrichment_detection", "enrichment_gsea", "category_summary"):
@@ -155,8 +155,8 @@ def test_missing_prefix_with_abundance_exits_4_without_tables(
     assert "FgseaEngineUnavailable" in log
 
 
-def test_unbuilt_env_under_giap_root_exits_4(world: SimWorld, folds: Path, isolated: Path) -> None:
-    """No ``GIAP_FGSEA_PREFIX`` and an empty ``$GIAP_ROOT``: launcher rule 4, exit 4."""
+def test_unbuilt_env_under_gippa_root_exits_4(world: SimWorld, folds: Path, isolated: Path) -> None:
+    """No ``GIPPA_FGSEA_PREFIX`` and an empty ``$GIPPA_ROOT``: launcher rule 4, exit 4."""
     res = _cli(_inputs(world, folds))
     assert res.exit_code == 4, res.output
     log = (isolated / "logs" / "function.log").read_text(encoding="utf-8")
@@ -172,14 +172,14 @@ def test_r_failure_exits_4_without_tables(
         isolated.parent / "env",
         {"mode": "fail", "code": 1, "stderr": "Error in fgseaMultilevel(...) : x\n"},
     )
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
     res = _cli(_inputs(world, folds))
     assert res.exit_code == 4, res.output
     log = (isolated / "logs" / "function.log").read_text(encoding="utf-8")
     assert "R fgsea failed (exit 1" in log and "Error in fgseaMultilevel" in log
     assert not list(isolated.glob("tables/enrichment_*.tsv"))
     assert len((prefix / "calls.txt").read_text().splitlines()) == 1  # never retried
-    assert not list(isolated.glob("giap-fgsea-*")), "temporary call directory left behind"
+    assert not list(isolated.glob("gippa-fgsea-*")), "temporary call directory left behind"
 
 
 # ---------------------------------------------------------------- A8: no R needed
@@ -189,7 +189,7 @@ def test_no_abundance_runs_without_r(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Example 7: zero engine calls, the engine is never constructed."""
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
     res = _cli(_inputs(world, folds, _no_abundance(world, isolated.parent)))
     assert res.exit_code == 0, res.output
     gsea = (isolated / OUTPUTS["enrichment_gsea"]).read_text(encoding="utf-8")
@@ -199,8 +199,8 @@ def test_no_abundance_runs_without_r(
 def test_no_abundance_never_resolves_the_launcher(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.io.fgsea_r as fr
-    import giap.steps.function as step_mod
+    import gippa.io.fgsea_r as fr
+    import gippa.steps.function as step_mod
 
     def boom(*_: Any, **__: Any) -> Any:
         raise AssertionError("the R engine was built without abundance")
@@ -216,7 +216,7 @@ def test_no_testable_set_runs_without_r(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Example 8 through the step: every set is below ``function.gsea_size[0]``."""
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(isolated.parent / "nowhere"))
     res = _cli(_inputs(world, folds), sets=("function.gsea_size=[400,500]",))
     assert res.exit_code == 0, res.output
     assert len((isolated / OUTPUTS["enrichment_gsea"]).read_text().splitlines()) == 1
@@ -230,11 +230,11 @@ def test_one_event_per_engine_call(
 ) -> None:
     """With ``gsea_size`` [20, 500] go_bp's GO:0990001 (19 TUs) is untested, so its parent
     GO:0990100 minus its significant child GO:0990000 keeps TUs: a re-test call follows."""
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     prefix = fake_prefix(isolated.parent / "env")
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
-    cfg = GiapConfig.model_validate(
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
+    cfg = GippaConfig.model_validate(
         sim_cfg().model_dump()
         | {"function": {"gsea_size": [20, 500], "gsea": {"n_perm_simple": 200}}}
     )
@@ -259,7 +259,7 @@ def test_event_carries_the_r_warnings(
 ) -> None:
     msg = "There are ties in the preranked stats (3.1% of the list)."
     prefix = fake_prefix(isolated.parent / "env", {"warnings": [["main:cog", msg]]})
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
     events = _run_step(_inputs(world, folds), isolated)
     assert msg in str(events[0]["warnings"])
 
@@ -268,7 +268,7 @@ def test_r_engine_table_and_tmp_root(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     prefix = fake_prefix(isolated.parent / "env")
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
     _run_step(_inputs(world, folds), isolated)
     df = _gsea(isolated)
     assert len(df) > 0
@@ -276,14 +276,14 @@ def test_r_engine_table_and_tmp_root(
     assert set(df["n_perm"]) == {"200"}
     for d in (prefix / "calls.txt").read_text().splitlines():
         assert Path(d).parent == isolated, "tmp_root must be the task directory (Path.cwd())"
-    assert not list(isolated.glob("giap-fgsea-*"))
+    assert not list(isolated.glob("gippa-fgsea-*"))
 
 
 def test_r_engine_step_is_byte_identical(
     world: SimWorld, folds: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     prefix = fake_prefix(isolated.parent / "env")
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
     a, b = isolated / "a", isolated / "b"
     _run_step(_inputs(world, folds), a)
     _run_step(_inputs(world, folds), b)
@@ -296,7 +296,7 @@ def test_a11_detection_table_unchanged_by_the_engine(
 ) -> None:
     """A11: the ORA path is untouched; ``enrichment_detection.tsv`` equals the M8-06 chain."""
     prefix = fake_prefix(isolated.parent / "env")
-    monkeypatch.setenv("GIAP_FGSEA_PREFIX", str(prefix))
+    monkeypatch.setenv("GIPPA_FGSEA_PREFIX", str(prefix))
     _run_step(_inputs(world, folds), isolated)
     paths, _ = oracle_tables(
         world.gene_table,
@@ -316,8 +316,8 @@ def test_a11_detection_table_unchanged_by_the_engine(
 
 
 def test_run_function_engine_keyword_defaults_to_simple() -> None:
-    from giap.function.gsea import SIMPLE_ENGINE
-    from giap.steps.function import run_function
+    from gippa.function.gsea import SIMPLE_ENGINE
+    from gippa.steps.function import run_function
 
     p = inspect.signature(run_function).parameters["engine"]
     assert p.kind is inspect.Parameter.KEYWORD_ONLY
@@ -325,8 +325,8 @@ def test_run_function_engine_keyword_defaults_to_simple() -> None:
 
 
 def test_run_function_passes_the_engine(world: SimWorld) -> None:
-    from giap.io.function_resources import read_resources
-    from giap.steps.function import run_function
+    from gippa.io.function_resources import read_resources
+    from gippa.steps.function import run_function
 
     eng = RecordingEngine()
     res = read_resources(dict(world.db.inputs(FUNCTION_RESOURCES)))
@@ -334,7 +334,7 @@ def test_run_function_passes_the_engine(world: SimWorld) -> None:
     assert len(eng.calls) >= 1
     assert len(gsea) > 0 and set(gsea["method"]) == {"fgsea_multilevel"}
     # the stream is for_step("function.gsea", seed) (§5)
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = for_step("function.gsea", 7)
     rng.permutation(len(eng.calls[0].tu_ids))

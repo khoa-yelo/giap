@@ -1,7 +1,7 @@
-"""Brute-force oracle for ±1-nt frameshift splits (issue M3-08; GIAP_SPEC.md §7.2.4, §11.2).
+"""Brute-force oracle for ±1-nt frameshift splits (issue M3-08; GIPPA_SPEC.md §7.2.4, §11.2).
 
 Written by the test author from docs/specs/M3-08-frameshift-splits.md only; it does not import
-``giap.mapping.frameshift``, ``giap.mapping.tolerant_dp`` or ``giap.mapping.diffops``. Side costs
+``gippa.mapping.frameshift``, ``gippa.mapping.tolerant_dp`` or ``gippa.mapping.diffops``. Side costs
 come from the M3-06/M3-07 test oracles (``tests/property/oracle_tolerant.py``,
 ``tests/property/brute_tolerant.py``), which encode the §7.2.4 operations from the spec text.
 
@@ -57,8 +57,8 @@ from brute_tolerant import (  # noqa: E402
 )
 from oracle_tolerant import PRECEDENCE, align_window  # noqa: E402
 
-from giap.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query  # noqa: E402
-from giap.model import Interval  # noqa: E402
+from gippa.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query  # noqa: E402
+from gippa.model import Interval  # noqa: E402
 
 TYPE_ORDER: tuple[str, ...] = (*PRECEDENCE, "frameshift")  # M3-05 DIFF_TYPES order
 
@@ -305,7 +305,7 @@ def _finish(
 @cache
 def _nonfs_windows(letters: str, text: str, kmax: int) -> tuple[tuple[int, int, int], ...]:
     """Every ``(s, e, cost)`` window of ``text`` aligning the whole query at cost <= ``kmax``."""
-    from giap.mapping.sixframe import encode_target
+    from gippa.mapping.sixframe import encode_target
 
     q = encode_query(letters)
     t = encode_target(text)

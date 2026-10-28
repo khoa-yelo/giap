@@ -9,7 +9,7 @@ Milestone M1 · depends on: M1-01, M1-04 · estimate ≈ 380 changed lines (≈ 
   `##sequence-region` line and region feature carry `Is_circular=true`." · "VCF positions are
   1-based within `[1, length]`."
 - §9.5: "checks GFF3 and VCF with format validators (`pysam` for VCF; a GFF3 parser round trip)."
-- §7.5.5 VCF 4.3 header: "`##fileformat=VCFv4.3`; `##source=giap-<version>`; `##reference=` with the
+- §7.5.5 VCF 4.3 header: "`##fileformat=VCFv4.3`; `##source=gippa-<version>`; `##reference=` with the
   genome SHA-256; `##contig` lines with lengths; `##INFO` and `##FORMAT` definitions." ·
   "FORMAT: `GT:AD:DP`" · "Sample column: `config.sample_name`". Appendix B.7 record example.
 
@@ -19,7 +19,7 @@ Parsing other annotators' CDS for `--regions` and `id_map.tsv` is M2.
 
 ## Public interface
 
-`src/giap/io/gff3.py`
+`src/gippa/io/gff3.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class GffFeature:
@@ -34,13 +34,13 @@ def escape_attr(value: str) -> str: ...        # percent-encode ; = & , TAB LF C
 ```
 Writer: `##gff-version 3`; for each replicon in the given order a `##sequence-region <id> 1 <len>`
 line, followed for circular replicons by a region feature line
-`<id>\tgiap\tregion\t1\t<len>\t.\t.\t.\tID=<id>;Is_circular=true` (also before features).
+`<id>\tgippa\tregion\t1\t<len>\t.\t.\t.\tID=<id>;Is_circular=true` (also before features).
 Features sorted per §6.5; columns: start+1, end (unwrapped), score `.`/`%.6g`, strand, phase
 `.`/0–2. Attributes in insertion order, list values joined by `,` after escaping. Optional
 `##FASTA` section at the end. Reader: unescapes attributes; `start > end` is a parse error (GFF3
 requires `start ≤ end`); `end > length` is accepted only on circular replicons. Unknown `seqid` → `ValueError`.
 
-`src/giap/io/vcf.py`
+`src/gippa/io/vcf.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class VcfRecord:
@@ -52,7 +52,7 @@ class VcfRecord:
 class VcfHeaderField: id: str; number: str; type: str; description: str
 
 def write_vcf(path: Path, records: Iterable[VcfRecord], replicons: Sequence[Replicon], *,
-              giap_version: str, genome_sha256: str, sample: str,
+              gippa_version: str, genome_sha256: str, sample: str,
               info_fields: Sequence[VcfHeaderField], format_fields: Sequence[VcfHeaderField]) -> None: ...
 ```
 POS = `wrap_position(pos0, replicon) + 1`; records sorted by contig order then POS. INFO values are
@@ -62,7 +62,7 @@ escaped for `: ; = % ,` and whitespace (VCF 4.3 percent-encoding); list values i
 
 | # | Input | Expected output |
 |---|---|---|
-| 1 | feature `Interval("chr", 99, 300, "+")`, CDS, `ID=g1;Name=dnaA` | `chr\tgiap\tCDS\t100\t300\t.\t+\t0\tID=g1;Name=dnaA` |
+| 1 | feature `Interval("chr", 99, 300, "+")`, CDS, `ID=g1;Name=dnaA` | `chr\tgippa\tCDS\t100\t300\t.\t+\t0\tID=g1;Name=dnaA` |
 | 2 | feature `Interval("chr", 1950, 2050, "-")` on C | `…\t1951\t2050\t.\t-\t…`; file has `##sequence-region chr 1 2000` and the `Is_circular=true` region line |
 | 3 | attribute `product="tRNA-Leu; anticodon=CAG"` | `product=tRNA-Leu%3B anticodon%3DCAG`; reader returns the original string |
 | 4 | round trip: write 3 features (one minus, one origin-crossing) then `read_gff3` | equal `GffFeature` list |

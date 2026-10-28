@@ -5,7 +5,7 @@ The lead replaced that design: part A returns the per-placement rates, so one ca
 c = their mean and the MC SE = their sample sd (ddof = 1) / sqrt(R). Placements are iid, so this is
 the plain SE of a mean.
 
-Interface pinned here (``giap.stats.cutoffs``):
+Interface pinned here (``gippa.stats.cutoffs``):
 
 - ``coincidence_rate(calls, confidence, windows, truth, replicon, threshold, *, rng, R=200,
   tol_bp=50, return_rates=False)``. With ``return_rates=False`` (the default) it is unchanged and
@@ -28,10 +28,10 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     DEFAULT_SEED,
     STEP,
     Window,

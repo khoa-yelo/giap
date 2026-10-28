@@ -1,4 +1,4 @@
-"""Abundance table reader and scale detection (issue M1-08; GIAP_SPEC.md §5.3, §7.0; ADR-0005/6).
+"""Abundance table reader and scale detection (issue M1-08; GIPPA_SPEC.md §5.3, §7.0; ADR-0005/6).
 
 Tables are literal TSV text written to ``tmp_path`` (``|`` in the helpers stands for a tab).
 ``_load`` runs ``read_abundance`` and, when a table comes back, ``validate_abundance`` with the
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.config import resolve_config
-from giap.io.abundance import (
+from gippa.config import resolve_config
+from gippa.io.abundance import (
     AbundanceStats,
     AbundanceTable,
     abundance_stats,
@@ -25,7 +25,7 @@ from giap.io.abundance import (
     resolve_scale,
     validate_abundance,
 )
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 WARN_FRAC = 0.20
 

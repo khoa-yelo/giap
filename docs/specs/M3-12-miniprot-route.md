@@ -1,7 +1,7 @@
 # M3-12: Route 2a, proteins > 40 aa with miniprot
 
 Milestone M3 · depends on: M3-01 (`GeneModel`), M1-03 (protein FASTA) · creates
-`src/giap/mapping/miniprot.py`, `src/giap/mapping/protein_assign.py`; reuses or creates
+`src/gippa/mapping/miniprot.py`, `src/gippa/mapping/protein_assign.py`; reuses or creates
 `workflow/envs/miniprot.yml`, `workflow/modules/local/miniprot/main.nf` · **external tool:
 miniprot 0.18** (conda `miniprot=0.18` or Apptainer image by digest; MIT licence, called as a
 separate program, never imported) · estimate ≈ 300 code lines

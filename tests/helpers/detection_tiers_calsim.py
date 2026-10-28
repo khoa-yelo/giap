@@ -1,10 +1,10 @@
 """Simulated replicates for the M4-12 ``gene_fdr`` calibration (docs/specs/M4-12-...md).
 
-One replicate: giapsim layout (M4-07, ``n_genes`` chromosome genes) -> expression (M4-08 defaults)
+One replicate: gippasim layout (M4-07, ``n_genes`` chromosome genes) -> expression (M4-08 defaults)
 -> evidence (M4-09, ``pi_wrong``, false targets on random genes in proportion to
 ``n_observable``, matched decoys ``rev_<locus_tag>``, every value emitted) -> M4-10
 ``covariate_table`` -> M4-11 ``accepted_peptides`` / ``gene_evidence`` -> M4-12 ``detect``.
-The input variants only mask what the evidence simulator emits (``giapsim.evidence`` ``emit``
+The input variants only mask what the evidence simulator emits (``gippasim.evidence`` ``emit``
 masks values and drops decoy rows the same way):
 
 - ``picked``: everything (decoy rows with ``protein_ids``) -> tier ``decoy_picked``;
@@ -37,9 +37,9 @@ TIER_OF = {"picked": "decoy_picked", "mayu_pep": "mayu", "mayu_nopep": "mayu",
 
 
 def simulate(rng: np.random.Generator, pi: float, n_genes: int) -> tuple[Any, Any]:
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=n_genes), rng)
     expr = ex.simulate_expression(lay, ex.ExpressionConfig(), rng)
@@ -103,13 +103,13 @@ def run_variant(
 ) -> tuple[dict[float, float], set[str]]:
     """Detection rerun at each level (``stats.alpha.identification`` = q); returns the FDP per
     level and the tiers chosen."""
-    from giap.config import GiapConfig
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detection import detect
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.config import GippaConfig
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detection import detect
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
 
     present = e.gene_truth.set_index(e.gene_truth["locus_tag"].astype(str))["present"]
-    base = GiapConfig(**cfg_kw)
+    base = GippaConfig(**cfg_kw)
     acc = accepted_peptides(hits, peptides, base)
     ev = gene_evidence(lay.genes, hits, acc, lay.replicons,
                        min_peptides=base.detection.min_peptides_sequences_only)  # fmt: skip
@@ -118,7 +118,7 @@ def run_variant(
     tiers: set[str] = set()
     for q in levels:
         stats = {**cfg_kw.get("stats", {}), "alpha": {"identification": q}}
-        c = GiapConfig(**{**cfg_kw, "stats": stats})
+        c = GippaConfig(**{**cfg_kw, "stats": stats})
         d = detect(lay.genes, ev, acc, peptides, hits, protein_hits(e), cov, c)
         out[q] = fdp(d.table, present)
         tiers.add(d.tier)

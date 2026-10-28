@@ -1,4 +1,4 @@
-"""giapsim proteins, peptides and database-search errors (issue M3-19; GIAP_SPEC.md §11.3).
+"""gippasim proteins, peptides and database-search errors (issue M3-19; GIPPA_SPEC.md §11.3).
 
 Examples 1-8 of docs/specs/M3-19-sim-peptides-db-errors.md, the truth-agrees-with-the-genome
 checks the M3 consumers rely on (M3-10 placement FDR, M3-14 locus classes incl. ADR-0013
@@ -11,8 +11,8 @@ tests/helpers/peptide_oracle.py.
 Conventions these tests pin where the spec is silent:
 
 * ``ProteomicsConfig`` / ``ProteinSimConfig`` and ``digest(protein, digest_len=..,
-  missed_cleavages=..)`` live in ``giapsim.proteomics``; ``SimConfig.proteomics`` (default ``None``)
-  switches the module on and ``SimResult.truth["peptides"]`` is ``truth/peptides.tsv``.
+  missed_cleavages=..)`` live in ``gippasim.proteomics``; ``SimConfig.proteomics`` (default
+  ``None``) switches the module on and ``SimResult.truth["peptides"]`` is ``truth/peptides.tsv``.
 * Expressed proteins are the *true* proteins: non-pseudo CDS and sORFs translated from their true
   start (N-terminal extensions included) and the unannotated expressed ORFs of
   ``truth/novel_orfs.tsv`` (§11.3 "unannotated expressed ORFs"; truth ``locus_tag`` = ``orf_id``).
@@ -22,12 +22,12 @@ Conventions these tests pin where the spec is silent:
   ``peptides.tsv`` is one identification of one run. The share of wrong identifications is counted
   over distinct non-decoy peptides; PEP and q use π = ``pi_wrong``.
 * Wrong peptides (both sources) never occur, up to I/L, in any true or annotated protein of the
-  sample genome: otherwise GIAP (``i_equals_l``) would place them correctly and the truth label
+  sample genome: otherwise GIPPA (``i_equals_l``) would place them correctly and the truth label
   would lie. ``other_strain`` wrong peptides are Trypsin/P products of the reference proteins
   (``reference_bakta_like.json``), i.e. real protein-derived (M3-index lead decision 11).
 * ``n_loci_genome`` is the number of distinct genomic loci whose six-frame translation is the
   peptide, exact or I/L-equivalent (either is accepted); ``NA``/``0`` for decoy rows. The
-  review decisions (GIAP's exact matcher with I = L, 0 allowed, wrong rows counted too,
+  review decisions (GIPPA's exact matcher with I = L, 0 allowed, wrong rows counted too,
   ``alt_start_nterm``) are pinned in tests/unit/test_sim_proteomics_review.py.
 * ``abundance.tsv`` has ``locus_tag`` and ``log_abundance`` (natural log) or ``abundance``.
 * ``wrong_source="other_strain"`` without ``SimConfig.strain`` raises ``ValueError``.
@@ -61,12 +61,12 @@ from helpers.peptide_oracle import (
     trypsin_p_peptides,
 )
 
-import giapsim
-from giap.config.model import InputConfig
-from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
-from giap.mapping.loci import classify_locus
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
+import gippasim
+from gippa.config.model import InputConfig
+from gippa.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+from gippa.mapping.loci import classify_locus
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import gene_model_from_bakta_json
 
 TRUTH_COLUMNS = [
     "peptide", "is_wrong", "origin", "locus_tag", "contig", "start", "end", "strand",
@@ -101,18 +101,18 @@ UNIPROT_ACC = re.compile(r"[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0
 
 
 def proteomics(**kw: Any) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     return ProteomicsConfig(**kw)
 
 
 def strain(**kw: Any) -> Any:
-    return giapsim.StrainConfig(**kw)
+    return gippasim.StrainConfig(**kw)
 
 
 def simulate(out: Path, seed: int, prot: Any = None, **kw: Any) -> Run:
-    cfg = giapsim.SimConfig(**kw) if prot is None else giapsim.SimConfig(proteomics=prot, **kw)
-    res = giapsim.simulate(cfg, seed, out)
+    cfg = gippasim.SimConfig(**kw) if prot is None else gippasim.SimConfig(proteomics=prot, **kw)
+    res = gippasim.simulate(cfg, seed, out)
     return Run(out, {"res": res, "cfg": cfg, "seed": seed})
 
 
@@ -192,7 +192,7 @@ def protein_offset(run: Run, r: dict[str, str]) -> int:
 
 
 def test_config_defaults_match_spec() -> None:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     c = ProteomicsConfig()
     assert tuple(c.digest_len) == (7, 30)
@@ -205,14 +205,14 @@ def test_config_defaults_match_spec() -> None:
     assert c.search_db == "same"
     assert c.n_runs == 3
     assert c.proteins is None
-    assert giapsim.SimConfig().proteomics is None
+    assert gippasim.SimConfig().proteomics is None
 
 
 def test_simconfig_with_proteomics_stays_hashable() -> None:
-    a = giapsim.SimConfig(proteomics=proteomics(pi_wrong=0.05))
-    b = giapsim.SimConfig(proteomics=proteomics(pi_wrong=0.05))
+    a = gippasim.SimConfig(proteomics=proteomics(pi_wrong=0.05))
+    b = gippasim.SimConfig(proteomics=proteomics(pi_wrong=0.05))
     assert a == b and hash(a) == hash(b)
-    assert a != giapsim.SimConfig(proteomics=proteomics(pi_wrong=0.02))
+    assert a != gippasim.SimConfig(proteomics=proteomics(pi_wrong=0.02))
 
 
 def test_outputs_written(default: Run) -> None:
@@ -241,7 +241,7 @@ def test_every_identification_has_truth(default: Run) -> None:
 
 
 def test_example1_digest_trypsin_p() -> None:
-    from giapsim.proteomics import digest
+    from gippasim.proteomics import digest
 
     protein = "MKAAKPRGGREEDDLLSTAMKPEPTIDEWYGR"
     # fragments MK|AAK|PR|GGR|EEDDLLSTAMK|PEPTIDEWYGR (Trypsin/P also cuts K|P);
@@ -256,7 +256,7 @@ def test_example1_digest_trypsin_p() -> None:
 
 
 def test_example1_digest_c_terminal_peptide_without_k_r() -> None:
-    from giapsim.proteomics import digest
+    from gippasim.proteomics import digest
 
     got = set(digest("MAAAAAAKGGGSSSTTTW", digest_len=(7, 30), missed_cleavages=1))
     assert got == {"MAAAAAAK", "GGGSSSTTTW", "MAAAAAAKGGGSSSTTTW"}
@@ -557,9 +557,9 @@ def test_example8_correct_peptides_still_map_to_the_sample_genome(other: Run) ->
 
 
 def test_other_strain_needs_a_strain(tmp_path: Path) -> None:
-    cfg = giapsim.SimConfig(proteomics=proteomics(wrong_source="other_strain"))
+    cfg = gippasim.SimConfig(proteomics=proteomics(wrong_source="other_strain"))
     with pytest.raises(ValueError):
-        giapsim.simulate(cfg, 1, tmp_path)
+        gippasim.simulate(cfg, 1, tmp_path)
 
 
 def rows_json_aa(path: Path) -> list[str]:
@@ -584,7 +584,7 @@ def test_proteins_faa_holds_bakta_proteins(default: Run) -> None:
 def test_proteins_faa_cross_strain_copies(mk: Any) -> None:
     from Bio.Align import PairwiseAligner
 
-    from giapsim.proteomics import ProteinSimConfig
+    from gippasim.proteomics import ProteinSimConfig
 
     run: Run = mk("copies", 18, proteomics(proteins=ProteinSimConfig()), **FEATURES)
     faa = read_fasta(run.out / "proteins.faa")
@@ -650,30 +650,30 @@ def test_proteomics_off_writes_nothing_new(tmp_path: Path) -> None:
     for name in (*NEW_FILES, "reference_peptides.tsv"):
         assert not (tmp_path / "a" / name).exists(), name
     a = tree(tmp_path / "a")
-    giapsim.simulate(giapsim.SimConfig(proteomics=None, **FEATURES), 25, tmp_path / "b")
+    gippasim.simulate(gippasim.SimConfig(proteomics=None, **FEATURES), 25, tmp_path / "b")
     assert tree(tmp_path / "b") == a
 
 
 def test_m0_output_unchanged_with_proteomics_none(tmp_path: Path) -> None:
-    giapsim.simulate(giapsim.SimConfig(proteomics=None), 1, tmp_path)
+    gippasim.simulate(gippasim.SimConfig(proteomics=None), 1, tmp_path)
     for name, digest in M0_SHA256.items():
         assert hashlib.sha256((tmp_path / name).read_bytes()).hexdigest() == digest, name
 
 
 def test_sim100k_has_no_proteomics() -> None:
-    assert giapsim.SIM100K.proteomics is None
-    assert dataclasses.replace(giapsim.SIM100K, proteomics=proteomics()).proteomics is not None
+    assert gippasim.SIM100K.proteomics is None
+    assert dataclasses.replace(gippasim.SIM100K, proteomics=proteomics()).proteomics is not None
 
 
 # ---------------------------------------------------------------- speed
 
 
 def test_100kb_with_peptides_under_1s(tmp_path: Path) -> None:
-    cfg = giapsim.SimConfig(proteomics=proteomics(), **FEATURES)
+    cfg = gippasim.SimConfig(proteomics=proteomics(), **FEATURES)
     best = float("inf")
     for i in range(3):
         t0 = time.perf_counter()
-        giapsim.simulate(cfg, 31, tmp_path / str(i))
+        gippasim.simulate(cfg, 31, tmp_path / str(i))
         best = min(best, time.perf_counter() - t0)
     # loose 10x guard as in test_sim_features.py; the 1 s budget belongs in benchmarks/
     assert best < 10.0, best
@@ -681,10 +681,10 @@ def test_100kb_with_peptides_under_1s(tmp_path: Path) -> None:
 
 @pytest.mark.slow
 def test_5mb_with_peptides_under_30s(tmp_path: Path) -> None:
-    cfg = giapsim.SimConfig(
+    cfg = gippasim.SimConfig(
         proteomics=proteomics(), **{**FEATURES, "genome_length": 5_000_000, "n_sorfs": 40}
     )
     t0 = time.perf_counter()
-    giapsim.simulate(cfg, 32, tmp_path)
+    gippasim.simulate(cfg, 32, tmp_path)
     assert time.perf_counter() - t0 < 300.0  # loose 10x guard of the 30 s budget
     assert len(rows(tmp_path / "truth" / "peptides.tsv")) > 10_000

@@ -1,4 +1,5 @@
-"""giapsim v2: 100-kb genome with signals and precomputed layers (issue M2-05; GIAP_SPEC.md §11.3).
+"""gippasim v2: 100-kb genome with signals and precomputed layers (issue M2-05; GIPPA_SPEC.md
+§11.3).
 
 Examples 1-10 and the edge cases of docs/specs/M2-05-simulator-v2.md, the round trip through
 M2-03's ``parse_bakta_json``, M2-02's ``load_precomputed`` and M1-05's ``read_gff3``,
@@ -25,7 +26,7 @@ Conventions these tests pin down where the spec is silent (see the PR descriptio
   ``AGGAGG`` and the first base of the start codon (5-10);
 * ``truth/features.tsv`` gains a trailing ``anticodon`` column (DNA alphabet) and rows of type
   ``crispr`` and ``oric``; the M3-18 columns stay first;
-* the bundled sequences live in ``giapsim/data/`` next to the package.
+* the bundled sequences live in ``gippasim/data/`` next to the package.
 """
 
 from __future__ import annotations
@@ -46,13 +47,13 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giapsim
-from giap.annotate.bakta import BaktaAnnotation, parse_bakta_json
-from giap.annotate.precomputed import PRECOMPUTED_COLUMNS, load_precomputed
-from giap.config import resolve_config
-from giap.io.gff3 import read_gff3
-from giap.model.coords import Interval
-from giapsim import SimConfig, simulate
+import gippasim
+from gippa.annotate.bakta import BaktaAnnotation, parse_bakta_json
+from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS, load_precomputed
+from gippa.config import resolve_config
+from gippa.io.gff3 import read_gff3
+from gippa.model.coords import Interval
+from gippasim import SimConfig, simulate
 
 ANTI_SD_TAIL = "GATCACCTCCTTA"
 STARTS = {"ATG", "GTG", "TTG"}
@@ -94,10 +95,10 @@ M318_MODEL_SHA256 = "00267c904e4528bf7a477963782fd87dfe01788808e1dc4ccae34086913
 
 
 def sim100k() -> tuple[Any, int]:
-    for mod in (giapsim, giapsim.simulate):
+    for mod in (gippasim, gippasim.simulate):
         if hasattr(mod, "SIM100K"):
             return mod.SIM100K, mod.SIM100K_SEED
-    raise AssertionError("giapsim exports no SIM100K / SIM100K_SEED")
+    raise AssertionError("gippasim exports no SIM100K / SIM100K_SEED")
 
 
 def revcomp(s: str) -> str:
@@ -216,7 +217,7 @@ def rbs1(tmp_path_factory: pytest.TempPathFactory) -> Run:
 
 
 def bundled() -> Path:
-    return Path(giapsim.__file__).parent / "data"
+    return Path(gippasim.__file__).parent / "data"
 
 
 # ---------------------------------------------------------------- config surface
@@ -384,7 +385,7 @@ def test_example3_16s_tail(r100: Run) -> None:
 
 
 def test_example3_anti_sd(r100: Run) -> None:
-    layers = pytest.importorskip("giap.annotate.bakta_layers", reason="M2-04 not merged yet")
+    layers = pytest.importorskip("gippa.annotate.bakta_layers", reason="M2-04 not merged yet")
     assert layers.anti_sd(rrna16s_nts(r100)) == ("ACCTCCTTA", ())
 
 
@@ -612,7 +613,7 @@ def test_example9_layers_load(r100: Run, key: str) -> None:
 
 def test_example9_config_yaml(r100: Run) -> None:
     path = r100.out / "config.yaml"
-    cfg = resolve_config(path)  # validates against GIAP's config model
+    cfg = resolve_config(path)  # validates against GIPPA's config model
     want = {"bakta_json": r100.out / "bakta_like.json"}
     want |= {k: r100.out / "precomputed" / f"{k}.tsv" for k in LAYERS}
     pre = cfg.annotation.precomputed

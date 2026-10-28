@@ -1,4 +1,4 @@
-"""V3 ``locus_<id>`` rendering (M9-10 "Rendering", examples 3-6; GIAP_SPEC.md §10.2 V3, §10.1,
+"""V3 ``locus_<id>`` rendering (M9-10 "Rendering", examples 3-6; GIPPA_SPEC.md §10.2 V3, §10.1,
 §6.5; M9-index decisions 9-13, 20).
 
 Tests the plotted data (the ``Instance`` data frame = ``plots/data/V03_locus_<id>.tsv``), the
@@ -51,12 +51,12 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
-from giap.viz.locus import render_locus, select_loci
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
+from gippa.viz.locus import render_locus, select_loci
 
 COLUMNS = ["track", "id", "contig", "start", "end", "strand", "value", "category"]
 CIVIDIS = matplotlib.colormaps["cividis"]
@@ -69,7 +69,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -77,7 +77,7 @@ def cfg() -> GiapConfig:
 
 
 def _render(
-    out: Path, cfg: GiapConfig, locus_id: str, scale: tuple[float, float] = SCALE
+    out: Path, cfg: GippaConfig, locus_id: str, scale: tuple[float, float] = SCALE
 ) -> Instance:
     view = RunView.from_outdir(out)
     (lo,) = [x for x in select_loci(view, cfg) if x.locus_id == locus_id]
@@ -191,7 +191,7 @@ def _example3_out(tmp: Path) -> Path:
     )
 
 
-def test_example3_window_draws_overlapping_genes_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_window_draws_overlapping_genes_only(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example3_out(tmp_path), cfg, "prophage_1")
     assert _rows(inst, "gene") == [
         ("A", 7_500, 8_200),
@@ -201,20 +201,20 @@ def test_example3_window_draws_overlapping_genes_only(tmp_path: Path, cfg: GiapC
     assert _width_bp(_axes(inst.figure, "genes")) == pytest.approx(29_000, abs=1)
 
 
-def test_example3_region_rows_in_the_window(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_region_rows_in_the_window(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example3_out(tmp_path), cfg, "prophage_1")
     assert _rows(inst, "region") == [("prophage_1", 10_000, 35_000)]
     reg = inst.data[inst.data["track"] == "region"]
     assert list(reg["category"]) == ["prophage"]
 
 
-def test_example3_is_double_width_and_has_no_origin_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_is_double_width_and_has_no_origin_line(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example3_out(tmp_path), cfg, "prophage_1")
     assert round(float(inst.figure.get_size_inches()[0]), 6) == style.DOUBLE_IN
     assert _origin_fracs(_axes(inst.figure, "genes")) == []
 
 
-def test_data_columns_suffix_title_and_coords(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_columns_suffix_title_and_coords(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _example3_out(tmp_path)
     view = RunView.from_outdir(out)
     (lo,) = select_loci(view, cfg)
@@ -230,7 +230,7 @@ def test_data_columns_suffix_title_and_coords(tmp_path: Path, cfg: GiapConfig) -
                                        "island"}  # fmt: skip
 
 
-def test_gene_rows_carry_strand_abundance_and_status(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_gene_rows_carry_strand_abundance_and_status(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         vl.gene("G1", "chr1", 10_101, 11_000, log2=21.0),
         vl.gene("G2", "chr1", 11_101, 11_900, strand="-", status="not_detected"),
@@ -270,7 +270,7 @@ def _example4_out(tmp: Path) -> Path:
     )
 
 
-def test_example4_window_is_unwrapped_across_the_origin(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_window_is_unwrapped_across_the_origin(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example4_out(tmp_path), cfg, "ISL_1")
     genes_ax = _axes(inst.figure, "genes")
     assert _width_bp(genes_ax) == pytest.approx(6_500, abs=1)
@@ -284,19 +284,19 @@ def test_example4_window_is_unwrapped_across_the_origin(tmp_path: Path, cfg: Gia
     assert list(isl["category"]) == ["high"]
 
 
-def test_example4_origin_line_at_100000(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_origin_line_at_100000(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example4_out(tmp_path), cfg, "ISL_1")
     fracs = _origin_fracs(_axes(inst.figure, "genes"))
     assert len(fracs) == 1
     assert fracs[0] == pytest.approx((100_000 - 97_000) / 6_500, abs=1e-3)
 
 
-def test_example4_is_single_width(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_is_single_width(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_example4_out(tmp_path), cfg, "ISL_1")
     assert round(float(inst.figure.get_size_inches()[0]), 6) == style.SINGLE_IN
 
 
-def test_island_shading_uses_the_direction_hatch(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_island_shading_uses_the_direction_hatch(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path, islands=[vl.island("ISL_1", "chr1", 20_001, 24_000, 0.01, direction="low")]
     )
@@ -328,7 +328,7 @@ def _edge_out(tmp: Path, contig: str) -> Path:
     )
 
 
-def test_circular_window_extends_below_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_circular_window_extends_below_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_edge_out(tmp_path, "chr1"), cfg, "prophage_1")
     genes_ax = _axes(inst.figure, "genes")
     assert _width_bp(genes_ax) == pytest.approx(8_500, abs=1)  # [-1,500, 7,000)
@@ -338,7 +338,7 @@ def test_circular_window_extends_below_zero(tmp_path: Path, cfg: GiapConfig) -> 
     assert fracs[0] == pytest.approx(1_500 / 8_500, abs=1e-3)
 
 
-def test_linear_window_is_clipped_at_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_linear_window_is_clipped_at_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_edge_out(tmp_path, "lin1"), cfg, "prophage_1")
     genes_ax = _axes(inst.figure, "genes")
     assert _width_bp(genes_ax) == pytest.approx(7_000, abs=1)  # [0, 7,000)
@@ -346,7 +346,7 @@ def test_linear_window_is_clipped_at_zero(tmp_path: Path, cfg: GiapConfig) -> No
     assert _origin_fracs(genes_ax) == []
 
 
-def test_linear_window_is_clipped_at_the_contig_end(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_linear_window_is_clipped_at_the_contig_end(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_edge_out(tmp_path, "lin1"), cfg, "prophage_2")
     # span [27,000, 29,000) ± 2 kb -> [25,000, 31,000) clipped to [25,000, 30,000)
     assert _width_bp(_axes(inst.figure, "genes")) == pytest.approx(5_000, abs=1)
@@ -358,7 +358,7 @@ def test_linear_window_is_clipped_at_the_contig_end(tmp_path: Path, cfg: GiapCon
 
 @pytest.mark.parametrize(("end", "width"), [(18_000, style.SINGLE_IN), (18_001, style.DOUBLE_IN)])
 def test_width_switches_above_20_kb(
-    tmp_path: Path, cfg: GiapConfig, end: int, width: float
+    tmp_path: Path, cfg: GippaConfig, end: int, width: float
 ) -> None:
     # span [2,000, end) ± 2 kb -> a window of exactly 20,000 or 20,001 bp
     out = vl.build_out(
@@ -368,7 +368,7 @@ def test_width_switches_above_20_kb(
     assert round(float(inst.figure.get_size_inches()[0]), 6) == width
 
 
-def test_height_is_fixed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_height_is_fixed(tmp_path: Path, cfg: GippaConfig) -> None:
     small = _render(_example4_out(tmp_path / "a"), cfg, "ISL_1")
     large = _render(_example3_out(tmp_path / "b"), cfg, "prophage_1")
     assert small.figure.get_size_inches()[1] == pytest.approx(large.figure.get_size_inches()[1])
@@ -386,7 +386,7 @@ def _one_gene_out(tmp: Path, **kw: Any) -> Path:
 
 
 def test_example5_abundance_above_the_scale_is_the_top_of_cividis(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render(_one_gene_out(tmp_path, log2=25.0), cfg, "prophage_1", (18.0, 24.0))
     fills = {_rgb(f[0]) for f in _opaque(_axes(inst.figure, "genes"))}
@@ -394,34 +394,34 @@ def test_example5_abundance_above_the_scale_is_the_top_of_cividis(
 
 
 def test_abundance_below_the_scale_is_the_bottom_of_cividis(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render(_one_gene_out(tmp_path, log2=10.0), cfg, "prophage_1", (18.0, 24.0))
     fills = {_rgb(f[0]) for f in _opaque(_axes(inst.figure, "genes"))}
     assert _rgb(CIVIDIS(0.0)) in fills
 
 
-def test_the_scale_argument_sets_the_colour(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_the_scale_argument_sets_the_colour(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_one_gene_out(tmp_path, log2=25.0), cfg, "prophage_1", (18.0, 30.0))
     fills = {_rgb(f[0]) for f in _opaque(_axes(inst.figure, "genes"))}
     assert _cividis(25.0, 18.0, 30.0) in fills
     assert _rgb(CIVIDIS(1.0)) not in fills
 
 
-def test_undetected_gene_is_grey(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_undetected_gene_is_grey(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_one_gene_out(tmp_path, status="not_detected"), cfg, "prophage_1")
     fills = {_rgb(f[0]) for f in _opaque(_axes(inst.figure, "genes"))}
     assert _rgb(mcolors.to_rgba("#BBBBBB")) in fills
     assert not fills & LUT
 
 
-def test_single_peptide_unestimated_has_an_orange_outline(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_single_peptide_unestimated_has_an_orange_outline(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_one_gene_out(tmp_path, status="single_peptide_unestimated"), cfg, "prophage_1")
     edges = {_rgb(f[1]) for f in _opaque(_axes(inst.figure, "genes")) if f[1] is not None}
     assert _rgb(mcolors.to_rgba("#E69F00")) in edges
 
 
-def test_imputed_gene_is_hatched_grey_not_cividis(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_imputed_gene_is_hatched_grey_not_cividis(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(
         _one_gene_out(tmp_path, log2=21.0, imputed=True, status="not_detected"), cfg, "prophage_1"
     )
@@ -462,8 +462,8 @@ def _expected_colours(window: tuple[int, int]) -> set[tuple[float, ...]]:
     }
 
 
-def test_one_colour_scale_is_shared_by_all_locus_plots(tmp_path: Path, cfg: GiapConfig) -> None:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+def test_one_colour_scale_is_shared_by_all_locus_plots(tmp_path: Path, cfg: GippaConfig) -> None:
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     result = base.registered()["V03"].fn(RunView.from_outdir(_scale_run(tmp_path)), cfg)
     assert not isinstance(result, Skip)
@@ -492,7 +492,7 @@ def _pileup_runs(inst: Instance) -> list[tuple[int, int, int]]:
     return sorted((int(r.start), int(r.end), int(r.value)) for r in d.itertuples())
 
 
-def test_example6_pileup_depth(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_pileup_depth(tmp_path: Path, cfg: GippaConfig) -> None:
     hits = [
         vl.hit("PEPTIDEK", "chr1", 101, 120),
         vl.hit("PEPTIDEK", "chr1", 111, 130),
@@ -506,7 +506,7 @@ def test_example6_pileup_depth(tmp_path: Path, cfg: GiapConfig) -> None:
     assert pile.get_ylabel() == "peptides"
 
 
-def test_no_peptide_hits_means_no_pileup_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_peptide_hits_means_no_pileup_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_pileup_out(tmp_path, None), cfg, "prophage_1")
     assert _pileup_runs(inst) == []
     assert len(inst.data[inst.data["track"] == "gene"]) == 1
@@ -554,7 +554,7 @@ def _marks_out(tmp: Path) -> Path:
     )
 
 
-def test_promoter_and_terminator_rows_are_strand_aware(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_promoter_and_terminator_rows_are_strand_aware(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_marks_out(tmp_path), cfg, "bgc_1")
     assert _rows(inst, "promoter") == [("P1", 2_100, 2_150)]
     assert _rows(inst, "terminator") == [("T1", 2_900, 2_950)]
@@ -565,13 +565,13 @@ def test_promoter_and_terminator_rows_are_strand_aware(tmp_path: Path, cfg: Giap
     assert float(d.loc["T1", "value"]) == pytest.approx(0.7)
 
 
-def test_promoter_and_terminator_colours(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_promoter_and_terminator_colours(tmp_path: Path, cfg: GippaConfig) -> None:
     colours = _hex_colours(_render(_marks_out(tmp_path), cfg, "bgc_1").figure)
     assert "#009E73" in colours
     assert "#D55E00" in colours
 
 
-def test_region_and_island_rows_and_region_shading(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_and_island_rows_and_region_shading(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_marks_out(tmp_path), cfg, "bgc_1")
     assert _rows(inst, "region") == [("bgc_1", 2_000, 3_000)]
     assert _rows(inst, "island") == [("ISL_1", 2_500, 4_000)]
@@ -586,7 +586,7 @@ def test_region_and_island_rows_and_region_shading(tmp_path: Path, cfg: GiapConf
 # --- labels ---------------------------------------------------------------------------------------
 
 
-def test_genes_are_labelled_by_name_else_locus_tag(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_genes_are_labelled_by_name_else_locus_tag(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path,
         genes=[
@@ -601,7 +601,7 @@ def test_genes_are_labelled_by_name_else_locus_tag(tmp_path: Path, cfg: GiapConf
     assert "g1" not in texts
 
 
-def test_large_bgc_draws_200_genes_with_at_most_12_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_large_bgc_draws_200_genes_with_at_most_12_labels(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         vl.gene(f"t{i:03d}", "chr1", 10_001 + 400 * i, 10_000 + 400 * i + 350, name=f"bg{i:03d}",
                 log2=20.0)
@@ -622,14 +622,14 @@ def test_large_bgc_draws_200_genes_with_at_most_12_labels(tmp_path: Path, cfg: G
 # --- house rules ----------------------------------------------------------------------------------
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_marks_out(tmp_path), cfg, "bgc_1")
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
     assert min(sizes) >= 6
 
 
-def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GippaConfig) -> None:
     import matplotlib.pyplot as plt
 
     before = plt.get_fignums()
@@ -638,7 +638,7 @@ def test_render_leaves_no_pyplot_figure(tmp_path: Path, cfg: GiapConfig) -> None
     assert plt.get_fignums() == before
 
 
-def test_files_are_byte_identical_across_renders(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_files_are_byte_identical_across_renders(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _marks_out(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -654,7 +654,7 @@ def test_files_are_byte_identical_across_renders(tmp_path: Path, cfg: GiapConfig
     assert written[0] == written[1]
 
 
-def test_render_does_not_mutate_the_view(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_the_view(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_marks_out(tmp_path))
     (lo,) = [x for x in select_loci(view, cfg) if x.locus_id == "bgc_1"]
     genes_before = view.table("genes_tsv")

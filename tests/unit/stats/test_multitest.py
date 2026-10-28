@@ -1,4 +1,4 @@
-"""Benjamini-Hochberg q-values (issue M4-01; GIAP_SPEC.md §8.2, §8.3, Appendix B.1)."""
+"""Benjamini-Hochberg q-values (issue M4-01; GIPPA_SPEC.md §8.2, §8.3, Appendix B.1)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from statsmodels.stats.multitest import multipletests
 
-from giap.stats.multitest import bh
+from gippa.stats.multitest import bh
 
 NAN = float("nan")
 

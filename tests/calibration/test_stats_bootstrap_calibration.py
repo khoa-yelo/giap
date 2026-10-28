@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.rng import for_step
-from giap.stats.bootstrap import tu_block_bootstrap
+from gippa.rng import for_step
+from gippa.stats.bootstrap import tu_block_bootstrap
 
 pytestmark = pytest.mark.calibration
 

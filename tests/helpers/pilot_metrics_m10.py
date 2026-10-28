@@ -1,18 +1,18 @@
 """Builders for the M10-05 pilot-metrics tests (docs/specs/M10-05-pilot-metrics.md).
 
-Everything here is synthetic: a giapsim SIM100K genome and Bakta JSON (deterministic, built in
+Everything here is synthetic: a gippasim SIM100K genome and Bakta JSON (deterministic, built in
 ``tmp``) stand in for Nissle, and every run directory, peptide table, ``convert.json`` and
-``summary.json`` is written by hand. No network, nothing from ``$GIAP_ROOT``, nothing derived
+``summary.json`` is written by hand. No network, nothing from ``$GIPPA_ROOT``, nothing derived
 from a DIA-NN report.
 
 ``build_pilot(root, world, ...)`` writes the inputs of ``metrics.py compute``:
 
 * ``out_a1``, ``out_a2``: ``tables/genes.tsv``, ``tables/peptide_hits.tsv``,
   ``tables/unmapped.tsv``, ``tables/detection_summary.tsv`` (every table under its schema
-  header), ``run_manifest.json`` (built by ``giap.manifest.build_manifest`` and checked against
+  header), ``run_manifest.json`` (built by ``gippa.manifest.build_manifest`` and checked against
   ``run_manifest.schema.json``), ``logs/trace.tsv``, ``preflight/preflight.json``;
 * ``cmp``: ``tables/compare_detection.tsv``, ``tables/compare_abundance.tsv``,
-  ``tables/compare_stability.tsv`` (``giap compare``'s layout);
+  ``tables/compare_stability.tsv`` (``gippa compare``'s layout);
 * ``pep_a1``, ``pep_a2`` (gzip TSV in the generic peptide-table layout), ``conv_a*``,
   ``sum_a*``, ``k12`` (a small FASTA), ``bakta`` and ``genome``.
 
@@ -47,8 +47,8 @@ N_PEPTIDES = 20
 CONT_PEPTIDE = "WWWGGGWWK"
 DECOY_PEPTIDE = "KEDITPEPWW"
 HOST = "sh04-01n01"
-#: the GIAP commit every fixture manifest records (``run_manifest.json`` ``git_commit``)
-GIAP_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+#: the GIPPA commit every fixture manifest records (``run_manifest.json`` ``git_commit``)
+GIPPA_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 def load_metrics() -> Any:
@@ -101,17 +101,17 @@ def run_cli(
 class World:
     genome: Path
     bakta: Path
-    genes: list[Any]  # giap.model.genes.Gene (coding genes, read_coding_genes)
+    genes: list[Any]  # gippa.model.genes.Gene (coding genes, read_coding_genes)
     circular: dict[str, int | None]
-    regions: dict[str, set[str]]  # region id -> locus tags (giapsim truth)
+    regions: dict[str, set[str]]  # region id -> locus tags (gippasim truth)
 
 
 def sim_world(root: Path) -> World:
-    """giapsim SIM100K in ``root`` (no proteomics needed) and its coding genes."""
+    """gippasim SIM100K in ``root`` (no proteomics needed) and its coding genes."""
     sys.path.insert(0, str(REPO / "tests" / "sim"))
-    import giapsim
+    import gippasim
 
-    sim = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, root)
+    sim = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, root)
     te = load_te_proxies()
     genes, circ = te.read_coding_genes(Path(sim.bakta_json), Path(sim.genome_fasta))
     regions: dict[str, set[str]] = {}
@@ -124,7 +124,7 @@ def sim_world(root: Path) -> World:
 
 def unique_peptides(genes: Sequence[Any], n: int) -> list[tuple[str, str]]:
     """``n`` (locus tag, peptide): the first digest product unique to each cds/sorf gene."""
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     owners: dict[str, set[str]] = {}
     for g in genes:
@@ -147,12 +147,12 @@ def unique_peptides(genes: Sequence[Any], n: int) -> list[tuple[str, str]]:
 
 
 def _schema_names(stem: str) -> list[str]:
-    path = REPO / "src" / "giap" / "schemas" / "tables" / f"{stem}.schema.json"
+    path = REPO / "src" / "gippa" / "schemas" / "tables" / f"{stem}.schema.json"
     return [f["name"] for f in json.loads(path.read_text(encoding="utf-8"))["fields"]]
 
 
 def write_table(path: Path, stem: str, rows: Sequence[Mapping[str, object]]) -> Path:
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     cols = _schema_names(stem)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -200,7 +200,7 @@ PEPTIDE_COLS = ("peptide", "modified_peptide", "protein_ids", "q_value", "pep", 
 
 def write_peptides(path: Path, rows: Sequence[Mapping[str, object]]) -> Path:
     """The generic peptide table (M10-03 layout), gzip with a fixed mtime."""
-    from giap.io.tsv import format_value
+    from gippa.io.tsv import format_value
 
     lines = ["\t".join(PEPTIDE_COLS)]
     lines += ["\t".join(format_value(r.get(c)) for c in PEPTIDE_COLS) for r in rows]
@@ -228,9 +228,9 @@ def write_manifest(
     peptides_sha: str,
     exit_code: int = 0,
     steps: Sequence[Mapping[str, Any]] | None = None,
-    git_commit: str | None = GIAP_COMMIT,
+    git_commit: str | None = GIPPA_COMMIT,
 ) -> Path:
-    """A schema-valid ``run_manifest.json`` (``giap.manifest.build_manifest``)."""
+    """A schema-valid ``run_manifest.json`` (``gippa.manifest.build_manifest``)."""
     from helpers.manifest_data import build, preflight_doc, validate
 
     pf = preflight_doc(inputs=[
@@ -261,7 +261,7 @@ def default_steps() -> list[dict[str, Any]]:
 def write_trace(out: Path, hosts: Sequence[str] = (HOST,)) -> Path:
     from helpers.manifest_data import trace_row
 
-    rows = [trace_row(f"GIAP:STEP_{i}", hostname=h) for i, h in enumerate(hosts)]
+    rows = [trace_row(f"GIPPA:STEP_{i}", hostname=h) for i, h in enumerate(hosts)]
     path = out / "logs" / "trace.tsv"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
@@ -402,7 +402,7 @@ def build_pilot(
             det_rows.append({"section": "matrix", "locus_tag": g.locus_tag, "run": label,
                              "detected": d,
                              "detection_status": "detected" if d else "not_detected"})  # fmt: skip
-    tables = cmp / "tables"  # giap compare's layout: CMP/tables/<stem>.tsv
+    tables = cmp / "tables"  # gippa compare's layout: CMP/tables/<stem>.tsv
     write_table(tables / "compare_detection.tsv", "compare_detection", det_rows)
     write_table(tables / "compare_abundance.tsv", "compare_abundance",
                 [{**ABUNDANCE_ROW, **(abundance_over or {})}])  # fmt: skip

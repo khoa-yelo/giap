@@ -1,5 +1,5 @@
-"""Calibration sanity of the giapsim detection attack (issue M6-03, lead decisions 10 and 12 of
-docs/specs/M6-03-sim-operon-scenarios.md; GIAP_SPEC.md §8.4 ``missed_operons``, §8.5, ADR-0018).
+"""Calibration sanity of the gippasim detection attack (issue M6-03, lead decisions 10 and 12 of
+docs/specs/M6-03-sim-operon-scenarios.md; GIPPA_SPEC.md §8.4 ``missed_operons``, §8.5, ADR-0018).
 
 Replicate ``i`` of a scenario is ``simulate_operons(cfgs, suite_seed("m6_03_<name>", i))`` (the
 stream names of tests/calibration/test_sim_operon_calibration.py), R = 20 fast, full R = the
@@ -47,7 +47,7 @@ def _R(full: bool) -> int:
 
 @cache
 def _sim(name: str, args: tuple[Any, ...], rep: int) -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc.simulate_operons(getattr(sc, name)(*args), C.suite_seed(f"m6_03_{name}", rep))
 

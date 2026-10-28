@@ -1,4 +1,4 @@
-"""Locus classes, uniqueness and gene assignment (issue M3-14; GIAP_SPEC.md §7.2.6, §7.2.7, §9.4).
+"""Locus classes, uniqueness and gene assignment (issue M3-14; GIPPA_SPEC.md §7.2.6, §7.2.7, §9.4).
 
 Examples 1-15 and the edge cases of docs/specs/M3-14-loci-and-assignment.md on a hand-made model
 of the circular ``chr1`` (L = 10,000), plus flags, uniqueness, determinism and a timing guard.
@@ -36,9 +36,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.mapping.hits import HIT_COLUMNS
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, GeneModel, NcFeature
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel, NcFeature
 
 L = 10_000
 COMP = str.maketrans("ACGT", "TGCA")
@@ -139,7 +139,7 @@ def iv(start: int, end: int, strand: str, contig: str = "chr1") -> Interval:
 
 
 def classify(i: Interval, gm: GeneModel = MODEL, genome: Mapping[str, str] = GENOME) -> Any:
-    from giap.mapping.loci import classify_locus
+    from gippa.mapping.loci import classify_locus
 
     return classify_locus(i, gm, genome)
 
@@ -247,7 +247,7 @@ def test_partial_gene_classified_like_others() -> None:
 
 def test_frameshift_hit_inside_cds_uses_prefix_frame() -> None:
     """A frameshift hit is classified by its span; the frame comes from the prefix block."""
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     rows = [
         hit_row("FSPLUS", 130, 190, "+", route="tolerant", n_diff=1,
@@ -413,7 +413,7 @@ def na(x: object) -> bool:
 def annotate(rows: Sequence[Mapping[str, Any]], relation: str = "related",
              genome: Mapping[str, str] = GENOME, gm: GeneModel = MODEL,
              peptides: pd.DataFrame | None = None) -> dict[Key, dict[str, Any]]:  # fmt: skip
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     p = peps(rows) if peptides is None else peptides
     out = annotate_peptide_hits(acc(rows), gm, genome, p, relation)  # type: ignore[arg-type]
@@ -430,7 +430,7 @@ def test_output_columns_and_assignment() -> None:
         hit_row("PEPE", 2003, 2030, "+"),
         hit_row("PEPF", 5130, 5160, "+"),
     ]
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     df = annotate_peptide_hits(acc(rows), MODEL, GENOME, peps(rows), "related")
     for col in ("locus_class", "gene", "uniqueness", "flags", "novel_candidate_id"):
@@ -601,7 +601,7 @@ def test_low_complexity_and_multi_flags_combine() -> None:
 
 
 def test_empty_input() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     out = annotate_peptide_hits(acc([]), MODEL, GENOME, peps([]), "related")
     assert len(out) == 0
@@ -610,7 +610,7 @@ def test_empty_input() -> None:
 
 
 def test_unknown_genome_relation_rejected() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     rows = [hit_row("PEPA", 130, 160, "+")]
     with pytest.raises(ValueError):
@@ -648,7 +648,7 @@ def _assert_canonical(df: pd.DataFrame) -> None:
 
 
 def test_deterministic_and_row_order_invariant() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     p = peps(MANY, {"NT": G2}, search_db="same")
     a = annotate_peptide_hits(acc(MANY), MODEL, GENOME, p, "related")
@@ -664,7 +664,7 @@ def test_deterministic_and_row_order_invariant() -> None:
 
 
 def test_flags_joined_alphabetically() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     rows = [
         hit_row("ZZTOL", 130, 160, "+", route="tolerant", n_diff=1, diff_types="substitution",
@@ -688,7 +688,7 @@ def test_flags_joined_alphabetically() -> None:
 
 
 def test_rows_sorted_whatever_the_input_order() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     rows = [
         hit_row("B", 8240, 8270, "-"),
@@ -702,7 +702,7 @@ def test_rows_sorted_whatever_the_input_order() -> None:
 
 
 def test_inputs_not_mutated() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     a, p = acc(MANY), peps(MANY)
     a0, p0 = a.copy(), p.copy()
@@ -712,7 +712,7 @@ def test_inputs_not_mutated() -> None:
 
 
 def test_gene_is_set_exactly_for_assigning_classes() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     out = annotate_peptide_hits(acc(MANY), MODEL, GENOME, peps(MANY), "related")
     assigning = {"cds_inframe", "sorf", "nterm_extension", "pseudogene"}
@@ -747,7 +747,7 @@ def prot_row(pid: str, gene: str | None, start: int = 100, end: int = 400, rank:
 
 
 def annotate_prot(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    from giap.mapping.loci import annotate_protein_hits
+    from gippa.mapping.loci import annotate_protein_hits
 
     df = annotate_protein_hits(pd.DataFrame(list(rows)), MODEL)
     assert len(df) == len(rows)
@@ -840,7 +840,7 @@ def big_case() -> tuple[pd.DataFrame, GeneModel, dict[str, str], pd.DataFrame]:
 
 
 def time_big_case(case: tuple[pd.DataFrame, GeneModel, dict[str, str], pd.DataFrame]) -> float:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     df, gm, genome, p = case
     t0 = time.perf_counter()

@@ -1,5 +1,5 @@
 """``annotation.precomputed.rbs_novel`` (issue M7-08 lead decision 1, ADR-0024) and
-``parse_ostir_starts`` (M7-08 public interface; GIAP_SPEC.md §6.4, §7.1.1, §7.6.2).
+``parse_ostir_starts`` (M7-08 public interface; GIPPA_SPEC.md §6.4, §7.1.1, §7.6.2).
 
 * config: the key exists in the model and in defaults.yaml, null by default, takes a path, and is
   in the generated config JSON schema;
@@ -21,8 +21,8 @@ from typing import Any
 import pytest
 import yaml
 
-from giap.io.tsv import write_tsv
-from giap.model.coords import Replicon
+from gippa.io.tsv import write_tsv
+from gippa.model.coords import Replicon
 
 ROOT = Path(__file__).resolve().parents[2]
 COLS = ("contig", "strand", "start", "tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg",
@@ -39,19 +39,19 @@ OSTIR_HEADER = ("name,start_codon,start_position,expression,RBS_distance_bp,dG_t
 
 
 def test_model_has_rbs_novel_null_by_default() -> None:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    assert GiapConfig().annotation.precomputed.rbs_novel is None  # type: ignore[attr-defined]
+    assert GippaConfig().annotation.precomputed.rbs_novel is None  # type: ignore[attr-defined]
 
 
 def test_defaults_yaml_lists_rbs_novel_null() -> None:
-    data = yaml.safe_load((ROOT / "src/giap/config/defaults.yaml").read_text(encoding="utf-8"))
+    data = yaml.safe_load((ROOT / "src/gippa/config/defaults.yaml").read_text(encoding="utf-8"))
     pre = data["annotation"]["precomputed"]
     assert "rbs_novel" in pre and pre["rbs_novel"] is None
 
 
 def test_rbs_novel_takes_a_path(tmp_path: Path) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     p = tmp_path / "rbs_novel.tsv"
     cfg = resolve_config(None, [f"annotation.precomputed.rbs_novel={p}"])
@@ -59,7 +59,7 @@ def test_rbs_novel_takes_a_path(tmp_path: Path) -> None:
 
 
 def test_config_schema_lists_rbs_novel() -> None:
-    schema = json.loads((ROOT / "src/giap/schemas/config.schema.json").read_text())
+    schema = json.loads((ROOT / "src/gippa/schemas/config.schema.json").read_text())
     assert "rbs_novel" in json.dumps(schema)
 
 
@@ -73,13 +73,13 @@ def _write(tmp_path: Path, rows: list[list[Any]], cols: tuple[str, ...] = COLS) 
 
 
 def _load(path: Path) -> Any:
-    from giap.annotate.precomputed import load_precomputed
+    from gippa.annotate.precomputed import load_precomputed
 
     return load_precomputed("rbs_novel", path, REPS)
 
 
 def test_precomputed_columns() -> None:
-    from giap.annotate.precomputed import PRECOMPUTED_COLUMNS
+    from gippa.annotate.precomputed import PRECOMPUTED_COLUMNS
 
     assert PRECOMPUTED_COLUMNS["rbs_novel"] == COLS
 
@@ -140,7 +140,7 @@ def _row(name: str, codon: str, pos: int, expr: float, dist: int = 6) -> list[An
 
 
 def test_parse_ostir_starts_keeps_every_requested_start(tmp_path: Path) -> None:
-    from giap.annotate.ostir import RbsFeatures, parse_ostir_starts
+    from gippa.annotate.ostir import RbsFeatures, parse_ostir_starts
 
     path = _ostir(tmp_path, [
         _row("NOVEL_c1_10_p", "ATG", 51, 1500.25),
@@ -164,7 +164,7 @@ def test_parse_ostir_starts_keeps_every_requested_start(tmp_path: Path) -> None:
 
 
 def test_parse_ostir_starts_agrees_with_parse_ostir_on_single_starts(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir, parse_ostir_starts
+    from gippa.annotate.ostir import parse_ostir, parse_ostir_starts
 
     path = _ostir(tmp_path, [_row("G1", "ATG", 51, 10.0), _row("G2", "ATG", 51, 20.0),
                              _row("G2", "ATG", 45, 1.0)])  # fmt: skip
@@ -174,6 +174,6 @@ def test_parse_ostir_starts_agrees_with_parse_ostir_on_single_starts(tmp_path: P
 
 
 def test_parse_ostir_starts_header_only_is_empty(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir_starts
+    from gippa.annotate.ostir import parse_ostir_starts
 
     assert parse_ostir_starts(_ostir(tmp_path, []), {"NOVEL_c1_10_p": {51}}) == {}

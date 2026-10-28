@@ -1,13 +1,13 @@
-"""``giap compare OUT_A OUT_B [OUT_C ...] --outdir CMP [--labels ...]`` (M9-22 examples 5 and 6,
-every exit-1 row of "Degenerate cases", ADR-M9-B items 1-4, lead decision 1; GIAP_SPEC.md §5.1,
+"""``gippa compare OUT_A OUT_B [OUT_C ...] --outdir CMP [--labels ...]`` (M9-22 examples 5 and 6,
+every exit-1 row of "Degenerate cases", ADR-M9-B items 1-4, lead decision 1; GIPPA_SPEC.md §5.1,
 §6.6, §7.9.3, §9.5).
 
 Interface assumed beyond the spec text: tables are written to ``CMP/tables/compare_{detection,
 abundance,stability}.tsv`` (ADR-M9-B item 1); error messages go to the combined CliRunner output;
 no table is written when the command exits 1; the bootstrap draws from
-``giap.rng.for_step("compare", cfg.seed)`` with ``B = stats.bootstrap`` and the first run's
+``gippa.rng.for_step("compare", cfg.seed)`` with ``B = stats.bootstrap`` and the first run's
 ``tu_id`` as TUs. Runs are small ``OUT/`` trees from ``tests/helpers/compare_data.py``. Never
-touches the real ``$GIAP_DB_DIR`` or the network.
+touches the real ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ from helpers.compare_data import (
     write_run,
 )
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
-SCHEMAS = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+SCHEMAS = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 TABLES = ("compare_detection", "compare_abundance", "compare_stability")
 FAST = ["--set", "stats.bootstrap=200"]
 N = 12
@@ -42,8 +42,8 @@ N = 12
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 def _genes(shift: float, detected_upto: int = N, names: list[str] | None = None) -> list[dict]:
@@ -61,7 +61,7 @@ def _two(tmp: Path, **kw: object) -> tuple[Path, Path]:
 
 
 def _compare(*args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["compare", *args])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -283,8 +283,8 @@ def test_example6_same_seed_byte_identical(tmp_path: Path) -> None:
 
 
 def test_bootstrap_uses_for_step_compare_and_stats_bootstrap(tmp_path: Path) -> None:
-    from giap.compare.abundance import abundance_pairs
-    from giap.rng import for_step
+    from gippa.compare.abundance import abundance_pairs
+    from gippa.rng import for_step
 
     a, b = _two(tmp_path)
     cmp = tmp_path / "CMP"

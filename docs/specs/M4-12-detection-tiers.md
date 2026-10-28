@@ -29,7 +29,7 @@ code lines (+ ≈ 400 test lines) · **can start now** (fixtures) · gate item: 
 
 ## Public interface
 
-`src/giap/genetable/detection.py` (pure)
+`src/gippa/genetable/detection.py` (pure)
 ```python
 Tier = Literal["decoy_picked", "mayu", "two_peptide", "protein_list"]
 
@@ -46,7 +46,7 @@ class Detection:
     summary_rows: pd.DataFrame # detection_summary section "tier" rows (M4-16 writes them)
     warnings: tuple[str, ...]
 def detect(genes, evidence, accepted, peptides, peptide_hits, protein_hits, covariates,
-           cfg: GiapConfig) -> Detection: ...
+           cfg: GippaConfig) -> Detection: ...
 ```
 - **Protein → gene map** (priority): (1) the protein ID is a C2 `locus_tag`; (2) C12 `gene` of its
   rank-1 hit; (3) peptide vote: among accepted unique target peptides whose C9 `protein_ids` contain
@@ -151,14 +151,14 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
    instead of re-deriving it (follow-up in M4-14).
 9. Tests kill the surviving mutants: a decoy pairs only when all its listed proteins map; the
    `unspecific_search` cut-off at exactly 50 % (not flagged).
-10. Backlog: a giapsim mode with decoy-derived q (D/T) so the MAYU PEP/no-PEP claims separate; a calibration
+10. Backlog: a gippasim mode with decoy-derived q (D/T) so the MAYU PEP/no-PEP claims separate; a calibration
     run with `q_value_max` = 0.1 so the q = 0.10 claim is informative; the "best decoys lost" attack is a
     documented limitation.
 11. (lead, after the implementer's fix f297600) A decoy is a contaminant decoy when ANY of its stripped
     protein IDs carries a contaminant prefix (it is then out of the pairing counts); PEP-derived q is used
     only when every accepted q value is missing (mixed input keeps the given q).
 12. (Corrects decision 11's first half — statistician round 2,
-    https://github.com/khoa-yelo/giap/pull/92#issuecomment-6208572257.) A decoy is a contaminant decoy only
+    https://github.com/khoa-yelo/gippa/pull/92#issuecomment-6208572257.) A decoy is a contaminant decoy only
     when ALL its stripped protein IDs carry a contaminant prefix; a mixed decoy (e.g. `rev_P;rev_CON__P`)
     pairs on its non-contaminant IDs (it is paired when its target P maps, unpaired otherwise). "Any" let
     contaminant grouping keep the `decoy_picked` tier with FDP 0.012–0.017 at q 0.01 (attack

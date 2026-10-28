@@ -6,7 +6,8 @@ docs/specs/M4-05-calibration-harness.md and ADR-0015 (two-block confirmation):
 1. Fail closed: ``check_level`` / ``check_fwer`` raise ValueError on non-finite or out-of-[0, 1]
    input; ``check_fdr`` raises on FDP outside [0, 1] and on R < 2. (The all-NaN and p > 1 cases of
    ``check_level`` live in attacks/test_attack_calibration_harness.py and are not repeated here.)
-2. Sharding: suites read ``GIAP_CALIBRATION_REPLICATES=start:stop`` through the harness and run only
+2. Sharding: suites read ``GIPPA_CALIBRATION_REPLICATES=start:stop`` through the harness and run
+only
    that range; ``merge_shards`` (CLI ``--merge``) combines shard records and evaluates the criterion
    on the full R. Without the variable behaviour is unchanged.
 3. ADR-0015: a check failing on replicates 0..R-1 is re-run on R..2R-1 with the same seed formula
@@ -426,8 +427,8 @@ def test_every_calibration_test_runs_in_exactly_one_suite(
 
 STREAM_M = "regions.review_merge_block2"
 R_M = 20
-PROBE_MODE_ENV = "GIAP_TEST_MERGE_PROBE_MODE"  # "b1": only block 1 fails; "both": both fail
-PROBE_DRAWS_ENV = "GIAP_TEST_MERGE_PROBE_DRAWS"  # file the probe appends its draws to
+PROBE_MODE_ENV = "GIPPA_TEST_MERGE_PROBE_MODE"  # "b1": only block 1 fails; "both": both fail
+PROBE_DRAWS_ENV = "GIPPA_TEST_MERGE_PROBE_DRAWS"  # file the probe appends its draws to
 
 _PROBE = textwrap.dedent(
     f"""

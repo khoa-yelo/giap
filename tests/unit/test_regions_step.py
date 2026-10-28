@@ -5,7 +5,7 @@ optional)`` keys: required ``genes``, ``features``, ``replicons`` (the ``core`` 
 ``genomad`` and ``antismash`` (directories), outputs ``regions`` → ``regions.parquet`` and
 ``region_genes`` → ``region_genes.parquet``; ``annotation.precomputed.regions`` replaces it.
 
-Inputs are real producer outputs: ``parse_bakta`` (M2-04) run on giapsim's SIM100K (the genome
+Inputs are real producer outputs: ``parse_bakta`` (M2-04) run on gippasim's SIM100K (the genome
 of the recorded sim100k runs), the recorded sim100k geNOMAD directory (``genome_summary/`` with
 prefix ``genome``, header-only) and antiSMASH JSON (no areas); and, for the non-empty case, a
 geNOMAD directory and antiSMASH JSON written in exactly the recorded formats (headers copied from
@@ -38,11 +38,11 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.regions_oracle import ANTISMASH_REC, GENOMAD_REC, brute_members
 
-import giapsim
-from giap.annotate.bakta import parse_bakta_json
-from giap.config import GiapConfig
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+import gippasim
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config import GippaConfig
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 PARSE_OUT = {
     "genes": "genes.parquet",
@@ -62,14 +62,14 @@ AREA = (20_000, 30_000)  # antiSMASH JSON: 0-based half-open
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -90,13 +90,13 @@ class Sim:
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Sim:
     out = tmp_path_factory.mktemp("sim100k")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     work = out / "work"
     with pytest.MonkeyPatch.context() as mp:
         reg = _fresh_steps(mp)
         reg.run_step(
             "parse_bakta",
-            GiapConfig(seed=1),
+            GippaConfig(seed=1),
             {"bakta_json": res.bakta_json, "genome": res.genome_fasta},
             {k: work / v for k, v in PARSE_OUT.items()},
         )
@@ -166,7 +166,7 @@ def antismash_dir(root: Path, sim: Sim, name: str = "bakta.json") -> tuple[Path,
 
 def _run(reg: ModuleType, inputs: dict[str, Path], out: Path) -> tuple[list[dict], list[dict]]:
     outs = {"regions": out / "regions.parquet", "region_genes": out / "region_genes.parquet"}
-    reg.run_step("region_layer", GiapConfig(seed=1), inputs, outs)
+    reg.run_step("region_layer", GippaConfig(seed=1), inputs, outs)
     regs = pq.read_table(outs["regions"]).to_pylist()
     rgs = pq.read_table(outs["region_genes"]).to_pylist()
     return regs, rgs
@@ -296,7 +296,7 @@ def test_rerun_is_byte_identical(steps: ModuleType, sim: Sim, tmp_path: Path) ->
 def test_region_types_config_restricts_the_step(
     steps: ModuleType, sim: Sim, tmp_path: Path
 ) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     cfg = resolve_config(overrides=["seed=1", "context.region_types=[bgc]"])
     adir, _ = antismash_dir(tmp_path / "in", sim)

@@ -1,7 +1,7 @@
 """Independent oracle for the M7-01 residue aligner (docs/specs/M7-01-residue-alignment.md).
 
-Written by the test author from the spec text (GIAP_SPEC.md §7.2.4, §7.5.2 step 1 and the M7-01
-rules); it does not import ``giap``. It works on letters:
+Written by the test author from the spec text (GIPPA_SPEC.md §7.2.4, §7.5.2 step 1 and the M7-01
+rules); it does not import ``gippa``. It works on letters:
 
 * :func:`locus_aa` translates ``[start, end)`` (unwrapped; read across the origin through
   ``seq + seq``) with table 11, reverse-complementing on ``-``; no I -> L folding, ``X`` for a
@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from giapsim.codons import CODE_11
+from gippasim.codons import CODE_11
 
 PRECEDENCE: tuple[str, ...] = ("substitution", "swap", "block", "near_block")
 RANK = {name: i for i, name in enumerate(PRECEDENCE)}

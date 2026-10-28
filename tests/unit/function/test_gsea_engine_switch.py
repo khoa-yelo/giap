@@ -4,7 +4,7 @@
 Interface pinned here (test-author reading of §7 and §8):
 
 - ``gsea_table(genes, colls, size, cfg, alpha, rng, replicons=None, *, engine=SIMPLE_ENGINE)``;
-  ``SIMPLE_ENGINE`` (``method = "fgsea_simple"``) is exported by ``giap.function.gsea``.
+  ``SIMPLE_ENGINE`` (``method = "fgsea_simple"``) is exported by ``gippa.function.gsea``.
 - Main call: one ``GseaJob("main:<collection>", sets, size[0], size[1])`` per collection, in the
   order of ``colls``, holding only the terms with ``size[0] <= size_tus <= size[1]`` and
   ``size_tus < n``, in the collection's term order, each set's member TUs in natural TU order
@@ -36,11 +36,11 @@ from helpers.gsea_data import Gene, as_list, frame, gene_sets, singleton_frame, 
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
-from giap.stats.multitest import bh
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
+from gippa.stats.multitest import bh
 
-GSEA_PY = Path(__file__).resolve().parents[3] / "src" / "giap" / "function" / "gsea.py"
+GSEA_PY = Path(__file__).resolve().parents[3] / "src" / "gippa" / "function" / "gsea.py"
 CFG = GseaConfig()
 SIZE = (10, 500)
 ALPHA = 0.05
@@ -48,7 +48,7 @@ MAX_SEED = 2**31 - 2
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 
@@ -118,8 +118,8 @@ def test_gsea_module_imports_nothing_from_io() -> None:
             mods.append(node.module)
         elif isinstance(node, ast.Import):
             mods += [a.name for a in node.names]
-    assert not [m for m in mods if m == "giap.io" or m.startswith("giap.io.")], mods
-    assert not [m for m in mods if m.startswith("giap.steps")], mods
+    assert not [m for m in mods if m == "gippa.io" or m.startswith("gippa.io.")], mods
+    assert not [m for m in mods if m.startswith("gippa.steps")], mods
 
 
 # ---------------------------------------------------------------- example 2: one call

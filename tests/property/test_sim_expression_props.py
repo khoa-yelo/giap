@@ -1,4 +1,4 @@
-"""Hypothesis properties of the giapsim expression model (issue M4-08; GIAP_SPEC.md §11.3).
+"""Hypothesis properties of the gippasim expression model (issue M4-08; GIPPA_SPEC.md §11.3).
 
 For any small layout and any valid ``ExpressionConfig`` (rho in [0, 1), plasmid copy numbers,
 region abundance and detection shifts, islands, both detection modes): one row per layout gene;
@@ -32,8 +32,8 @@ ISLAND_TUS: dict[int, tuple[int, int]] = {}
 
 
 def _mods() -> tuple[Any, Any]:
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     return ex, la
 

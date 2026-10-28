@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.model.coords import Replicon
+from gippa.model.coords import Replicon
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES = REPO / "workflow" / "modules" / "local"
@@ -42,7 +42,7 @@ def test_genomad_stub_writes_the_three_parsed_tsvs_with_recorded_headers() -> No
 
 
 def test_genomad_stub_output_parses_empty(tmp_path: Path) -> None:
-    from giap.annotate.genomad import GenomadResult, parse_genomad
+    from gippa.annotate.genomad import GenomadResult, parse_genomad
 
     d = tmp_path / "genomad" / "genome_summary"
     d.mkdir(parents=True)
@@ -52,7 +52,7 @@ def test_genomad_stub_output_parses_empty(tmp_path: Path) -> None:
 
 
 def test_antismash_stub_json_parses_empty(tmp_path: Path) -> None:
-    from giap.annotate.antismash import parse_antismash_json
+    from gippa.annotate.antismash import parse_antismash_json
 
     m = re.search(r"echo '(\{.*\})' > antismash/\$\{meta_id\}\.json", _stub("antismash"))
     assert m, "ANTISMASH stub JSON not found"

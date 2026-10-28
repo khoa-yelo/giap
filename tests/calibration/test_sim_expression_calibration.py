@@ -1,4 +1,4 @@
-"""Calibration of the giapsim expression model (issue M4-08; GIAP_SPEC.md §11.3, §8.4, §7.3.6).
+"""Calibration of the gippasim expression model (issue M4-08; GIPPA_SPEC.md §11.3, §8.4, §7.3.6).
 
 Every distributional claim of docs/specs/M4-08-sim-expression.md becomes a per-replicate p-value
 that is exactly U(0, 1) when the simulator follows the spec, gated through the M4-05 harness
@@ -44,8 +44,8 @@ _MEMO: dict[tuple[str, int], float] = {}
 
 
 def _mods() -> tuple[Any, Any]:
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     return ex, la
 

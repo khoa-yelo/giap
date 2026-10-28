@@ -1,7 +1,7 @@
 """M8-16 review round, code review B2a (lead decision 4 gap 2, lead decision 5): the
 ``enriched_categories`` family passes the M4-13 TU ``folds`` to the M8-04 detection ORA, so its
 ``ora_*`` IDs follow the function step's recalibrated q (docs/specs/M8-16-sensitivity-function-
-determinants.md item 1; GIAP_SPEC.md §7.7.3).
+determinants.md item 1; GIPPA_SPEC.md §7.7.3).
 
 The world: 200 one-gene TUs whose ``p_detect`` (0.1 / 0.9) says nothing about detection (half of
 each class detected). COG K holds 12 genes at p_detect 0.1, 6 of them detected. Without folds the
@@ -24,7 +24,7 @@ N = 200
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(f"sensitivity/{sf.EC}", sf.SEED)
 
@@ -47,7 +47,7 @@ def _call(genes: pd.DataFrame, colls: list[Any], folds: dict[str, int] | None) -
 
 
 def _oracle(genes: pd.DataFrame, colls: list[Any], folds: dict[str, int] | None) -> frozenset[str]:
-    from giap.function.ora import detection_enrichment
+    from gippa.function.ora import detection_enrichment
 
     cfg = sf.base_config()
     lo, hi = cfg.function.ora_size
@@ -79,7 +79,7 @@ def test_folds_reach_detection_enrichment(
 ) -> None:
     """The family hands ``detection_enrichment`` exactly the folds it was given (``None`` stays
     ``None``)."""
-    import giap.function.sensitivity as FS
+    import gippa.function.sensitivity as FS
 
     genes, colls, f = _world()
     want = f if folds else None

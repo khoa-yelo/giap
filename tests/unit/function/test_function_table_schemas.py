@@ -1,6 +1,6 @@
 """M8-06a item 5 and example 9: Frictionless schemas of ``category_summary``,
 ``enrichment_detection`` and ``enrichment_gsea`` (docs/specs/M8-06-function-step-and-run.md;
-GIAP_SPEC.md §9.3, §9.5; ADR-0029; M8-04 decisions 3 and 13).
+GIPPA_SPEC.md §9.3, §9.5; ADR-0029; M8-04 decisions 3 and 13).
 
 Pinned here:
 
@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 ALL6 = ["cog", "kegg", "go_bp", "go_mf", "go_cc", "go_slim"]
 RUN_ONLY = ["layer_missing:cog", "layer_missing:kegg", "layer_missing:go",
             "layer_missing:abundance", "bakta_db_light", "too_few_ranked_tus",
@@ -72,7 +72,7 @@ def _field(stem: str, name: str) -> dict[str, Any]:
 
 
 def _columns(stem: str) -> tuple[str, ...]:
-    from giap.function import gsea, ora, summary
+    from gippa.function import gsea, ora, summary
 
     return {"category_summary": tuple(summary.COLUMNS),
             "enrichment_detection": tuple(ora.COLUMNS),

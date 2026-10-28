@@ -11,7 +11,7 @@ tests/helpers/novel_outputs_fixture.py, so ``apply_evidence`` is tested on real 
 * ``pseudo``: a Bakta pseudogene P + [540, 900) with an internal TGA [600, 603) and a peptide
   [570, 597) classed ``pseudogene`` (spec example 8 with a homopolymer placed by the test).
 
-Interface pinned by the test author (``giap.novel.evidence``):
+Interface pinned by the test author (``gippa.novel.evidence``):
 
 * ``apply_evidence(table, orfs, *, gene_table, terminators, gm, genome, cfg,
   peptide_intervals=None)`` -> the table (same rows, same order, ``NOVEL_ORFS_COLUMNS``) with
@@ -31,9 +31,9 @@ from typing import Any
 
 import pandas as pd
 
-from giap.annotate.terminators import Terminator
-from giap.config.model import GiapConfig
-from giap.model.coords import Interval, Replicon
+from gippa.annotate.terminators import Terminator
+from gippa.config.model import GippaConfig
+from gippa.model.coords import Interval, Replicon
 from helpers.novel_oracle import Case, Seq, cds, hit_row, translate
 from helpers.novel_outputs_fixture import (
     C1,
@@ -64,7 +64,7 @@ THRESHOLD_30 = 390.0
 
 
 def ev() -> Any:
-    import giap.novel.evidence as m
+    import gippa.novel.evidence as m
 
     return m
 
@@ -73,10 +73,10 @@ def ev() -> Any:
 _TERMINATORS = {"terminators": {"terminatornet_yes": 0.5}}
 
 
-def cfg(**novel: Any) -> GiapConfig:
+def cfg(**novel: Any) -> GippaConfig:
     if novel:
-        return GiapConfig(seed=1, novel_orfs=novel, annotation=_TERMINATORS)
-    return GiapConfig(seed=1, annotation=_TERMINATORS)
+        return GippaConfig(seed=1, novel_orfs=novel, annotation=_TERMINATORS)
+    return GippaConfig(seed=1, annotation=_TERMINATORS)
 
 
 def gene_table(
@@ -189,7 +189,7 @@ def evidence_table(
     promoter: Mapping[str, float] | None = None,
     gt: pd.DataFrame = GT30,
     terminators: Sequence[Terminator] | None = (),
-    config: GiapConfig | None = None,
+    config: GippaConfig | None = None,
     peptide_intervals: Mapping[str, Sequence[Interval]] | None = None,
     orfs: list[Any] | None = None,
 ) -> pd.DataFrame:

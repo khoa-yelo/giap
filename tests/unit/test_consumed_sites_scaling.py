@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giap.mapping.readthrough import StopSite
+from gippa.mapping.readthrough import StopSite
 
 N = 300_000
 N_SITES, N_ROWS = 1000, 2000
@@ -86,7 +86,7 @@ def _oracle(rows: pd.DataFrame, sites: list[StopSite]) -> list[tuple[StopSite, .
 
 
 def test_consumed_sites_does_not_scan_every_site_per_row() -> None:
-    from giap.mapping.readthrough import consumed_sites
+    from gippa.mapping.readthrough import consumed_sites
 
     sites, rows = _world()
     want = _oracle(rows, sites)

@@ -1,5 +1,5 @@
 """Hypothesis properties of M4-24 (docs/specs/M4-24-decoy-unscored.md, acceptance criterion 4;
-GIAP_SPEC.md §7.3.2 picked steps 1-3, §8 preamble / R4).
+GIPPA_SPEC.md §7.3.2 picked steps 1-3, §8 preamble / R4).
 
 (a) ``decoy_unscored`` in ``warnings`` iff the pairing guard passes, the target side (``accepted``)
     is non-empty and S != C_T or S is empty;

@@ -1,5 +1,5 @@
 """Per-step config slices and their task hashes (M7-15 lead decision 7; review #278 B2, lead
-decision 11): ``config_slice`` and ``config_hashes`` in ``giap.steps.registry``.
+decision 11): ``config_slice`` and ``config_hashes`` in ``gippa.steps.registry``.
 
 * ``threads`` changes no hash (resources only, §6.6);
 * ``variants.*`` and ``sample_name`` change only the ``variants`` hash;
@@ -19,8 +19,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from giap.config import resolve_config
-from giap.steps.registry import config_hashes, config_slice
+from gippa.config import resolve_config
+from gippa.steps.registry import config_hashes, config_slice
 
 STEPS = ["variants", "novel_orfs", "gene_table", "detection", "mapping", "report"]
 

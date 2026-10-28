@@ -2,15 +2,15 @@
 evidence is given, and ``tables/pairs.tsv`` then carries ``one_detected_pmiss`` rows
 (docs/specs/M6-05-discordance.md item 4; M6-02 acceptance "Integration: with M6-05H,
 ``tables/pairs.tsv`` ... contains ``one_detected_pmiss`` rows"; M6-08 degenerate row "no peptides
-and one run"; GIAP_SPEC.md §7.4.3, §9.3 ``pairs.tsv`` ``test`` enum).
+and one run"; GIPPA_SPEC.md §7.4.3, §9.3 ``pairs.tsv`` ``test`` enum).
 
 Interface pinned here (test-author reading):
 
 * ``peptide_hits`` (an existing optional input of the step) is the C11 TSV
   ``mapping/peptide_hits.tsv`` (1-based, the M4-06 contract columns), read the way
-  ``giap.io.work_tables`` reads it. M6-02 needs only its ``gene`` and ``peptide`` columns.
-* The step fits ``giap.operons.detection_limit.fit_detection_limit`` on the gene table (with
-  C2 ``aa``), C11 and C16 (absent here), with ``giap.rng.for_step("operons.detection_limit",
+  ``gippa.io.work_tables`` reads it. M6-02 needs only its ``gene`` and ``peptide`` columns.
+* The step fits ``gippa.operons.detection_limit.fit_detection_limit`` on the gene table (with
+  C2 ``aa``), C11 and C16 (absent here), with ``gippa.rng.for_step("operons.detection_limit",
   cfg.seed)`` (M6-02 item 7). Each one-detected OP pair is scored with the out-of-fold model of
   the **detected partner v's** TU (``model_for_tu(model, tu(v))``; M6-02 lead decision 9, review
   B1) and the undetected gene u's ``observable_peptides``.
@@ -27,7 +27,7 @@ Interface pinned here (test-author reading):
 * P(miss) has no q and is outside the BH family (M6-index lead decision 1); see
   ``PMISS_IN_BH_FAMILY`` in ``tests/unit/operons/test_discordance_one_detected.py``.
 
-Inputs: ``helpers.layers_chain.build_chain`` (giapsim SIM100K). Three genes in four are detected,
+Inputs: ``helpers.layers_chain.build_chain`` (gippasim SIM100K). Three genes in four are detected,
 with ``abundance_log2 = 12 + sin(i)``. ``tu_id`` comes from C5. The peptide hits are drawn
 (fixed numpy seed, test data only) from a logistic in abundance and length, so the peptide
 model is usable (about 1,000 training rows).
@@ -48,20 +48,20 @@ import pytest
 from helpers.layers_chain import Chain, build_chain
 from scipy.special import expit
 
-from giap.config import GiapConfig
-from giap.genetable.contract import TABLES
-from giap.io.tsv import write_tsv
-from giap.stats.multitest import bh
+from gippa.config import GippaConfig
+from gippa.genetable.contract import TABLES
+from gippa.io.tsv import write_tsv
+from gippa.stats.multitest import bh
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 OUTPUTS = {"pairs": "pairs.tsv", "operons": "operons.tsv", "operon_flags": "operon_flags.tsv"}
 PMISS, TTEST = "one_detected_pmiss", "both_detected_t"
 PMISS_IN_BH_FAMILY = False  # M6-index lead decision 1 (see the unit test module)
 DL_STEP = "operons.detection_limit"
 
 
-def _cfg() -> GiapConfig:
-    return GiapConfig(seed=1)
+def _cfg() -> GippaConfig:
+    return GippaConfig(seed=1)
 
 
 # ----------------------------------------------------------------------------- fixtures
@@ -80,8 +80,8 @@ def write_gene_table(chain: Chain, path: Path, *, split_tus: bool = False) -> Pa
     """A §9.3 gene table over the C2 genes with abundance and C5 ``tu_id``. ``split_tus`` moves
     every undetected gene (index % 4 == 3) into a TU of its own, so its OP pairs cross a TU
     boundary (UniOp pairs and C5 TUs are independent sources) and u's TU trained nothing."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.io.genes_tsv import write_genes_parquet
 
     c2 = chain.frame("genes")
     n = len(c2)
@@ -116,7 +116,7 @@ def write_peptide_hits(
     """C11 rows: each observable peptide of a detected gene is seen with
     ``expit(-0.5 + 1.2 (a - 12) - 0.03 (L - 15))``; every observable peptide of a gene in
     ``extra`` (undetected genes) is seen too."""
-    from giap.operons.detection_limit import _observable_seqs
+    from gippa.operons.detection_limit import _observable_seqs
 
     cfg = _cfg()
     c2 = chain.frame("genes")
@@ -176,14 +176,14 @@ class Run:
         return pd.read_csv(self.paths[key], sep="\t", dtype=str, keep_default_na=False)
 
 
-def run_step(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> Run:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+def run_step(inputs: Mapping[str, Path], out: Path, cfg: GippaConfig) -> Run:
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outputs = {k: out / "tables" / v for k, v in OUTPUTS.items()}
     rec = _Recorder()
-    log = logging.getLogger("giap.steps.operons")
+    log = logging.getLogger("gippa.steps.operons")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -232,7 +232,7 @@ def _one_detected_op(df: pd.DataFrame) -> pd.Series:
 def _seen_counts(chain: Chain, hits: Path) -> dict[str, int]:
     """The test's oracle of M6-02's count: per gene, its distinct observable peptides with a C11
     assignment to it (I and L the same)."""
-    from giap.operons.detection_limit import _observable_seqs
+    from gippa.operons.detection_limit import _observable_seqs
 
     h = pd.read_csv(hits, sep="\t", dtype=str, keep_default_na=False)
     seen = {(g, q.replace("I", "L")) for g, q in zip(h["gene"], h["peptide"], strict=True)}
@@ -257,9 +257,9 @@ def _seen_one_detected(df: pd.DataFrame, seen: Mapping[str, int], k_min: int = 1
 
 def test_model_fixture_is_usable(chain: Chain, with_peptides: Run) -> None:
     """Guard on the test data: M6-02 fits a usable peptide model on these inputs."""
-    from giap.io.work_tables import _read_tsv_table
-    from giap.operons import detection_limit as dl
-    from giap.rng import for_step
+    from gippa.io.work_tables import _read_tsv_table
+    from gippa.operons import detection_limit as dl
+    from gippa.rng import for_step
 
     fit = dl.fit_detection_limit(
         _dl_genes(chain, with_peptides), _read_tsv_table("peptide_hits",
@@ -332,7 +332,7 @@ def test_pairs_tsv_validates_with_the_pmiss_enum(with_peptides: Run) -> None:
 
 
 def _dl_genes(chain: Chain, run: Run) -> pd.DataFrame:
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     gt = read_genes_parquet(run.inputs["gene_table"])
     aa = chain.frame("genes").set_index("locus_tag")["aa"]
@@ -345,9 +345,9 @@ def test_pmiss_values_equal_the_m6_02_oracle(chain: Chain, with_peptides: Run) -
     """Each P(miss) is ``p_miss(model_for_tu(model, tu(v)), a_v, r, observable_peptides(u))``
     with r = ±Δ of the fit pairs (the both-detected OP rows here; no gene is imputed) and v the
     detected partner (M6-02 lead decision 9, review B1)."""
-    from giap.io.work_tables import _read_tsv_table
-    from giap.operons import detection_limit as dl
-    from giap.rng import for_step
+    from gippa.io.work_tables import _read_tsv_table
+    from gippa.operons import detection_limit as dl
+    from gippa.rng import for_step
 
     cfg = _cfg()
     genes = _dl_genes(chain, with_peptides)
@@ -364,10 +364,10 @@ def test_pmiss_values_equal_the_m6_02_oracle(chain: Chain, with_peptides: Run) -
 
 
 def _oracle(
-    r: Any, model: Any, delta: np.ndarray, tu: pd.Series, aa: pd.Series, cfg: GiapConfig
+    r: Any, model: Any, delta: np.ndarray, tu: pd.Series, aa: pd.Series, cfg: GippaConfig
 ) -> tuple[float, float]:
     """(P(miss) with v's TU model, P(miss) with u's TU model) for a pairs.tsv row."""
-    from giap.operons import detection_limit as dl
+    from gippa.operons import detection_limit as dl
 
     down = r.detected_a == "true"  # gene_b undetected: u downstream, r = Δ
     u, v = (r.gene_b, r.gene_a) if down else (r.gene_a, r.gene_b)
@@ -385,9 +385,9 @@ def test_pmiss_uses_the_partners_tu_when_the_pair_crosses_tus(chain: Chain, tmp_
     crosses a TU boundary and u's TU trained nothing (``model_for_tu`` falls back to the full
     model). The P(miss) are those of v's out-of-fold model, and the two readings differ on at
     least one row (so the test tells them apart)."""
-    from giap.io.work_tables import _read_tsv_table
-    from giap.operons import detection_limit as dl
-    from giap.rng import for_step
+    from gippa.io.work_tables import _read_tsv_table
+    from gippa.operons import detection_limit as dl
+    from gippa.rng import for_step
 
     cfg = _cfg()
     gt = write_gene_table(chain, tmp_path / "genetable" / "genes.parquet", split_tus=True)
@@ -483,8 +483,8 @@ COV_FLAG = "pmiss_covariates_missing"
 
 
 def _replicate_fit(coef: Mapping[str, float]) -> Any:
-    from giap.genetable.detectability import COLUMNS
-    from giap.operons import detection_limit as dl
+    from gippa.genetable.detectability import COLUMNS
+    from gippa.operons import detection_limit as dl
 
     model = dl.PMissModel(kind="replicate", coef=dict(coef), k_min=1, n_fit=600, auc=0.75,
                           usable=True)  # fmt: skip
@@ -509,7 +509,7 @@ def write_peptide_runs(hits: Path, path: Path) -> Path:
 
 def _replicate_run(chain: Chain, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                    coef: Mapping[str, float]) -> tuple[Run, dict[str, int]]:  # fmt: skip
-    from giap.operons import detection_limit as dl
+    from gippa.operons import detection_limit as dl
 
     monkeypatch.setattr(dl, "fit_detection_limit", lambda *a, **k: _replicate_fit(coef))
     gt = write_gene_table(chain, tmp_path / "genetable" / "genes.parquet")

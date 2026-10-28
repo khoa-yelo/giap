@@ -1,6 +1,6 @@
 """M6-10 at step level: the registered ``sensitivity`` step with the ``operon_flags`` family on the
 SIM100K producer chain (docs/specs/M6-10-sensitivity-operon-flags.md Behaviour 1, 3-7, examples
-6-7, degenerate cases, lead decisions 1-2; M4-19 decisions 2, 5, 16; GIAP_SPEC.md §8.6, G9).
+6-7, degenerate cases, lead decisions 1-2; M4-19 decisions 2, 5, 16; GIPPA_SPEC.md §8.6, G9).
 
 Interface assumed (test author): the step declares the pair inputs (C2 ``genes``, ``pairs_raw``,
 C3 ``features``; ``promoter_windows`` / ``terminators`` / ``tx_rates`` optional) and binds them to
@@ -32,14 +32,14 @@ PAIR_INPUTS = {"genes", "pairs_raw", "features"}
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _spec() -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     return reg.get("sensitivity")
@@ -61,7 +61,7 @@ def _read(path: Path) -> pd.DataFrame:
 
 
 def _run(chain: Chain, root: Path, gt: pd.DataFrame, cfg: Any, **kw: Any) -> Path:
-    from giap.steps.registry import run_step
+    from gippa.steps.registry import run_step
 
     _spec()
     ins = so.write_inputs(chain, root / "in", gt, **kw)
@@ -73,9 +73,9 @@ def _run(chain: Chain, root: Path, gt: pd.DataFrame, cfg: Any, **kw: Any) -> Pat
 def _expected(chain: Chain, gt_path: Path, cfg: Any, root: Path) -> pd.DataFrame:
     """M4-19 rows of the oracle sets for every variant the step reruns (top3 skipped without
     peptide intensities, as M4-19's step does), written and read back."""
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.io.sensitivity_tsv import write_sensitivity_tsv
-    from giap.steps.sensitivity import with_overrides
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.io.sensitivity_tsv import write_sensitivity_tsv
+    from gippa.steps.sensitivity import with_overrides
 
     S = _S()
     gt = read_genes_parquet(gt_path)
@@ -172,7 +172,8 @@ def test_relative_scale_rows_na_with_reason(chain: Chain, tmp_path: Path,
     assert len(got) and set(got["family"]) == {so.FAMILY}
     assert set(got["jaccard"]) == {"NA"}
     assert any("relative" in r.getMessage() for r in caplog.records
-               if r.name.startswith("giap.")), "no log record names the relative scale"  # fmt: skip
+               if r.name.startswith("gippa.")), (
+        "no log record names the relative scale")  # fmt: skip
 
 
 @pytest.mark.usefixtures("only_operons")
@@ -183,7 +184,7 @@ def test_missing_layers_still_run(chain: Chain, tmp_path: Path) -> None:
     gt = so.gene_table(so.tables(chain)["genes"])
     got = _read(_run(chain, tmp_path, gt, cfg, drop=so.LAYER_KEYS))
     assert list(got["variant"]) == ["missing=exclude"]
-    from giap.io.genes_tsv import read_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet
 
     g = read_genes_parquet(tmp_path / "in" / "genes_table.parquet")
     t = {k: v for k, v in so.tables(chain).items() if k not in so.LAYER_KEYS}
@@ -218,10 +219,10 @@ class _Recorder:
 def _record(chain: Chain, tmp_path: Path, cfg: Any, monkeypatch: pytest.MonkeyPatch
             ) -> tuple[_Recorder, pd.DataFrame]:  # fmt: skip
     """Run the step function directly (every input given) with only the recorder registered."""
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.rng import for_step
-    from giap.steps.registry import StepContext
-    from giap.steps.sensitivity import sensitivity
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.rng import for_step
+    from gippa.steps.registry import StepContext
+    from gippa.steps.sensitivity import sensitivity
 
     rec = _Recorder()
     # registered as operon_flags: pair_threshold variants run only there (decision 8, review B2)
@@ -231,7 +232,7 @@ def _record(chain: Chain, tmp_path: Path, cfg: Any, monkeypatch: pytest.MonkeyPa
     out = tmp_path / "tables" / "sensitivity.tsv"
     sensitivity(StepContext(cfg=cfg, inputs=dict(ins), outputs={"sensitivity": out},
                             rng=for_step("sensitivity", cfg.seed),
-                            log=logging.getLogger("giap.steps.sensitivity")))  # fmt: skip
+                            log=logging.getLogger("gippa.steps.sensitivity")))  # fmt: skip
     return rec, read_genes_parquet(ins["gene_table"])
 
 
@@ -260,7 +261,7 @@ def test_unpatched_variants_unchanged(chain: Chain, tmp_path: Path,
     """Lead decision 1, "existing variants are byte-identical" (a regression pin that holds
     before M6-10 too): a variant without patch gets ``variant_genes`` and
     ``with_overrides(base, overrides)``, with the primary threshold."""
-    from giap.steps.sensitivity import with_overrides
+    from gippa.steps.sensitivity import with_overrides
 
     S = _S()
     cfg = so.config(output={"sensitivity": "full"})

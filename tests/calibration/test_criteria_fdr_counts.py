@@ -14,7 +14,7 @@ replicates <= q + 2 SE(FDP)"). The harness extension is the implementer's; pinne
   block 1 ``vacuous`` (no block 2, not a pass) when the block mean of ``name`` is below ``m``
   (rule 6: mean list targets below 1/q). Records carry ``criterion = "fdr_counts"``, ``key``,
   ``level = q``, ``observed`` (mean FDP), ``bound``, ``block``, ``status``, ``start``, ``stop``,
-  ``values`` (the count dicts) and ``vacuous``. Sharded and ``GIAP_CALIBRATION_CONFIRM`` runs
+  ``values`` (the count dicts) and ``vacuous``. Sharded and ``GIPPA_CALIBRATION_CONFIRM`` runs
   as ``calibrate_pooled`` (confirm key ``C._check_key(record)`` includes ``key``);
   ``merge_shards`` gives one verdict per (stream, key, level, R) (pass | unconfirmed | fail |
   vacuous | pending).

@@ -18,7 +18,7 @@ confirmation; ADR-0015). The harness extension is the implementer's; pinned here
   block 2, not a pass) when the block mean of ``name`` is below ``m`` (rule 6). Records carry
   ``criterion = "pooled_f1"``, ``key``, ``level = bound``, ``observed`` (F1), ``precision``,
   ``recall``, ``se``, ``block``, ``status``, ``start``, ``stop``, ``values`` (the count dicts).
-  Sharded and ``GIAP_CALIBRATION_CONFIRM`` runs as ``calibrate``; ``merge_shards`` gives pooled
+  Sharded and ``GIPPA_CALIBRATION_CONFIRM`` runs as ``calibrate``; ``merge_shards`` gives pooled
   checks their verdict (pass | unconfirmed | fail | vacuous | pending), one per (stream, key).
 
 Unmarked tests run on every commit; the operating-characteristic and jackknife checks are marked
@@ -390,7 +390,7 @@ def _capture_child_env(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, str]]:
 def test_main_strips_a_leaked_confirm_variable(
     monkeypatch: pytest.MonkeyPatch, argv: list[str]
 ) -> None:
-    """A ``GIAP_CALIBRATION_CONFIRM`` left in the environment would make every gate test skip
+    """A ``GIPPA_CALIBRATION_CONFIRM`` left in the environment would make every gate test skip
     and exit 0; ``main()`` removes it from the shard (and unsharded) pytest environment."""
     monkeypatch.setenv(C.CONFIRM_ENV, json.dumps([[STREAM, "fwer", 0.05, 6]]))
     envs = _capture_child_env(monkeypatch)

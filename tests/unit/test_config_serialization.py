@@ -1,4 +1,4 @@
-"""Config serialisation and ``--set`` typing (GIAP_SPEC.md §5.1, §6.7).
+"""Config serialisation and ``--set`` typing (GIPPA_SPEC.md §5.1, §6.7).
 
 The resolved config is written to JSON (run manifest), so its JSON-mode dump must be strict JSON
 (no NaN/Infinity tokens) and must round-trip, including ±inf in ``operons.distance_bins_bp``.
@@ -13,7 +13,7 @@ from typing import Any
 
 import jsonschema
 
-from giap.config import GiapConfig, resolve_config
+from gippa.config import GippaConfig, resolve_config
 
 
 def _strict_json_dump() -> str:
@@ -27,25 +27,25 @@ def test_default_config_dump_is_strict_json() -> None:
 
 def test_default_config_round_trips_through_json() -> None:
     original = resolve_config()
-    restored = GiapConfig.model_validate(json.loads(_strict_json_dump()))
+    restored = GippaConfig.model_validate(json.loads(_strict_json_dump()))
     assert restored == original
 
 
 def test_distance_bins_infinities_survive_round_trip() -> None:
-    restored = GiapConfig.model_validate(json.loads(_strict_json_dump()))
+    restored = GippaConfig.model_validate(json.loads(_strict_json_dump()))
     bins = restored.operons.distance_bins_bp
     assert bins[0] == -math.inf
     assert bins[-1] == math.inf
 
 
 def _config_schema() -> dict[str, Any]:
-    text = resources.files("giap.schemas").joinpath("config.schema.json").read_text("utf-8")
+    text = resources.files("gippa.schemas").joinpath("config.schema.json").read_text("utf-8")
     schema: dict[str, Any] = json.loads(text)
     return schema
 
 
 def test_schema_parses_as_strict_json() -> None:
-    text = resources.files("giap.schemas").joinpath("config.schema.json").read_text("utf-8")
+    text = resources.files("gippa.schemas").joinpath("config.schema.json").read_text("utf-8")
 
     def reject(token: str) -> None:
         raise ValueError(f"non-standard JSON constant {token}")

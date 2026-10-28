@@ -1,5 +1,5 @@
 """Level of the TU-counted ORA on gene frames (issue M8-04b; docs/specs/M8-04 calibration arms 1
-and 6, lead decision 12; ADR-0029, ADR-0035; GIAP_SPEC.md §8.4).
+and 6, lead decision 12; ADR-0029, ADR-0035; GIPPA_SPEC.md §8.4).
 
 Claim: with gene detection ~ Bernoulli(p_true), p̂ = p_true (calibrated) and categories fixed
 independently of the detections, the ``p_value`` of ``detection_enrichment(genes, [GeneSets],
@@ -53,7 +53,7 @@ KINDS = ("whole_tu", "genes")
 
 @cache
 def _replicate(i: int) -> dict[tuple[str, str], np.ndarray]:
-    from giap.function import ora
+    from gippa.function import ora
 
     rng = C.replicate_rng(SIM_STREAM, i)
     sim = simulate(rng, oracle=True)

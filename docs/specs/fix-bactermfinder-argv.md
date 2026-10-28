@@ -12,8 +12,8 @@ so the process fails. It also reads its four `deep-bactermfinder_*_saved_model.h
 an Apptainer image. Smoke job 1895829 ran the 4-argument form in a source dir (106 windows).
 
 ## Required behaviour
-1. Arguments: `genome.fa 3 out 10000`, which is the README example at the pinned commit. GIAP_SPEC.md
-   §7.1.1 says "per its README" and no GIAP spec or methods document sets another step.
+1. Arguments: `genome.fa 3 out 10000`, which is the README example at the pinned commit. GIPPA_SPEC.md
+   §7.1.1 says "per its README" and no GIPPA spec or methods document sets another step.
    The prefix `out` has no `.`, because the script uses `prefix.split(".")[0]`.
 2. Working directory: the script makes a fresh `btf_work/` in the task dir and `cd`s into it.
    It symlinks `genome_scan.py`, `iLearnPlus` and the four `*.h5` models from
@@ -24,10 +24,10 @@ an Apptainer image. Smoke job 1895829 ran the 4-argument form in a source dir (1
 3. Outputs: the result table is `out` + `genome.fa` + `_mean.csv` = `outgenome.fa_mean.csv`.
    Its columns are `SampleName,probability_binary,probability_ENAC,probability_PS2,probability_NCP,probability_mean`,
    as in the smoke log. The table is copied to `bactermfinder/outgenome.fa_mean.csv`, and
-   `bactermfinder/` holds no other `.csv`. The step reader (`giap.steps.terminators._bactermfinder`,
+   `bactermfinder/` holds no other `.csv`. The step reader (`gippa.steps.terminators._bactermfinder`,
    M2-15 review item 5) rejects a directory with several CSVs. The intermediate CSVs stay in
    `btf_work/`, outside the `bactermfinder` output glob. `output:` keeps `path 'bactermfinder', emit: dir`
-   and `versions.yml`. The `BACTERMFINDER_HOME` default and `GIAP_COMMIT` version line stay the same.
+   and `versions.yml`. The `BACTERMFINDER_HOME` default and `GIPPA_COMMIT` version line stay the same.
 4. The stub keeps writing an empty `bactermfinder/` (nf-test annotate example 5).
 ## Out of scope (follow-up)
 `parse_bactermfinder` (provisional, M2-15) expects contig/start/end/strand columns. The real table

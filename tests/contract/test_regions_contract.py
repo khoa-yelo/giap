@@ -13,7 +13,7 @@ recordings themselves and the independent oracles in ``helpers/regions_oracle.py
 * K-12: crispr_1 (array ``[2877883, 2878473)``) takes Cas2 (no gene name, product
   ``CRISPR-associated…``, gap 95) and cas1e (gap 381) but not cas6e (gap 1,314); crispr_2 has no
   cas gene within 1 kb.
-* Full recordings under ``$GIAP_ROOT/recordings`` (skipped when missing): the excerpt gives the
+* Full recordings under ``$GIPPA_ROOT/recordings`` (skipped when missing): the excerpt gives the
   same regions as the full Bakta JSON, and the ``region_layer`` step on the full Nissle run
   (``parse_bakta`` on the recorded genome) meets the acceptance criterion.
 * Lead decision 4 after code review: Nissle has THREE plasmids (CP171243.1 4.5 kb, CP171244.1
@@ -47,9 +47,9 @@ from helpers.regions_oracle import (
     overlapping_virus_genes,
 )
 
-from giap.config import GiapConfig, resolve_config
+from gippa.config import GippaConfig, resolve_config
 
-regions = importlib.import_module("giap.annotate.regions")  # M2-19
+regions = importlib.import_module("gippa.annotate.regions")  # M2-19
 
 
 TAX = "Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;"
@@ -190,8 +190,8 @@ def test_nissle_without_genomad_has_no_plasmid_or_prophage(nissle: Sample) -> No
 
 
 def test_k12_tsv_and_bed_are_consistent(k12: Sample, tmp_path: Path) -> None:
-    from giap.io.bed import write_bed
-    from giap.io.tsv import read_tsv
+    from gippa.io.bed import write_bed
+    from gippa.io.tsv import read_tsv
 
     regs, _ = _build(k12)
     tsv = tmp_path / "regions.tsv"
@@ -251,9 +251,9 @@ def _circ_available() -> bool:
 def test_circular_nissle_recording_gives_three_plasmid_regions() -> None:
     if not _circ_available():
         pytest.skip(f"circular Nissle recording not under {CIRC}")
-    from giap.annotate.antismash import parse_antismash_json
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.antismash import parse_antismash_json
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.genomad import parse_genomad
 
     ann = parse_bakta_json(CIRC_JSON)
     reps = dict(ann.model.replicons)
@@ -282,8 +282,8 @@ def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
     genome = CIRC_GENOME
     if not _circ_available():
         pytest.skip(f"circular Nissle recording not under {CIRC}")
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     parse_out = {
@@ -296,7 +296,7 @@ def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
         }.items()
     }  # fmt: skip
     bakta = CIRC_JSON
-    reg.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": bakta, "genome": genome},
+    reg.run_step("parse_bakta", GippaConfig(seed=1), {"bakta_json": bakta, "genome": genome},
                  parse_out)  # fmt: skip
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
     inputs = {
@@ -306,7 +306,7 @@ def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
         "genomad": FULL / "genomad" / "nissle1917" / "genomad",
         "antismash": FULL / "antismash" / "nissle1917" / "antismash",
     }
-    reg.run_step("region_layer", GiapConfig(seed=1), inputs, outs)
+    reg.run_step("region_layer", GippaConfig(seed=1), inputs, outs)
     rows = pq.read_table(outs["regions"]).to_pylist()
     types = [r["region_type"] for r in rows]
     assert types.count("prophage") >= 1 and types.count("bgc") >= 1

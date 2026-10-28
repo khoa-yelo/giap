@@ -2,7 +2,7 @@
 
 Milestone M3 · depends on: M3-09 (E_i); consumes the hit schema of M3-04 (synthetic hit tables
 suffice for this issue's tests) and the de novo π̂ of M3-11 through an argument · creates
-`src/giap/mapping/placement_fdr.py` · pure Python · estimate ≈ 330 code lines · **statistical**:
+`src/gippa/mapping/placement_fdr.py` · pure Python · estimate ≈ 330 code lines · **statistical**:
 `docs/methods/placement-fdr.md` (sections "Strata and ranking", "π̂_wrong", "Same-strain input",
 "Calibration"), signed off by the statistician (§14.1); the statistician also owns attack 5
 (§8.5), run in M3-21
@@ -45,7 +45,7 @@ class PeptideCosts:          # one row per mapped query peptide (built from the 
 def best_costs(hits: pd.DataFrame, peptides: pd.DataFrame, freqs: ResidueFreqs) -> pd.DataFrame: ...
 def pi_wrong_database(peptides: pd.DataFrame, q_value_max: float) -> float: ...
 def stratum_qvalues(e_target: np.ndarray, e_decoy: np.ndarray, pi_target: np.ndarray) -> np.ndarray: ...
-def placement(costs: pd.DataFrame, cfg: GiapConfig) -> tuple[pd.DataFrame, pd.DataFrame]: ...
+def placement(costs: pd.DataFrame, cfg: GippaConfig) -> tuple[pd.DataFrame, pd.DataFrame]: ...
 #  → (per-peptide: peptide, m_target, placement_q, accepted, flags) , mapping_fdr rows (section = "placement")
 ```
 

@@ -1,4 +1,4 @@
-"""The capability plugin itself (GIAP_SPEC.md §3.6)."""
+"""The capability plugin itself (GIPPA_SPEC.md §3.6)."""
 
 from pathlib import Path
 

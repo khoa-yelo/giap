@@ -55,14 +55,14 @@ from test_loci import (  # type: ignore[import-not-found]
     put,
 )
 
-from giap.model.coords import Replicon
-from giap.model.genes import GeneModel
+from gippa.model.coords import Replicon
+from gippa.model.genes import GeneModel
 
 # --- 1. cterm_extension ---------------------------------------------------------------------
 
 
 def test_cterm_extension_is_a_locus_class() -> None:
-    from giap.mapping.loci import LOCUS_CLASSES
+    from gippa.mapping.loci import LOCUS_CLASSES
 
     assert "cterm_extension" in LOCUS_CLASSES
 
@@ -326,7 +326,7 @@ def test_classify_unknown_contig_raises_value_error() -> None:
 
 
 def test_annotate_unknown_contig_raises_value_error() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
+    from gippa.mapping.loci import annotate_peptide_hits
 
     rows = [hit_row("PEPU", 130, 160, "+"), hit_row("PEPV", 100, 130, "+", contig="plasmidQ")]
     with pytest.raises(ValueError, match="plasmidQ"):

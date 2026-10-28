@@ -17,12 +17,12 @@ import test_readthrough_props as rtp
 from helpers.readthrough_counts import holds_cell
 from hypothesis import assume, given
 
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.tolerant import match_tolerant
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.tolerant import match_tolerant
 
 
 def _consumed(rows: pd.DataFrame, w: rtp.World, cells: object) -> list[tuple[object, ...]]:
-    from giap.mapping.readthrough import consumed_sites
+    from gippa.mapping.readthrough import consumed_sites
 
     n = w.reps["g"].length
     return consumed_sites(

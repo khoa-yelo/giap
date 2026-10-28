@@ -1,6 +1,6 @@
-"""Paths, parsers and a container sandbox for the M3-24 pilot-kit tests (GIAP_SPEC.md §15).
+"""Paths, parsers and a container sandbox for the M3-24 pilot-kit tests (GIPPA_SPEC.md §15).
 
-Nothing here reaches the network, the real DIA-NN image or the real ``$GIAP_ROOT``:
+Nothing here reaches the network, the real DIA-NN image or the real ``$GIPPA_ROOT``:
 
 * the cfg/README/db_a2 parsers only read files tracked in the repository;
 * ``pilot_sandbox`` builds on ``helpers.slurm_sandbox.make_sandbox`` (a throw-away checkout of
@@ -44,7 +44,7 @@ CFG = {"A1": PILOT / "diann_A1.cfg", "A2": PILOT / "diann_A2.cfg"}
 DB_A2 = PILOT / "db_a2"
 STRAIN_DB = DB_A2 / "strain_db.faa.gz"
 MANIFEST = DB_A2 / "makedb_manifest.json"
-ID_MAP = DB_A2 / "db_id_map.tsv"  # decision 10: the name ``giap makedb`` writes
+ID_MAP = DB_A2 / "db_id_map.tsv"  # decision 10: the name ``gippa makedb`` writes
 ID_MAP_COLUMNS = ("db_id", "kind", "locus_tag", "class", "contig", "start", "end", "strand")
 
 SLURM = REPO / "scripts" / "slurm"
@@ -62,11 +62,11 @@ DIANN_VERSION = "DIA-NN 2.3.1 Academia"
 # re-reads the image when it is there, so a replaced image fails loudly instead of silently.
 DIANN_SIF_SHA256 = "1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381"
 BINDS = ("/home/classes", "/scratch", "/farmshare")
-SPEC_VERSION = "2.7.0"  # what GIAP_SPEC.md §15 names; decision 2 records the difference
+SPEC_VERSION = "2.7.0"  # what GIPPA_SPEC.md §15 names; decision 2 records the difference
 
 NISSLE_DIR = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full" / "nissle"
 RECORDED_NISSLE = NISSLE_DIR / "nissle1917.json.gz"
-# Decision 8: uncommitted (R11). `giap makedb` needs it: the recorded JSON has no nucleotides.
+# Decision 8: uncommitted (R11). `gippa makedb` needs it: the recorded JSON has no nucleotides.
 NISSLE_GENOME = Path(
     "/home/classes/bios/270/khoa/giap/local/data/genomes/nissle1917/"
     "GCA_043228065.1_ASM4322806v1_genomic.fna.gz"
@@ -129,12 +129,12 @@ def names(flags: Iterable[Flag]) -> set[str]:
     return {flag for flag, _ in flags}
 
 
-# ------------------------------------------------------------------ GIAP's own digest
+# ------------------------------------------------------------------ GIPPA's own digest
 
 
-def giap_cut_spec(enzyme: str = "trypsin_p") -> str:
-    """DIA-NN ``--cut`` specification of ``giap.mapping.digest`` (expected: ``K*,R*``)."""
-    from giap.mapping.digest import cut_sites
+def gippa_cut_spec(enzyme: str = "trypsin_p") -> str:
+    """DIA-NN ``--cut`` specification of ``gippa.mapping.digest`` (expected: ``K*,R*``)."""
+    from gippa.mapping.digest import cut_sites
 
     residues = [
         aa
@@ -146,17 +146,17 @@ def giap_cut_spec(enzyme: str = "trypsin_p") -> str:
     return ",".join(f"{r}{suffix}" for r in residues)
 
 
-def giap_digest_flags() -> dict[str, str]:
-    """The DIA-NN digest flags implied by ``giap.mapping.digest`` (M3-22, lead decision 5).
+def gippa_digest_flags() -> dict[str, str]:
+    """The DIA-NN digest flags implied by ``gippa.mapping.digest`` (M3-22, lead decision 5).
 
-    ``--unimod4`` (fixed carbamidomethyl on C) is not a digest parameter: GIAP's masses assume it,
+    ``--unimod4`` (fixed carbamidomethyl on C) is not a digest parameter: GIPPA's masses assume it,
     so it is required as a literal.
     """
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     p = inspect.signature(digest).parameters
     return {
-        "--cut": giap_cut_spec(),
+        "--cut": gippa_cut_spec(),
         "--missed-cleavages": str(p["missed"].default),
         "--min-pep-len": str(p["min_len"].default),
         "--max-pep-len": str(p["max_len"].default),
@@ -164,9 +164,9 @@ def giap_digest_flags() -> dict[str, str]:
     }
 
 
-def giap_excises_initiator_met() -> bool:
-    """Whether GIAP's digest produces Met-excised peptides (it does not: digest.py decision 1)."""
-    from giap.mapping.digest import digest
+def gippa_excises_initiator_met() -> bool:
+    """Whether GIPPA's digest produces Met-excised peptides (it does not: digest.py decision 1)."""
+    from gippa.mapping.digest import digest
 
     return any(start == 1 for start, _, _ in digest("MAAAAAAAAK" + "AAAAAAAK"))
 
@@ -175,8 +175,8 @@ def giap_excises_initiator_met() -> bool:
 
 
 def spec_template_flags() -> set[str]:
-    """Flags of the ``DIA-NN template`` code block of GIAP_SPEC.md §15.2."""
-    text = (REPO / "GIAP_SPEC.md").read_text()
+    """Flags of the ``DIA-NN template`` code block of GIPPA_SPEC.md §15.2."""
+    text = (REPO / "GIPPA_SPEC.md").read_text()
     i = text.index("DIA-NN template")
     block = text[i:].split("```", 2)[1]
     return {t for t in block.split() if t.startswith("--")}
@@ -350,7 +350,7 @@ def pilot_sandbox(
     shutil.copytree(REPO / "validation", sb.repo / "validation",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))  # fmt: skip
     env_sh = sb.repo / "scripts" / "farmshare_env.sh"
-    env_sh.write_text(env_sh.read_text() + '\nexport GIAP_TOOLS_DIR="$GIAP_ROOT/tools"\n')
+    env_sh.write_text(env_sh.read_text() + '\nexport GIPPA_TOOLS_DIR="$GIPPA_ROOT/tools"\n')
     import subprocess
 
     subprocess.run(["git", "-C", str(sb.repo), "add", "-A"], check=True, capture_output=True,
@@ -399,7 +399,7 @@ def pilot_sandbox(
 def _m10_02_inputs(sb: Sandbox, image: Path | None, raws: int) -> None:
     """What diann_pilot.sbatch checks before any container call (M10-02 lead decision 1): a
     read-only image whose sha256 equals the pin, the M10-01 acquisition JSON naming the runs, and
-    the GIAP_PYTHON that runs the checks."""
+    the GIPPA_PYTHON that runs the checks."""
     import hashlib
     import json
     import subprocess
@@ -418,17 +418,17 @@ def _m10_02_inputs(sb: Sandbox, image: Path | None, raws: int) -> None:
     for args in (["add", "-A"], ["commit", "-q", "-m", "m10-02 inputs"]):
         subprocess.run(["git", "-C", str(sb.repo), *args], check=True, capture_output=True,
                        env=sb.env)  # fmt: skip
-    sb.env["GIAP_PYTHON"] = sys.executable
+    sb.env["GIPPA_PYTHON"] = sys.executable
 
 
 def _materialise_fastas(sb: Sandbox) -> None:
     """Create the ``--fasta`` inputs the cfg files name, outside the sandbox repository."""
     env = {
-        "GIAP_ROOT": str(sb.root),
-        "GIAP_DATA_DIR": str(sb.root / "data"),
-        "GIAP_DB_DIR": str(sb.root / "db"),
-        "GIAP_REPO": str(sb.repo),
-        "GIAP_TOOLS_DIR": str(sb.root / "tools"),
+        "GIPPA_ROOT": str(sb.root),
+        "GIPPA_DATA_DIR": str(sb.root / "data"),
+        "GIPPA_DB_DIR": str(sb.root / "db"),
+        "GIPPA_REPO": str(sb.repo),
+        "GIPPA_TOOLS_DIR": str(sb.root / "tools"),
     }
     for path in CFG.values():
         if not path.is_file():
@@ -437,7 +437,10 @@ def _materialise_fastas(sb: Sandbox) -> None:
             for raw in values(section, "--fasta"):
                 expanded = raw
                 for key, val in env.items():
-                    expanded = expanded.replace(f"${{{key}}}", val).replace(f"${key}", val)
+                    # ADR-0064: the kept cfgs name the pre-rename variables (rename_gippa.py
+                    # KEEP_PATHS); diann_pilot.sbatch maps them to the same values.
+                    for k in (key, key.replace("GIPPA_", "GIAP_", 1)):
+                        expanded = expanded.replace(f"${{{k}}}", val).replace(f"${k}", val)
                 # db_a2 is committed gzipped: the script itself must unpack it (decision 3).
                 if "db_a2" in expanded or not expanded.startswith("/"):
                     continue

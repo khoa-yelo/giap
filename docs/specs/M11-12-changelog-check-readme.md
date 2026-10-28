@@ -28,7 +28,7 @@ Milestone M11 · **pass 2** · depends on: M11-02 (fragment naming rules) · est
    Severity: fail (Q-L9). The lead announces it in AGENTS.md (one line) when it lands.
 2. **README for 1.0**: status line from "under development (milestone M0)" to the released state
    (version badge from PyPI, DOI badge after Zenodo, docs link); "Install" (pip, Bioconda), a
-   four-line quickstart pointing at the site, "Citing GIAP" (points at `CITATION.cff`),
+   four-line quickstart pointing at the site, "Citing GIPPA" (points at `CITATION.cff`),
    "Licence" (unchanged), "Development on FarmShare" moved under a "Developers" heading. No numbers
    that are not in committed evidence.
 
@@ -36,19 +36,19 @@ Milestone M11 · **pass 2** · depends on: M11-02 (fragment naming rules) · est
 
 | # | Input (PR diff) | Expected |
 |---|---|---|
-| 1 | `src/giap/cli.py` + `changelog.d/341.feature.md` | exit 0 |
-| 2 | `src/giap/cli.py` only | exit 1 with the message |
+| 1 | `src/gippa/cli.py` + `changelog.d/341.feature.md` | exit 0 |
+| 2 | `src/gippa/cli.py` only | exit 1 with the message |
 | 3 | `docs/user-guide/run.md` only | exit 0 (no code changed) |
 | 4 | `workflow/tests/x.nf.test` only | exit 0 |
-| 5 | `src/giap/cli.py` + label `no-changelog` | exit 0, prints `exempt: label no-changelog` |
-| 6 | `src/giap/x.py`, all commits `refactor: …` | exit 0, prints `exempt: refactor/test/ci/chore only` |
-| 7 | `src/giap/x.py` + an empty `changelog.d/342.bugfix.md` | exit 1 `empty fragment` |
-| 8 | `src/giap/x.py` + `changelog.d/notes.txt` | exit 1 (name does not match) |
+| 5 | `src/gippa/cli.py` + label `no-changelog` | exit 0, prints `exempt: label no-changelog` |
+| 6 | `src/gippa/x.py`, all commits `refactor: …` | exit 0, prints `exempt: refactor/test/ci/chore only` |
+| 7 | `src/gippa/x.py` + an empty `changelog.d/342.bugfix.md` | exit 1 `empty fragment` |
+| 8 | `src/gippa/x.py` + `changelog.d/notes.txt` | exit 1 (name does not match) |
 
 ## Edge cases
 
 - **Fragment deleted** in the PR (a release-prep build removes all fragments): the release-prep PR
-  touches `src/giap/__init__.py` (version) — exempt by its `chore(release):` subject (rule above).
+  touches `src/gippa/__init__.py` (version) — exempt by its `chore(release):` subject (rule above).
 - **Merge commits from main** in the range: `BASE...HEAD` (three dots) compares with the merge base,
   so main's changes do not count.
 - **Renamed files** count as changed at their new path.

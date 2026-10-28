@@ -20,7 +20,7 @@ locked) · estimate ≈ 230 code lines (+ ≈ 350 test lines) · **statistical**
 
 ## Public interface
 
-`src/giap/stats/wallenius.py` (pure)
+`src/gippa/stats/wallenius.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class OraResult:
@@ -33,7 +33,7 @@ def category_odds(p_detect: ArrayLike, in_cat: ArrayLike) -> float: ...
 def wallenius_tails(k: int, M: int, n: int, N: int, odds: float) -> tuple[float, float]: ...
 def wallenius_ora(detected: ArrayLike, p_detect: ArrayLike, in_cat: ArrayLike) -> OraResult: ...
 ```
-`src/giap/function/elim.py` (pure; generic over any DAG and any test)
+`src/gippa/function/elim.py` (pure; generic over any DAG and any test)
 ```python
 TestFn = Callable[[frozenset[int]], float]          # gene indices of a term -> raw p
 def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozenset[str]],
@@ -126,7 +126,7 @@ def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozens
    meaning; no ADR needed (an implementation detail of the same quantity), but the methods note
    says so.
 2. elim's significance threshold: strict `< 0.01` (topGO) or `≤`? **Proposed default:** strict.
-3. Where does elim live? **Proposed default:** `giap.function.elim` (it walks a DAG, not a stats
+3. Where does elim live? **Proposed default:** `gippa.function.elim` (it walks a DAG, not a stats
    primitive); M8-05's redundancy check reuses its ancestor closure.
 
 ## Lead decisions (2026-10-21)
@@ -141,7 +141,7 @@ def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozens
    - An exact or limiting-form pmf for extreme odds is pass-2 work (M8-13), together with the far-tail precision ADR.
 5. **After the statistician's review (b37d2f4, docs/methods/function.md), the primitives are accepted.** They compute what the spec defines. But mean-odds Wallenius is **not** a calibrated ORA test when detection is independent Bernoulli(p_detect).
    - It over-rejects when detection is saturated and when p_detect is mixed within a category.
-   - It fails the §8.4 ORA null and attack 2 (giapsim attack 2 rejects under at 0.027/0.137 at α = 0.01/0.05).
+   - It fails the §8.4 ORA null and attack 2 (gippasim attack 2 rejects under at 0.027/0.137 at α = 0.01/0.05).
    - So `tests/calibration/test_wallenius_calibration.py`, marked `ora`, is a **code check under the urn model**, not the §8.4 ORA gate. The gate belongs to M8-15.
    - M8-04 may wire ORA in the integration pass, but its p-values must carry no calibrated claim until Khoa decides these ADRs:
      1. Use the conditional Poisson-binomial as the ORA p-value, keeping a Wallenius column for the goseq golden.

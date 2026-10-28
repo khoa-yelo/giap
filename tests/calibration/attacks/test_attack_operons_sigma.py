@@ -1,6 +1,6 @@
 """M6-13 attacks on the abundance-dependent discordance scale (ADR-0055 option (a);
 docs/specs/M6-13-discordance-abundance-sigma.md "Calibration and the gate", the statistician's
-measurement and decisions S-8, S-9, S-11; GIAP_SPEC.md §8.4 suite ``discordance``, §8.5).
+measurement and decisions S-8, S-9, S-11; GIPPA_SPEC.md §8.4 suite ``discordance``, §8.5).
 Helpers: ``../_operon_sigma.py`` (genomes: the D-1 stream's, as the statistician measured them).
 
 Gated (a confirmed ``fail`` fails the test; ADR-0015 two-block confirmation; R =

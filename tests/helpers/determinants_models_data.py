@@ -40,7 +40,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-MODULE = "giap.determinants.models"
+MODULE = "gippa.determinants.models"
 TABLE_COLUMNS = (
     "model", "feature_or_block", "metric", "value", "ci_low", "ci_high", "n", "n_perm", "flags",
 )  # fmt: skip
@@ -59,12 +59,12 @@ PLANTED_BLOCKS: Mapping[str, str] = {
 
 
 def mod() -> ModuleType:
-    """``giap.determinants.models`` (imported lazily so collection never fails)."""
+    """``gippa.determinants.models`` (imported lazily so collection never fails)."""
     return importlib.import_module(MODULE)
 
 
 def feats() -> ModuleType:
-    return importlib.import_module("giap.determinants.features")
+    return importlib.import_module("gippa.determinants.features")
 
 
 def is_na(x: Any) -> bool:
@@ -151,7 +151,7 @@ def planted(
 
 
 def config(fast: bool = True, **lgb: Any) -> Any:
-    from giap.config.model import DeterminantsConfig, LightgbmConfig
+    from gippa.config.model import DeterminantsConfig, LightgbmConfig
 
     if not fast:
         return DeterminantsConfig()
@@ -160,7 +160,7 @@ def config(fast: bool = True, **lgb: Any) -> Any:
 
 
 def folds_for(tu: Sequence[str], cfg: Any, seed: int = 7) -> np.ndarray:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return np.asarray(
         mod().tu_folds(list(tu), cfg.outer_folds, cfg.repeats, for_step("determinants.cv", seed))

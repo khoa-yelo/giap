@@ -1,5 +1,5 @@
-# R golden references for the fgsea and goseq ports (M8-12; GIAP_SPEC.md §11.5).
-# Runs only inside the conda env giap-golden-r (scripts/golden/golden_r.yml), through
+# R golden references for the fgsea and goseq ports (M8-12; GIPPA_SPEC.md §11.5).
+# Runs only inside the conda env gippa-golden-r (scripts/golden/golden_r.yml), through
 # scripts/slurm/golden_r.sbatch or .github/workflows/golden-r.yml; never from src/.
 #   usage: make_golden_r.R <inputs_dir> <outputs_dir> <versions_txt> <lock_file> <GOLDEN_SEED>
 # Writes outputs/{fgsea,calc_gsea_stat,goseq}.tsv.gz (numbers with format(x, digits = 17)) and

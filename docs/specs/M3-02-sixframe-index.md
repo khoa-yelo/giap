@@ -1,6 +1,6 @@
 # M3-02: Six-frame translation and coordinate maps
 
-Milestone M3 · depends on: M1-01, M1-02 · creates `src/giap/mapping/sixframe.py` · pure Python +
+Milestone M3 · depends on: M1-01, M1-02 · creates `src/gippa/mapping/sixframe.py` · pure Python +
 numba · estimate ≈ 320 code lines
 
 ## Spec sections implemented
@@ -19,7 +19,7 @@ numba · estimate ≈ 320 code lines
 
 Decoys are M3-03; this issue builds target frames only.
 
-## Public interface (`src/giap/mapping/sixframe.py`)
+## Public interface (`src/gippa/mapping/sixframe.py`)
 
 ```python
 ALPHABET: str = "ACDEFGHKLMNPQRSTVWY*X"   # codes 0..18 residues (L includes I), 19 '*', 20 'X'
@@ -90,7 +90,7 @@ Genome `g = ATGGCTAAAATTCTGTGGTAACGTNNA` (27 nt, linear contig `c1`):
 ## Acceptance criteria
 
 - [ ] `tests/unit/test_sixframe.py`: examples 1–10; all 64 codons of table 11 (against
-  `giapsim.codons.CODE_11` and Biopython `Seq.translate(table=11)` as an independent oracle).
+  `gippasim.codons.CODE_11` and Biopython `Seq.translate(table=11)` as an independent oracle).
 - [ ] Property (Hypothesis, random genomes ≤ 5 kb, both topologies): for every frame and every
   window `[a, b)` with `b − a ≤ 40`, the nucleotides of `to_interval(...)` (read with
   `split_at_origin`, reverse-complemented on minus) translate to the same codes.

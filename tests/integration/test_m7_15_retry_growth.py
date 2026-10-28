@@ -1,4 +1,4 @@
-"""A retry must change the request (M7-15; review #278 B1, lead decision 11; GIAP_SPEC.md §6.3).
+"""A retry must change the request (M7-15; review #278 B1, lead decision 11; GIPPA_SPEC.md §6.3).
 
 Mini Nextflow runs (as in test_nf_config.py example 7) with the repository's
 ``workflow/nextflow.config`` under each profile (base = no profile, farmshare,

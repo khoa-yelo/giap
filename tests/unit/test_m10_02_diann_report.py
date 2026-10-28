@@ -5,7 +5,7 @@ Spec: "validation/pilot/diann_report.py", "check rules", "Row selection", "summa
 examples 10-12, edge cases "Partial report", "Empty input", "Ties", "Stratum quota",
 acceptance criteria 6-8; lead decision 2 (stratified parquet sample). Khoa's decision of
 2026-10-23: the sample is never committed; ``diann_report.sbatch`` writes it under
-``$GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/``.
+``$GIPPA_ROOT/pilot/recorded/diann/2.3.1/<arm>/``.
 
 Fixtures are parquet files of a few dozen rows written in ``tmp_path`` with pyarrow, using the
 converter's column names (``helpers.pilot_kit_m10.report_rows``). No DIA-NN output is read.
@@ -551,7 +551,7 @@ def _sample_dir(m10: M10Sandbox, arm: str) -> Path:
 
 
 @pytest.mark.parametrize("arm", ["A1", "A2"])
-def test_report_job_checks_then_samples_under_giap_root(m10: M10Sandbox, arm: str) -> None:
+def test_report_job_checks_then_samples_under_gippa_root(m10: M10Sandbox, arm: str) -> None:
     out = _searched(m10, arm, report_rows({r: 30 for r in RUNS}, TWO))
     res = m10.run("diann_report", arm)
     assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
@@ -588,13 +588,13 @@ def test_report_job_house_rules() -> None:
         m = re.search(rf"^#SBATCH\s+--{key}(?:[= ](\S+))?", text, re.M)
         return (m.group(1) or "") if m else None
 
-    assert (directive("job-name") or "").startswith("giap-diann-report")
+    assert (directive("job-name") or "").startswith("gippa-diann-report")
     assert directive("partition") == "normal" and directive("qos") == "normal"
     assert directive("cpus-per-task") == "4"
     assert (directive("mem") or "").upper().rstrip("B") == "16000M"  # 4 x 4000 MB (S1)
     assert directive("time") == "01:00:00"
     out = directive("output") or ""
-    assert "/local/logs/" in out or "$GIAP_ROOT" in out
+    assert "/local/logs/" in out or "$GIPPA_ROOT" in out
     code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
     assert "scripts/farmshare_env.sh" in code
     assert re.search(r"^set -euo pipefail$", code, re.M)

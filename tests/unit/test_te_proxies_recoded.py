@@ -22,7 +22,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -66,7 +66,7 @@ def example_31(with_flags: bool = True) -> pd.DataFrame:
 
 
 def _per(rows: list[tuple[str, int, float, bool]]) -> pd.DataFrame:
-    from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+    from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
 
     return pd.DataFrame(
         [
@@ -224,7 +224,7 @@ def test_te1_proxy_passes_the_placement_table() -> None:
 
 
 def _row(i: int, conf: str, flags: tuple[str, ...], ref: str = "N", alt: str = "D") -> dict:  # type: ignore[type-arg]
-    from giap.variants.vcf_records import VARIANTS_COLUMNS
+    from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
     row: dict[str, Any] = dict.fromkeys(VARIANTS_COLUMNS, pd.NA)
     row.update(
@@ -249,7 +249,7 @@ def _row(i: int, conf: str, flags: tuple[str, ...], ref: str = "N", alt: str = "
 
 
 def _sites(rows: list[dict]) -> pd.DataFrame:  # type: ignore[type-arg]
-    from giap.variants.vcf_records import VARIANTS_COLUMNS
+    from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
     return pd.DataFrame(rows, columns=list(VARIANTS_COLUMNS))
 

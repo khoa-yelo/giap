@@ -1,5 +1,5 @@
 // MVP-01: stub run of the CONTEXT subworkflow (workflow/subworkflows/local/context.nf;
-// GIAP_SPEC.md §6.2, §8.6, §9.4). ci.yml runs: nf-test test workflow/tests --profile test,stub;
+// GIPPA_SPEC.md §6.2, §8.6, §9.4). ci.yml runs: nf-test test workflow/tests --profile test,stub;
 // "-stub" is set here as well.
 //
 // Interface pinned here:
@@ -7,7 +7,7 @@
 //         region_genes] or channel.empty()), mapping (the LOCI output), stratum0_classes,
 //         peptides, abundance, replicon_depth
 // context_stats takes the three M3 tables out of the loci directory and both the gene table and
-// the C2 genes.parquet (same file name: GIAP_STEP stages each input into its own in<n>/).
+// the C2 genes.parquet (same file name: GIPPA_STEP stages each input into its own in<n>/).
 // Without C7/C8 context_stats does not run, as MAPPING skips its protein route. The sensitivity step
 // left CONTEXT in M8-16 (gap 12; SENSITIVITY_RERUNS in sensitivity.nf, called from main.nf): CONTEXT
 // must no longer run it.
@@ -57,10 +57,10 @@ nextflow_workflow {
             assert H.stepCount(workflow.trace, 'sensitivity') == 0 : "CONTEXT ran sensitivity (moved out in M8-16)"
             ['context_stats'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
-                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+                assert new File(H.stepDirs(work, s)[0], '.gippa_inputs').isFile() : "${s} did not run through GIPPA_STEP"
             }
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def cin = H.stepInputs(H.stepDirs(work, 'context_stats')[0])
             def keys = cin.collect { it[0] }

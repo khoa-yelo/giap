@@ -1,6 +1,6 @@
-# M3-20: giapsim, de novo errors and reference peptides
+# M3-20: gippasim, de novo errors and reference peptides
 
-Milestone M3 · depends on: M3-19 · changes `tests/sim/giapsim/` (new `denovo.py`) · simulator
+Milestone M3 · depends on: M3-19 · changes `tests/sim/gippasim/` (new `denovo.py`) · simulator
 tooling · pure Python · estimate ≈ 300 lines (not gated by ADR-0007)
 
 ## Spec sections implemented
@@ -26,7 +26,7 @@ tooling · pure Python · estimate ≈ 300 lines (not gated by ADR-0007)
 - **Scores** correlated with correctness: score = logistic-linked draw so that the true precision
   per score decile is known and written to `truth/denovo_precision.tsv` (`score_bin`,
   `precision_true`, `n`).
-- The block list is giapsim's own copy of §7.2.4 (independent from `giap.mapping.diffops`); a test
+- The block list is gippasim's own copy of §7.2.4 (independent from `gippa.mapping.diffops`); a test
   checks both equal the spec list.
 - `reference_peptides.tsv`: the database identifications of the same spectra (generic table,
   `source = database`, `search_db = same`, q-values from M3-19).
@@ -62,7 +62,7 @@ tooling · pure Python · estimate ≈ 300 lines (not gated by ADR-0007)
 ## Lead decisions
 1. Default error-type weights accepted as proposed (substitution 0.3, block 0.2, swap 0.15, near_block 0.05,
    reversed_stretch 0.1, modification 0.1, random 0.1); configurable, calibration sweeps them.
-2. The test-author's API choices are accepted: `giapsim.denovo` (`DenovoConfig`, `ERROR_TYPES`,
+2. The test-author's API choices are accepted: `gippasim.denovo` (`DenovoConfig`, `ERROR_TYPES`,
    `DEFAULT_ERROR_WEIGHTS`, `apply_error`), switched on by `SimConfig.denovo` (requires `proteomics`, own RNG
    stream), deciles pooled over runs, one de novo row per non-decoy database row, `reference_peptides.tsv` =
    every non-decoy `peptides.tsv` row with `search_db = same`.

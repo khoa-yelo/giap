@@ -1,6 +1,6 @@
 # Interpreting results
 
-Every claim GIAP makes carries one of four labels:
+Every claim GIPPA makes carries one of four labels:
 
 - a q-value;
 - an estimated false discovery rate (FDR);
@@ -13,14 +13,14 @@ q-values are not discovery claims. They are listed in
 [Methods shipped flagged uncalibrated](#methods-shipped-flagged-uncalibrated) below. Read that
 section before you report any function, determinant, island, operon or variant result.
 
-This page explains what each label means in GIAP, and what a detection does and does not tell
+This page explains what each label means in GIPPA, and what a detection does and does not tell
 you. The statistical methods behind each estimate are documented one note per method under
 [Methods](../methods/index.md).
 
 ## q-values, FDR, FWER and `unestimated`
 
 **FDR.** The false discovery rate is the expected share of false claims among the claims accepted
-at a threshold. GIAP estimates it in two ways:
+at a threshold. GIPPA estimates it in two ways:
 
 - from decoys, which are matched false hypotheses:
   - reversed or shuffled genome translations, for placement;
@@ -36,13 +36,13 @@ families. If you scan several tables, expect roughly α × (number of discoverie
 each family ([multiple testing](../methods/multiple-testing.md)).
 
 **FWER.** The family-wise error rate is the probability of at least one false claim in the whole
-family. GIAP uses FWER for abundance islands. One family covers the whole run: each window is
+family. GIPPA uses FWER for abundance islands. One family covers the whole run: each window is
 compared with the maximum statistic over the windows of **every** scanned replicon. The null comes
 from a circular TU-block bootstrap of the detrended TU scores. The FWER claim is conditional on
 a dependence regime (see [islands](#islands-the-fwer-holds-in-a-stated-regime) below). It is not
 an unconditional guarantee.
 
-**`unestimated`.** GIAP labels a claim `unestimated` when the input cannot support an error
+**`unestimated`.** GIPPA labels a claim `unestimated` when the input cannot support an error
 estimate, for example:
 
 - gene detection from peptide sequences alone;
@@ -167,7 +167,7 @@ p_detect adjustment.
 
 ## Detection tiers
 
-How GIAP decides that a gene is detected depends on what the input contains. The tier is chosen
+How GIPPA decides that a gene is detected depends on what the input contains. The tier is chosen
 once per run and recorded in the manifest and in `genes.tsv` (`detection_tier`). It is the first
 of the four below that the input allows:
 
@@ -193,7 +193,7 @@ To get the strongest tier, keep the search engine's decoy rows (see
 
 ## Absence of detection is not absence of expression
 
-GIAP says "detected", never "expressed". A gene can go undetected for reasons unrelated to
+GIPPA says "detected", never "expressed". A gene can go undetected for reasons unrelated to
 whether it is made. The protein may be:
 
 - short, with few observable peptides;
@@ -201,7 +201,7 @@ whether it is made. The protein may be:
 - below the instrument's detection limit;
 - absent from the search database.
 
-To account for this, GIAP fits a detectability model. It predicts each gene's probability of
+To account for this, GIPPA fits a detectability model. It predicts each gene's probability of
 detection (`p_detect`) from protein covariates, with cross-fitting. Region O − E tests and ORA
 compare observed detections with the sum of `p_detect`, never with raw counts. A region "detected
 less than expected" is detected less than its proteins' detectability predicts. That is a
@@ -225,13 +225,13 @@ detected" is only an extreme case of this, where the detection-dependent tests a
 Two error rates apply to a peptide, and they answer different questions.
 
 - **The search engine's FDR** (the input `q_value`, `pep`) asks: is this spectrum matched to the
-  right peptide sequence? GIAP inherits it and does not re-estimate it. Engine precursor q-values
-  may themselves under-control FDR, and they do not control gene-level error (GIAP_SPEC.md §8.7).
-  This is why gene detection uses the gene-level tiers. GIAP's pilot validation measures the
+  right peptide sequence? GIPPA inherits it and does not re-estimate it. Engine precursor q-values
+  may themselves under-control FDR, and they do not control gene-level error (GIPPA_SPEC.md §8.7).
+  This is why gene detection uses the gene-level tiers. GIPPA's pilot validation measures the
   realised false discovery proportion by entrapment.
-- **GIAP's placement FDR** (`placement_q` in `peptide_hits.tsv`) asks: given the peptide
+- **GIPPA's placement FDR** (`placement_q` in `peptide_hits.tsv`) asks: given the peptide
   sequence, is it placed on the right locus of this genome? A short peptide can match a genome
-  window by chance, and more so when mismatches are allowed. GIAP estimates this rate by
+  window by chance, and more so when mismatches are allowed. GIPPA estimates this rate by
   searching the same peptides against decoy translations of the genome (reversed frames, or
   shuffled frames for de novo input). There is one list per decoy type and per stratum of 0, 1 or
   2 differences, with length classes pooled.
@@ -322,7 +322,7 @@ BED12 blocks.
 - `multi`, `multi_identical`: the peptide has accepted loci in more than one locus class, or in
   identical gene copies. `uniqueness` (`unique`, `multi_identical`, `shared`) says whether the
   peptide supports one gene.
-- `engine_protein_mismatch`: with same-strain input, the gene GIAP chose is not among the
+- `engine_protein_mismatch`: with same-strain input, the gene GIPPA chose is not among the
   engine's protein IDs.
 - `nterm_extension_evidence`: the peptide lies upstream of the annotated start, in frame.
 
@@ -362,6 +362,6 @@ module or missing layer are skipped with a reason (`module_off:<module>`,
 
 ## Wording
 
-GIAP's own text follows one rule: "detected", never "expressed". The report, the plot titles and
+GIPPA's own text follows one rule: "detected", never "expressed". The report, the plot titles and
 the column names all use it. Every number in the report that comes from a statistic carries its
 error estimate or `unestimated`. Please keep the same wording when you write about your results.

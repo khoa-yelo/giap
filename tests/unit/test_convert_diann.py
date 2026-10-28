@@ -1,4 +1,4 @@
-"""DIA-NN 2.x converter (issue M1-07; GIAP_SPEC.md §5.4; ADR-0005 item 2).
+"""DIA-NN 2.x converter (issue M1-07; GIPPA_SPEC.md §5.4; ADR-0005 item 2).
 
 Fixtures are literal report rows using the DIA-NN 2.x column names, written to ``tmp_path`` as
 ``report.tsv`` and (from the same frame, with pyarrow) ``report.parquet``.
@@ -13,12 +13,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import InputConfig
-from giap.io.converters import CONVERTERS
-from giap.io.converters.base import ConvertResult
-from giap.io.converters.diann import convert_diann
-from giap.io.issues import Issue
-from giap.io.peptides import PEPTIDE_COLUMNS
+from gippa.config.model import InputConfig
+from gippa.io.converters import CONVERTERS
+from gippa.io.converters.base import ConvertResult
+from gippa.io.converters.diann import convert_diann
+from gippa.io.issues import Issue
+from gippa.io.peptides import PEPTIDE_COLUMNS
 
 # Example 5 of the spec.
 ROW5: dict[str, object] = {

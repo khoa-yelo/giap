@@ -16,7 +16,7 @@ M6-04 · estimate ≈ 200 code lines (+ ≈ 280 test lines) · **statistical** (
 
 ## Public interface
 
-`src/giap/operons/missed.py` (pure)
+`src/gippa/operons/missed.py` (pure)
 ```python
 MIN_NO_PAIRS: int = 20
 
@@ -27,7 +27,7 @@ class MissedOperons:
     n_decoys: dict[str, int]
     bin_counts: pd.DataFrame    # per bin: N_NO, N_cv, N_sw (for the methods note and the report)
 
-def missed_operons(pairs: pd.DataFrame, cfg: GiapConfig) -> MissedOperons: ...
+def missed_operons(pairs: pd.DataFrame, cfg: GippaConfig) -> MissedOperons: ...
 ```
 
 1. **Targets.** NO pairs with both genes eligible (§7.3) and detected, both `abundance_log2`

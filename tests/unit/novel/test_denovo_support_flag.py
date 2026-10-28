@@ -1,5 +1,5 @@
 """The ``denovo_only_unsupported`` flag (docs/specs/M7-17-denovo-support-flag.md; ADR-0050
-option 3; GIAP_SPEC.md §7.6.3, §9.4): the rule, ``db_supported`` and ``apply_evidence``.
+option 3; GIPPA_SPEC.md §7.6.3, §9.4): the rule, ``db_supported`` and ``apply_evidence``.
 
 Acceptance criterion 1 (unit), criterion 4 (schema) and the ``FLAG_ORDER`` / writer half of
 "The flag": examples 1-5, 7-11 and the decoy, contaminant, absent-peptide, I/L and ``auto``
@@ -47,12 +47,12 @@ from helpers.novel_outputs_fixture import C1, ex1_hits, ex1_seq, orfs_of, scored
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
-from giap.novel.candidates import NOVEL_CLASSES
+from gippa.config.model import GippaConfig
+from gippa.novel.candidates import NOVEL_CLASSES
 
 FLAG = "denovo_only_unsupported"
 RBS_CLASSES = frozenset({"intergenic", "nterm_extension"})
-SCHEMA = Path(__file__).resolve().parents[3] / "src/giap/schemas/tables/novel_orfs.schema.json"
+SCHEMA = Path(__file__).resolve().parents[3] / "src/gippa/schemas/tables/novel_orfs.schema.json"
 OLD_FLAGS = (
     "junction_spanned", "homopolymer_junction", "class_fdr_unestimated", "rbs_supported",
     "no_start_codon", "partial", "ostir_missing", "rbs_threshold_unestimated", "junction_unknown",
@@ -61,19 +61,19 @@ OLD_FLAGS = (
 
 
 def cc() -> Any:
-    import giap.novel.class_call as m
+    import gippa.novel.class_call as m
 
     return m
 
 
-def _sources(peptides: pd.DataFrame, config: GiapConfig | None = None) -> pd.Series:
-    from giap.steps.mapping import resolve_sources
+def _sources(peptides: pd.DataFrame, config: GippaConfig | None = None) -> pd.Series:
+    from gippa.steps.mapping import resolve_sources
 
     return resolve_sources(peptides, config or cfg())
 
 
 def _support(orfs: Sequence[Any], peptides: pd.DataFrame,
-             config: GiapConfig | None = None) -> dict[str, tuple[bool, bool]]:  # fmt: skip
+             config: GippaConfig | None = None) -> dict[str, tuple[bool, bool]]:  # fmt: skip
     out = cc().db_supported(orfs, peptides, _sources(peptides, config))
     return {k: (bool(a), bool(b)) for k, (a, b) in out.items()}
 
@@ -110,7 +110,7 @@ def test_rbs_support_exempts_outside_the_rbs_classes(cls: str) -> None:
 
 
 def test_flag_is_last_in_flag_order() -> None:
-    from giap.novel.outputs import FLAG_ORDER
+    from gippa.novel.outputs import FLAG_ORDER
 
     assert tuple(FLAG_ORDER) == (*OLD_FLAGS, FLAG)
 
@@ -156,7 +156,7 @@ def test_auto_source_with_a_q_value_resolves_to_database() -> None:
 def test_auto_source_follows_input_peptide_source() -> None:
     o = _orf("S", ["MKTAYK"], cls="sorf")
     peps = peptides_frame([pep_row("MKTAYK", ["x"], 1, is_decoy=False, source="auto")])
-    c = GiapConfig(seed=1, input={"peptide_source": "denovo"})
+    c = GippaConfig(seed=1, input={"peptide_source": "denovo"})
     assert _support([o], peps, c) == {"S": (True, False)}
 
 
@@ -305,7 +305,7 @@ def _same_but_flag(a: Mapping[str, Any], b: Mapping[str, Any]) -> None:
 
 
 def _ordered(row: Mapping[str, Any]) -> None:
-    from giap.novel.outputs import FLAG_ORDER
+    from gippa.novel.outputs import FLAG_ORDER
 
     f = flags_of(row)
     assert f == sorted(f, key=list(FLAG_ORDER).index), f
@@ -451,7 +451,7 @@ def test_schema_description_names_the_flag() -> None:
 def test_writer_output_carries_the_flag_and_validates(tmp_path: Path) -> None:
     from helpers import novel_steps_fixture as nf
 
-    from giap.io.novel_tables import read_novel_orfs, write_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs, write_novel_orfs
 
     case = ex1_case("cds_outframe")
     orfs = orfs_of(case)
@@ -466,7 +466,7 @@ def test_writer_output_carries_the_flag_and_validates(tmp_path: Path) -> None:
 
 def test_schema_rejects_a_misspelt_token(tmp_path: Path) -> None:
     frictionless = pytest.importorskip("frictionless")
-    from giap.io.novel_tables import write_novel_orfs
+    from gippa.io.novel_tables import write_novel_orfs
 
     case = ex1_case("cds_outframe")
     orfs = orfs_of(case)

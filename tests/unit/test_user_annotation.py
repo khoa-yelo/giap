@@ -1,7 +1,7 @@
 """``--annotation`` GFF3/GBFF: Bakta ``--regions`` input and ``annotation/id_map.tsv`` (M2-11).
 
 docs/specs/M2-11-user-annotation-id-map.md, examples 1-8, edge cases and the simulator round trip;
-GIAP_SPEC.md §5.3 ("Existing annotation"), §7.1.1 (Bakta ``--regions`` takes CDS only), §7.1.8
+GIPPA_SPEC.md §5.3 ("Existing annotation"), §7.1.1 (Bakta ``--regions`` takes CDS only), §7.1.8
 (``annotation/id_map.tsv``), §6.5 (0-based half-open internally, 1-based closed in writers,
 origin-crossing intervals stored unwrapped with ``end > length``).
 
@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from giap.annotate.user_annotation import (
+from gippa.annotate.user_annotation import (
     IdMapRow,
     UserCds,
     build_id_map,
@@ -39,8 +39,8 @@ from giap.annotate.user_annotation import (
     write_bakta_regions,
     write_id_map,
 )
-from giap.io.gff3 import read_gff3
-from giap.model import Gene, Interval, Replicon
+from gippa.io.gff3 import read_gff3
+from gippa.model import Gene, Interval, Replicon
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "user_annotation"
 
@@ -661,8 +661,8 @@ def test_read_user_cds_deterministic() -> None:
 
 # --------------------------------------------------------------- simulator round trip
 def _sim_round_trip(cfg: object, seed: int, tmp: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giapsim import simulate
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippasim import simulate
 
     sim = simulate(cfg, seed, tmp)  # type: ignore[arg-type]
     ann = parse_bakta_json(sim.bakta_json)
@@ -673,11 +673,11 @@ def _sim_round_trip(cfg: object, seed: int, tmp: Path) -> None:
     rows = build_id_map(cds, ann.model.genes, contig_order=list(reps))
     assert len(rows) == len(cds)
     assert all(r.match == "identical" for r in rows)
-    assert all(r.locus_tag == r.source_id for r in rows)  # giapsim: ID = locus_tag
+    assert all(r.locus_tag == r.source_id for r in rows)  # gippasim: ID = locus_tag
 
 
 def test_simulator_round_trip_all_identical(tmp_path: Path) -> None:
-    from giapsim import SimConfig
+    from gippasim import SimConfig
 
     cfg = SimConfig(
         genome_length=40_000,
@@ -692,6 +692,6 @@ def test_simulator_round_trip_all_identical(tmp_path: Path) -> None:
 
 
 def test_simulator_round_trip_sim100k(tmp_path: Path) -> None:
-    from giapsim import SIM100K, SIM100K_SEED
+    from gippasim import SIM100K, SIM100K_SEED
 
     _sim_round_trip(SIM100K, SIM100K_SEED, tmp_path)

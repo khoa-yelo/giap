@@ -1,6 +1,6 @@
 # Sensitivity analysis: stability of flagged sets under analysis choices
 
-Implements `giap.context.sensitivity` and `giap.steps.sensitivity` (GIAP_SPEC.md §8.6, §2.4 G9,
+Implements `gippa.context.sensitivity` and `gippa.steps.sensitivity` (GIPPA_SPEC.md §8.6, §2.4 G9,
 §7.3.2, §5.2; issue M4-19, docs/specs/M4-19-sensitivity-regions.md, lead decisions 1–18).
 
 ## Variants
@@ -41,7 +41,7 @@ These common random numbers matter only when shifts are sampled:
   region are drawn from the one family stream, in region order, and the HL bootstrap runs only when
   HL is finite. Once one region's data differ between primary and variant, every later region's
   draws differ, so the common random numbers hold only up to that region. Differences then include
-  Monte Carlo error. In the statistician's probe (giapsim fixture with sampled shifts; the variant
+  Monte Carlo error. In the statistician's probe (gippasim fixture with sampled shifts; the variant
   changed one region's abundances), the O − E p of unchanged regions moved by up to 0.075. A
   per-region shift stream in M4-17 `test_region` would remove this (backlog).
 
@@ -100,7 +100,7 @@ construction.
 GSEA is rerun under every variant (`missing=<p>`, `top3`, `single_peptide_detected`). It goes
 through R fgsea (`fgseaMultilevel`, ADR-0038) at `n_perm_simple = 199`, `sample_size = 101` and
 `eps = 0`, whatever `function.gsea` says. Each variant makes its own R calls, so the step needs the
-`giap-fgsea` env.
+`gippa-fgsea` env.
 
 The family is skipped, with the event `sensitivity.enriched_categories_skipped`, when `function` is
 not in `modules` or no function resource is given. It then writes no rows.
@@ -252,6 +252,6 @@ One row per (family, variant): `n_primary` = |P|, `n_variant` = |V|, `n_shared` 
 dominant determinant block (M8) and is `NA` for other families.
 
 Signed off by the statistician, 2026-10-20 (PR #117 reviews
-https://github.com/khoa-yelo/giap/pull/117#issuecomment-6304191087 and
-https://github.com/khoa-yelo/giap/pull/117#issuecomment-6304219014), conditional on the
+https://github.com/khoa-yelo/gippa/pull/117#issuecomment-6304191087 and
+https://github.com/khoa-yelo/gippa/pull/117#issuecomment-6304219014), conditional on the
 shared-stream limitation above sampled-shift sizes (backlog: per-region shift streams).

@@ -1,4 +1,4 @@
-// TransTermHP 2.09 cross-check (GIAP_SPEC.md §7.1.1; M2-15); genes.coords from transterm_input.
+// TransTermHP 2.09 cross-check (GIPPA_SPEC.md §7.1.1; M2-15); genes.coords from transterm_input.
 process TRANSTERMHP {
     tag "${meta_id}"
     label 'process_single'

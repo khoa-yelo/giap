@@ -22,13 +22,13 @@ OFF_WORDS = "the function module is off"
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 def _skipped(out: Path, c: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     """The ``skipped`` mapping ``rerender_report`` hands to ``build_report``."""
-    import giap.report.build as B
-    from giap.steps.plots import rerender_report
+    import gippa.report.build as B
+    from gippa.steps.plots import rerender_report
 
     seen: list[dict[str, str]] = []
     real = B.build_report

@@ -3,7 +3,7 @@ the code review (B1, S1-S3) and the statistician review (the ``missing:<table>``
 the lead decisions of this round.
 
 Everything is synthetic (``helpers.pilot_metrics_m10``, ``helpers.a3_metrics_m10_10b``);
-nothing comes from ``$GIAP_ROOT``.
+nothing comes from ``$GIPPA_ROOT``.
 
 Readings fixed here (test-author choices, reversible):
 
@@ -11,7 +11,7 @@ Readings fixed here (test-author choices, reversible):
   plain ``ctx.log.info`` of the placement step, so it reaches only that task's
   ``OUT/work/<hash>/.command.log``. ``metrics.py`` finds the task through ``OUT/logs/trace.tsv``
   (the last ``COMPLETED`` row whose step is ``placement``) and
-  ``giap.runner.nextflow._task_dir`` (the ``workdir`` column, else the abbreviated ``hash``
+  ``gippa.runner.nextflow._task_dir`` (the ``workdir`` column, else the abbreviated ``hash``
   under ``OUT/work``). No trace, no task directory or no line: the warning
   ``denovo_count_unchecked`` (M10-14 cleans ``work/``). A differing M: ``Inconsistent``, exit 1.
 * **B1, what M is compared with (like with like).** S6 says "check |S|" on the premise "with
@@ -101,7 +101,7 @@ def _h4(
 def _tied_bins(groups: list[tuple[float, int]]) -> tuple[list[str], list[float], list[int]]:
     """Peptides in groups of tied scores, so ``score_bins`` gives one bin per group with the
     group's size (unequal n per bin); returns peptides, scores and each group's bin label."""
-    from giap.mapping.denovo_precision import score_bins
+    from gippa.mapping.denovo_precision import score_bins
 
     n = sum(k for _, k in groups)
     peps = synthetic_peptides(n)
@@ -147,7 +147,7 @@ def test_s2_unscored_queries_still_count_in_the_log_check(M: Any, tmp_path: Path
 
 
 def _read_peptides(path: Path) -> pd.DataFrame:
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     return read_peptide_table(path)[0]
 
@@ -155,7 +155,7 @@ def _read_peptides(path: Path) -> pd.DataFrame:
 def test_s1_contaminant_rows_drops_decoys_and_q(M: Any, tmp_path: Path) -> None:
     """Accepted target rows only: a decoy contaminant row and a q > 0.01 contaminant row are not
     counted (mutant: the ``is_decoy`` filter dropped)."""
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
     rows = [
         pep_row("GADEFGHNK", "P1"),
@@ -166,7 +166,7 @@ def test_s1_contaminant_rows_drops_decoys_and_q(M: Any, tmp_path: Path) -> None:
         pep_row("WWWGGGWNK", "Cont_P96", q=0.05),
     ]
     P = _read_peptides(write_peptides(tmp_path / "a2.tsv.gz", rows))
-    out = M.contaminant_rows(P, GiapConfig())
+    out = M.contaminant_rows(P, GippaConfig())
     assert (out["k"], out["n"]) == (1, 3)
 
 
@@ -289,14 +289,14 @@ def _patch_json(path: Path, fn: Any) -> None:
     path.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
-def test_s1_giap_commit_differs_warns_for_a3(pilot: Pilot, world: World, tmp_path: Path) -> None:
+def test_s1_gippa_commit_differs_warns_for_a3(pilot: Pilot, world: World, tmp_path: Path) -> None:
     a3 = build_a3(pilot, world)
     other = "fedcba9876543210fedcba9876543210fedcba98"
     _patch_json(a3.out_a3 / "run_manifest.json", lambda d: d.__setitem__("git_commit", other))
     out = tmp_path / "metrics"
     _ok(_compute(pilot, out, *a3.args()))
     ws = [w for w in _metrics(out)["warnings"] if isinstance(w, dict)]
-    hit = [w for w in ws if w.get("code") == "giap_commit_differs" and "A3" in w]
+    hit = [w for w in ws if w.get("code") == "gippa_commit_differs" and "A3" in w]
     assert hit and hit[0]["A3"] == other, ws
 
 
@@ -325,14 +325,14 @@ def test_s1_strain_db_without_a3_is_a_precondition(
 
 # ================================================================== B1: the placement count
 
-PLACEMENT_TASK = "GIAP:MAPPING:PLACEMENT (placement)"
+PLACEMENT_TASK = "GIPPA:MAPPING:PLACEMENT (placement)"
 PLACEMENT_HASH = "3f/9a1b2c"
 PLACEMENT_DIR = "3f/9a1b2c4d5e6f708192a3b4c5d6e7f80"
 
 
 def placement_line(n: int, m: int) -> str:
     return (
-        "2026-10-24 12:00:00,000 INFO giap.steps.mapping: "
+        "2026-10-24 12:00:00,000 INFO gippa.steps.mapping: "
         f"placement: {n + 1000} queries ({m} de novo), 900 with a target hit, 850 accepted\n"
     )
 
@@ -352,7 +352,7 @@ def write_task_logs(
     exact_dir.mkdir(parents=True)
     (exact_dir / ".command.log").write_text("map_exact: 30 queries, 12 hits\n", encoding="utf-8")
     rows.append(
-        trace_row("GIAP:MAPPING:MAP_EXACT (map_exact)", hash="1a/2b3c4d", workdir=str(exact_dir))
+        trace_row("GIPPA:MAPPING:MAP_EXACT (map_exact)", hash="1a/2b3c4d", workdir=str(exact_dir))
     )
     if failed_m is not None:
         fdir = work / "77" / "aa00bb11cc"

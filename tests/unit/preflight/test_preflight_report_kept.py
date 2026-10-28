@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from giap.config import resolve_config
-from giap.preflight.environment import GIB, EnvProbe, requirements
-from giap.preflight.run import PreflightInputs, run_preflight, write_outputs
+from gippa.config import resolve_config
+from gippa.preflight.environment import GIB, EnvProbe, requirements
+from gippa.preflight.run import PreflightInputs, run_preflight, write_outputs
 
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
@@ -21,7 +21,7 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    for name, sub in (("GIAP_DB_DIR", "db"), ("GIAP_REPO", "repo"), ("GIAP_ROOT", "repo")):
+    for name, sub in (("GIPPA_DB_DIR", "db"), ("GIPPA_REPO", "repo"), ("GIPPA_ROOT", "repo")):
         (tmp_path / sub).mkdir(exist_ok=True)
         monkeypatch.setenv(name, str(tmp_path / sub))
 

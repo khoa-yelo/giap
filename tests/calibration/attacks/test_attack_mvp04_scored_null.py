@@ -1,25 +1,25 @@
-"""Attack nulls for the MVP-04 scored null decoys under the picked gene FDR (GIAP_SPEC.md §7.3.2,
+"""Attack nulls for the MVP-04 scored null decoys under the picked gene FDR (GIPPA_SPEC.md §7.3.2,
 §8.1 row "Gene detected", §8.4 "FDR", §8.5; docs/specs/MVP-04-ecoli-evidence-run.md pipeline
 step 6, lead decision 9, acceptance 5-7; statistician review of PR #247).
 
 The MVP-04 calibration file checks the ingredients of the null (the 1/2 coin per row, the
 uniform locus draw, the fair picked label). These attacks check the claim the evidence run rests
-on: that GIAP's picked gene FDR, run on ``scored_null`` output, controls the gene FDP, and that
+on: that GIPPA's picked gene FDR, run on ``scored_null`` output, controls the gene FDP, and that
 gate 7 (realised gene FDP <= 0.02) could fail at all.
 
-The gene competition mirrors ``giap.genetable.detection`` with an oracle that does not run the
+The gene competition mirrors ``gippa.genetable.detection`` with an oracle that does not run the
 mapping: target evidence of an eligible gene = target rows at q <= ``input.q_value_max`` of
 correct peptides unique to it in the truth, plus protein-entry null target rows whose peptide
 (I = L) lies in the gene's sample protein; a null peptide found in several loci gives evidence to
-all of them only when their proteins are identical (GIAP accepts ``multi_identical``, not
+all of them only when their proteins are identical (GIPPA accepts ``multi_identical``, not
 ``shared``). Decoy evidence = its ``rev_<gene>`` rows at q <= ``input.q_value_max``. Six-frame
-nulls on a ``GIAPORF_nterm_extension_*`` entry also reach a gene: their target rows place in
+nulls on a ``GIPPAORF_nterm_extension_*`` entry also reach a gene: their target rows place in
 the gene's ``nterm_extension`` locus class, which assigns (``contract.ASSIGNING_CLASSES``), and
-their ``rev_GIAPORF_*`` decoys pair with that gene only when the entry was voted to it, i.e.
+their ``rev_GIPPAORF_*`` decoys pair with that gene only when the entry was voted to it, i.e.
 when the peptide has a target row at q <= ``input.q_value_max`` (``protein_gene_map`` step 3,
 M7-12 decision 28). The oracle models both. Rows are ranked by the M4-24 shared key (q asc,
 PEP asc, score desc; S = {q, pep, score} for scored nulls) and the best ranks go to
-``giap.stats.tda.picked_fdr`` (ties to the decoy).
+``gippa.stats.tda.picked_fdr`` (ties to the decoy).
 
 - **Dense null, FDR** (fast R = 50, full R = 300; ``calibrate``, ADR-0015): the 200-kb excerpt at
   pi_wrong = 0.05 with the fixed 50/50 split (lead decision 10), so about 47 protein-entry nulls
@@ -49,8 +49,8 @@ import pytest
 from helpers import mvp04_data as M
 from helpers import mvp04_decoys as D
 
-from giap.stats.tda import picked_fdr
-from giapsim.expression import IslandSpec
+from gippa.stats.tda import picked_fdr
+from gippasim.expression import IslandSpec
 
 pytestmark = pytest.mark.calsuite("gene_fdr")
 
@@ -101,7 +101,7 @@ def _fdp(genes: list[str], t: np.ndarray, d: np.ndarray, true: set[str], q: floa
 
 
 def _dense_cfg() -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
@@ -126,7 +126,7 @@ class Dense:
         seed = int(rng.bit_generator.seed_seq.entropy) % 2**31  # type: ignore[attr-defined]
         if seed not in self.memo:
             out = self.tmp.mktemp(f"mvp04att{seed}")
-            importlib.import_module("giapsim.real_genome").simulate_on_genome(
+            importlib.import_module("gippasim.real_genome").simulate_on_genome(
                 _dense_cfg(), seed, out, genome_fasta=self.ex.fasta,
                 bakta_json=self.ex.bakta_json, tu_set=None, check_hashes=False,
             )  # fmt: skip
@@ -193,10 +193,10 @@ def test_teeth_null_blind_engine_fails(dense: Dense, teeth_log: Path) -> None:
 @pytest.fixture(scope="module")
 def k12(tmp_path_factory: pytest.TempPathFactory) -> tuple[list[str], np.ndarray, np.ndarray,
                                                             set[str]]:  # fmt: skip
-    sc = importlib.import_module("giapsim.scenarios")
+    sc = importlib.import_module("gippasim.scenarios")
     out = tmp_path_factory.mktemp("mvp04_k12_attack")
     tu = M.TUSET if M.TUSET.is_file() else None
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         sc.k12_evidence(), sc.K12_EVIDENCE_SEED, out, genome_fasta=M.K12_FASTA,
         bakta_json=M.K12_JSON, tu_set=tu,
     )  # fmt: skip

@@ -5,7 +5,7 @@ Unimod launcher, ``a3_assets.tsv``, ``fetch_a3_assets.sbatch``, ``mzml_pilot.sba
 ``mzml-check`` subcommand of ``validation/pilot/a3_feasibility.py``).
 
 Nothing here reaches the network, a GPU, real raw data, real Cascadia, TIMSCONVERT or
-ProteoWizard, or the real ``$GIAP_ROOT``:
+ProteoWizard, or the real ``$GIPPA_ROOT``:
 
 * :func:`write_mzml` writes a small, hand-made mzML 1.1 file (optionally wrapped in
   ``indexedmzML``). Binary arrays are deliberately **not** valid base64 (``mzml-check`` must never
@@ -31,11 +31,11 @@ Conventions settled by the test author (the spec leaves them open; see the repor
   like the other ``validation/pilot`` scripts (used by the Hypothesis properties in-process).
 * ``mzml_pilot.sbatch`` reads the B1 image path from ``PWIZ_SIF``.
 * ``fetch_a3_assets.sbatch`` reads the expected sha256 values from
-  ``validation/pilot/a3_assets.tsv`` in ``$GIAP_REPO`` and finds psims' vendored
-  ``unimod_tables.xml.gz`` inside the built ``giap-cascadia`` env
-  (``$MAMBA_ROOT_PREFIX/envs/giap-cascadia``); the sandbox env is a real ``venv`` (no pip)
+  ``validation/pilot/a3_assets.tsv`` in ``$GIPPA_REPO`` and finds psims' vendored
+  ``unimod_tables.xml.gz`` inside the built ``gippa-cascadia`` env
+  (``$MAMBA_ROOT_PREFIX/envs/gippa-cascadia``); the sandbox env is a real ``venv`` (no pip)
   holding a stub ``psims`` package, so both ``find``-based and
-  ``micromamba run -n giap-cascadia python -c 'import psims …'`` lookups work.
+  ``micromamba run -n gippa-cascadia python -c 'import psims …'`` lookups work.
 """
 
 from __future__ import annotations
@@ -223,7 +223,7 @@ def write_mzml(
         + _cv("MS:1000579", "MS1 spectrum")
         + _cv("MS:1000580", "MSn spectrum")
         + "</fileContent></fileDescription>"
-        '<softwareList count="1"><software id="giap_test" version="0"/></softwareList>'
+        '<softwareList count="1"><software id="gippa_test" version="0"/></softwareList>'
         '<instrumentConfigurationList count="1"><instrumentConfiguration id="IC1"/>'
         "</instrumentConfigurationList>"
         '<dataProcessingList count="1"><dataProcessing id="dp"/></dataProcessingList>'
@@ -696,9 +696,9 @@ class A3Sandbox:
         """Run ``scripts/slurm/<script>.sbatch`` with bash in the sandbox (never through Slurm)."""
         path = self.sb.repo / "scripts" / "slurm" / f"{script}.sbatch"
         assert path.is_file(), f"scripts/slurm/{script}.sbatch does not exist yet (M10-08a)"
-        from helpers.slurm_sandbox import assert_honours_giap_repo
+        from helpers.slurm_sandbox import assert_honours_gippa_repo
 
-        assert_honours_giap_repo(path.read_text(), path.name)
+        assert_honours_gippa_repo(path.read_text(), path.name)
         return self.sb.run(["bash", str(path), *args], env={**self.extra_env, **env},
                            cwd=self.sb.tmp, unset=unset)  # fmt: skip
 
@@ -731,7 +731,7 @@ class A3Sandbox:
         return path
 
     def stub_cascadia_env(self) -> Path:
-        return make_stub_venv(self.mamba / "envs" / "giap-cascadia")
+        return make_stub_venv(self.mamba / "envs" / "gippa-cascadia")
 
 
 def a3_sandbox(tmp: Path, template: Path) -> A3Sandbox:
@@ -747,7 +747,7 @@ def a3_sandbox(tmp: Path, template: Path) -> A3Sandbox:
                        env=sb.env)  # fmt: skip
     src = sb.repo / "src"
     if not src.exists():
-        src.symlink_to(REPO / "src")  # mzml-check imports giap; untracked, ignored below
+        src.symlink_to(REPO / "src")  # mzml-check imports gippa; untracked, ignored below
         with (sb.repo / ".git" / "info" / "exclude").open("a") as fh:
             fh.write("/src\n")
     py = sys.executable

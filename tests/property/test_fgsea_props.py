@@ -1,4 +1,4 @@
-"""Hypothesis properties of the fgsea port I (issue M8-02; GIAP_SPEC.md §7.7.4, §8.3).
+"""Hypothesis properties of the fgsea port I (issue M8-02; GIPPA_SPEC.md §7.7.4, §8.3).
 
 - ES in [-1, 1]; the leading edge is a non-empty subset of the set iff ES != 0;
 - negating every stat negates the ES and keeps the leading-edge genes in the same order (top of
@@ -7,7 +7,7 @@
   those, and it need not round the mirrored walk the same way;
 - the batch random ES of each prefix size k equals ``gsea_es`` on the first k drawn ranks.
 
-The batch kernel is pinned as ``giap.stats._fgsea_kernels.random_es_prefixes(stats, sample)``:
+The batch kernel is pinned as ``gippa.stats._fgsea_kernels.random_es_prefixes(stats, sample)``:
 ``stats`` the prepared float64 |stats| (length N), ``sample`` int64 1-based ranks in draw order
 (length K < N, distinct); returns float64[K] with element k - 1 the ES of ``sort(sample[:k])``
 (fgsea 1.36.2 ``calcGseaStatCumulative``, scoreType std, ties to 0). 1.36.2 gives zero stats a
@@ -22,8 +22,8 @@ from helpers.fgsea_oracle import is_exact_tie
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.stats._fgsea_kernels import random_es_prefixes
-from giap.stats.fgsea import gsea_es, prepare
+from gippa.stats._fgsea_kernels import random_es_prefixes
+from gippa.stats.fgsea import gsea_es, prepare
 
 FAST = settings(max_examples=200, deadline=None)
 TOL = 1e-12

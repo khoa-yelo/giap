@@ -1,4 +1,4 @@
-"""Gate M4 evidence (GIAP_SPEC.md §13 row M4: "circular-shift tests calibrated; gene-level FDR
+"""Gate M4 evidence (GIPPA_SPEC.md §13 row M4: "circular-shift tests calibrated; gene-level FDR
 calibrated (picked, MAYU)"; M4-20 acceptance "Gate evidence collected in PROGRESS.md").
 
 M4-20 makes no new statistical claim (its methods note is "None new"): the gate is the ledger of
@@ -18,7 +18,7 @@ calibration records the two M4 suites must have produced at the nightly full rep
 
 ``test_gate_ledger_matches_the_calibration_suites`` keeps that ledger from drifting away from the
 stream names the suites actually build (it needs no logs and runs on every commit). The evidence
-check reads the JSON-lines logs of a nightly full run -- ``$GIAP_CALIBRATION_LOG_DIR`` or
+check reads the JSON-lines logs of a nightly full run -- ``$GIPPA_CALIBRATION_LOG_DIR`` or
 ``local/logs/calibration`` -- and fails when a required record is missing, was run at fewer than
 ``replicates_full`` replicates, or is a confirmed failure.
 
@@ -26,7 +26,7 @@ check reads the JSON-lines logs of a nightly full run -- ``$GIAP_CALIBRATION_LOG
 directory exists" is not evidence of a nightly run: without the guard the check failed in every
 full fast-suite run, CI included, demanding full-R records a fast run never writes. The evidence
 check therefore skips unless the suite's log holds at least one record at ``replicates_full`` --
-i.e. unless a nightly full run really happened -- or ``GIAP_M4_GATE=1`` is set, which makes a
+i.e. unless a nightly full run really happened -- or ``GIPPA_M4_GATE=1`` is set, which makes a
 missing nightly a failure (that is how the gate is collected on purpose). The gate itself stays
 the nightly full run (decision 6).
 """
@@ -97,7 +97,9 @@ def _tolerances() -> dict[str, Any]:
 
 
 def log_dir() -> Path:
-    return Path(os.environ.get("GIAP_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration"))
+    return Path(
+        os.environ.get("GIPPA_CALIBRATION_LOG_DIR", REPO / "local" / "logs" / "calibration")
+    )
 
 
 def _records(suite: str) -> list[dict[str, Any]]:
@@ -152,8 +154,8 @@ def required_replicates(suite: str) -> int:
 
 
 def demanded() -> bool:
-    """``GIAP_M4_GATE=1``: a missing nightly is a failure, not a skip (gate collection)."""
-    return os.environ.get("GIAP_M4_GATE") == "1"
+    """``GIPPA_M4_GATE=1``: a missing nightly is a failure, not a skip (gate collection)."""
+    return os.environ.get("GIPPA_M4_GATE") == "1"
 
 
 def has_full_run(records: Iterable[dict[str, Any]], full: int) -> bool:
@@ -177,8 +179,8 @@ def test_m4_gate_evidence_is_recorded(
     if not demanded() and not has_full_run(records, full):
         pytest.skip(
             f"no nightly full record (R >= {full}) for suite {suite} in {log_dir()}:"
-            " run scripts/slurm/calibration_full.sbatch, point GIAP_CALIBRATION_LOG_DIR at its"
-            " logs, or set GIAP_M4_GATE=1 to make the missing nightly a failure"
+            " run scripts/slurm/calibration_full.sbatch, point GIPPA_CALIBRATION_LOG_DIR at its"
+            " logs, or set GIPPA_M4_GATE=1 to make the missing nightly a failure"
         )
     by_key: dict[tuple[str, str, float], list[dict[str, Any]]] = {}
     for rec in records:
@@ -210,7 +212,7 @@ def test_the_guard_does_not_accept_fast_suite_records(suite: str) -> None:
 
 
 def test_the_gate_can_be_demanded_with_an_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GIAP_M4_GATE", raising=False)
+    monkeypatch.delenv("GIPPA_M4_GATE", raising=False)
     assert not demanded()
-    monkeypatch.setenv("GIAP_M4_GATE", "1")
+    monkeypatch.setenv("GIPPA_M4_GATE", "1")
     assert demanded()

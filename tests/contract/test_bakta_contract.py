@@ -1,4 +1,4 @@
-"""Contract test: Bakta 1.12.2 JSON parser on recorded runs (M2-03; GIAP_SPEC.md §5.4, §7.1.1).
+"""Contract test: Bakta 1.12.2 JSON parser on recorded runs (M2-03; GIPPA_SPEC.md §5.4, §7.1.1).
 
 Active since M2-10 (no longer ``pending_sample``): the four directories
 ``tests/data/recorded/bakta/1.12.2-light/sim100k/`` and ``1.12.2-full/{k12,nissle,sim100k}/`` must
@@ -50,7 +50,7 @@ def _fasta(path: Path) -> dict[str, str]:
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[str(p.relative_to(RECORDED)) for p in SAMPLES])
 def test_recorded_bakta_json_parses(sample: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta import parse_bakta_json
 
     js = _one(sample, "*.json", "*.json.gz")
     gff = _one(sample, "*.gff3", "*.gff3.gz")

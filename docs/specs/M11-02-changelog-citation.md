@@ -18,11 +18,11 @@ roles: docs (`changelog.d/*.md`, `CITATION.cff`), implementer (`[tool.towncrier]
 `towncrier build --draft --version 1.0.0 --date 2026-11-01` on main renders today:
 
 ```markdown
-# giap 1.0.0 (2026-11-01)
+# gippa 1.0.0 (2026-11-01)
 
 ## Features
 
-- `validation/fetch_regulondb.py` downloads … truth sets of GIAP_SPEC.md §15.4. (m6-11-regulondb)
+- `validation/fetch_regulondb.py` downloads … truth sets of GIPPA_SPEC.md §15.4. (m6-11-regulondb)
 - Project scaffold: FarmShare environment … the simulator skeleton. (m0-scaffold)
 ```
 
@@ -31,11 +31,11 @@ Three problems: 2 fragments for 317 PRs; the fragment *name* is printed as an is
 
 ## Definition
 
-1. **Rendering rules** (`[tool.towncrier]`): `name = "GIAP"`, `title_format = "## GIAP {version} ({project_date})"`
+1. **Rendering rules** (`[tool.towncrier]`): `name = "GIPPA"`, `title_format = "## GIPPA {version} ({project_date})"`
    (one level below the file's `# Changelog`). Milestone
    fragments are named `+<slug>.<type>.md` (towncrier orphan prefix) so no reference is printed;
-   PR fragments named `<PR number>.<type>.md` render `([#N](https://github.com/khoa-yelo/giap/pull/N))`
-   via `issue_format = "[#{issue}](https://github.com/khoa-yelo/giap/pull/{issue})"`. Types, in
+   PR fragments named `<PR number>.<type>.md` render `([#N](https://github.com/khoa-yelo/gippa/pull/N))`
+   via `issue_format = "[#{issue}](https://github.com/khoa-yelo/gippa/pull/{issue})"`. Types, in
    order: `feature` "Features", `bugfix` "Fixes", `doc` "Documentation", `removal` "Removals and
    breaking changes", `misc` "Other" (shown with content). The two existing fragments are renamed
    to `+m00-scaffold.feature.md` and `+m06-regulondb.feature.md`.
@@ -49,13 +49,13 @@ Three problems: 2 fragments for 317 PRs; the fragment *name* is printed as an is
    alphabetical order is the milestone order.
 3. **`CITATION.cff`** (cff-version 1.2.0): `type: software`; `title`; `abstract` (≤ 120 words, the
    README's first paragraph); `authors` (Q-K7 default: Khoa Hoang only, `given-names`/`family-names`,
-   no email); `license: MIT`; `repository-code: https://github.com/khoa-yelo/giap`; `url` (the docs
+   no email); `license: MIT`; `repository-code: https://github.com/khoa-yelo/gippa`; `url` (the docs
    site, Q-K9; omitted until Pages exists); `keywords` (proteogenomics, bacteria, genome context,
-   operons, target-decoy, Nextflow); `version` = `giap.__version__`; `date-released` present only
+   operons, target-decoy, Nextflow); `version` = `gippa.__version__`; `date-released` present only
    from the release-prep PR on (M11-13); `identifiers` (the Zenodo concept DOI) added after the first
    release (M11-13 post-release PR).
-4. **Agreement test.** `CITATION.cff › version` equals `giap.__version__`; if `date-released` is
-   present it is a valid ISO date and `CHANGELOG.md` has a `## GIAP <version> (<that date>)`
+4. **Agreement test.** `CITATION.cff › version` equals `gippa.__version__`; if `date-released` is
+   present it is a valid ISO date and `CHANGELOG.md` has a `## GIPPA <version> (<that date>)`
    heading.
 5. **Schema check.** The CFF 1.2.0 JSON Schema (`schema.json` from
    `github.com/citation-file-format/citation-file-format`, tag `1.2.0`, CC-BY-4.0) is committed under
@@ -66,11 +66,11 @@ Three problems: 2 fragments for 317 PRs; the fragment *name* is printed as an is
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `towncrier build --draft --version 1.0.0 --date 2026-11-01` after this issue | starts `## GIAP 1.0.0 (2026-11-01)`, then a Features heading one level below it (the test pins the exact level towncrier renders for that title) with 12 bullets in M0 → M10 order (one per milestone plus the RegulonDB one, which sorts after M6's), no `(m0-scaffold)` suffix; then an Other section with the known-limitations bullet |
-| 2 | a later PR adds `331.bugfix.md` "Fix X." | the draft gains a Fixes section › `- Fix X. ([#331](https://github.com/khoa-yelo/giap/pull/331))` |
+| 1 | `towncrier build --draft --version 1.0.0 --date 2026-11-01` after this issue | starts `## GIPPA 1.0.0 (2026-11-01)`, then a Features heading one level below it (the test pins the exact level towncrier renders for that title) with 12 bullets in M0 → M10 order (one per milestone plus the RegulonDB one, which sorts after M6's), no `(m0-scaffold)` suffix; then an Other section with the known-limitations bullet |
+| 2 | a later PR adds `331.bugfix.md` "Fix X." | the draft gains a Fixes section › `- Fix X. ([#331](https://github.com/khoa-yelo/gippa/pull/331))` |
 | 3 | `CITATION.cff` with `version: 0.0.1`, `__version__ = "0.0.1"` | agreement test passes |
-| 4 | `__version__` bumped to `1.0.0`, CFF still `0.0.1` | agreement test fails: `CITATION.cff version 0.0.1 != giap 1.0.0` |
-| 5 | CFF with `date-released: 2026-11-01` but no `## GIAP 1.0.0 (2026-11-01)` in `CHANGELOG.md` | agreement test fails naming the missing heading |
+| 4 | `__version__` bumped to `1.0.0`, CFF still `0.0.1` | agreement test fails: `CITATION.cff version 0.0.1 != gippa 1.0.0` |
+| 5 | CFF with `date-released: 2026-11-01` but no `## GIPPA 1.0.0 (2026-11-01)` in `CHANGELOG.md` | agreement test fails naming the missing heading |
 | 6 | CFF with an `email:` key under an author | a test fails (R12) |
 
 ## Edge cases

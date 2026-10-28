@@ -18,7 +18,7 @@ Slurm
 
 ## Public interface
 
-`src/giap/stats/scan.py` (pure; numba allowed for the kernels, §6.6 deterministic order)
+`src/gippa/stats/scan.py` (pure; numba allowed for the kernels, §6.6 deterministic order)
 ```python
 @dataclass(frozen=True, slots=True)
 class ScanResult:
@@ -123,7 +123,7 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
 16. No numba: numpy prefix sums meet the budget (0.41 s against 2 s); §8.3's "numba" is a means, not a
     requirement. Revisit only if a benchmark regresses.
 17. `fwer_p` returns NaN for a NaN or ±inf |S| (element-wise `perm_p` semantics), including a NaN
-    `max_abs` from a replicon with no window. Fix the root cause in `giap.stats.permutation._tol` (it
+    `max_abs` from a replicon with no window. Fix the root cause in `gippa.stats.permutation._tol` (it
     raises on a non-finite argument), so `perm_p(inf, …)` is defined too: +inf "greater" gives the +1
     floor p = 1/(B + 1) unless the null contains +inf.
 18. Input checks: `fwer_p` and `merge_windows` reject non-1-D input; `merge_windows` validates `n ≥ 0`

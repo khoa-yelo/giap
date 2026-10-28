@@ -5,7 +5,7 @@ well-formed ``pass`` whose weights sha256 equals the ``cascadia_weights`` row of
 ``a3_assets.tsv``; 3 for a well-formed ``fail`` (M10-10 is skipped); 2 for a missing or malformed
 file or a weights mismatch. ``summarize`` is pure: the ``.ssl`` data-row counts, the converted
 table, the converter's issues and the acquisition run labels in; counts, issues and the failures
-of summary rules 1-4 out. The ``summary`` CLI adds paths, hashes, the giap version and the job and
+of summary rules 1-4 out. The ``summary`` CLI adds paths, hashes, the gippa version and the job and
 writes ``a3.convert.json`` (paths, hashes and counts only, no row). Exit 1 when a rule fails.
 
     python -I validation/pilot/cascadia_convert.py gate [--feasibility F] [--assets T]
@@ -33,10 +33,10 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 import pandas as pd  # noqa: E402
-from validation.pilot.diann_convert import _file, _final, _giap, _now, parse_log  # noqa: E402
+from validation.pilot.diann_convert import _file, _final, _gippa, _now, parse_log  # noqa: E402
 
-from giap.io.converters.cascadia import CASCADIA_DEFAULT_CUTOFF  # noqa: E402
-from giap.io.issues import Issue  # noqa: E402
+from gippa.io.converters.cascadia import CASCADIA_DEFAULT_CUTOFF  # noqa: E402
+from gippa.io.issues import Issue  # noqa: E402
 
 PILOT = _REPO / "validation" / "pilot"
 FEASIBILITY = PILOT / "metrics" / "a3_feasibility.json"
@@ -194,7 +194,7 @@ def acquisition_runs(path: Path) -> list[str]:
 
 
 def summary(a: argparse.Namespace) -> int:
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     ssl, ssl_failures = ssl_entries(a.ssl_sums)
     peptides, _ = read_peptide_table(a.peptides)
@@ -206,7 +206,7 @@ def summary(a: argparse.Namespace) -> int:
         acquisition_runs(a.acquisition),
     )
     out["failures"] = ssl_failures + out["failures"]
-    command = ["giap", "convert", "--from", "cascadia", *(e["path"] for e in ssl.values())]
+    command = ["gippa", "convert", "--from", "cascadia", *(e["path"] for e in ssl.values())]
     command += ["--out", str(_final(a.peptides)), "--source", "denovo"]
     doc = {
         "ssl": ssl,
@@ -214,12 +214,12 @@ def summary(a: argparse.Namespace) -> int:
             "peptides": _file(a.peptides, len(peptides)),
             "log": _file(a.log, len(log.splitlines())),
         },
-        "giap": _giap(),
+        "gippa": _gippa(),
         "command": command,
         "job": {
             "id": os.environ.get("SLURM_JOB_ID", ""),
             "node": os.environ.get("SLURMD_NODENAME") or socket.gethostname(),
-            "start": os.environ.get("GIAP_JOB_START", ""),
+            "start": os.environ.get("GIPPA_JOB_START", ""),
             "end": _now(),
         },
         **out,

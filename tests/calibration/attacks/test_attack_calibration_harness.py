@@ -1,4 +1,4 @@
-"""Attack on the calibration harness itself (GIAP_SPEC.md §8.4, §8.5; statistician-owned).
+"""Attack on the calibration harness itself (GIPPA_SPEC.md §8.4, §8.5; statistician-owned).
 
 A gate is only useful if it can fail. These tests run deliberately anti-conservative procedures
 through ``_criteria`` at the configured replicate counts and require the harness to flag them, while
@@ -21,7 +21,7 @@ the matching exactly-at-level procedure (the worst case for false alarms) passes
 - ADR-0015 (two-block confirmation) through ``calibrate``: exact-level p give a confirmed ``fail``
   at the rate f^2 over 200 streams, and BH at FDR = 1.5 q is still a confirmed ``fail``.
 
-BH is written out here (not imported from ``giap.stats``) so the attack tests the harness alone.
+BH is written out here (not imported from ``gippa.stats``) so the attack tests the harness alone.
 """
 
 from __future__ import annotations

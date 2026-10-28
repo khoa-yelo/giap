@@ -1,6 +1,6 @@
 """TE5 proxy (spec §11.6, M3-15): trypsin and keratin peptides land in the contaminant bucket.
 
-In silico: a giapsim genome stands in for the sample; its six-frame tryptic peptides are the
+In silico: a gippasim genome stands in for the sample; its six-frame tryptic peptides are the
 "simulated" genome peptides (placed and accepted). Fully tryptic digests (7-40 aa) of porcine
 trypsin and human keratins 1 and 10 from tests/data/contaminants_mini.faa are added to the table.
 Genome hits are decided by an independent oracle (tests/helpers/contaminant_oracle.py). Every
@@ -21,9 +21,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 from contaminant_oracle import hits_genome, il, six_frames, tryptic_digest
 
-from giap.io.protein_fasta import read_protein_fasta
-from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
-from giapsim.simulate import SimConfig, simulate
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+from gippasim.simulate import SimConfig, simulate
 
 MINI = Path(__file__).resolve().parents[1] / "data" / "contaminants_mini.faa"
 CONTAMINANT_SOURCES = ("P00761", "P04264", "P13645")  # trypsin, KRT1, KRT10
@@ -66,7 +66,7 @@ def setup(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
 
 def test_te5_contaminant_digests_land_in_bucket(setup: dict[str, Any]) -> None:
-    c = importlib.import_module("giap.mapping.contaminants")
+    c = importlib.import_module("gippa.mapping.contaminants")
     frames, library = setup["frames"], setup["library"]
     contam: list[str] = setup["contam"]
     assert len(contam) >= 20  # the digests are not trivially small

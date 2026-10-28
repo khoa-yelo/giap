@@ -1,6 +1,6 @@
 """M6-08 the ``operons`` step on the sim100k producer chain
 (docs/specs/M6-08-operons-step-and-run.md;
-examples 1, 3, 4 and 6 at step level, degenerate cases, lead decisions 3, 4 and 6; GIAP_SPEC.md
+examples 1, 3, 4 and 6 at step level, degenerate cases, lead decisions 3, 4 and 6; GIPPA_SPEC.md
 §6.2 step row, §6.5, §6.7, §9.3).
 
 Interface pinned here (test-author reading of the spec):
@@ -11,7 +11,7 @@ Interface pinned here (test-author reading of the spec):
   core, the kind is py, and no precomputed layer replaces the step.
 * The step chains M6-04 ``pair_frame``, M6-05 ``discordance`` (``p_miss=None`` in pass 1), M6-06
   ``missed_operons`` (always ``genes=``), and M6-07 ``merge_tests``, ``flag_pairs`` and
-  ``operons_table`` (lead decision 4). It writes the results with ``giap.io.operon_tables``.
+  ``operons_table`` (lead decision 4). It writes the results with ``gippa.io.operon_tables``.
   The oracle below calls exactly that chain on the step's inputs, so the step's tables must equal
   the oracle's byte for byte.
 * ``missing_layers`` names the absent optional layers the way ``context_layers`` does:
@@ -25,9 +25,9 @@ Interface pinned here (test-author reading of the spec):
   ``data`` holds ``pi0`` (``cfg.operons.pi0``) and ``bin_counts`` (``MissedOperons.bin_counts``
   as a list of per-bin records). ``data`` must be plain JSON.
 
-Inputs come from ``helpers.layers_chain.build_chain`` (the merged producers on giapsim SIM100K,
+Inputs come from ``helpers.layers_chain.build_chain`` (the merged producers on gippasim SIM100K,
 with recorded UniOP, TerminatorNet and TransTermHP outputs). The gene table is written with
-``giap.io.genes_tsv.write_genes_parquet``. Three genes in four are detected, with finite abundances
+``gippa.io.genes_tsv.write_genes_parquet``. Three genes in four are detected, with finite abundances
 when the run has abundance. With abundance, >= 20 OP pairs are usable and ``operon_flags.tsv``
 has rows. Without abundance, every test is ``none`` and ``operon_flags.tsv`` is header-only
 (example 3, lead decision 3).
@@ -47,12 +47,12 @@ import pandas as pd
 import pytest
 from helpers.layers_chain import Chain, build_chain
 
-from giap.config import GiapConfig
-from giap.operons.flags import FLAG_COLUMNS
-from giap.operons.pairs import PAIR_COLUMNS, RNA_TYPES
-from giap.operons.tu_table import OPERON_COLUMNS
+from gippa.config import GippaConfig
+from gippa.operons.flags import FLAG_COLUMNS
+from gippa.operons.pairs import PAIR_COLUMNS, RNA_TYPES
+from gippa.operons.tu_table import OPERON_COLUMNS
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 REQUIRED = {"gene_table", "genes", "replicons", "tus", "pairs_raw", "features"}
 OPTIONAL = {"promoter_windows", "terminators", "tx_rates", "peptides", "peptide_hits",
             "peptide_runs", "detection_summary", "operon_meta"}  # fmt: skip
@@ -61,8 +61,8 @@ LAYER_NAME = {"promoter_windows": "promoters", "terminators": "terminators", "tx
 EVENT = "operons.missed_operons"
 
 
-def _cfg() -> GiapConfig:
-    return GiapConfig(seed=1)
+def _cfg() -> GippaConfig:
+    return GippaConfig(seed=1)
 
 
 # ----------------------------------------------------------------------------- fixtures
@@ -75,8 +75,8 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 
 def write_gene_table(chain: Chain, path: Path, *, abundance: bool) -> Path:
     """A §9.3 gene table over the C2 genes (every ``GENES_COLUMNS`` column)."""
-    from giap.genetable.assemble import GENES_COLUMNS, GENES_TYPES
-    from giap.io.genes_tsv import write_genes_parquet
+    from gippa.genetable.assemble import GENES_COLUMNS, GENES_TYPES
+    from gippa.io.genes_tsv import write_genes_parquet
 
     c2 = chain.frame("genes")
     n = len(c2)
@@ -123,14 +123,14 @@ class Run:
         return [r.getMessage() for r in self.records]
 
 
-def run_operons_step(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> Run:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+def run_operons_step(inputs: Mapping[str, Path], out: Path, cfg: GippaConfig) -> Run:
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outputs = {k: out / "tables" / v for k, v in OUTPUTS.items()}
     rec = _Recorder()
-    log = logging.getLogger("giap.steps.operons")
+    log = logging.getLogger("gippa.steps.operons")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -151,16 +151,16 @@ class _Recorder(logging.Handler):
         self.records.append(record)
 
 
-def oracle(inputs: Mapping[str, Path], cfg: GiapConfig, out: Path) -> dict[str, Any]:
+def oracle(inputs: Mapping[str, Path], cfg: GippaConfig, out: Path) -> dict[str, Any]:
     """Lead decision 4's chain on the step's own inputs, written with the M6-08 writers."""
-    from giap.annotate.layers import genes_of, replicons_of, terminators_of
-    from giap.io.genes_tsv import read_genes_parquet
-    from giap.io.operon_tables import write_operon_flags_tsv, write_operons_tsv, write_pairs_tsv
-    from giap.operons.discordance import discordance
-    from giap.operons.flags import flag_pairs, merge_tests
-    from giap.operons.missed import missed_operons
-    from giap.operons.pairs import Evidence, pair_frame
-    from giap.operons.tu_table import operons_table
+    from gippa.annotate.layers import genes_of, replicons_of, terminators_of
+    from gippa.io.genes_tsv import read_genes_parquet
+    from gippa.io.operon_tables import write_operon_flags_tsv, write_operons_tsv, write_pairs_tsv
+    from gippa.operons.discordance import discordance
+    from gippa.operons.flags import flag_pairs, merge_tests
+    from gippa.operons.missed import missed_operons
+    from gippa.operons.pairs import Evidence, pair_frame
+    from gippa.operons.tu_table import operons_table
 
     rd = pd.read_parquet
     gt = read_genes_parquet(inputs["gene_table"])
@@ -226,8 +226,8 @@ def no_terminators(chain: Chain, tmp_path_factory: pytest.TempPathFactory) -> Ru
 
 
 def test_operons_step_is_registered_with_the_spec_keys() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("operons")
@@ -242,8 +242,8 @@ def test_operons_step_is_registered_with_the_spec_keys() -> None:
 def test_operons_runs_after_its_producers_in_the_local_plan() -> None:
     """The local executor orders ``operons`` after ``detectability`` (``gene_table``) and
     ``operon_pairs`` (``pairs_raw``, ``tus``)."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     names = [s.name for s in reg.all_steps()]
@@ -278,8 +278,8 @@ def test_pairs_tsv_has_no_which_column(full: Run, no_abundance: Run) -> None:
 
 
 def test_pairs_one_row_per_adjacent_pair_plus_sandwiches(chain: Chain, full: Run) -> None:
-    from giap.annotate.layers import genes_of, replicons_of
-    from giap.operons.pairs import adjacent_chain, sandwich_pairs
+    from gippa.annotate.layers import genes_of, replicons_of
+    from gippa.operons.pairs import adjacent_chain, sandwich_pairs
 
     genes = genes_of(chain.frame("genes"))
     reps = replicons_of(chain.frame("replicons"))
@@ -346,7 +346,7 @@ def test_decision_6_event_records_pi0_and_bin_counts(full: Run, tmp_path: Path) 
 
 
 def test_decision_6_pi0_follows_the_config(chain: Chain, full: Run, tmp_path: Path) -> None:
-    cfg = GiapConfig.model_validate({"seed": 1, "operons": {"pi0": 0.8}})
+    cfg = GippaConfig.model_validate({"seed": 1, "operons": {"pi0": 0.8}})
     run = run_operons_step(full.inputs, tmp_path / "pi0", cfg)
     assert _event(run)["pi0"] == pytest.approx(0.8)
 

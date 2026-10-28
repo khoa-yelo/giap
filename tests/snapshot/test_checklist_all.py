@@ -1,8 +1,8 @@
 """M9-24 acceptance: every registered plot on the snapshot fixtures passes every gated item of the
-§14.4 style checklist (the score M9-25's approval packet reports; GIAP_SPEC.md §14.4).
+§14.4 style checklist (the score M9-25's approval packet reports; GIPPA_SPEC.md §14.4).
 
 The fixtures are M9-25's frozen ``OUT/`` subsets under ``tests/data/snapshot/`` (the rich
-``sim_plots`` and the header-only empty-state tree); each sub-directory that is a GIAP output
+``sim_plots`` and the header-only empty-state tree); each sub-directory that is a GIPPA output
 (``tables/`` or ``preflight/``, directly or under ``OUT/``) is swept. Until M9-25 commits them the
 parametrisation is a single explicit skip; ``tests/integration/test_checklist_sim100k.py`` runs the
 same sweep on a real sim100k run meanwhile.
@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from helpers.checklist_sweep import sweep
 
-from giap.viz import checklist  # noqa: F401  (fails collection until M9-24 lands)
+from gippa.viz import checklist  # noqa: F401  (fails collection until M9-24 lands)
 
 SNAPSHOT = Path(__file__).resolve().parents[1] / "data" / "snapshot"
 

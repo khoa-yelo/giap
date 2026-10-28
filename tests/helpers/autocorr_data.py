@@ -1,13 +1,13 @@
 """Inputs and a naive oracle for the M5-05 autocorrelation table.
 
 Inputs reuse the hand-built gene tables of ``region_tests_data`` (``Contig`` / ``gene_table``):
-the §9.3 ``genes.tsv`` columns ``giap.context.regions.replicon_index`` reads (``contig``,
+the §9.3 ``genes.tsv`` columns ``gippa.context.regions.replicon_index`` reads (``contig``,
 ``start``, ``locus_tag``, ``partial``, ``tu_id``, ``detected``, ``p_detect``,
 ``abundance_log2``) plus the C1 ``replicons`` frame (``topology`` gives ``circular``).
 
 The oracle recomputes one replicon's rows with the merged engines
-(``giap.stats.autocorr``, ``giap.stats.smooth``, ``giap.stats.multitest``) in the order the spec
-fixes, so a disagreement is in ``giap.context.autocorrelation``, not in the statistics:
+(``gippa.stats.autocorr``, ``gippa.stats.smooth``, ``gippa.stats.multitest``) in the order the spec
+fixes, so a disagreement is in ``gippa.context.autocorrelation``, not in the statistics:
 
 * **values** (docs/specs/M5-05 lead decision 22 + ADR-0020 decision 1): over the n genes with a
   value, y = centred log2 abundance, y_w = y - LOESS(y; span 0.30) and x = y_w - H y_w with
@@ -72,10 +72,10 @@ CI_UNESTIMATED = "ci_unestimated"
 
 
 def config(permutations: int = 19, lags: Sequence[int] = (1, 20)) -> Any:
-    """A ``GiapConfig`` with ``stats.permutations`` and ``context.moran_lags``."""
-    from giap.config.model import GiapConfig
+    """A ``GippaConfig`` with ``stats.permutations`` and ``context.moran_lags``."""
+    from gippa.config.model import GippaConfig
 
-    return GiapConfig.model_validate(
+    return GippaConfig.model_validate(
         {"stats": {"permutations": int(permutations)}, "context": {"moran_lags": list(lags)}}
     )
 
@@ -88,8 +88,8 @@ def lags_of(cfg: Any) -> list[int]:
 
 def rows(genes: pd.DataFrame, replicons: pd.DataFrame, cfg: Any, seed: int = 7) -> pd.DataFrame:
     """``autocorrelation_rows`` with the spec's stream ``context_stats.autocorrelation``."""
-    from giap.context.autocorrelation import autocorrelation_rows
-    from giap.rng import for_step
+    from gippa.context.autocorrelation import autocorrelation_rows
+    from gippa.rng import for_step
 
     out = autocorrelation_rows(
         genes, replicons, cfg, for_step("context_stats.autocorrelation", seed)
@@ -101,8 +101,8 @@ def oracle_rows(
     genes: pd.DataFrame, replicons: pd.DataFrame, cfg: Any, seed: int = 7
 ) -> pd.DataFrame:
     """The whole table, recomputed from the merged engines (see the module docstring)."""
-    from giap.rng import for_step
-    from giap.stats.multitest import bh
+    from gippa.rng import for_step
+    from gippa.stats.multitest import bh
 
     rng = for_step("context_stats.autocorrelation", seed)
     lags = lags_of(cfg)
@@ -120,8 +120,8 @@ def oracle_rows(
 
 
 def span_points(n: int) -> int:
-    """The 10 % span in points over ``n`` values (``giap.stats.smooth.loess_span_points``)."""
-    from giap.stats.smooth import loess_span_points
+    """The 10 % span in points over ``n`` values (``gippa.stats.smooth.loess_span_points``)."""
+    from gippa.stats.smooth import loess_span_points
 
     return int(loess_span_points(n, SPAN))
 
@@ -133,7 +133,7 @@ def few_values(n_values: int) -> bool:
 
 def oracle_values(y: Sequence[float] | np.ndarray, circular: bool) -> np.ndarray:
     """x over the n genes with values: the wide pre-trend and the 10 % detrend of decision 22."""
-    from giap.stats.smooth import loess_detrend
+    from gippa.stats.smooth import loess_detrend
 
     yy = np.asarray(y, dtype=float)
     n = yy.size
@@ -149,7 +149,7 @@ def oracle_values(y: Sequence[float] | np.ndarray, circular: bool) -> np.ndarray
 
 def smoother(n: int, circular: bool) -> np.ndarray:
     """The one 10 % ``loess_matrix`` of decision 22 (observed series and every replicate)."""
-    from giap.stats.smooth import loess_matrix
+    from gippa.stats.smooth import loess_matrix
 
     return np.asarray(
         loess_matrix(
@@ -162,7 +162,7 @@ def smoother(n: int, circular: bool) -> np.ndarray:
 
 
 def _pre_detrended(y: np.ndarray, circular: bool) -> np.ndarray:
-    from giap.stats.smooth import loess_detrend
+    from gippa.stats.smooth import loess_detrend
 
     n = y.size
     period = float(n) if circular else None
@@ -183,8 +183,8 @@ def oracle_replicon(
     rng: np.random.Generator,
 ) -> pd.DataFrame:
     """Rows of one replicon, drawing the three permutation matrices in the spec's order."""
-    from giap.context.regions import replicon_index
-    from giap.stats import autocorr as ac
+    from gippa.context.regions import replicon_index
+    from gippa.stats import autocorr as ac
 
     ix = replicon_index(genes, contig)
     n_all = len(ix)

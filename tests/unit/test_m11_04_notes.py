@@ -3,7 +3,7 @@ notes section").
 
 Interface read from the spec: ``python scripts/release/notes.py <version> [--draft]`` run from the
 repository root reads ``CHANGELOG.md`` there and writes ``notes.md`` there; exit 0 on success, 1
-when the ``## GIAP <version> (...)`` section is missing (without ``--draft``) or empty. Each test
+when the ``## GIPPA <version> (...)`` section is missing (without ``--draft``) or empty. Each test
 runs the script in a throw-away copy (``tmp_path``) holding ``CHANGELOG.md``, ``pyproject.toml``
 and ``changelog.d/``; the real files are never written and nothing touches the network.
 """
@@ -33,25 +33,25 @@ All notable changes are recorded here by towncrier from `changelog.d/` fragments
 
 CHANGELOG = (
     HEADER
-    + """## GIAP 1.1.0 (2027-01-10)
+    + """## GIPPA 1.1.0 (2027-01-10)
 
 ### Features
 
 - Alpha feature in the first section.
 
-## GIAP 1.0.10 (2026-12-01)
+## GIPPA 1.0.10 (2026-12-01)
 
 ### Fixes
 
 - Beta fix that only 1.0.10 carries.
 
-## GIAP 1.0.1 (2026-11-15)
+## GIPPA 1.0.1 (2026-11-15)
 
 ### Fixes
 
 - Gamma fix in the middle section.
 
-## GIAP 1.0.0 (2026-11-01)
+## GIPPA 1.0.0 (2026-11-01)
 
 ### Features
 
@@ -71,8 +71,8 @@ def _setup(root: Path, changelog: str = CHANGELOG, fragment: bool = True) -> Pat
     root.mkdir(parents=True, exist_ok=True)
     (root / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     shutil.copy2(REPO / "pyproject.toml", root / "pyproject.toml")
-    (root / "src" / "giap").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(REPO / "src" / "giap" / "__init__.py", root / "src" / "giap" / "__init__.py")
+    (root / "src" / "gippa").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(REPO / "src" / "gippa" / "__init__.py", root / "src" / "gippa" / "__init__.py")
     frag = root / "changelog.d"
     frag.mkdir(exist_ok=True)
     (frag / ".gitkeep").write_text("", encoding="utf-8")
@@ -166,7 +166,7 @@ def test_missing_section_unbuilt_changelog_exits_1(tmp_path: Path) -> None:
 @pytest.mark.parametrize("draft", [False, True])
 def test_empty_section_exits_1(tmp_path: Path, draft: bool) -> None:
     """Edge case: a release with no notes is a mistake, also under ``--draft``."""
-    log = HEADER + "## GIAP 2.0.0 (2027-02-01)\n\n\n## GIAP 1.0.0 (2026-11-01)\n\n- Old.\n"
+    log = HEADER + "## GIPPA 2.0.0 (2027-02-01)\n\n\n## GIPPA 1.0.0 (2026-11-01)\n\n- Old.\n"
     root = _setup(tmp_path / "r", changelog=log)
     proc = _run(root, "2.0.0", *(["--draft"] if draft else []))
     assert proc.returncode == 1, (proc.stdout, proc.stderr)
@@ -176,7 +176,7 @@ def test_empty_section_exits_1(tmp_path: Path, draft: bool) -> None:
 
 
 def test_draft_fallback_uses_towncrier_draft(tmp_path: Path) -> None:
-    """Example 1: no ``## GIAP 0.0.1`` section, ``--draft`` renders the towncrier draft, headed
+    """Example 1: no ``## GIPPA 0.0.1`` section, ``--draft`` renders the towncrier draft, headed
     ``DRAFT``."""
     root = _setup(tmp_path / "r", changelog=HEADER)
     proc = _run(root, "0.0.1", "--draft")
@@ -244,7 +244,7 @@ def test_property_extracts_exactly_the_picked_section(
     pick %= len(versions)
     bodies = {v: f"Entry {i} {words[i]} for version {v} only." for i, v in enumerate(versions)}
     log = HEADER + "".join(
-        f"## GIAP {v} (2026-11-{i + 1:02d})\n\n### Features\n\n- {bodies[v]}\n\n"
+        f"## GIPPA {v} (2026-11-{i + 1:02d})\n\n### Features\n\n- {bodies[v]}\n\n"
         for i, v in enumerate(versions)
     )
     root = _setup(tmp_path_factory.mktemp("prop"), changelog=log, fragment=False)

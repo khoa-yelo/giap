@@ -1,5 +1,5 @@
 """M9-25 work item 5: ``scripts/dev/approval_packet.py`` writes the M9 approval packet for Khoa
-(docs/specs/M9-25-snapshot-baselines.md; M9-index "Khoa's checkpoint"; GIAP_SPEC.md §14.8 item 3).
+(docs/specs/M9-25-snapshot-baselines.md; M9-index "Khoa's checkpoint"; GIPPA_SPEC.md §14.8 item 3).
 
 Interface (pinned by the test-author; the implementer may add files and options, not rename
 these). ``python scripts/dev/approval_packet.py [--dest DIR] [--baselines DIR] [--k12 OUT]``,
@@ -8,7 +8,7 @@ with ``main(argv: list[str]) -> int``:
 * ``--dest`` defaults to ``local/review/m9-approval``; ``--baselines`` to
   ``tests/snapshot/baseline``; the fixtures are ``tests/data/snapshot/{sim_plots,sim_empty}``.
 * ``DEST/baseline/<name>.png``: a byte copy of every baseline PNG;
-  ``DEST/deuteranopia/<name>.png``: ``giap.viz.checklist.simulate_deuteranopia`` of its RGB
+  ``DEST/deuteranopia/<name>.png``: ``gippa.viz.checklist.simulate_deuteranopia`` of its RGB
   (alpha kept), same shape.
 * with ``--k12 OUT`` (the M9-26 K-12 run): ``DEST/k12/plots/<stem>.png`` for every instance of
   every registered plot that does not skip on ``OUT`` (100 dpi) and
@@ -96,8 +96,8 @@ def test_baselines_copied_byte_for_byte(packet: tuple[Path, Path]) -> None:
 
 
 def test_deuteranopia_simulation_of_every_baseline(packet: tuple[Path, Path]) -> None:
-    from giap.io.plot_files import read_png
-    from giap.viz.checklist import simulate_deuteranopia
+    from gippa.io.plot_files import read_png
+    from gippa.viz.checklist import simulate_deuteranopia
 
     dest, baselines = packet
     for png in sorted(baselines.iterdir()):
@@ -110,10 +110,10 @@ def test_deuteranopia_simulation_of_every_baseline(packet: tuple[Path, Path]) ->
 
 
 def test_k12_plots_and_their_simulations(packet: tuple[Path, Path]) -> None:
-    from giap.io.plot_files import stem
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base
+    from gippa.io.plot_files import stem
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base
 
     dest, _ = packet
     load_plot_modules()

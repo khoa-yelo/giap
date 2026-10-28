@@ -3,7 +3,7 @@
 Everything is synthetic and hand-made from the spec's examples: K-12-like proteins, a
 contaminant protein, a Nissle-like genome back-translated from the spec's translation texts with
 fixed table-11 codons and stop-codon spacers, a ``strain_db`` protein list and A1-like discovery
-rows. No network, nothing from ``$GIAP_ROOT`` or ``$GIAP_DB_DIR``, nothing derived from a DIA-NN
+rows. No network, nothing from ``$GIPPA_ROOT`` or ``$GIPPA_DB_DIR``, nothing derived from a DIA-NN
 report.
 
 The genome of the shared fixture (examples 1-2) holds ``MSAGLLKVEPTLDEKAAGGYWR`` and
@@ -91,7 +91,7 @@ def revcomp(seq: str) -> str:
 
 
 def replicons(genome: Mapping[str, str], circular: Iterable[str] = ()) -> dict[str, Any]:
-    from giap.model.coords import Replicon
+    from gippa.model.coords import Replicon
 
     circ = set(circular)
     return {
@@ -271,7 +271,7 @@ def write_out_a1(root: Path, exact: Sequence[str], gi_count: int, gi_n: int) -> 
     with ``genome_inconsistent_rate`` = ``gi_count / gi_n``."""
     from types import SimpleNamespace
 
-    from giap.model.coords import Interval
+    from gippa.model.coords import Interval
     from helpers.pilot_metrics_m10 import hit_row, write_table
 
     g = SimpleNamespace(interval=Interval("nissle", 9, 300, "+"), locus_tag="NISSLE_00001")

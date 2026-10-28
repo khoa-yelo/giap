@@ -25,11 +25,11 @@ from helpers.diann_convert_m10 import row, table, write_parquet
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.cli import cli
-from giap.config.model import InputConfig
-from giap.io.converters.base import ConvertResult
-from giap.io.converters.diann import convert_diann
-from giap.io.peptides import PEPTIDE_COLUMNS
+from gippa.cli import cli
+from gippa.config.model import InputConfig
+from gippa.io.converters.base import ConvertResult
+from gippa.io.converters.diann import convert_diann
+from gippa.io.peptides import PEPTIDE_COLUMNS
 
 # Example 1 (A1 target) and example 2 (its decoy), in the 2.3.1 shape.
 EX1 = row(

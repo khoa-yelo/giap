@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-annotate-real
+#SBATCH --job-name=gippa-annotate-real
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=16
@@ -7,37 +7,37 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # Real-tool ANNOTATE run on SIM100K (M2-07 review decision 10): main.nf with inputs.replicons and
-# db_dir (the `giap run` wiring is the follow-up PR), -profile farmshare_local,apptainer, work dir
-# under $GIAP_ROOT/scratch (never node-local /tmp). Bakta is compared with the recording
-# $GIAP_ROOT/recordings/bakta_full/sim100k.
-# Until `giap _step` loads the step modules and the M2-13..M2-18 steps exist, a `giap` wrapper
+# db_dir (the `gippa run` wiring is the follow-up PR), -profile farmshare_local,apptainer, work dir
+# under $GIPPA_ROOT/scratch (never node-local /tmp). Bakta is compared with the recording
+# $GIPPA_ROOT/recordings/bakta_full/sim100k.
+# Until `gippa _step` loads the step modules and the M2-13..M2-18 steps exist, a `gippa` wrapper
 # first on PATH loads them and stands in for unregistered py steps: tool inputs from
 # scripts/dev/record_tools_inputs.py on the recorded Bakta JSON, empty files for the layer steps.
 # End-to-end companion of nf_process_real.sbatch (which runs each tool process alone).
 # Usage (from the repo or worktree root, the code under test): sbatch scripts/slurm/annotate_real.sbatch
-#   (or sbatch --export=ALL,WT=<checkout> ...); work dir $GIAP_ROOT/scratch/annotate-real/<job id>.
+#   (or sbatch --export=ALL,WT=<checkout> ...); work dir $GIPPA_ROOT/scratch/annotate-real/<job id>.
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
 module load apptainer 2>/dev/null || true
 WT="${WT:-${SLURM_SUBMIT_DIR:-$PWD}}"   # sbatch runs a spooled copy: use the submit dir
 export PYTHONPATH="$WT/src:$WT/tests/sim" PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH" NXF_ANSI_LOG=false
-REC="$GIAP_ROOT/recordings/bakta_full/sim100k"
+REC="$GIPPA_ROOT/recordings/bakta_full/sim100k"
 PRE="$REC/preflight/work/preflight"
-W="$GIAP_ROOT/scratch/annotate-real/${SLURM_JOB_ID:-manual}"
+W="$GIPPA_ROOT/scratch/annotate-real/${SLURM_JOB_ID:-manual}"
 mkdir -p "$W/bin" && cd "$W" || exit 1
-export TMPDIR="$W/tmp" GIAP_HARNESS_BAKTA_JSON="$REC/bakta/sim100k.json" GIAP_HARNESS_REPO="$WT"
+export TMPDIR="$W/tmp" GIPPA_HARNESS_BAKTA_JSON="$REC/bakta/sim100k.json" GIPPA_HARNESS_REPO="$WT"
 mkdir -p "$TMPDIR"
 echo "worktree=$WT ($(git -C "$WT" rev-parse --short HEAD)) work=$W"
 
-cat > "$W/bin/giap" <<EOF
+cat > "$W/bin/gippa" <<EOF
 #!$UV_PROJECT_ENVIRONMENT/bin/python
 import sys
 sys.path.insert(0, "$W/bin")
 from harness_step import main
 main()
 EOF
-chmod +x "$W/bin/giap"
+chmod +x "$W/bin/gippa"
 cat > "$W/bin/harness_step.py" <<'EOF'
 import os, sys
 from pathlib import Path
@@ -46,9 +46,9 @@ def _kv(args, flag):
     return [a.split("=", 1) for f, a in zip(args, args[1:]) if f == flag]
 
 def placeholder(name, args):
-    sys.path.insert(0, os.environ["GIAP_HARNESS_REPO"] + "/scripts/dev")
+    sys.path.insert(0, os.environ["GIPPA_HARNESS_REPO"] + "/scripts/dev")
     import record_tools_inputs as rti
-    js = Path(os.environ["GIAP_HARNESS_BAKTA_JSON"])
+    js = Path(os.environ["GIPPA_HARNESS_BAKTA_JSON"])
     for key, path in _kv(args, "--out"):
         out = Path(path.replace("*", "000"))
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -74,13 +74,13 @@ def placeholder(name, args):
 def main():
     args = sys.argv[1:]
     if args[:1] == ["_step"]:
-        from giap.steps import load_step_modules
-        from giap.steps.registry import all_steps
+        from gippa.steps import load_step_modules
+        from gippa.steps.registry import all_steps
         load_step_modules()
         if args[1] not in {s.name for s in all_steps()}:
             placeholder(args[1], args[2:])
             return
-    from giap.cli import main as cli
+    from gippa.cli import main as cli
     cli()
 EOF
 export PATH="$W/bin:$PATH"
@@ -88,11 +88,11 @@ export PATH="$W/bin:$PATH"
 python - "$W" "$PRE" <<'PY'
 import json, os, sys
 from pathlib import Path
-from giap.config import resolve_config
-from giap.runner.nextflow import write_params
+from gippa.config import resolve_config
+from gippa.runner.nextflow import write_params
 w, pre = Path(sys.argv[1]), Path(sys.argv[2])
 params, _ = write_params(w / "out", resolve_config(), {"genome": pre / "genome.norm.fa", "replicons": pre / "replicons.tsv"})
-p = json.loads(params.read_text()); p["db_dir"] = os.environ["GIAP_DB_DIR"]
+p = json.loads(params.read_text()); p["db_dir"] = os.environ["GIPPA_DB_DIR"]
 params.write_text(json.dumps(p, indent=2, sort_keys=True) + "\n")
 PY
 

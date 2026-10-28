@@ -11,7 +11,7 @@ a cell with 3 valid repeats and equal input sha256 values is ``complete`` (media
 commit is replaced only with ``--replace`` (else exit 1, file unchanged). The noisy threshold
 is ``benchmark_slowdown_max`` of ``ci/gates.yaml``. Exit 2 on an unreadable or schema-invalid
 record (a minimal ``record_error`` record is accepted: a failed repeat) or a bad ``--adr``.
-The numbers are reported against GIAP_SPEC.md §13.2, never gated.
+The numbers are reported against GIPPA_SPEC.md §13.2, never gated.
 
     python scripts/dev/benchmark_summary.py BENCH_DIR/<bench_id> [--baseline B --write
         [--replace] [--adr ADR-NNNN]]
@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parents[2]
 NOISY_MAX: float = float(
     yaml.safe_load((REPO / "ci" / "gates.yaml").read_text())["benchmark_slowdown_max"]
 )
-SCHEMA = "giap-bench-run/1"
+SCHEMA = "gippa-bench-run/1"
 RUN_KEYS = ("schema", "bench_id", "commit", "genome", "variant", "repeat", "attempt", "argv",
             "inputs", "sacct", "wall_s", "status", "trace", "steps", "node", "cpu_sku",
             "job_id")  # fmt: skip
@@ -51,7 +51,7 @@ Run = Mapping[str, Any]
 
 @dataclass(frozen=True)
 class Estimate:
-    """GIAP_SPEC.md §13.2 runtime estimate of one variant (seconds; range when one is given)."""
+    """GIPPA_SPEC.md §13.2 runtime estimate of one variant (seconds; range when one is given)."""
 
     seconds: float
     low: float | None = None
@@ -232,7 +232,7 @@ def _gib(b: float | None) -> str:
 
 
 def markdown_rows(cells: Sequence[Mapping[str, Any]]) -> list[str]:
-    """PROGRESS > Measured numbers rows, one per cell (``step = giap run <variant>``)."""
+    """PROGRESS > Measured numbers rows, one per cell (``step = gippa run <variant>``)."""
     rows = []
     for c in cells:
         notes = list(c.get("reasons", []))
@@ -260,7 +260,7 @@ def markdown_rows(cells: Sequence[Mapping[str, Any]]) -> list[str]:
         cell = f"{c.get('genome', '?')}"
         note = f" ({'; '.join(notes)})" if notes else ""
         rows.append(
-            f"| giap run {c.get('variant', '?')} | {cell} | {wall}{note} | {rss} | {node} |"
+            f"| gippa run {c.get('variant', '?')} | {cell} | {wall}{note} | {rss} | {node} |"
         )
     return rows
 

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GIPPA report</title>
+<style>
+{% include "report.css" %}
+</style>
+{% if plotlyjs %}
+<script>{{ plotlyjs }}</script>
+{% endif %}
+</head>
+<body>
+<h1>GIPPA report</h1>
+<p>GIPPA {{ version }}. Every number is shown with its error estimate, or marked {{ "unestimated" }}.</p>
+{% for s in sections %}
+<section id="{{ s.id }}">
+<h2>{{ s.heading }}</h2>
+{% if s.id == "summary" %}
+{% for w in warnings %}
+<div class="alert" role="note" data-warning="{{ w.rule_id }}" style="border-left: 4px solid #8a5a00; background: #fff8e6; padding: 0.6em 1em; margin: 0.5em 0 1em;">{{ w.message }}</div>
+{% endfor %}
+{% if cards %}
+<div class="cards">
+{% for c in cards %}
+<div class="card" data-card="{{ c.name }}" data-source="{{ c.sources | join(';') }}">
+{% if c.prefix %}
+<div class="label">{{ c.prefix }}</div>
+{% endif %}
+<div class="value">{{ c.value }}</div>
+<div class="label">{{ c.label }}</div>
+<div class="estimate">{{ c.estimate }}</div>
+{% if c.detail %}
+<div class="detail">{{ c.detail }}</div>
+{% endif %}
+</div>
+{% endfor %}
+</div>
+{% else %}
+<p class="note">No summary table was produced in this run.</p>
+{% endif %}
+{% for n in notes %}
+<p class="note">{{ n }}</p>
+{% endfor %}
+{% endif %}
+{% for p in s.plots %}
+<div class="plot" data-plot="{{ p.pid }}">
+{% for i in p.instances %}
+<figure>
+{% if i.twin %}
+{% include "plotly_block.html.j2" %}
+{% endif %}
+{% if i.svg is not none and i.twin %}
+<details><summary>static figure</summary>
+{{ i.svg }}
+</details>
+{% elif i.svg is not none %}
+{{ i.svg }}
+{% endif %}
+<figcaption class="links">{{ i.stem }}{% for label, href in i.links %} <a href="{{ href }}">{{ label }}</a>{% endfor %}</figcaption>
+</figure>
+{% endfor %}
+{% if p.note %}
+<p class="note">{{ p.pid }}: {{ p.note }}</p>
+{% endif %}
+</div>
+{% endfor %}
+{% for t in s.tables %}
+{% if t.error %}
+<p class="note">{{ t.error }}</p>
+{% elif t.absent %}
+<p class="note">{{ t.name }}: not produced in this run.</p>
+{% elif t.groups %}
+{% for family, rows in t.groups %}
+<h3>{{ t.name }}: {{ family }} ({{ rows | length }} rows; <a href="{{ t.href }}">full table</a>)</h3>
+<div class="table-wrap">
+<table data-table="{{ t.key }}" data-sensitivity-family="{{ family }}">
+<thead><tr>{% for h in t.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endfor %}
+{% else %}
+<h3>{{ t.name }} (first {{ t.rows | length }} rows; <a href="{{ t.href }}">full table</a>)</h3>
+<input type="search" data-filter="{{ t.key }}" placeholder="filter rows" aria-label="filter {{ t.name }}">
+<div class="table-wrap">
+<table data-table="{{ t.key }}">
+<thead><tr>{% for h in t.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for r in t.rows %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+{% endfor %}
+{% for x in extras.get(s.id, []) %}
+{% if x.rows is defined %}
+<p>{{ x.caption }}:</p>
+<div class="table-wrap">
+<table data-table="{{ x.key }}">
+<thead><tr>{% for h in x.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for r in x.rows %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<p class="caveat">{{ x.text }}</p>
+{% endif %}
+{% endfor %}
+{% if s.id == "methods" %}
+<p>The methods notes below are generated from the GIPPA {{ version }} documentation (docs/methods).</p>
+{% for topic, body in snippets %}
+<div class="snippet" data-topic="{{ topic }}">
+<h3>{{ topic }}</h3>
+{{ body }}
+</div>
+{% endfor %}
+{% elif s.id == "provenance" %}
+{% if provenance.note %}
+<p class="note">{{ provenance.note }}</p>
+<p>GIPPA version: {{ provenance.version }}</p>
+{% else %}
+<table data-table-provenance="run">
+<tbody>
+{% for label, value in provenance.lines %}
+<tr><th>{{ label }}</th><td>{{ value }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+<p>Resolved configuration SHA-256: {{ provenance.config or "not available" }}</p>
+<table data-table-provenance="inputs">
+<thead><tr><th>file</th><th>role</th><th>SHA-256</th></tr></thead>
+<tbody>
+{% for file, role, sha in provenance.inputs %}
+<tr><td>{{ file }}</td><td>{{ role }}</td><td>{{ sha }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% if provenance.tools is defined %}
+<table data-table-provenance="tools">
+<thead><tr><th>tool</th><th>version</th><th>digest</th></tr></thead>
+<tbody>
+{% for r in provenance.tools %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+{% if provenance.databases %}
+<table data-table-provenance="databases">
+<thead><tr><th>database</th><th>version</th><th>checksum</th><th>retrieved</th></tr></thead>
+<tbody>
+{% for r in provenance.databases %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p>Databases: not recorded in run_manifest.json.</p>
+{% endif %}
+{% endif %}
+{% endif %}
+</section>
+{% endfor %}
+{% if plotlyjs %}
+<footer><p>Interactive figures use plotly.js {{ plotly_version }} (MIT licence, Copyright Plotly, Inc.), inlined in this page.</p></footer>
+{% endif %}
+<script>
+{% include "tables.js" %}
+</script>
+</body>
+</html>

@@ -185,7 +185,7 @@ def test_teeth_gene_label_rejects_under_the_tu_null(statistic: str) -> None:
     see the structure the TU-block test is built to ignore (planning target >= 0.8 at lag 1).
 
     Lead decision 28: the target is met by ``morans_i`` (rejection 1.00), not by
-    ``join_count_bb`` (0.04), and that is expected, not a bug. giapsim draws detection as
+    ``join_count_bb`` (0.04), and that is expected, not a bug. gippasim draws detection as
     ``d ~ Bernoulli(p_detect_true)`` and the calibration feeds that same truth in as
     ``p_detect``, so the Pearson residuals (d - p)/sqrt(p(1 - p)) are exact Bernoulli
     residuals: independent across genes whatever structure p itself has, hence no power under

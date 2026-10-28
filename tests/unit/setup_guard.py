@@ -1,4 +1,4 @@
-"""No-network, no-tool guard for the ``giap setup`` tests (M2-08 lead decision 3).
+"""No-network, no-tool guard for the ``gippa setup`` tests (M2-08 lead decision 3).
 
 Import the autouse fixture into a test module to apply it to that module only::
 
@@ -40,7 +40,7 @@ def _deny(what: str) -> Any:
 
 @pytest.fixture(autouse=True)
 def setup_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
-    from giap.setupdb import HttpsFetcher, ToolRunner
+    from gippa.setupdb import HttpsFetcher, ToolRunner
 
     BLOCKED.clear()
     _REAL.setdefault("fetch", HttpsFetcher.fetch)
@@ -65,7 +65,7 @@ def setup_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 @pytest.fixture
 def real_https_fetch(setup_guard: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
     """Restore only the real ``HttpsFetcher.fetch``; sockets stay blocked (fake http.client)."""
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     for var in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy",
                 "ALL_PROXY", "no_proxy", "NO_PROXY"):  # fmt: skip

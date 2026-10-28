@@ -13,7 +13,7 @@ Milestone M9 · **pass 2** · depends on: M9-01 (and each plot it checks) · est
 
 ## Public interface
 
-`src/giap/viz/checklist.py`
+`src/gippa/viz/checklist.py`
 ```python
 @dataclass(frozen=True)
 class CheckResult:

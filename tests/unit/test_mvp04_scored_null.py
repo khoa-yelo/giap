@@ -1,11 +1,11 @@
-"""giapsim on the real K-12 genome, part 2: ``decoys = "scored_null"``
+"""gippasim on the real K-12 genome, part 2: ``decoys = "scored_null"``
 (docs/specs/MVP-04-ecoli-evidence-run.md pipeline steps 5-6, examples 2-3, D6, D7, D11, Q2, lead
 decisions 1 and 8; M7-12 decisions 21, 23 and 24 for the six-frame coin this mode extends).
 
 On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py, spec rule 3):
 
 * rule 6: each null (wrong) PSM goes, on its own 1/2 coin, to the target or to the decoy of its
-  entry (``rev_<locus_tag>`` for a protein entry, ``rev_GIAPORF_…`` for a six-frame entry), with
+  entry (``rev_<locus_tag>`` for a protein entry, ``rev_GIPPAORF_…`` for a six-frame entry), with
   the reversed peptide, the same q / PEP / score and intensity NA; the M3-19 ``match_wrong``
   decoys are off, so every decoy is a null PSM and carries finite scores;
 * collisions (reversal = a target peptide, I = L) stay targets and are counted in
@@ -16,15 +16,15 @@ On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py, spec rule 3):
   it is checked by exact equality (review item 5), and the search-space share is still recorded;
 * a fast fairness check of the coin (binomial, and a score-independence KS), pooled over three
   seeds (~160 null PSMs); the calibration file owns the powered version;
-* GIAP's own ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning, paired share
-  >= 0.98 (``rev_GIAPORF_*`` leave pairing, M7-12 decision 23) and at least one decoy win over
+* GIPPA's own ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning, paired share
+  >= 0.98 (``rev_GIPPAORF_*`` leave pairing, M7-12 decision 23) and at least one decoy win over
   the three seeds (gate 5's shape; expected ~3 per seed);
 * lead decision 9: protein-entry nulls are undetected real products of their locus, map to the
   genome there and give genes without a true peptide false target evidence, so gate 7's
   false-discovery share is estimable (non-zero over three seeds);
 * the default ``decoys = "unscored"`` reproduces the part-1 tables byte for byte.
 
-Assumed interface (spec "Interface"; names the implementer may refine within giapsim, see the
+Assumed interface (spec "Interface"; names the implementer may refine within gippasim, see the
 report on the commit):
 
 * ``ProteomicsConfig.decoys: Literal["unscored", "scored_null"] = "unscored"``; another value is
@@ -37,7 +37,7 @@ report on the commit):
   (``locus_tag`` = the attributed locus, ``contig``, 1-based closed ``start`` / ``end``,
   ``strand`` on the sample); its target rows carry that locus tag and its decoy is
   ``rev_<locus>``. Six-frame nulls have ``origin = sixframe_noncoding`` and their target rows
-  carry the makedb entry ID ``GIAPORF_…`` (step 5: "attributed to a ``GIAPORF_*`` entry").
+  carry the makedb entry ID ``GIPPAORF_…`` (step 5: "attributed to a ``GIPPAORF_*`` entry").
 * ``provenance.json``: ``decoys`` (``"scored_null"`` / ``"unscored"``), ``decoy_collisions``
   (int, collided null PSMs) and ``null_split`` = {``mode``: ``"fifty_fifty"`` (decision 10),
   ``search_space_protein_share``: float in (0, 1; information only), ``n_protein``: int,
@@ -58,7 +58,7 @@ from helpers import mvp04_data as M
 from helpers import mvp04_decoys as D
 from scipy import stats
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 SEED = 20261023
 SEEDS = (SEED, SEED + 1, SEED + 2)
@@ -80,11 +80,11 @@ PART1_SHA = {
 
 
 def rg() -> Any:
-    return importlib.import_module("giapsim.real_genome")
+    return importlib.import_module("gippasim.real_genome")
 
 
 def excerpt_cfg(decoys: str | None = "scored_null", **prot: Any) -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     expr = replace(
         base.expression, islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS)
     )
@@ -124,7 +124,7 @@ def recorded(ex: M.Excerpt) -> dict[str, dict[str, Any]]:
 
 @pytest.fixture(scope="module")
 def space(ex: M.Excerpt, v0: D.View, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    """``giap makedb --six-frame-orfs`` on the excerpt sample (the simulated search, step 5)."""
+    """``gippa makedb --six-frame-orfs`` on the excerpt sample (the simulated search, step 5)."""
     tmp = tmp_path_factory.mktemp("makedb_p2")
     fna = D.write_sample_fasta(v0.out, tmp / "sample.fna")
     return D.makedb_search_space(ex.bakta_json, fna, tmp)
@@ -138,7 +138,7 @@ def _mix() -> tuple[float, ...]:
 
 
 def test_decoys_field_defaults_to_unscored() -> None:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     assert ProteomicsConfig().decoys == "unscored"
     assert ProteomicsConfig(decoys="scored_null").decoys == "scored_null"
@@ -148,7 +148,7 @@ def test_decoys_field_defaults_to_unscored() -> None:
 
 def test_k12_evidence_uses_scored_null_decoys() -> None:
     """Spec "Interface": the evidence scenario's proteomics has ``decoys="scored_null"``."""
-    cfg = importlib.import_module("giapsim.scenarios").k12_evidence()
+    cfg = importlib.import_module("gippasim.scenarios").k12_evidence()
     assert cfg.proteomics.decoys == "scored_null"
 
 
@@ -156,7 +156,7 @@ def test_k12_evidence_uses_scored_null_decoys() -> None:
 
 
 def test_unscored_reproduces_part1_byte_for_byte(ex: M.Excerpt, tmp_path: Path) -> None:
-    """Every existing default stays byte-identical (spec "giapsim on a real genome")."""
+    """Every existing default stays byte-identical (spec "gippasim on a real genome")."""
     out = run(ex, tmp_path / "unscored", excerpt_cfg(decoys="unscored"))
     got = {k: hashlib.sha256((out / k).read_bytes()).hexdigest() for k in PART1_SHA}
     assert got == PART1_SHA
@@ -239,8 +239,8 @@ def test_protein_entry_decoys_are_rev_locus_of_an_annotated_gene(
 
 
 def test_sixframe_decoys_are_rev_of_their_makedb_entry(v0: D.View, space: dict[str, Any]) -> None:
-    """Example 3: ``rev_GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}``; the entry is a
-    ``giap makedb --six-frame-orfs`` entry of the sample whose protein holds the null peptide,
+    """Example 3: ``rev_GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}``; the entry is a
+    ``gippa makedb --six-frame-orfs`` entry of the sample whose protein holds the null peptide,
     and the null target rows carry the entry ID itself (step 5)."""
     entries = space["entries"]
     n_seen = 0
@@ -305,7 +305,7 @@ def test_protein_nulls_skip_products_across_a_stop() -> None:
     never drawn; here every product spans it, so there is no protein null."""
     import numpy as np
 
-    from giapsim.proteomics import Protein, ProteomicsConfig, _protein_nulls
+    from gippasim.proteomics import Protein, ProteomicsConfig, _protein_nulls
 
     prot = Protein("L1", "c", 0, 33, "+", "MAAAAG*AAAAK")
     got = _protein_nulls(ProteomicsConfig(), np.random.default_rng(0), 1, [prot], {"L1"}, [],
@@ -369,14 +369,14 @@ def test_coin_is_fair_and_independent_of_the_score(scored: dict[int, D.View]) ->
     assert stats.ks_2samp(d, t).pvalue >= ALPHA
 
 
-# ---------------------------------------------------------------- GIAP's tier on the output
+# ---------------------------------------------------------------- GIPPA's tier on the output
 
 
-def test_giap_tier_is_decoy_picked_with_full_pairing_and_decoy_wins(
+def test_gippa_tier_is_decoy_picked_with_full_pairing_and_decoy_wins(
     ex: M.Excerpt, scored: dict[int, D.View]
 ) -> None:
     """Acceptance 2, 3, 5 in shape (example 4 contrast): ``pair_decoys`` keeps the
-    ``rev_<locus>`` decoys at q <= 0.01 and drops the ``rev_GIAPORF_*`` ones; ``choose_tier`` is
+    ``rev_<locus>`` decoys at q <= 0.01 and drops the ``rev_GIPPAORF_*`` ones; ``choose_tier`` is
     ``decoy_picked`` with no warning and f >= 0.98; over the three seeds at least one paired
     decoy beats its gene's best target (not the D = 0 picture of 1869554)."""
     genes = ex.genes
@@ -385,7 +385,7 @@ def test_giap_tier_is_decoy_picked_with_full_pairing_and_decoy_wins(
     proteins = {g.locus: g.aa for g in genes}
     wins = 0
     for seed, v in scored.items():
-        t = D.giap_tier(v, tags)
+        t = D.gippa_tier(v, tags)
         assert t.tier == "decoy_picked", (seed, t)
         assert t.warnings == (), (seed, t)
         assert t.n_pairing >= 1, seed
@@ -439,7 +439,7 @@ def test_protein_null_target_maps_to_the_genome(
     null_bad: dict[int, dict[str, list[str]]],
 ) -> None:
     """Decision 9: its truth row places it on the attributed locus; the sample segment
-    translates to it and the K-12 sequence GIAP is given differs by SNVs only."""
+    translates to it and the K-12 sequence GIPPA is given differs by SNVs only."""
     for seed, bad in null_bad.items():
         assert not bad["maps"], (seed, bad["maps"][:5])
 

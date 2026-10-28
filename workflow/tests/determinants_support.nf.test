@@ -1,6 +1,6 @@
 // M9-17 follow-up: the DETERMINANTS subworkflow passes the determinants step's optional plot
 // support on (workflow/subworkflows/local/determinants.nf; docs/specs/M9-17-plot-support-analysis.md
-// lead decisions 5-6; GIAP_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
+// lead decisions 5-6; GIPPA_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
 // nf-test test workflow/tests --profile test,stub.
 //
 // Pinned here:
@@ -8,10 +8,10 @@
 //         the step wrote none (no model fitted: steps/determinants.py writes the support only when
 //         cross-validation ran, so sim100k's too_few_rows run has none), and the task still
 //         succeeds (an optional output);
-//   publish: the support files land in OUT/plots/support/ (as giap.runner.local.publish merges
+//   publish: the support files land in OUT/plots/support/ (as gippa.runner.local.publish merges
 //         work/determinants_support/support/ there), never in OUT/determinants_support/.
-// The stub test runs -stub; the other two run the real GIAP_STEP script with the fake giap of
-// workflow/tests/bin_giap (fake_giap.config): it writes <support path>/support/
+// The stub test runs -stub; the other two run the real GIPPA_STEP script with the fake gippa of
+// workflow/tests/bin_gippa (fake_gippa.config): it writes <support path>/support/
 // fake_determinants_support.tsv when params.fake_support is true and nothing at the support path
 // when false. Inputs as determinants.nf.test (empty stand-ins: no task reads its inputs).
 
@@ -20,7 +20,7 @@ nextflow_workflow {
     name "DETERMINANTS subworkflow: plot support (M9-17)"
     script "../subworkflows/local/determinants.nf"
     workflow "DETERMINANTS"
-    config "./fake_giap.config"
+    config "./fake_gippa.config"
     tag "determinants"
     tag "support"
 
@@ -62,12 +62,12 @@ nextflow_workflow {
         }
     }
 
-    test("real GIAP_STEP, the step writes support: asked for determinants_support, files under plots/support/") {
+    test("real GIPPA_STEP, the step writes support: asked for determinants_support, files under plots/support/") {
 
         when {
             params {
                 outdir = "$outputDir"
-                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_bin = "${moduleTestDir}/bin_gippa"
                 fake_support = true
             }
             workflow {
@@ -90,8 +90,8 @@ nextflow_workflow {
             def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
-            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'gippa.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake gippa task: ${dirs}"
             def outs = S.argvOuts(dirs[0])
             assert outs.any { it.startsWith('determinants_support=') } : "determinants step not asked for determinants_support: --out ${outs}"
             def sup = workflow.out.determinants_support
@@ -102,12 +102,12 @@ nextflow_workflow {
         }
     }
 
-    test("real GIAP_STEP, the step writes no support: the task succeeds, determinants_support is empty") {
+    test("real GIPPA_STEP, the step writes no support: the task succeeds, determinants_support is empty") {
 
         when {
             params {
                 outdir = "$outputDir"
-                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_bin = "${moduleTestDir}/bin_gippa"
                 fake_support = false
             }
             workflow {
@@ -130,8 +130,8 @@ nextflow_workflow {
             def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
             assert workflow.success : "a determinants run without support failed"
             assert workflow.trace.failed().size() == 0
-            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
-            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'gippa.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake gippa task: ${dirs}"
             assert S.argvOuts(dirs[0]).any { it.startsWith('determinants_support=') } : "determinants step not asked for determinants_support"
             def sup = workflow.out.determinants_support
             assert sup != null && sup.size() == 0 : "emit determinants_support should be empty: ${sup}"

@@ -12,14 +12,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import viz_variants as vv
 
-from giap.config import resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.support import variant_windows
+from gippa.config import resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.support import variant_windows
 
 
 def _v12(view: RunView) -> list[base.Instance] | base.Skip:
-    import giap.viz.variants  # noqa: F401  (registers V12)
+    import gippa.viz.variants  # noqa: F401  (registers V12)
 
     return base.registered()["V12"].fn(view, resolve_config())
 

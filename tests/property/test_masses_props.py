@@ -1,4 +1,4 @@
-"""Hypothesis properties of the generated mass-equivalence list (issue M3-05; GIAP_SPEC.md
+"""Hypothesis properties of the generated mass-equivalence list (issue M3-05; GIPPA_SPEC.md
 Appendix B.5, §7.2.4).
 
 - brute-force oracle: at any tolerance the list equals the irreducible brute-force equivalences
@@ -16,7 +16,7 @@ from itertools import combinations, combinations_with_replacement
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.masses import MOD_DELTA, RESIDUE_MASS, mass_equivalents
+from gippa.mapping.masses import MOD_DELTA, RESIDUE_MASS, mass_equivalents
 
 FAST = settings(max_examples=60, deadline=None)
 TOL = st.floats(0.0, 0.06, allow_nan=False)

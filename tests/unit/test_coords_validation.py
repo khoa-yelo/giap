@@ -1,10 +1,10 @@
-"""Review findings pinned for giap.model.coords input validation (M1-01)."""
+"""Review findings pinned for gippa.model.coords input validation (M1-01)."""
 
 from __future__ import annotations
 
 import pytest
 
-from giap.model.coords import (
+from gippa.model.coords import (
     Interval,
     Replicon,
     from_one_based_closed,

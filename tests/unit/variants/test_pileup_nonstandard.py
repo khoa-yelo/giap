@@ -34,18 +34,18 @@ from helpers.nonstandard_genome import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
-from giap.variants import align as al
-from giap.variants import pileup as pl
-from giap.variants.vcf_records import vcf_records
+from gippa.config.model import GippaConfig
+from gippa.variants import align as al
+from gippa.variants import pileup as pl
+from gippa.variants.vcf_records import vcf_records
 
 LIN = linear()
 KEYS = ["by_residue", "by_rule", "examples", "skipped_codons", "skipped_peptides", "skipped_sites"]
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 
 
-def cfg(relation: str = "same") -> GiapConfig:
-    return GiapConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
+def cfg(relation: str = "same") -> GippaConfig:
+    return GippaConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
 
 
 def support(

@@ -26,10 +26,10 @@ import pytest
 from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.coords import check_interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.coords import check_interval
+from gippa.model.genes import Gene, GeneModel
 
 REPO = Path(__file__).resolve().parents[2]
 K12 = REPO / "tests" / "data" / "tblastn" / "k12_accession"
@@ -42,7 +42,7 @@ LIN = {"chr1": Replicon("chr1", L, "linear", "unknown")}
 
 
 def _tb():  # type: ignore[no-untyped-def]
-    from giap.mapping import tblastn
+    from gippa.mapping import tblastn
 
     return tblastn
 
@@ -94,7 +94,7 @@ def _gene(tag: str, start: int, end: int, contig: str = "chr1", strand: str = "+
 
 
 def _assign(alns, gm):  # type: ignore[no-untyped-def]
-    from giap.mapping.protein_assign import assign_alignments
+    from gippa.mapping.protein_assign import assign_alignments
 
     return assign_alignments(alns, gm, CFG)
 

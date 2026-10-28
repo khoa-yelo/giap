@@ -1,4 +1,4 @@
-"""Calibration of the giapsim null scenarios (issue M5-04; GIAP_SPEC.md §8.4 "Autocorrelation").
+"""Calibration of the gippasim null scenarios (issue M5-04; GIPPA_SPEC.md §8.4 "Autocorrelation").
 
 The two nulls the M5 autocorrelation tests are calibrated on must hold exactly in the generator:
 
@@ -39,8 +39,8 @@ pytestmark = pytest.mark.calsuite(SUITE)
 
 
 def _run(cfgs: tuple[Any, Any], rng: np.random.Generator) -> tuple[Any, Any]:
-    from giapsim.expression import simulate_expression
-    from giapsim.layout import simulate_layout
+    from gippasim.expression import simulate_expression
+    from gippasim.layout import simulate_layout
 
     lay = simulate_layout(cfgs[0], rng)
     return lay, simulate_expression(lay, cfgs[1], rng)
@@ -82,7 +82,7 @@ def _gate(stream: str, full: bool, fn: Callable[[np.random.Generator], float]) -
 @pytest.mark.parametrize("full", MODES)
 def test_label_null_neighbour_pairs(full: bool) -> None:
     def fn(rng: np.random.Generator) -> float:
-        import giapsim.scenarios as sc
+        import gippasim.scenarios as sc
 
         lay, ex = _run(sc.label_null(1000), rng)
         _, x = _chr1(lay, ex)
@@ -96,7 +96,7 @@ def test_label_null_neighbour_pairs(full: bool) -> None:
 @pytest.mark.parametrize("full", MODES)
 def test_label_null_within_tu_pairs(full: bool) -> None:
     def fn(rng: np.random.Generator) -> float:
-        import giapsim.scenarios as sc
+        import gippasim.scenarios as sc
 
         lay, ex = _run(sc.label_null(1000), rng)
         tus, x = _chr1(lay, ex)
@@ -112,7 +112,7 @@ def test_label_null_within_tu_pairs(full: bool) -> None:
 @pytest.mark.parametrize("full", MODES)
 def test_tu_null_between_tu_pairs(full: bool) -> None:
     def fn(rng: np.random.Generator) -> float:
-        import giapsim.scenarios as sc
+        import gippasim.scenarios as sc
 
         cfgs = sc.tu_null(1000)
         lay, ex = _run(cfgs, rng)

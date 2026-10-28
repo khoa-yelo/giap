@@ -11,7 +11,7 @@ from typing import Any
 
 from helpers.genetic_code_fixture import synthetic_genome
 
-from giap.preflight.genetic_code import genetic_code_check
+from gippa.preflight.genetic_code import genetic_code_check
 
 from ._unit_helpers import timed
 

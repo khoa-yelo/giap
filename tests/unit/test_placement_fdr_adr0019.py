@@ -1,10 +1,10 @@
 """ADR-0019: stratum-0 π̂_wrong for database input from exact-match shares per length class
 (docs/adr/ADR-0019-stratum0-pi-hat-exact-share.md decisions 1-4; extends ADR-0010; supersedes
-GIAP_SPEC.md §7.2.5 step 4 for database input).
+GIPPA_SPEC.md §7.2.5 step 4 for database input).
 
 Interface assumed here (test-author; the ADR names no functions):
 
-* ``giap.mapping.placement_fdr.stratum0_pi_classes(costs, classes) -> DataFrame``: pure. ``costs``
+* ``gippa.mapping.placement_fdr.stratum0_pi_classes(costs, classes) -> DataFrame``: pure. ``costs``
   holds the rows of the population P (the caller drops non-database rows and ``same_db`` exact
   peptides) with at least ``length``, ``m_target``, ``m_decoy`` (the ``best_costs`` schema; NaN =
   no hit). It returns one row per class of ``classes`` (= ``mapping.length_classes``), in config
@@ -12,14 +12,14 @@ Interface assumed here (test-author; the ADR names no functions):
   target hit: ``m_target`` != 0 or NaN), ``r`` (share of the n with ``m_decoy`` == 0), ``upper``
   (U, one-sided 95 % Clopper-Pearson upper bound of k/n; 1 when k = n) and ``pi_wrong`` (1 when
   r = 1, else min(1, U/(1 - r))). An empty class has n = k = 0; its other values are not pinned.
-* ``giap.mapping.placement_fdr.input_prefiltered(n, k, mean_pep, r) -> bool``: decision 4's run
+* ``gippa.mapping.placement_fdr.input_prefiltered(n, k, mean_pep, r) -> bool``: decision 4's run
   warning, True iff k < the 0.001 quantile of Binomial(n, mean_pep * (1 - r)) (equivalently
   P(X <= k) < 0.001); False when ``mean_pep`` is NaN or n = 0.
 * ``placement(costs, cfg)`` keeps its signature and output columns (decision 4: ``mapping_fdr``
   columns unchanged); its database stratum-0 lists use the class π̂ as decoy weights and
   c = max π̂_l over classes with n_l > 0; a peptide outside every class weighs 1 and does not
   enter c. ``pep`` and ``q_value`` are not read for it (decisions 2 and 3).
-* ``giap.context.summary.qc_rows(peptides, peptide_hits, unmapped, stratum0=table)``: with the
+* ``gippa.context.summary.qc_rows(peptides, peptide_hits, unmapped, stratum0=table)``: with the
   ``stratum0_pi_classes`` table it adds metric ``stratum0_unmapped_share`` (value k/n, ``n`` = n)
   as group ``run``/``all`` and per class as group_type ``length_class``, group = label. The M4-16
   QC rows, ``genome_inconsistent_rate`` included, stay exactly as they are (M3-25 decision 2).
@@ -44,8 +44,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
-from giap.mapping.placement_fdr import placement
+from gippa.config import GippaConfig
+from gippa.mapping.placement_fdr import placement
 
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 PREFIX = "MDEFGHKLNPQRSTVWYACDEFGHKLMNPQRSTVWY"
@@ -111,7 +111,7 @@ def targets0(n: int, *, start: int = 0, length: int = 9, e0: float = 0.001, **kw
 
 
 def run(rows: Sequence[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    return placement(frame(rows), GiapConfig())
+    return placement(frame(rows), GippaConfig())
 
 
 def q_of(per: pd.DataFrame, peptides: Sequence[str]) -> np.ndarray:
@@ -132,7 +132,7 @@ def fdr_row(fdr: pd.DataFrame, m: int, cls: str, dt: str = "reverse") -> dict[st
 
 
 def classes_table(rows: Sequence[dict[str, Any]]) -> pd.DataFrame:
-    from giap.mapping.placement_fdr import stratum0_pi_classes
+    from gippa.mapping.placement_fdr import stratum0_pi_classes
 
     return stratum0_pi_classes(frame(rows), CLASSES)
 
@@ -479,7 +479,7 @@ def test_denovo_stratum0_still_uses_pi_denovo() -> None:
 def test_input_prefiltered_threshold(
     n: int, k: int, mean_pep: float, r: float, fires: bool
 ) -> None:
-    from giap.mapping.placement_fdr import input_prefiltered
+    from gippa.mapping.placement_fdr import input_prefiltered
 
     assert input_prefiltered(n, k, mean_pep, r) is fires
 
@@ -494,7 +494,7 @@ def test_input_prefiltered_boundaries_are_the_binomial_quantile() -> None:
 
 
 def test_qc_rows_report_the_stratum0_unmapped_share_overall_and_per_class() -> None:
-    from giap.context.summary import qc_rows
+    from gippa.context.summary import qc_rows
 
     rows = [*targets0(99), row(pep_of(500), md=0, ed=10.0), *targets0(30, start=200, length=12)]
     rows += [row(pep_of(300 + i, 12)) for i in range(10)]

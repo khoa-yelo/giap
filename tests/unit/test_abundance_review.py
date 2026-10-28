@@ -1,4 +1,5 @@
-"""Lead decisions from the M1-08 code review (abundance table; GIAP_SPEC.md §5.3, §7.0; ADR-0005/6).
+"""Lead decisions from the M1-08 code review (abundance table; GIPPA_SPEC.md §5.3, §7.0;
+ADR-0005/6).
 
 1. a table with valid shape is always returned, even with ``non_numeric_values``/``non_finite``
    errors: bad cells are ``None`` and flagged in ``bad_rows`` (one bool per row, row order);
@@ -17,14 +18,14 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.abundance import (
+from gippa.io.abundance import (
     AbundanceTable,
     abundance_stats,
     detect_scale,
     read_abundance,
     validate_abundance,
 )
-from giap.io.issues import Issue
+from gippa.io.issues import Issue
 
 WARN_FRAC = 0.20
 

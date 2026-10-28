@@ -1,4 +1,4 @@
-"""FWER calibration of the M5-06 island step (GIAP_SPEC.md §7.3.5(d), §8.1, §8.4; ADR-0021 with
+"""FWER calibration of the M5-06 island step (GIPPA_SPEC.md §7.3.5(d), §8.1, §8.4; ADR-0021 with
 Amendment 1).
 
 Validity domain (ADR-0021 Amendment 1, accepted 2026-10-20): the claim holds for the *dependence
@@ -22,7 +22,7 @@ permutations. The replicate value is the indicator "at least one island" at ever
 
 Measured with the spec oracle before the implementation existed (R = 50, bound 0.112 at
 alpha 0.05): rho 0 -> 0.00, rho 0.5 -> 0.02, chromosome + plasmid -> 0.02; the statistician's
-giapsim re-measurement at R = 1,000 gives 0.020 / 0.031 / 0.037 for ``ar1_background`` at rho 0.5
+gippasim re-measurement at R = 1,000 gives 0.020 / 0.031 / 0.037 for ``ar1_background`` at rho 0.5
 on 557 / 1,001 / 2,501 scored TUs (bound 0.0638). The attack nulls (the M5-04 ori-ter scenario,
 autocorrelation at rho 0.9, large TUs, draft assemblies, many replicons and the structural
 low-direction ceiling) live in attacks/test_attack_islands.py.
@@ -98,7 +98,7 @@ def test_genome_wide_family_over_two_replicons(full: bool) -> None:
 def test_teeth_spec_block_length_is_anticonservative(teeth_log: Path) -> None:
     """Teeth: the spec's l-hat as the bootstrap block length (without ADR-0021's widening) must be
     a confirmed ``fail`` of the same criterion at rho 0.9."""
-    from giap.stats.autocorr import choose_block_len
+    from gippa.stats.autocorr import choose_block_len
 
     def rep(rng: np.random.Generator) -> float:
         cfg = idat.config(bootstrap=B, permutations=PERM, alpha=0.05)

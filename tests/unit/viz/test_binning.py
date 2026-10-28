@@ -1,4 +1,4 @@
-"""``giap.viz.base.binned``: the 20,000-element rule per track (M9-01 behaviour 8, examples 5-6,
+"""``gippa.viz.base.binned``: the 20,000-element rule per track (M9-01 behaviour 8, examples 5-6,
 index decision 12).
 
 ``binned`` returns ``None`` at or under ``max_elements`` elements, otherwise the
@@ -12,7 +12,7 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.viz.base import binned
+from gippa.viz.base import binned
 
 
 def _intervals(n: int, length: int, seed: int) -> tuple[np.ndarray, np.ndarray]:

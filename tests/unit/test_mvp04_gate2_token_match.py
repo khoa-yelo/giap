@@ -4,7 +4,7 @@ local/stat/mvp04-gates-2-12.md).
 
 Gate 2 means the gene-level (detection step) warnings ``decoy_unscored``, ``decoy_pairing_low``,
 ``q_floor_above_alpha`` and ``no_eligible_genes``. The novel_orfs step's per-class warning
-``novel_orfs.class_q_floor_above_alpha`` (src/giap/steps/novel.py, manifest entry
+``novel_orfs.class_q_floor_above_alpha`` (src/gippa/steps/novel.py, manifest entry
 ``novel_orfs:novel_orfs.class_q_floor_above_alpha``) is a different warning and must not fail the
 gate; the scorer found it by substring. The same holds for a ``class_`` form of each other token.
 
@@ -62,7 +62,7 @@ def _event(d: S.Dirs, record: dict[str, Any]) -> None:
 
 
 def _novel_class_event(token: str) -> dict[str, Any]:
-    """The novel_orfs per-class warning as src/giap/steps/novel.py logs it (``class_<token>``)."""
+    """The novel_orfs per-class warning as src/gippa/steps/novel.py logs it (``class_<token>``)."""
     return {
         "event": f"novel_orfs.class_{token}",
         "level": "WARNING",

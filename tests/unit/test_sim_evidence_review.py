@@ -1,4 +1,4 @@
-"""giapsim evidence: tests from the lead decisions after code review of PR #80 (issue M4-09).
+"""gippasim evidence: tests from the lead decisions after code review of PR #80 (issue M4-09).
 
 docs/specs/M4-09-sim-evidence.md, "Lead decisions after code review", items 4-5:
 
@@ -27,20 +27,20 @@ import sim_evidence_oracle as eo
 
 
 def _layout(seed: int, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 
 
 def _express(lay: Any, seed: int) -> Any:
-    from giapsim.expression import ExpressionConfig, simulate_expression
+    from gippasim.expression import ExpressionConfig, simulate_expression
 
     return simulate_expression(lay, ExpressionConfig(), np.random.default_rng(seed))
 
 
 def _force_detected(ex: Any, tags: set[str] | None = None) -> Any:
     """Expression with ``detected_true`` set for ``tags`` (all genes if None); input untouched."""
-    from giapsim.expression import Expression
+    from gippasim.expression import Expression
 
     g = ex.genes
     det = g["detected_true"].astype(bool) | (
@@ -50,7 +50,7 @@ def _force_detected(ex: Any, tags: set[str] | None = None) -> Any:
 
 
 def _evidence(lay: Any, ex: Any, seed: int, **kw: Any) -> Any:
-    from giapsim.evidence import EvidenceConfig, simulate_evidence
+    from gippasim.evidence import EvidenceConfig, simulate_evidence
 
     return simulate_evidence(lay, ex, EvidenceConfig(**kw), np.random.default_rng(seed))
 
@@ -127,7 +127,7 @@ def test_origin_hits_wrap_mod_length_and_flag_crossing(origin_case: tuple[Any, A
 )
 def test_span_boundaries(start: int, end: int, strand: str, a: int, b: int, length: int) -> None:
     """``_span`` at the origin boundaries (an end exactly at the origin does not cross)."""
-    from giapsim.evidence import _span
+    from gippasim.evidence import _span
 
     g = {"start": start, "end": end, "strand": strand}
     want = _wrap(*eo.span_coords(start, end, strand, a, b), length)
@@ -219,7 +219,7 @@ def sorf_layout() -> Any:
 def test_digest_matches_oracle(sorf_layout: Any) -> None:
     """``_digest``: the 7-30 aa, <= 1 missed Trypsin/P peptides at their first offset, and the
     weight n_observable (distinct 0-missed peptides) of the oracle."""
-    from giapsim.evidence import _digest
+    from gippasim.evidence import _digest
 
     for aa in [*sorf_layout.genes["aa"], None, "", "K" * 3, "AAAAAAK" + "PAAAAAK"]:
         cands, w = _digest(aa)
@@ -253,13 +253,13 @@ def test_null_rows_never_on_genes_without_observable_peptides(sorf_layout: Any) 
 
 @pytest.mark.parametrize("mixture", [(3.0, 0.0), (1.0, 1.0), (0.0, -0.5)])
 def test_config_rejects_mu1_not_above_mu0(mixture: tuple[float, float]) -> None:
-    from giapsim.evidence import EvidenceConfig
+    from gippasim.evidence import EvidenceConfig
 
     with pytest.raises(ValueError):
         EvidenceConfig(mixture=mixture)
 
 
 def test_config_accepts_mu1_above_mu0() -> None:
-    from giapsim.evidence import EvidenceConfig
+    from gippasim.evidence import EvidenceConfig
 
     assert EvidenceConfig(mixture=(-1.0, 0.5)).mixture == (-1.0, 0.5)

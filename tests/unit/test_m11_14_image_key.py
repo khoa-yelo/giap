@@ -4,18 +4,18 @@ Spec docs/specs/M11-14-container-install.md. Everything runs on temporary trees;
 registry or the network.
 
 Interface fixed by these tests. The key must work from an installed wheel, where ``scripts/`` is
-not shipped, so ``key()`` lives in ``src/giap/io/image_key.py`` (spec amendment from #370);
+not shipped, so ``key()`` lives in ``src/gippa/io/image_key.py`` (spec amendment from #370);
 ``scripts/release/image_key.py`` and readiness H4 are thin callers of it.
 
-``giap.io.image_key``
+``gippa.io.image_key``
     ``root`` is the directory holding ``workflow/``; it is optional everywhere and defaults to
-    ``giap.runner.nextflow.workflow_main().parent.parent`` looked up at call time (the checkout,
+    ``gippa.runner.nextflow.workflow_main().parent.parent`` looked up at call time (the checkout,
     or the installed package whose bundled ``workflow/`` M11-01 ships).
     ``key_inputs(tool, root) -> list[str]``
         repo-relative POSIX paths (relative to ``root``, the directory holding ``workflow/``) of
         every file under ``workflow/containers/<tool>/`` (recursive), ``workflow/envs/<tool>.yml``,
         ``workflow/envs/locks/<tool>.explicit.txt`` and ``<tool>.pip.txt`` when present, and for
-        ``fgsea`` also ``workflow/bin/giap_fgsea.R``; sorted by code point (``sorted`` on ``str``).
+        ``fgsea`` also ``workflow/bin/gippa_fgsea.R``; sorted by code point (``sorted`` on ``str``).
     ``key_text(tool, root) -> str``
         one ``<path>\\t<mode>\\t<sha256 hex of the bytes>\\n`` line per input, in that order;
         ``<mode>`` is ``100755`` when any exec bit of the file is set, else ``100644`` (git's two
@@ -37,7 +37,7 @@ not shipped, so ``key()`` lives in ``src/giap/io/image_key.py`` (spec amendment 
     ``--root`` defaults to the repository, ``--images`` to ``<root>/workflow/conf/images.json``
     (an object ``{tool: {"key", "tag", "ref", "processes", "built_from", "licence"}}``).
     ``TOOL ...`` prints one ``<tool>\\t<key>\\t<tag>`` line per tool (version from
-    ``giap.annotate.tools.TOOLS``). The GHCR tools are the directories under
+    ``gippa.annotate.tools.TOOLS``). The GHCR tools are the directories under
     ``workflow/containers/`` other than ``uniop`` (never published).
     ``--plan`` prints ``will rebuild: <t> (<old key> → <new key>)`` per GHCR tool whose key
     differs from its ``images.json`` key (or has no entry), or the single line
@@ -69,7 +69,7 @@ PROMOTECH_SHA = "56251ad9b883ef831b4753fc623d5ec970fe65e0"
 
 
 def _ik():  # type: ignore[no-untyped-def]
-    import giap.io.image_key as c
+    import gippa.io.image_key as c
 
     return c
 
@@ -84,17 +84,17 @@ def _write(root: Path, rel: str, data: bytes | str, mode: int = 0o644) -> Path:
 
 OSTIR_FILES = {
     "workflow/containers/ostir/Dockerfile": "FROM scratch\nCOPY workflow/envs/ostir.yml /tmp/e\n",
-    "workflow/envs/ostir.yml": "name: giap-ostir\ndependencies:\n  - ostir==1.1.3\n",
+    "workflow/envs/ostir.yml": "name: gippa-ostir\ndependencies:\n  - ostir==1.1.3\n",
     "workflow/envs/locks/ostir.explicit.txt": "@EXPLICIT\nhttps://x/a.conda#00\n",
     "workflow/envs/locks/ostir.pip.txt": "ostir==1.1.3 --hash=sha256:00\n",
 }
 DISTRACTORS = {
     "workflow/containers/promotech/Dockerfile": "FROM scratch\n",
-    "workflow/envs/promotech.yml": "name: giap-promotech\n",
+    "workflow/envs/promotech.yml": "name: gippa-promotech\n",
     "workflow/envs/ostirx.yml": "not ostir\n",
     "workflow/envs/locks/ostirx.explicit.txt": "not ostir\n",
-    "workflow/envs/bakta.yml": "name: giap-bakta\n",
-    "workflow/bin/giap_fgsea.R": "#!/usr/bin/env Rscript\n",
+    "workflow/envs/bakta.yml": "name: gippa-bakta\n",
+    "workflow/bin/gippa_fgsea.R": "#!/usr/bin/env Rscript\n",
 }
 
 
@@ -206,16 +206,16 @@ def test_fgsea_includes_the_baked_in_script(tmp_path: Path) -> None:
         tmp_path,
         {
             "workflow/containers/fgsea/Dockerfile": "FROM scratch\n",
-            "workflow/envs/fgsea.yml": "name: giap-fgsea\n",
+            "workflow/envs/fgsea.yml": "name: gippa-fgsea\n",
             "workflow/envs/locks/fgsea.explicit.txt": "@EXPLICIT\n",
         },
     )
     c = _ik()
-    assert "workflow/bin/giap_fgsea.R" in c.key_inputs("fgsea", root)
+    assert "workflow/bin/gippa_fgsea.R" in c.key_inputs("fgsea", root)
     before = c.key("fgsea", root)
-    _write(root, "workflow/bin/giap_fgsea.R", "#!/usr/bin/env Rscript\n# changed\n")
+    _write(root, "workflow/bin/gippa_fgsea.R", "#!/usr/bin/env Rscript\n# changed\n")
     assert c.key("fgsea", root) != before
-    assert "workflow/bin/giap_fgsea.R" not in c.key_inputs("ostir", root)
+    assert "workflow/bin/gippa_fgsea.R" not in c.key_inputs("ostir", root)
 
 
 # --- example 2 and 2b -----------------------------------------------------------------------
@@ -284,7 +284,7 @@ def test_property_key_matches_the_definition(
         rel = f"workflow/containers/ostir/{name}"
         _write(root, rel, data, 0o755 if exe else 0o644)
         rels.append(rel)
-    _write(root, "workflow/envs/ostir.yml", "name: giap-ostir\n")
+    _write(root, "workflow/envs/ostir.yml", "name: gippa-ostir\n")
     rels.append("workflow/envs/ostir.yml")
     c = _ik()
     assert c.key_inputs("ostir", root) == sorted(rels)
@@ -382,7 +382,7 @@ def _repo_tree(root: Path) -> Path:
     for rel in ("workflow/containers", "workflow/envs"):
         shutil.copytree(REPO / rel, root / rel)
     (root / "workflow/bin").mkdir(parents=True)
-    shutil.copy2(REPO / "workflow/bin/giap_fgsea.R", root / "workflow/bin/giap_fgsea.R")
+    shutil.copy2(REPO / "workflow/bin/gippa_fgsea.R", root / "workflow/bin/gippa_fgsea.R")
     (root / "workflow/conf").mkdir(parents=True)
     return root
 
@@ -394,7 +394,7 @@ def _ghcr_tools(root: Path) -> list[str]:
 
 
 def _pin_all(root: Path) -> dict[str, str]:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     c = _ik()
     images: dict[str, dict[str, object]] = {}
@@ -405,7 +405,7 @@ def _pin_all(root: Path) -> dict[str, str]:
         images[tool] = {
             "key": key,
             "tag": c.tag(TOOLS[tool].version, key),
-            "ref": f"ghcr.io/khoa-yelo/giap-{tool}@sha256:{format(i + 1, 'x') * 64}",
+            "ref": f"ghcr.io/khoa-yelo/gippa-{tool}@sha256:{format(i + 1, 'x') * 64}",
             "processes": [tool.upper()],
             "built_from": "0123456789abcdef0123456789abcdef01234567",
             "licence": TOOLS[tool].licence,
@@ -499,14 +499,14 @@ def test_check_on_the_repository_passes() -> None:
 
 
 def _installed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Pretend to be a wheel: the bundled workflow under site/giap/workflow (modes kept)."""
-    pkg = tmp_path / "site" / "giap"
+    """Pretend to be a wheel: the bundled workflow under site/gippa/workflow (modes kept)."""
+    pkg = tmp_path / "site" / "gippa"
     for rel in ("workflow/containers", "workflow/envs"):
         shutil.copytree(REPO / rel, pkg / rel)
     (pkg / "workflow/bin").mkdir(parents=True)
-    shutil.copy2(REPO / "workflow/bin/giap_fgsea.R", pkg / "workflow/bin/giap_fgsea.R")
+    shutil.copy2(REPO / "workflow/bin/gippa_fgsea.R", pkg / "workflow/bin/gippa_fgsea.R")
     (pkg / "workflow/main.nf").write_text("// bundled\n")
-    monkeypatch.setattr("giap.runner.nextflow.workflow_main", lambda: pkg / "workflow" / "main.nf")
+    monkeypatch.setattr("gippa.runner.nextflow.workflow_main", lambda: pkg / "workflow" / "main.nf")
     return pkg
 
 

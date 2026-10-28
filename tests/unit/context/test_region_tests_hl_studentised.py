@@ -19,7 +19,7 @@ docs/specs/M4-17-region-tests.md decisions 13 and 15, formula in docs/methods/re
 - decision 13: a missing ``tu_id`` raises ValueError (C6 makes ``tu_id`` non-null; no per-gene
   fallback). The bootstrap CI still resamples TU blocks.
 
-Public interface pinned here (test-author choice, ``giap.context.regions``), replacing
+Public interface pinned here (test-author choice, ``gippa.context.regions``), replacing
 ``tu_variance_components`` and the TU arguments of ``hl_variance`` / ``studentised_hl_null``:
 
 - ``LAG_MAX = 30``;
@@ -50,7 +50,7 @@ from region_tests_data import Contig, gene_table, pick, region_frames, tags_of
 
 
 def _regions() -> Any:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R
 

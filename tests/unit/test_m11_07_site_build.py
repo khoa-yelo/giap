@@ -101,7 +101,7 @@ def test_changelog_page_embeds_changelog(site: Path) -> None:
 
 
 def test_citation_page_renders_citation_cff(site: Path) -> None:
-    title = "GIAP: genome-integrated analysis of proteomics data"
+    title = "GIPPA: genome integrated prokaryotic proteomics analysis"
     assert title in (REPO / "CITATION.cff").read_text(encoding="utf-8")
     pages = [p for p in _html(site) if "citation" in p.relative_to(site).as_posix().lower()]
     assert pages, "no citation page in the site"

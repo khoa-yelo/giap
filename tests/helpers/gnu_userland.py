@@ -1,4 +1,4 @@
-"""Host probes for tests that execute the FarmShare Slurm scripts (GIAP_SPEC.md G19).
+"""Host probes for tests that execute the FarmShare Slurm scripts (GIPPA_SPEC.md G19).
 
 ``scripts/slurm/*.sbatch`` and friends run only on FarmShare and use the GNU userland:
 ``sha256sum``, ``flock``, ``realpath -e`` and ``stat -c``. On a host without it (macOS: BSD
@@ -62,7 +62,7 @@ def probe_gnu_userland(path: str) -> tuple[str, ...]:
 
     The target is a private temporary file, so ``flock -n`` never meets another lock holder
     (parallel probes on a shared file fail each other: PR #318 review B1)."""
-    fd, target = tempfile.mkstemp(prefix="giap-gnu-probe-")
+    fd, target = tempfile.mkstemp(prefix="gippa-gnu-probe-")
     try:
         os.close(fd)
         return tuple(name for name, argv in _probes(target).items() if not _works(argv, path))

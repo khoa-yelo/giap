@@ -1,4 +1,4 @@
-"""``giap.viz.support.variant_windows``: the reference protein around each top ALT site (M9-18
+"""``gippa.viz.support.variant_windows``: the reference protein around each top ALT site (M9-18
 "Support: ``plots/support/variant_windows.tsv``", example 3, the ``-`` strand, origin-crossing
 and near-start rows of the degenerate-case table; lead decision 2: ±10 aa).
 
@@ -31,7 +31,7 @@ from helpers import viz_variants as vv
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.run_view import RunView
+from gippa.io.run_view import RunView
 
 COLUMNS = ["variant_id", "gene", "aa_pos", "window_start_aa", "ref_window"]
 SETTINGS = settings(
@@ -42,7 +42,7 @@ SETTINGS = settings(
 
 
 def _fn() -> Any:
-    from giap.viz.support import variant_windows
+    from gippa.viz.support import variant_windows
 
     return variant_windows
 
@@ -195,16 +195,16 @@ def test_property_window_is_the_clipped_slice_around_the_site(n: int, data: st.D
 
 @pytest.fixture
 def _styled() -> None:
-    from giap.viz import style
+    from gippa.viz import style
 
     style.apply()
 
 
 def test_v12_uses_the_written_support_table(tmp_path: Path, _styled: None) -> None:
-    import giap.viz.variants  # noqa: F401
-    from giap.config import resolve_config
-    from giap.io.plot_support import write_support
-    from giap.viz import base
+    import gippa.viz.variants  # noqa: F401
+    from gippa.config import resolve_config
+    from gippa.io.plot_support import write_support
+    from gippa.viz import base
 
     sites = vv.main_variants()
     out = vv.build_out(tmp_path, sites, vv.main_hits())

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-diann-image
+#SBATCH --job-name=gippa-diann-image
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=1
@@ -17,14 +17,14 @@
 # temporary copy, so a copy is installed only after every check passed (PR #293 review S3). Exit 0
 # installed or already installed, 2 any precondition or mismatch; nothing is retried automatically.
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
 
-PIN_FILE="$GIAP_REPO/validation/pilot/diann_image.sha256"
+PIN_FILE="$GIPPA_REPO/validation/pilot/diann_image.sha256"
 SHARED="${DIANN_SIF_SHARED:-/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif}"
-SIF="${DIANN_SIF:-$GIAP_ROOT/images/diann_2.3.1.sif}"
+SIF="${DIANN_SIF:-$GIPPA_ROOT/images/diann_2.3.1.sif}"
 IMAGES="$(dirname "$SIF")"
-PY="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
+PY="${GIPPA_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
 BANNER_WANT="DIA-NN 2.3.1 Academia"
 
 die() { echo "diann_image: $*" >&2; exit 2; }

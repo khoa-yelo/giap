@@ -9,8 +9,8 @@ from __future__ import annotations
 import matplotlib.text
 import pytest
 
-from giap.viz import style
-from giap.viz.base import Instance, empty_state, title_pct
+from gippa.viz import style
+from gippa.viz.base import Instance, empty_state, title_pct
 
 MESSAGE = "No islands at FWER ≤ 0.05 in this run"
 COLUMNS = ["island_id", "contig", "start", "end", "q_value"]

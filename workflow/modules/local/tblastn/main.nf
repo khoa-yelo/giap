@@ -1,5 +1,5 @@
-// BLAST+ 2.16.0 (public domain): route 2b tblastn for protein leftovers (GIAP_SPEC.md §7.2.3,
-// §6.2 step `tblastn`; M3-13). Mirrors giap.mapping.tblastn.makeblastdb_cmd / tblastn_cmd. The
+// BLAST+ 2.16.0 (public domain): route 2b tblastn for protein leftovers (GIPPA_SPEC.md §7.2.3,
+// §6.2 step `tblastn`; M3-13). Mirrors gippa.mapping.tblastn.makeblastdb_cmd / tblastn_cmd. The
 // search options (mapping.proteins.tblastn_args) arrive only through task.ext.args (set in
 // conf/base.config from params.mapping). Container pin: conf/containers.config.
 process TBLASTN {

@@ -1,25 +1,25 @@
 """The committed Module 5 and 6 tables of the 50-kb M7 fixture (docs/specs/M7-15-integration-
-hardening.md item 1, example 1; GIAP_SPEC.md §11.2 golden layer, §11.4).
+hardening.md item 1, example 1; GIPPA_SPEC.md §11.2 golden layer, §11.4).
 
 Lead decision 1 (2026-10-22): a second golden directory ``tests/data/golden/sim50k_m7/`` with the
-M7 settings (tests/helpers/m7_chain.py: a 50-kb giapsim genome, SNV strain difference, de novo
+M7 settings (tests/helpers/m7_chain.py: a 50-kb gippasim genome, SNV strain difference, de novo
 peptides and their reference identifications, planted novel ORFs with the M7-12 knobs, every
 layer precomputed); the sim50k goldens are not regenerated.
 
-``giap run --executor local --modules core --seed GOLDEN_SEED`` on the reference genome must give
+``gippa run --executor local --modules core --seed GOLDEN_SEED`` on the reference genome must give
 ``pileup.tsv.gz``, ``variants.tsv``, ``variants.vcf``, ``novel_orfs.tsv`` and
 ``annotation_patch.gff3`` equal to the committed files byte for byte (gzip compared decompressed;
-the VCF ``##source=giap-<version>`` line with the version masked; BLAS-dependent numeric columns,
+the VCF ``##source=gippa-<version>`` line with the version masked; BLAS-dependent numeric columns,
 none today, per the M5-11 decision 44 pattern: ``m7_chain.BLAS_NUMERIC``).
 
-**Freezing checks.** With ``GIAP_UPDATE_GOLDEN=1`` the files are written only when giapsim has the
+**Freezing checks.** With ``GIPPA_UPDATE_GOLDEN=1`` the files are written only when gippasim has the
 M7-12 knobs and the run is not vacuous (``m7_chain.golden_problems``: a ``variants.tsv`` row at a
 planted SNV and one flagged ``strain_difference``, a called novel ORF on a planted one, a CDS in the
 patch, a novel-ORF class whose M7-11b class q floor is <= alpha, pileup rows); otherwise the
 regeneration fails and writes nothing. The same checks run on every comparison.
 
 Regenerating (on purpose, reviewed in the PR diff as data):
-``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m7_golden.py`` writes the files and skips.
+``GIPPA_UPDATE_GOLDEN=1 pytest tests/golden/test_m7_golden.py`` writes the files and skips.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def run(tmp_path_factory: pytest.TempPathFactory, golden_seed: int) -> dict[str,
     got = {"sim": sim, "out": out, "bytes": m7.produced(out)}
     if m7.updating():
         if not m7.has_m7_12():
-            pytest.fail("refusing to freeze sim50k_m7: giapsim lacks the M7-12 knobs")
+            pytest.fail("refusing to freeze sim50k_m7: gippasim lacks the M7-12 knobs")
         bad = m7.golden_problems(sim, out)
         if bad:
             pytest.fail(f"refusing to freeze sim50k_m7: {bad}")
@@ -67,7 +67,7 @@ def test_example_1_tables_equal_the_committed_golden_files(run: dict[str, Any]) 
 
 def test_golden_fixture_uses_the_m7_12_settings() -> None:
     """Lead decision 1: "the M7 settings" -- the M7-12 novel-ORF length range and planted RBSs."""
-    assert m7.has_m7_12(), "giapsim.SimConfig lacks the M7-12 knobs " + str(sorted(m7.M7_12_KNOBS))
+    assert m7.has_m7_12(), "gippasim.SimConfig lacks the M7-12 knobs " + str(sorted(m7.M7_12_KNOBS))
     cfg = m7.sim_config()
     for key, value in m7.M7_12_KNOBS.items():
         assert getattr(cfg, key) == value, key
@@ -108,9 +108,9 @@ def test_sim50k_goldens_are_not_touched() -> None:
 
 
 def test_mask_version_masks_only_the_source_line() -> None:
-    data = b"##fileformat=VCFv4.3\n##source=giap-0.0.1\n#CHROM\tPOS\nchr1\t5\n"
+    data = b"##fileformat=VCFv4.3\n##source=gippa-0.0.1\n#CHROM\tPOS\nchr1\t5\n"
     assert m7.mask_version(data) == (
-        b"##fileformat=VCFv4.3\n##source=giap-VERSION\n#CHROM\tPOS\nchr1\t5\n"
+        b"##fileformat=VCFv4.3\n##source=gippa-VERSION\n#CHROM\tPOS\nchr1\t5\n"
     )
     assert m7.mask_version(data.replace(b"0.0.1", b"1.2.0")) == m7.mask_version(data)
 

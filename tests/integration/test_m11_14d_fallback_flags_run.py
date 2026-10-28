@@ -1,4 +1,4 @@
-"""M11-14d, ADR-0061 decisions 1 and 4, through ``giap run`` (both executors).
+"""M11-14d, ADR-0061 decisions 1 and 4, through ``gippa run`` (both executors).
 
 The ``tu_source_distance_model`` row flags come from ``operon_source()`` reading
 ``operon_meta.json``, an OPTIONAL input of the ``operons`` and ``context_stats`` steps. The unit
@@ -6,7 +6,7 @@ tests (tests/unit/test_m11_14d_fallback_flags.py) feed that file by hand; here t
 wiring must deliver it (workflow/main.nf OPERONS and CONTEXT calls, context.nf's filter, and the
 local runner's registry plan). If the wiring drops it, the flags vanish silently (fail-open).
 
-Inputs: the giapsim SIM100K genome with M3-19 proteomics, abundance and every precomputed layer
+Inputs: the gippasim SIM100K genome with M3-19 proteomics, abundance and every precomputed layer
 (as tests/integration/test_m6_08_operons_run.py), ``--modules core``, one seed.
 
 * Distance-model run: ``annotation.precomputed.operon_pairs`` removed and
@@ -41,13 +41,13 @@ TU_ERROR = "tu_block_tu_error"
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +71,7 @@ def distance_config(sim: Any, tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _run(sim: Any, out: Path, db: Path, config: Path, *extra: str) -> Path:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     assert sim.abundance is not None, "the fixture writes abundance.tsv"
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
@@ -79,7 +79,7 @@ def _run(sim: Any, out: Path, db: Path, config: Path, *extra: str) -> Path:
             "--config", str(config), "--outdir", str(out), "--modules", "core",
             "--seed", str(SEED), *extra]  # fmt: skip
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):

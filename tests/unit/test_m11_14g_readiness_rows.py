@@ -11,7 +11,7 @@ Interface fixed by these tests:
 * R3 and R4 accept a nightly row at commit C iff ``reusable(C, HEAD)``. A reused row (C != HEAD)
   says ``reused from <first 7 hex of C> (reusable: diff ⊆ NON_STATS_PATHS)`` (value or evidence);
   a row for HEAD itself does not say "reused from".
-* H4 additionally recomputes ``giap.io.image_key.key(tool, <repo>)`` for the GHCR tools: every
+* H4 additionally recomputes ``gippa.io.image_key.key(tool, <repo>)`` for the GHCR tools: every
   directory under ``workflow/containers/`` except ``uniop`` (unpublished), as in
   ``scripts/release/image_key.py``. H4 fails when
   - an ``images.json`` entry's key differs from the recomputed one (``stale image: <tool>``),
@@ -42,7 +42,7 @@ from helpers.release_readiness import (
     text_of,
 )
 
-from giap.io.image_key import key
+from gippa.io.image_key import key
 
 REUSED = "(reusable: diff ⊆ NON_STATS_PATHS)"
 
@@ -68,9 +68,9 @@ def test_rows_for_head_itself_are_not_marked_reused(fx: Fixture) -> None:
 
 def test_example12_viz_docs_version_line_reuses_the_rows(fx: Fixture) -> None:
     c = fx.r
-    fx.write_text("src/giap/viz/locus.py", '"""locus plot (fixture)."""\n')
+    fx.write_text("src/gippa/viz/locus.py", '"""locus plot (fixture)."""\n')
     fx.write_text("docs/x.md", "# x\n")
-    fx.write_text("src/giap/__init__.py", '"""GIAP."""\n\n__version__ = "1.0.1"\n')
+    fx.write_text("src/gippa/__init__.py", '"""GIPPA."""\n\n__version__ = "1.0.1"\n')
     fx.commit("1.0.1: viz, docs, version")
     for r in _calib(fx):
         assert r["status"] == "pass", r
@@ -78,7 +78,7 @@ def test_example12_viz_docs_version_line_reuses_the_rows(fx: Fixture) -> None:
         assert REUSED in text_of(r), r
 
 
-@pytest.mark.parametrize("rel", ["src/giap/cli.py", "src/giap/stats/fdr.py"])
+@pytest.mark.parametrize("rel", ["src/gippa/cli.py", "src/gippa/stats/fdr.py"])
 def test_example13_cli_or_stats_change_leaves_rows_pending(fx: Fixture, rel: str) -> None:
     fx.write_text("docs/x.md", "# x\n")
     fx.write_text(rel, '"""changed (fixture)."""\n')
@@ -96,7 +96,7 @@ def test_example13b_readiness_change_leaves_rows_pending(fx: Fixture) -> None:
 
 
 def test_example13d_report_stats_is_not_under_report(fx: Fixture) -> None:
-    fx.write_text("src/giap/report_stats.py", '"""not report/ (fixture)."""\n')
+    fx.write_text("src/gippa/report_stats.py", '"""not report/ (fixture)."""\n')
     fx.commit("report_stats")
     assert [r["status"] for r in _calib(fx)] == ["pending", "pending"]
 
@@ -113,14 +113,14 @@ def test_paths_outside_src_but_not_non_stats_leave_rows_pending(fx: Fixture, rel
 
 
 def test_a_move_out_of_stats_into_docs_leaves_rows_pending(fx: Fixture) -> None:
-    git(fx.repo, "mv", "src/giap/stats/bh.py", "docs/bh.py")
+    git(fx.repo, "mv", "src/gippa/stats/bh.py", "docs/bh.py")
     git(fx.repo, "commit", "-q", "-m", "move bh into docs")
     assert [r["status"] for r in _calib(fx)] == ["pending", "pending"]
 
 
 def test_report_change_reuses_and_cites_the_evidence_commit(fx: Fixture) -> None:
     c = fx.r
-    fx.write_text("src/giap/report/card.py", '"""card (fixture)."""\n')
+    fx.write_text("src/gippa/report/card.py", '"""card (fixture)."""\n')
     fx.commit("report card")
     r3, _ = _calib(fx)
     assert r3["status"] == "pass", r3
@@ -148,7 +148,7 @@ def test_evidence_from_a_non_ancestor_commit_is_not_reused(fx: Fixture) -> None:
 
 # ------------------------------------------------------------------ H4 image keys
 
-OWNER = "ghcr.io/khoa-yelo/giap"
+OWNER = "ghcr.io/khoa-yelo/gippa"
 D1, D2 = "1" * 64, "2" * 64
 
 
@@ -174,7 +174,7 @@ def _ostir(root: Path, *, pin: bool = True) -> None:
         "workflow/containers/ostir/Dockerfile",
         "FROM scratch\nCOPY workflow/envs/ostir.yml /x\n",
     )
-    _write(root, "workflow/envs/ostir.yml", "name: giap-ostir\ndependencies: [ostir=1.1.3]\n")
+    _write(root, "workflow/envs/ostir.yml", "name: gippa-ostir\ndependencies: [ostir=1.1.3]\n")
     if pin:
         cfg = root / "workflow/conf/containers.config"
         cfg.write_text(
@@ -190,9 +190,9 @@ def _fgsea(root: Path) -> None:
     _write(
         root,
         "workflow/containers/fgsea/Dockerfile",
-        "FROM scratch\nCOPY workflow/bin/giap_fgsea.R /opt/giap/\n",
+        "FROM scratch\nCOPY workflow/bin/gippa_fgsea.R /opt/gippa/\n",
     )
-    _write(root, "workflow/bin/giap_fgsea.R", "#!/usr/bin/env Rscript\ncat('fgsea')\n")
+    _write(root, "workflow/bin/gippa_fgsea.R", "#!/usr/bin/env Rscript\ncat('fgsea')\n")
 
 
 def _entry(root: Path, tool: str, processes: list[str], k: str | None = None) -> dict[str, Any]:
@@ -230,7 +230,7 @@ def test_h4_fails_on_a_stale_key(tmp_path: Path) -> None:
     root = _tree(tmp_path)
     _ostir(root)
     _images(root, {"ostir": _entry(root, "ostir", ["OSTIR", "OSTIR_NOVEL"])})
-    _write(root, "workflow/envs/ostir.yml", "name: giap-ostir\ndependencies: [ostir=1.1.4]\n")
+    _write(root, "workflow/envs/ostir.yml", "name: gippa-ostir\ndependencies: [ostir=1.1.4]\n")
     h4 = _h4(root)
     assert h4["status"] == "fail", h4
     assert "stale image: ostir" in h4["value"], h4
@@ -240,7 +240,7 @@ def test_h4_fails_on_a_stale_fgsea_script(tmp_path: Path) -> None:
     root = _tree(tmp_path)
     _fgsea(root)
     _images(root, {"fgsea": _entry(root, "fgsea", [])})
-    _write(root, "workflow/bin/giap_fgsea.R", "#!/usr/bin/env Rscript\ncat('fgsea v2')\n")
+    _write(root, "workflow/bin/gippa_fgsea.R", "#!/usr/bin/env Rscript\ncat('fgsea v2')\n")
     h4 = _h4(root)
     assert h4["status"] == "fail" and "stale image: fgsea" in h4["value"], h4
 

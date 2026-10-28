@@ -438,7 +438,7 @@ def test_cli_writes_summary_files(tmp_path: Path) -> None:
     assert set(cells) == set(CELLS)
     assert all(c["status"] == "complete" for c in cells.values())
     md = (d / "summary.md").read_text()
-    assert "giap run standard" in md and "giap run core" in md, "PROGRESS rows"
+    assert "gippa run standard" in md and "gippa run core" in md, "PROGRESS rows"
     assert "noisy (spread 19.7 % > 15 %)" in md
 
 
@@ -520,7 +520,7 @@ def test_cli_schema_invalid_record_exits_2(tmp_path: Path, damage: str) -> None:
     if damage == "not_json":
         p.write_text("{not json")
     elif damage == "wrong_schema":
-        rec["schema"] = "giap-bench-run/0"
+        rec["schema"] = "gippa-bench-run/0"
         p.write_text(json.dumps(rec))
     else:
         del rec["wall_s"]

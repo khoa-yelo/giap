@@ -27,9 +27,9 @@ P1 = "PEPTIDEK"  # 8 aa -> 24 bp by default
 
 
 def _cfg(q: float = 0.01, relation: str = "related") -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(
+    return GippaConfig(
         genome_relation=relation, input={"q_value_max": q}, stats={"alpha": {"placement": 0.01}}
     )
 
@@ -38,7 +38,7 @@ def run(
     hit_rows: list[dict[str, Any]], pep_rows: list[dict[str, Any]] | None
 ) -> tuple[pd.DataFrame, dict[str, Any], dict[str, Any]]:
     """Accepted rows, the evidence row of G, and the oracle's expectation for G."""
-    from giap.genetable import evidence as ev
+    from gippa.genetable import evidence as ev
 
     genes = eo.genes_frame(GENES)
     hits = eo.hits_frame(hit_rows)

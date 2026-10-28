@@ -1,4 +1,4 @@
-"""Attack (GIAP_SPEC.md §8.5, statistician): structure the M8-09 TU-size-preserving null does not
+"""Attack (GIPPA_SPEC.md §8.5, statistician): structure the M8-09 TU-size-preserving null does not
 keep (§7.8.2 step 4, §8.1 row "Determinant model"; docs/specs/M8-09-determinants-attribution-null.md
 rules 5-6). In every arm the response is independent of every feature in the population; the
 method passes when the null p stays at level (§8.4).
@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_attrib_data as a
 import determinants_models_data as d
 
-from giap.config.model import DeterminantsConfig, LightgbmConfig
+from gippa.config.model import DeterminantsConfig, LightgbmConfig
 
 SUITE = "determinants"
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite(SUITE)]

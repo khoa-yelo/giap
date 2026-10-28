@@ -1,6 +1,6 @@
-# M7-12: giapsim scenarios for variants and novel ORFs
+# M7-12: gippasim scenarios for variants and novel ORFs
 
-Milestone M7 · track F (fixtures and simulator) · **pass 2** · depends on: merged giapsim (M3-18
+Milestone M7 · track F (fixtures and simulator) · **pass 2** · depends on: merged gippasim (M3-18
 features and strains, M3-19 proteomics, M3-20 de novo errors, M2-05 layers); M7-08's `rbs_novel`
 layer (pass 1) · estimate ≈ 40 code lines (+ ≈ 320 simulator lines, + ≈ 350 test lines) · stats
 (light): the scenarios define what the gate measures, so the statistician reviews them
@@ -22,9 +22,9 @@ layer (pass 1) · estimate ≈ 40 code lines (+ ≈ 320 simulator lines, + ≈ 3
 
 ## What exists and what is missing (checked on c4d8841)
 
-| Need | giapsim today | Added here |
+| Need | gippasim today | Added here |
 |---|---|---|
-| planted strain differences | `StrainConfig` SNVs + indels, `truth/strain_differences.tsv` (VCF orientation, `aa_change`) | `truth/alt_sites.tsv`: one row per non-synonymous SNV codon on the **reference** genome (the genome GIAP is given): contig, codon_start, strand, gene, ref_aa, alt_aa, `n_true_peptides` covering it |
+| planted strain differences | `StrainConfig` SNVs + indels, `truth/strain_differences.tsv` (VCF orientation, `aa_change`) | `truth/alt_sites.tsv`: one row per non-synonymous SNV codon on the **reference** genome (the genome GIPPA is given): contig, codon_start, strand, gene, ref_aa, alt_aa, `n_true_peptides` covering it |
 | de novo errors with pairing | `simulate_denovo` (7 error types, `spectrum_id`, `reference_peptides.tsv`) | an `error_weights` preset per scenario; error truth per (spectrum, site) for the class-error check |
 | novel ORFs | `n_novel_orfs` (intergenic planted, 10–30 aa; out-of-frame/antisense found inside CDSs), `n_nterm_extensions` | configurable length range (default stays 10–30; scenarios use 30–80 aa so ≥ 2 tryptic peptides are typical); an RBS motif at spacer 5–10 before planted intergenic starts and N-terminal true starts; their TIR rows in `rbs_novel` drawn from the "true" distribution (M7-08 rule 6 already plants the background); optional σ70 motif and a terminator after planted intergenic ORFs (ADR-0012 columns exercised) |
 | truth for novel calls | `truth/novel_orfs.tsv` (id, class, coordinates, aa) | `stop` (0-based stop codon start), `true_start`, `n_true_peptides`, `rbs_planted` |
@@ -33,7 +33,7 @@ layer (pass 1) · estimate ≈ 40 code lines (+ ≈ 320 simulator lines, + ≈ 3
 
 ## Public interface
 
-`tests/sim/giapsim/scenarios.py` gains
+`tests/sim/gippasim/scenarios.py` gains
 ```python
 def variant_f1(seed: int, size: Literal["100k", "1M"] = "100k") -> SimConfig: ...
 def novel_orf_power(seed: int, size: Literal["100k", "1M"] = "100k") -> SimConfig: ...
@@ -42,11 +42,11 @@ def isobaric_attack(seed: int) -> SimConfig: ...
 ```
 and writes the truth tables above. `src/` gets only the ≈ 40 lines of loaders the calibration
 tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-table reader in
-`giapsim`, counted as tooling).
+`gippasim`, counted as tooling).
 
 ## Rules
 
-1. **Coordinates.** Truth is written on the genome GIAP receives. In strain scenarios that is
+1. **Coordinates.** Truth is written on the genome GIPPA receives. In strain scenarios that is
    `reference.fasta` (the related strain); peptides come from the sample. `truth/alt_sites.tsv`
    lifts each SNV to the reference codon and strand, 1-based closed as every truth table.
 2. **Truth denominators** are written, not computed by the tests: `n_true_peptides` counts distinct
@@ -71,7 +71,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
 - [ ] `tests/sim/test_m7_scenarios.py` (test-author): examples 1–5; truth tables parse; the counts
   of rule 2 match a brute-force recount on the 100-kb outputs.
 - [ ] Calibration sanity in `tests/calibration/test_sim_m7_calibration.py`: planted RBS TIRs sit
-  above the 10 % detected-gene quantile in ≥ 90 % of planted starts (so the gate tests GIAP, not
+  above the 10 % detected-gene quantile in ≥ 90 % of planted starts (so the gate tests GIPPA, not
   the simulator).
 - [ ] Runtime within rule 4 (benchmarks entry).
 
@@ -94,14 +94,14 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
    separate truth file, so the F1 gate measures substitutions.
 3. Replicate counts for the variants suite come from ADR-0042 (#201, merged), not from a new
    tolerances key.
-4. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+4. Feature loop: test-author → implementer (gippasim is tooling the implementer writes) → the
    statistician signs off the generators M7-13 gates on → code review.
 
 ## Lead decisions on the tests (2026-10-22, after 070a167)
 
 5. The benchmark (`benchmarks/test_sim_m7_bench.py`: each scenario best of 3 under 2 s at 100 kb,
    under 20 s at 1 Mb, recorded in `benchmarks/baseline.json` from a Slurm run) is written by the
-   implementer, as giapsim tooling.
+   implementer, as gippasim tooling.
 6. No site-level error truth file in M7-12: `truth/denovo.tsv` (error type per spectrum) joined
    with `truth/alt_sites.tsv` by peptide is enough; if M7-10's tests need a `(spectrum, site)` file,
    M7-10 adds it.
@@ -125,7 +125,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     FDR gate has false candidates to control.
 13. **Genome size for novel-ORF gates.** `novel_orf_power` gates use a ≥ 300-kb genome (a new
     `sim300k` size, ≥ 200 genes) so gene detection is not at the 1/n q floor; 100 kb stays for fast
-    unit tests. The GIAP small-genome q floor goes to the backlog.
+    unit tests. The GIPPA small-genome q floor goes to the backlog.
 14. **Planted TIR is a `SimConfig` field.** `novel_orf_power` defaults to the first-round
     distribution lognormal(8, 0.8); the calibration sanity arm keeps lognormal(9, 0.5) (decision 8).
     M7-13 adds the matched arm with an SE allowance.
@@ -151,19 +151,19 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
 ## Lead decisions on the statistician's round 2 (2026-10-22, PR #225 comment 6358601933)
 
 21. **B1, scored makedb-style decoys in the simulator.** This applies to the six-frame mode only:
-    - Each wrong target row gets a decoy with ID `rev_GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`.
+    - Each wrong target row gets a decoy with ID `rev_GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}`.
     - Decoy scores come from the same null as the wrong targets, and q/pep from the same mixture.
     - Each null PSM goes to the target or to its entry's decoy with probability ½.
     - The `rev_<locus>` protein decoys stay, so gene-level `decoy_picked` is unchanged.
-    - M7-13 keeps the simulator's decoys; `giap makedb` stays out of the calibration loop.
+    - M7-13 keeps the simulator's decoys; `gippa makedb` stays out of the calibration loop.
 22. **B2, `nterm_extension` territory.**
     - A fourth wrong-peptide territory covers products in frame upstream of each CDS's true start,
       split evenly with the other three.
     - The 1M per-class test covers all four classes.
     - The excluded products of choice 2 are still excluded, except the in-frame upstream extension
       of a CDS, which is this class by definition.
-23. **ORF-entry decoys leave gene-level pairing (GIAP change, test-author round 3, 70bf13bc).**
-    - In a real makedb search, as in the six-frame scenarios, `rev_GIAPORF_*` decoys reach
+23. **ORF-entry decoys leave gene-level pairing (GIPPA change, test-author round 3, 70bf13bc).**
+    - In a real makedb search, as in the six-frame scenarios, `rev_GIPPAORF_*` decoys reach
       gene-level detection, where they are unpaired; at about 50 % passing q ≤ 0.01 they drop the
       paired share below 80 %.
     - They belong to the M7-11 class FDR. `detection.pair_decoys` therefore drops a decoy whose
@@ -187,7 +187,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     - The pooled coin is checked by the round-3 calibration file.
     - Implementer deviations 1–4 are accepted:
       - protein decoys count `n_decoy_rows`;
-      - giapsim restates the makedb rules, held honest by the round-3 oracle;
+      - gippasim restates the makedb rules, held honest by the round-3 oracle;
       - the speed is acceptable and the baseline is not re-recorded;
       - the `alt_sites` initiator-codon fix.
 26. **Statistician round 3 (2c96c2c0): the null is valid; B1 is the class q floor.** The picked
@@ -218,7 +218,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     `test_none_output_byte_identical_at_100k`, as the other pin helpers already do. The 1M
     gate-count benchmark is 7.2 s.
 28. **Code review #225 (5625683803):**
-    - **B1, accepted. Decision 23 is amended:** an all-GIAPORF decoy is dropped from gene pairing
+    - **B1, accepted. Decision 23 is amended:** an all-GIPPAORF decoy is dropped from gene pairing
       only when none of its stripped IDs maps to a gene in `pmap`. An `nterm_extension` entry
       votes to its gene, so its decoy pairs there, as on main. Otherwise the gene's target competes
       without its decoy, which is anti-conservative.
@@ -230,6 +230,6 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     - **R2 (lead):** `@example(seed=29297)` is added to the `alt_sites` property.
     - Nits N1–N8 go to the backlog; N1 is fixed with B3.
 29. **Implementer, review B1 (2ee76714):** `pair_decoys` ignores, per decoy, contaminant IDs and
-    `GIAPORF_` IDs that map to no gene. A decoy left with no ID gets no row. An all-ORF decoy with
+    `GIPPAORF_` IDs that map to no gene. A decoy left with no ID gets no row. An all-ORF decoy with
     one mapped and one unmapped entry therefore pairs on the mapped gene. This is accepted: it is
     the same per-ID rule, and pairing is the conservative choice.

@@ -1,7 +1,7 @@
 """Steps ``uniop_input``, ``uniop`` (ext) and ``operon_pairs`` (M2-12; M2-index step contract;
-GIAP_SPEC.md §6.2, §6.4, §6.6, §7.1.3, §9.4).
+GIPPA_SPEC.md §6.2, §6.4, §6.6, §7.1.3, §9.4).
 
-Runs the registered steps through ``giap.steps.registry.run_step`` on giapsim's SIM100K genome
+Runs the registered steps through ``gippa.steps.registry.run_step`` on gippasim's SIM100K genome
 after M2-04's ``parse_bakta``, the local executor with the simulator's ``precomputed/`` layers
 (M2-05), and checks TU assembly against ``truth/tus.tsv``.
 
@@ -19,7 +19,7 @@ Conventions pinned here where the contract table is silent (see the PR descripti
   tables stay internal, §6.5) and ``genes`` as a native Parquet list column of locus tags in TU
   order (lead decision; ``;`` only in TSV outputs, ADR-0006).
 * The distance-model parameters come from ``calibration.yaml`` (d₀ = 50, s = 20), read through
-  ``giap.data.calibration.load()`` at run time (lead decision 6).
+  ``gippa.data.calibration.load()`` at run time (lead decision 6).
 
 Lead decisions after code review (PR #49):
 
@@ -48,20 +48,20 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-import giapsim
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.operons import (
+import gippasim
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.operons import (
     adjacent_pairs,
     build_tus,
     intergenic_distance,
     write_tu_regions,
 )
-from giap.annotate.uniop_adapter import PairProb
-from giap.config import GiapConfig, resolve_config
-from giap.data.calibration import load as load_calibration
-from giap.io.fasta import read_genome_fasta
-from giap.io.tsv import read_tsv
-from giap.model.genes import Gene
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.config import GippaConfig, resolve_config
+from gippa.data.calibration import load as load_calibration
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.tsv import read_tsv
+from gippa.model.genes import Gene
 
 PARSE_OUT = {
     "genes": "genes.parquet",
@@ -94,14 +94,14 @@ def logistic(d: float, d0: float = D0, s: float = S) -> float:
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
     """A fresh registry holding every real step (robust to earlier temporary registries)."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":  # reloading the registry itself would drop the patched dict
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -128,13 +128,13 @@ class Sim:
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Sim:
     out = tmp_path_factory.mktemp("sim100k")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     work = out / "work"
     with pytest.MonkeyPatch.context() as mp:
         reg = _fresh_steps(mp)
         reg.run_step(
             "parse_bakta",
-            GiapConfig(seed=1),
+            GippaConfig(seed=1),
             {"bakta_json": res.bakta_json, "genome": res.genome_fasta},
             {k: work / v for k, v in PARSE_OUT.items()},
         )
@@ -152,7 +152,9 @@ def _inputs(reg: ModuleType, name: str, avail: dict[str, Path]) -> dict[str, Pat
 
 def _run_uniop_input(reg: ModuleType, sim: Sim, out: Path, seed: int = 1) -> dict[str, Path]:
     outs = {k: out / v for k, v in UNIOP_IN_OUT.items()}
-    reg.run_step("uniop_input", GiapConfig(seed=seed), _inputs(reg, "uniop_input", sim.avail), outs)
+    reg.run_step(
+        "uniop_input", GippaConfig(seed=seed), _inputs(reg, "uniop_input", sim.avail), outs
+    )
     return outs
 
 
@@ -161,11 +163,11 @@ def _run_pairs(
     sim: Sim,
     out: Path,
     extra: dict[str, Path],
-    cfg: GiapConfig | None = None,
+    cfg: GippaConfig | None = None,
 ) -> dict[str, Path]:
     outs = {k: out / v for k, v in PAIRS_OUT.items()}
     ins = _inputs(reg, "operon_pairs", {**sim.avail, **extra})
-    reg.run_step("operon_pairs", cfg or GiapConfig(seed=1), ins, outs)
+    reg.run_step("operon_pairs", cfg or GippaConfig(seed=1), ins, outs)
     return outs
 
 
@@ -426,7 +428,7 @@ def test_steps_are_byte_reproducible_and_seed_free(
             sim,
             d / "op",
             _uniop_extra(ui, pred),
-            GiapConfig(seed=seed),
+            GippaConfig(seed=seed),
         )
         return d
 
@@ -442,7 +444,7 @@ def test_steps_are_byte_reproducible_and_seed_free(
 
 
 def test_precomputed_operon_pairs_layer_still_builds_tus(sim: Sim, tmp_path: Path) -> None:
-    from giap.runner.local import run_local
+    from gippa.runner.local import run_local
 
     cfg = resolve_config(sim.res.config_yaml)
     work = tmp_path / "work"
@@ -504,7 +506,7 @@ def test_oracle_pairs_reproduce_simulator_tus(sim: Sim) -> None:
             assert len(t.genes) == 1
 
 
-def test_simulator_layer_pairs_are_giap_adjacent_pairs(sim: Sim) -> None:
+def test_simulator_layer_pairs_are_gippa_adjacent_pairs(sim: Sim) -> None:
     _, rows = read_tsv(sim.res.precomputed["operon_pairs"])
     adj = adjacent_pairs(sim.genes, sim.reps)
     assert {(r[0], r[1]) for r in rows} <= {(a.locus_tag, b.locus_tag) for a, b in adj}
@@ -517,7 +519,7 @@ def test_fallback_is_logged_at_warning_level(
     steps: ModuleType, sim: Sim, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
-    with caplog.at_level(logging.WARNING, logger="giap"):
+    with caplog.at_level(logging.WARNING, logger="gippa"):
         _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui))
     warned = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert any("distance" in r.getMessage() for r in warned), [r.getMessage() for r in warned]
@@ -528,7 +530,7 @@ def test_uniop_run_is_not_a_warning(
 ) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
     pred = _fake_pred(ui["uniop_cds"], tmp_path / "uniop.pred", 0.9)
-    with caplog.at_level(logging.WARNING, logger="giap"):
+    with caplog.at_level(logging.WARNING, logger="gippa"):
         _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred))
     assert not [r for r in caplog.records if "distance" in r.getMessage()]
 
@@ -536,7 +538,7 @@ def test_uniop_run_is_not_a_warning(
 def test_distance_model_parameters_read_through_calibration_load(
     steps: ModuleType, sim: Sim, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.data import calibration
+    from gippa.data import calibration
 
     original = calibration.load
 
