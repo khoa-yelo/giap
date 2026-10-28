@@ -12,7 +12,10 @@
 #      (scripts/slurm/calibration_plan.tsv) is validated with its calibration_lanes.py check (venv
 #      python: it needs yaml). Each suite's job asks for lanes x cpus_per_lane CPUs (lanes = shards
 #      + groups), lanes x mem_per_lane_mb MB and the plan time.
-#   3. R14 CPUs: refuse when cpus + sum(suite CPUs) + 1 > 128 (no throttle, no second wave). The
+#   3. R14 CPUs: refuse when cpus + sum(suite CPUs) + 1 > 128 (no throttle, no second wave), where
+#      a suite's CPUs are what Slurm allocates (and squeue shows): max(lanes x cpus_per_lane,
+#      ceil(lanes x mem_per_lane_mb / GIPPA_MAX_MEM_PER_CPU_MB)), the partition's MaxMemPerCPU,
+#      default 4000 (a 2 x 16000 MB discordance job asks for 4 CPUs and gets 8). The
 #      nightly is protected by time: refuse when now + max(time) + 20 min is at or after the next
 #      nightly start (GIPPA_NIGHTLY_AT, HH:MM local, default 01:30; a start equal to now counts). The
 #      clock is GIPPA_NOW (epoch seconds) else date +%s. A failing squeue, a non-integer CPU count, a
@@ -25,7 +28,8 @@
 #      $GIPPA_ROOT/logs/nightly.tsv. If any submission fails, the jobs already submitted are
 #      scancelled (by ID) and the script exits 1: suites without their aggregator leave no evidence.
 # Any argument besides REF (harness options such as --fast, --shard, --dry-run) is refused (exit 2):
-# the rows must describe the full tier. Prints "jobs=<j0>,...,<j14> rows=<id> log=<dir> cpus=<sum>".
+# the rows must describe the full tier. Prints "jobs=<j0>,...,<j14> rows=<id> log=<dir> cpus=<sum>"
+# (<sum> = the allocated CPUs of the suite jobs, as summed for R14).
 set -uo pipefail
 source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 REPO="$GIPPA_REPO"
@@ -53,6 +57,8 @@ done <<< "$queue"
 now="${GIPPA_NOW:-$(date +%s)}"
 case "$now" in ''|*[!0-9]*) die 2 "GIPPA_NOW '$now' is not epoch seconds; nothing submitted" ;; esac
 at="${GIPPA_NIGHTLY_AT:-01:30}"
+mpc="${GIPPA_MAX_MEM_PER_CPU_MB:-4000}"
+case "$mpc" in ''|*[!0-9]*|0) die 2 "GIPPA_MAX_MEM_PER_CPU_MB '$mpc' is not a positive integer; nothing submitted" ;; esac
 
 wt="$GIPPA_ROOT/ci/calibration-$short"
 mkdir -p "$GIPPA_ROOT/ci" "$GIPPA_ROOT/logs/calibration" "$REPO/local/logs"
@@ -76,14 +82,16 @@ while IFS=$'\t' read -r suite shards groups _ cpl mpl time _ || [ -n "$suite" ];
   secs=$((10#$hh * 3600 + 10#$mm * 60 + 10#$ss))
   [ "$secs" -gt "$max_s" ] && max_s=$secs
   names+=("$suite")
-  sizes+=("$((lanes * 10#$cpl)) $((lanes * 10#$mpl)) $time")
-  total=$((total + lanes * 10#$cpl))
+  req=$((lanes * 10#$cpl)); mem=$((lanes * 10#$mpl))
+  alloc=$(( (mem + 10#$mpc - 1) / 10#$mpc )); [ "$alloc" -lt "$req" ] && alloc=$req
+  sizes+=("$req $mem $time")
+  total=$((total + alloc))  # R14 counts what Slurm allocates, not what is asked (MaxMemPerCPU)
 done < <(tail -n +2 "$plan")
 [ "${#names[@]}" -eq "$SUITES" ] || die 2 "the plan $plan has ${#names[@]} suites, not $SUITES; nothing submitted"
 
 # R14 CPUs: every suite job and the aggregator are queued at once
 [ $((cpus + total + 1)) -le 128 ] ||
-  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 1)) CPUs ($total for $SUITES suite jobs and 1 for the aggregator) and $cpus + $((total + 1)) = $((cpus + total + 1)) > 128 CPUs; nothing submitted"
+  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 1)) CPUs ($total allocated for $SUITES suite jobs, MaxMemPerCPU $mpc MB, and 1 for the aggregator) and $cpus + $((total + 1)) = $((cpus + total + 1)) > 128 CPUs; nothing submitted"
 # python3 (not the venv) for local-time arithmetic; prints "<end> <start>", exit 1 = overlap
 window=$(python3 -I -c '
 import datetime as d, re, sys

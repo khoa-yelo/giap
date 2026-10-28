@@ -202,8 +202,9 @@ def partition(state):
 
 
 def _junit_count(path):
+    """Named testcases: the nameless one of an interrupted lane is not a test (no phantom pass)."""
     try:
-        return sum(1 for _ in ET.parse(path).getroot().iter("testcase"))
+        return sum(1 for c in ET.parse(path).getroot().iter("testcase") if c.get("name"))
     except (OSError, ET.ParseError):
         return None
 

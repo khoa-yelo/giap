@@ -5,16 +5,21 @@ Reads ``scripts/slurm/calibration_plan.tsv`` (one row per ``replicates_full`` su
 runs side by side: ``shards`` replicate-shard lanes and ``groups`` group lanes.
 
 Pure functions apart from the readers (``read_plan``, ``read_durations``, ``durations_from_junit``,
-``durations_from_probe_log``). Spec: docs/specs/M11-03c-calibration-full-sharding.md.
+``durations_from_probe_log``, ``probe_log_lower_bounds``). Spec:
+docs/specs/M11-03c-calibration-full-sharding.md.
 
 CLI (exit 2 and a message on stderr on a ``PlanError``):
 - ``check [--plan PATH]``: exit 0 when the plan is valid;
 - ``lanes --suite S --report PATH [--durations PATH] [--plan PATH]``: the suite's lanes as JSON
   (``report`` is the conftest lane report ``{nodeid: {"shard0_only": bool}}``);
-- ``durations --source ID --out PATH [--append] [--probe-log] FILE...``: write the durations TSV
-  from JUnit files (the parts of one run; a nodeid in several parts gets the sum) or, with
-  ``--probe-log``, from timestamped ``pytest -v`` xdist logs. ``--append`` keeps the rows already
-  in ``--out`` and adds only nodeids it lacks. Only nodeids under ``tests/calibration/`` are kept.
+- ``durations --source ID --out PATH [--append | --max] [--probe-log] FILE...``: write the
+  durations TSV from JUnit files (the parts of one run; a nodeid in several parts gets the sum) or,
+  with ``--probe-log``, from timestamped ``pytest -v`` xdist logs. ``--append`` keeps the rows
+  already in ``--out`` and adds only nodeids it lacks; ``--max`` also keeps them, but a nodeid in
+  both gets the larger seconds with that row's source (weights that hold on the slowest node class
+  measured so far). A probe-log test that started but never finished gets a lower bound (the log's
+  last stamp minus its start) with source ``ID:lower-bound``, so the planner weighs it at least
+  that much instead of ``unknown_min``. Only nodeids under ``tests/calibration/`` are kept.
 """
 
 from __future__ import annotations
@@ -41,6 +46,9 @@ TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 HEADER = ("suite", "shards", "groups", "group_select", "cpus_per_lane", "mem_per_lane_mb", "time",
           "unknown_min")  # fmt: skip
 MAX_TIME_S = 8 * 3600
+#: the partition's MaxMemPerCPU (MB): Slurm raises a job's CPUs to ceil(mem / this)
+MAX_MEM_PER_CPU_MB = 4000
+LOWER_BOUND = ":lower-bound"  # source suffix of a duration that is only a lower bound
 _UINT = re.compile(r"[0-9]+")
 _TIME = re.compile(r"([0-9]{2}):([0-5][0-9]):([0-5][0-9])")
 
@@ -68,6 +76,19 @@ class PlanRow:
     def time_s(self) -> int:
         h, m, s = (int(x) for x in self.time.split(":"))
         return h * 3600 + m * 60 + s
+
+    @property
+    def requested_cpus(self) -> int:
+        """``--cpus-per-task`` of the suite job: lanes x cpus_per_lane."""
+        return (self.shards + self.groups) * self.cpus_per_lane
+
+
+def allocated_cpus(row: PlanRow, max_mem_per_cpu_mb: int = MAX_MEM_PER_CPU_MB) -> int:
+    """The CPUs Slurm allocates (and squeue shows) for ``row``'s job: the requested CPUs, raised
+    to ``ceil(lanes x mem_per_lane_mb / MaxMemPerCPU)`` when the memory needs more (R14 sums
+    this)."""
+    mem = (row.shards + row.groups) * row.mem_per_lane_mb
+    return max(row.requested_cpus, -(-mem // max_mem_per_cpu_mb))
 
 
 @dataclass(frozen=True)
@@ -345,7 +366,7 @@ def durations_from_probe_log(path: Path) -> dict[str, float]:
     """``nodeid -> seconds`` from a ``pytest -n N -v`` log whose lines carry an epoch-second stamp:
     from a test's start line to its outcome line. xdist ends each line only when the next event
     arrives, so a line's true time is the stamp of the previous stamped line. Unfinished tests are
-    left out."""
+    left out here; ``probe_log_lower_bounds`` gives them a lower bound."""
     start: dict[str, int] = {}
     out: dict[str, float] = {}
     prev: int | None = None
@@ -364,17 +385,50 @@ def durations_from_probe_log(path: Path) -> dict[str, float]:
     return out
 
 
-def _write_durations(out: Path, found: Mapping[str, float], source: str, append: bool) -> int:
+def probe_log_lower_bounds(path: Path) -> dict[str, float]:
+    """``nodeid -> seconds`` of the tests of a stamped probe log (as ``durations_from_probe_log``)
+    that started but have no outcome line: the log's last stamp minus the start, a lower bound of
+    the test's duration (it was still running when the log ended or the job was killed)."""
+    start: dict[str, int] = {}
+    done: set[str] = set()
+    prev: int | None = None
+    for line in Path(path).read_text().splitlines():
+        if not (stamp := _STAMP.fullmatch(line)):
+            continue
+        text, at = stamp.group(2) or "", prev
+        prev = int(stamp.group(1))
+        if at is None:
+            continue
+        if m := _PROBE_END.fullmatch(text):
+            done.add(m.group(1))
+        elif m := _PROBE_START.fullmatch(text):
+            start.setdefault(m.group(1), at)
+    if prev is None:
+        return {}
+    return {n: float(prev - t) for n, t in start.items() if n not in done}
+
+
+def _write_durations(out: Path, found: Mapping[str, float], source: str, append: bool,
+                     keep_max: bool = False,
+                     lower: Mapping[str, float] | None = None) -> int:  # fmt: skip
+    """Write ``out``; ``lower`` holds lower bounds (source ``<source>:lower-bound``), never
+    replacing a measured value of ``found``. Returns the number of rows added or raised."""
     rows: dict[str, tuple[str, str]] = {}
-    if append and out.exists():
+    if (append or keep_max) and out.exists():
         old = read_durations(out)
         sources = {ln.split("\t")[0]: ln.split("\t")[2] for ln in out.read_text().splitlines()[1:]
                    if ln.strip()}  # fmt: skip
         rows = {n: (repr(s), sources[n]) for n, s in old.items()}
+    new = {n: (float(s), source) for n, s in found.items()}
+    for n, s in (lower or {}).items():
+        if n not in new:
+            new[n] = (float(s), source + LOWER_BOUND)
     added = 0
-    for nodeid, seconds in found.items():
-        if nodeid.startswith(CALIBRATION) and nodeid not in rows:
-            rows[nodeid] = (repr(float(seconds)), source)
+    for nodeid, (seconds, src) in sorted(new.items()):
+        if not nodeid.startswith(CALIBRATION):
+            continue
+        if nodeid not in rows or (keep_max and seconds > float(rows[nodeid][0])):
+            rows[nodeid] = (repr(seconds), src)
             added += 1
     body = "".join(f"{n}\t{s}\t{src}\n" for n, (s, src) in sorted(rows.items()))
     out.write_text("\t".join(DURATIONS_HEADER) + "\n" + body)
@@ -417,7 +471,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     dur = sub.add_parser("durations", help="write the durations TSV")
     dur.add_argument("--source", required=True)
     dur.add_argument("--out", type=Path, required=True)
-    dur.add_argument("--append", action="store_true")
+    mode = dur.add_mutually_exclusive_group()
+    mode.add_argument("--append", action="store_true")
+    mode.add_argument("--max", action="store_true", dest="keep_max")
     dur.add_argument("--probe-log", action="store_true")
     dur.add_argument("files", type=Path, nargs="+")
     ns = parser.parse_args(argv)
@@ -428,12 +484,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(_lanes_cli(ns), indent=1))
         else:
             found: dict[str, float] = {}
+            lower: dict[str, float] = {}
             if ns.probe_log:
                 for path in ns.files:
                     found.update(durations_from_probe_log(path))
+                    lower.update(probe_log_lower_bounds(path))
             else:
                 found = durations_from_junit(ns.files)
-            added = _write_durations(ns.out, found, ns.source, ns.append)
+            added = _write_durations(ns.out, found, ns.source, ns.append, ns.keep_max, lower)
             print(f"calibration_lanes: {added} rows from {ns.source} -> {ns.out}", file=sys.stderr)
     except (ValueError, OSError, ET.ParseError, KeyError, TypeError) as exc:  # all exit 2
         print(f"calibration_lanes: {exc}", file=sys.stderr)

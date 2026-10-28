@@ -110,10 +110,14 @@ def _is_attack(classname: str, name: str) -> bool:
 
 def _testcases(junits: list[ET.Element]) -> dict[tuple[str, str], str]:
     """Outcome per (classname, name) over every part (#349 S1: task 13 shards and merge write the
-    same testcases), keeping the worst-ranked one."""
+    same testcases), keeping the worst-ranked one. A nameless ``<testcase time="0.001"/>`` (what an
+    interrupted lane writes for the test it was running) is not a test and is skipped: counted as a
+    pass it would fill the slot of the unfinished test."""
     out: dict[tuple[str, str], str] = {}
     for root in junits:
         for case in root.iter("testcase"):
+            if not case.get("name"):
+                continue
             key, outcome = (case.get("classname", ""), case.get("name", "")), _outcome(case)
             if key not in out or _RANK[outcome] >= _RANK[out[key]]:
                 out[key] = outcome
