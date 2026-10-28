@@ -111,7 +111,8 @@ in the repository.
    - **One exception: the SVG id salt stays `"giap"`.** It is `HASHSALT` in `io/plot_files.py`
      and `svg.hashsalt` in `viz/style.py`. It is an invisible constant, and changing it would
      change every SVG id, so SVGs could not be shown to be byte-identical. A code comment
-     records why it stays.
+     records why it stays. (Amended 2026-10-28, Q-K51: since #452 the hashed ids are renumbered
+     on write, so the salt never reaches a written SVG; it is now `"gippa"`.)
 8. **Verification: outputs byte-identical apart from names.**
    - **Commits.** B is the main tip the rename branches from. A is the head of the rename PR.
    - **Inputs.** One input set is made once with B and used for both runs:
