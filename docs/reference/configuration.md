@@ -45,7 +45,7 @@
 | `annotation.bakta.db` | `auto` | string | — |
 | `annotation.bakta.complete` | `auto` | boolean or `auto` | — |
 | `annotation.bakta.extra_args` | `[]` | array | — |
-| `annotation.translation_table` | `11` | integer | — |
+| `annotation.translation_table` | `11` | integer | NCBI genetic code for every step: one of 4, 11 or 25 (checked in preflight, not here, so a bad value is reported in the preflight table) |
 | `annotation.start_codons` | `["ATG", "GTG", "TTG"]` | array | — |
 | `annotation.region_min_overlap_frac` | `0.5` | number | — |
 | `annotation.uniop.enabled` | `auto` | boolean or `auto` | — |

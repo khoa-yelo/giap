@@ -155,6 +155,17 @@ user to remove the option and set `annotation.translation_table`. `value` = the 
 keys, or `[]`. If there is no conflict, the check is `ok`. `-db_gencode N` with `N == table` is
 allowed, so configs that today spell out `-db_gencode 11` keep working at 11.
 
+Parsing follows what the tools and the shell actually accept (lead, #473 review): option strings
+are split with `shlex.split` (the Nextflow modules splice them unquoted into a shell line, and an
+`extra_args` element may hold several words); a Bakta token is a conflict when its name (before
+`=`) is an unambiguous argparse prefix of `--translation-table` of at least 4 characters
+(`--tr`, `--transl`); a miniprot single-dash token is a conflict when it contains `T` after the
+dash (clusters such as `-ST4`, `-uT4`); a trailing bare `-db_gencode` is a conflict.
+
+*Bridge until 16d* (lead, 2026-10-28): a `tblastn_args` equal to the shipped default, which still
+carries `-db_gencode 11`, is never flagged; 16d removes `-db_gencode` from the default (D1) and
+this exemption with it. Until 16a, 16b and 16d are all on main, no release is cut.
+
 **2.3 `genome.genetic_code` (M11-14w), now evaluated at every supported table.** The scan,
 `bp11`, `bp4`, `n4`, `MIN_CODONS = 300`, `MIN_LONG_ORFS = 20`, the threshold 0.55 and the exact
 integer comparison stay as they are. The decision now depends on the table:
