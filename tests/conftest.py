@@ -247,7 +247,10 @@ def _pinned_host_probe(
     except ImportError:  # before M11-15a: nothing to pin
         return
     if hasattr(profiles, "Probe"):
-        from helpers.probe_pin import PINNED_PROBE
+        try:
+            from helpers.probe_pin import PINNED_PROBE
+        except ImportError:  # a pytester sandbox copies this conftest without tests/helpers
+            return
 
         pinned = profiles.Probe(**PINNED_PROBE)
 
