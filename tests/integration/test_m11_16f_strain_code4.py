@@ -3,8 +3,15 @@
 AC 12).
 
 gippasim at ``genetic_code = 4``, ``related``, ``StrainConfig(snv_rate_per_kb=5)``, other-strain
-wrong peptides (the ``test_readthrough_strain.py`` world without planted stop-losses), 1 Mb, through
+wrong peptides (the ``test_readthrough_strain.py`` world without planted stop-losses), through
 preflight and the registered steps to ``variants`` with ``annotation.translation_table = 4``.
+
+**World size (test-author measurement, seed 11).** At 1 Mb and the default ``tga_sense_share``
+(0.6) only 2 of 357 ``variants.tsv`` rows sit at TGA codons (Slurm job 1902644), under the floor
+of 5. ``pi_wrong`` (0.05-0.5) and the SNV rate (5-10 /kb) barely move the row count (355-411 rows
+at 1 Mb), so the world grows instead: ``tga_sense_share = 0.95`` (TGA is most of Trp, as in
+mycoplasmas) gives 5-7 TGA rows at 1 Mb, 8 at 2 Mb (share 0.9) and 16 at 3 Mb, so the test runs at
+3 Mb (about 2.5 min for both tables' chains).
 
 - The strain SNVs that turn a sample TGA into a reference TGG (or back) exist (non-vacuous): at
   code 4 both read W, so they are synonymous.
@@ -15,7 +22,16 @@ preflight and the registered steps to ``variants`` with ``annotation.translation
 - Control: the same simulated world and preflight driven at ``annotation.translation_table = 11``
   (the Bakta-like JSON's recorded ``genome.translation_table`` set to 11 in a copy, else
   ``parse_bakta`` refuses the mismatch) gives at least one ``stop_codon`` row at a TGA codon,
-  so the flag the checks above look for is one this world can produce.
+  so the flag the checks above look for is one the same peptides on the same codons produce
+  once the table reads TGA as a stop.
+
+  The copy also annotates every internal ``W`` over a TGA codon as ``U`` (Sec). Without it the
+  control has no power whatever the world: at table 11 TGA splits the six-frame ORFs, and the
+  tolerant matcher consumes only annotated stop sites (ADR-0058: terminal stops, which are never
+  TGA in a code-4 world, and Bakta ``U`` / ``O`` codons), so no peptide reaches a TGA codon (0
+  rows at TGA codons at 1, 2 and 3 Mb, seed 11). gippasim has no knob for a consumable TGA in a
+  code-4 world; the ``U`` calls make the W codons consumable sites, so each W peptide over one
+  places with ``ref_aa = *``.
 """
 
 from __future__ import annotations
@@ -29,7 +45,8 @@ import pandas as pd
 import pytest
 from helpers.mapping_steps import drive, fresh_steps, preflight, roots_of
 
-LENGTH = 1_000_000
+LENGTH = 3_000_000
+TGA_SHARE = 0.95  # TGA's share of Trp (gippasim default 0.6 at code 4)
 SEED = 11
 TABLE = 4
 _RC = str.maketrans("ACGT", "TGCA")
@@ -54,6 +71,7 @@ def sim(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         SimConfig(
             genome_length=LENGTH,
             genetic_code=TABLE,
+            tga_sense_share=TGA_SHARE,
             strain=StrainConfig(snv_rate_per_kb=5),
             proteomics=ProteomicsConfig(
                 search_db="other", pi_wrong=0.05, wrong_source="other_strain"
@@ -64,6 +82,25 @@ def sim(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         tmp / "sim",
     )
     return {"res": res, "run": preflight(res, tmp / "pf"), "tmp": tmp}
+
+
+def _sec_over_tga(data: dict[str, Any]) -> int:
+    """Annotate every internal ``W`` over a TGA codon of a CDS as ``U`` (Sec), in place; the count.
+
+    At table 11 these become consumable ``recoded`` stop sites (M7-16 rule 21), the only way a
+    peptide reaches a TGA codon there (see the module docstring)."""
+    n = 0
+    for f in data["features"]:
+        if f.get("type") != "cds" or not f.get("aa"):
+            continue
+        nt, aa = f["nt"], list(f["aa"])
+        for i in range(1, min(len(aa), len(nt) // 3 - 1)):
+            if nt[3 * i : 3 * i + 3] == "TGA" and aa[i] == "W":
+                aa[i] = "U"
+                n += 1
+        f["aa"] = "".join(aa)
+    assert n, "no internal W over TGA to annotate"
+    return n
 
 
 def _variants(sim: dict[str, Any], table: int) -> pd.DataFrame:
@@ -86,6 +123,7 @@ def _variants(sim: dict[str, Any], table: int) -> pd.DataFrame:
         data = json.loads(Path(res.bakta_json).read_text(encoding="utf-8"))
         assert data["genome"]["translation_table"] == TABLE, data["genome"]
         data["genome"]["translation_table"] = table
+        print(f"table {table} control: {_sec_over_tga(data)} internal W over TGA annotated as U")
         patched = sim["tmp"] / f"bakta.table{table}.json"
         patched.write_text(json.dumps(data), encoding="utf-8")
         run = dataclasses.replace(run, res=dataclasses.replace(res, bakta_json=patched))
