@@ -3,7 +3,7 @@ description: Align proteins > 40 aa to the genome with miniprot (GIPPA_SPEC.md Â
 keywords: [protein, alignment, mapping]
 tools:
   - miniprot:
-      description: Protein-to-genome aligner (index with -T 11, align with --gff).
+      description: Protein-to-genome aligner (index with -T <annotation.translation_table>, align with --gff).
       homepage: https://github.com/lh3/miniprot
       licence: ["MIT"]
 input:

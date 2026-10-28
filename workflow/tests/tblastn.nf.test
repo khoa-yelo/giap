@@ -180,6 +180,8 @@ nextflow_process {
 
         then {
             assert process.failed : "a -db_gencode that differs from the table must stop the task (defence in depth; preflight refuses it first)"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode [11]; this run uses annotation.translation_table 4: remove -db_gencode from tblastn_args") : "the closure's IllegalArgumentException message is not in the run's output: ${log}"
         }
     }
 
@@ -380,6 +382,158 @@ nextflow_process {
             def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
             def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
             assert got == "-seg no -evalue 1e-5 -max_target_seqs 5 -db_gencode 25"
+        }
+    }
+
+    test("M11-16d db_gencode parity repeat-same: ('-db_gencode 4 -db_gencode 4', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode 4 -db_gencode 4"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "the closure must stop the task"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode ") : "not the closure's IllegalArgumentException: ${log}"
+            assert log.contains("this run uses annotation.translation_table 4: remove -db_gencode from tblastn_args") : "${log}"
+        }
+    }
+
+    test("M11-16d db_gencode parity bare-trailing: ('-seg no -db_gencode', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-seg no -db_gencode"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "the closure must stop the task"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode ") : "not the closure's IllegalArgumentException: ${log}"
+            assert log.contains("this run uses annotation.translation_table 4: remove -db_gencode from tblastn_args") : "${log}"
+        }
+    }
+
+    test("M11-16d db_gencode parity leading-spaces-same: ('  -db_gencode 4 -seg no', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "  -db_gencode 4 -seg no"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            // ext.args as the closure returned it (untrimmed): the task script, not the argv,
+            // keeps the spaces the shell drops
+            def sh = new File(path(process.out.hits[0]).parent.toFile(), ".command.sh").readLines().find { it =~ /^\s*tblastn -db / }
+            def got = sh.replaceFirst(/^\s*tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt '6 .*$/, '')
+            assert got == "  -db_gencode 4 -seg no"
+        }
+    }
+
+    test("M11-16d db_gencode parity quoted-double: ('-db_gencode \"4\" -seg no', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode \"4\" -seg no"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "the closure must stop the task"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode ") : "not the closure's IllegalArgumentException: ${log}"
+            assert log.contains("this run uses annotation.translation_table 4: remove -db_gencode from tblastn_args") : "${log}"
+        }
+    }
+
+    test("M11-16d db_gencode parity quoted-single: ('-db_gencode '4' -seg no', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode '4' -seg no"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "the closure must stop the task"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode ") : "not the closure's IllegalArgumentException: ${log}"
+            assert log.contains("this run uses annotation.translation_table 4: remove -db_gencode from tblastn_args") : "${log}"
+        }
+    }
+
+    test("M11-16d db_gencode parity quoted-equals: ('-db_gencode=\"25\" -seg no', 25)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode=\"25\" -seg no"]]
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "the closure must stop the task"
+            def log = (process.stdout + process.stderr).join('\n')
+            assert log.contains("mapping.proteins.tblastn_args sets -db_gencode ") : "not the closure's IllegalArgumentException: ${log}"
+            assert log.contains("this run uses annotation.translation_table 25: remove -db_gencode from tblastn_args") : "${log}"
         }
     }
 }

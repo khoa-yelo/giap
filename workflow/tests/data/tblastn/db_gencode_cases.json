@@ -1,5 +1,5 @@
 {
-  "description": "M11-16 item 3.3 parity table: effective_tblastn_args(args, table) and the TBLASTN ext.args closure in workflow/conf/base.config give the same string (examples 7a-7d plus 7 more cases); expected null means ValueError / a failed task. Read by tests/unit/test_m11_16d_tools.py and mirrored by workflow/tests/tblastn.nf.test.",
+  "description": "M11-16 item 3.3 parity table: effective_tblastn_args(args, table) and the TBLASTN ext.args closure in workflow/conf/base.config give the same string (examples 7a-7d plus 13 more cases); expected null means ValueError / a failed task. Read by tests/unit/test_m11_16d_tools.py and mirrored by workflow/tests/tblastn.nf.test. Quoted -db_gencode values are refused everywhere (lead decision, #479 review N1); leading-spaces-same is returned untrimmed. tests/unit/test_m11_16d_review.py checks that the case ids and the nf-test names match one to one.",
   "cases": [
     {"id": "7a", "args": "-seg no -evalue 1e-5", "table": 4, "expected": "-seg no -evalue 1e-5 -db_gencode 4"},
     {"id": "7b", "args": "-db_gencode 25 -seg yes -evalue 1e-7", "table": 25, "expected": "-db_gencode 25 -seg yes -evalue 1e-7"},
@@ -11,6 +11,12 @@
     {"id": "equals-form-same", "args": "-db_gencode=4 -evalue 1e-3", "table": 4, "expected": "-db_gencode=4 -evalue 1e-3"},
     {"id": "only-gencode-same", "args": "-db_gencode 11", "table": 11, "expected": "-db_gencode 11"},
     {"id": "middle-same", "args": "-evalue 1e-3 -db_gencode 4 -seg no", "table": 4, "expected": "-evalue 1e-3 -db_gencode 4 -seg no"},
-    {"id": "extra-option-25", "args": "-seg no -evalue 1e-5 -max_target_seqs 5", "table": 25, "expected": "-seg no -evalue 1e-5 -max_target_seqs 5 -db_gencode 25"}
+    {"id": "extra-option-25", "args": "-seg no -evalue 1e-5 -max_target_seqs 5", "table": 25, "expected": "-seg no -evalue 1e-5 -max_target_seqs 5 -db_gencode 25"},
+    {"id": "repeat-same", "args": "-db_gencode 4 -db_gencode 4", "table": 4, "expected": null},
+    {"id": "bare-trailing", "args": "-seg no -db_gencode", "table": 4, "expected": null},
+    {"id": "leading-spaces-same", "args": "  -db_gencode 4 -seg no", "table": 4, "expected": "  -db_gencode 4 -seg no"},
+    {"id": "quoted-double", "args": "-db_gencode \"4\" -seg no", "table": 4, "expected": null},
+    {"id": "quoted-single", "args": "-db_gencode '4' -seg no", "table": 4, "expected": null},
+    {"id": "quoted-equals", "args": "-db_gencode=\"25\" -seg no", "table": 25, "expected": null}
   ]
 }

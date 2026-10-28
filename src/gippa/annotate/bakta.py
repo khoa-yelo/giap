@@ -62,6 +62,10 @@ def _check_table(data: Mapping[str, Any], table: int) -> None:
             extra={"event": "annotation.table_unrecorded", "data": {"translation_table": table}},
         )
         return
+    if not isinstance(recorded, int) or isinstance(recorded, bool):
+        raise BaktaParseError(
+            f"annotation JSON genome.translation_table must be an integer, got {recorded!r:.100}"
+        )
     if recorded != table:
         raise AnnotationTableMismatch(
             f"annotation JSON was made with translation table {recorded}; this run uses {table}: "
