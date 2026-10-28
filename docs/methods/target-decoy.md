@@ -131,13 +131,24 @@ Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixfram
   monotone function of the score for targets and decoys alike, so ranking by q and then by score
   keeps the exchangeability. Under M7-11 rule 2 the procedure is therefore knockoff+.
 - **Oracle class FDP is at level.** The oracle picks at entry level, within each class, with no
-  GIPPA novel code. With 200 ORFs planted per class at 1 Mb, over 15 replicates:
+  GIPPA novel code. With 200 ORFs planted per class at 1 Mb (intergenic stops at 150, gap supply),
+  over 15 replicates (seeds `calibration_base` + 7200 … + 7214; statistician probe 2026-10-27,
+  reproduced by the full-tier test at 0762480d), mean FDP ± SE, calls at q = 0.01 summed over
+  replicates in brackets:
 
   | Class | q = 0.01 | q = 0.05 | q = 0.10 |
   |---|---|---|---|
-  | intergenic | 0.0095 ± 0.0036 | 0.049 ± 0.008 | 0.107 ± 0.010 |
-  | cds_outframe | 0.0063 ± 0.0021 | 0.044 ± 0.004 | 0.105 ± 0.008 |
-  | antisense | 0.0033 ± 0.0016 | 0.048 ± 0.007 | 0.096 ± 0.010 |
+  | intergenic | 0.0053 ± 0.0025 [1732] | 0.028 ± 0.004 | 0.085 ± 0.008 |
+  | cds_outframe | 0.0044 ± 0.0022 [2624] | 0.059 ± 0.008 | 0.108 ± 0.011 |
+  | antisense | 0.0076 ± 0.0024 [2727] | 0.053 ± 0.007 | 0.104 ± 0.008 |
+
+  Every bound holds at q + 2 SE. The mutant (decoy scores −0.5 SD) breaks it at q = 0.05 and
+  q = 0.10 in every class (FDP at q = 0.10: 0.173, 0.197, 0.205). An earlier table (PR #225,
+  intergenic 0.0095 at q = 0.01) was measured before #267 gave planted target rows their makedb
+  entry ID (`GIPPAORF_…`); the oracle kept matching `NOVEL_…` IDs, so every class held only
+  nulls and the test failed "no calls at 0.01" until the oracle-key fix (PR #PRNUM). The oracle
+  now finds a planted ORF's true peptides through `truth/peptides.tsv` and asserts every class has
+  a planted entry.
 
 - **The q and PEP on target rows are about 2× conservative.** The mixture uses the pre-coin wrong
   share. After the coin, only half of the null PSMs remain targets. At 1 Mb, target PSMs at
