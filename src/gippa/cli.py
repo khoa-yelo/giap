@@ -213,6 +213,11 @@ def _profile_help(lead: str) -> str:
     help="UniOP has no licence file: you decide that your use is permitted (needed without a TTY).",
 )
 @click.option("--no-uniop", is_flag=True, help="Do not build UniOP under --images.")
+@click.option(
+    "--nextflow/--no-nextflow",
+    default=True,
+    help="Install the pinned Nextflow launcher in DIR/bin when none is on PATH.",
+)
 @click.option("--yes", is_flag=True, help="Do not ask before downloading (no TTY: never asked).")
 @shared_options
 def setup(
@@ -232,11 +237,13 @@ def setup(
     from gippa.annotate.tools import required_tools
     from gippa.io.image_key import image_cache
     from gippa.preflight.environment import container_runtime
+    from gippa.runner.prereqs import check_java, java_problem
     from gippa.runner.profiles import IMAGES_SKIPPED
     from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, plan, run_setup
     from gippa.setupdb.dbdir import config_home, resolve_db_dir, write_pointer
     from gippa.setupdb.images import image_set, install_images
     from gippa.setupdb.manifest import record_runtime
+    from gippa.setupdb.run import setup_nextflow
     from gippa.setupdb.space import in_shared_home, review_plan, setup_plan
     from gippa.setupdb.uniop_build import setup_uniop
 
@@ -299,9 +306,16 @@ def setup(
             code = ExitCode.ENVIRONMENT
         else:  # R0 of `gippa run`: the images were pulled for this runtime (never an executor)
             record_runtime(db_dir, runtime)
+    java = java_problem(check_java(os.environ))  # a warning only: the DBs need no Java (15d)
+    if java is not None:
+        click.echo(f"gippa setup: warning: {java}", err=True)
     dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
     if dbs_code != ExitCode.SUCCESS:
         code = dbs_code
+    # the launcher for pip installs (M11-15 item 5); never under an explicit --uniop (Q-K27)
+    launcher = dbs.nextflow and not uniop and not check
+    if launcher and setup_nextflow(db_dir, fetcher, os.environ) != ExitCode.SUCCESS:
+        code = ExitCode.ENVIRONMENT
     if (uniop or needed) and not check:
         step = setup_uniop(chosen or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
                            explicit=uniop)  # fmt: skip
@@ -520,8 +534,9 @@ def run(
         click.echo(f"gippa run: {_r5()}", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
     auto = _["profile"] == "auto"
-    run_info["launch"] = {"profile": profile, "profile_source": "auto" if auto else "flag",
-                          "profile_reason": reason}  # fmt: skip
+    launch: dict[str, Any] = {"profile": profile, "profile_source": "auto" if auto else "flag",
+                              "profile_reason": reason}  # fmt: skip
+    run_info["launch"] = launch
     roots, cfg = _run_preflight(
         cfg, outdir, inputs, db_dir, bool(_["strict"]), profile, publication
     )
@@ -531,18 +546,13 @@ def run(
     lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
     if lib is not None:
         inputs["contaminants"] = lib
-    if shutil.which("nextflow") is None:
-        click.echo(
-            f"gippa run: nextflow not found on PATH; install Nextflow and Java ({_INSTALL_DOCS}), "
-            f"then pull the images with '{_PKG} setup --images --profile <profile>'",
-            err=True,
-        )
-        sys.exit(ExitCode.ENVIRONMENT)
+    launcher, source = _nextflow_prereqs(db_dir)
+    # which launcher ran: machine-specific, so under the volatile `launch` (review B2)
+    launch["nextflow"] = {"path": str(launcher), "source": source}
     base = _launch_sources(cfg, outdir, run_info, "nextflow", profile, bool(_["resume"]))
     try:
-        code = _run_nextflow(
-            cfg, outdir, inputs, str(_["memory"]), profile, bool(_["resume"]), db_dir
-        )
+        code = _run_nextflow(cfg, outdir, inputs, str(_["memory"]), profile,
+                             bool(_["resume"]), db_dir, launcher)  # fmt: skip
         if code == ExitCode.SUCCESS:
             _finalize(outdir)
     except Exception:  # past the provenance core: exit 5, the tail still runs (review B2)
@@ -553,6 +563,31 @@ def run(
     hit = failed_step(trace) if code != ExitCode.SUCCESS and trace.is_file() else None
     failed = {"failed_step": hit[0], "failed_log": f"{hit[1]}/.command.log"} if hit else {}
     sys.exit(_run_tail(outdir, base, code, **failed))
+
+
+def _nextflow_prereqs(db_dir: Path | None) -> tuple[Path, str]:
+    """The ``nextflow`` to launch (``PATH``, else ``<db_dir>/bin/nextflow``) and its source
+    (``path`` or ``db_dir``) after Java 17+ is checked; exit 2 naming what is missing (M11-15
+    item 5)."""
+    from gippa.runner.prereqs import LAUNCHER, check_java, java_problem, locate_nextflow
+
+    hit = locate_nextflow(os.environ, db_dir)
+    if hit is None:
+        where = f" nor at {db_dir / LAUNCHER}" if db_dir is not None else ""
+        click.echo(
+            f"gippa run: nextflow not found on PATH{where}; run '{_PKG} setup' (it installs the "
+            f"launcher and pulls the images with --images --profile <profile>), or install "
+            f"Nextflow and Java ({_INSTALL_DOCS})",
+            err=True,
+        )
+        sys.exit(ExitCode.ENVIRONMENT)
+    problem = java_problem(check_java(os.environ))
+    if problem is not None:
+        click.echo(f"gippa run: error: {problem}", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    launcher, source = hit
+    click.echo(f"gippa run: nextflow {launcher}", err=True)
+    return launcher, source
 
 
 def _launch_sources(
@@ -706,8 +741,10 @@ def _run_nextflow(
     profile: str,
     resume: bool,
     db_dir: Path | None = None,
+    launcher: Path | None = None,
 ) -> ExitCode:
-    """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``."""
+    """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``
+    (``launcher``, else ``nextflow`` on ``PATH``)."""
     from gippa.runner import nextflow as nf
 
     outdir = outdir.absolute()
@@ -721,6 +758,8 @@ def _run_nextflow(
     if local is None or not local.is_file() or not local_tools_applies(profile):
         local = None
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)
+    if launcher is not None:
+        cmd[0] = str(launcher.absolute())
     env = nf.launch_env(os.environ, container_runtime(profile), db_dir)
     code = nf.run_nextflow(cmd, outdir, env)
     if code == ExitCode.SUCCESS:

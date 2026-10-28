@@ -3,13 +3,21 @@
 ``registry`` gives each test an empty step registry (M2-02 "temporary registry"): the module-level
 ``gippa.steps.registry._REGISTRY`` mapping (name -> StepSpec) is swapped for an empty dict, so toy
 steps never collide with the real annotation steps or with other tests.
+
+``_fake_prereqs`` (autouse) puts a fake ``java`` and ``nextflow`` first on ``PATH`` (M11-15d;
+``tests/helpers/prereqs.py``).
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
+from pathlib import Path
 from types import ModuleType
 
+# Imported now, before any test patches subprocess: the helper keeps the real subprocess.run for
+# the conftest fakes (helpers.prereqs.run_fake_prereq).
+import helpers.prereqs  # noqa: F401
 import pytest
 
 
@@ -42,3 +50,32 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket.socket, "connect_ex", deny)
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(socket, "getaddrinfo", deny)
+
+
+@pytest.fixture(scope="session")
+def _fake_prereqs_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    from helpers.prereqs import write_prereqs
+
+    return write_prereqs(tmp_path_factory.mktemp("fake_prereqs"))
+
+
+@pytest.fixture(autouse=True)
+def _fake_prereqs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fake ``java`` (21) and ``nextflow`` first on ``PATH``; ``JAVA_HOME``, ``JAVA_CMD`` and
+    ``NXF_JAVA_HOME`` unset (M11-15d).
+
+    ``gippa setup`` and ``gippa run`` check Java and look up Nextflow; no unit test may run the
+    host's tools or download the launcher. Opt out with ``@pytest.mark.real_prereqs`` (the 15d
+    tests build their own ``PATH``); ``needs_nextflow`` tests keep the real tools. A test's own
+    fake, prepended to ``PATH`` after this autouse fixture ran, wins over these.
+    """
+    node = request.node
+    if node.get_closest_marker("real_prereqs") or node.get_closest_marker("needs_nextflow"):
+        return
+    from helpers.prereqs import FAKE_PREREQS_ENV
+
+    bindir = request.getfixturevalue("_fake_prereqs_dir")
+    monkeypatch.setenv(FAKE_PREREQS_ENV, str(bindir))
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    for var in ("JAVA_HOME", "JAVA_CMD", "NXF_JAVA_HOME"):
+        monkeypatch.delenv(var, raising=False)

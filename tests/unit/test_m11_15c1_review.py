@@ -51,6 +51,7 @@ from typing import Any, NamedTuple
 
 import pytest
 from click.testing import CliRunner
+from helpers.prereqs import run_fake_prereq
 
 from gippa.cli import cli
 from gippa.exitcodes import ExitCode
@@ -107,6 +108,8 @@ class Calls:
 
     def __call__(self, argv: Sequence[str], *a: Any, **k: Any) -> Any:
         argv = [str(x) for x in argv]
+        if (done := run_fake_prereq(argv, *a, **k)) is not None:  # 15d: java -version
+            return done
         self.argv.append(argv)
         if argv[0] == "quota":
             return _done(argv, 0, self.quota_out)
@@ -348,6 +351,8 @@ class Downloader:
 
     def __call__(self, argv: Sequence[str], *a: Any, **kw: Any) -> Any:
         argv = [str(x) for x in argv]
+        if (done := run_fake_prereq(argv, *a, **kw)) is not None:  # 15d: java -version
+            return done
         self.argv.append(argv)
         if argv[0] in ("quota", "lfs"):
             return _done(argv, 0)

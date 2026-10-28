@@ -99,7 +99,7 @@ class ManifestSources:
     island_diagnostics: Sequence[Mapping[str, Any]] | None = None  # C1 order
     calibration: Mapping[str, Any] | None = None  # gippa.data.calibration.load()
     detection_tier: str | None = None  # the tier detection used (genes.tsv, §7.3.2)
-    launch: Mapping[str, Any] | None = None  # profile, profile_source, profile_reason (M11-15a)
+    launch: Mapping[str, Any] | None = None  # profile*, M11-15a; nextflow (launcher), M11-15d
     demo: bool = False  # a ``gippa demo`` run (M11-15 item 2): ``demo: true`` in the manifest
 
 
