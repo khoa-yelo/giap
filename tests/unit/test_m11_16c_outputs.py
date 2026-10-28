@@ -492,8 +492,8 @@ def _check_wrong(out: Path, seqs: dict[str, str], topology: dict[str, str], tabl
     assert _check_peptides(six, seqs, table, protein=False) > 0, "no six-frame null over a TGA"
     nulls = [r for r in truth if r["origin"] == "undetected_product"]
     _check_peptides(nulls, seqs, table)
-    return len(nulls)
     assert _check_orf_entries(out / "peptides.tsv", seqs, topology) > 0
+    return len(nulls)
 
 
 # ------------------------------------------------------------------ L1: intra-TU overlaps
