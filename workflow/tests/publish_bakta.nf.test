@@ -1,10 +1,15 @@
-// M11-18 (docs/specs/M11-18-publish-bakta-outputs.md): the BAKTA process publishes its declared
-// outputs as OUT/annotation/tools/bakta/<sample>.json and .gbff (mode copy), so that
-// `gippa makedb --annotation OUT/annotation/tools/bakta/<sample>.json` works after a run.
-// A precomputed bakta_json is not published (no tool ran). Stub runs of ../main.nf, as in
-// annotate.nf.test; ci.yml runs: nf-test test workflow/tests --profile test,stub.
-// <sample> is the genome's simpleName: data/annotate/genome.fa -> "genome" (as genome.norm.fa
-// under `gippa run`).
+// M11-18 (docs/specs/M11-18-publish-bakta-outputs.md; lead decision on #468): the Bakta JSON and
+// GBFF reach OUT/annotation/tools/bakta/<sample>.{json,gbff} through the M2-20 tool_dirs input of
+// context_layers, so that `gippa makedb --annotation OUT/annotation/tools/bakta/<sample>.json`
+// works after a run. BAKTA has no publishDir (CONTEXT_LAYERS publishes the whole annotation/
+// directory later, and Nextflow's overwrite would delete annotation/tools/bakta first): it emits
+// a tools/bakta directory holding only <sample>.json and <sample>.gbff (hard links or copies),
+// and annotate.nf passes it to CONTEXT_LAYERS as tool_dirs; copy_native writes it under
+// annotation/tools/bakta/ (tests/unit/test_m11_18_bakta_tool_dir.py). In stub runs the published
+// `annotation` is a touched file, so test 1 checks the wiring in the work dir: the BAKTA task's
+// tools/bakta and the CONTEXT_LAYERS .gippa_inputs. A precomputed bakta_json passes no tool dir.
+// Stub runs of ../main.nf, as in annotate.nf.test; ci.yml runs: nf-test test workflow/tests
+// --profile test,stub. <sample> is the genome's simpleName: data/annotate/genome.fa -> "genome".
 
 nextflow_pipeline {
 
@@ -13,7 +18,7 @@ nextflow_pipeline {
     options "-stub"
     tag "publish_bakta"
 
-    test("acceptance 1+2: BAKTA ran -> annotation/tools/bakta/genome.json and genome.gbff, copied, nothing else") {
+    test("acceptance 1+2: BAKTA ran -> its tools/bakta dir (genome.json + genome.gbff only) is CONTEXT_LAYERS' tool_dirs") {
 
         when {
             params {
@@ -30,23 +35,39 @@ nextflow_pipeline {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             assert workflow.success
             assert H.count(workflow.trace, 'BAKTA') == 1 : "BAKTA did not run: ${H.names(workflow.trace)}"
+            def work = workDir.toString()
 
-            def dir = new File("${outputDir}/annotation/tools/bakta")
-            assert dir.isDirectory() : "OUT/annotation/tools/bakta/ not published (M11-18)"
-            def json = new File(dir, 'genome.json')
-            def gbff = new File(dir, 'genome.gbff')
-            [json, gbff].each { f ->
-                assert f.isFile() : "${f} not published"
-                assert !java.nio.file.Files.isSymbolicLink(f.toPath()) : "${f.name} is a link; publish mode must be copy"
+            // the BAKTA task's tools/bakta output: exactly the declared json and gbff, no links
+            def bt = H.procDirs(work, 'BAKTA')
+            assert bt.size() == 1 : "BAKTA task dirs: ${bt}"
+            def tool = new File(bt[0], 'tools/bakta')
+            assert tool.isDirectory() : "BAKTA task has no tools/bakta directory (M11-18 tool_dirs): ${bt[0].list()}"
+            def names = tool.listFiles().collect { it.name }.sort()
+            assert names == ['genome.gbff', 'genome.json'] : "BAKTA tools/bakta holds ${names}; only the declared json and gbff"
+            tool.listFiles().each { f ->
+                assert f.isFile() && !java.nio.file.Files.isSymbolicLink(f.toPath()) : "${f} must be a hard link or copy, not a symlink"
+            }
+            ['json', 'gbff'].each { e ->
+                assert new File(tool, "genome.${e}").bytes == new File(bt[0], "bakta/genome.${e}").bytes : "tools/bakta/genome.${e} differs from bakta/genome.${e}"
             }
             def asset = new File("${moduleTestDir}/../assets/stub/bakta.json")
-            assert json.bytes == asset.bytes : "published genome.json is not the BAKTA output (assets/stub/bakta.json)"
+            assert new File(tool, 'genome.json').bytes == asset.bytes : "tools/bakta/genome.json is not the BAKTA output (assets/stub/bakta.json)"
 
-            def names = dir.listFiles().collect { it.name }.sort()
-            assert names == ['genome.gbff', 'genome.json'] : "annotation/tools/bakta/ holds ${names}; only the declared json and gbff"
-            def versions = []
-            new File("${outputDir}/annotation/tools").eachFileRecurse { f -> if (f.name == 'versions.yml') versions << f }
-            assert versions.isEmpty() : "versions.yml published under annotation/tools: ${versions}"
+            // CONTEXT_LAYERS received it as its tool_dirs input (one entry, the BAKTA dir itself)
+            def cl = H.stepDirs(work, 'context_layers')
+            assert cl.size() == 1 : "context_layers task dirs: ${cl}"
+            def td = H.stepInputs(cl[0]).findAll { it[0] == 'tool_dirs' }
+            assert td.size() == 1 : "context_layers .gippa_inputs has no single tool_dirs entry: ${H.stepInputs(cl[0])}"
+            def staged = new File(cl[0], td[0][1])
+            assert staged.name == 'bakta' : "tool_dirs entry ${td[0][1]} is not named bakta/ (copy_native keys on the dir name)"
+            assert staged.canonicalPath == tool.canonicalPath : "tool_dirs ${staged.canonicalPath} is not BAKTA's ${tool.canonicalPath}"
+            assert staged.list().toList().sort() == ['genome.gbff', 'genome.json']
+            assert H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json")).isEmpty()
+
+            // nothing of Bakta's is published outside CONTEXT_LAYERS' annotation/ (no BAKTA publishDir)
+            def stray = []
+            new File("${outputDir}").eachFileRecurse { f -> if (f.name ==~ /genome\.(json|gbff|gff3|faa|tsv)/) stray << f }
+            assert stray.isEmpty() : "Bakta files published by BAKTA itself: ${stray}"
         }
     }
 
@@ -71,6 +92,10 @@ nextflow_pipeline {
             assert H.count(workflow.trace, 'BAKTA') == 0
             def dir = new File("${outputDir}/annotation/tools/bakta")
             assert !dir.exists() : "precomputed bakta_json must not be published (M11-18): ${dir.listFiles()*.name}"
+            def cl = H.stepDirs(workDir.toString(), 'context_layers')
+            assert cl.size() == 1
+            def td = H.stepInputs(cl[0]).findAll { it[0] == 'tool_dirs' }
+            assert td.isEmpty() : "precomputed bakta_json: CONTEXT_LAYERS must get no tool_dirs, got ${td}"
         }
     }
 }
