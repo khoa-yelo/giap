@@ -123,6 +123,15 @@ def test_lock_left_aside_by_a_killed_swap_does_not_return_for_env_without_pip(bo
     _assert_built_without_pip(box)
 
 
+def test_pip_tmp_left_by_a_killed_run_does_not_become_the_lock(box: Box) -> None:
+    """A SIGKILL can leave pip.txt.tmp behind; a later pip-less build must not install it."""
+    box.old_env("miniprot")
+    (box.locks / "miniprot.pip.txt.tmp").write_text("stale==1\n")
+    _ok(box.run("miniprot"))
+    _assert_built_without_pip(box)
+    assert not (box.locks / "miniprot.pip.txt.tmp").exists()
+
+
 def test_env_without_pip_next_to_env_with_pip(box: Box) -> None:
     """One run, two tools: the pip-less env gets no pip lock, the other keeps its pip lock."""
     box.old_env("bakta")
