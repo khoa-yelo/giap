@@ -7,7 +7,8 @@ the value, the setting and the supported set. ``gippa run`` must not start Nextf
 ``nextflow`` on PATH records any launch).
 
 Runs at 4 and 25 set ``mapping.proteins.tblastn_args`` without ``-db_gencode``: the shipped
-default carries ``-db_gencode 11`` until M11-16d, and ``config.tool_genetic_code`` refuses it.
+default carries ``-db_gencode 11`` until M11-16d, and ``config.tool_genetic_code`` exempts exactly
+that default until then; any other mismatching ``-db_gencode`` is refused.
 """
 
 from __future__ import annotations
