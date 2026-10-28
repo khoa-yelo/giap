@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import codecs
 import dataclasses
+import errno
 import fcntl
 import http.client
 import os
@@ -389,12 +390,22 @@ def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
     return dataclasses.replace(rec, message=f"downloaded from {item.host}")
 
 
+OLD_SUFFIX = ".gippa-old"  # the old copy during a directory swap; a user's ``.old`` is theirs
+
+
+def _aside(target: Path) -> Path:
+    return target.with_name(target.name + OLD_SUFFIX)
+
+
 def _swap_dir(built: Path, target: Path) -> None:
     """Swap the verified directory ``built`` in for ``target``: the old copy is renamed aside to
-    ``<target>.old`` and deleted only once the new one is in place; if the rename in fails it is
-    moved back (and the error re-raised), so a failed swap never leaves no copy."""
-    old = target.with_name(target.name + ".old")
+    ``<target>.gippa-old`` and deleted only once the new one is in place; if the rename in fails
+    it is moved back (and the error re-raised), so a failed swap never leaves no copy. A stale
+    ``.gippa-old`` is removed first; one that cannot be removed raises, naming it."""
+    old = _aside(target)
     shutil.rmtree(old, ignore_errors=True)
+    if old.exists() or old.is_symlink():
+        raise OSError(errno.ENOTEMPTY, "cannot remove a leftover old copy", str(old))
     if target.exists():
         target.rename(old)
     try:
@@ -404,6 +415,14 @@ def _swap_dir(built: Path, target: Path) -> None:
             old.rename(target)
         raise
     shutil.rmtree(old, ignore_errors=True)
+
+
+def _recover(target: Path) -> None:
+    """An interrupted swap left only ``<target>.gippa-old``: rename it back to ``target`` so it
+    is verified (and adopted) like any other copy."""
+    old = _aside(target)
+    if not target.exists() and not target.is_symlink() and old.is_dir():
+        old.rename(target)
 
 
 def _antismash_image(item: DbItem, runner: CommandRunner) -> DbRecord | None:
@@ -419,7 +438,9 @@ def _antismash_image(item: DbItem, runner: CommandRunner) -> DbRecord | None:
 
 
 def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher) -> DbRecord:
-    """Adopt ``item`` if it verifies, else download it from its official source and verify it."""
+    """Adopt ``item`` if it verifies, else download it from its official source and verify it.
+    A copy an interrupted swap left at ``<path>.gippa-old`` is moved back first."""
+    _recover(db_dir / item.path)
     rec = verify(item, db_dir)
     if rec.status == "ok":
         return rec
@@ -555,6 +576,25 @@ def _check(item: DbItem, db_dir: Path, old: dict[str, DbRecord], runner: Command
     return dataclasses.replace(prev, message=image.message)
 
 
+def _os_error(exc: OSError) -> str:
+    """``EXDEV: Invalid cross-device link (/db/x)``: the errno name, the reason and the path."""
+    name = errno.errorcode.get(exc.errno, "") if exc.errno is not None else ""
+    parts = [f"{name}: " if name else "", exc.strerror or str(exc)]
+    paths = [str(f) for f in (exc.filename, exc.filename2) if f is not None]
+    return "".join(parts) + (f" ({', '.join(paths)})" if paths else "")
+
+
+def _install_item(item: DbItem, db: Path, runner: CommandRunner, fetcher: Fetcher) -> DbRecord:
+    """``install``, with any OSError it raises (EXDEV/ESTALE/EIO at a rename, an undeletable
+    leftover, a full disk at a mkdir) turned into a failed record for this item only."""
+    try:
+        return install(item, db, runner, fetcher)
+    except OSError as exc:
+        if exc.errno in DISK_FULL:
+            return _full(item, db)
+        return _absent(item, f"cannot install {db / item.path}: {_os_error(exc)}", "failed")
+
+
 def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> ExitCode:
     """Verify (``--check``) or adopt/download every planned item and update the manifest."""
     items = plan(opts)
@@ -579,11 +619,7 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
         old, prefetch = read_records(db), read_prefetch(db)
         recs: list[DbRecord] = []
         for item in items:
-            try:
-                rec = install(item, db, runner, fetcher)
-            except OSError as exc:  # EXDEV/ESTALE/EIO at the final rename: this item fails
-                rec = _absent(item, f"cannot install {db / item.path}: {exc.strerror or exc}",
-                              "failed")  # fmt: skip
+            rec = _install_item(item, db, runner, fetcher)
             if rec.status == "ok" and not rec.message:  # adopted, not downloaded now
                 rec = _provenance(rec, old, prefetch, item.prefetch)
             _report(rec)
@@ -618,7 +654,7 @@ def setup_nextflow(db_dir: Path, fetcher: Fetcher, environ: Mapping[str, str]) -
             _say(f"another gippa setup is running on {db_dir} ({LOCK}); try again later")
             return ExitCode.ENVIRONMENT
         old = read_records(db_dir)
-        rec = install(item, db_dir, ToolRunner(db_dir=db_dir), fetcher)
+        rec = _install_item(item, db_dir, ToolRunner(db_dir=db_dir), fetcher)
         if rec.status == "ok":
             (db_dir / item.path).chmod(0o755)
             if not rec.message:  # adopted, not downloaded now
