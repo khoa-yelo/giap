@@ -1129,7 +1129,7 @@ def makedb(
     """Build an optional strain search database (no FDR is built on it)."""
     from gippa.makedb.build import MakedbOptions, build_strain_db
 
-    _resolve(config_file, sets, log_level)
+    cfg = _resolve(config_file, sets, log_level)
     if annotation is None:
         click.echo("gippa makedb: no --annotation: Bakta wrapper required (M2)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
@@ -1148,8 +1148,9 @@ def makedb(
             )
             sys.exit(ExitCode.ENVIRONMENT)
     opts = MakedbOptions(
-        annotation, genome, outdir, patch, six_frame_orfs, min_orf_aa, contaminants
-    )
+        annotation, genome, outdir, patch, six_frame_orfs, min_orf_aa, contaminants,
+        cfg.annotation.translation_table,
+    )  # fmt: skip
     try:
         result = build_strain_db(opts)
     except (ValueError, OSError) as exc:

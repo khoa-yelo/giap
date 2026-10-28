@@ -364,7 +364,8 @@ def novel_orfs(ctx: StepContext) -> None:
     scored = minimal_call(orfs, cfg).merge(sec, on="orf_id", how="left")
     scored["class_fdr"] = pd.Series([cc.class_fdr_cell(res.orfs[i]) for i in scored["orf_id"]],
                                     dtype="object")  # fmt: skip
-    table = orf_table(orfs, scored, genome=genome, replicons=reps)
+    tt = cfg.annotation.translation_table
+    table = orf_table(orfs, scored, genome=genome, replicons=reps, translation_table=tt)
     terms_df = _layer(ctx, "terminators", "terminators", reps)
     gene_table = pd.read_parquet(_path(ins["gene_table"]))
     pep_ivs = read_peptide_intervals(_path(ins["novel_candidates"]))
@@ -382,7 +383,7 @@ def novel_orfs(ctx: StepContext) -> None:
     if support is not None:
         _denovo_event(ctx, table, support)
     write_novel_orfs(ctx.outputs["novel_orfs"], table)
-    write_novel_faa(ctx.outputs["novel_orfs_faa"], table, genome, reps)
+    write_novel_faa(ctx.outputs["novel_orfs_faa"], table, genome, reps, translation_table=tt)
     if len(table):
         write_novel_gff3(ctx.outputs["novel_orfs_gff3"], table, reps)
         write_annotation_patch(ctx.outputs["annotation_patch"], table, gm)
@@ -423,7 +424,8 @@ def _class_fdr(
         if not missing:
             costs = pd.read_parquet(_path(ins["placement_costs"]))
             hits = _hits(ctx, "hits_exact", "hits_tolerant")
-            denovo = cc.denovo_inputs(costs, hits, LocusClassifier(gm, genome))
+            loci = LocusClassifier(gm, genome, table=ctx.cfg.annotation.translation_table)
+            denovo = cc.denovo_inputs(costs, hits, loci)
     res = cc.class_fdr(orfs, peptides, gm=gm, genome=genome, cfg=ctx.cfg, denovo=denovo)
     return res, support
 

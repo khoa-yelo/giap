@@ -17,8 +17,9 @@ from typing import Any
 import pandas as pd
 
 from gippa.io.vcf import VcfHeaderField, VcfRecord
-from gippa.mapping.sixframe import translate11_text
+from gippa.mapping.sixframe import translate_text
 from gippa.model.coords import Replicon
+from gippa.model.genetic_code import recoded_codons
 
 __all__ = [
     "FORMAT_FIELDS",
@@ -61,7 +62,6 @@ FORMAT_FIELDS: tuple[VcfHeaderField, ...] = (
 )
 
 _COMP = str.maketrans("ACGTN", "TGCAN")
-_RECODED = {"U": "TGA", "O": "TAG"}  # M7-16 rule 11: only for the zero-change check
 
 
 def _rc(nt: str) -> str:
@@ -69,18 +69,21 @@ def _rc(nt: str) -> str:
 
 
 @cache
-def _codons_of(aa: str) -> tuple[str, ...]:
-    """Table-11 codons encoding ``aa`` (``J``: every I or L codon), sorted."""
+def _codons_of(aa: str, table: int = 11) -> tuple[str, ...]:
+    """Codons of genetic code ``table`` encoding ``aa`` (``J``: every I or L codon), sorted."""
     want = "IL" if aa == "J" else aa
-    return tuple(c for c in map("".join, product("ACGT", repeat=3)) if translate11_text(c) in want)
+    codons = map("".join, product("ACGT", repeat=3))
+    return tuple(c for c in codons if translate_text(c, table) in want)
 
 
-def minimal_alt_codon(ref_codon: str, alt_aa: str) -> tuple[str, int]:
-    """G14: the codon for ``alt_aa`` with the fewest differences from ``ref_codon`` (gene strand),
-    ties to the lexicographically smallest; returns ``(codon, n_changes)``."""
-    codons = (_RECODED[alt_aa],) if alt_aa in _RECODED else _codons_of(alt_aa)
+def minimal_alt_codon(ref_codon: str, alt_aa: str, *, table: int = 11) -> tuple[str, int]:
+    """G14: the codon of genetic code ``table`` for ``alt_aa`` with the fewest differences from
+    ``ref_codon`` (gene strand), ties to the lexicographically smallest; returns
+    ``(codon, n_changes)``. U/O only over their recoded stop (M7-16 rule 11)."""
+    recoded = recoded_codons(table)
+    codons = (recoded[alt_aa],) if alt_aa in recoded else _codons_of(alt_aa, table)
     if not codons:
-        raise ValueError(f"no table-11 codon encodes {alt_aa!r}")
+        raise ValueError(f"no table-{table} codon encodes {alt_aa!r}")
     n, codon = min((sum(a != b for a, b in zip(c, ref_codon, strict=True)), c) for c in codons)
     return codon, n
 
@@ -119,7 +122,7 @@ def _dp(pile: pd.DataFrame) -> dict[tuple[str, int, str], int]:
     return out
 
 
-def _record(rows: list[dict[str, Any]], ref: str, pos0: int, dp: int) -> VcfRecord:
+def _record(rows: list[dict[str, Any]], ref: str, pos0: int, dp: int, table: int = 11) -> VcfRecord:
     rows = sorted(rows, key=lambda r: (-int(r["n_alt"]), str(r["alt_aa"])))
     first = rows[0]
     n_alt = [int(r["n_alt"]) for r in rows]
@@ -132,7 +135,7 @@ def _record(rows: list[dict[str, Any]], ref: str, pos0: int, dp: int) -> VcfReco
     if not _na(first["aa_pos"]):
         info["AA_POS"] = int(first["aa_pos"])
     info |= {
-        "AA_REF": translate11_text(gene_ref),
+        "AA_REF": translate_text(gene_ref, table),
         "AA_ALT": [str(r["alt_aa"]) for r in rows],
         "CALL": str(first["call"]),
         "CONF": [str(r["confidence"]) for r in rows],
@@ -153,11 +156,13 @@ def vcf_records(
     pile: pd.DataFrame,
     genome: Mapping[str, str],
     replicons: Mapping[str, Replicon],
+    *,
+    table: int = 11,
 ) -> tuple[list[VcfRecord], pd.DataFrame]:
     """VCF records (rules 2-8) and the ``variants.tsv`` table, one row per ``sites`` row in order.
 
     Optional ``sites`` columns from M7-05/M7-10: ``flags`` (tuples), ``class_error_rate`` (float
-    or ``unestimated``) and ``class_error_n``.
+    or ``unestimated``) and ``class_error_n``. ``table`` is the run's genetic code.
     """
     dp = _dp(pile)
     groups: dict[tuple[str, int, str, int, int], list[dict[str, Any]]] = {}
@@ -172,7 +177,9 @@ def vcf_records(
         rows.append(row)
         if s["alt_type"] == "frameshift" or width != 3 * len(alt):
             continue
-        cods = [minimal_alt_codon(ref_nt[3 * i : 3 * i + 3], a) for i, a in enumerate(alt)]
+        cods = [
+            minimal_alt_codon(ref_nt[3 * i : 3 * i + 3], a, table=table) for i, a in enumerate(alt)
+        ]
         row["nt_changes"] = sum(n for _, n in cods)
         contig, codon, strand = str(s["contig"]), int(s["codon_start"]), str(s["strand"])
         rep = replicons[contig]
@@ -187,8 +194,8 @@ def vcf_records(
     recs = []
     for (contig, codon, strand, width, low), grp in groups.items():
         ref = genome[contig][low : low + width].upper()
-        recs.append(_record(grp, ref, low, dp[(contig, codon, strand)]))
-    table = pd.DataFrame(rows, columns=list(VARIANTS_COLUMNS))
+        recs.append(_record(grp, ref, low, dp[(contig, codon, strand)], table))
+    frame = pd.DataFrame(rows, columns=list(VARIANTS_COLUMNS))
     for col in ("aa_pos", "nt_changes", "class_error_n"):
-        table[col] = table[col].astype("Int64")
-    return recs, table
+        frame[col] = frame[col].astype("Int64")
+    return recs, frame

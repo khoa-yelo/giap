@@ -14,7 +14,7 @@ from typing import Literal
 
 from gippa.config.model import GippaConfig
 from gippa.mapping.masses import DELTA_DECIMALS, MOD_DELTA, RESIDUE_MASS
-from gippa.mapping.sixframe import translate11_text
+from gippa.mapping.sixframe import translate_text
 from gippa.model.coords import Replicon
 from gippa.model.genes import GeneModel
 from gippa.variants.align import HitAlignment, translate_locus
@@ -111,10 +111,13 @@ def left_block_site(
     genome: Mapping[str, str],
     replicons: Mapping[str, Replicon],
     tol_da: float,
+    *,
+    table: int = 11,
 ) -> bool:
     """True iff ``site`` is a substitution and one of ``alignments`` (those of its ALT peptides)
     has a substitution op at the site codon that :func:`left_block_read` accepts against the
-    reference translated over the codon and the ``q + 1`` codons before it. Pure."""
+    reference translated (genetic code ``table``) over the codon and the ``q + 1`` codons before
+    it. Pure."""
     if site["alt_type"] != "substitution":
         return False
     contig, strand = str(site["contig"]), str(site["strand"])
@@ -131,16 +134,16 @@ def left_block_site(
             win = _left_window(c, q, strand, rep) if oc == c else None
             if win is None:
                 continue
-            ref = translate_locus(genome[contig], rep, win[0], win[1], strand)
+            ref = translate_locus(genome[contig], rep, win[0], win[1], strand, table=table)
             if left_block_read(a.peptide, q, ref, q + 1, tol_da):
                 return True
     return False
 
 
-def nt_class(ref_codon: str, alt_aa: str) -> Literal["snv", "multi_nt"]:
-    """Rule 2: ``snv`` when a table-11 codon at most one base from ``ref_codon`` encodes
-    ``alt_aa`` (``J``: any I or L codon), else ``multi_nt``."""
-    return "snv" if minimal_alt_codon(ref_codon, alt_aa)[1] <= 1 else "multi_nt"
+def nt_class(ref_codon: str, alt_aa: str, *, table: int = 11) -> Literal["snv", "multi_nt"]:
+    """Rule 2: ``snv`` when a codon of genetic code ``table`` at most one base from ``ref_codon``
+    encodes ``alt_aa`` (``J``: any I or L codon), else ``multi_nt``."""
+    return "snv" if minimal_alt_codon(ref_codon, alt_aa, table=table)[1] <= 1 else "multi_nt"
 
 
 def start_codons(gm: GeneModel) -> frozenset[_StartKey]:
@@ -170,13 +173,13 @@ def flags_for(
     (:func:`left_block_site`) flags a substitution ``mass_equivalent`` (ADR-0049 A6a)."""
     kind, alt = str(site["alt_type"]), str(site["alt_aa"])
     ref_aa, ref_nt = str(site["ref_aa"]), str(site["ref_codon"])
-    tol = cfg.variants.mass_equivalent_tol_da
+    tol, table = cfg.variants.mass_equivalent_tol_da, cfg.annotation.translation_table
     found: set[str] = set()
     if kind == "substitution":
         if left_block or mass_equivalent(ref_aa, alt, tol):
             found.add("mass_equivalent")
         if alt not in ("U", "O"):  # U/O over its stop: zero changes (M7-16 rule 11)
-            found.add(nt_class(ref_nt, alt))
+            found.add(nt_class(ref_nt, alt, table=table))
         key = (str(site["contig"]), str(site["strand"]), int(site["codon_start"]))  # type: ignore[call-overload]
         if alt == "M" and key in starts:
             found.add("start_codon")
@@ -184,7 +187,7 @@ def flags_for(
             found.add("stop_codon")
     elif kind == "swap":
         found.add("mass_equivalent")  # ADR-0049 A6b: every swap
-    elif kind == "block" and mass_equivalent(translate11_text(ref_nt), alt, tol):
+    elif kind == "block" and mass_equivalent(translate_text(ref_nt, table), alt, tol):
         found.add("mass_equivalent")
     if cfg.genome_relation == "related":
         found.add("strain_difference")

@@ -21,6 +21,7 @@ from gippa.annotate.terminators import NOT_PRIMARY, Terminator
 from gippa.config.model import GippaConfig
 from gippa.model.coords import Interval, Replicon
 from gippa.model.genes import Gene, GeneModel
+from gippa.model.genetic_code import stop_codons
 from gippa.novel.candidates import Orf, _revcomp
 from gippa.novel.outputs import is_na, novel_frame, order_flags
 
@@ -30,7 +31,6 @@ TWO_PEPTIDE_CLASSES = frozenset({"cds_outframe", "antisense"})
 TERMINATOR_WINDOW_NT = 300  # ADR-0012 d1
 HOMOPOLYMER_MIN = 5
 _HOMOPOLYMER_WINDOW = (-5, 8)  # decision 2: [junction - 5, junction + 8)
-_STOPS = frozenset({"TAA", "TAG", "TGA"})
 _CODON_RANK = {"ATG": 0, "GTG": 1, "TTG": 2}
 _OTHER_CODON, _NO_CODON = 3, 4
 
@@ -136,17 +136,18 @@ def _codon_at(genome: str, lo: int, n: int) -> str:
     return "".join(genome[(lo + i) % n] for i in range(3))
 
 
-def pseudogene_junction(gene: Gene, genome: str, rep: Replicon) -> int | None:
-    """Lowest coordinate (wrapped) of the first in-frame stop codon from the annotated start
-    that is not the gene's last codon; ``None`` if there is none."""
+def pseudogene_junction(gene: Gene, genome: str, rep: Replicon, *, table: int = 11) -> int | None:
+    """Lowest coordinate (wrapped) of the first in-frame stop codon of ``table`` from the
+    annotated start that is not the gene's last codon; ``None`` if there is none."""
     iv, n, g = gene.interval, rep.length, genome.upper()
+    stops = stop_codons(table)
     if iv.strand == "+":
         for lo in range(iv.start, iv.end - 5, 3):
-            if _codon_at(g, lo, n) in _STOPS:
+            if _codon_at(g, lo, n) in stops:
                 return lo % n
     else:
         for lo in range(iv.end - 3, iv.start + 2, -3):
-            if _revcomp(_codon_at(g, lo, n)) in _STOPS:
+            if _revcomp(_codon_at(g, lo, n)) in stops:
                 return lo % n
     return None
 
@@ -344,7 +345,8 @@ def apply_evidence(
         ok, labels, gene = _row_evidence(r, o, gm, cfg, rbs_min, intervals)
         flags |= set(labels)
         if o.cls == "pseudogene":
-            j = None if gene is None else pseudogene_junction(gene, genome[o.contig], rep)
+            tt = cfg.annotation.translation_table
+            j = None if gene is None else pseudogene_junction(gene, genome[o.contig], rep, table=tt)
             if j is None:
                 flags.add("junction_unknown")
             else:
