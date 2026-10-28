@@ -30,17 +30,22 @@ contact the source for that item. The checks run offline (`verify` in `src/gippa
 | Contaminants | the file's SHA-256 equals the pin, and the file holds 381 FASTA records |
 | KEGG | **cannot be adopted**: see [KEGG](#kegg) |
 | UniOP archive | the archive's SHA-256 equals the pin (`setup --uniop` adopts it, then builds) |
-| Apptainer images | `<cache>/<name>.img` exists (`setup --images` skips the pull) |
+| Apptainer images | `<cache>/<name>.img` exists (`setup --profile apptainer` skips the pull) |
 
 Three things to know:
 
 - **`--check` only reports. It does not record anything.** Preflight and `gippa run` read
   `db_manifest.json`, not the files. After you place files, run `gippa setup` once *without*
-  `--check`, with the flags for the items you placed. Use `--check` afterwards to confirm.
-- On a node with no network, an item that is missing or does not verify still fails with
-  `source <host> unreachable`, and setup exits 2. The items that did verify are still recorded.
-  To keep the output clean, give only the flags for what you placed. For example, `--bakta skip
-  --no-genomad --no-promotech-models` leaves out the items that are on by default.
+  `--check`, with the opt-outs for the items you did not place. Use `--check` afterwards to
+  confirm.
+- Every item is on by default, so setup plans all of them unless you opt out. On a node with no
+  network, an item that is missing or does not verify still fails with `source <host>
+  unreachable`, and setup exits 2. The items that did verify are still recorded. To keep the
+  output clean, leave out what you did not place: `--bakta skip`, `--no-genomad`,
+  `--no-antismash`, `--no-promotech-models`, `--no-go`, `--no-kegg`, `--no-cog` and
+  `--no-contaminants`. Add
+  `--no-images` (setup otherwise pulls the images when it finds a container runtime) and
+  `--no-nextflow` (setup otherwise fetches the Nextflow launcher when none is on `PATH`).
 - For Bakta and geNOMAD, setup reads only the version file. It cannot re-check the data, because
   the archive is gone after unpacking. **Verify the archive checksum before you unpack.**
   Promotech keeps its zip, so setup re-hashes that zip on every check.
@@ -52,16 +57,19 @@ When setup adopts a copy, it records the date of that setup run as `retrieved` i
 1. On a machine with internet access (a transfer node or your workstation; follow your site's
    rules for login nodes), download each archive or file from the table below. Verify its checksum.
 2. Put it at its path under the DB directory, and unpack it there.
-3. On the cluster, record the items. For example, after placing Bakta light, geNOMAD and Promotech:
+3. On the cluster, record the items. For example, after placing Bakta light, geNOMAD and
+   Promotech (all three are on by default; the opt-outs leave out the rest):
 
     ```bash
-    gippa setup --db-dir /path/to/db --bakta light --genomad --promotech-models
+    gippa setup --db-dir /path/to/db --no-antismash --no-go --no-kegg --no-cog \
+        --no-contaminants --no-images --no-nextflow
     ```
 
 4. Confirm, and check the run's tools:
 
     ```bash
-    gippa setup --db-dir /path/to/db --bakta light --genomad --promotech-models --check
+    gippa setup --db-dir /path/to/db --no-antismash --no-go --no-kegg --no-cog \
+        --no-contaminants --check
     GIPPA_DB_DIR=/path/to/db gippa preflight --genome genome.fna --peptides peptides.tsv \
         --profile apptainer
     ```
@@ -81,16 +89,16 @@ see [Layout and sizes](setup-databases.md#layout-and-sizes).
 
 | Item (`db_sources.yaml`) | `gippa setup` flag | Path | Version | Free space | Needed by |
 |---|---|---|---|---|---|
-| `bakta_light` | `--bakta light` | `bakta/db-light` | 6.0 | 5 GiB | module `core` (annotation), unless `--annotation` is given |
+| `bakta_light` | `--bakta light` (default) | `bakta/db-light` | 6.0 | 5 GiB | module `core` (annotation), unless `--annotation` is given |
 | `bakta_full` | `--bakta full` | `bakta/db` | 6.0 | 84 GiB | the same, in place of the light DB |
-| `genomad` | `--genomad` | `genomad_db` | 1.9 | 4 GiB | module `mobile` |
-| `promotech_models` | `--promotech-models` | `promotech` | RF-HOT | 5 GiB | module `core` (promoter predictions) |
-| `antismash` | `--antismash` | `antismash` | 8.0.4 | 10 GiB | module `bgc` |
-| `go_basic`, `goslim_generic` | `--go` | `go/go-basic.obo`, `go/goslim_generic.obo` | 2026-05-19 | — | module `function` |
-| `kegg_ko_pathway`, `kegg_pathway_names` | `--kegg` | `kegg/ko_pathway.tsv`, `kegg/pathway_names.tsv` | retrieval date | — | module `function` |
-| `cog2020_def`, `cog2020_fun` | `--cog` | `cog/cog-20.def.tab`, `cog/fun-20.tab` | 2020 | — | module `function`; `cog_category` in `genes.tsv` |
-| `contaminants` | `--contaminants` | `contaminants/contaminants.fasta` | commit `bddf6da9` | — | contaminant labels in mapping; `gippa makedb` |
-| `uniop_source` | `--uniop` | `uniop/UniOP-3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz` | commit `3ed14dfc` | — | operon predictions (UniOP; optional, see [Install › UniOP](install.md#uniop)) |
+| `genomad` | on; `--no-genomad` | `genomad_db` | 1.9 | 4 GiB | module `mobile` |
+| `promotech_models` | on; `--no-promotech-models` | `promotech` | RF-HOT | 5 GiB | module `core` (promoter predictions) |
+| `antismash` | on; `--no-antismash` | `antismash` | 8.0.4 | 10 GiB | module `bgc` |
+| `go_basic`, `goslim_generic` | on; `--no-go` | `go/go-basic.obo`, `go/goslim_generic.obo` | 2026-05-19 | — | module `function` |
+| `kegg_ko_pathway`, `kegg_pathway_names` | on; `--no-kegg` | `kegg/ko_pathway.tsv`, `kegg/pathway_names.tsv` | retrieval date | — | module `function` |
+| `cog2020_def`, `cog2020_fun` | on; `--no-cog` | `cog/cog-20.def.tab`, `cog/fun-20.tab` | 2020 | — | module `function`; `cog_category` in `genes.tsv` |
+| `contaminants` | on; `--no-contaminants` | `contaminants/contaminants.fasta` | commit `bddf6da9` | — | contaminant labels in mapping; `gippa makedb` |
+| `uniop_source` | with the images, or `--uniop` alone | `uniop/UniOP-3ed14dfc2a5d69b993d99a26e50c1f8e9723c087.tar.gz` | commit `3ed14dfc` | — | operon predictions (UniOP; optional, see [Install › UniOP](install.md#uniop)) |
 
 Preflight requires every part of a group to be `ok`: `function` needs both GO files, both KEGG
 tables and both COG tables.
@@ -170,8 +178,8 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$DB/antismash:$DB/antismash" \
     --database-dir "$DB/antismash"
 ```
 
-Setup checks only that `antismash/` is not empty. Before it downloads, `gippa setup --antismash`
-also runs `antismash --check-prereqs` in the image. If that passes, it records the databases
+Setup checks only that `antismash/` is not empty. Before it downloads, `gippa setup` (antiSMASH
+is on by default; `--no-antismash` leaves it out) also runs `antismash --check-prereqs` in the image. If that passes, it records the databases
 shipped in the image (manifest URL `image`) and downloads nothing.
 
 ### Gene Ontology (release 2026-05-19)
@@ -205,10 +213,11 @@ What works:
   example, a transfer node that mounts the cluster filesystem):
 
     ```bash
-    gippa setup --db-dir "$DB" --kegg --bakta skip --no-genomad --no-promotech-models
+    gippa setup --db-dir "$DB" --bakta skip --no-genomad --no-antismash --no-promotech-models \
+        --no-go --no-cog --no-contaminants --no-images --no-nextflow
     ```
 
-- Or run `gippa setup --kegg` on a machine with internet access, then copy the whole DB
+- Or run `gippa setup` (KEGG is on by default) on a machine with internet access, then copy the whole DB
   directory, `db_manifest.json` included ([Copy to the cluster](#download-on-a-machine-with-internet-copy-to-the-cluster)).
   The manifest records paths relative to the DB directory, so the copy verifies in its new place.
 
@@ -283,11 +292,12 @@ apptainer pull "$CACHE/oschwengers-bakta@sha256-1e24ae2f435c46f876a322298ab96d99
 Preflight under `--profile apptainer` checks only that the file exists in the cache. It does not
 contact the registry, so a cache copied from another machine works offline. To record the images
 in `db_manifest.json`, run `gippa setup --db-dir "$DB" --images all --profile apptainer --no-uniop`
-(add the database flags you use). Setup skips the pull for every image file that is already
+(add the opt-out, such as `--no-antismash`, of each database you leave out; the others are
+checked, and adopted when present). Setup skips the pull for every image file that is already
 there. It does not re-hash an image file, so pull only by digest, as above.
 
-**Docker.** `docker pull <reference>` with the reference from the table. `gippa setup --images
---profile docker` always runs `docker pull` and checks that the pulled digest equals the pin.
+**Docker.** `docker pull <reference>` with the reference from the table. `gippa setup --profile
+docker` (images are on by default with a runtime profile) always runs `docker pull` and checks that the pulled digest equals the pin.
 Nextflow also refers to each image by digest. Both need the registry, so for compute nodes
 without network, use Apptainer with a copied cache.
 
@@ -300,14 +310,13 @@ copy the DB directory. With `NXF_APPTAINER_CACHEDIR` unset, the image cache goes
 ```bash
 # on the machine with internet access
 unset NXF_APPTAINER_CACHEDIR GIPPA_ROOT
-gippa setup --db-dir /scratch/gippa-db --antismash --go --kegg --cog --contaminants \
-    --images --profile apptainer
+gippa setup --db-dir /scratch/gippa-db --profile apptainer   # every item and image is on by default
 
 # copy (resumable; -a keeps the symlinks and permissions inside the Bakta DB)
 rsync -a --partial --info=progress2 /scratch/gippa-db/ cluster:/path/to/db/
 
 # on the cluster
-gippa setup --db-dir /path/to/db --antismash --go --kegg --cog --contaminants --check
+gippa setup --db-dir /path/to/db --check
 GIPPA_DB_DIR=/path/to/db gippa preflight --genome genome.fna --peptides peptides.tsv \
     --profile apptainer
 ```
@@ -335,11 +344,15 @@ for example through your site's Apptainer bind paths. If in doubt, copy the file
 ## Licences
 
 The terms of each source still apply when you download it yourself. Read
-[Licences](../user-guide/licences.md) first. In short:
+[Licences](../user-guide/licences.md) first. Before any download, `gippa setup` prints the
+geNOMAD and KEGG terms when those items are planned. In short:
 
 - **geNOMAD** (database and tool, module `mobile`) is for non-commercial use only. For commercial
-  use, skip it (`--no-genomad`) and run with `--modules core,bgc,function`.
-- **KEGG** is free for academic use; other users need a licence from KEGG.
+  use, skip it (`gippa setup --no-genomad`) and run with `--modules core,bgc,function`.
+  `gippa setup --minimal` leaves out antiSMASH too; a later run on that DB directory then
+  defaults to `--modules core,function`.
+- **KEGG** is free for academic use only; other users need a licence from KEGG, or leave it out
+  with `gippa setup --no-kegg`.
 - **The contaminant library and UniOP** have no licence file. GIPPA downloads them from their
   authors and never redistributes them; whether your use is permitted is yours to decide.
 - **The GPL and AGPL tools** (Bakta, Promotech and others; antiSMASH) run as separate programs in
