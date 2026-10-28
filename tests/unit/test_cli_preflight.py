@@ -86,7 +86,8 @@ def peptides(tmp_path: Path) -> Path:
 def invoke(*args: str | Path) -> Result:
     from gippa.cli import cli
 
-    return CliRunner().invoke(cli, ["preflight", *(str(a) for a in args)])
+    # inputs only: a bare preflight is --profile auto, which also checks tools (M11-15a)
+    return CliRunner().invoke(cli, ["preflight", "--profile", "none", *(str(a) for a in args)])
 
 
 def schema() -> dict[str, Any]:
@@ -488,7 +489,7 @@ def test_exception_inside_a_rule_exits_5_with_report_message(
     monkeypatch.setattr(genome_mod, "n50", boom)
     g, prot = genome_120kb(tmp_path), proteins(tmp_path)
     with pytest.raises(SystemExit) as info:
-        main(["preflight", "--genome", str(g), "--proteins", str(prot)])
+        main(["preflight", "--profile", "none", "--genome", str(g), "--proteins", str(prot)])
     assert info.value.code == ExitCode.INTERNAL
     assert REPORT_MESSAGE in capsys.readouterr().err
 

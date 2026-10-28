@@ -130,7 +130,8 @@ def preflight(res: Any, out: Path, proteins: bool = False) -> SimRun:
     ``$GIPPA_DB_DIR`` next to ``out``)."""
     from gippa.cli import cli
 
-    args = ["preflight", "--genome", str(res.genome_fasta), "--peptides", str(res.peptides)]
+    args = ["preflight", "--profile", "none", "--genome", str(res.genome_fasta)]
+    args += ["--peptides", str(res.peptides)]
     args += ["--annotation", str(res.bakta_json), "--outdir", str(out)]
     if res.config_yaml is not None:
         args += ["--config", str(res.config_yaml)]

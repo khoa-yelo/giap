@@ -73,7 +73,8 @@ def preflight_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ab = ["protein_id\tvalue"] + [f"P{k}\t{k % 7 + 1}.5" if k % 5 else f"P{k}\t" for k in range(12)]
     (tmp_path / "abund.tsv").write_text("\n".join(ab) + "\n", encoding="utf-8")
     out = tmp_path / "out"
-    args = ["preflight", "--genome", str(genome), "--peptides", str(tmp_path / "pep.tsv")]
+    args = ["preflight", "--profile", "none", "--genome", str(genome)]
+    args += ["--peptides", str(tmp_path / "pep.tsv")]
     args += ["--abundance", str(tmp_path / "abund.tsv"), "--outdir", str(out), *LOW]
     r = CliRunner().invoke(cli, args)
     assert (out / "work" / "preflight" / "abundance.norm.parquet").is_file(), (

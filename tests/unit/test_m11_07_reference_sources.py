@@ -137,7 +137,7 @@ def test_every_visible_option_documented(cli_md: str, name: str) -> None:
 def test_example1_run_rows(cli_md: str) -> None:
     rows = {r[0]: r for r in _rows(_sections(cli_md)["gippa run"])}
     assert rows["--genome"][1:3] == ["FILE", "required"]
-    assert rows["--profile"][2] == "farmshare,apptainer"
+    assert rows["--profile"][2] == "auto"  # M11-15a: detected at run time
 
 
 def test_cli_unicode_written_as_is(cli_md: str) -> None:
