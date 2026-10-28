@@ -12,7 +12,9 @@ replicate). Everything else is arm 11's:
 * the criterion and path: ``calibrate_fdr_counts`` (mean FDP <= q + k SE, two blocks), vacuous
   when the block-1 mean list targets < 1/q (rule 6; logged, the test skips), the counts from
   ``helpers.m7_gate_novel_records.g4_counts``, the ``UNESTIMATED_BUGS`` check with lead decision
-  11's shared-peptide exemption;
+  11's shared-peptide exemption and its M11-16f amendment (``nonatg_nterm_recurrence``: a
+  GTG / TTG gene's initiator-M N-terminal tryptic peptide recurring at a chance ATG elsewhere,
+  recorded separately; diagnosis at code 25, replicates 14, 83, 179 and 213);
 * R = ``_m7_gate.GATE_R["full"]`` (``calibration_full`` only, D14) and the seeds: replicate ``i``
   simulates with arm 11's seed for index ``i`` (``arm_seeds`` maps the arm stream's draw back to
   stream ``novel_orfs.gate``), so the arms are paired with arm 11;
@@ -121,15 +123,17 @@ def _record(key: tuple[int, int, str]) -> dict[str, Any]:
         db = M.run_gippa(res, out / "peptides.tsv", root / "db" / "OUT", seed)
         dn = M.run_gippa(res, out / "peptides_denovo.tsv", root / "dn" / "OUT", seed)
         g3 = M.g3_counts(db, truth, lengths)
+        genes = M.gene_table(res.bakta_json)
         rec = {
             "stream": arm_stream(table), "replicate": i, "seed": seed, "size": size,
             "table": table, "g3": M._pool_counts(g3), "g3_by_class": g3,
             "g3_denovo": M._pool_counts(M.g3_counts(dn, truth, lengths)),
             "g4": {**M.g4_counts(db, truth, "picked_decoy", lengths),
                    **M.g4_counts(dn, truth, "denovo_subgroup", lengths)},
-            "diag": {"picked_decoy": M._diag(db, M._tsv(out / "peptides.tsv"), truth, lengths),
+            "diag": {"picked_decoy": M._diag(db, M._tsv(out / "peptides.tsv"), truth, lengths,
+                                             genes),
                      "denovo_subgroup": M._diag(dn, M._tsv(out / "peptides_denovo.tsv"), truth,
-                                                lengths)},
+                                                lengths, genes)},
             "realised": json.loads((out / "truth" / "novel_orfs.json").read_text())["realised"],
             "tga_orfs": _tga_orfs(res),
             "seconds": time.perf_counter() - t0,
@@ -228,6 +232,7 @@ def test_g4_class_fdr_code_arm_full(table: int, regime: str, cls: str, q: float)
             reasons[why] = reasons.get(why, 0) + int(n)
     fallback = sum(int(r["diag"][regime]["fallback_calls"][cls]) for r in ran)
     shared = sum(int(r["diag"][regime].get(M.SHARED_NO_PAIR, {}).get(cls, 0)) for r in ran)
+    nonatg = sum(int(r["diag"][regime].get(M.NONATG_NTERM, {}).get(cls, 0)) for r in ran)
     vals = [r["g4"][key] for r in ran]
     diagnostics({"check": "G4", "full": True, "table": table, "regime": regime, "class": cls,
                  "q": q, "status": rec["status"], "mean_fdp": rec["observed"],
@@ -236,9 +241,11 @@ def test_g4_class_fdr_code_arm_full(table: int, regime: str, cls: str, q: float)
                  "mean_targets": float(np.mean([v["n_targets"] for v in vals]))
                  if vals else None,
                  "reasons": reasons, "fallback_calls": fallback,
-                 M.SHARED_NO_PAIR: shared})  # fmt: skip
+                 M.SHARED_NO_PAIR: shared, M.NONATG_NTERM: nonatg})  # fmt: skip
     print(f"G4 code {table} {regime}/{cls} q {q}: {rec['status']} FDP {rec['observed']}"
-          f" bound {rec['bound']}")  # fmt: skip
-    bugs = M.unestimated_bugs(reasons, shared, UNESTIMATED_BUGS)  # lead decision 11
+          f" bound {rec['bound']} {M.SHARED_NO_PAIR} {shared} {M.NONATG_NTERM} {nonatg}"
+          f" reasons {reasons}")  # fmt: skip
+    # lead decision 11 and its M11-16f amendment (disjoint records)
+    bugs = M.unestimated_bugs(reasons, shared + nonatg, UNESTIMATED_BUGS)
     assert not bugs, f"G4 {regime}/{cls}: unestimated ORFs on a scenario that rules them out {bugs}"
     verdict(rec)

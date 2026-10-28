@@ -21,9 +21,11 @@ mycoplasmas) gives 5-7 TGA rows at 1 Mb, 8 at 2 Mb (share 0.9) and 16 at 3 Mb, s
   read as W (>= 5 rows at TGA codons exist and say W).
 - Control: the same simulated world and preflight driven at ``annotation.translation_table = 11``
   (the Bakta-like JSON's recorded ``genome.translation_table`` set to 11 in a copy, else
-  ``parse_bakta`` refuses the mismatch) gives at least one ``stop_codon`` row at a TGA codon,
-  so the flag the checks above look for is one the same peptides on the same codons produce
-  once the table reads TGA as a stop.
+  ``parse_bakta`` refuses the mismatch) flags every row at a TGA codon ``stop_codon`` with
+  ``ref_aa = *`` (and has such rows), so the flag the checks above look for is one the same
+  peptides on the same codons produce once the table reads TGA as a stop. This is a power
+  control of the oracle (the checks above can see the flag), not a calibration claim: no rate
+  is estimated and no tolerance applies.
 
   The copy also annotates every internal ``W`` over a TGA codon as ``U`` (Sec). Without it the
   control has no power whatever the world: at table 11 TGA splits the six-frame ORFs, and the
@@ -208,9 +210,12 @@ def test_tga_is_read_as_w_in_every_variant_row(world: dict[str, Any]) -> None:
 
 
 def test_control_table_11_flags_stop_codon_at_tga(sim: dict[str, Any]) -> None:
-    """The same world at table 11: TGA is a stop there, so the flag can occur (positive control)."""
+    """The same world at table 11: TGA is a stop there, so every row at a TGA codon carries the
+    flag and reads ``*`` (a power control of the oracle, not a calibration claim; review N4)."""
     v = _variants(sim, 11)
     tga = v[v["ref_codon"] == "TGA"]
     flagged = [r for r in tga.itertuples() if "stop_codon" in _flags(r.flags)]
     print(f"table 11 control: {len(tga)} rows at TGA codons, {len(flagged)} with stop_codon")
-    assert flagged, f"no stop_codon row at a TGA codon at table 11 ({len(tga)} TGA rows)"
+    assert len(tga) > 0, "no row at a TGA codon at table 11: the control has no power"
+    assert len(flagged) == len(tga), (len(flagged), len(tga), tga.head().to_dict("records"))
+    assert set(tga["ref_aa"]) == {"*"}, tga["ref_aa"].value_counts().to_dict()
