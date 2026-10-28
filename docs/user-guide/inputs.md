@@ -133,6 +133,14 @@ The abundance table is used only when the peptides carry no intensities.
 Preflight recognises the format by its extension: `.json`, `.gff3`, `.gff`, `.gbff` or `.gbk`,
 optionally gzipped.
 
+With a Bakta JSON, antiSMASH (the `bgc` module) reads Bakta's GBFF output from next to the JSON:
+`<stem>.gbff`, else `<stem>.gbff.gz`, where `<stem>` is the JSON path without `.json` or
+`.json.gz`. When neither file exists, antiSMASH is skipped and the bgc layer stays empty, so
+preflight warns with `inputs.bakta_gbff` and names the expected paths. The same holds for
+`--set annotation.precomputed.bakta_json=<path>`. The rule is not evaluated (info) when `bgc` is
+not in `--modules` or `annotation.precomputed.regions` is set. It is a warning only, so `--strict`
+turns it into exit code 3.
+
 ## Reference peptides (`--reference-peptides`)
 
 A generic peptide table from a database search of the same spectra against this strain's

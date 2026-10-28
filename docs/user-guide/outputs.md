@@ -18,7 +18,7 @@ OUT/
 │   ├── regions.tsv, regions.bed
 │   ├── promoters.bed, terminators.bed, terminators_crosscheck.tsv
 │   ├── operon_pairs.tsv, tus.tsv, id_map.tsv (only with --annotation GFF3/GBFF)
-│   └── tools/                 native outputs of each tool (bakta/, uniop/, genomad/, …)
+│   └── tools/                 native tool outputs: bakta/genome.json, genome.gbff (when Bakta ran)
 ├── mapping/                   peptide_hits.tsv, protein_hits.tsv, unmapped.tsv, mapping_fdr.tsv,
 │                              mappings.bed, mappings.probed, mappings.gff3
 ├── tables/                    genes.tsv (master), detection_summary.tsv, regions_stats.tsv,
