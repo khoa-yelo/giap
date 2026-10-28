@@ -483,6 +483,9 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
     alternative is gippasim avoiding such recurrences.
 12. **`test_attack_oracle_picked_class_fdp_dense`** (M7-12, full tier) fails with "no calls at 0.01,
     intergenic" on #256/#267's gippasim. It goes to #267 as a follow-up (test-author check first).
+    **Resolved (PR #449):** a stale oracle key in the test, not power or method. The oracle
+    matched planted ORFs by `NOVEL_…` while #267 gives their target rows the `GIPPAORF_…` entry
+    ID; it now keys them by the entry and guards that every class has planted entries.
     Shard the nightly block 2 (serial G4-k3 block 2 ≈ 3.2 h against `--time` 04:00); backlog.
 13. **Decision 10 amended (test-author 27ad304a, gap 1).**
     - Fast-tier GC at q 0.01 is a hard check again. Its fixed seeds pass, so a strict xfail there

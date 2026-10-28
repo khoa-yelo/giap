@@ -12,6 +12,11 @@
 The probe runs once per session (per xdist worker) against ``/usr/bin:/bin``, the system part
 of the PATH the sandboxed scripts get.
 
+Marked tests may also need GNU/Linux pieces the probe does not test: ``realpath -m``
+(entrapment.sbatch), ``grep -oP`` (the Bakta digest readers) and ``/proc`` (the
+calibration_suite.sbatch process-tree walk). Every host that passes the probe (FarmShare, Linux
+CI) has them, and macOS fails it, so the marker covers them too.
+
 ``x87_longdouble`` is the matching probe for ``scripts/golden/make_wallenius_exact.py``, which
 refuses to run unless ``np.longdouble`` is the 80-bit x87 format (absent on e.g. macOS arm64).
 """

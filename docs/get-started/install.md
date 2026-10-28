@@ -10,8 +10,8 @@ GIPPA has two parts:
   environment.
 
 `gippa preflight`, `gippa convert`, `gippa compare` and `gippa report` need only the Python package.
-`gippa setup` needs no Nextflow. `gippa run` needs Nextflow, a container runtime, the tool images
-and the databases.
+`gippa setup` needs no Nextflow (it installs the pinned launcher when none is on `PATH`). `gippa
+run` needs Nextflow, Java 17 or newer, a container runtime, the tool images and the databases.
 
 ## Tested platforms
 
@@ -42,16 +42,27 @@ The cell words (tested, smoke-tested, untested) and the CI jobs are explained on
 | Java | 17 or newer, which Nextflow needs; the bootstrap installs OpenJDK 21 | `scripts/bootstrap_farmshare.sh` |
 | Docker or Apptainer | the `docker` CLI with access to a daemon, or `apptainer` | see [Platforms](../user-guide/platforms.md) |
 
-Nextflow and Java are not pip-installable. Install both from conda-forge and bioconda (never the
-`defaults` channel), for example with micromamba:
+**Nextflow.** When `nextflow` is not on `PATH`, `gippa setup` downloads the official
+self-contained launcher `nextflow-26.10.0-dist` from the `nextflow-io/nextflow` GitHub release
+`v26.10.0`, checks its pinned sha256 and installs it as `DIR/bin/nextflow` (recorded in
+`DIR/db_manifest.json` as item `nextflow`). The `-dist` launcher downloads nothing more at its
+first run, so it also works on nodes without internet access. `--no-nextflow` skips it. When a
+`nextflow` is on `PATH`, setup names its version and path and downloads nothing. `gippa run` uses
+`nextflow` on `PATH`, else `DIR/bin/nextflow`, and exits with code 2 when it finds neither.
+
+**Java** is never downloaded. `gippa run` runs `$JAVA_HOME/bin/java -version` (else `java` on
+`PATH`) and exits with code 2 before Nextflow starts when Java is missing or older than 17;
+`gippa setup` only warns, since the database downloads need no Java. Install Java from
+conda-forge (never the `defaults` channel), for example with micromamba:
 
 ```bash
-micromamba create -n gippa-nf --override-channels -c conda-forge -c bioconda nextflow=26.10.0 openjdk=21
-micromamba activate gippa-nf
-nextflow -version
+micromamba create -n gippa-java -c conda-forge openjdk=21
+micromamba activate gippa-java
+java -version
 ```
 
-`gippa run` exits with code 2 when `nextflow` is not on `PATH`.
+To install Nextflow yourself instead, use the same environment:
+`micromamba create -n gippa-nf --override-channels -c conda-forge -c bioconda nextflow=26.10.0 openjdk=21`.
 
 GIPPA 1.0 supports genetic code 11 only. Preflight refuses any other
 `annotation.translation_table`, and warns (`genome.genetic_code`) when a genome looks like it uses
@@ -172,7 +183,7 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 ## Execution profiles
 
 `gippa run --profile` takes one or more of these Nextflow profiles, joined by commas: `farmshare`,
-`farmshare_local`, `apptainer`, `conda`, `docker`, `standard`. The default is
+`farmshare_local`, `slurm`, `apptainer`, `conda`, `docker`, `standard`. The default is
 `farmshare,apptainer`.
 
 | Profile | What it does | Status |
@@ -182,6 +193,7 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 | `conda` | lets Nextflow create each tool's environment from `workflow/envs/*.yml`; preflight still requires the prebuilt environments of the conda-only tools | not tested on its own |
 | `farmshare` | Slurm executor on Stanford FarmShare, plus the prebuilt tool environments under `$GIPPA_ROOT` | tested |
 | `farmshare_local` | the same environments, but all tasks run inside the current Slurm allocation | tested |
+| `slurm` | generic Slurm executor: the cluster's default partition, no site-specific options; set the queue, account, extra `sbatch` options, job cap and time limit with the `params.slurm_*` options (`slurm_queue`, `slurm_account`, `slurm_options`, `slurm_max_jobs`, `slurm_max_time`); combine it with one container runtime, e.g. `slurm,apptainer` | not tested |
 | `standard` | Nextflow's local executor, with no container or Conda settings | not tested |
 
 **A Slurm (or other) executor off FarmShare.** The analysis steps (`GIPPA_STEP`) run `gippa` on the
@@ -213,7 +225,8 @@ A prebuilt env counts only with its marker file `.gippa-built`, holding the SHA-
 
 ## What `gippa setup` needs
 
-`gippa setup` fetches most items itself over HTTPS and needs no Nextflow and no checkout. Two
+`gippa setup` fetches most items itself over HTTPS (the Nextflow launcher too, when none is on
+`PATH`) and needs no Nextflow, no Java and no checkout. Two
 downloaders run inside a tool environment or image: `bakta_db download` (which also runs
 `amrfinder_update`) and antiSMASH's database downloader (`--antismash`). For each,
 `ToolRunner` (`src/gippa/setupdb/run.py`) takes the first of:

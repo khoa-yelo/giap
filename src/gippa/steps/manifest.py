@@ -39,7 +39,8 @@ def _source_root() -> Path:
 def launch_sources(
     cfg: GippaConfig, outdir: Path, given: Mapping[str, Path | None], *, executor: str,
     profile: str | None, resume: bool, publication: bool, db_dir: Path | None,
-    command_line: Sequence[str] = (),
+    command_line: Sequence[str] = (), launch: Mapping[str, Any] | None = None,
+    demo: bool = False,
 ) -> dict[str, Any]:  # fmt: skip
     """The :class:`ManifestSources` fields known before launch (D-C, D-D)."""
     from gippa.steps import load_step_modules
@@ -75,6 +76,8 @@ def launch_sources(
         },
         "extra_inputs": extra,
         "inputs_absent": [r for r in _OPTIONAL if given.get(r) is None],
+        "launch": launch,
+        "demo": demo,
     }
 
 

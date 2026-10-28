@@ -66,3 +66,5 @@
 - [ADR-0062: TerminatorNet gets the process_high CPUs; Promotech gets 2 CPUs and 10 GB](ADR-0062-terminatornet-promotech-resources.md): proposed
 - [ADR-0063: The determinants null on worker processes and partial dependence on threads; one new benchmark baseline](ADR-0063-determinants-null-processes-pd-threads.md): proposed
 - [ADR-0064: Rename GIAP to GIPPA](ADR-0064-rename-giap-to-gippa.md): accepted-by-khoa (2026-10-27, in session, Q-K31: accept as proposed; rename all output names now; one-off PR-size exception granted; Khoa-only steps handed over when the rename PR is ready)
+- [ADR-0065: GIPPA step images `<pkg>-step` and `<pkg>-step-r`, tagged `<version>`](ADR-0065-gippa-step-images.md): proposed (Q-K39; lead default: accept)
+- [ADR-0066: `gippa demo` runs the developer-only local executor on bundled layers](ADR-0066-demo-local-executor.md): proposed (lead; Khoa approved M11-15 wave 1 for 1.0, Q-K44)

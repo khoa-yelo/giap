@@ -109,7 +109,7 @@ def test_preflight_is_not_a_stub(
     monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
     prot = tmp_path / "p.faa"
     prot.write_text(">P1\nMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA\n")
-    argv = ["preflight", "--genome", str(genome), "--proteins", str(prot)]
+    argv = ["preflight", "--profile", "none", "--genome", str(genome), "--proteins", str(prot)]
     assert _exit_code(argv) == ExitCode.SUCCESS
     assert _exit_code([*argv, "--strict"]) == ExitCode.WARNINGS_STRICT
     assert _exit_code(["preflight", "--genome", str(genome)]) == ExitCode.INVALID_INPUT

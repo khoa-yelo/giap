@@ -89,6 +89,15 @@ def read_manifest(view: RunView) -> tuple[Mapping[str, Any] | None, str | None]:
         return None, f"run_manifest.json could not be read: {type(exc).__name__}"
 
 
+#: the banner of a ``gippa demo`` report (M11-15 item 2)
+DEMO_BANNER = "Synthetic demo data (SIM100K, gippasim seed 20261014)"
+
+
+def demo_banner(doc: Mapping[str, Any] | None) -> str | None:
+    """``DEMO_BANNER`` when the run manifest says ``demo: true``, else None."""
+    return DEMO_BANNER if isinstance(doc, Mapping) and doc.get("demo") is True else None
+
+
 #: preflight rules whose ``warn`` opens the summary section (M11-14w; Q3: this one only in 1.0)
 SUMMARY_WARNINGS = ("genome.genetic_code",)
 

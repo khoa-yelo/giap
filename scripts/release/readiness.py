@@ -67,6 +67,7 @@ _VERSION_LINE = re.compile(r'__version__ = "[^"]+"')
 REUSED_NOTE = "(reusable: diff ⊆ NON_STATS_PATHS)"
 IMAGES = "workflow/conf/images.json"
 UNPUBLISHED = frozenset({"uniop"})  # never published (R5); scripts/release/image_key.py
+STEP_IMAGES = frozenset({"step", "step-r"})  # tagged <version>, not keyed (ADR-0065, Q-K39)
 PROCESS_LESS = frozenset({"fgsea"})  # pinned in images.json only, no withName line
 # A bare digest reference (ADR-0059); group 1 catches the docker:// prefix `docker run` rejects.
 _DIGEST = re.compile(r"(docker://)?[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}")
@@ -596,10 +597,11 @@ def _image_key(tool: str, root: Path) -> str:
 
 def _h4_images(root: Path) -> list[str]:
     """H4 reasons from ``images.json`` (M11-14 item 2): every GHCR tool (a directory under
-    ``workflow/containers/`` but ``uniop``) has a current entry; every entry has image inputs and
-    processes (fgsea excepted). Never raises."""
+    ``workflow/containers/`` but ``uniop`` and the step images) has a current entry; every entry
+    has image inputs and processes (fgsea excepted). Never raises."""
     base = root / "workflow" / "containers"
-    tools = sorted(p.name for p in base.iterdir() if p.is_dir() and p.name not in UNPUBLISHED) \
+    skip = UNPUBLISHED | STEP_IMAGES
+    tools = sorted(p.name for p in base.iterdir() if p.is_dir() and p.name not in skip) \
         if base.is_dir() else []  # fmt: skip
     path = root / IMAGES
     if not path.is_file():

@@ -105,11 +105,74 @@ def cli() -> None:
     """GIPPA: genome integrated prokaryotic proteomics analysis."""
 
 
+# ---------------------------------------------------------------- profiles (M11-15a)
+def _check_setup_profile(ctx: click.Context, param: click.Parameter, value: str) -> str:
+    """:func:`_check_profile`; without a bundled workflow (a bare wheel) only a runtime name."""
+    from gippa.runner.profiles import CONTAINER_RUNTIMES, accepted_profiles
+
+    if not accepted_profiles() and value in CONTAINER_RUNTIMES:
+        return value
+    return _check_profile(ctx, param, value)
+
+
+def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
+    """``value`` when it is ``auto`` or valid comma-joined profiles (spec M11-15 item 3: registry
+    and combination rules), else a usage error."""
+    from gippa.runner.profiles import check_profile
+
+    if value == "auto":
+        return value
+    try:
+        return check_profile(value)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from exc
+
+
+def _check_preflight_profile(ctx: click.Context, param: click.Parameter, value: str) -> str:
+    """:func:`_check_profile`, plus ``none`` (inputs only, no tool check)."""
+    return value if value == "none" else _check_profile(ctx, param, value)
+
+
+def _r5() -> str:
+    from gippa.runner.profiles import R5_MESSAGE
+
+    return R5_MESSAGE
+
+
+def _detect(cmd: str, value: str, db_dir: Path | None) -> tuple[str | None, str]:
+    """``(profile, reason)``: ``value`` as given, or (``auto``) the detected profile, printed to
+    stderr with its hints and warnings (spec M11-15 item 1). R5 gives ``(None, "")``."""
+    if value != "auto":
+        return value, ""
+    from gippa.runner import profiles
+
+    got = profiles.detect_profile(profiles.probe_host(os.environ, db_dir))
+    for w in got.warnings:
+        click.echo(f"{_PKG} {cmd}: warning: {w}", err=True)
+    if got.profile is not None:
+        click.echo(f"{_PKG} {cmd}: profile {got.profile} (auto: {got.reason}; pass --profile to "
+                   "choose)", err=True)  # fmt: skip
+    for h in got.hints:
+        click.echo(f"{_PKG} {cmd}: hint: {h}", err=True)
+    return got.profile, got.reason
+
+
+def _profile_help(lead: str) -> str:
+    from gippa.runner.profiles import accepted_profiles
+
+    return f"{lead} Comma-joined from: {', '.join(accepted_profiles())}; auto detects one."
+
+
 # ---------------------------------------------------------------- setup
 
 
 @cli.command()
-@click.option("--db-dir", type=_out_path, required=True, help="Database directory.")
+@click.option(
+    "--db-dir",
+    type=_out_path,
+    help="Database directory [default: $GIPPA_DB_DIR, the one recorded by the last setup, "
+    "$XDG_DATA_HOME/gippa/db or ~/.local/share/gippa/db]; recorded for run, preflight, makedb.",
+)
 @click.option("--bakta", type=click.Choice(["light", "full", "skip"]), default="light")
 @click.option("--genomad/--no-genomad", default=True)
 @click.option("--antismash/--no-antismash", default=False)
@@ -129,9 +192,12 @@ def cli() -> None:
 )
 @click.option(
     "--profile",
-    default=None,
-    metavar="apptainer|docker",
-    help="Container runtime for --images (a comma-joined Nextflow profile is accepted).",
+    default="auto",
+    show_default=True,
+    metavar="auto|apptainer|docker",
+    callback=_check_setup_profile,
+    help="Container runtime for --images (a comma-joined Nextflow profile is accepted); auto "
+    "detects one.",
 )
 @click.option(
     "--cache-dir",
@@ -147,38 +213,67 @@ def cli() -> None:
     help="UniOP has no licence file: you decide that your use is permitted (needed without a TTY).",
 )
 @click.option("--no-uniop", is_flag=True, help="Do not build UniOP under --images.")
+@click.option(
+    "--nextflow/--no-nextflow",
+    default=True,
+    help="Install the pinned Nextflow launcher in DIR/bin when none is on PATH.",
+)
+@click.option("--yes", is_flag=True, help="Do not ask before downloading (no TTY: never asked).")
 @shared_options
 def setup(
     config_file: Path | None,
     sets: tuple[str, ...],
     log_level: str,
     images: str | None,
-    profile: str | None,
+    profile: str,
     cache_dir: Path | None,
     uniop: bool,
     accept_uniop_terms: bool,
     no_uniop: bool,
+    yes: bool,
     **opts: Any,
 ) -> None:
     """Download databases and models (writes DIR/db_manifest.json)."""
     from gippa.annotate.tools import required_tools
     from gippa.io.image_key import image_cache
     from gippa.preflight.environment import container_runtime
-    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
+    from gippa.runner.prereqs import check_java, java_problem
+    from gippa.runner.profiles import IMAGES_SKIPPED
+    from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, plan, run_setup
+    from gippa.setupdb.dbdir import config_home, resolve_db_dir, write_pointer
     from gippa.setupdb.images import image_set, install_images
+    from gippa.setupdb.manifest import record_runtime
+    from gippa.setupdb.run import setup_nextflow
+    from gippa.setupdb.space import in_shared_home, review_plan, setup_plan
     from gippa.setupdb.uniop_build import setup_uniop
 
     if uniop and no_uniop:
         raise click.UsageError("--uniop and --no-uniop exclude each other")
     cfg = _resolve(config_file, sets, log_level)
-    runtime = container_runtime(profile or "")
     if images not in (None, "config", "all"):
         raise click.BadParameter(
             f"{images!r}: give --images alone or --images all", param_hint="--images"
         )
-    if images is not None and runtime is None:
+    where = resolve_db_dir(opts["db_dir"], os.environ, config_home(os.environ))
+    if where.warning:
+        click.echo(f"gippa setup: {where.warning}", err=True)
+    db_dir = opts["db_dir"] = where.path
+    auto = profile == "auto"
+    # auto: the detected runtime, only when images are pulled (spec M11-15 item 1, 1.14)
+    chosen: str | None = profile if not auto else None
+    if auto and images is not None:
+        chosen = _detect("setup", profile, db_dir)[0]
+    runtime = container_runtime(chosen or "")
+    if images is not None and runtime is None and not auto:
         raise click.UsageError("--images needs --profile apptainer or --profile docker")
-    db_dir: Path = opts["db_dir"]
+    if images is not None and runtime is None:  # edge case (c): the DBs still run
+        why = (
+            IMAGES_SKIPPED
+            if chosen is None
+            else f"images: no pull for {chosen} yet; pass --profile apptainer|docker"
+        )
+        click.echo(f"{_PKG} setup: warning: {why}", err=True)
+        images = None
     check = bool(opts["check"])
     fetcher = HttpsFetcher()
     # under --check the archive is only verified; else the UniOP step fetches it (spec item 1b).
@@ -188,46 +283,61 @@ def setup(
     # one cache for the pull, the downloaders that run in an image, preflight and Nextflow
     cache = cache_dir or image_cache(os.environ, db_dir)
     code = ExitCode.SUCCESS
-    if images is not None and runtime is not None and not check:  # before the downloaders
-        tools = image_set(cfg, images == "all")
+    needed = images is not None and not no_uniop and "uniop" in {
+        t.name for t in required_tools(cfg)}  # fmt: skip
+    pull = images is not None and runtime is not None and not check
+    tools = image_set(cfg, images == "all") if pull else []
+    items = [] if check else [(i.name, float(i.size_gib), i.path) for i in plan(dbs)]
+    if items or tools:  # the plan, before the first download or pull (M11-15 15c1)
+        lines, places = setup_plan(db_dir, items, tools, runtime, cache, os.environ)
+        # neither --db-dir nor GIPPA_DB_DIR: a recorded pointer into the home warns too (B4)
+        home = where.source in ("default", "pointer") and in_shared_home(db_dir, os.environ)
+        # Proceed? first; the UniOP terms prompt, when it comes, follows (lead decision)
+        stop = review_plan(lines, places, db_dir, home_warning=home, yes=yes,
+                           environ=os.environ)  # fmt: skip
+        if stop is not None:
+            sys.exit(stop)
+    if not check:
+        db_dir.mkdir(parents=True, exist_ok=True)
+        if (bad := write_pointer(config_home(os.environ), db_dir)) is not None:
+            click.echo(f"gippa setup: warning: {bad}", err=True)
+    if pull and runtime is not None:  # the images before the downloaders
         if install_images(tools, runtime, cache, db_dir) != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
+        else:  # R0 of `gippa run`: the images were pulled for this runtime (never an executor)
+            record_runtime(db_dir, runtime)
+    java = java_problem(check_java(os.environ))  # a warning only: the DBs need no Java (15d)
+    if java is not None:
+        click.echo(f"gippa setup: warning: {java}", err=True)
     dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
     if dbs_code != ExitCode.SUCCESS:
         code = dbs_code
-    needed = images is not None and not no_uniop and "uniop" in {
-        t.name for t in required_tools(cfg)}  # fmt: skip
+    # the launcher for pip installs (M11-15 item 5); never under an explicit --uniop (Q-K27)
+    launcher = dbs.nextflow and not uniop and not check
+    if launcher and setup_nextflow(db_dir, fetcher, os.environ) != ExitCode.SUCCESS:
+        code = ExitCode.ENVIRONMENT
     if (uniop or needed) and not check:
-        step = setup_uniop(profile or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
+        step = setup_uniop(chosen or "", db_dir, cache, fetcher, accepted=accept_uniop_terms,
                            explicit=uniop)  # fmt: skip
         if step != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
     sys.exit(int(code))
 
 
+def _reader_db_dir(cmd: str, flag: Path | None) -> Path | None:
+    """The DB directory of a reader (run, preflight, makedb): ``--db-dir``, ``$GIPPA_DB_DIR``,
+    the one ``gippa setup`` recorded (said so), else the default only when it exists."""
+    from gippa.setupdb.dbdir import config_home, resolve_db_dir
+
+    got = resolve_db_dir(flag, os.environ, config_home(os.environ))
+    if got.warning:
+        click.echo(f"gippa {cmd}: {got.warning}", err=True)
+    if got.source == "pointer":
+        click.echo(f"gippa {cmd}: DB directory {got.path} (from gippa setup)", err=True)
+    return None if got.source == "default" and not got.path.is_dir() else got.path
+
+
 # ---------------------------------------------------------------- preflight
-
-# Nextflow profiles `gippa run --profile` accepts, alone or comma-joined (#78 review 3c).
-_PROFILES = ("farmshare", "farmshare_local", "apptainer", "conda", "docker", "standard")
-
-
-def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
-    """``value`` if every comma-separated name is a known profile, else a usage error."""
-    names = value.split(",")
-    bad = [n for n in names if n not in _PROFILES]
-    if bad:
-        raise click.BadParameter(
-            f"unknown profile(s) {', '.join(repr(n) for n in bad)} in {value!r}; "
-            f"choose comma-joined from: {', '.join(_PROFILES)}"
-        )
-    return value
-
-
-def _check_optional_profile(
-    ctx: click.Context, param: click.Parameter, value: str | None
-) -> str | None:
-    """:func:`_check_profile` for an option that may be left out."""
-    return None if value is None else _check_profile(ctx, param, value)
 
 
 @cli.command()
@@ -240,10 +350,13 @@ def _check_optional_profile(
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
 @click.option(
     "--profile",
-    callback=_check_optional_profile,
-    default=None,
-    help="Also check the tools a run under these profiles needs, as 'gippa run' does (DB "
-    "directory: $GIPPA_DB_DIR). Comma-joined from: " + ", ".join(_PROFILES) + ".",
+    callback=_check_preflight_profile,
+    default="auto",
+    show_default=True,
+    help=_profile_help(
+        "Also check the tools a run under these profiles needs, as 'gippa run' does (DB "
+        "directory: $GIPPA_DB_DIR, else the one gippa setup recorded); none: inputs only."
+    ),
 )
 @shared_options
 def preflight(
@@ -257,10 +370,10 @@ def preflight(
     annotation: Path | None,
     outdir: Path | None,
     strict: bool,
-    profile: str | None,
+    profile: str,
     **_: Any,
 ) -> None:
-    """Validate inputs only (seconds); with --profile also the installed tools."""
+    """Validate inputs and (unless --profile none) the installed tools."""
     from gippa.preflight.report import render_preflight_md
     from gippa.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
@@ -269,13 +382,17 @@ def preflight(
         click.echo(f"gippa preflight: --outdir {outdir} exists and is not a directory", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     inp = PreflightInputs(genome, proteins, peptides, abundance, annotation)
-    if profile is None:
+    if profile == "none":
         report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     else:  # the tool check of `gippa run --profile` (same DB directory and $GIPPA_ROOT)
-        env_db, root = os.environ.get("GIPPA_DB_DIR"), os.environ.get("GIPPA_ROOT")
+        db_dir, root = _reader_db_dir("preflight", None), os.environ.get("GIPPA_ROOT")
+        chosen = _detect("preflight", profile, db_dir)[0]
+        if chosen is None:
+            click.echo(f"{_PKG} preflight: {_r5()}", err=True)
+            sys.exit(ExitCode.ENVIRONMENT)
         report, norm = run_preflight(
-            inp, cfg, None, "preflight", outdir, Path(env_db) if env_db else None,
-            gippa_root=Path(root) if root else None, profile=profile,
+            inp, cfg, None, "preflight", outdir, db_dir,
+            gippa_root=Path(root) if root else None, profile=chosen,
         )  # fmt: skip
     if outdir is not None:
         write_outputs(outdir, report, norm)
@@ -337,9 +454,9 @@ _NORM_INPUTS = {
 @click.option(
     "--profile",
     callback=_check_profile,
-    default="farmshare,apptainer",
+    default="auto",
     show_default=True,
-    help="Comma-joined Nextflow profiles: " + ", ".join(_PROFILES) + ".",
+    help=_profile_help("Nextflow profiles."),
 )
 @click.option("--resume", is_flag=True, help="Resume a previous Nextflow run.")
 @click.option(
@@ -401,19 +518,27 @@ def run(
     from gippa.io.manifest_sources import rotate_events
 
     rotate_events(outdir.absolute() / "logs")  # one events.jsonl per run (MVP-03 D-B step 1)
-    env_db = os.environ.get("GIPPA_DB_DIR")
-    db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
+    db_dir = _reader_db_dir("run", _.get("db_dir"))
     given = {k: _.get(k) for k in _RUN_INPUTS}
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
         keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
         # no profile, so no container runtime: the function step must not see the shell's (14c)
         with _env_unset("GIPPA_CONTAINER_RUNTIME"):
-            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+            _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys} | {"db_dir": db_dir},
+                       run_info)  # fmt: skip
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
+    profile, reason = _detect("run", str(_["profile"]), db_dir)
+    if profile is None:
+        click.echo(f"gippa run: {_r5()}", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    auto = _["profile"] == "auto"
+    launch: dict[str, Any] = {"profile": profile, "profile_source": "auto" if auto else "flag",
+                              "profile_reason": reason}  # fmt: skip
+    run_info["launch"] = launch
     roots, cfg = _run_preflight(
-        cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"]), publication
+        cfg, outdir, inputs, db_dir, bool(_["strict"]), profile, publication
     )
     inputs.update(roots)
     from gippa.runner.local import contaminant_library
@@ -421,18 +546,13 @@ def run(
     lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
     if lib is not None:
         inputs["contaminants"] = lib
-    if shutil.which("nextflow") is None:
-        click.echo(
-            f"gippa run: nextflow not found on PATH; install Nextflow and Java ({_INSTALL_DOCS}), "
-            f"then pull the images with '{_PKG} setup --images --profile <profile>'",
-            err=True,
-        )
-        sys.exit(ExitCode.ENVIRONMENT)
-    base = _launch_sources(cfg, outdir, run_info, "nextflow", str(_["profile"]), bool(_["resume"]))
+    launcher, source = _nextflow_prereqs(db_dir)
+    # which launcher ran: machine-specific, so under the volatile `launch` (review B2)
+    launch["nextflow"] = {"path": str(launcher), "source": source}
+    base = _launch_sources(cfg, outdir, run_info, "nextflow", profile, bool(_["resume"]))
     try:
-        code = _run_nextflow(
-            cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
-        )
+        code = _run_nextflow(cfg, outdir, inputs, str(_["memory"]), profile,
+                             bool(_["resume"]), db_dir, launcher)  # fmt: skip
         if code == ExitCode.SUCCESS:
             _finalize(outdir)
     except Exception:  # past the provenance core: exit 5, the tail still runs (review B2)
@@ -445,6 +565,31 @@ def run(
     sys.exit(_run_tail(outdir, base, code, **failed))
 
 
+def _nextflow_prereqs(db_dir: Path | None) -> tuple[Path, str]:
+    """The ``nextflow`` to launch (``PATH``, else ``<db_dir>/bin/nextflow``) and its source
+    (``path`` or ``db_dir``) after Java 17+ is checked; exit 2 naming what is missing (M11-15
+    item 5)."""
+    from gippa.runner.prereqs import LAUNCHER, check_java, java_problem, locate_nextflow
+
+    hit = locate_nextflow(os.environ, db_dir)
+    if hit is None:
+        where = f" nor at {db_dir / LAUNCHER}" if db_dir is not None else ""
+        click.echo(
+            f"gippa run: nextflow not found on PATH{where}; run '{_PKG} setup' (it installs the "
+            f"launcher and pulls the images with --images --profile <profile>), or install "
+            f"Nextflow and Java ({_INSTALL_DOCS})",
+            err=True,
+        )
+        sys.exit(ExitCode.ENVIRONMENT)
+    problem = java_problem(check_java(os.environ))
+    if problem is not None:
+        click.echo(f"gippa run: error: {problem}", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    launcher, source = hit
+    click.echo(f"gippa run: nextflow {launcher}", err=True)
+    return launcher, source
+
+
 def _launch_sources(
     cfg: GippaConfig, outdir: Path, info: dict[str, Any], executor: str, profile: str | None,
     resume: bool,
@@ -452,10 +597,13 @@ def _launch_sources(
     """Launch-time manifest sources; writes ``OUT/work/provenance.json`` (MVP-03 D-B step 3)."""
     from gippa.steps.manifest import launch_sources, write_provenance
 
-    argv = click.get_current_context().meta.get("gippa.argv", sys.argv)
+    meta = click.get_current_context().meta
+    argv = meta.get("gippa.argv", sys.argv)
     base = launch_sources(cfg, outdir.absolute(), info["given"], executor=executor,
                           profile=profile, resume=resume, publication=info["publication"],
-                          db_dir=info["db_dir"], command_line=argv)  # fmt: skip
+                          db_dir=info["db_dir"], command_line=argv,
+                          launch=info.get("launch"),
+                          demo=bool(meta.get("gippa.demo")))  # fmt: skip
     write_provenance(outdir.absolute(), base)
     return base
 
@@ -593,8 +741,10 @@ def _run_nextflow(
     profile: str,
     resume: bool,
     db_dir: Path | None = None,
+    launcher: Path | None = None,
 ) -> ExitCode:
-    """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``."""
+    """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``
+    (``launcher``, else ``nextflow`` on ``PATH``)."""
     from gippa.runner import nextflow as nf
 
     outdir = outdir.absolute()
@@ -608,6 +758,8 @@ def _run_nextflow(
     if local is None or not local.is_file() or not local_tools_applies(profile):
         local = None
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume, local)
+    if launcher is not None:
+        cmd[0] = str(launcher.absolute())
     env = nf.launch_env(os.environ, container_runtime(profile), db_dir)
     code = nf.run_nextflow(cmd, outdir, env)
     if code == ExitCode.SUCCESS:
@@ -774,6 +926,130 @@ def _record_step_events(logs_dir: Path) -> Callable[[], None]:
     return restore
 
 
+# ---------------------------------------------------------------- demo
+
+_DEMO_MODULES = ("core", "mobile", "bgc")
+
+
+@cli.command()
+@click.option(
+    "--outdir", type=_out_path, default="gippa-demo", show_default=True,
+    help="Output directory; must not exist.",
+)  # fmt: skip
+@click.option(
+    "--full", is_flag=True, default=False,
+    help="After 'gippa setup': the same inputs through 'gippa run' with the real tools, the "
+    "databases and Nextflow (checks the whole install).",
+)  # fmt: skip
+@click.option(
+    "--open", "open", is_flag=True, default=False, help="Open the report in a web browser."
+)
+def demo(outdir: Path, full: bool, **kw: Any) -> None:
+    """Run the bundled synthetic SIM100K demo (no Nextflow, containers, databases or network)."""
+    import time
+
+    if os.path.lexists(outdir):
+        click.echo(f"gippa demo: {outdir} exists; use --outdir or remove it", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    created = _first_missing(outdir)  # what this call creates; removed if a --full run fails
+    try:
+        outdir.mkdir(parents=True)
+    except OSError as exc:
+        click.echo(f"gippa demo: cannot create {outdir} ({exc.strerror or exc}); choose a "
+                   "writable directory with --outdir", err=True)  # fmt: skip
+        sys.exit(ExitCode.INVALID_INPUT)
+    ctx = click.get_current_context()
+    ctx.meta["gippa.demo"] = True  # the manifest's ``demo: true`` and the report banner
+    start = time.monotonic()
+    code: int | str = 0
+    try:
+        (_demo_full if full else _demo_local)(ctx, outdir.absolute())
+    except SystemExit as exc:
+        code = exc.code if exc.code is not None else 0
+    if code != 0:
+        # A --full run stopped before launch (preflight: input or environment) leaves nothing
+        # worth keeping, and a kept outdir would refuse the retry. A failure after launch keeps
+        # the Nextflow log and work dir, as does any failed local demo.
+        if full and code in (ExitCode.INVALID_INPUT, ExitCode.ENVIRONMENT):
+            shutil.rmtree(created, ignore_errors=True)
+        sys.exit(code)
+    report = (outdir / "report" / "report.html").resolve()
+    click.echo(f"gippa demo: done in {round(time.monotonic() - start)} s; report: {report}")
+    if kw["open"]:
+        import webbrowser
+
+        try:  # no browser (a headless host) is not an error: the path is printed above
+            webbrowser.open(report.as_uri())
+        except Exception as exc:
+            click.echo(f"gippa demo: could not open a browser ({exc})", err=True)
+
+
+def _first_missing(path: Path) -> Path:
+    """The outermost directory ``path.mkdir(parents=True)`` would create (``path`` itself when
+    its parent exists)."""
+    path = path.absolute()
+    while not os.path.lexists(path.parent) and path.parent != path:
+        path = path.parent
+    return path
+
+
+def _demo_data() -> Path:
+    """The bundled demo directory ``gippa/data/demo`` (package data, on disk)."""
+    from importlib.resources import files
+
+    return Path(str(files("gippa.data") / "demo"))
+
+
+def _demo_local(ctx: click.Context, outdir: Path) -> None:
+    """``gippa run --executor local`` on the bundled inputs and layers (ADR-0066): the layers are
+    gunzipped into ``OUT/work/demo_layers``; no ``$GIPPA_DB_DIR``; numba caches under ``OUT``."""
+    import gzip
+
+    data, layers = _demo_data(), outdir / "work" / "demo_layers"
+    layers.mkdir(parents=True)
+    bakta = layers / "bakta.json"
+    bakta.write_bytes(gzip.decompress((data / "layers" / "bakta.json.gz").read_bytes()))
+    sets = []
+    for key in m.PrecomputedConfig.model_fields:
+        if key != "bakta_json":
+            path = layers / f"{key}.tsv"
+            path.write_bytes(gzip.decompress((data / "layers" / f"{key}.tsv.gz").read_bytes()))
+            sets.append(f"annotation.precomputed.{key}={json.dumps(str(path))}")
+    with _env_unset("GIPPA_DB_DIR"), _numba_cache(outdir / "work" / "numba_cache"):
+        ctx.invoke(run, genome=data / "sim100k.fna.gz", peptides=data / "sim100k_peptides.tsv.gz",
+                   annotation=bakta, modules=",".join(_DEMO_MODULES), outdir=outdir,
+                   executor="local", sets=tuple(sets))  # fmt: skip
+
+
+def _demo_full(ctx: click.Context, outdir: Path) -> None:
+    """``gippa run`` (Nextflow, the profile it resolves itself) on the bundled genome and
+    peptides with the real tools; adds ``function`` when its resources are installed."""
+    from gippa.setupdb.installed import FUNCTION_RESOURCES, resource
+
+    env_db = os.environ.get("GIPPA_DB_DIR")
+    db = Path(env_db) if env_db else None
+    modules = list(_DEMO_MODULES)
+    if db is not None and all(resource(db, n) is not None for n in FUNCTION_RESOURCES):
+        modules.append("function")
+    data = _demo_data()
+    ctx.invoke(run, genome=data / "sim100k.fna.gz", peptides=data / "sim100k_peptides.tsv.gz",
+               modules=",".join(modules), outdir=outdir)  # fmt: skip
+
+
+@contextmanager
+def _numba_cache(path: Path) -> Iterator[None]:
+    """``NUMBA_CACHE_DIR=path`` for the block unless the caller set it (numba's ``cache=True``
+    must not write into a read-only site-packages); removed again after it."""
+    if "NUMBA_CACHE_DIR" in os.environ:
+        yield
+        return
+    os.environ["NUMBA_CACHE_DIR"] = str(path)
+    try:
+        yield
+    finally:
+        os.environ.pop("NUMBA_CACHE_DIR", None)
+
+
 # ---------------------------------------------------------------- makedb
 
 
@@ -801,8 +1077,6 @@ def makedb(
     no_contaminants: bool,
 ) -> None:
     """Build an optional strain search database (no FDR is built on it)."""
-    import os
-
     from gippa.makedb.build import MakedbOptions, build_strain_db
 
     _resolve(config_file, sets, log_level)
@@ -814,8 +1088,7 @@ def makedb(
         sys.exit(ExitCode.INVALID_INPUT)
     contaminants: Path | None = None
     if not no_contaminants:
-        env = os.environ.get("GIPPA_DB_DIR")
-        root = db_dir or (Path(env) if env else None)
+        root = _reader_db_dir("makedb", db_dir)
         contaminants = root / "contaminants" / "contaminants.fasta" if root else None
         if contaminants is None or not contaminants.is_file():
             click.echo(

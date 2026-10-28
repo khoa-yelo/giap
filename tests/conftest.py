@@ -92,6 +92,19 @@ def _have(name: str) -> bool:
     return _cache[name]
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_prereqs: no fake java/nextflow on PATH (tests/unit/conftest.py fakes them otherwise; "
+        "M11-15d)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
+        "(tests/conftest.py pins them otherwise, M11-15a)",
+    )
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--require-capabilities",
@@ -187,6 +200,55 @@ def golden_seed(tolerances: dict[str, object]) -> int:
     return int(seeds["GOLDEN_SEED"])
 
 
+_REAL_SUBPROCESS_RUN = subprocess.run  # captured before any test patches it
+MOUNTINFO_FIXTURE = REPO / "tests" / "data" / "mountinfo" / "root_ext4.txt"
+
+
+def _faked_by_the_test(run: object) -> bool:
+    """Whether ``subprocess.run`` is a test's fake (not the real one, not ``setup_guard``'s
+    deny or its wrapper that lets only the fake ``java``/``nextflow`` start (M11-15d), either of
+    which would turn a quota query into a guard hit)."""
+    if run is _REAL_SUBPROCESS_RUN:
+        return False
+    qualname = str(getattr(run, "__qualname__", ""))
+    return not qualname.startswith(("_deny.", "_allow_fake_prereqs."))
+
+
+@pytest.fixture(autouse=True)
+def _isolated_user_dirs(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No test reads or writes the real XDG config/data homes, the host's mount table or the
+    real user quota (PR #440 review B1).
+
+    - ``XDG_CONFIG_HOME`` and ``XDG_DATA_HOME`` point into a fresh directory per test (not
+      ``tmp_path``, so tests that list ``tmp_path`` see nothing new): ``gippa setup``'s pointer
+      file (``<config home>/gippa/db_dir``) and its default DB directory
+      (``<data home>/gippa/db``) can never land in the real home. Subprocesses inherit both.
+    - ``gippa.setupdb.space.MOUNTINFO`` is ``tests/data/mountinfo/root_ext4.txt`` (one ``ext4``
+      root), so the plan never reads the host's mounts.
+    - ``gippa.setupdb.space.user_quota`` answers ``None`` (no quota) without running anything,
+      unless the test has faked ``subprocess.run`` itself (then the real function runs against
+      the fake, as the quota tests need): no real ``quota -w`` (an NFS RPC) or ``lfs quota``.
+
+    A test that sets these variables or attributes itself overrides the fixture.
+    """
+    base = tmp_path_factory.mktemp("xdg")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(base / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(base / "data"))
+    from gippa.setupdb import space
+
+    monkeypatch.setattr(space, "MOUNTINFO", MOUNTINFO_FIXTURE)
+    real_quota = space.user_quota
+
+    def user_quota(*args: object, **kwargs: object) -> int | None:
+        if not _faked_by_the_test(subprocess.run):
+            return None
+        return real_quota(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(space, "user_quota", user_quota)
+
+
 @pytest.fixture(autouse=True)
 def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Preflight's UniOP probe (14d) reports success unless a test opts in with
@@ -196,3 +258,58 @@ def _no_real_uniop_probe(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
     from gippa.preflight import environment
 
     monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)
+
+
+# M11-15a item 1 edge case (d): no test sees the real host's container runtimes, Slurm, cluster
+# name, `gippa setup` pointer file or $GIPPA_DB_DIR; the probe is pinned to a FarmShare host
+# (PINNED_PROBE). Opt out with ``@pytest.mark.real_host_probe``.
+_REAL_DB_MARKERS = frozenset({
+    "e2e", "needs_bakta_db", "needs_bakta_full", "needs_genomad_db", "needs_promotech_models",
+    "needs_diann",
+})  # fmt: skip
+_REAL_DB_DIRS = ("contract", "e2e")
+# The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
+# `farmshare,apptainer`, today's default. Defined in tests/helpers/probe_pin.py.
+
+
+def _keeps_real_db(item: pytest.Item) -> bool:
+    """Real-database tests (capability markers, tests/contract, tests/e2e) keep $GIPPA_DB_DIR."""
+    if any(item.get_closest_marker(m) for m in _REAL_DB_MARKERS):
+        return True
+    try:
+        parts = Path(item.path).resolve().relative_to(REPO / "tests").parts
+    except ValueError:
+        return False
+    return bool(parts) and parts[0] in _REAL_DB_DIRS
+
+
+@pytest.fixture(autouse=True)
+def _pinned_host_probe(
+    request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pin ``gippa.runner.profiles.probe_host`` to the FarmShare ``PINNED_PROBE``, point
+    ``XDG_CONFIG_HOME``/``XDG_DATA_HOME`` at (uncreated) ``tmp_path`` subdirectories and unset
+    ``GIPPA_DB_DIR``. A test that needs a probe patches ``probe_host`` itself."""
+    if request.node.get_closest_marker("real_host_probe"):
+        return
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".xdg" / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / ".xdg" / "data"))
+    if not _keeps_real_db(request.node):
+        monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
+    try:
+        from gippa.runner import profiles
+    except ImportError:  # before M11-15a: nothing to pin
+        return
+    if hasattr(profiles, "Probe"):
+        try:
+            from helpers.probe_pin import PINNED_PROBE
+        except ImportError:  # a pytester sandbox copies this conftest without tests/helpers
+            return
+
+        pinned = profiles.Probe(**PINNED_PROBE)
+
+        def probe_host(*_a: object, **_k: object) -> object:
+            return pinned
+
+        probe_host.gippa_pinned = True  # type: ignore[attr-defined]
+        monkeypatch.setattr(profiles, "probe_host", probe_host, raising=False)

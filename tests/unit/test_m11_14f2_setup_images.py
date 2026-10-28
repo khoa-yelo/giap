@@ -548,14 +548,27 @@ def test_without_images_nothing_is_pulled(tmp_path: Path, tree: dict[str, str]) 
     assert not calls(tmp_path)
 
 
-@pytest.mark.parametrize("profile", [None, "conda", "standard"])
+@pytest.mark.parametrize("profile", ["conda", "standard"])
 def test_images_needs_a_container_profile(
-    tmp_path: Path, tree: dict[str, str], profile: str | None
+    tmp_path: Path, tree: dict[str, str], profile: str
 ) -> None:
     args = ["--db-dir", str(tmp_path / "db"), *SKIP_DBS, "--images"]
-    res = setup_cli(args + (["--profile", profile] if profile else []))
+    res = setup_cli([*args, "--profile", profile])
     assert res.exit_code != 0
     assert not calls(tmp_path)
+
+
+def test_images_without_profile_use_the_detected_runtime(
+    tmp_path: Path, tree: dict[str, str]
+) -> None:
+    """M11-15a: no ``--profile`` is ``auto``; the conftest's pinned FarmShare probe resolves to
+    apptainer, so the images are pulled with apptainer (spec M11-15 item 1, D1)."""
+    db = tmp_path / "db"
+    res = setup_cli(["--db-dir", str(db), *SKIP_DBS, "--images"])
+    assert res.exit_code == 0, res.output
+    pulls = calls(tmp_path, "apptainer pull")
+    assert len(pulls) == len({tree[t] for t in default_set(tree)})
+    assert not calls(tmp_path, "docker")
 
 
 # ---------------------------------------------------------------- ToolRunner
