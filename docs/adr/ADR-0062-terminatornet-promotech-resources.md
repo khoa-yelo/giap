@@ -73,6 +73,17 @@ In `workflow/conf/base.config`:
 - Resume: Nextflow does not hash `workflow/bin/` scripts, so after a change to
   `gippa_terminatornet_shard` a `-resume` reuses the old chunk pickles; re-run without `-resume`
   (or clear the TERMINATORNET_CHUNK work dirs).
-- msmeg measurement (wall time from the first PLAN submit to the MERGE end, chunk count, max chunk
-  wall time, max RSS and peak concurrent CPUs at `terminatornet_chunk_cpus = 4`, next to the failed
-  unsharded attempt, exit 140 at 12 h): pending; recorded here and in PROGRESS.md once it exists.
+- msmeg measurement (2026-10-28, job 1901794, rye-01; docs/validation/M2-15b-terminatornet-sharding.md).
+  This is the shard script driven at the pipeline's concurrency (8 chunks × 4 CPUs), not a Nextflow
+  run, so there is no queue wait or submission ramp:
+  - 6.99 Mb, 56 chunks, all exit 0;
+  - plan start → merge end 5,030 s (83 min 50 s), against the unsharded attempt that failed with
+    exit 140 at 12 h;
+  - chunk wall min/median/max 454/712/960 s;
+  - peak 8 concurrent chunks = 32 CPUs;
+  - max RSS 155 MB per process and 1.20 GB for the 8 concurrent chunks together;
+  - about 44 CPU-min per chunk (41 h 19 min CPU in total). That is about 177 CPU-min/Mb-strand
+    (GC 0.67), against about 81 for K-12, so CPU per Mb rises with GC content.
+
+  The sharded output is byte-identical (`cmp`) to the unsharded references for Nissle 1917, K-12
+  MG1655, mhyo and gsulf (fresh `-n 16` references in `$GIPPA_ROOT/recordings/terminatornet/`).
