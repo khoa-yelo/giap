@@ -4,15 +4,18 @@
 ``data/Vnn_<name>[_<suffix>].tsv`` through ``gippa.io.tsv`` (§9.2, ADR-0006). Image metadata that
 carries a date or a software version is dropped, so two renders of one instance are
 byte-identical on one platform (``svg.hashsalt`` is fixed here, whether or not
-``gippa.viz.style.apply`` ran). An SVG carries the finding title as its ``<title>`` (M9-15). The
-figures are ``matplotlib.figure.Figure`` objects that pyplot never manages, so nothing needs
-closing. The ``Instance.coords`` columns are written ``+ 1``
-(1-based closed data TSVs, §6.5). ``read_plot_files`` reads them back for the report (M9-02).
+``gippa.viz.style.apply`` ran). matplotlib hashes full-precision floats into SVG clip-path, marker
+and hatch ids, so ``stable_svg_ids`` renumbers them and 1-ulp layout noise cannot change the
+bytes. An SVG carries the finding title as its ``<title>`` (M9-15). The figures are
+``matplotlib.figure.Figure`` objects that pyplot never manages, so nothing needs closing. The
+``Instance.coords`` columns are written ``+ 1`` (1-based closed data TSVs, §6.5).
+``read_plot_files`` reads them back for the report (M9-02).
 """
 
 from __future__ import annotations
 
 import html
+import io
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -33,14 +36,46 @@ METADATA: dict[str, dict[str, Any]] = {
     "png": {"Software": None},
 }
 #: fixed SVG id salt (``gippa.viz.style`` sets the same value)
-#: the pre-rename salt stays: a new salt changes every SVG id (ADR-0064 item 7)
+#: the pre-rename salt stays: a new salt changes every SVG id (ADR-0064 item 7); the hashed ids
+#: are renumbered by ``stable_svg_ids`` anyway
 HASHSALT = "giap"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
+#: matplotlib's hashed SVG ids (clip paths, markers, hatches) and their renamed stems
+_HASHED_ID = re.compile(rb'id="([pmh][0-9a-f]{10})"')
+_HASHED_USE = re.compile(rb'(id="|#)([pmh][0-9a-f]{10})(?=[")])')
+_ANY_ID = re.compile(rb'\bid="([^"]*)"')
+_ID_STEM = {b"p": b"clip", b"m": b"marker", b"h": b"hatch"}
 
 
 def stem(pid: str, name: str, suffix: str | None) -> str:
     """``Vnn_<name>`` or ``Vnn_<name>_<suffix>`` with the suffix sanitised to ``[A-Za-z0-9._-]``."""
     return f"{pid}_{name}" if suffix is None else f"{pid}_{name}_{_UNSAFE.sub('_', suffix)}"
+
+
+def stable_svg_ids(svg: bytes) -> bytes:
+    """``svg`` with every hashed id renamed ``clip<n>``/``marker<n>``/``hatch<n>`` (per prefix, in
+    order of first definition) and every ``id="…"``, ``url(#…)`` and ``href="#…"`` rewritten.
+
+    The new names skip any id already in the file, so they cannot collide.
+    """
+    hashed = list(dict.fromkeys(_HASHED_ID.findall(svg)))
+    taken = set(_ANY_ID.findall(svg)) - set(hashed)
+    counters: dict[bytes, int] = {}
+    mapping: dict[bytes, bytes] = {}
+    for old in hashed:
+        prefix = old[:1]
+        n = counters.get(prefix, 0)
+        while (new := _ID_STEM[prefix] + str(n).encode()) in taken:
+            n += 1
+        counters[prefix] = n + 1
+        taken.add(new)
+        mapping[old] = new
+
+    def _sub(m: re.Match[bytes]) -> bytes:
+        old = m.group(2)
+        return m.group(1) + mapping[old] if old in mapping else m.group(0)
+
+    return _HASHED_USE.sub(_sub, svg)
 
 
 def write_instance(
@@ -57,7 +92,12 @@ def write_instance(
         for fmt in formats:
             path = plots_dir / f"{base}.{fmt}"
             meta = METADATA[fmt] | ({"Title": inst.title} if fmt == "svg" else {})
-            inst.figure.savefig(path, format=fmt, dpi=dpi, metadata=meta)
+            if fmt == "svg":
+                buf = io.BytesIO()
+                inst.figure.savefig(buf, format=fmt, dpi=dpi, metadata=meta)
+                path.write_bytes(stable_svg_ids(buf.getvalue()))
+            else:
+                inst.figure.savefig(path, format=fmt, dpi=dpi, metadata=meta)
             written.append(path)
     tsv = plots_dir / "data" / f"{base}.tsv"
     tsv.parent.mkdir(parents=True, exist_ok=True)
