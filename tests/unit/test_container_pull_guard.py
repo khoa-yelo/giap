@@ -441,7 +441,9 @@ def test_guarded_path_guards_exactly_the_runtimes_of_that_path(
     got = guarded_path(path)
     first, rest = got.split(os.pathsep, 1)
     assert rest == path
-    assert sorted(p.name for p in Path(first).iterdir()) == ["apptainer"]
+    # /usr/bin:/bin may hold a runtime of its own (GitHub runners have /usr/bin/docker)
+    host = {n for n in NAMES if shutil.which(n, path="/usr/bin:/bin")}
+    assert sorted(p.name for p in Path(first).iterdir()) == sorted({"apptainer"} | host)
     assert guarded_path(path) == got  # cached per path
     which = shutil.which("apptainer", path=got)
     assert which is not None and Path(which).parent == Path(first)
