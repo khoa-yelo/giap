@@ -243,8 +243,11 @@ exit 3
 """
 
 
-def install_fake_docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """``docker`` first on ``PATH``; returns the state directory."""
+def install_fake_docker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, docker_host: bool = True
+) -> Path:
+    """``docker`` first on ``PATH``; returns the state directory. ``docker_host``: the profile
+    probe sees a docker-only host (see :func:`_pin_docker_host`)."""
     bindir = tmp_path / "fakebin"
     bindir.mkdir(parents=True, exist_ok=True)
     exe = bindir / "docker"
@@ -255,7 +258,24 @@ def install_fake_docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
     monkeypatch.setenv("FAKE_DOCKER_STATE", str(tmp_path / "docker_state"))
     monkeypatch.setenv("FAKE_IMAGE_ID", FAKE_IMAGE_ID)
     monkeypatch.delenv("FAKE_BUILD_FAIL", raising=False)
+    if docker_host:
+        _pin_docker_host(monkeypatch)
     return tmp_path / "docker_state"
+
+
+def _pin_docker_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fake-docker world is a docker-only host: ``--profile auto`` picks the fake docker, never
+    the session's real apptainer (the conftest pin is FarmShare + apptainer, and from M11-15c2 a
+    plain ``gippa setup`` pulls the images, which would start real pulls)."""
+    try:
+        from gippa.runner import profiles
+    except ImportError:
+        return
+    if not hasattr(profiles, "Probe"):
+        return
+    probe = profiles.Probe(on_path=frozenset({"docker"}), docker_ok=True, slurm_job_id=None,
+                           cluster_name=None, setup_runtime=None)  # fmt: skip
+    monkeypatch.setattr(profiles, "probe_host", lambda *_a, **_k: probe)
 
 
 def docker_calls(tmp_path: Path, sub: str = "") -> list[list[str]]:

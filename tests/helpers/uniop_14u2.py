@@ -129,7 +129,8 @@ def _exe(path: Path, text: str) -> None:
 def install_fake_runtimes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Fake ``docker`` (14u1), ``apptainer`` and ``micromamba`` first on ``PATH``; returns the
     docker state directory."""
-    state = install_fake_docker(tmp_path, monkeypatch)
+    # the real apptainer is shadowed here, so the conftest FarmShare probe pin stays
+    state = install_fake_docker(tmp_path, monkeypatch, docker_host=False)
     bindir = tmp_path / "fakebin"
     _exe(bindir / "apptainer", FAKE_APPTAINER)
     _exe(bindir / "micromamba", FAKE_MICROMAMBA)

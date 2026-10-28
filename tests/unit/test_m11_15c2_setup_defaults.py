@@ -315,7 +315,9 @@ def test_no_runtime_skips_images_with_a_warning_and_exits_by_the_dbs(
     """Item 1 edge case (c) / example 1.14: DBs downloaded, images skipped, exit 0."""
     empty_path(monkeypatch, tmp_path)
     no_runtime_host(monkeypatch)
-    r = setup(tmp_path)
+    # the empty PATH has no nextflow, so 15d's launcher step would go through the faked install
+    # (which writes no file); the launcher is not what this test is about
+    r = setup(tmp_path, "--no-nextflow")
     assert NO_RUNTIME in r.output
     assert calls.images == [] and calls.uniop == []
     assert calls.installed == EVERYTHING

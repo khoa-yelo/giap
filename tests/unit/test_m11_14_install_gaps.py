@@ -57,6 +57,7 @@ import pytest
 from click.testing import CliRunner
 from helpers.fake_env import write_setup_manifest
 from helpers.prereqs import link_prereqs
+from helpers.setup_opt_outs import opt_outs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -298,7 +299,8 @@ def test_without_images_bakta_stays_absent_on_an_apptainer_only_host(
 ) -> None:
     """Control: no image, no docker, no env: the downloader cannot run (unchanged)."""
     db = tmp_path / "db"
-    setup_cli(["--db-dir", str(db), *DBS_BAKTA])
+    # images are on by default from M11-15c2: "without images" is now --no-images
+    setup_cli(["--db-dir", str(db), *DBS_BAKTA, *opt_outs("images")])
     rec = manifest_items(db)["bakta_light"]
     assert rec["status"] == "absent" and "setup --images" in rec["message"], rec
 

@@ -35,6 +35,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from helpers.prereqs import run_fake_prereq
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -98,12 +99,17 @@ def calls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, list[Any
     def deny(*a: Any, **_k: Any) -> Any:
         raise AssertionError(f"blocked in this test: {a!r}")
 
+    def deny_run(*a: Any, **k: Any) -> Any:  # 15d: only the conftest fake java/nextflow start
+        if a and (done := run_fake_prereq(a[0], *a[1:], **k)) is not None:
+            return done
+        return deny(*a, **k)
+
     monkeypatch.setattr(srun, "install", fake_install)
     monkeypatch.setattr(img, "install_images", fake_images)
     monkeypatch.setattr(uniop_build, "setup_uniop", fake_uniop)
     monkeypatch.setattr(profiles, "probe_host", probe)
     monkeypatch.setattr(sdb.HttpsFetcher, "fetch", deny)
-    monkeypatch.setattr(subprocess, "run", deny)
+    monkeypatch.setattr(subprocess, "run", deny_run)
     monkeypatch.setattr(subprocess, "Popen", deny)
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(socket.socket, "connect", deny)
