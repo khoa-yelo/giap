@@ -23,12 +23,14 @@
 #     second build of the same env fail at once instead of interleaving with the first.
 #     Nextflow tasks that start during a rebuild see a missing or half-built env (as before).
 #   - CUDA builds on CPU nodes: if the yml asks for a CUDA build string (e.g. `pytorch=2.0.*=cuda*`)
-#     and `nvidia-smi -L` lists no GPU, the solve runs with CONDA_OVERRIDE_CUDA (default 11.8; an
-#     exported CONDA_OVERRIDE_CUDA wins), so the __cuda virtual package exists (job 1901404).
+#     and `nvidia-smi -L` lists no GPU, the solve runs with CONDA_OVERRIDE_CUDA (an exported
+#     CONDA_OVERRIDE_CUDA wins, then the yml's exact `cuda-version` pin, else 11.8), so the
+#     __cuda virtual package exists (job 1901404).
 #   - git-pinned tools: source cloned at the pinned commit into $prefix/share/<tool>/.
 #   - the version command must succeed and print the registry version (commit SHA for git tools);
 #     otherwise that tool fails and no lock is written.
-#   - locks: workflow/envs/locks/<tool>.explicit.txt (conda) and <tool>.pip.txt (pip freeze),
+#   - locks: workflow/envs/locks/<tool>.explicit.txt (conda) and <tool>.pip.txt (pip freeze; only
+#     when the env has bin/pip),
 #     written to .tmp files and renamed over the old locks only after the build verified; a
 #     failed build leaves the old locks as they were (they still describe the restored env).
 #   - frozen tools (a `# frozen-lock` line in the yml; M8-17a: fgsea) are installed from their
@@ -114,10 +116,22 @@ wants_cuda() {
     "$ENV_DIR/$1.yml"
 }
 has_gpu() { grep -q '^GPU ' <<< "$(nvidia-smi -L 2> /dev/null || true)"; }
+# The yml's exact `cuda-version` pin (`cuda-version=12.1`, `cuda-version==12.1`,
+# `cuda-version 11.8.*`, `cuda-version=12.1=build`), without a trailing `.*`; empty for no pin
+# or a range (`>=11.8,<12`, `[version=...]`). The first uncommented pin wins.
+cuda_pin() {
+  sed -nE 's/^[[:space:]]*-[[:space:]]*["'"'"']?cuda-version(==?|[[:space:]]+)([0-9]+(\.[0-9]+)*)(\.\*)?(["'"'"'[:space:]=#]|$).*/\2/p' \
+    "$ENV_DIR/$1.yml" | awk 'NR == 1'  # awk reads all: no SIGPIPE under pipefail
+}
 # CONDA_OVERRIDE_CUDA for this tool's create, or empty (never export it empty: an empty value
-# hides a real GPU from the solver).
+# hides a real GPU from the solver). An exported value wins, then the yml's cuda-version pin,
+# then 11.8.
 cuda_override() {
-  if wants_cuda "$1" && ! has_gpu; then echo "${CONDA_OVERRIDE_CUDA:-11.8}"; fi
+  local pin
+  if wants_cuda "$1" && ! has_gpu; then
+    pin="$(cuda_pin "$1")"
+    echo "${CONDA_OVERRIDE_CUDA:-${pin:-11.8}}"
+  fi
 }
 mm_create() {
   local cuda="$1"; shift
@@ -185,6 +199,7 @@ swap_locks() {
   done
   if [ -n "$ok" ]; then
     for f in "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"; do
+      if [ "$f" = "$LOCKS/$tool.pip.txt" ] && [ ! -e "$f.tmp" ]; then continue; fi  # no pip
       mv "$f.tmp" "$f" || { ok=; break; }
     done
   fi
@@ -329,8 +344,13 @@ build_locked() {
     # healed by the next run, which re-exports the locks of an existing env.
     micromamba env export -n "$env_name" --explicit > "$LOCKS/$tool.explicit.txt.tmp" \
       || return 1
-    PYTHONNOUSERSITE=1 micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" \
-      || return 1
+    # An env without pip (miniprot: no Python) has no pip lock; swap_locks then drops an old one.
+    # A pip .tmp left by a SIGKILLed run must not become that lock.
+    rm -f "$LOCKS/$tool.pip.txt.tmp"
+    if [ -x "$prefix/bin/pip" ]; then
+      PYTHONNOUSERSITE=1 micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" \
+        || return 1
+    fi
     echo "$want" > "$marker" || return 1
     swap_locks "$tool" || return 1
   fi
