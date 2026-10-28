@@ -160,13 +160,14 @@ def test_stop_sites_event_counts(chain) -> None:  # type: ignore[no-untyped-def]
         "terminal": len(chain["sites"]), "recoded": 0, "not_a_stop": chain["not_a_stop"],
         "cells_target": n_cells, "cells_decoy": {"reverse": n_cells},
         "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
+        "translation_table": 11,
     }  # fmt: skip
 
 
 def test_index_format_2_round_trip(chain) -> None:  # type: ignore[no-untyped-def]
     from gippa.mapping.sixframe import load_stop_cells
 
-    cells = load_stop_cells(chain["files"]["sixframe"])
+    cells = load_stop_cells(chain["files"]["sixframe"], table=11)
     assert {(s.contig, s.strand, s.codon_start) for s in cells.sites} == set(chain["sites"])
     for s in cells.sites:
         assert list(s.locus_tags) == sorted(chain["sites"][(s.contig, s.strand, s.codon_start)])

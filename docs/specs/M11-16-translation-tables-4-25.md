@@ -387,6 +387,8 @@ and the two `translate11_text` calls (lines 126, 290) use `translate_text(..., t
 the step's config. `candidates.reconstruct` is unchanged: it already uses
 `cfg.annotation.translation_table`. The novel FASTA (`novel_orfs.faa`) of a code-4 ORF has `W` at
 TGA. `annotation.start_codons` stays a config key and is not derived from the table (edge cases).
+`steps/novel.py` builds `LocusClassifier(gm, genome)` (line ~426): it passes `table=` too, so the
+de novo class walk agrees with `loci` (lead, #476 review).
 
 **6.4 Variants.** `flags.py` (block mass equivalence), `vcf_records.py` (`AA_REF`, `_codons_of`
 and `minimal_alt_codon`) and `align.py` (locus translation) use `translate_text(..., table)`.
@@ -394,6 +396,8 @@ and `minimal_alt_codon`) and `align.py` (locus translation) use `translate_text(
 under 25. `pileup.RECODED_STOP` and `vcf_records._RECODED` become `recoded_codons(table)`. Under
 4/25 a `U` is never a zero-change ALT, so it is `rare`-skipped like every other U (M7-16 rule 11).
 `O` over TAG is unchanged. A strain SNV TGA → TGG is a synonymous W → W under 4, not a stop loss.
+`steps/variants.py` calls `annotated_stops(gm, genome, recoded=True)` (line ~117): it passes
+`table=`, so a `U` over TGA at 4/25 is a `codon_mismatch` as in mapping (D6; lead, #476 review).
 
 **6.5 `gippa makedb`.** `MakedbOptions.translation_table: int = 11` is filled from the resolved
 config (`--config` / `--set annotation.translation_table=4`; no new CLI flag). Six-frame ORFs,

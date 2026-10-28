@@ -89,7 +89,7 @@ def _sites_in(row: Any, sites: list[Any], n: int, circular: bool) -> list[Any]:
 def observe(ch: Any, q_max: float) -> dict[str, Any]:
     from gippa.mapping.sixframe import load_stop_cells
 
-    cells = load_stop_cells(ch.avail["sixframe"])
+    cells = load_stop_cells(ch.avail["sixframe"], table=11)
     hits = best_cost_rows(hits_of(ch.avail))
     hits = hits[hits["search"] == "target"]
     hits = hits[holds_cell(hits, cells)]

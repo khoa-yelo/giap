@@ -9,7 +9,9 @@ decoy types). ``run_sixframe_index`` runs the registered step on it.
 ``sixframe_index`` wrote for this world on main at 508e86e0 (before M7-16a), with ``seed=7``:
 ``python tests/data/mapping/readthrough/make_format1_fixture.py`` (only meaningful on a checkout
 whose ``save_index`` still writes format 1). Index format 2 must keep its decoy frames
-byte-identical (spec rule 3).
+byte-identical (spec rule 3). ``sixframe_format2.npz`` next to it is the format-2 file of the same
+world *with* genes (main 1f7203d3, before M11-16b; ``make_format2_fixture.py``): the table-11
+format-3 index must equal it apart from ``meta.format`` and ``meta.translation_table``.
 """
 
 from __future__ import annotations

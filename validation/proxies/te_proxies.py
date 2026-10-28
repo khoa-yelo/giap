@@ -498,10 +498,11 @@ def te8_proxy(
 
 def _costs(work: Path) -> pd.DataFrame:
     """Best target/decoy costs of the placement step's queries (``best_costs`` on its inputs)."""
-    queries = select_queries(pd.read_parquet(work / "peptides"), resolve_config())
+    cfg = resolve_config()
+    queries = select_queries(pd.read_parquet(work / "peptides"), cfg)
     parts = [pd.read_parquet(work / k) for k in ("hits_exact", "hits_tolerant")]
     hits = pd.concat([p for p in parts if len(p)] or parts[:1], ignore_index=True)
-    index, _ = load_index(work / "sixframe")
+    index, _ = load_index(work / "sixframe", table=cfg.annotation.translation_table)
     return best_costs(hits, queries, residue_freqs(index))
 
 

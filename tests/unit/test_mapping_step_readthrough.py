@@ -1,6 +1,7 @@
 """The mapping steps with annotated stops (M7-16a rule 8; spec Q10 index format).
 
-- ``sixframe_index`` gains the input ``genes`` (M2-04 ``genes.parquet``), writes index format 2
+- ``sixframe_index`` gains the input ``genes`` (M2-04 ``genes.parquet``), writes index format 3
+  (M11-16b; format 2 in M7-16)
   with the target and per-decoy-type cells, and emits one INFO event ``mapping.stop_sites`` with
   ``data = {"terminal", "recoded", "not_a_stop", "cells_target", "cells_decoy": {kind: n}}``;
 - an empty gene model gives zero sites, the same frames and the event with zeros;
@@ -57,7 +58,7 @@ def test_sixframe_index_declares_the_genes_input() -> None:
     assert spec.outputs == ("sixframe",)
 
 
-def test_sixframe_index_writes_format_2_cells_and_the_event(
+def test_sixframe_index_writes_format_3_cells_and_the_event(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     from gippa.mapping.sixframe import load_stop_cells
@@ -66,8 +67,8 @@ def test_sixframe_index_writes_format_2_cells_and_the_event(
     out = _six(tmp_path, inputs(tmp_path))
     with np.load(out) as npz:
         meta = json.loads(str(npz["meta"]))
-    assert meta["format"] == 2 and len(meta["stop_sites"]) == 6
-    cells = load_stop_cells(out)
+    assert meta["format"] == 3 and len(meta["stop_sites"]) == 6
+    cells = load_stop_cells(out, table=11)
     assert len(cells.sites) == 6
     assert sum(len(c) for c in cells.target) == 7
     assert set(cells.decoys) == {"reverse", "shuffle"}
@@ -77,6 +78,7 @@ def test_sixframe_index_writes_format_2_cells_and_the_event(
         "terminal": 6, "recoded": 0, "not_a_stop": 1, "cells_target": 7,
         "cells_decoy": {"reverse": 7, "shuffle": 7},
         "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
+        "translation_table": 11,
     }  # fmt: skip
 
 
@@ -90,13 +92,14 @@ def test_empty_gene_model_gives_zero_sites_and_the_same_frames(
     _genome, reps, _gm = world()
     ins["genes"] = write_annotation(model(reps, []), tmp_path / "empty")["genes"]
     out = _six(tmp_path, ins)
-    cells = load_stop_cells(out)
+    cells = load_stop_cells(out, table=11)
     assert cells.sites == () and all(len(c) == 0 for c in cells.target)
     assert all(len(c) == 0 for d in cells.decoys.values() for c in d)
     assert _events(caplog)[0].data == {  # type: ignore[attr-defined]
         "terminal": 0, "recoded": 0, "not_a_stop": 0, "cells_target": 0,
         "cells_decoy": {"reverse": 0, "shuffle": 0},
         "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
+        "translation_table": 11,
     }  # fmt: skip
     with np.load(out) as new, np.load(FIXTURE) as old:
         for key in ("target_aa", "reverse_aa", "shuffle_aa"):

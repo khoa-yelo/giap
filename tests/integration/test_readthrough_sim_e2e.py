@@ -142,7 +142,7 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         "novel": tsv(out / "tables" / "novel_orfs.tsv"),
         "patch": patch,
         "strain_db": _fasta(mdb / "strain_db.faa"),
-        "sites": list(load_stop_cells(out / "work" / "sixframe").sites),
+        "sites": list(load_stop_cells(out / "work" / "sixframe", table=11).sites),
     }
 
 

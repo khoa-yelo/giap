@@ -229,7 +229,7 @@ def run_replicate(seed: int, kind: str, tmp: Path) -> Rep:
         outs = {k: tmp / f"{k}.out" for k in spec.outputs}
         reg.run_step(name, cfg, ins, outs)
         files.update(outs)
-    cells = load_stop_cells(files["sixframe"])
+    cells = load_stop_cells(files["sixframe"], table=11)
     hits = pd.concat(
         [pd.read_parquet(files["hits_exact"]), pd.read_parquet(files["hits_tolerant"])],
         ignore_index=True,
@@ -240,7 +240,7 @@ def run_replicate(seed: int, kind: str, tmp: Path) -> Rep:
     tgt = best[(best["search"] == "target") & is_wrong]
     dec = best[(best["search"] == "decoy") & is_wrong & (best["decoy_type"] == kind)]
     # negative control: the same decoy search with the decoy cells removed
-    index, decoys = load_index(files["sixframe"])
+    index, decoys = load_index(files["sixframe"], table=11)
     import gippa.mapping.readthrough as rt
 
     none = tuple(np.zeros(0, dtype=np.int64) for _ in index.frames)

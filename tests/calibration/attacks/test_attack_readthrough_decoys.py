@@ -178,9 +178,9 @@ def _index(genome: Mapping[str, str], gm, tmp: Path, seed: int):  # type: ignore
     out = tmp / "sixframe.npz"
     reg.run_step("sixframe_index", resolve_config(overrides=[f"seed={seed}"]), ins,
                  {"sixframe": out})  # fmt: skip
-    index, decoys = load_index(out)
+    index, decoys = load_index(out, table=11)
     assert set(decoys) == set(KINDS), decoys.keys()
-    return index, decoys, load_stop_cells(out)
+    return index, decoys, load_stop_cells(out, table=11)
 
 
 def gippasim_world(seed: int, tmp: Path):  # type: ignore[no-untyped-def]

@@ -416,8 +416,9 @@ def test_example_27_event_counts_a_merged_site_once_as_recoded(
         "cells_target": 2,
         "cells_decoy": {"reverse": 2, "shuffle": 2},
         "recoded_skipped": ZERO,
+        "translation_table": 11,
     }
-    cells = load_stop_cells(out)
+    cells = load_stop_cells(out, table=11)
     assert [(s.codon_start, s.kind, s.locus_tags) for s in cells.sites] == [
         (15, "recoded", ("G1", "G5")),
         (30, "terminal", ("G1",)),

@@ -234,6 +234,11 @@ def _gene_model(ctx: StepContext) -> GeneModel:
     return read_gene_model(_path(ins["genes"]), _path(ins["replicons"]), _path(ins["features"]))
 
 
+def _table(ctx: StepContext) -> int:
+    """The run's genetic code (``annotation.translation_table``; ADR-0067)."""
+    return ctx.cfg.annotation.translation_table
+
+
 def _hits(ctx: StepContext, *keys: str) -> pd.DataFrame:
     parts = [pd.read_parquet(_path(ctx.inputs[k])) for k in keys]
     parts = [p for p in parts if len(p)]
@@ -246,10 +251,12 @@ def _hits(ctx: StepContext, *keys: str) -> pd.DataFrame:
 @step("sixframe_index", inputs=["genome", "replicons", "peptides", "genes"], outputs=["sixframe"])
 def sixframe_index(ctx: StepContext) -> None:
     """Six-frame translation, the decoy frames the queries' sources need (§7.2.1) and the
-    consumable annotated stop cells of the target and each decoy type (ADR-0058, format 2)."""
+    consumable annotated stop cells of the target and each decoy type (ADR-0058), translated
+    with ``annotation.translation_table`` (index format 3, ADR-0067)."""
     reps = _replicons(ctx)
     genome = _genome(_path(ctx.inputs["genome"]))
-    index = build_sixframe(genome, reps)
+    table = _table(ctx)
+    index = build_sixframe(genome, reps, table=table)
     queries = _queries(ctx)
     kinds = sorted(set(decoy_types(queries, ctx.cfg).values()))
     if not kinds:
@@ -257,7 +264,7 @@ def sixframe_index(ctx: StepContext) -> None:
     window = ctx.cfg.mapping.decoys.shuffle_window_aa
     decoys = {k: build_decoys(index, k, window, ctx.rng) for k in kinds}
     gm = read_gene_model(_path(ctx.inputs["genes"]), _path(ctx.inputs["replicons"]))
-    sites, n_not = annotated_stops(gm, genome, recoded=True)  # M7-16 rules 1, 21-22
+    sites, n_not = annotated_stops(gm, genome, recoded=True, table=table)  # M7-16 rules 1, 21-22
     target = frame_cells(index, sites)
     dc = {k: mirror_cells(k, fr, target) for k, fr in decoys.items()}
     save_index(ctx.outputs["sixframe"], index, decoys, StopCells(sites, target, dc))
@@ -272,7 +279,8 @@ def sixframe_index(ctx: StepContext) -> None:
         "not_a_stop": n_not,
         "cells_target": n_cells,
         "cells_decoy": {k: sum(len(c) for c in v) for k, v in dc.items()},
-        "recoded_skipped": recoded_skips(gm, genome),
+        "recoded_skipped": recoded_skips(gm, genome, table=table),
+        "translation_table": table,
     }
     ctx.log.info(
         "sixframe_index: %d annotated stop sites (%d not a stop), %d target cells",
@@ -294,7 +302,7 @@ def _log_hits(ctx: StepContext, n_queries: int, hits: pd.DataFrame) -> None:
 def map_exact(ctx: StepContext) -> None:
     """Route 1: exact target and decoy hits of every query (§7.2.2)."""
     queries = _queries(ctx)
-    index, decoys = load_index(_path(ctx.inputs["sixframe"]))
+    index, decoys = load_index(_path(ctx.inputs["sixframe"]), table=_table(ctx))
     ex = ctx.cfg.mapping.exact
     hits = match_exact(
         queries["peptide"].tolist(), index, decoys, decoy_types(queries, ctx.cfg),
@@ -315,8 +323,8 @@ def map_tolerant(ctx: StepContext) -> None:
     parts: list[pd.DataFrame] = []
     if tcfg.enabled and peps:
         six = _path(ctx.inputs["sixframe"])
-        index, decoys = load_index(six)
-        cells = load_stop_cells(six)
+        index, decoys = load_index(six, table=_table(ctx))
+        cells = load_stop_cells(six, table=_table(ctx))
         decoy_of = decoy_types(queries, ctx.cfg)
         parts.append(match_tolerant(peps, index, decoys, decoy_of, left, tcfg, cells=cells))
         if tcfg.frameshift.enabled:
@@ -416,7 +424,7 @@ def placement_step(ctx: StepContext) -> None:
     ADR-0019 stratum-0 class table (``stratum0_classes``, an input of ``context_stats``) and the
     best costs with π̂ (``placement_costs``, the M7-11b de novo class lists)."""
     queries = _resolved_queries(ctx, _gene_model(ctx))
-    index, decoys = load_index(_path(ctx.inputs["sixframe"]))
+    index, decoys = load_index(_path(ctx.inputs["sixframe"]), table=_table(ctx))
     exact = pd.read_parquet(_path(ctx.inputs["hits_exact"]))
     queries["pi_denovo"] = np.nan
     is_dn = (queries["source"] == "denovo").to_numpy()
@@ -554,13 +562,15 @@ def loci(ctx: StepContext) -> None:
     else:
         reps = gm.replicons
         consumed = consumed_sites(
-            rows, load_stop_cells(six).sites, {c: r.length for c, r in reps.items()},
+            rows, load_stop_cells(six, table=_table(ctx)).sites,
+            {c: r.length for c, r in reps.items()},
             {c: r.topology == "circular" for c, r in reps.items()},
         )  # fmt: skip
     pep_hits = annotate_peptide_hits(
         rows, gm, genome, queries, cfg.genome_relation,
         decoy_prefixes=cfg.input.decoy_prefixes,
         contaminant_prefixes=cfg.input.contaminant_prefixes, consumed=consumed,
+        table=_table(ctx),
     )  # fmt: skip
     prot_hits, state = _proteins(ctx, gm)
     lib = _opt(ctx, "contaminants")

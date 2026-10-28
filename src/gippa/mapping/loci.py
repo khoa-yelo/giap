@@ -38,6 +38,7 @@ from gippa.config.model import InputConfig
 from gippa.mapping.readthrough import StopSite
 from gippa.model.coords import Interval, Replicon
 from gippa.model.genes import Gene, GeneModel, NcFeature
+from gippa.model.genetic_code import minus_stop_codons, stop_codons
 
 __all__ = [
     "LOCUS_CLASSES",
@@ -66,9 +67,8 @@ GenomeRelation = Literal["related", "same"]
 
 LOCUS_CLASSES: tuple[str, ...] = get_args(LocusClass)
 _RNA_TYPES = frozenset({"rrna", "trna", "tmrna", "ncrna"})
-_PLUS_STOPS = frozenset({"TAA", "TAG", "TGA"})  # table 11
-_MINUS_STOPS = frozenset({"TTA", "CTA", "TCA"})  # reverse complements, read on the plus string
-_RECODED_FLAG = {"TGA": "sec_site", "TAG": "pyl_site"}  # M7-16 rule 19 (Bakta U / O)
+# M7-16 rule 19 (Bakta U / O); no TGA site is recoded under tables 4/25, so no sec_site there
+_RECODED_FLAG = {"TGA": "sec_site", "TAG": "pyl_site"}
 _ASSIGNING = frozenset({"cds_inframe", "sorf", "nterm_extension", "cterm_extension", "pseudogene"})
 FLAG_SEP = ";"
 _DEFAULT_DECOY_PREFIXES: tuple[str, ...] = tuple(InputConfig().decoy_prefixes)
@@ -124,9 +124,11 @@ class _Upstream:
 @dataclass(frozen=True, slots=True)
 class _Index:
     upstream: dict[tuple[str, str], _Upstream]
+    plus_stops: frozenset[str]  # the table's stops; the minus ones read on the plus string
+    minus_stops: frozenset[str]
 
 
-def _build_index(gm: GeneModel) -> _Index:
+def _build_index(gm: GeneModel, table: int = 11) -> _Index:
     groups: dict[tuple[str, str], list[tuple[int, str, Gene]]] = {}
     for g in gm.genes:
         if g.feature_type != "cds" or g.interval.strand not in ("+", "-"):
@@ -141,7 +143,7 @@ def _build_index(gm: GeneModel) -> _Index:
     for k, items in groups.items():
         items.sort(key=lambda t: (t[0], t[1]))
         up[k] = _Upstream([t[0] for t in items], [t[2] for t in items])
-    return _Index(up)
+    return _Index(up, stop_codons(table), minus_stop_codons(table))
 
 
 def _codon(seq: str, p: int, n: int) -> str:
@@ -151,7 +153,9 @@ def _codon(seq: str, p: int, n: int) -> str:
     return (seq[q:] + seq[: q + 3 - n])[:3]
 
 
-def _nterm_plus(s: int, e: int, rep: Replicon, seq: str, up: _Upstream) -> str | None:
+def _nterm_plus(
+    s: int, e: int, rep: Replicon, seq: str, up: _Upstream, stops: frozenset[str]
+) -> str | None:
     n = rep.length
     circ = rep.topology == "circular"
     keys, genes = up.keys, up.genes
@@ -181,7 +185,7 @@ def _nterm_plus(s: int, e: int, rep: Replicon, seq: str, up: _Upstream) -> str |
                 break
             q = nxt % n
             cod = seq[q : q + 3] if q + 3 <= n else _codon(seq, q, n)
-            if cod in _PLUS_STOPS:
+            if cod in stops:
                 blocked_at = nxt
                 break
             nxt += 3
@@ -194,7 +198,9 @@ def _nterm_plus(s: int, e: int, rep: Replicon, seq: str, up: _Upstream) -> str |
     return None if best is None else best[1]
 
 
-def _nterm_minus(s: int, e: int, rep: Replicon, seq: str, up: _Upstream) -> str | None:
+def _nterm_minus(
+    s: int, e: int, rep: Replicon, seq: str, up: _Upstream, stops: frozenset[str]
+) -> str | None:
     n = rep.length
     circ = rep.topology == "circular"
     keys, genes = up.keys, up.genes
@@ -223,7 +229,7 @@ def _nterm_minus(s: int, e: int, rep: Replicon, seq: str, up: _Upstream) -> str 
                 break
             q = (nxt - 3) % n
             cod = seq[q : q + 3] if q + 3 <= n else _codon(seq, q, n)
-            if cod in _MINUS_STOPS:
+            if cod in stops:
                 blocked_at = nxt
                 break
             nxt -= 3
@@ -288,8 +294,10 @@ def _classify(
         up = index.upstream.get((contig, strand))
         if up is not None:
             seq = genome[contig]
-            fn = _nterm_plus if strand == "+" else _nterm_minus
-            tag = fn(s, e, rep, seq, up)
+            if strand == "+":
+                tag = _nterm_plus(s, e, rep, seq, up, index.plus_stops)
+            else:
+                tag = _nterm_minus(s, e, rep, seq, up, index.minus_stops)
             if tag is not None:
                 return "nterm_extension", tag
     if cterm:
@@ -302,12 +310,13 @@ def _classify(
 
 
 class LocusClassifier:
-    """Classifies many intervals against one gene model, building its N-terminal index once."""
+    """Classifies many intervals against one gene model, building its N-terminal index once; the
+    upstream walk stops only at the stops of genetic code ``table``."""
 
-    def __init__(self, gm: GeneModel, genome: Mapping[str, str]) -> None:
+    def __init__(self, gm: GeneModel, genome: Mapping[str, str], *, table: int = 11) -> None:
         self._gm = gm
         self._genome = genome
-        self._index = _build_index(gm)
+        self._index = _build_index(gm, table)
 
     def classify(self, iv: Interval) -> tuple[LocusClass, str | None]:
         """Locus class of ``iv`` and the gene it assigns to (None unless an assigning class)."""
@@ -317,10 +326,10 @@ class LocusClassifier:
 
 
 def classify_locus(
-    iv: Interval, gm: GeneModel, genome: Mapping[str, str]
+    iv: Interval, gm: GeneModel, genome: Mapping[str, str], *, table: int = 11
 ) -> tuple[LocusClass, str | None]:
     """Locus class of ``iv`` and the gene it assigns to (None unless an assigning class)."""
-    return LocusClassifier(gm, genome).classify(iv)
+    return LocusClassifier(gm, genome, table=table).classify(iv)
 
 
 # ---------------------------------------------------------------- peptide hits
@@ -368,6 +377,7 @@ def annotate_peptide_hits(
     decoy_prefixes: Sequence[str] = _DEFAULT_DECOY_PREFIXES,
     contaminant_prefixes: Sequence[str] = _DEFAULT_CONTAMINANT_PREFIXES,
     consumed: Sequence[tuple[StopSite, ...]] | None = None,
+    table: int = 11,
 ) -> pd.DataFrame:
     """Add ``locus_class``, ``gene``, ``uniqueness``, ``flags`` and ``novel_candidate_id``.
 
@@ -376,7 +386,8 @@ def annotate_peptide_hits(
     ``consumed`` (``consumed_sites`` per input row, M7-16 rule 16) a row consuming a ``terminal``
     site gets ``readthrough`` and the work column ``readthrough_codon`` (1-based, ``,``-joined);
     one consuming a ``recoded`` site gets ``sec_site`` (TGA) or ``pyl_site`` (TAG) and the work
-    column ``recoded_codon`` (M7-16 rule 19).
+    column ``recoded_codon`` (M7-16 rule 19). ``table`` is the genetic code of the N-terminal
+    walk's stops.
     """
     if genome_relation not in ("related", "same"):
         raise ValueError(f"genome_relation must be 'related' or 'same', got {genome_relation!r}")
@@ -390,7 +401,7 @@ def annotate_peptide_hits(
     routes = df["route"].tolist() if n else []
     in_flags = df["flags"].tolist() if "flags" in df.columns else [None] * n
 
-    index = _build_index(gm)
+    index = _build_index(gm, table)
     cache: dict[tuple[str, int, int, str], tuple[LocusClass, str | None]] = {}
     classes: list[LocusClass] = []
     genes: list[str | None] = []

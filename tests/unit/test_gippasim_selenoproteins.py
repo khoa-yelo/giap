@@ -324,7 +324,7 @@ def test_parse_bakta_genes_and_the_stop_sites_event(
 
     rec = {
         (s.contig, s.strand, s.codon_start)
-        for s in load_stop_cells(tmp_path / "six.npz").sites
+        for s in load_stop_cells(tmp_path / "six.npz", table=11).sites
         if s.kind == "recoded"
     }
     assert rec == {(x.contig, x.strand, x.codon_start) for x in t.itertuples(index=False)}
