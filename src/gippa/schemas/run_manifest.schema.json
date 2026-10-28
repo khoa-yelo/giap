@@ -121,6 +121,10 @@
       "enum": ["uniop", "distance_model", "precomputed", null]
     },
     "operon_source_reason": {"$ref": "#/$defs/nstr"},
+    "licence_notes": {
+      "description": "Licence notes of the licence-restricted items the run used (geNOMAD, KEGG, UniOP; M11-15c2).",
+      "$ref": "#/$defs/strs"
+    },
     "detection_tier": {"$ref": "#/$defs/nstr"},
     "seeds": {"type": "object", "required": ["master"], "additionalProperties": {"type": "integer"}},
     "steps": {

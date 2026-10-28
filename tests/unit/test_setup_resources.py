@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
+from helpers.setup_opt_outs import opt_outs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from setup_guard import BLOCKED, real_https_fetch, setup_guard  # noqa: F401
@@ -204,7 +205,8 @@ def opts(db: Path, **kw: Any) -> Any:
     from gippa.setupdb import SetupOptions
 
     base: dict[str, Any] = {"db_dir": db, "bakta": "skip", "genomad": False, "antismash": False,
-                            "promotech_models": False, "check": False}  # fmt: skip
+                            "promotech_models": False, "check": False, "go": False,
+                            "kegg": False, "cog": False, "contaminants": False}  # fmt: skip
     return SetupOptions(**(base | kw))
 
 
@@ -476,7 +478,8 @@ def test_example1_on_the_command_line(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(HttpsFetcher, "fetch", lambda _self, url, dest: fetcher.fetch(url, dest))
     db = tmp_path / "D"
     argv = ["setup", "--db-dir", str(db), "--bakta", "skip", "--no-genomad",
-            "--no-promotech-models", "--go"]  # fmt: skip
+            "--no-promotech-models", "--go",
+            *opt_outs("antismash", "kegg", "cog", "contaminants", "images")]  # fmt: skip
     r = CliRunner().invoke(cli, argv)
     assert r.exit_code == 0, r.output
     assert {items(db)[n]["status"] for n in GO_NAMES} == {"ok"}
@@ -729,7 +732,7 @@ def test_example6_on_the_command_line(tmp_path: Path, monkeypatch: pytest.Monkey
     assert setup(tmp_path, MapFetcher(dict(pin_all(monkeypatch))), **every) == 0
     argv = ["setup", "--db-dir", str(tmp_path), "--bakta", "skip", "--no-genomad",
             "--no-promotech-models", "--check", "--go", "--kegg", "--cog",
-            "--contaminants"]  # fmt: skip
+            "--contaminants", *opt_outs("antismash", "images")]  # fmt: skip
     r = CliRunner().invoke(cli, argv)
     assert r.exit_code == 0, r.output
     assert BLOCKED == [], "the guard saw a network or tool call"

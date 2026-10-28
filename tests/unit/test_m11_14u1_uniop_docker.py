@@ -411,7 +411,9 @@ def test_plain_setup_never_builds_uniop(
     state: Path, archive: bytes, net: FakeNet, tmp_path: Path
 ) -> None:
     db = tmp_path / "db"
-    code, out = setup_cli(["--db-dir", str(db), *SKIP_DBS, ACCEPT])
+    # M11-15c2 pulls images by default (and then builds UniOP after consent, spec example 6.1):
+    # the pre-15c2 "plain" setup, without images, is --no-images now
+    code, out = setup_cli(["--db-dir", str(db), *SKIP_DBS, "--no-images", ACCEPT])
     assert code == 0, out
     assert net.contacted == [] and docker_calls(tmp_path) == []
     assert not (db / LOCAL_TOOLS).exists()

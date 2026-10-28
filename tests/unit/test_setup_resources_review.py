@@ -81,7 +81,8 @@ def opts(db: Path, **kw: Any) -> Any:
     from gippa.setupdb import SetupOptions
 
     base: dict[str, Any] = {"db_dir": db, "bakta": "skip", "genomad": False, "antismash": False,
-                            "promotech_models": False, "check": False}  # fmt: skip
+                            "promotech_models": False, "check": False, "go": False,
+                            "kegg": False, "cog": False, "contaminants": False}  # fmt: skip
     return SetupOptions(**(base | kw))
 
 

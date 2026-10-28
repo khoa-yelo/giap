@@ -161,6 +161,7 @@ def test_uniop_option_plans_the_archive() -> None:
     from gippa.setupdb.items import SetupOptions, plan
 
     opts = SetupOptions(db_dir=Path("/x"), bakta="skip", genomad=False, promotech_models=False,
+                        antismash=False, go=False, kegg=False, cog=False, contaminants=False,
                         uniop=True)  # type: ignore[call-arg]  # fmt: skip
     assert [i.name for i in plan(opts)] == ["uniop_source"]
 

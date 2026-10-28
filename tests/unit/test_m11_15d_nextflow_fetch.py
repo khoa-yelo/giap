@@ -37,6 +37,7 @@ from typing import Any
 
 import pytest
 import yaml
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 from helpers.uniop_14u1 import (
     ARCHIVE_PATH,
     ARCHIVE_URL,
@@ -62,7 +63,11 @@ NF_URL = (
 NF_PATH = f"/nextflow-io/nextflow/releases/download/v{NF_VERSION}/nextflow-{NF_VERSION}-dist"
 ASSET_HOSTS = ("release-assets.githubusercontent.com", "objects.githubusercontent.com")
 ASSET_PATH = "/github-production-release-asset/43446421/0f5e7c1a-26-10-0-dist"
-SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models"]
+# M11-15c2 turns antiSMASH, the resource files and the images on by default; these tests are
+# about Java and the Nextflow launcher, so everything else is opted out (opt_outs: only flags the
+# current setup accepts). Without --no-images the real apptainer would pull every image.
+SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models",
+            *opt_outs(*NO_RESOURCE_FLAGS, "images")]  # fmt: skip
 FAKE_DIST = b"#!/bin/sh\n# fake nextflow-26.10.0-dist (test bytes, not Nextflow)\nexit 0\n"
 JAVA_21 = 'openjdk version "21.0.1" 2023-10-17\nOpenJDK Runtime Environment (build 21.0.1+12)\n'
 JAVA_11 = 'openjdk version "11.0.2" 2019-01-15\nOpenJDK Runtime Environment 18.9\n'

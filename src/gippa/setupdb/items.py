@@ -30,6 +30,7 @@ __all__ = [
     "check_file",
     "count_fasta_records",
     "file_digest",
+    "licence_lines",
     "plan",
     "tree_size",
     "verify",
@@ -85,19 +86,21 @@ class DbRecord:
 
 @dataclass(frozen=True, slots=True)
 class SetupOptions:
-    """``gippa setup`` options (GIPPA_SPEC.md §5.1)."""
+    """``gippa setup`` options (GIPPA_SPEC.md §5.1); everything is on by default (M11-15c2,
+    Q-K35), one line per item, so turning one back to opt-in is a one-line change."""
 
     db_dir: Path
     bakta: BaktaChoice = "light"
     genomad: bool = True
-    antismash: bool = False
+    antismash: bool = True
     promotech_models: bool = True
     check: bool = False
-    go: bool = False
-    kegg: bool = False
-    cog: bool = False
-    contaminants: bool = False
+    go: bool = True
+    kegg: bool = True
+    cog: bool = True
+    contaminants: bool = True
     uniop: bool = False  # the UniOP source archive (M11-14 item 1b; built by setup --uniop)
+    minimal: bool = False  # --minimal: recorded as setup.set in db_manifest.json (M11-15c2)
     nextflow: bool = True  # the Nextflow -dist launcher when none is on PATH (M11-15 item 5)
 
 
@@ -144,6 +147,18 @@ def plan(opts: SetupOptions) -> list[DbItem]:
     names += [n for flag, group in RESOURCES if getattr(opts, flag) for n in group]
     names += ["uniop_source"] if opts.uniop else []
     return [SOURCES[n] for n in names]
+
+
+def licence_lines(items: list[DbItem], pkg: str) -> list[str]:
+    """The licence lines of the setup plan (M11-15c2): geNOMAD and KEGG, when planned."""
+    names = {i.name for i in items}
+    out = []
+    if "genomad" in names:
+        out.append(f"geNOMAD (module mobile) is for non-commercial use only; for commercial use: "
+                   f"{pkg} setup --no-genomad, {pkg} run --modules core,bgc,function")  # fmt: skip
+    if names & {"kegg_ko_pathway", "kegg_pathway_names"}:
+        out.append(f"KEGG is free for academic use only; for other use: {pkg} setup --no-kegg")
+    return out
 
 
 def today() -> str:

@@ -204,6 +204,10 @@ def opts(db: Path, **kw: Any) -> Any:
         "antismash": False,
         "promotech_models": False,
         "check": False,
+        "go": False,  # M11-15c2 turns the resources on: off explicitly
+        "kegg": False,
+        "cog": False,
+        "contaminants": False,
     }
     base.update(kw)
     return SetupOptions(**base)

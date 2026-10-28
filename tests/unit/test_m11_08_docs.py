@@ -11,7 +11,8 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-GUIDE = [f"get-started/{p}.md" for p in ("install", "setup-databases", "quickstart")] + [
+GUIDE = [f"get-started/{p}.md" for p in ("install", "setup-databases", "manual-databases",
+                                                 "quickstart")] + [
     f"user-guide/{p}.md"
     for p in ("inputs", "run", "outputs", "interpreting-results", "plots-and-report", "compare",
               "makedb", "convert", "licences", "runtimes")

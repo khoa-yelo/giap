@@ -49,6 +49,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 from helpers.fake_env import fake_gippa_root, write_setup_manifest
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 from helpers.uniop_14u1 import FakeNet, Route, install_fake_net, isolate, manifest_items, setup_cli
 
 from gippa.exitcodes import ExitCode
@@ -501,8 +502,7 @@ def test_setup_warning_follows_java_cmd(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setenv("JAVA_CMD", str(make_exe(tmp_path / "cmd" / "java", java_script(21))))
     set_path(monkeypatch, fakebin)
     install_fake_net(monkeypatch)
-    code, out = setup_cli(["--db-dir", str(tmp_path / "db"), "--bakta", "skip", "--no-genomad",
-                           "--no-promotech-models", "--no-nextflow"])  # fmt: skip
+    code, out = setup_cli(["--db-dir", str(tmp_path / "db"), *SKIP_DBS, "--no-nextflow"])
     assert code == 0, out
     assert JAVA_HEAD not in out, out
 
@@ -639,7 +639,11 @@ def test_schema_pins_the_launcher_source_vocabulary(
 NF_VERSION = "26.10.0"
 NF_PATH = f"/nextflow-io/nextflow/releases/download/v{NF_VERSION}/nextflow-{NF_VERSION}-dist"
 ASSET_PATH = "/github-production-release-asset/43446421/0f5e7c1a-26-10-0-dist"
-SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models"]
+# M11-15c2 turns antiSMASH, the resource files and the images on by default; these tests are
+# about Java and the Nextflow launcher, so everything else is opted out (opt_outs: only flags the
+# current setup accepts). Without --no-images the real apptainer would pull every image.
+SKIP_DBS = ["--bakta", "skip", "--no-genomad", "--no-promotech-models",
+            *opt_outs(*NO_RESOURCE_FLAGS, "images")]  # fmt: skip
 FAKE_DIST = b"#!/bin/sh\n# fake nextflow-26.10.0-dist (test bytes, not Nextflow)\nexit 0\n"
 
 

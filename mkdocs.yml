@@ -48,6 +48,7 @@ nav:
       - get-started/install.md
       - get-started/upgrade.md
       - get-started/setup-databases.md
+      - get-started/manual-databases.md
   - User guide:
       - user-guide/inputs.md
       - user-guide/run.md

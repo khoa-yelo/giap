@@ -14,6 +14,7 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 # Imported now, before any test patches subprocess: the helper keeps the real subprocess.run for
 # the conftest fakes (helpers.prereqs.run_fake_prereq).
@@ -79,3 +80,22 @@ def _fake_prereqs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     for var in ("JAVA_HOME", "JAVA_CMD", "NXF_JAVA_HOME"):
         monkeypatch.delenv(var, raising=False)
+
+
+#: the free space every unit test sees unless it fakes ``shutil.disk_usage`` itself
+PLENTY_FREE = 100 * 1024**4
+
+
+@pytest.fixture(autouse=True)
+def _plenty_of_disk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``shutil.disk_usage`` reports 100 TiB free on every path, so no unit test depends on how
+    full the host's ``/tmp`` is (M11-15c2: the all-on default plan is ~16 GiB, and the 15c1 space
+    check refuses it on a host with less free). The path must still exist, as for the real call.
+    Tests about free space patch ``shutil.disk_usage`` themselves, which overrides this."""
+    import shutil
+
+    def disk_usage(path: object) -> Any:
+        os.stat(path)  # type: ignore[arg-type]  # a missing path raises, as the real call does
+        return shutil._ntuple_diskusage(PLENTY_FREE, 0, PLENTY_FREE)  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(shutil, "disk_usage", disk_usage)

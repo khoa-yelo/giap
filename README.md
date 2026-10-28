@@ -94,5 +94,5 @@ MIT. Third-party tools keep their own licences and run only as separate programs
 [`NOTICE.md`](NOTICE.md).
 
 geNOMAD (module `mobile`) is for non-commercial use only (`gippa setup --no-genomad`,
-`--modules core,bgc,function`); KEGG (`--kegg`) is free for academic use only; see
+`--modules core,bgc,function`); KEGG is free for academic use only (`gippa setup --no-kegg`); see
 [Licences](docs/user-guide/licences.md).
