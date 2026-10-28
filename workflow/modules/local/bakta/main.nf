@@ -4,6 +4,8 @@ process BAKTA {
     label 'process_high'
     memory { 48.GB * task.attempt }
     conda "${projectDir}/envs/bakta.yml"
+    // M11-18: native outputs under OUT/annotation/tools/bakta/<sample>.{json,gbff} (only the declared ones).
+    publishDir "${params.outdir}/annotation/tools", mode: 'copy', saveAs: { fn -> fn == 'versions.yml' ? null : fn }
 
     input:
     tuple val(meta_id), path(genome), path(replicons)

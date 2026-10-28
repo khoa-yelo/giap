@@ -42,6 +42,10 @@ gippa makedb --annotation bakta.json --six-frame-orfs --min-orf-aa 20 --no-conta
 
 - `--annotation` is required in 1.0. Without it, `gippa makedb` exits with code 2: running Bakta
   from `makedb` is not available. Run `gippa run` first, or Bakta yourself.
+- After a `gippa run` that ran Bakta, use its published JSON:
+  `gippa makedb --annotation OUT/annotation/tools/bakta/genome.json --outdir strain_db`.
+  The files are named `genome.json` and `genome.gbff` (after the normalised genome), not after
+  the strain. A run with a precomputed `--annotation` does not copy that file into `OUT/`.
 - Without `--no-contaminants`, the contaminant library must be installed
   (`gippa setup --contaminants`). Otherwise the exit code is 2.
 - An unreadable or inconsistent annotation or patch exits with code 1.
