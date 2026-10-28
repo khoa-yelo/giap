@@ -89,6 +89,7 @@ nav:
       - methods/function-collections.md
       - methods/function-gsea.md
       - methods/function.md
+      - methods/genetic-code.md
       - methods/islands.md
       - methods/mayu-gene-fdr.md
       - methods/multiple-testing.md
