@@ -12,8 +12,10 @@ pin the bytes of every file ``gippasim.simulate`` writes (the output directory p
 mismatch is a 16c regression, not a stale golden file.
 
 Every ``simulate`` case passes ``genetic_code=11`` explicitly (``dataclasses.replace``), so it
-also checks that the explicit default is the implicit one. The layout and M11-14w fixture pins
-are pure regression guards (their configs gain no table key in the spec); they pass before 16c.
+also checks that the explicit default is the implicit one. The layout pins run twice: with the
+implicit default and with ``LayoutConfig(genetic_code=11)`` (spec item 8 lists ``layout`` among
+the modules that take the table from their config; lead decision on #474). The M11-14w fixture
+pins (codes 4 and 11) are pure regression guards and pass before 16c.
 """
 
 from __future__ import annotations
@@ -131,10 +133,11 @@ def test_golden_covers_every_case() -> None:
     assert sorted(_golden()["simulate"]) == sorted(_cases()) == sorted(CASES)
 
 
+@pytest.mark.parametrize("explicit", [False, True], ids=["implicit", "genetic_code_11"])
 @pytest.mark.parametrize("seed", SEEDS)
 @pytest.mark.parametrize("name", ["default", "draft_origin"])
-def test_layout_byte_identical(name: str, seed: int) -> None:
-    """Regression guard: ``simulate_layout`` (which reads ``SENSE_USAGE``/``CODE_11``) unchanged."""
+def test_layout_byte_identical(name: str, seed: int, explicit: bool) -> None:
+    """``simulate_layout`` at code 11 (implicit, and ``genetic_code=11``) is unchanged."""
     from gippasim.layout import LayoutConfig, simulate_layout
 
     cfg = {
@@ -147,6 +150,8 @@ def test_layout_byte_identical(name: str, seed: int) -> None:
             oric_frac=0.8,
         ),
     }[name]
+    if explicit:
+        cfg = replace(cfg, genetic_code=11)
     got = _layout_digests(simulate_layout(cfg, np.random.default_rng(seed)))
     assert got == _golden()["layout"][name][str(seed)]
 
