@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, TypeVar, get_args
 
 import click
+from click.core import ParameterSource
 
 import gippa
 from gippa.config import GippaConfig, resolve_config
@@ -243,6 +244,11 @@ def setup(
         raise click.UsageError("--uniop and --no-uniop exclude each other")
     if images is not None and no_images:
         raise click.UsageError("--images and --no-images exclude each other")
+    if opts["minimal"]:  # an explicit --genomad/--antismash is not dropped silently
+        ctx = click.get_current_context()
+        for name in ("genomad", "antismash"):
+            if ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE and opts[name]:
+                raise click.UsageError(f"--minimal and --{name} exclude each other")
     minimal = bool(opts["minimal"])
     # --minimal: the images the core,function modules need (a --set modules=... still wins)
     cfg = _resolve(config_file, sets, log_level, {"modules": ["core", "function"]} if minimal
@@ -477,7 +483,9 @@ def run(
     cfg = _resolve(config_file, sets, log_level, flags, publication)
     env_db = os.environ.get("GIPPA_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
-    if modules is None and cfg.modules == GippaConfig().modules and _minimal_db_dir(db_dir):
+    default_modules = modules is None and cfg.modules == GippaConfig().modules
+    minimal_set = default_modules and _minimal_db_dir(db_dir)
+    if minimal_set:
         cfg = _resolve(config_file, sets, log_level, flags | {"modules": ["core", "function"]},
                        publication)  # fmt: skip
         click.echo(f"{_PKG} run: modules core,function (DB directory set up with --minimal; "
@@ -497,6 +505,12 @@ def run(
     from gippa.io.manifest_sources import rotate_events
 
     rotate_events(outdir.absolute() / "logs")  # one events.jsonl per run (MVP-03 D-B step 1)
+    if minimal_set:  # Q-L25: the auto core,function notice is recorded in the manifest (B6)
+        from gippa.io.events import append_event, event_record
+
+        data = {"modules": ["core", "function"], "reason": "db_dir set up with --minimal"}
+        append_event(outdir.absolute() / "logs",
+                     event_record("run", "minimal_set", data, "WARNING"))  # fmt: skip
     given = {k: _.get(k) for k in _RUN_INPUTS}
     run_info = {"publication": publication, "db_dir": db_dir, "given": given}
     if executor == "local":
