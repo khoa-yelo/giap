@@ -408,11 +408,12 @@ table is rejected as today. Under 4/25, TGA is no longer `*`, so it is not rejec
 ### 7. Manifest and report
 
 - `run_manifest.json` `annotation` gains `translation_table` (integer). It is read from
-  `annotation_meta.json`, or from the resolved config when the annotation block is null. The
+  `annotation_meta.json`, or from the resolved config when `annotation_meta` has no
+  `translation_table` (a null annotation block stays null). The
   schema gets an explicit `translation_table: {"type": "integer", "enum": [4, 11, 25]}` property
   next to the string-valued `additionalProperties`. This bumps `OUTPUT_SCHEMA_VERSION` by one
   minor version (additive, M11-14h policy). The config snapshot in the manifest already holds the
-  table and is unchanged.
+  table; at 11 it changes only through the new tblastn default (D1, see AC 1).
 - **Report.** The Methods section gains one sentence for every run: `Genes were called and all
   six frames translated with NCBI genetic code {t} ({name}).` When `t != 11`, the `summary`
   section also opens with `<p class="note" data-genetic-code="{t}">Genetic code {t} ({name}):
@@ -601,11 +602,15 @@ Coordinates are 0-based half-open. "+0" is plus strand, frame offset 0.
 1. **Table 11 is unchanged.** On the gippasim pilot (`tests/integration/test_m10_05_sim_pilot.py`
    inputs) at table 11, every table under `tables/` and `mapping/` is byte-identical to the
    output before M11-16. The documented changes are (the Bakta argv is unchanged at 11, D2):
-   output before M11-16. The documented changes are: the Bakta argv (`--translation-table 11`, D2),
-   `sixframe.npz` meta (format 3, `translation_table`), `run_manifest.json`
-   `annotation.translation_table` and `output_schema_version`, `preflight.json` (the
-   `genome.genetic_code` `rule` text and `value.translation_table`), and the report's Methods
-   sentence. The test lists them explicitly.
+   `sixframe.npz` meta (format 3, `translation_table`); `run_manifest.json`
+   `annotation.translation_table` and `output_schema_version`; `schemas/datapackage.json`
+   `output_schema_version` (1.1); `preflight.json` (the `genome.genetic_code` `rule` text and
+   `value.translation_table`, the `config.translation_table` rule text, and the new
+   `config.tool_genetic_code` row, so `preflight.md` and the V17 QC plot and its
+   `plots/data/V17_qc.tsv` count one more `ok`); the manifest's config snapshot and
+   `provenance_digest` (the default `mapping.proteins.tblastn_args` no longer holds
+   `-db_gencode 11`, D1); and the report's Methods sentence. The test lists them explicitly
+   (`BEYOND_AC1` in `tests/integration/test_m11_16_table11_identity.py`).
 2. `config.translation_table` is `ok` for 4, 11 and 25, and `error` with exit `INVALID_INPUT` for
    every other value tested (1, 2, 12, 0, −1, 26). The message names the supported set.
 3. `config.tool_genetic_code` gives exactly the levels and `value` of examples 7c and 8, and the
