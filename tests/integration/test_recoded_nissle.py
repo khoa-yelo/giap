@@ -132,13 +132,14 @@ def test_example_29_event(steps: dict[str, Any]) -> None:
         "cells_target": 4692,
         "cells_decoy": {"reverse": 4692, "shuffle": 4692},
         "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
+        "translation_table": 11,
     }
 
 
 def test_example_29_index_cells(steps: dict[str, Any]) -> None:
     from gippa.mapping.sixframe import load_stop_cells
 
-    cells = load_stop_cells(steps["files"]["sixframe"])
+    cells = load_stop_cells(steps["files"]["sixframe"], table=11)
     rec = {(s.locus_tags, s.strand, s.codon_start) for s in cells.sites if s.kind == "recoded"}
     assert rec == {((t,), st, cs) for t, st, cs, _ in RECODED}
     assert sum(len(c) for c in cells.target) == 4692

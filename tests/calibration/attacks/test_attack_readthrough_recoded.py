@@ -148,9 +148,14 @@ def build_index(genome: Mapping[str, str], gm: Any, tmp: Path, seed: int) -> dic
     out = tmp / "sixframe.npz"
     reg.run_step("sixframe_index", resolve_config(overrides=[f"seed={seed}"]), ins,
                  {"sixframe": out})  # fmt: skip
-    index, decoys = load_index(out)
+    index, decoys = load_index(out, table=11)
     assert set(decoys) == set(KINDS), decoys.keys()
-    return {"index": index, "decoys": decoys, "cells": load_stop_cells(out), "inputs": ins}
+    return {
+        "index": index,
+        "decoys": decoys,
+        "cells": load_stop_cells(out, table=11),
+        "inputs": ins,
+    }
 
 
 def recoded_world(seed: int, tmp: Path) -> tuple[dict[str, Any], set[tuple[str, str, int]]]:

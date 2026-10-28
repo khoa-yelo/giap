@@ -358,7 +358,7 @@ def test_ex8_roundtrip_50kb_simulated_genome(tmp_path: Path) -> None:
     path = tmp_path / "sixframe_index.npz"
     save_index(path, idx, decoys)  # type: ignore[arg-type]
     assert path.is_file()
-    idx2, dec2 = load_index(path)
+    idx2, dec2 = load_index(path, table=11)
     _assert_index_equal(idx, idx2)
     assert set(dec2) == {"reverse", "shuffle"}
     for kind in ("reverse", "shuffle"):
@@ -373,7 +373,7 @@ def test_roundtrip_subset_of_decoys(tmp_path: Path, kinds: tuple[str, ...]) -> N
     decoys = {k: build_decoys(idx, k, 50, _rng()) for k in kinds}  # type: ignore[arg-type]
     path = tmp_path / "idx.npz"
     save_index(path, idx, decoys)  # type: ignore[arg-type]
-    idx2, dec2 = load_index(path)
+    idx2, dec2 = load_index(path, table=11)
     _assert_index_equal(idx, idx2)
     assert set(dec2) == set(kinds)
     for k in kinds:
@@ -395,7 +395,7 @@ def test_roundtrip_keeps_empty_frames_and_contig_order(tmp_path: Path) -> None:
     }
     path = tmp_path / "idx.npz"
     save_index(path, idx, decoys)  # type: ignore[arg-type]
-    idx2, dec2 = load_index(path)
+    idx2, dec2 = load_index(path, table=11)
     _assert_index_equal(idx, idx2)
     assert [f.contig for f in idx2.frames] == [f.contig for f in idx.frames]
     for k in ("reverse", "shuffle"):

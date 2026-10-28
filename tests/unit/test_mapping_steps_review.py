@@ -480,7 +480,7 @@ def test_m08_denovo_pi_lowers_the_placement_q(denovo_scored: dict[str, Any]) -> 
     functions with ``pi_denovo`` missing) no de novo q rises and some fall (§7.2.5, ADR-0010)."""
     cfg = denovo_scored["cfg"]
     avail = denovo_scored["no_ref"]
-    index, _ = load_index(avail["sixframe"])
+    index, _ = load_index(avail["sixframe"], table=11)
     queries = mapping_module().select_queries(pd.read_parquet(avail["peptides"]), cfg)
     queries["pi_denovo"] = np.nan
     hits = pd.concat(

@@ -46,7 +46,7 @@ LENGTH = 1_000_000
 def _counts(ch, kind: str) -> dict[str, float]:  # type: ignore[no-untyped-def]
     from gippa.mapping.sixframe import load_stop_cells
 
-    cells = load_stop_cells(ch.avail["sixframe"])
+    cells = load_stop_cells(ch.avail["sixframe"], table=11)
     hits = best_cost_rows(hits_of(ch.avail))
     hits = hits.assign(rt=holds_cell(hits, cells))
     per = pd.read_parquet(ch.avail["placement"]).drop_duplicates("peptide")

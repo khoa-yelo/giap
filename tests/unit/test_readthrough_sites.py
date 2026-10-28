@@ -11,7 +11,8 @@ Interface pinned here (spec "Public interface")::
     mirror_cells(kind, frames, cells) -> tuple[np.ndarray, ...]   # ``frames``: that decoy's frames
     site_keys(sites) -> frozenset[(contig, strand, codon_start)]
     gippa.mapping.sixframe.READTHROUGH == 22
-    save_index(path, index, decoys, cells=None)  -> format 2;  load_stop_cells(path) -> StopCells
+    save_index(path, index, decoys, cells=None)  -> format 3 (M11-16b; was 2)
+    load_stop_cells(path, *, table) -> StopCells
 
 ``mirror_cells`` is given the decoy frames of ``kind`` (rule 3: "Every mirrored cell must hold
 STOP, or the function raises", which only the decoy frames can show); for ``reverse`` the decoy
@@ -305,7 +306,7 @@ def _stop_cells(index, decoys, gm, genome):  # type: ignore[no-untyped-def]
     )  # fmt: skip
 
 
-def test_save_index_writes_format_2_and_load_stop_cells_round_trips(tmp_path: Path) -> None:
+def test_save_index_writes_format_3_and_load_stop_cells_round_trips(tmp_path: Path) -> None:
     from gippa.mapping.sixframe import load_stop_cells
 
     genome, reps, gm = world()
@@ -320,18 +321,18 @@ def test_save_index_writes_format_2_and_load_stop_cells_round_trips(tmp_path: Pa
     with np.load(path) as npz:
         meta = json.loads(str(npz["meta"]))
         keys = set(npz.keys())
-    assert meta["format"] == 2
+    assert meta["format"] == 3 and meta["translation_table"] == 11  # M11-16b
     assert len(meta["stop_sites"]) == 6
     want = {"target_rt", "target_rt_bounds", "reverse_rt", "reverse_rt_bounds", "shuffle_rt",
             "shuffle_rt_bounds"}  # fmt: skip
     assert want <= keys
-    got = load_stop_cells(path)
+    got = load_stop_cells(path, table=11)
     assert got.sites == cells.sites
     assert _as_lists(got.target) == _as_lists(cells.target)
     assert set(got.decoys) == {"reverse", "shuffle"}
     for k in decoys:
         assert _as_lists(got.decoys[k]) == _as_lists(cells.decoys[k])
-    index2, decoys2 = load_index(path)  # signature unchanged
+    index2, decoys2 = load_index(path, table=11)  # M11-16b: table is a required keyword
     assert all(np.array_equal(a.aa, b.aa) for a, b in zip(index2.frames, index.frames, strict=True))
     assert set(decoys2) == {"reverse", "shuffle"}
 
@@ -344,7 +345,7 @@ def test_save_index_without_cells_writes_empty_cells(tmp_path: Path) -> None:
     decoys = {"reverse": build_decoys(index, "reverse", 50, for_step("sixframe_index", 1))}
     path = tmp_path / "six.npz"
     save_index(path, index, decoys)
-    got = load_stop_cells(path)
+    got = load_stop_cells(path, table=11)
     assert got.sites == ()
     assert [len(c) for c in got.target] == [0] * 6
     assert [len(c) for c in got.decoys["reverse"]] == [0] * 6
@@ -378,18 +379,19 @@ def test_load_stop_cells_rejects_format_1(tmp_path: Path, which: str) -> None:
 
     path = _format1_file(tmp_path / "old.npz") if which == "crafted" else FIXTURE
     with pytest.raises(ValueError, match="rebuild the six-frame index"):
-        load_stop_cells(path)
+        load_stop_cells(path, table=11)
 
 
 def test_step_decoy_frames_are_byte_identical_to_format_1(tmp_path: Path) -> None:
     """Review change 7: for the same seed the ``sixframe_index`` step's format-2 file holds the
-    target and decoy frames of the committed format-1 file (written on main), byte for byte."""
+    target and decoy frames of the committed format-1 file (written on main), byte for byte.
+    M11-16b: the step now writes format 3 (table 11 by default)."""
     from helpers.readthrough_index import run_sixframe_index
 
     out = run_sixframe_index(tmp_path)
     with np.load(FIXTURE) as old, np.load(out) as new:
         m_old, m_new = json.loads(str(old["meta"])), json.loads(str(new["meta"]))
-        assert (m_old["format"], m_new["format"]) == (1, 2)
+        assert (m_old["format"], m_new["format"]) == (1, 3)
         assert m_new["frames"] == m_old["frames"] and m_new["decoys"] == m_old["decoys"]
         for key in ("target_aa", "target_bounds", "reverse_aa", "reverse_bounds", "shuffle_aa",
                     "shuffle_bounds"):  # fmt: skip
@@ -448,4 +450,4 @@ def test_load_index_rejects_format_1(tmp_path: Path, which: str) -> None:
     """Item 4: ``load_index`` itself checks the format (not only ``load_stop_cells``)."""
     path = _format1_file(tmp_path / "old.npz") if which == "crafted" else FIXTURE
     with pytest.raises(ValueError, match="rebuild the six-frame index"):
-        load_index(path)
+        load_index(path, table=11)

@@ -92,7 +92,7 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         "hits": _tsv(avail["mapping"] / "peptide_hits.tsv"),
         "variants": _tsv(avail["variants"]),
         "placement": pd.read_parquet(avail["placement"]).drop_duplicates("peptide"),
-        "sites": list(load_stop_cells(avail["sixframe"]).sites),
+        "sites": list(load_stop_cells(avail["sixframe"], table=11).sites),
         "lengths": lengths,
         "variant_sets": seen,
     }

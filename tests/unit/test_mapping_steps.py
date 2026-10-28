@@ -380,7 +380,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 def oracle(chain: Chain) -> dict[str, Any]:
     """The same chain through the pure M3 functions."""
     cfg = chain.cfg
-    idx, decoys = load_index(chain.path("sixframe"))
+    idx, decoys = load_index(chain.path("sixframe"), table=11)
     peps = pd.read_parquet(chain.run.peptides)
     queries = sorted(expected_queries(peps, cfg))
     decoy_of = dict.fromkeys(queries, "reverse")
@@ -426,7 +426,7 @@ def _keyset(df: pd.DataFrame) -> set[tuple[Any, ...]]:
 
 
 def test_sixframe_work_file_is_the_index_and_its_decoys(chain: Chain) -> None:
-    idx, decoys = load_index(chain.path("sixframe"))
+    idx, decoys = load_index(chain.path("sixframe"), table=11)
     model = parse_bakta_json(chain.run.res.bakta_json).model
     reps = dict(model.replicons)
     assert {c: (r.length, r.topology) for c, r in idx.replicons.items()} == {
@@ -592,7 +592,7 @@ def test_example_6_c_assumed_is_logged(denovo_chain: Chain) -> None:
 
 
 def test_denovo_decoys_are_the_step_stream_shuffle(denovo_chain: Chain) -> None:
-    idx, decoys = load_index(denovo_chain.path("sixframe"))
+    idx, decoys = load_index(denovo_chain.path("sixframe"), table=11)
     assert "shuffle" in decoys
     cfg = denovo_chain.cfg
     want = build_decoys(

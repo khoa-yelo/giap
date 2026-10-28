@@ -147,7 +147,7 @@ def _population(ch: Chain) -> pd.DataFrame:
     from gippa.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
-    idx, _decoys = load_index(ch.avail[key_like(list(ch.avail), "sixframe")])
+    idx, _decoys = load_index(ch.avail[key_like(list(ch.avail), "sixframe")], table=11)
     q = q.copy()
     q["pi_denovo"] = np.nan
     costs = best_costs(hits_of(ch.avail), q, residue_freqs(idx))
