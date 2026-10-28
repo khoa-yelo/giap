@@ -30,6 +30,7 @@ nextflow_pipeline {
 
         when {
             params {
+                terminatornet_sharded = false  // M2-15b: these pin the unsharded TERMINATORNET; the sharded path is annotate_terminatornet_sharded.nf.test
                 def d = "${moduleTestDir}/data/annotate"
                 outdir = "$outputDir"
                 inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
@@ -124,6 +125,7 @@ nextflow_pipeline {
 
         when {
             params {
+                terminatornet_sharded = false  // M2-15b: these pin the unsharded TERMINATORNET; the sharded path is annotate_terminatornet_sharded.nf.test
                 def d = "${moduleTestDir}/data/annotate"
                 outdir = "$outputDir"
                 inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
@@ -327,6 +329,7 @@ nextflow_pipeline {
 
         when {
             params {
+                terminatornet_sharded = false  // M2-15b: these pin the unsharded TERMINATORNET; the sharded path is annotate_terminatornet_sharded.nf.test
                 def d = "${moduleTestDir}/data/annotate"
                 outdir = "$outputDir"
                 inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]

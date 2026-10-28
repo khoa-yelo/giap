@@ -18,15 +18,17 @@ CONF = Path(__file__).resolve().parents[2] / "workflow" / "conf"
 FARMSHARE = CONF / "farmshare.config"
 UNITS = {"KB": 2**10, "MB": 2**20, "GB": 2**30}
 RULE = re.compile(
-    r"Math\.max\(\s*(\d+)\s*,\s*Math\.ceil\(\s*task\.memory\.toBytes\(\)\s*/\s*"
+    r"Math\.max\(\s*(\d+|params\.terminatornet_chunk_cpus)\s*,\s*Math\.ceil\(\s*task\.memory\.toBytes\(\)\s*/\s*"
     r"(\d+)\.(KB|MB|GB)\.toBytes\(\)\s*\)\s*as\s+int\s*\)"
 )
+#: a param base reads as its default (M2-15b: TERMINATORNET_CHUNK)
+BASES = {"params.terminatornet_chunk_cpus": 4}
 MAX_MEM_PER_CPU = 4000 * 2**20  # Slurm MaxMemPerCPU=4000 (MB = MiB)
 
 
 def _rules() -> list[tuple[int, int]]:
     text = re.sub(r"(^|\s)//[^\n]*", r"\1", FARMSHARE.read_text(encoding="utf-8"))
-    rules = [(int(m[1]), int(m[2]) * UNITS[m[3]]) for m in RULE.finditer(text)]
+    rules = [(BASES.get(m[1]) or int(m[1]), int(m[2]) * UNITS[m[3]]) for m in RULE.finditer(text)]
     assert len(rules) >= 6, f"too few memory-derived CPU rules: {rules}"
     assert len(rules) == text.count("Math.ceil("), "a CPU rule the pattern does not read"
     return rules
