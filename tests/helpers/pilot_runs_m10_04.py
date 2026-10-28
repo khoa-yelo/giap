@@ -54,12 +54,16 @@ from types import ModuleType
 from typing import Any
 
 from helpers.compare_data import gene, write_genes, write_table
+from helpers.container_guard import guarded_path
 from helpers.slurm_sandbox import REPO, Sandbox, make_sandbox, write_exe
 
 RUN_EVIDENCE = REPO / "validation" / "pilot" / "run_evidence.py"
 COMPARE_JOB = REPO / "scripts" / "slurm" / "pilot_compare.sbatch"
 README = REPO / "validation" / "pilot" / "README.md"
 
+# the minimal PATH of the `gippa compare` subprocess (container_guard.guarded_path keeps the
+# container pull guard on it)
+MIN_PATH = "/usr/bin:/bin"
 HEAD_JOB = "1900001"
 TASK_JOBS = ("1900002", "1900003")
 COMMIT = "0123abc"  # the short sha in ATTEMPTS.tsv and --expect-commit
@@ -323,7 +327,7 @@ def gippa_compare(
 ) -> subprocess.CompletedProcess[str]:
     """The real ``gippa compare a b --outdir cmp --labels A1,A2`` of this checkout."""
     env_root.mkdir(parents=True, exist_ok=True)
-    env = {"PATH": "/usr/bin:/bin", "HOME": str(env_root), "LANG": "C.UTF-8",
+    env = {"PATH": guarded_path(MIN_PATH), "HOME": str(env_root), "LANG": "C.UTF-8",
            "PYTHONPATH": str(REPO / "src"), "GIPPA_DB_DIR": str(env_root),
            "GIPPA_ROOT": str(env_root), "PYTHONDONTWRITEBYTECODE": "1",
            "MPLCONFIGDIR": str(env_root / "mpl")}  # fmt: skip

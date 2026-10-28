@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from gippasim.codons import CODE_11, SENSE_USAGE, STOPS, codons_of, revcomp, translate_cds
+from gippasim.codons import STOPS, code, codons_of, revcomp, stops, translate_cds
 
 if TYPE_CHECKING:
     from gippasim.simulate import _Sim
@@ -94,10 +94,10 @@ def random_seq(rng: np.random.Generator, n: int, gc: float = 0.5) -> str:
     return np.frombuffer(b"ACGT", dtype=np.uint8)[idx].tobytes().decode()
 
 
-def coding(kind: str, codons: list[str], aa: str | None = None, **kw: Any) -> Feat:
+def coding(kind: str, codons: list[str], aa: str | None = None, table: int = 11, **kw: Any) -> Feat:
     extra = {"start_type": codons[0], **kw.pop("extra", {})}
     nt = kw.pop("nt", "".join(codons))
-    return Feat(kind, nt=nt, aa=aa or translate_cds(codons), extra=extra, **kw)
+    return Feat(kind, nt=nt, aa=aa or translate_cds(codons, table), extra=extra, **kw)
 
 
 def rrna_operon(sim: _Sim) -> list[tuple[str, Feat | None]]:
@@ -115,8 +115,8 @@ def rrna_operon(sim: _Sim) -> list[tuple[str, Feat | None]]:
 
 def trna(sim: _Sim) -> list[tuple[str, Feat | None]]:
     rng = sim.rng
-    codon = sorted(SENSE_USAGE)[int(rng.integers(len(SENSE_USAGE)))]
-    ac, aa3 = revcomp(codon), _AA3[CODE_11[codon]]
+    codon = sorted(sim.usage)[int(rng.integers(len(sim.usage)))]
+    ac, aa3 = revcomp(codon), _AA3[code(sim.table)[codon]]
     seq = random_seq(rng, 33, 0.55) + ac + random_seq(rng, 37, 0.55) + "CCA"
     extra = {"anti_codon": ac, "amino_acid": aa3, "product": f"tRNA-{aa3}"}
     return [(seq, Feat("tRNA", extra=extra))]
@@ -125,13 +125,13 @@ def trna(sim: _Sim) -> list[tuple[str, Feat | None]]:
 def sorf(sim: _Sim) -> list[tuple[str, Feat | None]]:
     n_aa = int(sim.rng.integers(10, 30))  # < 30 aa
     codons = [sim.start_codon(), *sim.sense(n_aa - 1), sim.stop_codon()]
-    return [("".join(codons), coding("sorf", codons))]
+    return [("".join(codons), coding("sorf", codons, table=sim.table))]
 
 
 def pseudogene(sim: _Sim, reason: str) -> list[tuple[str, Feat | None]]:
     """A gene with an internal stop or a 1-nt deletion; ``aa`` is the intact ancestor's."""
     cod = sim.gene().codons
-    aa = translate_cds(cod)
+    aa = translate_cds(cod, sim.table)
     i = int(sim.rng.integers(len(cod) // 4 + 1, 3 * len(cod) // 4))
     if reason == "internal_stop":
         cod[i] = sim.stop_codon()
@@ -148,7 +148,7 @@ def nterm_extension(sim: _Sim) -> list[tuple[str, Feat | None]]:
     cod = sim.gene().codons
     k = int(sim.rng.integers(5, min(30, len(cod) - 10) + 1))
     cod[k] = "ATG"
-    return [("".join(cod[:k]), None), ("".join(cod[k:]), coding("cds", cod[k:]))]
+    return [("".join(cod[:k]), None), ("".join(cod[k:]), coding("cds", cod[k:], table=sim.table))]
 
 
 def make_blocks(sim: _Sim) -> list[Block]:
@@ -191,12 +191,14 @@ def make_blocks(sim: _Sim) -> list[Block]:
 # ---------------------------------------------------------------- novel ORFs
 
 
-def _scan(seq: str, frames: tuple[int, ...], min_aa: int = _MIN_NOVEL_AA) -> tuple[int, int] | None:
+def _scan(
+    seq: str, frames: tuple[int, ...], min_aa: int = _MIN_NOVEL_AA, stop_set: frozenset[str] = STOPS
+) -> tuple[int, int] | None:
     """First start..stop ORF (>= ``min_aa`` aa) in ``frames`` of ``seq``: (offset, length)."""
     for fr in frames:
         open_at = None
         for j, c in enumerate(codons_of(seq[fr:])):
-            if c in STOPS:
+            if c in stop_set:
                 if open_at is not None and j - open_at >= min_aa:
                     return fr + 3 * open_at, 3 * (j - open_at + 1)
                 open_at = None
@@ -205,8 +207,10 @@ def _scan(seq: str, frames: tuple[int, ...], min_aa: int = _MIN_NOVEL_AA) -> tup
     return None
 
 
-def _orf_row(cls: str, contig: str, s0: int, e0: int, strand: str, nt: str) -> list[Any]:
-    return [cls, contig, s0 + 1, e0, strand, translate_cds(codons_of(nt))]
+def _orf_row(
+    cls: str, contig: str, s0: int, e0: int, strand: str, nt: str, table: int = 11
+) -> list[Any]:
+    return [cls, contig, s0 + 1, e0, strand, translate_cds(codons_of(nt), table)]
 
 
 def novel_orfs(
@@ -248,7 +252,7 @@ def novel_orfs(
         strand = "+" if rng.random() < 0.5 else "-"
         s0 = a + int(rng.integers(margin, b - a - len(nt) - margin))
         seqs[chrom][s0 : s0 + len(nt)] = (nt if strand == "+" else revcomp(nt)).encode()
-        rows.append(_orf_row("intergenic", chrom, s0, s0 + len(nt), strand, nt))
+        rows.append(_orf_row("intergenic", chrom, s0, s0 + len(nt), strand, nt, sim.table))
     cds = [
         f for f in feats if f.kind == "cds" and not f.pseudo_reason and f.end <= lengths[f.contig]
     ]
@@ -257,16 +261,16 @@ def novel_orfs(
         for k in rng.permutation(len(cds)).tolist() if want else []:
             f = cds[k]
             seq = revcomp(f.nt) if anti else f.nt
-            hit = _scan(seq, frames, lo)
+            hit = _scan(seq, frames, lo, stops(sim.table))
             if hit is None:
                 continue
             o, ln = hit
             nt = seq[o : o + ln]
-            if translate_cds(codons_of(nt)) in known:
+            if translate_cds(codons_of(nt), sim.table) in known:
                 continue
             on_plus = (f.strand == "+") != anti  # orientation of ``seq`` on the genome
             s0, e0 = (f.start + o, f.start + o + ln) if on_plus else (f.end - o - ln, f.end - o)
-            rows.append(_orf_row(cls, f.contig, s0, e0, "+" if on_plus else "-", nt))
+            rows.append(_orf_row(cls, f.contig, s0, e0, "+" if on_plus else "-", nt, sim.table))
             want -= 1
             if not want:
                 break

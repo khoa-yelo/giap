@@ -40,7 +40,7 @@ The cell words (tested, smoke-tested, untested) and the CI jobs are explained on
 | Python | Python ≥ 3.11 | `requires-python = ">=3.11"` in `pyproject.toml` |
 | Nextflow | 26.10.0 is the pinned, tested version; at least 25.04.8 (advice: GIPPA does not check the version) | `scripts/bootstrap_farmshare.sh`, [ADR-0002](../adr/ADR-0002-farmshare-env-pins.md) |
 | Java | 17 or newer, which Nextflow needs; the bootstrap installs OpenJDK 21 | `scripts/bootstrap_farmshare.sh` |
-| Docker or Apptainer | the `docker` CLI with access to a daemon, or `apptainer` | see [Platforms](../user-guide/platforms.md) |
+| Docker or Apptainer | the `docker` CLI with access to a daemon, Docker 20.10 or later (podman 3.0 or later through podman-docker: best effort, untested), or `apptainer` | see [Platforms](../user-guide/platforms.md) |
 
 **Nextflow.** When `nextflow` is not on `PATH`, `gippa setup` downloads the official
 self-contained launcher `nextflow-26.10.0-dist` from the `nextflow-io/nextflow` GitHub release
@@ -194,7 +194,7 @@ commit from GitHub, checks its sha256, and builds it on your machine. Nothing is
 | Profile | What it does | Status |
 |---|---|---|
 | `apptainer` | runs every pinned tool from its image in the Apptainer cache; binds the DB directory read-only | tested (on FarmShare) |
-| `docker` | the same images through Docker: DB directory bound read-only, tasks run as your user (`-u $(id -u):$(id -g)`) | smoke-tested (`docker-smoke`); see [Platforms](../user-guide/platforms.md) |
+| `docker` | the same images through Docker: DB directory bound read-only, tasks run as your user (`-u $(id -u):$(id -g)`); never pulls (`docker run --pull=never`): images come from `gippa setup --images --profile docker` | smoke-tested (`docker-smoke`); see [Platforms](../user-guide/platforms.md) |
 | `conda` | lets Nextflow create each tool's environment from `workflow/envs/*.yml`; preflight still requires the prebuilt environments of the conda-only tools | not tested on its own |
 | `farmshare` | Slurm executor on Stanford FarmShare, plus the prebuilt tool environments under `$GIPPA_ROOT` | tested |
 | `farmshare_local` | the same environments, but all tasks run inside the current Slurm allocation | tested |
@@ -213,11 +213,13 @@ has no `-c` option for your own Nextflow config; Nextflow also reads `$NXF_HOME/
 In run mode, and in `gippa preflight --profile`, preflight checks that every tool the run will use
 is installed under `--profile` (`missing_tools` in `src/gippa/preflight/environment.py`). A
 missing tool is an environment error: `gippa run` exits with code 2 before Nextflow starts, and
-the message names the tool and the reason.
+the message names the tool and the reason. Only `gippa setup` pulls images: `gippa run` and
+`gippa preflight` use the images already on the machine, or stop and name the `setup` command
+that fetches them.
 
 | Tool kind | `docker` | `apptainer` (no conda profile) | `farmshare*`, or with `conda` |
 |---|---|---|---|
-| pinned in `containers.config` | present (Nextflow pulls by digest) | present iff its `.img` is in the cache | with `apptainer` in the list: as in that column; else not checked |
+| pinned in `containers.config` | present iff `docker image inspect <ref>` succeeds (runs never pull); Docker < 20.10 is refused | present iff its `.img` is in the cache | with `apptainer` in the list: as in that column; with `docker` in the list (no `apptainer`): as in the `docker` column; else not checked |
 | no image pin (conda-only) | missing: `conda-only tool under a container profile without conda` | same | needs the prebuilt env `$GIPPA_ROOT/micromamba/envs/gippa-<tool>/` |
 | UniOP | the local build in `local_tools.config` (image ID checked) | the local `.sif` (sha256 checked) | `farmshare*`: the prebuilt env; plain `conda`: the micromamba build |
 | fgsea (`function` with `--abundance`) | prebuilt env, else its `images.json` image | prebuilt env, else that image in the cache | prebuilt env |

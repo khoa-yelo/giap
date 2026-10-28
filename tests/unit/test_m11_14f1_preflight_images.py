@@ -3,6 +3,11 @@
 docs/specs/M11-14-container-install.md item 3 (the table), examples 6, 7 and 7b, AC 5 (14f1 part:
 every cell of the item 3 table except the 14d ``enabled`` row and the 14c fgsea row), Q-L11.
 
+Amended by M11-19 (docs/specs/M11-19-nextflow-docker-pull-never.md): under runtime docker
+(``docker`` in the list, no ``apptainer``, with or without ``conda``) a pinned image is present iff
+``docker image inspect <ref>`` succeeds; runs never pull it (``--pull=never``), so an absent ref is
+missing with a reason naming ``<pkg> setup --images --profile docker``.
+
 Conda is enabled only by the ``conda`` profile and by ``prebuilt_envs.config`` (the
 ``farmshare*`` profiles). Under ``docker`` alone and under plain ``apptainer`` a process that has
 only a ``conda`` directive would run on the host without its environment, so preflight reports it
@@ -74,6 +79,7 @@ MARKER = ".gippa-built"
 OSTIR_REF = "ghcr.io/khoa-yelo/" + PKG + "-ostir@sha256:" + "a1" * 32
 CONDA_REASON = "conda-only tool under a container profile without conda: {}"
 SETUP_IMAGES = f"{PKG} setup --images --profile apptainer"
+SETUP_DOCKER = f"{PKG} setup --images --profile docker"
 
 # Profiles without conda (item 3 table, columns 1 and 2) and with conda (column 3).
 DOCKER = ["docker", "standard,docker"]
@@ -171,6 +177,16 @@ def runtime_calls(tmp_path: Path) -> list[str]:
     return log.read_text().splitlines() if log.exists() else []
 
 
+def docker_tags(refs: Iterable[str]) -> None:
+    """The refs the fake ``docker image inspect`` finds locally (M11-19)."""
+    Path(os.environ["FAKE_DOCKER_TAGS"]).write_text("".join(f"{r}\n" for r in refs))
+
+
+def only_presence_queries(calls: list[str]) -> bool:
+    """M11-19: under docker only ``image inspect`` (and the client ``--version``) is asked."""
+    return all(c.startswith("docker image inspect ") or c == "docker --version" for c in calls)
+
+
 @pytest.fixture
 def ostir_pinned(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     """A fake workflow tree whose containers.config also pins OSTIR (a GHCR image)."""
@@ -210,6 +226,7 @@ def empty(tmp_path: Path, name: str) -> Path:
 
 
 def test_signature_takes_cache_env_root_and_local_tools_by_keyword(tmp_path: Path) -> None:
+    docker_tags([pins()["bakta"]])
     got = _fn("missing_tools")(
         [TOOLS["bakta"]],
         "docker",
@@ -226,10 +243,18 @@ def test_signature_takes_cache_env_root_and_local_tools_by_keyword(tmp_path: Pat
 def test_example_6_pinned_ostir_under_docker_needs_no_env(
     tmp_path: Path, ostir_pinned: dict[str, str]
 ) -> None:
+    """M11-19: present iff the ref is local; only ``image inspect`` is queried, never a pull."""
     cache, envs = empty(tmp_path, "cache"), empty(tmp_path, "envs")
+    assert call("missing_tools", [TOOLS["ostir"]], "docker", cache, envs) == ["ostir"]
+    reasons = call("missing_tool_reasons", [TOOLS["ostir"]], "docker", cache, envs)
+    assert set(reasons) == {"ostir"} and OSTIR_REF in reasons["ostir"], reasons
+    assert SETUP_DOCKER in reasons["ostir"] and "conda-only" not in reasons["ostir"], reasons
+    docker_tags([OSTIR_REF])
     assert call("missing_tools", [TOOLS["ostir"]], "docker", cache, envs) == []
     assert call("missing_tool_reasons", [TOOLS["ostir"]], "docker", cache, envs) == {}
-    assert runtime_calls(tmp_path) == [], "docker was queried for a pinned image"
+    calls = runtime_calls(tmp_path)
+    assert f"docker image inspect {OSTIR_REF}" in calls, calls
+    assert only_presence_queries(calls), calls
 
 
 def test_example_7_pinned_ostir_under_apptainer_without_img(
@@ -270,13 +295,24 @@ def test_example_7b_conda_only_tool_with_a_built_env_is_missing(
 
 
 @pytest.mark.parametrize("profile", DOCKER)
-def test_row_pinned_image_docker_is_present_with_nothing_installed(
-    tmp_path: Path, profile: str
-) -> None:
+def test_row_pinned_image_docker_is_present_iff_local(tmp_path: Path, profile: str) -> None:
+    """M11-19: present iff every ref is local (``docker image inspect``); else missing with
+    reason 5 (runs never pull)."""
     pinned = pins()
     tools = [TOOLS[n] for n in sorted(pinned)]
-    assert call("missing_tools", tools, profile, empty(tmp_path, "cache"), None) == []
-    assert runtime_calls(tmp_path) == []
+    cache = empty(tmp_path, "cache")
+    docker_tags(pinned.values())
+    assert call("missing_tools", tools, profile, cache, None) == []
+    lack = sorted(pinned)[::2]
+    docker_tags(r for n, r in pinned.items() if n not in lack)
+    assert call("missing_tools", tools, profile, cache, None) == lack
+    reasons = call("missing_tool_reasons", tools, profile, cache, None)
+    assert reasons == {
+        n: f"image {pinned[n]} is not present locally and runs never pull it (docker image "
+        f"inspect {pinned[n]} failed); run: {SETUP_DOCKER}"
+        for n in lack
+    }
+    assert only_presence_queries(runtime_calls(tmp_path)), runtime_calls(tmp_path)
 
 
 def test_row_pinned_image_apptainer_present_iff_img_in_cache(tmp_path: Path) -> None:
@@ -316,16 +352,18 @@ def test_row_pinned_image_and_env_the_env_is_ignored(
     tmp_path: Path, ostir_pinned: dict[str, str], profile: str
 ) -> None:
     """Pinned OSTIR plus an old prebuilt env: the image decides (edge case "old env, new
-    image"). Under docker present without the env mattering; under apptainer missing without
-    the ``.img`` although the env is built."""
+    image"), never the env. Under docker missing until ``docker image inspect`` finds the ref
+    (M11-19); under apptainer missing without the ``.img`` although the env is built."""
     envs = build_envs(tmp_path / "envs", ["ostir"])
     cache = empty(tmp_path, "cache")
-    want = [] if profile == "docker" else ["ostir"]
-    assert call("missing_tools", [TOOLS["ostir"]], profile, cache, envs) == want
-    if want:
-        reasons = call("missing_tool_reasons", [TOOLS["ostir"]], profile, cache, envs)
-        assert SETUP_IMAGES in reasons["ostir"]
-        assert "conda-only" not in reasons["ostir"]
+    assert call("missing_tools", [TOOLS["ostir"]], profile, cache, envs) == ["ostir"]
+    reasons = call("missing_tool_reasons", [TOOLS["ostir"]], profile, cache, envs)
+    assert (SETUP_DOCKER if profile == "docker" else SETUP_IMAGES) in reasons["ostir"]
+    assert "conda-only" not in reasons["ostir"]
+    assert "prebuilt env" not in reasons["ostir"]
+    if profile == "docker":
+        docker_tags([OSTIR_REF])
+        assert call("missing_tools", [TOOLS["ostir"]], profile, cache, envs) == []
 
 
 @pytest.mark.parametrize("profile", CONTAINER_NO_CONDA)
@@ -657,15 +695,23 @@ def test_property_plain_apptainer(cached: set[str], built: set[str]) -> None:
 @given(
     cached=st.sets(st.sampled_from(sorted(pins()))),
     built=st.sets(st.sampled_from(conda_only(pins()))),
+    local=st.sets(st.sampled_from(sorted(pins()))),
 )
-def test_property_docker_depends_on_nothing_installed(cached: set[str], built: set[str]) -> None:
-    """Docker: missing is exactly the conda-only tools, independent of cache and envs."""
+def test_property_docker_depends_only_on_local_images(
+    cached: set[str], built: set[str], local: set[str]
+) -> None:
+    """Docker (M11-19): missing = the conda-only tools plus the pinned tools whose ref is not
+    local, independent of the apptainer cache and the envs."""
     pinned = pins()
+    docker_tags(pinned[n] for n in local)
     with tempfile.TemporaryDirectory() as d:
         cache = fill_cache(Path(d) / "cache", cached, pinned)
         envs = build_envs(Path(d) / "envs", built)
         got = call("missing_tools", external(), "docker", cache, envs)
-    assert got == conda_only(pinned)
+    # BLAST and TBLASTN share one ref: a tool is present iff its own ref is local
+    have = {pinned[n] for n in local}
+    lack = {n for n, ref in pinned.items() if ref not in have}
+    assert got == sorted(set(conda_only(pinned)) | lack)
 
 
 @settings(max_examples=30, deadline=None)
@@ -800,11 +846,23 @@ def test_run_preflight_apptainer_missing_image_message_names_setup_images(
     assert SETUP_IMAGES in check.message, check.message
 
 
-def test_run_preflight_docker_with_nothing_installed(tmp_path: Path) -> None:
-    """Under docker the pinned tools need nothing local; the conda-only ones are reported with
-    the reason instead of running on the host."""
+def test_run_preflight_docker_with_the_images_local(tmp_path: Path) -> None:
+    """Under docker the pinned tools need their images local (M11-19: runs never pull); the
+    conda-only ones are reported with the reason instead of running on the host."""
+    need_pinned, _ = _needed()
+    docker_tags(pins()[n] for n in need_pinned)
     _assert_only_conda_only_missing(_tools_check(tmp_path, _db(tmp_path), "docker"))
-    assert not [c for c in runtime_calls(tmp_path) if " pull" in c], runtime_calls(tmp_path)
+    assert only_presence_queries(runtime_calls(tmp_path)), runtime_calls(tmp_path)
+
+
+def test_run_preflight_docker_with_nothing_installed(tmp_path: Path) -> None:
+    """M11-19: no image local → every needed pinned tool is missing, naming the docker setup."""
+    need_pinned, _ = _needed()
+    check = _tools_check(tmp_path, _db(tmp_path), "docker")
+    assert check.level == "error" and check.exit_code == 2, check
+    assert set(need_pinned) <= set(check.value["missing"]), check.value
+    assert SETUP_DOCKER in check.message, check.message
+    assert only_presence_queries(runtime_calls(tmp_path)), runtime_calls(tmp_path)
 
 
 def test_run_preflight_farmshare_unchanged_with_full_root(

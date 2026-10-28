@@ -1154,12 +1154,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
 
 ### 2026-10-27 (lead)
 - **#445 review nits (calibration plan; S1–S3 fixed in the PR):**
-  - N1: `probe_log_lower_bounds` across several probe logs keeps the last file's bound, not the largest (`calibration_lanes.py` main, `lower.update`); under `--max` a `:lower-bound` row is never replaced by a smaller real measurement; interrupted JUnit lanes give no lower bounds.
-  - N2: a lower bound assumes the test ran until the log's last stamp; a silently dead worker overstates it. Add a docstring caveat.
-  - N3: mutant M8 (lower bounds override measured values) survives; add a two-file CLI test (finished in log A, unfinished in log B).
+  - ~~N1~~ done (`fix/calibration-lanes-nits`: `merge_lower_bounds` keeps the max; under `--max` a measurement replaces a `:lower-bound` row; interrupted JUnit lanes still give no lower bounds): `probe_log_lower_bounds` across several probe logs keeps the last file's bound, not the largest (`calibration_lanes.py` main, `lower.update`); under `--max` a `:lower-bound` row is never replaced by a smaller real measurement; interrupted JUnit lanes give no lower bounds.
+  - ~~N2~~ done (docstring caveat, `fix/calibration-lanes-nits`): a lower bound assumes the test ran until the log's last stamp; a silently dead worker overstates it. Add a docstring caveat.
+  - ~~N3~~ done (`tests/unit/test_calibration_lanes_lower_bounds.py`, `fix/calibration-lanes-nits`): mutant M8 (lower bounds override measured values) survives; add a two-file CLI test (finished in log A, unfinished in log B).
   - N4: mutant M9 (`>` to `>=` in `--max`) survives; a tie relabels the source. Harmless.
   - N5: `test_durations_rows_are_the_max_of_old_and_new` checks one row; compare against `origin/main`'s `calibration_durations.tsv` and assert no row went down.
   - N6: the per-model determinants rows (`1901050:measured`, 23579 / 78976 s) are hand-entered and cover block 1 only, so the ⅔ test passes determinants on block 1 only (the PR's known gap).
+  - N7 (#469 review): measured values from several probe logs still merge last-file-wins (`found.update` in main); take the max, as `merge_lower_bounds` does for bounds.
 - **Flaky test watch:** `tests/calibration` `test_interrupt_rescans_for_pytests_started_after_usr1` failed three times on CI under load (group start vs USR1 rescan); #448 tolerates SIGINT during the late pytest's start-up. If it recurs, reopen.
 - **V18 macOS SVG determinism (possible R7 bug):** #446 skips the FarmShare-only tests on macOS, but `V18_stat_diagnostics.svg` was not byte-identical across two renders on macOS (PYTHONHASHSEED 3 vs 4; Linux passes). Render V18 on macOS several times and diff.
 - **Setup-test network guard:** setup tests made real apptainer pulls (about 6 GB each) and filled /tmp (`test_setup_run_never_starts_a_real_quota`, fixed in #441). Add a shared fake `apptainer` that refuses `pull` for all setup tests (drafting in branch `test/setup-network-guard`).
@@ -1174,8 +1175,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
   - N3: `docker import <URL>`, `plugin install`, `service create` and `stack deploy` are not covered (GIPPA uses none today); `--pull=never` is also matched in the container's own arguments.
   - N4: subprocesses started with a hard-coded `PATH=/usr/bin:/bin` skip the guard (`tests/helpers/a3_run_m10_10.py:431`, `tests/helpers/pilot_runs_m10_04.py:326`); harmless on FarmShare, not on a host with `/usr/bin/apptainer` or `/usr/bin/docker`. List as a known limit or keep the guard dir on that PATH.
   - N6: production `docker run` lacks `--pull=never` in `src/gippa/preflight/environment.py` (`probe_uniop`, a local build where a pull can never succeed: add it) and `src/gippa/io/fgsea_r.py` (pinned digest: decide whether an implicit pull is wanted).
+  - N6b: under `-profile docker` Nextflow's step images still pull at run time (`docker.runOptions` has no `--pull=never`; preflight checks pinned `containers.config` refs only under apptainer). **Specified: [M11-19](specs/M11-19-nextflow-docker-pull-never.md) (19a).**
 - **#457/#458 review notes (`scripts/build_envs.sh`):**
-  - N2: take the CUDA override default from the yml's `cuda-version=` pin instead of the hard-coded 11.8.
+  - N2: take the CUDA override default from the yml's `cuda-version=` pin instead of the hard-coded 11.8. **Done (fix/build-envs-cuda-pin): exported `CONDA_OVERRIDE_CUDA`, then the yml's exact `cuda-version` pin, else 11.8; cascadia pins `cuda-version=11.8`, unchanged.**
   - N3: a Nextflow task that starts during a rebuild sees a missing or half-built env (`prebuilt_envs.config` points at the env path; preflight checks the marker only at run start). Document it in the script header, or refuse to rebuild while a `gippa-run` job is in `squeue`.
   - N6: on the "exists" path the git re-clone still `rm -rf`s `share/<tool>` inside the live env, outside the rename protection.
 - **TerminatorNet sharding (#455 review, #459 validation):**
@@ -1185,6 +1187,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
   - msmeg's 56 chunks can hold all 8 queue slots (`queueSize = 8`) and starve other steps; check this in a full Nextflow trace.
   - No full-pipeline Nextflow run of the sharded path yet; the msmeg full rerun after calibration will be the first. Record its trace and `cmp` result in `docs/validation/M2-15b-terminatornet-sharding.md`.
 - **Process (lead):** two nf-test jobs run concurrently in one worktree collide on `.nf-test/`; run at most one nf-test job per worktree (or give each its own worktree).
+- **#471 review (calibration ⅔ estimate):**
+  - `_estimate_s` in `tests/unit/test_calibration_plan_fixes.py` models `max(group, (shard+merge)/N)`, but `calibration_suite.sbatch` (lines 463-480) waits for every lane before `--merge`. The critical path is `max(all lanes) + merge/N`; fix the model.
+  - determinants has no recorded merge (run unsharded; per-model rows `1901050:measured` are block 1 only). With every shard check in block 2, the corrected worst case is about 25.3 ks (wall 28.8 ks, ⅔ limit 19.2 ks). Record a determinants merge, or raise its time or groups.
 
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
@@ -1411,3 +1416,13 @@ the user guide is [Inputs › Genetic code](user-guide/inputs.md#genetic-code) a
 - **Not recorded:** the wall time of Cascadia per run (the pilot's CPU-route `.ssl` came from
   work-queue arrays), the output size of a `gippa demo` run, and `gippa setup` wall time for the
   default set. The quick start gives only the measured parts.
+
+### 2026-10-28 (lead, #468 review)
+- **#468 test gaps:** `test_m11_18_bakta_tool_dir.py` uses real directories, never the hard links / staged symlink-to-dir Nextflow uses (copytree follows them, verified by hand); no test of the regions route (`inputs.regions_gff3`); no end-to-end check of `OUT/annotation/tools/bakta/genome.json` (stub `annotation` is a file) — add a weekly e2e assertion that it exists and `gippa makedb --annotation` accepts it. Static annotate.nf test relies on `index("BAKTA(")` / `rfind("} else {")`.
+- **context.py tool_dirs keyed by `p.name`:** a second tool dir with the same name would silently overwrite.
+### 2026-10-28 (lead, #467 review)
+- **#467 F1:** `gippa preflight --config c.yaml --annotation b.json` checks the config file's `bakta_json`, while `gippa run` uses the `--annotation` flag (flags beat the file). Pass `{"annotation.precomputed.bakta_json": _bakta_json(annotation)}` to `_resolve` in `cli.preflight` (cli.py:410), as `run` does, and add a spec note on example 13.
+- **#467 F5:** with untruncated preflight.md messages, `io/abundance.py:91` (`extra_columns`) and `io/peptides.py:134` (`unknown_column`) list every column; run them through `capped()`.
+
+### 2026-10-28 (lead, #477 review)
+- The per-ref inspect cache in `missing_tool_reasons` is untested (no two registry tools share a ref today); the second `image inspect` timeout is unpinned; inspects run in the given tool order, not sorted (spec M11-19).

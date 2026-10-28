@@ -31,8 +31,19 @@ All four routes need the genome and, for routes A and B, its Bakta annotation. T
 ## Before you start: the annotation
 
 `gippa makedb` builds the database from a **Bakta JSON**. `gippa makedb` does not run Bakta
-itself (without `--annotation` it exits with code 2), so annotate the genome first. Run Bakta
-1.12.2, the version GIPPA pins, with the database that `gippa setup` installed:
+itself (without `--annotation` it exits with code 2), so annotate the genome first.
+
+If you already ran `gippa run` on this genome and it was not given a Bakta JSON (`--annotation
+x.json` or `annotation.precomputed.bakta_json`), it ran Bakta and published the JSON and GBFF
+under `annotation/tools/bakta/`. Use that JSON:
+
+```bash
+gippa makedb --annotation OUT/annotation/tools/bakta/genome.json --outdir strain_db
+```
+
+The files are named `genome.json` and `genome.gbff` (after the normalised genome), not after the
+strain. Otherwise, run Bakta 1.12.2, the version GIPPA pins, with the database that `gippa setup`
+installed:
 
 ```bash
 bakta --db ~/.local/share/gippa/db/bakta/db-light --output bakta --prefix strain \
