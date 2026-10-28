@@ -89,12 +89,16 @@ def _run_grep(tmp: Path, quoted: str, config: str, arg: str = "BAKTA") -> str:
 
 @pytest.mark.parametrize("script", ["fetch_bakta_db.sbatch", "record_bakta_full.sbatch"])
 @pytest.mark.parametrize("prefix", ["", "docker://"])
+# the sbatch readers use GNU ``grep -oP`` (PCRE, ``\K``); BSD grep has no -P (spec G19)
+@pytest.mark.gnu_userland
 def test_bakta_digest_readers_accept_both_forms(tmp_path: Path, script: str, prefix: str) -> None:
     quoted = _grep_line(script, "withName: 'BAKTA'")
     assert _run_grep(tmp_path, quoted, _config(prefix)) == DIGEST
 
 
 @pytest.mark.parametrize("prefix", ["", "docker://"])
+# the sbatch readers use GNU ``grep -oP`` (PCRE, ``\K``); BSD grep has no -P (spec G19)
+@pytest.mark.gnu_userland
 def test_record_tools_image_reader_returns_the_bare_ref(tmp_path: Path, prefix: str) -> None:
     quoted = _grep_line("record_tools.sbatch", "container = '(docker://)?")
     assert _run_grep(tmp_path, quoted, _config(prefix)) == BAKTA
