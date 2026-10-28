@@ -14,7 +14,10 @@ The sandbox:
 
 - ``GIPPA_REPO`` = ``GIPPA_WORKTREE`` = a git checkout in a temporary directory holding a stub
   ``scripts/farmshare_env.sh``, a copy of ``scripts/ci/calibration_lanes.py`` (PR 1a/1b), a plan
-  ``scripts/slurm/calibration_plan.tsv`` (the committed one unless a test edits a row), a
+  ``scripts/slurm/calibration_plan.tsv`` (the committed one with the determinants row of the
+  spec's example 2, ``0 5 *``: the committed row is 12 shards + 3 direct groups since dry run
+  45bc3599 and the example's all-direct collection would leave no group-only lanes to check;
+  a test may edit a row), a
   durations file ``scripts/slurm/calibration_durations.tsv`` written by the test,
   ``tests/calibration/tolerances.yaml`` and a placeholder ``tests/calibration/_criteria.py``.
   The job must use the checkout's files (in Slurm the batch script runs from the spool directory).
@@ -120,6 +123,7 @@ CONFIRM_VARS = ("GIPPA_CALIBRATION_CONFIRM_LANES", "GIPPA_CALIBRATION_CONFIRM_JU
                 "GIPPA_CALIBRATION_CONFIRM")  # fmt: skip
 
 DET = "tests/calibration/attacks/test_attack_determinants_null.py::test_null_level_under_attack"
+EXAMPLE2_ROW = "determinants\t0\t5\t*\t2\t4000\t08:00:00\t30"
 ATTACK5 = ("tests/calibration/attacks/test_attack5_reversed_stretches.py::"
            "test_attack5_reversed_stretches_shuffle_decoys_full")  # fmt: skip
 VAR = "tests/calibration/test_variants_calibration.py"
@@ -512,7 +516,12 @@ def _make_box(base: Path) -> Box:
         (repo / d).mkdir(parents=True)
     (repo / "scripts" / "farmshare_env.sh").write_text("# stub\n")
     shutil.copyfile(LANES_PY, repo / "scripts" / "ci" / "calibration_lanes.py")
-    shutil.copyfile(PLAN, repo / "scripts" / "slurm" / "calibration_plan.tsv")
+    plan = PLAN.read_text().splitlines()
+    for k, ln in enumerate(plan):  # example 2's row: 5 group lanes of the 19 direct tests
+        if ln.startswith("determinants\t"):
+            plan[k] = "\t".join(["determinants", "0", "5", "*", *ln.split("\t")[4:]])
+    assert EXAMPLE2_ROW in plan, plan
+    (repo / "scripts" / "slurm" / "calibration_plan.tsv").write_text("\n".join(plan) + "\n")
     (repo / "scripts" / "slurm" / "calibration_durations.tsv").write_text(
         "nodeid\tseconds\tsource\n"
     )

@@ -194,12 +194,14 @@ def test_lpt_by_hand_with_ties_and_unknown_durations(mod: ModuleType, plan: dict
 
 
 def test_empty_durations_means_unknown_min_for_all(mod: ModuleType, plan: dict[str, Any]) -> None:
-    row = _row(plan, "gene_fdr")  # 0 shards, 2 groups, '*'
+    row = _row(plan, "gene_fdr")  # 0 shards, 3 groups, '*'
+    assert (row.shards, row.groups, row.group_select) == (0, 3, "*")
     report = {f"tests/calibration/test_g.py::t_{c}": False for c in "dcba"}
     out = mod.lanes(row, report, {})
     _, group = _split(out)
     f = "tests/calibration/test_g.py::t_"
-    assert [set(ln.expected) for ln in group] == [{f + "a", f + "c"}, {f + "b", f + "d"}]
+    # all weigh unknown_min: name order, lowest-loaded lane first (ties to the lowest index)
+    assert [set(ln.expected) for ln in group] == [{f + "a", f + "d"}, {f + "b"}, {f + "c"}]
 
 
 def _example2(plan: Mapping[str, Any]) -> tuple[Any, dict[str, bool], dict[str, float]]:
@@ -224,7 +226,10 @@ def _example2(plan: Mapping[str, Any]) -> tuple[Any, dict[str, bool], dict[str, 
     durations = {n: 600.0 + 37.0 * j for j, n in enumerate(sorted(ids))}
     durations[f"{DET}[full-autocorr_pos-lightgbm]"] = 8364.0
     durations[f"{DET}[full-detect-lightgbm]"] = 7782.0
-    return _row(plan, "determinants"), dict.fromkeys(ids, True), durations
+    # the spec's example 2 row (0 shards, 5 groups, '*'); the committed determinants row is now
+    # 12 shards + 3 direct groups (dry run 45bc3599), which this all-shard-0-only report cannot fill
+    row = _row(plan, "determinants", shards=0, groups=5, group_select="*")
+    return row, dict.fromkeys(ids, True), durations
 
 
 def test_example_2_determinants(mod: ModuleType, plan: dict[str, Any]) -> None:
@@ -648,8 +653,16 @@ def test_committed_durations_file(mod: ModuleType) -> None:
     assert len(ids) == len(set(ids)) and all(n.startswith("tests/calibration/") for n in ids)
     assert all(ln.split("\t")[2] for ln in lines[1:])
     got = mod.read_durations(DURATIONS)
-    assert round(got[f"{DET}[full-autocorr_pos-lightgbm]"]) == 8366  # example 2 (probe 1895353)
-    assert round(got[f"{DET}[full-detect-lightgbm]"]) == 7784
+    # re-recorded with --max from run 1900336 on wheat (probe 1895353 had 8366 / no row)
+    assert round(got[f"{DET}[full-autocorr_pos-lightgbm]"]) == 8993
+    assert round(got[f"{DET}[full-detect-lightgbm]"]) == 8751
+    per_model = "tests/calibration/test_determinants_calibration.py::" \
+                "test_determinants_null_level_per_model"  # fmt: skip
+    # job 1901050 on wheat: R = 100 x the mean replicate time of block 1 (236 s / 790 s)
+    assert round(got[f"{per_model}[full-elastic_net]"]) == 23579
+    assert round(got[f"{per_model}[full-lightgbm]"]) == 78976
+    sources = {ln.split("\t")[0]: ln.split("\t")[2] for ln in lines[1:]}
+    assert sources[f"{per_model}[full-lightgbm]"] == "1901050:measured"
     rel = DURATIONS.relative_to(REPO).as_posix()  # outside CALIB_PATHS (Q6)
     assert not rel.startswith(("src/", "tests/calibration/", "ci/", "tests/sim/", "tests/helpers/"))
 
@@ -670,7 +683,15 @@ def test_lanes_cli_reads_the_conftest_lane_report(mod: ModuleType, plan: dict[st
     dur = tmp_path / "d.tsv"
     dur.write_text("nodeid\tseconds\tsource\n"
                    + "".join(f"{n}\t{s}\tt\n" for n, s in durations.items()))  # fmt: skip
-    res = _cli("lanes", "--suite", "determinants", "--report", str(rep), "--durations", str(dur))
+    fixture = tmp_path / "plan.tsv"  # the committed plan with the example-2 determinants row
+    lines = PLAN.read_text().splitlines()
+    for k, ln in enumerate(lines):
+        if ln.startswith("determinants\t"):
+            lines[k] = "\t".join(["determinants", "0", "5", "*", *ln.split("\t")[4:]])
+    fixture.write_text("\n".join(lines) + "\n")
+    assert "determinants\t0\t5\t*\t2\t4000\t08:00:00\t30\n" in fixture.read_text()
+    res = _cli("lanes", "--suite", "determinants", "--report", str(rep), "--durations", str(dur),
+               "--plan", str(fixture))  # fmt: skip
     assert res.returncode == 0, res.stderr
     got = json.loads(res.stdout)
     want = mod.lanes(row, report, durations)
