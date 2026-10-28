@@ -15,6 +15,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
 
+# Imported now, before any test patches subprocess: the helper keeps the real subprocess.run for
+# the conftest fakes (helpers.prereqs.run_fake_prereq).
+import helpers.prereqs  # noqa: F401
 import pytest
 
 

@@ -55,6 +55,7 @@ from typing import Any, NamedTuple
 
 import pytest
 from click.testing import CliRunner
+from helpers.prereqs import run_fake_prereq
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools)
@@ -117,6 +118,8 @@ class Calls:
 
     def __call__(self, argv: Sequence[str], *a: Any, **k: Any) -> Any:
         argv = [str(x) for x in argv]
+        if (done := run_fake_prereq(argv, *a, **k)) is not None:  # 15d: java -version
+            return done
         self.argv.append(argv)
         self.kwargs.append(k)
         if argv[0] == "quota":

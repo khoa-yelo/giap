@@ -206,10 +206,12 @@ MOUNTINFO_FIXTURE = REPO / "tests" / "data" / "mountinfo" / "root_ext4.txt"
 
 def _faked_by_the_test(run: object) -> bool:
     """Whether ``subprocess.run`` is a test's fake (not the real one, not ``setup_guard``'s
-    deny, which would turn a quota query into a guard hit)."""
+    deny or its wrapper that lets only the fake ``java``/``nextflow`` start (M11-15d), either of
+    which would turn a quota query into a guard hit)."""
     if run is _REAL_SUBPROCESS_RUN:
         return False
-    return not str(getattr(run, "__qualname__", "")).startswith("_deny.")
+    qualname = str(getattr(run, "__qualname__", ""))
+    return not qualname.startswith(("_deny.", "_allow_fake_prereqs."))
 
 
 @pytest.fixture(autouse=True)

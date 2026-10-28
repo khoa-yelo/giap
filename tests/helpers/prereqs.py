@@ -19,7 +19,15 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+# captured on import (tests/unit/conftest.py imports this module at collection, before any test
+# patches subprocess)
+_REAL_RUN = subprocess.run
+_REAL_POPEN = subprocess.Popen
 
 FAKE_PREREQS_ENV = "GIPPA_TEST_FAKE_PREREQS"
 NAMES = ("java", "nextflow")
@@ -77,3 +85,25 @@ def is_fake_prereq(exe: object) -> bool:
     if os.sep not in path:
         path = shutil.which(path) or ""
     return bool(path) and Path(path).resolve().parent == Path(src).resolve()
+
+
+def run_fake_prereq(argv: Sequence[object], *args: Any, **kwargs: Any) -> Any:
+    """Run ``argv`` with the real ``subprocess.run`` when ``argv[0]`` is a conftest fake
+    ``java``/``nextflow``; ``None`` otherwise.
+
+    For a test's own ``subprocess.run`` fake that refuses unexpected commands: from 15d on
+    ``gippa setup`` runs ``java -version`` (and may look up ``nextflow``) before the commands the
+    test is about, so the fake answers those through this helper first::
+
+        if (done := run_fake_prereq(argv, *a, **kw)) is not None:
+            return done
+
+    ``subprocess.Popen`` is the real one while the fake runs (a guard may have denied it).
+    """
+    if not argv or not is_fake_prereq(argv[0]):
+        return None
+    guard, subprocess.Popen = subprocess.Popen, _REAL_POPEN  # type: ignore[misc]
+    try:
+        return _REAL_RUN(list(argv), *args, **kwargs)  # type: ignore[call-overload]
+    finally:
+        subprocess.Popen = guard  # type: ignore[misc]
