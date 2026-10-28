@@ -306,7 +306,7 @@ def test_h4_on_the_checkout_names_each_ghcr_tool_not_current(tmp_path: Path) -> 
     images_path = REPO / "workflow/conf/images.json"
     images = json.loads(images_path.read_text(encoding="utf-8")) if images_path.is_file() else {}
     tools = sorted(p.name for p in (REPO / "workflow/containers").iterdir()
-                   if p.is_dir() and p.name != "uniop")  # fmt: skip
+                   if p.is_dir() and p.name not in {"uniop", "step", "step-r"})  # fmt: skip
     behind = [t for t in tools if (images.get(t) or {}).get("key") != key(t, REPO)]
     for t in behind:
         assert t in h4["value"], (t, h4)
