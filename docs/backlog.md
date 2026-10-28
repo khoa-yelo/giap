@@ -1186,6 +1186,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
   - msmeg's 56 chunks can hold all 8 queue slots (`queueSize = 8`) and starve other steps; check this in a full Nextflow trace.
   - No full-pipeline Nextflow run of the sharded path yet; the msmeg full rerun after calibration will be the first. Record its trace and `cmp` result in `docs/validation/M2-15b-terminatornet-sharding.md`.
 - **Process (lead):** two nf-test jobs run concurrently in one worktree collide on `.nf-test/`; run at most one nf-test job per worktree (or give each its own worktree).
+- **#471 review (calibration ⅔ estimate):**
+  - `_estimate_s` in `tests/unit/test_calibration_plan_fixes.py` models `max(group, (shard+merge)/N)`, but `calibration_suite.sbatch` (lines 463-480) waits for every lane before `--merge`. The critical path is `max(all lanes) + merge/N`; fix the model.
+  - determinants has no recorded merge (run unsharded; per-model rows `1901050:measured` are block 1 only). With every shard check in block 2, the corrected worst case is about 25.3 ks (wall 28.8 ks, ⅔ limit 19.2 ks). Record a determinants merge, or raise its time or groups.
 
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
