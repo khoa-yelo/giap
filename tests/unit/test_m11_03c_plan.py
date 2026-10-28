@@ -48,19 +48,23 @@ TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 HEADER = ("suite", "shards", "groups", "group_select", "cpus_per_lane", "mem_per_lane_mb", "time",
           "unknown_min")  # fmt: skip
 
-# The spec's "Initial plan" table: suite, shards, groups, group_select, cpus_per_lane, mem, time.
+# The spec's "Initial plan" table as re-sized for wheat after dry run 45bc3599 (jobs
+# 1900336-1900351, local/handoff/cal_timeouts.md): placement, regions, autocorrelation and
+# determinants 08:00:00; gene_fdr 3 groups; autocorrelation 3 x 2 CPUs (was 1 x 4); determinants
+# 12 shards + 3 direct groups (was 0 + 5). Columns: suite, shards, groups, group_select,
+# cpus_per_lane, mem, time.
 INITIAL = [
-    ("placement", 2, 8, "direct", 2, 4000, "06:00:00"),
-    ("gene_fdr", 0, 2, "*", 2, 4000, "06:00:00"),
+    ("placement", 2, 8, "direct", 2, 4000, "08:00:00"),
+    ("gene_fdr", 0, 3, "*", 2, 4000, "06:00:00"),
     ("detectability", 0, 1, "*", 2, 4000, "02:00:00"),
-    ("regions", 0, 5, "*", 2, 4000, "06:00:00"),
-    ("autocorrelation", 0, 1, "*", 4, 4000, "06:00:00"),
+    ("regions", 0, 5, "*", 2, 4000, "08:00:00"),
+    ("autocorrelation", 0, 3, "*", 2, 4000, "08:00:00"),
     ("islands", 0, 1, "*", 2, 4000, "06:00:00"),
     ("discordance", 0, 2, "*", 2, 16000, "06:00:00"),
     ("missed_operons", 0, 1, "*", 2, 8000, "02:00:00"),
     ("ora", 0, 2, "*", 4, 4000, "06:00:00"),
     ("gsea", 0, 2, "*", 2, 4000, "06:00:00"),
-    ("determinants", 0, 5, "*", 2, 4000, "06:00:00"),
+    ("determinants", 12, 3, "direct", 2, 4000, "08:00:00"),
     ("novel_orfs", 6, 3, "direct", 2, 4000, "06:00:00"),
     ("denovo_precision", 0, 1, "*", 2, 4000, "02:00:00"),
     ("variants", 2, 1, "direct", 2, 4000, "06:00:00"),
@@ -128,10 +132,13 @@ def test_committed_plan_is_the_initial_plan(mod: ModuleType) -> None:
 
 def test_example_1_totals(mod: ModuleType) -> None:
     rows = mod.read_plan(PLAN, SUITES)
-    assert sum(r.shards + r.groups for r in rows) == 46
-    assert sum((r.shards + r.groups) * r.cpus_per_lane for r in rows) == 98
-    assert max(_seconds(r.time) for r in rows) == 6 * 3600
-    assert [r.suite for r in rows if r.cpus_per_lane != 2] == ["autocorrelation", "ora"]  # Q6
+    assert sum(r.shards + r.groups for r in rows) == 59
+    # requested (lanes x cpus_per_lane) 122; allocated 126: discordance's 2 x 16000 MB gets
+    # ceil(32000 / MaxMemPerCPU 4000) = 8 CPUs, not 4
+    assert sum((r.shards + r.groups) * r.cpus_per_lane for r in rows) == 122
+    assert sum(mod.allocated_cpus(r) for r in rows) == 126
+    assert max(_seconds(r.time) for r in rows) == 8 * 3600 == mod.MAX_TIME_S
+    assert [r.suite for r in rows if r.cpus_per_lane != 2] == ["ora"]  # Q6; autocorrelation 3 x 2
 
 
 def test_plan_lives_outside_calib_paths() -> None:
