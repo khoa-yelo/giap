@@ -92,6 +92,19 @@ def _have(name: str) -> bool:
     return _cache[name]
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_prereqs: no fake java/nextflow on PATH (tests/unit/conftest.py fakes them otherwise; "
+        "M11-15d)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
+        "(tests/conftest.py pins them otherwise, M11-15a)",
+    )
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--require-capabilities",
@@ -193,10 +206,12 @@ MOUNTINFO_FIXTURE = REPO / "tests" / "data" / "mountinfo" / "root_ext4.txt"
 
 def _faked_by_the_test(run: object) -> bool:
     """Whether ``subprocess.run`` is a test's fake (not the real one, not ``setup_guard``'s
-    deny, which would turn a quota query into a guard hit)."""
+    deny or its wrapper that lets only the fake ``java``/``nextflow`` start (M11-15d), either of
+    which would turn a quota query into a guard hit)."""
     if run is _REAL_SUBPROCESS_RUN:
         return False
-    return not str(getattr(run, "__qualname__", "")).startswith("_deny.")
+    qualname = str(getattr(run, "__qualname__", ""))
+    return not qualname.startswith(("_deny.", "_allow_fake_prereqs."))
 
 
 @pytest.fixture(autouse=True)
@@ -255,14 +270,6 @@ _REAL_DB_MARKERS = frozenset({
 _REAL_DB_DIRS = ("contract", "e2e")
 # The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
 # `farmshare,apptainer`, today's default. Defined in tests/helpers/probe_pin.py.
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    config.addinivalue_line(
-        "markers",
-        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
-        "(tests/conftest.py pins them otherwise, M11-15a)",
-    )
 
 
 def _keeps_real_db(item: pytest.Item) -> bool:

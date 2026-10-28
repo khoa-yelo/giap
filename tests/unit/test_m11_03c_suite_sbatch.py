@@ -1102,6 +1102,8 @@ def _inner_started(roles: set[str]) -> Any:
     return pred
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_usr1_during_lanes_interrupts_pytest_and_records_143(
     box: Box, rows_mod: ModuleType, decoy: subprocess.Popen[bytes]
 ) -> None:
@@ -1125,6 +1127,8 @@ def test_usr1_during_lanes_interrupts_pytest_and_records_143(
     assert "determinants exit 143" in rows[0] and rows[0].split("\t")[3] == "1", rows[0]
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_usr1_during_merge_interrupts_block2_pytests(
     box: Box, rows_mod: ModuleType, decoy: subprocess.Popen[bytes]
 ) -> None:
@@ -1144,6 +1148,8 @@ def test_usr1_during_merge_interrupts_block2_pytests(
     assert res.fail_closed and "exit 143" in res.problems, res
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_usr1_during_collection_records_143(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)
@@ -1158,6 +1164,8 @@ def test_usr1_during_collection_records_143(box: Box) -> None:
     assert record(run.log, 10)["exit"] == 143
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_pytest_ignoring_sigint_still_gets_a_record_after_the_grace(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)
@@ -1172,6 +1180,8 @@ def test_pytest_ignoring_sigint_still_gets_a_record_after_the_grace(box: Box) ->
     assert run.rc != 0
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_sigterm_during_lanes_records_143_once(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)
@@ -1311,6 +1321,8 @@ def _alive(pid: int) -> bool:
     return stat.rsplit(")", 1)[1].split()[0] != "Z"
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_usr1_keeps_the_grace_then_kills_survivors_in_its_tree(
     box: Box, decoy: subprocess.Popen[bytes]
 ) -> None:
@@ -1356,6 +1368,8 @@ def test_sigterm_writes_the_record_without_waiting_the_grace(box: Box) -> None:
     assert record(box.log, 10)["exit"] == 143
 
 
+# walks the job's process tree through Linux ``/proc`` (FarmShare only, spec G19)
+@pytest.mark.gnu_userland
 def test_interrupt_rescans_for_pytests_started_after_usr1(box: Box) -> None:
     report, durations = det_report()
     box.durations(durations)

@@ -25,11 +25,15 @@ sys.path.insert(0, str(REPO / "src"))
 from gippa.io.image_key import key, tag  # noqa: E402
 
 UNPUBLISHED = {"uniop"}  # unlicensed, never published (R5)
+# Package images tagged <version>, not ADR-0060 keyed tool images (the Q-K39 ADR, ADR-0065).
+STEP_IMAGES = {"step", "step-r"}
 
 
 def ghcr_tools(root: Path) -> list[str]:
     base = root / "workflow" / "containers"
-    return sorted(p.name for p in base.iterdir() if p.is_dir() and p.name not in UNPUBLISHED)
+    return sorted(
+        p.name for p in base.iterdir() if p.is_dir() and p.name not in UNPUBLISHED | STEP_IMAGES
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -59,6 +59,7 @@ Every flag is listed in the [CLI reference](../reference/cli.md#gippa-setup).
 | `--minimal` | off | Bakta light, Promotech, GO, KEGG, COG, contaminants; no geNOMAD, no antiSMASH | modules `core`, `function` |
 | `--images [all]` / `--no-images` | on with `--profile` | the pinned container images the modules need (`all`: every pinned image) | `gippa run` with a container profile |
 | `--check` | off | nothing: only verifies what is installed | — |
+| `--nextflow` / `--no-nextflow` | on | the pinned Nextflow 26.10.0 `-dist` launcher (GitHub release `v26.10.0`), only when no `nextflow` is on `PATH`; never under `--uniop` or `--check` | `gippa run` without its own Nextflow |
 
 The shared options `--config`, `--set`, `--log-level` and `--version` work as for every command.
 
@@ -79,6 +80,7 @@ case, measure the size after your first download.
 | KEGG | `kegg/ko_pathway.tsv`, `kegg/pathway_names.tsv` | not recorded |
 | COG 2020 | `cog/cog-20.def.tab`, `cog/fun-20.tab` | not recorded |
 | Contaminants | `contaminants/contaminants.fasta` | not recorded |
+| Nextflow launcher 26.10.0 | `bin/nextflow` | 47 MiB (49,084,616 bytes) |
 
 The Apptainer images take a separate 15–25 GB in the image cache (§3.9).
 

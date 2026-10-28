@@ -58,14 +58,17 @@ jobs:
           SIZE_EXEMPT: ${{ contains(github.event.pull_request.labels.*.name, 'size-exempt') && github.head_ref == 'refactor/gippa-rename' }}
         run: |
           # Only code counts toward the gate; tests (incl. workflow/tests, ADR-0016), docs, specs, ADRs,
-          # locks and fixtures are reported.
+          # locks (incl. generated *.lock files under src/workflow/scripts, Q-K49) and fixtures are reported.
           lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- src workflow scripts \
-                  ':!workflow/tests' ':!workflow/envs/locks' | awk '{s+=$1+$2} END {print s+0}')
+                  ':!workflow/tests' ':!workflow/envs/locks' ':!*.lock' | awk '{s+=$1+$2} END {print s+0}')
+          locks=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- ':(glob)src/**/*.lock' \
+                  ':(glob)workflow/**/*.lock' ':(glob)scripts/**/*.lock' ':!workflow/envs/locks' \
+                  | awk '{s+=$1+$2} END {print s+0}')
           other=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!src' ':!workflow' ':!scripts' \
                   | awk '{s+=$1+$2} END {print s+0}')
           nftests=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- workflow/tests \
                   | awk '{s+=$1+$2} END {print s+0}')
-          other=$((other + nftests))
+          other=$((other + nftests + locks))
           warn=$(awk '/^pr_lines_warn:/ {print $2}' ci/gates.yaml)
           fail=$(awk '/^pr_lines_fail:/ {print $2}' ci/gates.yaml)
           echo "changed code lines: $lines (warn $warn, fail $fail); other lines (not gated): $other"
