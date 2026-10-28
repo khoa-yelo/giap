@@ -132,7 +132,17 @@ No statistical claim, so no calibration test.
 
 - Q1: the message and `value` hold the full path as given, while other checks keep file names
   only (`_scrub`). The user needs the directory to fix it. **Proposed: full path.**
+  **Lead: show the path as given; the user supplied it.**
 - Q2: under the local executor antiSMASH never runs (external step), so the warning could be moot
   there. **Proposed: warn regardless of executor**; preflight does not know the executor.
+  **Lead: warn whatever the executor.**
 - Q3: Nextflow's `file(p).exists()` also accepts a directory named `<stem>.gbff`; the rule asks for
   a file. **Proposed: file** (a directory would fail in antiSMASH anyway).
+  **Lead: require a regular file.**
+
+## Decisions
+
+- Q1: the message and `value` show the paths as given (not resolved, not scrubbed); the user
+  supplied them.
+- Q2: the rule warns whatever the executor.
+- Q3: only a regular file counts (`Path.is_file()`); a directory named `<stem>.gbff` does not.
