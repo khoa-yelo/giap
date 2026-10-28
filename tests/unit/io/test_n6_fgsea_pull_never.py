@@ -12,13 +12,20 @@ Interface pinned here (implementer, ``src/gippa/io/fgsea_r.py``):
   -e LC_ALL=C <ref> Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <options>`` (where exactly
   ``--pull=never`` sits among the options before ``<ref>`` is free);
 - apptainer: unchanged, no ``--pull``;
-- a missing local image (docker: exit 125, "Unable to find image '<ref>' locally"), whether
-  detected by the failing ``docker run`` or by a ``docker image inspect`` beforehand, raises
-  ``FgseaEngineError`` (or a subclass) from ``resolve_launcher`` + ``RFgseaEngine`` whose message
-  names ``gippa setup``; nothing tries a registry.
+- a missing local image raises ``FgseaImageMissing`` (a ``FgseaEngineError`` subclass) from
+  ``resolve_launcher`` + ``RFgseaEngine`` whose message names ``gippa setup``; nothing tries a
+  registry. ``docker run --pull=never`` with an absent image prints only the daemon's error and
+  exits 125 (#465 review B1): real docker ``docker: Error response from daemon: No such image:
+  <ref>.``; podman 4.9.3 (verified on FarmShare) ``Error: <ref>: image not known``. Neither
+  prints "Unable to find image" (that line comes from the pull path, which ``--pull=never``
+  skips).
+- anything else stays a plain ``FgseaEngineError`` (#465 review S2): exit 125 from an unreachable
+  daemon ("Cannot connect to the Docker daemon") or an old client ("unknown flag: --pull"), a
+  non-125 exit whose stderr happens to say "No such image", and every apptainer failure.
 
-Fakes only: a fake workflow tree (``conf/images.json``) and a fake ``docker`` first on ``PATH``
-that logs its argv and acts as if the image were absent. No network, no R.
+Fakes only: a fake workflow tree (``conf/images.json``) and a fake ``docker`` (and
+``apptainer``) first on ``PATH`` that logs its argv and fails the run as ``FAKE_RUN_MODE``
+says. No network, no R, no real container runtime.
 """
 
 from __future__ import annotations
@@ -43,24 +50,41 @@ BAKED = f"/opt/{PKG}/gippa_fgsea.R"
 UIDGID = f"{os.getuid()}:{os.getgid()}"
 
 FAKE_DOCKER = r'''#!{python} -I
-"""Fake docker (tests only): the image is absent. Logs argv; never reaches a registry."""
+"""Fake docker/apptainer (tests only): logs argv; never reaches a registry. A ``run`` (or
+apptainer ``exec``) fails as ``FAKE_RUN_MODE`` says, with the real runtimes' wording."""
 import json, os, sys
 argv = sys.argv[1:]
 with open(os.environ["FAKE_RT_LOG"], "a") as fh:
     fh.write(json.dumps(argv) + "\n")
 image = os.environ["FAKE_IMAGE"]
+mode = os.environ.get("FAKE_RUN_MODE", "docker_missing")
 if argv[:2] == ["image", "inspect"]:
     sys.stderr.write("Error: No such image: " + image + "\n")
     sys.exit(1)
 if argv[:1] in (["kill"], ["rm"]):
     sys.exit(0)
-if argv[:1] == ["run"] and "--pull=never" in argv:
-    sys.stderr.write("Unable to find image '" + image + "' locally\n"
-                     "docker: Error response from daemon: No such image: " + image + ".\n")
-    sys.exit(125)
-if argv[:1] == ["run"]:
+if argv[:1] == ["run"] and "--pull=never" not in argv:
     sys.stderr.write("fake docker: network pull of " + image + " attempted\n")
     sys.exit(97)
+if argv[:1] in (["run"], ["exec"]):
+    out = {{
+        # docker 24-27, --pull=never, image absent
+        "docker_missing": ("docker: Error response from daemon: No such image: " + image + ".\n"
+                           "See 'docker run --help'.\n", 125),
+        # podman 4.9.3 (podman-docker shim), --pull=never, image absent
+        "podman_missing": ("Error: " + image + ": image not known\n", 125),
+        "daemon_down": ("docker: Cannot connect to the Docker daemon at "
+                        "unix:///var/run/docker.sock. Is the docker daemon running?.\n"
+                        "See 'docker run --help'.\n", 125),
+        "unknown_flag": ("unknown flag: --pull\nSee 'docker run --help'.\n", 125),
+        # the container ran; R failed and its stderr happens to mention "No such image"
+        "r_no_such_image": ("Error in readRDS(f) : No such image: " + image + "\n"
+                            "Execution halted\n", 1),
+        # an apptainer failure exiting 125 with docker-like wording
+        "apptainer_125": ("FATAL: No such image: " + image + ": image not known\n", 125),
+    }}[mode]
+    sys.stderr.write(out[0])
+    sys.exit(out[1])
 sys.stderr.write("fake docker: unexpected call\n")
 sys.exit(3)
 '''
@@ -135,9 +159,10 @@ def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
-    exe = bindir / "docker"
-    exe.write_text(FAKE_DOCKER.format(python=sys.executable))
-    exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    for name in ("docker", "apptainer"):
+        exe = bindir / name
+        exe.write_text(FAKE_DOCKER.format(python=sys.executable))
+        exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     log = tmp_path / "docker.log"
     monkeypatch.setenv("FAKE_RT_LOG", str(log))
@@ -218,18 +243,79 @@ def test_pull_never_precedes_any_pinned_ref(
 # ---------------------------------------------------------------- a missing image
 
 
-def test_missing_image_fails_without_a_pull_and_names_gippa_setup(
-    wf: Path, tmp_path: Path, _isolated: Path
-) -> None:
+def _runs(log: Path) -> list[list[str]]:
+    return [json.loads(x) for x in log.read_text().splitlines()] if log.exists() else []
+
+
+def _engine_error(launcher: Any, tmp_path: Path) -> tuple[BaseException, Path]:
+    """Run one call through ``launcher``; return the ``FgseaEngineError`` raised and the
+    temporary root (which must be left empty)."""
     fr = _fr()
     root = tmp_path / "tmp_root"
     root.mkdir()
     with pytest.raises(fr.FgseaEngineError) as info:
-        engine = fr.RFgseaEngine(_docker_launcher(), timeout_s=60.0, tmp_root=root)
-        engine(_call())
-    msg = str(info.value)
+        fr.RFgseaEngine(launcher, timeout_s=60.0, tmp_root=root)(_call())
+    return info.value, root
+
+
+@pytest.mark.parametrize("mode", ["docker_missing", "podman_missing"])
+def test_missing_image_fails_without_a_pull_and_names_gippa_setup(
+    wf: Path, tmp_path: Path, _isolated: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """B1: the real docker and podman wording of a ``--pull=never`` run on an absent image
+    (exit 125, no "Unable to find image" line) raises ``FgseaImageMissing``."""
+    fr = _fr()
+    monkeypatch.setenv("FAKE_RUN_MODE", mode)
+    err, root = _engine_error(_docker_launcher(), tmp_path)
+    msg = str(err)
+    assert isinstance(err, fr.FgseaImageMissing), (
+        f"{mode}: exit 125 with the runtime's missing-image message should raise "
+        f"FgseaImageMissing, got {type(err).__name__}: {msg}"
+    )
     assert "network pull" not in msg, msg
     assert "gippa setup" in msg, f"the missing-image error should say to run gippa setup: {msg}"
-    runs = [json.loads(x) for x in _isolated.read_text().splitlines()] if _isolated.exists() else []
+    runs = _runs(_isolated)
+    assert [a for a in runs if a[:1] == ["run"]], "docker run was never invoked"
     assert all("--pull=never" in a for a in runs if a[:1] == ["run"]), runs
     assert list(root.iterdir()) == [], "the call directory must be removed"
+
+
+@pytest.mark.parametrize("mode", ["docker_missing", "podman_missing"])
+def test_missing_image_error_is_raised_as_the_subclass(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """B1: callers can catch ``FgseaImageMissing`` itself."""
+    fr = _fr()
+    monkeypatch.setenv("FAKE_RUN_MODE", mode)
+    root = tmp_path / "tmp_root"
+    root.mkdir()
+    with pytest.raises(fr.FgseaImageMissing, match="gippa setup"):
+        fr.RFgseaEngine(_docker_launcher(), timeout_s=60.0, tmp_root=root)(_call())
+
+
+@pytest.mark.parametrize("mode", ["daemon_down", "unknown_flag", "r_no_such_image"])
+def test_other_docker_failures_stay_plain_engine_errors(
+    wf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """S2: exit 125 from an unreachable daemon or a client without ``--pull``, and a non-125
+    exit that merely mentions "No such image", are not a missing image."""
+    fr = _fr()
+    monkeypatch.setenv("FAKE_RUN_MODE", mode)
+    err, root = _engine_error(_docker_launcher(), tmp_path)
+    assert type(err) is fr.FgseaEngineError, f"{mode}: {type(err).__name__}: {err}"
+    assert not isinstance(err, fr.FgseaImageMissing), (mode, str(err))
+    assert list(root.iterdir()) == [], "the call directory must be removed"
+
+
+def test_apptainer_failure_is_never_an_image_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S2: the apptainer launcher never takes the docker missing-image path, even on exit 125
+    with "No such image" / "image not known" in its stderr."""
+    fr = _fr()
+    monkeypatch.setenv("FAKE_RUN_MODE", "apptainer_125")
+    img = tmp_path / "fgsea.img"
+    img.write_bytes(b"fake sif\n")
+    err, _ = _engine_error(fr.Launcher("apptainer", img, REF), tmp_path)
+    assert type(err) is fr.FgseaEngineError, f"{type(err).__name__}: {err}"
+    assert not isinstance(err, fr.FgseaImageMissing), str(err)
