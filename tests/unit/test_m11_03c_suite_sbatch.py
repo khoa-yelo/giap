@@ -1383,10 +1383,16 @@ def test_interrupt_rescans_for_pytests_started_after_usr1(box: Box) -> None:
         return _inner_started(early)(ev) and "group4" in wrappers
 
     run, sent = _signal_run(box, "determinants", report, extra, ready, timeout=60)
-    (late,) = run.of(proc="pytest", role="group4")
-    assert late["t"] > sent, "the group4 pytest must start after USR1 for this test"
+    for late in run.of(proc="pytest", role="group4"):
+        assert late["t"] > sent, "the group4 pytest must start after USR1 for this test"
     ints = {e["role"] for e in run.events if e.get("event") == "int" and e["proc"] == "pytest"}
-    assert ints == early | {"group4"}, ints
+    assert ints - {"group4"} == early, ints
+    # The rescan's SIGINT can reach the late pytest while it is still starting up (a loaded CI
+    # runner), before the stub can log "start" or "int"; it then dies of the signal itself. Its
+    # wrapper tells the two apart from the final SIGKILL: rc 2 (stub caught it) or -SIGINT.
+    ends = run.of(proc="criteria", event="end", role="group4")
+    assert ends, "group4's wrapper was SIGKILLed: the rescan never interrupted its late pytest"
+    assert "group4" in ints or ends[0]["rc"] == -signal.SIGINT, (ints, ends)
     assert record(run.log, 10)["exit"] == 143
 
 
