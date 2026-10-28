@@ -98,6 +98,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "real_prereqs: no fake java/nextflow on PATH (tests/unit/conftest.py fakes them otherwise; "
         "M11-15d)",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
+        "(tests/conftest.py pins them otherwise, M11-15a)",
+    )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -216,14 +221,6 @@ _REAL_DB_MARKERS = frozenset({
 _REAL_DB_DIRS = ("contract", "e2e")
 # The pinned host (lead decision on 15a): FarmShare, so `--profile auto` resolves to
 # `farmshare,apptainer`, today's default. Defined in tests/helpers/probe_pin.py.
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    config.addinivalue_line(
-        "markers",
-        "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
-        "(tests/conftest.py pins them otherwise, M11-15a)",
-    )
 
 
 def _keeps_real_db(item: pytest.Item) -> bool:
