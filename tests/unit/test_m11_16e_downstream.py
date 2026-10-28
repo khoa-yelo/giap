@@ -14,8 +14,9 @@ Readings pinned by the test author where the spec names no signature:
 * example 10 "TGG is a 1-codon Trp family with no share" under 25 is not asserted (today a
   1-codon family gets share 1.0 at 11 too); ``scored_sequence`` has no internal-stop rule
   today, so "eligible" is tested through ``synonymous_shares`` and ``codon_usage`` scores;
-* AC 11: codon-bias 0.3.x gives TGA a tAI weight of 0.37 from anticodon ``TCA`` at code 4
-  (checked 2026-10-28), so the AC holds and D10 needs no finding.
+* AC 11: codon-bias 0.3.x gives TGA a tAI weight of 0.84 from anticodon ``TCA`` at code 4 with
+  tGCN ``{TCA: 1, CCA: 1}`` (0.37 with ``TRNA_4``; measured 2026-10-28), so the AC holds and D10
+  needs no finding.
 
 Table 11 stays byte-identical: ``MAKEDB_11`` pins today's ``strain_db.faa`` / ``db_id_map.tsv``
 of the hand-built genome, computed on 16b (3cf0b509) before this change.
@@ -141,10 +142,14 @@ def test_codon_usage_accepts_tables_4_and_25(table: int) -> None:
 
 
 def test_ac11_tga_tai_weight_is_positive_at_code4() -> None:
-    """AC 11 / D10: tRNA-Trp(UCA) reads TGA at code 4; a TGA/TGG-only gene gets tAI > 0."""
-    g = _gene("W1", "ATG" + "TGA" * 12 + "TGG" * 3 + "TAA")
+    """AC 11 / D10: tRNA-Trp(UCA) reads TGA at code 4; a TGA-only gene's tAI is w(TGA) > 0
+    (0.84), while at 11 it has no sense codon and no tAI (#478 review B2: a TGG codon would
+    score 1.0 at either table)."""
+    g = _gene("W1", "ATG" + "TGA" * 12 + "TAA")
     feats, _ = cu().codon_usage([*TGA_GENES, g], {"TCA": 1, "CCA": 1}, 4)
-    assert feats["W1"].tai is not None and feats["W1"].tai > 0
+    assert feats["W1"].tai is not None and feats["W1"].tai == pytest.approx(0.8409, abs=1e-3)
+    f11, _ = cu().codon_usage([*TGA_GENES, g], {"TCA": 1, "CCA": 1}, 11)
+    assert f11["W1"].tai is None
 
 
 @pytest.fixture(scope="module")
@@ -184,6 +189,9 @@ def test_codon_usage_step_runs_at_4_and_25(
     ra, rb = pq.read_table(a).to_pylist(), pq.read_table(b).to_pylist()
     assert [r["locus_tag"] for r in ra] == [r["locus_tag"] for r in rb]
     assert any(r["enc"] is not None for r in ra)
+    # the table reaches the scores (#478 review N2): ENC and tAI move with the Trp/Gly families
+    for col in ("enc", "tai"):
+        assert any(x[col] != y[col] for x, y in zip(ra, rb, strict=True)), col
 
 
 def test_codon_usage_step_table11_is_byte_identical(
