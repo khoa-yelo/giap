@@ -90,12 +90,15 @@ def devices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TwoDevi
 
 
 def leftovers(*roots: Path) -> list[Path]:
-    """Staging files or dirs left behind: ``.partial``, ``.tmp`` and mkstemp names."""
+    """Staging files or dirs left behind: ``.partial``, ``.tmp``, mkstemp names and the old copy
+    of a directory swap (``.gippa-old``, and the earlier ``.old``)."""
     return [
         p
         for r in roots
         for p in r.rglob("*")
-        if ".partial" in p.name or p.name.endswith(".tmp") or p.name.startswith("tmp")
+        if ".partial" in p.name
+        or p.name.endswith((".tmp", ".gippa-old", ".old"))
+        or p.name.startswith("tmp")
     ]
 
 
@@ -426,7 +429,7 @@ def test_run_setup_rename_failure_fails_the_item_cleanly(
     code = run_mod.run_setup(_opts(db), NoRunner(), Both())
     assert code == ExitCode.ENVIRONMENT
     recs = {i["name"]: i for i in json.loads((db / "db_manifest.json").read_text())["items"]}
-    assert recs["contaminants"]["status"] in ("absent", "failed")
+    assert recs["contaminants"]["status"] == "failed"  # lead decision 3: exactly "failed"
     message = recs["contaminants"]["message"]
     assert first.path in message or str(target) in message
     assert recs["genomad"]["status"] == "ok"
@@ -533,3 +536,340 @@ def test_local_tools_config_interrupted_keeps_the_old_file(
     assert (db / "local_tools.config").read_bytes() == before
     assert [p for p in db.iterdir() if p.name != "local_tools.config"] == []
     assert nothing_in(devices.local)
+
+
+# ------------------------------------- directory swap, recovery and leftovers (#466 review)
+#
+# Lead decisions of the #466 review: the old copy of a directory is renamed aside to
+# ``<target>.gippa-old`` (never ``.old``: a user's own backup is left alone), the new one is
+# renamed in, then the old copy is deleted. A failed rename in restores the old copy (a); a stale
+# ``.gippa-old`` is cleared first and none is left after a swap (b); a crash or a failed restore
+# that left only ``.gippa-old`` is moved back by the next ``install`` before anything is deleted
+# (5); an undeletable leftover fails the item naming it (7); ENOSPC/EDQUOT anywhere in an install
+# gives the disk-full record (8); a failed item names the errno or the path (9).
+
+GIPPA_OLD = ".gippa-old"
+
+
+def once(pred: Callable[[Path, Path], bool]) -> Callable[[Path, Path], bool]:
+    """A fault that fires on the first rename matching ``pred`` and never again (so a restore
+    rename to the same target succeeds)."""
+    fired: list[bool] = []
+
+    def fault(s: Path, d: Path) -> bool:
+        if not fired and pred(s, d):
+            fired.append(True)
+            return True
+        return False
+
+    return fault
+
+
+def into_from_partial(target: Path) -> Callable[[Path, Path], bool]:
+    """The rename of the verified build (under ``<target>.partial``) onto ``target``."""
+    return lambda s, d: d == target and ".partial" in str(s)
+
+
+def make_genomad(d: Path, version: str = "1.8", extra: bytes = b"old mmseqs") -> dict[str, bytes]:
+    d.mkdir(parents=True)
+    (d / "version.txt").write_text(f"{version}\n")
+    (d / "genomad_db").write_bytes(extra)
+    return snapshot(d)
+
+
+def snapshot(d: Path) -> dict[str, bytes]:
+    return {str(p.relative_to(d)): p.read_bytes() for p in sorted(d.rglob("*")) if p.is_file()}
+
+
+def attempt(item: Any, db: Path, **kw: Any) -> Any:
+    """``install`` that may raise ``OSError`` (``run_setup`` records it); a returned record must
+    not claim success."""
+    try:
+        rec = install(item, db, **kw)
+    except OSError:
+        return None
+    assert rec.status != "ok", rec
+    return rec
+
+
+class Unreachable:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def fetch(self, url: str, dest: Path) -> None:
+        from gippa.setupdb.run import SourceError
+
+        self.calls += 1
+        raise SourceError("zenodo.org", "connection refused")
+
+
+def manifest(db: Path) -> dict[str, dict[str, Any]]:
+    return {i["name"]: i for i in json.loads((db / "db_manifest.json").read_text())["items"]}
+
+
+def genomad_opts(db: Path, monkeypatch: pytest.MonkeyPatch, *items: Any) -> Any:
+    from gippa.setupdb import run as run_mod
+
+    planned = list(items) or [genomad_item()]
+    monkeypatch.setattr(run_mod, "plan", lambda _o: planned)
+    return _opts(db)
+
+
+# (a) a failed rename in keeps the old copy
+
+
+def test_failed_swap_in_keeps_the_old_dir_and_leaves_no_gippa_old(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target)
+    devices.forced = once(into_from_partial(target))
+    attempt(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert snapshot(target) == before
+    assert (str(target), str(target) + GIPPA_OLD) in devices.renames  # moved aside, not deleted
+    assert leftovers(db, devices.local) == []
+    assert nothing_in(devices.local)
+
+
+def test_swap_never_deletes_the_old_dir_before_the_new_one_is_in(devices: TwoDevices) -> None:
+    """Kills "rmtree(target) then rename": at the moment of the rename in, the old copy still
+    exists under ``.gippa-old``."""
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target)
+    seen: list[dict[str, bytes]] = []
+
+    def watch(s: Path, d: Path) -> bool:
+        if d == target and ".partial" in str(s):
+            aside = target.with_name(target.name + GIPPA_OLD)
+            seen.append(snapshot(aside) if aside.is_dir() else {})
+        return False
+
+    devices.forced = watch
+    rec = install(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert rec.status == "ok", rec.message
+    assert seen == [before]
+
+
+# (b) stale leftovers are cleared; none remains after a swap
+
+
+def test_successful_swap_leaves_no_old_copy(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    make_genomad(target)
+    rec = install(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert rec.status == "ok", rec.message
+    assert (target / "version.txt").read_text() == "1.9\n"
+    assert (str(target), str(target) + GIPPA_OLD) in devices.renames
+    assert not target.with_name(target.name + GIPPA_OLD).exists()
+    assert leftovers(db, devices.local) == []
+
+
+def test_stale_gippa_old_from_a_crash_is_cleared_and_does_not_block(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    make_genomad(target)
+    stale = target.with_name(target.name + GIPPA_OLD)
+    (stale / "nested").mkdir(parents=True)
+    (stale / "nested" / "junk").write_bytes(b"from a crash")
+    (stale / "version.txt").write_text("1.7\n")
+    rec = install(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert rec.status == "ok", rec.message
+    assert (target / "version.txt").read_text() == "1.9\n"
+    assert not (target / "nested").exists()
+    assert not stale.exists()
+    assert leftovers(db, devices.local) == []
+
+
+# 6: the suffix is .gippa-old; a user's own .old backup is never touched
+
+
+def test_users_own_dot_old_backup_survives_an_update(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    make_genomad(target)
+    backup = target.with_name(target.name + ".old")
+    mine = make_genomad(backup, version="1.5", extra=b"my own backup")
+    rec = install(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert rec.status == "ok", rec.message
+    assert snapshot(backup) == mine
+    assert [p for p in leftovers(db, devices.local) if p != backup] == []
+
+
+def test_users_own_dot_old_backup_survives_a_failed_swap(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target)
+    backup = target.with_name(target.name + ".old")
+    mine = make_genomad(backup, version="1.5", extra=b"my own backup")
+    devices.forced = once(into_from_partial(target))
+    attempt(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert snapshot(target) == before
+    assert snapshot(backup) == mine
+
+
+# 5: recovery of a copy left only under .gippa-old
+
+
+def test_crash_between_renames_is_recovered_when_the_source_is_unreachable(
+    devices: TwoDevices,
+) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target.with_name(target.name + GIPPA_OLD))  # target itself missing
+    fetcher = Unreachable()
+    rec = install(genomad_item(), db, fetcher=fetcher)
+    assert rec.status != "ok"
+    assert snapshot(target) == before
+    assert leftovers(db, devices.local) == []
+
+
+def test_recovered_copy_that_verifies_is_adopted_without_a_download(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target.with_name(target.name + GIPPA_OLD), version="1.9")
+    rec = install(genomad_item(), db, fetcher=NoFetcher())
+    assert rec.status == "ok", rec.message
+    assert snapshot(target) == before
+    assert leftovers(db, devices.local) == []
+
+
+def test_recovery_then_a_failed_rename_again_keeps_the_old_copy(devices: TwoDevices) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target.with_name(target.name + GIPPA_OLD))
+    devices.forced = into_from_partial(target)  # every rename of the build in fails
+    attempt(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    assert snapshot(target) == before
+    assert leftovers(db, devices.local) == []
+
+
+def test_failed_restore_keeps_the_old_copy_aside_and_the_next_install_recovers_it(
+    devices: TwoDevices,
+) -> None:
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target)
+    devices.forced = lambda s, d: d == target  # the rename in and the restore both fail
+    attempt(genomad_item(), db, fetcher=BytesFetcher(GENOMAD_TAR))
+    aside = target.with_name(target.name + GIPPA_OLD)
+    assert not target.exists()
+    assert snapshot(aside) == before  # never deleted
+    assert {p for p in leftovers(db, devices.local) if not p.is_relative_to(aside)} == set()
+    devices.forced = lambda _s, _d: False
+    rec = install(genomad_item(), db, fetcher=Unreachable())
+    assert rec.status != "ok"
+    assert snapshot(target) == before
+    assert leftovers(db, devices.local) == []
+
+
+def test_run_setup_recovers_the_old_copy_and_records_the_unreachable_source(
+    devices: TwoDevices, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gippa.exitcodes import ExitCode
+    from gippa.setupdb import run as run_mod
+
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target.with_name(target.name + GIPPA_OLD))
+    code = run_mod.run_setup(genomad_opts(db, monkeypatch), NoRunner(), Unreachable())
+    assert code == ExitCode.ENVIRONMENT
+    assert manifest(db)["genomad"]["status"] == "absent"
+    assert "zenodo.org" in manifest(db)["genomad"]["message"]
+    assert snapshot(target) == before
+    assert leftovers(db, devices.local) == []
+
+
+# 7: an undeletable leftover fails the item, naming the leftover
+
+
+@pytest.fixture
+def undeletable(devices: TwoDevices) -> Iterator[Path]:
+    """A non-empty ``genomad_db.gippa-old`` that ``rmtree`` cannot remove (a read-only subdir)."""
+    if os.geteuid() == 0:
+        pytest.skip("root removes read-only directories")
+    db = devices.nfs / "db"
+    stale = db / ("genomad_db" + GIPPA_OLD)
+    locked = stale / "locked"
+    locked.mkdir(parents=True)
+    (locked / "file").write_bytes(b"cannot go")
+    locked.chmod(0o500)
+    yield stale
+    locked.chmod(0o700)
+
+
+def test_undeletable_leftover_fails_the_item_naming_the_leftover(
+    devices: TwoDevices, monkeypatch: pytest.MonkeyPatch, undeletable: Path
+) -> None:
+    from gippa.exitcodes import ExitCode
+    from gippa.setupdb import run as run_mod
+
+    db = devices.nfs / "db"
+    target = db / "genomad_db"
+    before = make_genomad(target)
+    with pytest.raises(OSError):
+        shutil.rmtree(undeletable)  # guards the fixture: it really cannot be removed
+    code = run_mod.run_setup(genomad_opts(db, monkeypatch), NoRunner(), BytesFetcher(GENOMAD_TAR))
+    assert code == ExitCode.ENVIRONMENT
+    rec = manifest(db)["genomad"]
+    assert rec["status"] == "failed"
+    assert str(undeletable) in rec["message"], rec["message"]
+    assert snapshot(target) == before
+    assert not db.joinpath("genomad_db.partial").exists()
+
+
+# 8: ENOSPC/EDQUOT outside install's own try blocks gives the disk-full record
+
+
+@pytest.mark.parametrize("code", [errno.ENOSPC, errno.EDQUOT], ids=["ENOSPC", "EDQUOT"])
+@pytest.mark.parametrize("kind", ["dir", "file"])
+def test_disk_full_at_a_mkdir_gives_the_disk_full_record(
+    devices: TwoDevices, monkeypatch: pytest.MonkeyPatch, code: int, kind: str
+) -> None:
+    from gippa.exitcodes import ExitCode
+    from gippa.setupdb import run as run_mod
+    from gippa.setupdb.space import disk_full
+
+    db = devices.nfs / "db"
+    item = genomad_item() if kind == "dir" else file_item()
+    target = db / item.path
+    # dir: ``partial.mkdir``; file: ``target.parent.mkdir`` (both before install's try)
+    doomed = target.with_name(target.name + ".partial") if kind == "dir" else target.parent
+    real_mkdir = Path.mkdir
+
+    def mkdir(self: Path, *a: Any, **kw: Any) -> None:
+        if self == doomed:
+            raise OSError(code, os.strerror(code), str(self))
+        real_mkdir(self, *a, **kw)
+
+    opts = genomad_opts(db, monkeypatch, item)
+    monkeypatch.setattr(Path, "mkdir", mkdir)
+    fetcher = BytesFetcher(GENOMAD_TAR if kind == "dir" else FILE_PAYLOAD)
+    assert run_mod.run_setup(opts, NoRunner(), fetcher) == ExitCode.ENVIRONMENT
+    rec = manifest(db)[item.name]
+    assert rec["status"] == "failed"
+    assert rec["message"] == disk_full(target)
+
+
+# 9: the failed-item message carries the errno name or the failing path
+
+
+@pytest.mark.parametrize("kind", ["dir", "file"])
+def test_failed_rename_message_names_the_errno_or_the_path(
+    devices: TwoDevices, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    from gippa.setupdb import run as run_mod
+
+    db = devices.nfs / "db"
+    item = genomad_item() if kind == "dir" else file_item()
+    target = db / item.path
+    devices.forced = lambda s, d: d == target
+    opts = genomad_opts(db, monkeypatch, item)
+    fetcher = BytesFetcher(GENOMAD_TAR if kind == "dir" else FILE_PAYLOAD)
+    run_mod.run_setup(opts, NoRunner(), fetcher)
+    rec = manifest(db)[item.name]
+    assert rec["status"] == "failed"
+    failing = [s for s, d in devices.renames if d == str(target)]
+    assert failing, devices.renames
+    message = rec["message"]
+    assert "EXDEV" in message or any(f in message for f in failing), message
