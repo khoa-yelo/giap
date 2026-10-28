@@ -1,4 +1,4 @@
-# M11-04 (GIAP_SPEC.md §12, §3.10): verify, build and, only when Khoa dispatches it with
+# M11-04 (GIPPA_SPEC.md §12, §3.10): verify, build and, only when Khoa dispatches it with
 # dry_run=false, publish to (Test)PyPI by trusted publishing and create the tag and GitHub release.
 # Agents dispatch dry runs only (AGENTS.md, M11-05). No secrets are read (R12).
 name: release
@@ -51,9 +51,9 @@ jobs:
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$ ]]; then
             echo "::error::version input $VERSION does not match ^\d+\.\d+\.\d+(rc\d+)?$"; exit 1
           fi
-          got=$(PYTHONPATH=src python3 -c 'import giap; print(giap.__version__)')
+          got=$(PYTHONPATH=src python3 -c 'import gippa; print(gippa.__version__)')
           if [ "$VERSION" != "$got" ]; then
-            echo "::error::version input $VERSION != giap $got"; exit 1
+            echo "::error::version input $VERSION != gippa $got"; exit 1
           fi
           if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
             echo "::error::tag v$VERSION exists"; exit 1
@@ -152,8 +152,8 @@ jobs:
           uv venv /tmp/pkg --python 3.12
           VIRTUAL_ENV=/tmp/pkg uv pip install dist/*.whl
           cd /tmp
-          /tmp/pkg/bin/giap --version
-          /tmp/pkg/bin/giap version --json
+          /tmp/pkg/bin/gippa --version
+          /tmp/pkg/bin/gippa version --json
       - name: release notes (towncrier draft on a dry run)
         run: |
           set -euo pipefail
@@ -188,8 +188,8 @@ jobs:
         id: index
         run: |
           set -euo pipefail
-          if [ "$TARGET" = pypi ]; then url="https://pypi.org/pypi/giap/$VERSION/json"
-          else url="https://test.pypi.org/pypi/giap/$VERSION/json"; fi
+          if [ "$TARGET" = pypi ]; then url="https://pypi.org/pypi/gippa/$VERSION/json"
+          else url="https://test.pypi.org/pypi/gippa/$VERSION/json"; fi
           code=$(curl -sS -o index.json -w '%{http_code}' "$url" || true)
           if [ "$code" != 200 ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           python3 - >> "$GITHUB_OUTPUT" <<'EOF'
@@ -231,7 +231,7 @@ jobs:
           pre=()
           case "$VERSION" in *rc*) pre=(--prerelease) ;; esac
           gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" \
-            --target "${{ github.sha }}" --title "GIAP $VERSION" --notes-file notes.md "${pre[@]}"
+            --target "${{ github.sha }}" --title "GIPPA $VERSION" --notes-file notes.md "${pre[@]}"
 
   summary:
     needs: [verify, build, publish, github-release]
