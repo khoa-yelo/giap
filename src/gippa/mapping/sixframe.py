@@ -1,10 +1,10 @@
 """Six-frame translation and frame <-> genome coordinate maps (GIPPA_SPEC.md §7.2.1, §6.5).
 
-Every contig is translated in all six frames with table 11 (``*`` at TAA/TAG/TGA; a codon with
-any non-ACGT base -> ``X``). I is folded into L in targets and queries. Circular replicons get
-their first ``wrap_nt`` nucleotides appended so that peptides can span the origin; hits are
-mapped back modulo the replicon length (origin-crossing intervals stay unwrapped, §6.5) and
-deduplicated with :func:`dedupe_loci`.
+Every contig is translated in all six frames with the run's genetic code, 4, 11 or 25 (ADR-0067;
+``*`` at the table's stops; a codon with any non-ACGT base -> ``X``). I is folded into L in
+targets and queries. Circular replicons get their first ``wrap_nt`` nucleotides appended so that
+peptides can span the origin; hits are mapped back modulo the replicon length (origin-crossing
+intervals stay unwrapped, §6.5) and deduplicated with :func:`dedupe_loci`.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -19,6 +20,7 @@ import numpy as np
 from numba import njit
 
 from gippa.model.coords import Interval, Replicon, wrap_position
+from gippa.model.genetic_code import codon_table
 
 if TYPE_CHECKING:
     from gippa.mapping.decoys import DecoyType
@@ -36,8 +38,6 @@ WRAP_NT: int = 3 * (MAX_PEPTIDE_AA + MAX_DIFF)
 
 _BASES = "ACGT"  # nucleotide codes 0..3; 4 = any other byte
 _NT_OTHER = 4
-# Table 11 in TCAG order (NCBI layout), re-indexed below to ACGT order.
-_TABLE11_TCAG = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
 
 
 def _letter_codes(*, query: bool) -> np.ndarray:
@@ -58,37 +58,23 @@ def _nt_codes() -> np.ndarray:
     return table
 
 
-def _codon_codes() -> np.ndarray:
-    """64-entry table indexed by ``16*b0 + 4*b1 + b2`` (ACGT codes) -> amino-acid code."""
-    tcag = "TCAG"
-    table = np.empty(64, dtype=np.uint8)
+@cache
+def _codon_luts(table: int) -> tuple[np.ndarray, np.ndarray]:
+    """64-entry tables indexed by ``16*b0 + 4*b1 + b2`` (ACGT codes) -> amino-acid code, and ->
+    ASCII residue letter (no I -> L), for ``table`` (raises for an unsupported table)."""
+    codes = np.empty(64, dtype=np.uint8)
+    letters = np.empty(64, dtype=np.uint8)
     aa_code = _letter_codes(query=False)
-    for i, b0 in enumerate(tcag):
-        for j, b1 in enumerate(tcag):
-            for k, b2 in enumerate(tcag):
-                aa = _TABLE11_TCAG[16 * i + 4 * j + k]
-                idx = 16 * _BASES.index(b0) + 4 * _BASES.index(b1) + _BASES.index(b2)
-                table[idx] = aa_code[ord(aa)]
-    return table
-
-
-def _codon_ascii() -> np.ndarray:
-    """64-entry table (ACGT index as :func:`_codon_codes`) -> ASCII residue letter (no I -> L)."""
-    tcag = "TCAG"
-    table = np.empty(64, dtype=np.uint8)
-    for i, b0 in enumerate(tcag):
-        for j, b1 in enumerate(tcag):
-            for k, b2 in enumerate(tcag):
-                idx = 16 * _BASES.index(b0) + 4 * _BASES.index(b1) + _BASES.index(b2)
-                table[idx] = ord(_TABLE11_TCAG[16 * i + 4 * j + k])
-    return table
+    for codon, aa in codon_table(table).items():
+        idx = 16 * _BASES.index(codon[0]) + 4 * _BASES.index(codon[1]) + _BASES.index(codon[2])
+        codes[idx], letters[idx] = aa_code[ord(aa)], ord(aa)
+    codes.flags.writeable = letters.flags.writeable = False
+    return codes, letters
 
 
 _QUERY_LUT = _letter_codes(query=True)
 _TARGET_LUT = _letter_codes(query=False)
 _NT_LUT = _nt_codes()
-_CODON_LUT = _codon_codes()
-_CODON_ASCII = _codon_ascii()
 _DECODE_LUT = np.full(256, ord("#"), dtype=np.uint8)
 _DECODE_LUT[: len(ALPHABET)] = np.frombuffer(ALPHABET.encode("ascii"), dtype=np.uint8)
 
@@ -96,7 +82,7 @@ _DECODE_LUT[: len(ALPHABET)] = np.frombuffer(ALPHABET.encode("ascii"), dtype=np.
 @njit(cache=True, nogil=True)
 def _translate_kernel(
     nt: np.ndarray, nt_lut: np.ndarray, codon_lut: np.ndarray, offset: int, minus: bool
-) -> np.ndarray:  # pragma: no cover - compiled by numba; exercised through translate11
+) -> np.ndarray:  # pragma: no cover - compiled by numba; exercised through translate
     """Translate raw ASCII ``nt`` from ``offset``; ``minus`` reads the reverse complement."""
     n = nt.shape[0]
     m = (n - offset) // 3 if n > offset else 0
@@ -123,8 +109,8 @@ def _translate_kernel(
     return out
 
 
-def _translate(nt: np.ndarray, offset: int, minus: bool) -> np.ndarray:
-    out: np.ndarray = _translate_kernel(nt, _NT_LUT, _CODON_LUT, offset, minus)
+def _translate(nt: np.ndarray, offset: int, minus: bool, table: int) -> np.ndarray:
+    out: np.ndarray = _translate_kernel(nt, _NT_LUT, _codon_luts(table)[0], offset, minus)
     return out
 
 
@@ -153,18 +139,28 @@ def decode(codes: np.ndarray) -> str:
     return out.tobytes().decode("ascii")
 
 
+def translate(nt: bytes, table: int = 11) -> np.ndarray:
+    """Translate ``nt`` in frame 0 with ``table`` to codes; a trailing partial codon is dropped."""
+    return _translate(np.frombuffer(nt, dtype=np.uint8), 0, False, table)
+
+
+def translate_text(nt: str, table: int = 11, offset: int = 0) -> str:
+    """``table`` codon by codon from ``offset`` as text: no I -> L, no start-codon rule, ``*`` at
+    stops, a codon with a non-ACGT base -> ``X``; a trailing partial codon is dropped."""
+    raw = np.frombuffer(nt.encode("ascii", errors="replace"), dtype=np.uint8)
+    codes: np.ndarray = _translate_kernel(raw, _NT_LUT, _codon_luts(table)[1], offset, False)
+    letters = np.where(codes == AMBIG, ord("X"), codes).astype(np.uint8)
+    return letters.tobytes().decode("ascii")
+
+
 def translate11(nt: bytes) -> np.ndarray:
-    """Translate ``nt`` in frame 0 with table 11; a trailing partial codon is dropped."""
-    return _translate(np.frombuffer(nt, dtype=np.uint8), 0, False)
+    """:func:`translate` with table 11 (alias kept, M11-16 decision D13)."""
+    return translate(nt, 11)
 
 
 def translate11_text(nt: str, offset: int = 0) -> str:
-    """Table 11 codon by codon from ``offset`` as text: no I -> L, no start-codon rule, ``*`` at
-    stops, a codon with a non-ACGT base -> ``X``; a trailing partial codon is dropped."""
-    raw = np.frombuffer(nt.encode("ascii", errors="replace"), dtype=np.uint8)
-    codes: np.ndarray = _translate_kernel(raw, _NT_LUT, _CODON_ASCII, offset, False)
-    letters = np.where(codes == AMBIG, ord("X"), codes).astype(np.uint8)
-    return letters.tobytes().decode("ascii")
+    """:func:`translate_text` with table 11 (alias kept, M11-16 decision D13)."""
+    return translate_text(nt, 11, offset)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,10 +181,12 @@ class Frame:
 
 @dataclass(frozen=True)
 class SixFrameIndex:
-    """Six frames per contig in FASTA order (``+0, +1, +2, -0, -1, -2``)."""
+    """Six frames per contig in FASTA order (``+0, +1, +2, -0, -1, -2``), translated with the
+    genetic code ``translation_table``."""
 
     replicons: Mapping[str, Replicon]
     frames: tuple[Frame, ...]
+    translation_table: int = 11
 
     def to_interval(self, frame_id: int, aa_start: int, aa_end: int) -> Interval:
         """Map amino acids ``[aa_start, aa_end)`` of a frame to a genomic interval.
@@ -223,9 +221,13 @@ class SixFrameIndex:
 
 
 def build_sixframe(
-    genome: Mapping[str, str], replicons: Mapping[str, Replicon], wrap_nt: int = WRAP_NT
+    genome: Mapping[str, str],
+    replicons: Mapping[str, Replicon],
+    wrap_nt: int = WRAP_NT,
+    table: int = 11,
 ) -> SixFrameIndex:
-    """Translate every contig of ``genome`` (FASTA order) in six frames."""
+    """Translate every contig of ``genome`` (FASTA order) in six frames with ``table``."""
+    _codon_luts(table)  # an unsupported table raises, even for an empty genome
     frames: list[Frame] = []
     for contig, seq in genome.items():
         rep = replicons[contig]
@@ -239,9 +241,9 @@ def build_sixframe(
         nt = np.frombuffer(raw, dtype=np.uint8)
         for strand in ("+", "-"):
             for offset in range(3):
-                aa = _translate(nt, offset, strand == "-")
+                aa = _translate(nt, offset, strand == "-", table)
                 frames.append(Frame(contig, strand, offset, aa, len(raw)))
-    return SixFrameIndex(replicons=dict(replicons), frames=tuple(frames))
+    return SixFrameIndex(replicons=dict(replicons), frames=tuple(frames), translation_table=table)
 
 
 def dedupe_loci(ivs: Iterable[Interval], replicons: Mapping[str, Replicon]) -> list[Interval]:
@@ -253,7 +255,7 @@ def dedupe_loci(ivs: Iterable[Interval], replicons: Mapping[str, Replicon]) -> l
     return list(seen)
 
 
-_INDEX_FORMAT = 2  # 2: + consumable stop cells (M7-16, ADR-0058)
+_INDEX_FORMAT = 3  # 2: + consumable stop cells (M7-16, ADR-0058); 3: + translation_table
 
 
 def _frame_meta(frames: tuple[Frame, ...]) -> list[list[object]]:
@@ -290,14 +292,15 @@ def save_index(
     decoys: Mapping[DecoyType, tuple[Frame, ...]],
     cells: StopCells | None = None,
 ) -> None:
-    """Write the ``sixframe_index`` work file (``.npz``, format 2): target frames, decoy frames,
-    replicons, and the consumable stop cells of the target and each decoy type (none without
-    ``cells``)."""
+    """Write the ``sixframe_index`` work file (``.npz``, format 3): its translation table, target
+    frames, decoy frames, replicons, and the consumable stop cells of the target and each decoy
+    type (none without ``cells``)."""
     frame_meta = _frame_meta(index.frames)
     n = len(index.frames)
     none = tuple(np.zeros(0, dtype=np.int64) for _ in range(n))
     meta = {
         "format": _INDEX_FORMAT,
+        "translation_table": index.translation_table,
         "replicons": [asdict(r) for r in index.replicons.values()],
         "frames": frame_meta,
         "decoys": list(decoys),
@@ -320,35 +323,50 @@ def save_index(
         np.savez_compressed(fh, **arrays)  # type: ignore[arg-type]
 
 
-def _check_format(path: Path, meta: Mapping[str, object]) -> None:
+def _check_format(path: Path, meta: Mapping[str, object], table: int) -> int:
+    """The index's translation table; raises unless it is ``table`` (format 2 is table 11, D3)."""
     fmt = meta.get("format")
     if fmt == 1:
         raise ValueError(
             f"{path}: six-frame index format 1 has no stop cells; rebuild the six-frame index"
         )
-    if fmt != _INDEX_FORMAT:
+    built = 11 if fmt == 2 else meta.get("translation_table")
+    if fmt not in (2, _INDEX_FORMAT) or not isinstance(built, int) or isinstance(built, bool):
         raise ValueError(f"{path}: unsupported sixframe_index format {fmt!r}")
+    if built != table:
+        raise ValueError(
+            f"{path}: six-frame index built for translation table {built}; this run uses "
+            f"{table}; rebuild the six-frame index"
+        )
+    return built
 
 
-def load_index(path: Path) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, ...]]]:
-    """Read a work file written by :func:`save_index` (format 2; format 1 raises)."""
+def load_index(
+    path: Path, *, table: int
+) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, ...]]]:
+    """Read a work file written by :func:`save_index` for the run's ``table``.
+
+    Raises:
+        ValueError: on an index built for another table, a format-2 file unless ``table`` is 11,
+            a format-1 file ("rebuild the six-frame index") or an unknown format.
+    """
     with np.load(Path(path), allow_pickle=False) as npz:
         meta = json.loads(str(npz["meta"]))
-        _check_format(path, meta)
+        built = _check_format(path, meta, table)
         replicons = {r["id"]: Replicon(**r) for r in meta["replicons"]}
         frames = _unpack(meta["frames"], npz["target_aa"], npz["target_bounds"])
         decoys: dict[DecoyType, tuple[Frame, ...]] = {
             kind: _unpack(meta["frames"], npz[f"{kind}_aa"], npz[f"{kind}_bounds"])
             for kind in meta["decoys"]
         }
-    return SixFrameIndex(replicons=replicons, frames=frames), decoys
+    return SixFrameIndex(replicons=replicons, frames=frames, translation_table=built), decoys
 
 
-def load_stop_cells(path: Path) -> StopCells:
-    """The stop sites and cells of a format-2 work file.
+def load_stop_cells(path: Path, *, table: int) -> StopCells:
+    """The stop sites and cells of a work file built for the run's ``table``.
 
     Raises:
-        ValueError: on a format-1 file ("rebuild the six-frame index") or an unknown format.
+        ValueError: as :func:`load_index`.
     """
     from gippa.mapping.readthrough import StopCells, StopSite
 
@@ -357,7 +375,7 @@ def load_stop_cells(path: Path) -> StopCells:
 
     with np.load(Path(path), allow_pickle=False) as npz:
         meta = json.loads(str(npz["meta"]))
-        _check_format(path, meta)
+        _check_format(path, meta, table)
         sites = tuple(
             StopSite(**{**s, "locus_tags": tuple(s["locus_tags"])}) for s in meta["stop_sites"]
         )
