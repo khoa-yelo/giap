@@ -179,7 +179,7 @@ def _rows(df: pd.DataFrame, pid: str) -> pd.DataFrame:
 
 
 def test_example1_index_cmd_exact_argv() -> None:
-    cmd = _mp().miniprot_index_cmd(Path("g"), Path("m"), 8)
+    cmd = _mp().miniprot_index_cmd(Path("g"), Path("m"), 8, table=11)
     assert cmd == ["miniprot", "-t", "8", "-T", "11", "-d", "m", "g"]
 
 
@@ -210,7 +210,7 @@ def test_align_cmd_args_split_on_any_whitespace() -> None:
 
 
 def test_index_cmd_paths_are_strings() -> None:
-    cmd = _mp().miniprot_index_cmd(Path("/a/genome.norm.fa"), Path("/b/genome.mpi"), 16)
+    cmd = _mp().miniprot_index_cmd(Path("/a/genome.norm.fa"), Path("/b/genome.mpi"), 16, table=11)
     assert cmd == ["miniprot", "-t", "16", "-T", "11", "-d", "/b/genome.mpi", "/a/genome.norm.fa"]
     assert all(isinstance(a, str) for a in cmd)
 

@@ -57,7 +57,7 @@ def _search(img: Path, genome: Path, faa: Path, tmp: Path) -> Path:
     db = tmp / "db" / "genome"
     _run(img, makeblastdb_cmd(genome, db), tmp)
     out = tmp / "live.tsv"
-    _run(img, tblastn_cmd(db, faa, 2, ProteinsConfig().tblastn_args), tmp, stdout=out)
+    _run(img, tblastn_cmd(db, faa, 2, ProteinsConfig().tblastn_args, table=11), tmp, stdout=out)
     return out
 
 

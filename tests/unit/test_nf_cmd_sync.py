@@ -61,6 +61,7 @@ def _bakta_variants() -> list[list[str]]:
         all_circular=False,
         replicons_tsv=Path("replicons.tsv"),
         extra_args=[],
+        translation_table=11,
     )
     return [
         bakta_cmd.bakta_command(**common, complete=True, regions_gff3=None),  # type: ignore[arg-type]
@@ -68,6 +69,17 @@ def _bakta_variants() -> list[list[str]]:
         bakta_cmd.bakta_command(
             **{**common, "all_circular": True},  # type: ignore[arg-type]
             complete="auto",
+            regions_gff3=None,
+        ),
+        # M11-16d: --translation-table only when the table is not 11 (D2)
+        bakta_cmd.bakta_command(
+            **{**common, "translation_table": 4},  # type: ignore[arg-type]
+            complete=False,
+            regions_gff3=None,
+        ),
+        bakta_cmd.bakta_command(
+            **{**common, "translation_table": 25},  # type: ignore[arg-type]
+            complete=True,
             regions_gff3=None,
         ),
     ]

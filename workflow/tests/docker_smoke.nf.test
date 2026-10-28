@@ -44,9 +44,9 @@ nextflow_process {
 
         when {
             params {
-                // the options of the recorded runs (= the default mapping.proteins.*_args)
+                // the default mapping.proteins.*_args (M11-16d: -db_gencode 11 is appended from the table)
                 mapping = [proteins: [miniprot_args: "-S -N 5 --outs=0.95",
-                                      tblastn_args: "-db_gencode 11 -seg no -evalue 1e-5"]]
+                                      tblastn_args: "-seg no -evalue 1e-5"]]
             }
             process {
                 """

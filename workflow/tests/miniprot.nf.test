@@ -97,4 +97,57 @@ nextflow_process {
             assert !argv[1].contains("--outs=0.95") : "hard-coded default leaked: ${argv[1]}"
         }
     }
+
+    // M11-16 item 3.2: the index command takes -T <params.annotation.translation_table> (11 when
+    // unset, as the test above shows); -T never reaches the alignment command.
+    test("M11-16d: annotation.translation_table 4 -> -T 4 at indexing only") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/miniprot/genome.fa")
+                input[2] = file("${moduleTestDir}/data/miniprot/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def argv = new File(path(process.out.gff[0]).parent.toFile(), "miniprot.argv").readLines()
+            assert argv.size() == 2 : "expected index + align invocations, got ${argv}"
+            assert argv[0] =~ /(^|\s)-T 4(\s|$)/ : argv[0]
+            assert !(argv[0] =~ /(^|\s)-T 11(\s|$)/) : argv[0]
+            assert !(argv[1] =~ /(^|\s)-T(\s|$)/) : "§7.1.1: -T is an indexing option"
+        }
+    }
+
+    test("M11-16d: annotation.translation_table 25 -> -T 25 at indexing only") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/miniprot/genome.fa")
+                input[2] = file("${moduleTestDir}/data/miniprot/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def argv = new File(path(process.out.gff[0]).parent.toFile(), "miniprot.argv").readLines()
+            assert argv.size() == 2 : "expected index + align invocations, got ${argv}"
+            assert argv[0] =~ /(^|\s)-T 25(\s|$)/ : argv[0]
+            assert !(argv[1] =~ /(^|\s)-T(\s|$)/) : "§7.1.1: -T is an indexing option"
+        }
+    }
 }

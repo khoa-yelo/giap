@@ -105,4 +105,281 @@ nextflow_process {
             assert !argv[1].contains("1e-5") : "hard-coded default leaked: ${argv[1]}"
         }
     }
+
+    // M11-16 item 3.3 / AC 9: the TBLASTN ext.args closure (conf/base.config) mirrors
+    // gippa.mapping.tblastn.effective_tblastn_args on the parity table
+    // workflow/tests/data/tblastn/db_gencode_cases.json (one test per case; keep both in sync).
+    // `got` is the part of the recorded tblastn argv between -num_threads N and -outfmt.
+
+    test("M11-16d db_gencode parity 7a: ('-seg no -evalue 1e-5', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-seg no -evalue 1e-5"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-seg no -evalue 1e-5 -db_gencode 4"
+        }
+    }
+
+    test("M11-16d db_gencode parity 7b: ('-db_gencode 25 -seg yes -evalue 1e-7', 25)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode 25 -seg yes -evalue 1e-7"]]
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-db_gencode 25 -seg yes -evalue 1e-7"
+        }
+    }
+
+    test("M11-16d db_gencode parity 7c: ('-db_gencode 11 -seg no', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode 11 -seg no"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.failed : "a -db_gencode that differs from the table must stop the task (defence in depth; preflight refuses it first)"
+        }
+    }
+
+    test("M11-16d db_gencode parity 7d: ('', 11)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: ""]]
+                annotation = [translation_table: 11]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-db_gencode 11"
+        }
+    }
+
+    test("M11-16d db_gencode parity default-11: ('-seg no -evalue 1e-5', 11)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-seg no -evalue 1e-5"]]
+                annotation = [translation_table: 11]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-seg no -evalue 1e-5 -db_gencode 11"
+        }
+    }
+
+    test("M11-16d db_gencode parity default-25: ('-seg no -evalue 1e-5', 25)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-seg no -evalue 1e-5"]]
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-seg no -evalue 1e-5 -db_gencode 25"
+        }
+    }
+
+    test("M11-16d db_gencode parity leading-spaces: ('  -evalue 1e-3', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "  -evalue 1e-3"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-evalue 1e-3 -db_gencode 4"
+        }
+    }
+
+    test("M11-16d db_gencode parity equals-form-same: ('-db_gencode=4 -evalue 1e-3', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode=4 -evalue 1e-3"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-db_gencode=4 -evalue 1e-3"
+        }
+    }
+
+    test("M11-16d db_gencode parity only-gencode-same: ('-db_gencode 11', 11)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode 11"]]
+                annotation = [translation_table: 11]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-db_gencode 11"
+        }
+    }
+
+    test("M11-16d db_gencode parity middle-same: ('-evalue 1e-3 -db_gencode 4 -seg no', 4)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-evalue 1e-3 -db_gencode 4 -seg no"]]
+                annotation = [translation_table: 4]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-evalue 1e-3 -db_gencode 4 -seg no"
+        }
+    }
+
+    test("M11-16d db_gencode parity extra-option-25: ('-seg no -evalue 1e-5 -max_target_seqs 5', 25)") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-seg no -evalue 1e-5 -max_target_seqs 5"]]
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def line = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()[1]
+            def got = line.replaceFirst(/^tblastn -db db\/genome -query proteins\.faa -num_threads \d+ /, '').replaceFirst(/ -outfmt 6 .*$/, '')
+            assert got == "-seg no -evalue 1e-5 -max_target_seqs 5 -db_gencode 25"
+        }
+    }
 }
