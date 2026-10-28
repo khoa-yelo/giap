@@ -16,6 +16,7 @@ circular), so many plots draw something; nothing touches ``$GIPPA_DB_DIR`` or th
 
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import subprocess
@@ -108,6 +109,24 @@ def tree_bytes(root: Path) -> dict[str, bytes]:
 def differing(a: dict[str, bytes], b: dict[str, bytes]) -> list[str]:
     """Paths present in only one tree or with different bytes."""
     return sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))
+
+
+def svg_diff_report(a: dict[str, bytes], b: dict[str, bytes], max_lines: int = 40) -> str:
+    """A failure message: the differing paths, then for each differing ``.svg`` the first
+    ``max_lines`` lines of a ``difflib.unified_diff`` of its two renders (e.g. a clip-path id
+    that changed with a 1-ulp layout difference)."""
+    paths = differing(a, b)
+    parts = [f"differing: {paths}"]
+    for path in paths:
+        if not path.endswith(".svg") or path not in a or path not in b:
+            continue
+        la = a[path].decode("utf-8", "replace").splitlines()
+        lb = b[path].decode("utf-8", "replace").splitlines()
+        diff = list(difflib.unified_diff(la, lb, f"a/{path}", f"b/{path}", n=1, lineterm=""))
+        parts.append("\n".join(diff[:max_lines]))
+        if len(diff) > max_lines:
+            parts.append(f"... ({len(diff) - max_lines} more diff lines)")
+    return "\n".join(parts)
 
 
 def _main(argv: Sequence[str]) -> int:

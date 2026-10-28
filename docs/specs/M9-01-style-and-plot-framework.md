@@ -90,7 +90,7 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
 1. **Style.** `apply()` sets `backend Agg`, `font.family = DejaVu Sans` (bundled with matplotlib),
    base 7 pt, titles 8 pt, tick labels 6 pt, `axes.prop_cycle` = the Okabe–Ito order, `svg.fonttype
    = none` (text stays text in the SVG, so the report can be searched), `svg.hashsalt =
-   "gippa"`, `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
+   "giap"` (the pre-rename salt, ADR-0064 item 7), `pdf.fonttype = 42`. It is called once by the `plots` step and by every test fixture.
 2. **Colours.** Exactly the §10.1 table. COG letters map to four super-categories (index decision
    8); a gene with several letters (e.g. `KL`) is drawn in each letter, the convention of
    `gippa.context.summary._cog_letters` (M4-16). Letter descriptions come from the bundled
@@ -119,7 +119,10 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None   # before a rebuild (M
    lists `;`-joined), sorted as the plot spec says. Suffixes are sanitised to `[A-Za-z0-9._-]`.
    PNG at `report.dpi`. Metadata: SVG `{"Date": None}`, PDF `{"CreationDate": None, "ModDate":
    None}`, PNG `{"Software": None}`, so two renders of the same data are byte-identical on one
-   platform (index decision 6). Figures are closed after writing.
+   platform (index decision 6). SVG ids that matplotlib hashes from full-precision floats
+   (clip paths `p…`, markers `m…`, hatches `h…`) are renumbered `clip<n>`/`marker<n>`/`hatch<n>`
+   in order of first definition, with their references, so a 1-ulp layout difference (macOS
+   arm64) cannot change the SVG bytes (#452). Figures are closed after writing.
 8. **Binning helper.** `binned()` returns `None` when `len(starts) ≤ max_elements`, otherwise the edges
    of `max_elements` equal-width bins over `[0, length)`;
    callers draw counts or means per bin and write the bins, not the elements, to the data TSV
