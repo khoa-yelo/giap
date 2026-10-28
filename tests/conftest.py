@@ -103,6 +103,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "real_host_probe: keeps the real profile-detection probe, XDG dirs and $GIPPA_DB_DIR "
         "(tests/conftest.py pins them otherwise, M11-15a)",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_container_pull: no guard apptainer/singularity/docker on PATH (tests/conftest.py "
+        "refuses network pulls otherwise; tests/helpers/container_guard.py)",
+    )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -313,3 +318,56 @@ def _pinned_host_probe(
 
         probe_host.gippa_pinned = True  # type: ignore[attr-defined]
         monkeypatch.setattr(profiles, "probe_host", probe_host, raising=False)
+
+
+# No test pulls or builds a container image from the network (a real `apptainer pull` of a step
+# image is about 6 GB; unit tests once filled /tmp that way, #437, #441). Opt out with
+# ``@pytest.mark.real_container_pull``; ``needs_apptainer``/``needs_docker``/``e2e`` tests and
+# tests/e2e keep the real runtimes.
+_REAL_RUNTIME_MARKERS = ("real_container_pull", "needs_apptainer", "needs_docker", "e2e")
+# PATH and an outer guard (a child pytest of tests/unit/test_container_pull_guard.py), read once
+# at conftest import: a fake that a fixture puts on PATH later can never become the "real" binary.
+_SESSION_PATH = os.environ.get("PATH", "")
+_OUTER_GUARD = os.environ.get("GIPPA_TEST_CONTAINER_GUARD")  # helpers.container_guard.GUARD_ENV
+# The toy test files of test_container_pull_guard.py run only in its child pytest (env var set):
+# a toy left behind by a killed run is never collected (its opt-out test would pull for real).
+if not os.environ.get("GIPPA_TEST_CONTAINER_GUARD_TOY"):
+    collect_ignore_glob = ["*/test_zz_container_guard_toy_*"]
+
+
+@pytest.fixture(scope="session")
+def _container_guard_dir(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
+    """The guard scripts for the runtimes on the session's ``PATH`` (``None``: none, or a
+    pytester sandbox without tests/helpers)."""
+    try:
+        from helpers.container_guard import real_binaries, write_guard
+    except ImportError:
+        return None
+    reals = real_binaries(_SESSION_PATH, (_OUTER_GUARD,) if _OUTER_GUARD else ())
+    if not reals:
+        return None
+    return write_guard(tmp_path_factory.mktemp("container_guard"), reals)
+
+
+@pytest.fixture(autouse=True)
+def _no_container_pulls(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Put fake ``apptainer``/``singularity``/``docker`` first on ``PATH`` that refuse network
+    pulls and builds (exit 97, "network pull refused in tests") and run the real binary for
+    anything else (tests/helpers/container_guard.py). ``gippa`` finds the runtimes on ``PATH``
+    only (bare argv[0] or ``shutil.which``). A test's own fake, prepended later, wins."""
+    node = request.node
+    if any(node.get_closest_marker(m) for m in _REAL_RUNTIME_MARKERS):
+        return
+    try:
+        parts = Path(node.path).resolve().relative_to(REPO / "tests").parts
+    except ValueError:
+        parts = ()
+    if parts[:1] == ("e2e",):
+        return
+    bindir = request.getfixturevalue("_container_guard_dir")
+    if bindir is None:
+        return
+    from helpers.container_guard import GUARD_ENV
+
+    monkeypatch.setenv(GUARD_ENV, str(bindir))
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")

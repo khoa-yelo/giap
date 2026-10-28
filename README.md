@@ -51,21 +51,20 @@ python3 -m venv .venv && . .venv/bin/activate && pip install .
 ## Quickstart
 
 ```bash
-gippa setup --db-dir db --profile apptainer
-GIPPA_DB_DIR=db gippa preflight --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --profile apptainer
-gippa run --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --db-dir db --outdir out --profile apptainer
-xdg-open out/report/report.html
+pip install gippa                         # or: conda install -c bioconda gippa
+gippa demo                                # about 2 minutes; prints the report path
+gippa setup                               # databases and images for the detected runtime
+gippa run --genome g.fna --peptides p.tsv --outdir out
 ```
 
-Run it from a repository checkout (`--profile docker` works the same way): the genome and the
-peptide table are a small synthetic demo made by gippasim, the test simulator
-([provenance](docs/tutorials/data/PROVENANCE.md)). Today the full run works on FarmShare, where
-`--profile` defaults to `farmshare,apptainer`. The walk-through is
-[Quickstart](https://khoa-yelo.github.io/gippa/get-started/quickstart/)
-([source](docs/get-started/quickstart.md)). For your own data, convert the search-engine output
-with [`gippa convert`](docs/user-guide/convert.md); inputs, options and outputs are in
-[Inputs](docs/user-guide/inputs.md), the [CLI reference](docs/reference/cli.md) and
-[Outputs](docs/user-guide/outputs.md).
+`gippa demo` runs a small bundled synthetic genome with no Nextflow, containers, databases or
+network. `gippa setup` and `gippa run` detect the Nextflow profile (pass `--profile` to choose).
+Until the first release, install from a checkout as above; the full run then works on FarmShare.
+The guided walk-through, with example inputs and outputs, is
+[Quick start](https://khoa-yelo.github.io/gippa/get-started/quickstart/)
+([source](docs/get-started/quickstart.md)). With raw spectra and no peptide table yet, see
+[From raw spectra to a GIPPA run](docs/get-started/from-spectra.md); for converting search-engine
+output, [`gippa convert`](docs/user-guide/convert.md).
 
 ## Citing GIPPA
 

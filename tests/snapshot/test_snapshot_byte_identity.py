@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from helpers.byte_identity import differing, render_in_subprocess, tree_bytes
+from helpers.byte_identity import differing, render_in_subprocess, svg_diff_report, tree_bytes
 
 SNAPSHOT = Path(__file__).resolve().parents[1] / "data" / "snapshot"
 
@@ -44,4 +44,5 @@ def test_every_plot_byte_identical_on_the_snapshot_fixture(out: Path, tmp_path: 
     b = render_in_subprocess(out, tmp_path / "b", hashseed=4)
     assert a == b
     assert any(v == "rendered" for v in a.values()), a
-    assert differing(tree_bytes(tmp_path / "a"), tree_bytes(tmp_path / "b")) == []
+    ta, tb = tree_bytes(tmp_path / "a"), tree_bytes(tmp_path / "b")
+    assert differing(ta, tb) == [], svg_diff_report(ta, tb)

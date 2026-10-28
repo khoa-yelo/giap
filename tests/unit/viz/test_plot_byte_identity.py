@@ -34,6 +34,7 @@ from helpers.byte_identity import (
     golden_out,
     render_all,
     render_in_subprocess,
+    svg_diff_report,
     tree_bytes,
 )
 from hypothesis import HealthCheck, Phase, given, settings
@@ -58,7 +59,7 @@ def test_every_plot_byte_identical_across_two_interpreters(golden: Path, tmp_pat
     for pid in GOLDEN_RENDERED:
         for fmt in FORMATS:
             assert any(k.startswith(f"{pid}_") and k.endswith(f".{fmt}") for k in ta), (pid, fmt)
-    assert differing(ta, tb) == []
+    assert differing(ta, tb) == [], svg_diff_report(ta, tb)
 
 
 def test_example_2_v07_two_renders_identical_in_all_formats(golden: Path, tmp_path: Path) -> None:
@@ -66,7 +67,7 @@ def test_example_2_v07_two_renders_identical_in_all_formats(golden: Path, tmp_pa
     assert render_all(golden, tmp_path / "b", ["V07"]) == {"V07": "rendered"}
     ta, tb = tree_bytes(tmp_path / "a"), tree_bytes(tmp_path / "b")
     assert {k.rsplit(".", 1)[-1] for k in ta} == {*FORMATS, "tsv"}
-    assert differing(ta, tb) == []
+    assert differing(ta, tb) == [], svg_diff_report(ta, tb)
 
 
 @settings(
@@ -115,4 +116,4 @@ def test_gippa_report_twice_byte_identical_report_and_images(golden: Path, tmp_p
     assert pages[0] == pages[1], "report.html differs between two gippa report calls"
     pa, pb = tree_bytes(outs[0] / "plots"), tree_bytes(outs[1] / "plots")
     assert any(k.endswith(".pdf") for k in pa) and any(k.endswith(".png") for k in pa)
-    assert differing(pa, pb) == []
+    assert differing(pa, pb) == [], svg_diff_report(pa, pb)

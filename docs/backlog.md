@@ -1384,3 +1384,27 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
   safe `_unpack`, and records `url` as the official URL plus `message: "from <DIR>"`; for KEGG it records
   the sha256 of the given bytes and the file mtime date as version (ADR-0017 style), flagged as
   user-supplied. No network. Needs a spec item and an ADR for the KEGG provenance rule.
+
+## From-spectra guide gaps (docs/get-started/from-spectra.md, M11-15 item 15)
+
+- **No DDA converter.** `gippa convert --from` reads `diann` (DIA), `cascadia` (DIA de novo) and
+  `generic` only; DDA users must write the generic table by hand. Candidates: MaxQuant
+  `evidence.txt`, FragPipe/MSFragger `psm.tsv`, Sage `results.sage.tsv` (each with its decoy
+  rows, q-values and intensities mapped to the generic columns; contract tests from recorded
+  outputs, as for DIA-NN).
+- **`--from casanovo` and `--from instanovo` exit 5** (accepted choices, no converter). The pilot's
+  documented A3 fallback is Casanovo 5.2.1 (`denovo_pilot.sbatch casanovo`, mzTab), so a Casanovo
+  mzTab converter is the first one to add. Record Casanovo's licence in NOTICE.md with it.
+- **The Bakta JSON is not published.** `docs/user-guide/outputs.md` lists `annotation/tools/`
+  (`bakta/`, …), but `workflow/modules/local/bakta/main.nf` has no publishDir and runs have no
+  `annotation/tools/` (e.g. the pilot's pass-3 `out_a2`). `gippa makedb` needs `--annotation`
+  (exit 2 without it), so the from-spectra routes tell users to run Bakta by hand. Publish
+  `annotation/tools/bakta/<sample>.json` and `.gbff` (then `makedb --annotation OUT/...`), or fix
+  outputs.md.
+- **Six-frame route never run on real data.** The pilot databases had no six-frame ORFs, so the
+  guide has no run time or size for DIA-NN against `makedb --six-frame-orfs`, and the picked
+  class FDR has not been checked on DIA-NN's decoy rows (do they carry the `GIPPAORF_…` IDs so
+  that `novel_orfs.decoys_not_makedb` stays quiet?). One Nissle pass-3 run would settle both.
+- **Not recorded:** the wall time of Cascadia per run (the pilot's CPU-route `.ssl` came from
+  work-queue arrays), the output size of a `gippa demo` run, and `gippa setup` wall time for the
+  default set. The quick start gives only the measured parts.
