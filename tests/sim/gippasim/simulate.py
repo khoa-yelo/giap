@@ -55,8 +55,12 @@ __all__ = [
 ]
 _MAX_OVERLAP_TRIES = 200
 #: Overlaps (bp) for which a stop codon of the upstream gene can share bases with the
-#: start codon (and following codons) of the downstream gene. 2, 5 and multiples of 3 cannot.
-_FEASIBLE_OVERLAPS = frozenset(k for k in range(1, 21) if k % 3 and k not in (2, 5))
+#: start codon (and following codons) of the downstream gene, per genetic code. 2, 5 and
+#: multiples of 3 never can; 4 needs the stop ``NTG`` + ``A`` = TGA, so it is infeasible at 4/25.
+_FEASIBLE_OVERLAPS_11 = frozenset(k for k in range(1, 21) if k % 3 and k not in (2, 5))
+_FEASIBLE_OVERLAPS: dict[int, frozenset[int]] = {
+    t: _FEASIBLE_OVERLAPS_11 if t == 11 else _FEASIBLE_OVERLAPS_11 - {4} for t in TABLES
+}
 
 
 def _cum(weights: Any) -> np.ndarray:
@@ -70,11 +74,21 @@ def _draw(rng: np.random.Generator, cum: np.ndarray, size: int) -> np.ndarray:
 
 
 _DEFAULT_STOPS = (("TAA", 0.61), ("TGA", 0.30), ("TAG", 0.09))
+_DEFAULT_OVERLAPS = (
+    (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
 class SimConfig:
-    """Simulator knobs (M0 subset of spec §11.3)."""
+    """Simulator knobs (M0 subset of spec §11.3).
+
+    At genetic code 4 or 25 the default ``stop_codons`` drop TGA (sense there) and the default
+    ``overlap_bp`` drop the 4-bp overlap (it needs a TGA stop); the remaining weights are
+    renormalised. Passing either default explicitly is treated as the default (the values are
+    compared, not the identity), so it does not raise. A user value that contains TGA, resp. a
+    4-bp overlap, raises ``ValueError`` at 4/25.
+    """
 
     genome_length: int = 50_000
     contig_id: str = "chr1"
@@ -89,9 +103,7 @@ class SimConfig:
     start_codons: tuple[tuple[str, float], ...] = (("ATG", 0.90), ("GTG", 0.08), ("TTG", 0.02))
     stop_codons: tuple[tuple[str, float], ...] = _DEFAULT_STOPS  # TGA dropped at 4/25
     p_intra_tu_overlap: float = 0.3  # otherwise a gap drawn from intra_tu_gap_bp
-    overlap_bp: tuple[tuple[int, float], ...] = (
-        (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
-    )  # fmt: skip
+    overlap_bp: tuple[tuple[int, float], ...] = _DEFAULT_OVERLAPS  # 4 dropped at 4/25
     intra_tu_gap_bp: tuple[int, int] = (0, 40)
     inter_tu_gap_bp: tuple[int, int] = (50, 300)
     intergenic_at: float = 0.65  # AT fraction of non-coding sequence
@@ -178,10 +190,14 @@ class SimConfig:
             raise ValueError("n_selenoproteins must be >= 0")
         if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
-        bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
+        ok = _FEASIBLE_OVERLAPS[self.genetic_code]
+        bad = set(dict(self.overlap_bp)) - ok
+        if self.overlap_bp == _DEFAULT_OVERLAPS:
+            bad = set()  # the default drops what the table cannot realise (4 bp at 4/25)
         if bad:
             raise ValueError(
-                f"infeasible overlaps {sorted(bad)}; allowed {sorted(_FEASIBLE_OVERLAPS)}"
+                f"infeasible overlaps {sorted(bad)} under genetic code {self.genetic_code}; "
+                f"allowed {sorted(ok)}"
             )
 
 
@@ -239,8 +255,10 @@ class _Sim:
         st = [(k, w) for k, w in cfg.stop_codons if k in self.stop_set]  # default: TAA/TAG
         self.stops = [k for k, _ in st]
         self.stop_cum = _cum([w for _, w in st])
-        self.overlaps = [k for k, _ in cfg.overlap_bp]
-        self.overlap_cum = _cum([w for _, w in cfg.overlap_bp])
+        ok = _FEASIBLE_OVERLAPS[self.table]
+        ov = [(k, w) for k, w in cfg.overlap_bp if k in ok]  # default at 4/25: 4 bp dropped
+        self.overlaps = [k for k, _ in ov]
+        self.overlap_cum = _cum([w for _, w in ov])
 
     def sense(self, n: int) -> list[str]:
         out: list[str] = self.sense_codons[_draw(self.rng, self.sense_cum, n)].tolist()

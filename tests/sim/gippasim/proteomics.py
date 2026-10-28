@@ -66,7 +66,7 @@ from typing import Any, Literal
 import numpy as np
 from scipy import stats
 
-from gippasim.codons import CODE_11, code, codons_of, revcomp, stops, translate_cds
+from gippasim.codons import CODE_11, TABLES, code, codons_of, revcomp, stops, translate_cds
 from gippasim.features import Feat
 
 _LOG = logging.getLogger(__name__)
@@ -303,7 +303,7 @@ _CODON_AA = {
         "".join(code(t)[a + b + c] for a in "ACGT" for b in "ACGT" for c in "ACGT").encode(),
         dtype=np.uint8,
     )
-    for t in (4, 11, 25)
+    for t in TABLES
 }
 _K = 7  # prefix length of the six-frame index
 
@@ -976,7 +976,8 @@ def simulate_proteomics(
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
-    # the table goes by keyword and only off 11: code-11 callers (and spies) keep the old call
+    # the table goes by keyword and only off 11: code-11 callers keep the old call (the spy in
+    # tests/unit/test_sim_readthrough_review.py takes no ``table``)
     kw = {} if table == 11 else {"table": table}
     prots = expressed_proteins(feats, novel, seqs, readthrough, **kw)
     if log_abundance is None:
