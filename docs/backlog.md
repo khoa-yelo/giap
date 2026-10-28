@@ -1152,6 +1152,22 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
 - #349 review backlog (M11-03b): record part names are not tied to their task; squeue states and two launchers racing; a space in the log path breaks the JUnit option; a small temp-dir leak; `pyproject.toml`, `uv.lock` and `tests/conftest.py` are missing from `CALIB_PATHS` and the sbatch `dirty` check; the launcher does not pass `--sacct-json`, so OOM/TIMEOUT states only show when the aggregator is run by hand.
 - Nightly launcher has no R14 budget check (Khoa question in `khoa_q.md`; the full-tier launcher avoids the nightly window instead).
 
+### 2026-10-27 (lead)
+- **#445 review nits (calibration plan; S1–S3 fixed in the PR):**
+  - N1: `probe_log_lower_bounds` across several probe logs keeps the last file's bound, not the largest (`calibration_lanes.py` main, `lower.update`); under `--max` a `:lower-bound` row is never replaced by a smaller real measurement; interrupted JUnit lanes give no lower bounds.
+  - N2: a lower bound assumes the test ran until the log's last stamp; a silently dead worker overstates it. Add a docstring caveat.
+  - N3: mutant M8 (lower bounds override measured values) survives; add a two-file CLI test (finished in log A, unfinished in log B).
+  - N4: mutant M9 (`>` to `>=` in `--max`) survives; a tie relabels the source. Harmless.
+  - N5: `test_durations_rows_are_the_max_of_old_and_new` checks one row; compare against `origin/main`'s `calibration_durations.tsv` and assert no row went down.
+  - N6: the per-model determinants rows (`1901050:measured`, 23579 / 78976 s) are hand-entered and cover block 1 only, so the ⅔ test passes determinants on block 1 only (the PR's known gap).
+- **Flaky test watch:** `tests/calibration` `test_interrupt_rescans_for_pytests_started_after_usr1` failed three times on CI under load (group start vs USR1 rescan); #448 tolerates SIGINT during the late pytest's start-up. If it recurs, reopen.
+- **V18 macOS SVG determinism (possible R7 bug):** #446 skips the FarmShare-only tests on macOS, but `V18_stat_diagnostics.svg` was not byte-identical across two renders on macOS (PYTHONHASHSEED 3 vs 4; Linux passes). Render V18 on macOS several times and diff.
+- **Setup-test network guard:** setup tests made real apptainer pulls (about 6 GB each) and filled /tmp (`test_setup_run_never_starts_a_real_quota`, fixed in #441). Add a shared fake `apptainer` that refuses `pull` for all setup tests (drafting in branch `test/setup-network-guard`).
+- **Calibration ⅔ check ignores the merge phase:** `test_lpt_estimate_within_two_thirds_of_time` weighs only the lanes, but the merge runs inside the same job time (dry run 1900347: novel_orfs merge killed at 0.95 h after 6 shards × 4.7 h). Add the merge's duration to the estimate.
+- **NFS TMPDIR partial-dir tests missing:** no test covers the `.partial` staging paths (`setupdb/run.py`, `uniop_build.py`) when TMPDIR is on NFS.
+- **Preflight GBFF warning:** warn when the bgc module is on and no `<stem>.gbff[.gz]` sits next to the precomputed Bakta JSON (antiSMASH is otherwise skipped with `layer_missing`); name the expected path.
+- **TerminatorNet sharding:** TerminatorNet runs super-linear on large high-GC genomes; a spec is in progress in branch `spec/terminatornet-shard`.
+
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
 - (M7-11b decision 10) gippasim/makedb ID mismatches left: annotated peptides in the first 30 codons do not also list the gene's nterm entry; 27 non-ATG-start peptides beginning with M are absent from makedb's literal translation; 18 rows name entries shorter than min_orf_aa=20.
