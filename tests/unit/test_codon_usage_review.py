@@ -2,7 +2,8 @@
 docs/specs/M2-17-codon-usage.md.
 
 4. Run flags are stored in the ``codon.parquet`` file metadata, key ``gippa_flags`` (JSON list).
-5. Only translation table 11 is accepted; tables 1 and 4 raise ``ValueError``.
+5. Translation tables 4, 11 and 25 are accepted (M11-16 item 6.1, superseding "only 11"); any
+   other table (1, 2, 12) raises ``ValueError``.
 6. ``gc3`` returns ``None`` when no third position is A/C/G/T.
 7. codon-bias RuntimeWarnings (genes with nothing to weight) are suppressed and logged once as
    a count.
@@ -187,11 +188,11 @@ def test_flags_metadata_is_empty_list_without_flags(
     assert a.read_bytes() == b.read_bytes()
 
 
-# ------------------------------------------------------------------ 5. only table 11
+# ------------------------------------------------------------------ 5. tables 4, 11 and 25 only
 
 
-@pytest.mark.parametrize("table", [1, 4])
-def test_codon_usage_rejects_tables_other_than_11(table: int) -> None:
+@pytest.mark.parametrize("table", [1, 2, 12])
+def test_codon_usage_rejects_unsupported_tables(table: int) -> None:
     with pytest.raises(ValueError, match="11"):
         cu().codon_usage(gene_set(), TRNA, table)
     with pytest.raises(ValueError):
@@ -203,7 +204,7 @@ def test_table_11_is_accepted() -> None:
     assert feats
 
 
-@pytest.mark.parametrize("table", [1, 4])
+@pytest.mark.parametrize("table", [1, 12])
 def test_step_reads_the_configured_table(
     steps: ModuleType, work: dict[str, Path], tmp_path: Path, table: int
 ) -> None:
