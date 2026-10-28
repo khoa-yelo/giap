@@ -167,6 +167,8 @@ nav:
       - adr/ADR-0062-terminatornet-promotech-resources.md
       - adr/ADR-0063-determinants-null-processes-pd-threads.md
       - adr/ADR-0064-rename-giap-to-gippa.md
+      - adr/ADR-0065-gippa-step-images.md
+      - adr/ADR-0066-demo-local-executor.md
   - Developer guide:
       - developer.md
       - release.md

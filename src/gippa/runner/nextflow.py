@@ -28,6 +28,7 @@ import yaml
 
 from gippa.config import GippaConfig
 from gippa.exitcodes import ExitCode
+from gippa.runner.workflow_path import workflow_main as workflow_main  # re-export
 from gippa.steps import load_step_modules
 from gippa.steps import registry as reg
 
@@ -85,16 +86,6 @@ def write_params(
 def nextflow_memory(memory: str) -> str:
     """``--memory 64.GB`` (§5.1 form) → ``"64 GB"``; other forms pass through unchanged."""
     return re.sub(r"^\s*(\d+(?:\.\d+)?)\s*\.?\s*([KMGT]B)\s*$", r"\1 \2", memory)
-
-
-def workflow_main() -> Path:
-    """``workflow/main.nf`` of this checkout (src layout) or of an installed package."""
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[3] / "workflow" / "main.nf",
-        here.parents[1] / "workflow" / "main.nf",
-    ]
-    return next((p for p in candidates if p.is_file()), candidates[0])
 
 
 def launch_command(

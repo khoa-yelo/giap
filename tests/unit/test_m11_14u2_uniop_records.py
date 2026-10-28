@@ -72,7 +72,9 @@ FAKE_DOCKER_STAT = r"""#!/bin/sh
 # records the mode of the staged archive at build time, then runs the 14u1 fake
 if [ "$1" = build ]; then
     last=""; for a in "$@"; do last=$a; done
-    stat -c %a "$last/uniop-src.tar.gz" >> "$FAKE_ARCHIVE_MODES"
+    # GNU stat -c (Linux), else BSD stat -f %Lp (macOS): the octal permission bits
+    { stat -c %a "$last/uniop-src.tar.gz" 2>/dev/null ||
+      stat -f %Lp "$last/uniop-src.tar.gz"; } >> "$FAKE_ARCHIVE_MODES"
 fi
 exec "$FAKE_DOCKER_REAL" "$@"
 """

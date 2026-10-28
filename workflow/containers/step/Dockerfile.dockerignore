@@ -1,0 +1,7 @@
+# BuildKit reads <Dockerfile>.dockerignore: send only the locks and the wheels, never local/ (the
+# venv and the worktrees) when this image is built from the repository root.
+*
+!workflow/containers/step/requirements.lock
+!workflow/containers/step/build-requirements.lock
+!workflow/envs/locks/fgsea.explicit.txt
+!dist/*.whl

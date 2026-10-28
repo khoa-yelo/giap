@@ -82,7 +82,8 @@ def test_gippa_preflight_exits_invalid_input(tmp_path: Path) -> None:
 
     g, p = _files(tmp_path)
     out = tmp_path / "OUT"
-    base = ["preflight", "--genome", str(g), "--proteins", str(p), "--outdir", str(out)]
+    base = ["preflight", "--profile", "none", "--genome", str(g), "--proteins", str(p)]
+    base += ["--outdir", str(out)]
     base += [a for s in LOW for a in ("--set", s)]
     ok = CliRunner().invoke(cli, base)
     assert ok.exit_code == ExitCode.SUCCESS, ok.output

@@ -55,6 +55,7 @@ from gippa.setupdb.run import (
     _say,
     _unpack,
 )
+from gippa.setupdb.space import DISK_FULL, disk_full
 
 __all__ = [
     "NOTICE",
@@ -415,7 +416,10 @@ def setup_uniop(profile: str, db_dir: Path, cache: Path, fetcher: Fetcher, *, ac
             try:
                 recs, build = _build(item, db_dir, cache, fetcher, runtime, terms)
             except OSError as exc:  # e.g. a shared cache dir owned by another user (review S2)
-                recs, build = [_record(item, "absent", f"uniop: {exc}")], None
+                full = exc.errno in DISK_FULL  # our disk: failed, with the advice (15c1)
+                at = str(exc.filename or cache).removesuffix(".partial")
+                why = disk_full(at, " or --cache-dir") if full else f"uniop: {exc}"
+                recs, build = [_record(item, "failed" if full else "absent", why)], None
         if recs[-1].status == "ok":
             code = ExitCode.SUCCESS
             _report(recs[-1])

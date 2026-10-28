@@ -287,18 +287,21 @@ def test_network_attempts_succeed_without_the_launcher(  # type: ignore[no-untyp
 @pytest.mark.skipif(not hasattr(__import__("socket"), "AF_UNIX"), reason="no AF_UNIX")
 def test_unix_sockets_stay_open_ip_sockets_stay_refused(tmp_path: Path) -> None:
     """torch's DataLoader workers pass tensors over AF_UNIX sockets; a guard that refuses them
-    kills every multi-worker run (job 1889042, lead fix 2026-10-24). IP stays refused."""
+    kills every multi-worker run (job 1889042, lead fix 2026-10-24). IP stays refused.
+
+    The socket path is relative to the child's cwd: an absolute ``tmp_path`` exceeds the 104-byte
+    ``sun_path`` limit on macOS ("AF_UNIX path too long")."""
     code = textwrap.dedent(
         f"""
         import socket, sys
         sys.path.insert(0, {str(LAUNCHER.parent)!r})
         import cascadia_offline as L
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind({str(tmp_path / "s.sock")!r}); srv.listen(1)
+        srv.bind("s.sock"); srv.listen(1)
         L._guard_sockets()
         c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        c.connect({str(tmp_path / "s.sock")!r})
-        assert c.connect_ex({str(tmp_path / "s.sock")!r}) in (0, 106, 56), "connect_ex"
+        c.connect("s.sock")
+        assert c.connect_ex("s.sock") in (0, 106, 56), "connect_ex"
         for fam, addr in ((socket.AF_INET, ("127.0.0.1", 9)),):
             for how in ("connect", "connect_ex"):
                 try:
@@ -317,5 +320,5 @@ def test_unix_sockets_stay_open_ip_sockets_stay_refused(tmp_path: Path) -> None:
         """
     )
     res = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True,
-                         timeout=60, check=False)  # fmt: skip
+                         timeout=60, check=False, cwd=tmp_path)  # fmt: skip
     assert res.returncode == 0 and res.stdout.strip() == "ok", res.stdout + res.stderr
