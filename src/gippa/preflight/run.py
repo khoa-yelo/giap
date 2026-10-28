@@ -44,6 +44,7 @@ from gippa.io.protein_fasta import ProteinRecord, Route, read_protein_fasta, rou
 from gippa.io.tsv import write_tsv
 from gippa.mapping.denovo_precision import REF_MAX_Q
 from gippa.model import Replicon
+from gippa.model.genetic_code import SUPPORTED_TABLES
 from gippa.preflight import environment as env_rules
 from gippa.preflight.checks import Check, JsonValue, Level
 from gippa.preflight.environment import (
@@ -85,6 +86,7 @@ from gippa.preflight.report import (
     render_preflight_md,
     write_preflight_json,
 )
+from gippa.preflight.tool_genetic_code import tool_genetic_code_check
 
 __all__ = [
     "NormalisedInputs",
@@ -217,18 +219,18 @@ def _annotation_check(path: Path) -> Check:
 
 
 def _translation_table_check(table: int) -> Check:
-    ok = table == 11
+    ok = table in SUPPORTED_TABLES
     return Check(
         "config.translation_table",
         "inputs",
         "ok" if ok else "error",
-        "annotation.translation_table == 11 → ok; else error (1.0 supports genetic code 11 only)",
+        "annotation.translation_table in {4, 11, 25} → ok; else error",
         table,
         ""
         if ok
         else (
-            f"annotation.translation_table={table}: only genetic code 11 is supported in this "
-            "release; genetic code 4 (Mycoplasma) support is planned"
+            f"annotation.translation_table={table}: GIPPA supports genetic codes 4, 11 and 25 "
+            "(the tables Bakta accepts)"
         ),
         0 if ok else int(ExitCode.INVALID_INPUT),
     )
@@ -456,6 +458,7 @@ def run_preflight(
         ),
         *([_annotation_check(inp.annotation)] if inp.annotation is not None else []),
         _translation_table_check(cfg.annotation.translation_table),
+        tool_genetic_code_check(cfg),
         *checks_genome,
         genetic_code_check([r.sequence for r in genome], cfg.annotation.translation_table),
         *checks_proteins,

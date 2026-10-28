@@ -184,6 +184,7 @@
         },
         "translation_table": {
           "default": 11,
+          "description": "NCBI genetic code for every step: one of 4, 11 or 25 (checked in preflight, not here, so a bad value is reported in the preflight table)",
           "title": "Translation Table",
           "type": "integer"
         },
