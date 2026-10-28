@@ -322,7 +322,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
         else None
     )
     # The genome also replaces nucleotides a recorded Bakta JSON does not carry (M3-24 decision 8).
-    ann = parse_bakta_json(opts.annotation, genome=fasta)
+    ann = parse_bakta_json(opts.annotation, genome=fasta, translation_table=opts.translation_table)
     gm = ann.model
     if not gm.replicons:
         raise ValueError(f"{opts.annotation}: annotation has no sequences or features")
