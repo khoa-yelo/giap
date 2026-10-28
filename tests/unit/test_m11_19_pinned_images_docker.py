@@ -407,8 +407,23 @@ def test_example_13_no_docker_on_path(
         'unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.24/images/json"',
         'error during connect: Get "http://docker.example:2375/v1.47/images/x/json": dial tcp: '
         "lookup docker.example: no such host",
+        # Docker 29+ (moby client v0.1.0) wording
+        "permission denied while trying to connect to the docker API at "
+        "unix:///var/run/docker.sock",
+        "failed to connect to the docker API at unix:///var/run/docker.sock; check if the path "
+        "is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no "
+        "such file or directory",
+        "failed to connect to the docker API at tcp://docker.example:2375: lookup docker.example: "
+        "no such host",
     ],
-    ids=["cannot-connect", "permission-denied", "error-during-connect"],
+    ids=[
+        "cannot-connect",
+        "permission-denied",
+        "error-during-connect",
+        "v29-permission-denied",
+        "v29-no-socket",
+        "v29-dns",
+    ],
 )
 def test_example_14_daemon_unreachable(
     fake: dict[str, Path], monkeypatch: pytest.MonkeyPatch, stderr: str

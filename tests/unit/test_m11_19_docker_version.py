@@ -130,6 +130,7 @@ def test_parse_docker_version_examples(text: str, want: Any) -> None:
         "Podman version 4.9.3",
         "DOCKER VERSION 27.3.1",
         "Docker version x.y",
+        "x Docker version 19.03",  # anchored at the start of the line (#477 review)
     ],
 )
 def test_parse_is_case_sensitive_and_needs_numbers(text: str) -> None:
@@ -252,3 +253,20 @@ def test_client_version_without_docker_on_path(
     monkeypatch.setenv("PATH", str(empty))
     assert _fn("docker_client_version")() is None
     assert _calls(fake_docker) == []
+
+
+def test_docker_version_call_has_a_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Item 5: every docker probe is bounded (#477 review)."""
+    import subprocess
+
+    env = _env()
+    seen: list[dict[str, Any]] = []
+
+    def run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        seen.append(kwargs)
+        return subprocess.CompletedProcess(args[0], 0, "Docker version 27.3.1, build x\n", "")
+
+    monkeypatch.setattr(env.shutil, "which", lambda name: "/fake/docker")
+    monkeypatch.setattr(env.subprocess, "run", run)
+    assert env.docker_client_version() == ("docker", (27, 3))
+    assert seen and all(kw.get("timeout") for kw in seen)

@@ -346,6 +346,8 @@ _NO_DAEMON = (
     "Cannot connect to the Docker daemon",
     "permission denied while trying to connect to the Docker daemon",
     "error during connect",
+    "to the docker API at",  # Docker 29+ (moby client v0.1.0): "failed to connect to the docker
+    # API at …", "permission denied while trying to connect to the docker API at …"
 )
 
 

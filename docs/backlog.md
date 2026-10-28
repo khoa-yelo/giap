@@ -1438,3 +1438,6 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
 ### 2026-10-28 (lead, #467 review)
 - **#467 F1:** `gippa preflight --config c.yaml --annotation b.json` checks the config file's `bakta_json`, while `gippa run` uses the `--annotation` flag (flags beat the file). Pass `{"annotation.precomputed.bakta_json": _bakta_json(annotation)}` to `_resolve` in `cli.preflight` (cli.py:410), as `run` does, and add a spec note on example 13.
 - **#467 F5:** with untruncated preflight.md messages, `io/abundance.py:91` (`extra_columns`) and `io/peptides.py:134` (`unknown_column`) list every column; run them through `capped()`.
+
+### 2026-10-28 (lead, #477 review)
+- The per-ref inspect cache in `missing_tool_reasons` is untested (no two registry tools share a ref today); the second `image inspect` timeout is unpinned; inspects run in the given tool order, not sorted (spec M11-19).

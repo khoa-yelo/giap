@@ -61,8 +61,9 @@ Where GIPPA is tested and which execution profiles are supported. Each cell is o
 - **podman.** With the `podman-docker` package, `docker` runs podman 3.0 or later, which has
   `--pull=never` and `image inspect`. This is best effort and untested: no CI job or FarmShare
   suite runs podman.
-- **Your own `docker.runOptions`.** A `docker.runOptions` set in your own Nextflow config
-  (`$NXF_HOME/config` or a `nextflow.config` in the launch directory) replaces GIPPA's string.
+- **Your own `docker.runOptions`.** A `docker.runOptions` set in a `nextflow.config` in the
+  launch directory (for `gippa run`, that is `<outdir>/nextflow.config`: Nextflow starts there)
+  or in a `-c` config replaces GIPPA's string; one in `$NXF_HOME/config` does not.
   Keep `--pull=never` as its first option, or Docker pulls a missing image in the middle of the
   run.
 
