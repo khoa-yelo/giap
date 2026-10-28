@@ -54,6 +54,10 @@ tool image by digest (docker), or runs it from the cache that step 3 filled (app
 `<pkg>` is the PyPI project name read from `pyproject.toml` (`gippa` today, `gippa` after the
 rename); `<owner>` is the GitHub owner (`khoa-yelo`, Q-K14).
 
+> **Amended by M11-19** ([M11-19-nextflow-docker-pull-never.md](M11-19-nextflow-docker-pull-never.md)):
+> Nextflow no longer pulls under docker. `docker.runOptions` starts with `--pull=never`, so the
+> images come from step 3 (`gippa setup --images --profile docker`), as under apptainer.
+
 **UniOP (Khoa, 2026-10-25: "UniOP is published research, we should be able to allow a mechanism
 for installing it").** UniOP has no licence file, so GIPPA never redistributes it (no published
 image, no vendoring; R5/R11). Step 3 instead fetches the pinned commit from the authors' GitHub on
@@ -444,6 +448,11 @@ profiles). Under `docker` alone **and under plain `apptainer`**, a process that 
 | uniop with `enabled: auto` / `false` | the item 1 table | same | same |
 | fgsea | prefix → env → image (item 1) | same | as today (prefix) |
 | in-process | never missing | never missing | never missing |
+
+> **Amended by M11-19** ([M11-19-nextflow-docker-pull-never.md](M11-19-nextflow-docker-pull-never.md)):
+> under runtime docker (`docker` in the list, no `apptainer`, with or without `conda`) a pinned
+> image is present iff `docker image inspect <ref>` succeeds; runs never pull it, and a Docker
+> client older than 20.10 (podman older than 3.0) is refused.
 
 - `image_cache` is `NXF_APPTAINER_CACHEDIR`, else `$GIPPA_ROOT/containers`, else
   `<db_dir>/containers`. A pip user with no `$GIPPA_ROOT` therefore has a defined place (Q-L11).
