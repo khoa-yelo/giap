@@ -43,8 +43,11 @@ def _hosts(flag: str) -> list[str]:
 
 
 def _opts(db: Path, flag: str, check: bool = False) -> SetupOptions:
-    return SetupOptions(db, bakta="skip", genomad=False, promotech_models=False, check=check,
-                        **{flag: True})  # fmt: skip
+    # M11-15c2 turns every item on by default: state "nothing but <flag>" explicitly (no antiSMASH
+    # prerequisite check, no Nextflow launcher, only this resource group)
+    groups = {g: g == flag for g in GROUPS}
+    return SetupOptions(db, bakta="skip", genomad=False, antismash=False, promotech_models=False,
+                        nextflow=False, check=check, **groups)  # fmt: skip
 
 
 @pytest.mark.parametrize(
