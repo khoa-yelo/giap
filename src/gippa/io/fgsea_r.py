@@ -83,7 +83,10 @@ _DOCKER_CLEANUP_TIMEOUT_S = 60.0
 _R_NUMBER = re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$")
 _SIZE = re.compile(r"^\d+$")
 _DOCKER_RUN_FAILED = 125  # ``docker run`` itself failed (the container never started)
-_NO_IMAGE = "Unable to find image"
+# what ``docker run --pull=never`` prints for an absent image (#465 review B1): docker
+# "docker: Error response from daemon: No such image: <ref>."; podman "Error: <ref>: image not
+# known". "Unable to find image" belongs to the pull path, which ``--pull=never`` skips.
+_NO_IMAGE = ("No such image:", ": image not known")
 
 
 class FgseaEngineError(StepError):
@@ -421,9 +424,13 @@ def _tail(stderr: bytes) -> str:
 
 
 def _image_missing(returncode: int, stderr: bytes) -> bool:
-    """Whether a failed ``docker run --pull=never`` means the image is not local: docker's own
-    exit 125 with its "Unable to find image" message."""
-    return returncode == _DOCKER_RUN_FAILED and _NO_IMAGE in stderr.decode("utf-8", "replace")
+    """Whether a failed ``docker run --pull=never`` means the image is not local: the runtime's
+    own exit 125 with docker's or podman's missing-image message (docker launchers only; any
+    other exit 125, e.g. an unreachable daemon or an unknown flag, is not)."""
+    if returncode != _DOCKER_RUN_FAILED:
+        return False
+    text = stderr.decode("utf-8", "replace")
+    return any(marker in text for marker in _NO_IMAGE)
 
 
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
