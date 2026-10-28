@@ -30,14 +30,25 @@
     "executor": {"enum": ["local", "nextflow"]},
     "profile": {"$ref": "#/$defs/nstr"},
     "launch": {
-      "description": "How gippa run chose the Nextflow profile (M11-15a): flag or auto-detected; null for the local executor.",
+      "description": "How gippa run chose the Nextflow profile (M11-15a): flag or auto-detected, and the launcher it started (M11-15d); null for the local executor.",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["profile", "profile_source", "profile_reason"],
       "properties": {
         "profile": {"type": "string"},
         "profile_source": {"enum": ["auto", "flag"]},
-        "profile_reason": {"type": "string"}
+        "profile_reason": {"type": "string"},
+        "nextflow": {
+          "description": "The Nextflow launcher gippa run started (M11-15d): found on PATH or the one gippa setup installed in DB_DIR/bin.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "source"],
+          "properties": {
+            "path": {"type": "string", "description": "Absolute path of the launcher."},
+            "source": {"enum": ["path", "db_dir"]},
+            "version": {"type": "string"}
+          }
+        }
       }
     },
     "resume": {"type": "boolean"},

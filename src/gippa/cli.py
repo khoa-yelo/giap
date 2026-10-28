@@ -494,8 +494,9 @@ def run(
         click.echo(f"gippa run: {_r5()}", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
     auto = _["profile"] == "auto"
-    run_info["launch"] = {"profile": profile, "profile_source": "auto" if auto else "flag",
-                          "profile_reason": reason}  # fmt: skip
+    launch: dict[str, Any] = {"profile": profile, "profile_source": "auto" if auto else "flag",
+                              "profile_reason": reason}  # fmt: skip
+    run_info["launch"] = launch
     roots, cfg = _run_preflight(
         cfg, outdir, inputs, db_dir, bool(_["strict"]), profile, publication
     )
@@ -505,7 +506,9 @@ def run(
     lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
     if lib is not None:
         inputs["contaminants"] = lib
-    launcher = _nextflow_prereqs(db_dir)
+    launcher, source = _nextflow_prereqs(db_dir)
+    # which launcher ran: machine-specific, so under the volatile `launch` (review B2)
+    launch["nextflow"] = {"path": str(launcher), "source": source}
     base = _launch_sources(cfg, outdir, run_info, "nextflow", profile, bool(_["resume"]))
     try:
         code = _run_nextflow(cfg, outdir, inputs, str(_["memory"]), profile,
@@ -522,13 +525,14 @@ def run(
     sys.exit(_run_tail(outdir, base, code, **failed))
 
 
-def _nextflow_prereqs(db_dir: Path | None) -> Path:
-    """The ``nextflow`` to launch (``PATH``, else ``<db_dir>/bin/nextflow``) after Java 17+ is
-    checked; exit 2 naming what is missing (M11-15 item 5)."""
-    from gippa.runner.prereqs import LAUNCHER, check_java, find_nextflow, java_problem
+def _nextflow_prereqs(db_dir: Path | None) -> tuple[Path, str]:
+    """The ``nextflow`` to launch (``PATH``, else ``<db_dir>/bin/nextflow``) and its source
+    (``path`` or ``db_dir``) after Java 17+ is checked; exit 2 naming what is missing (M11-15
+    item 5)."""
+    from gippa.runner.prereqs import LAUNCHER, check_java, java_problem, locate_nextflow
 
-    launcher = find_nextflow(os.environ, db_dir)
-    if launcher is None:
+    hit = locate_nextflow(os.environ, db_dir)
+    if hit is None:
         where = f" nor at {db_dir / LAUNCHER}" if db_dir is not None else ""
         click.echo(
             f"gippa run: nextflow not found on PATH{where}; run '{_PKG} setup' (it installs the "
@@ -541,8 +545,9 @@ def _nextflow_prereqs(db_dir: Path | None) -> Path:
     if problem is not None:
         click.echo(f"gippa run: error: {problem}", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
+    launcher, source = hit
     click.echo(f"gippa run: nextflow {launcher}", err=True)
-    return launcher
+    return launcher, source
 
 
 def _launch_sources(

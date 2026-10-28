@@ -1,7 +1,8 @@
 """Prerequisites of a Nextflow launch: Java 17+ and the ``nextflow`` launcher (M11-15 item 5).
 
-Java is never downloaded: ``$JAVA_HOME/bin/java`` (the Java the Nextflow launcher runs when
-``JAVA_HOME`` is set), else ``java`` on ``PATH``, is run as ``java -version`` with a 10 s timeout
+Java is never downloaded. The Java the Nextflow launcher would run is found as the launcher
+finds it (``NXF_JAVA_HOME``, else an executable ``JAVA_CMD``, else a ``JAVA_HOME`` directory,
+else ``java`` on ``PATH``; see :func:`_java_exe`), run as ``java -version`` with a 10 s timeout
 and its major version parsed. A nonzero exit (the macOS ``/usr/bin/java`` stub without a JDK),
 a timeout, a launcher that cannot start or unparseable output count as "not found". ``gippa
 setup`` warns; ``gippa run`` exits 2. ``nextflow`` is looked up on ``PATH``, else
@@ -26,6 +27,7 @@ __all__ = [
     "check_java",
     "find_nextflow",
     "java_problem",
+    "locate_nextflow",
     "nextflow_version",
     "parse_java_major",
 ]
@@ -60,14 +62,26 @@ def parse_java_major(text: str) -> int | None:
 
 
 def _java_exe(environ: Mapping[str, str]) -> str | None:
-    home = environ.get("JAVA_HOME")
-    if home:
-        return str(Path(home) / "bin" / "java")
+    """The Java the Nextflow launcher runs (its ``JAVA_CMD`` lookup, the macOS ``java_home``
+    step aside): a non-empty ``NXF_JAVA_HOME`` replaces ``JAVA_HOME`` and drops ``JAVA_CMD``;
+    then ``JAVA_CMD`` when executable; then ``JAVA_HOME`` when it is a directory (its
+    ``jre/sh/java`` if executable, else ``bin/java``, existing or not); else ``java`` on
+    ``PATH``."""
+    home = environ.get("JAVA_HOME", "")
+    cmd = environ.get("JAVA_CMD", "")
+    nxf_home = environ.get("NXF_JAVA_HOME", "")
+    if nxf_home:
+        home, cmd = nxf_home, ""
+    if cmd and os.access(cmd, os.X_OK):
+        return cmd
+    if home and os.path.isdir(home):
+        ibm = os.path.join(home, "jre", "sh", "java")
+        return ibm if os.access(ibm, os.X_OK) else os.path.join(home, "bin", "java")
     return shutil.which("java", path=environ.get("PATH", ""))
 
 
 def check_java(environ: Mapping[str, str]) -> JavaCheck:
-    """Run ``java -version`` (``environ`` gives ``JAVA_HOME`` and ``PATH``) and parse it."""
+    """Run ``java -version`` for the Java the launcher picks from ``environ`` and parse it."""
     exe = _java_exe(environ)
     if exe is None:
         return JavaCheck(None, None)
@@ -101,16 +115,26 @@ def java_problem(check: JavaCheck) -> str | None:
     return f"Java {JAVA_MIN} or newer is needed for Nextflow ({found}); {_ADVICE}"
 
 
-def find_nextflow(environ: Mapping[str, str], db_dir: Path | None) -> Path | None:
-    """``nextflow`` on ``environ["PATH"]``, else ``<db_dir>/bin/nextflow`` when it is an
-    executable file, else ``None``."""
+def locate_nextflow(environ: Mapping[str, str], db_dir: Path | None) -> tuple[Path, str] | None:
+    """The launcher and where it was found: ``(<absolute path>, "path")`` for ``nextflow`` on
+    ``environ["PATH"]``, else ``(<db_dir>/bin/nextflow, "db_dir")`` when that is an executable
+    file, else ``None``. The path is absolute even for a relative ``PATH`` entry."""
     on_path = shutil.which("nextflow", path=environ.get("PATH", ""))
     if on_path is not None:
-        return Path(on_path)
+        return Path(on_path).absolute(), "path"
     if db_dir is None:
         return None
     exe = db_dir / LAUNCHER
-    return exe if exe.is_file() and os.access(exe, os.X_OK) else None
+    if exe.is_file() and os.access(exe, os.X_OK):
+        return exe.absolute(), "db_dir"
+    return None
+
+
+def find_nextflow(environ: Mapping[str, str], db_dir: Path | None) -> Path | None:
+    """``nextflow`` on ``environ["PATH"]``, else ``<db_dir>/bin/nextflow`` when it is an
+    executable file, else ``None`` (:func:`locate_nextflow` without the source)."""
+    hit = locate_nextflow(environ, db_dir)
+    return hit[0] if hit is not None else None
 
 
 def nextflow_version(exe: Path, environ: Mapping[str, str]) -> str:
