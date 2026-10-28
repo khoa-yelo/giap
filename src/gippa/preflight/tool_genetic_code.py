@@ -15,6 +15,7 @@ from collections.abc import Callable, Sequence
 
 from gippa.config import GippaConfig
 from gippa.exitcodes import ExitCode
+from gippa.mapping.tblastn import db_gencode_values
 from gippa.preflight.checks import Check
 
 __all__ = ["RULE_ID", "tool_genetic_code_check"]
@@ -23,8 +24,8 @@ RULE_ID = "config.tool_genetic_code"
 RULE_TEXT = (
     "annotation.bakta.extra_args without --translation-table (or an argparse prefix of it of at "
     "least 4 characters), mapping.proteins.miniprot_args without -T (also inside a single-dash "
-    "cluster), mapping.proteins.tblastn_args with at most one -db_gencode equal to "
-    "annotation.translation_table, every string split by shlex → ok; else error"
+    "cluster), mapping.proteins.tblastn_args with at most one unquoted -db_gencode equal "
+    "to annotation.translation_table, every string split by shlex → ok; else error"
 )
 BAKTA = "annotation.bakta.extra_args"
 MINIPROT = "mapping.proteins.miniprot_args"
@@ -63,15 +64,10 @@ def _miniprot_sets_code(args: str) -> bool:
 
 
 def _tblastn_conflicts(args: str, table: int) -> bool:
-    """``-db_gencode`` repeated, bare at the end, or with a value other than ``table``."""
-    tokens = _split(args)
-    values: list[str | None] = []
-    for i, tok in enumerate(tokens):
-        if tok == "-db_gencode":
-            values.append(tokens[i + 1] if i + 1 < len(tokens) else None)
-        elif tok.startswith("-db_gencode="):
-            values.append(tok.split("=", 1)[1])
-    return len(values) > 1 or any(v != str(table) for v in values)
+    """``-db_gencode`` repeated, bare at the end, quoted, or with a value other than ``table``
+    (``gippa.mapping.tblastn.db_gencode_values``, the rule ``effective_tblastn_args`` applies)."""
+    _split(args)
+    return db_gencode_values(args, table)[1]
 
 
 def tool_genetic_code_check(cfg: GippaConfig) -> Check:
