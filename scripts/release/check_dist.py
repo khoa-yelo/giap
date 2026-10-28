@@ -3,10 +3,11 @@
 Usage: python scripts/release/check_dist.py DIST_DIR [--version V]
 
 Opens every ``*.whl`` and ``*.tar.gz`` with the standard library (never installs) and checks the
-required content, forbidden paths, symlinks, sizes (> 5 MB) and the version (default: the
-checkout's ``gippa.__version__``). Prints one ``ok <artefact>`` line per clean artefact and one
-``FAIL <artefact>: <rule>: <path>`` line per violation. Exit 0 clean, 1 violations, 2 when
-DIST_DIR has no wheel or no sdist.
+required content, forbidden paths, symlinks, sizes (> 5 MB), the bundled ``gippa demo`` data
+(``gippa/data/demo/``: every file of the checkout's copy, at most 1 MiB together; M11-15 item 2)
+and the version (default: the checkout's ``gippa.__version__``). Prints one ``ok <artefact>``
+line per clean artefact and one ``FAIL <artefact>: <rule>: <path>`` line per violation. Exit 0
+clean, 1 violations, 2 when DIST_DIR has no wheel or no sdist.
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ MAX_BYTES = 5 * 1024 * 1024  # R11
 FORBIDDEN_TOP = ("local", "tests", "validation", ".github", ".claude", "docs", "benchmarks")
 FORBIDDEN_PREFIXES = ("workflow/tests/", "gippa/workflow/tests/")
 FORBIDDEN_SUFFIXES = (".sif", ".raw", ".d", ".mzml", ".parquet", ".pyc")
+DEMO_PREFIX = "gippa/data/demo/"
+DEMO_MAX_BYTES = 1024 * 1024  # M11-15 item 2 AC 1
 UNIOP_ALLOWED = ("workflow/modules/local/uniop/", "workflow/containers/uniop/")
 SDIST_FILES = (
     "pyproject.toml",
@@ -75,6 +78,25 @@ def wheel_required(repo: Path = REPO) -> list[str]:
         f"gippa/workflow/conf/{p.name}" for p in (repo / "workflow/conf").glob("*.config")
     )
     return [*WHEEL_FILES, *envs, *confs]
+
+
+def demo_required(repo: Path = REPO) -> list[str]:
+    """Every file of the checkout's ``src/gippa/data/demo/`` as a wheel path (M11-15 item 2)."""
+    demo = repo / "src/gippa/data/demo"
+    return sorted(DEMO_PREFIX + p.relative_to(demo).as_posix() for p in demo.rglob("*")
+                  if p.is_file() and "__pycache__" not in p.parts)  # fmt: skip
+
+
+def demo_failures(members: list[Member], repo: Path = REPO) -> list[tuple[str, str]]:
+    """The demo directory: present, every checkout file in it, at most ``DEMO_MAX_BYTES``."""
+    names = {m.path for m in members}
+    fails = [("missing", f) for f in demo_required(repo) if f not in names]
+    if not any(n.startswith(DEMO_PREFIX) for n in names):
+        fails.append(("missing", DEMO_PREFIX))
+    size = sum(m.size for m in members if m.path.startswith(DEMO_PREFIX))
+    if size > DEMO_MAX_BYTES:
+        fails.append((f"demo data {size} bytes > {DEMO_MAX_BYTES}", DEMO_PREFIX))
+    return fails
 
 
 def forbidden(rel: str) -> bool:
@@ -140,6 +162,7 @@ def check_wheel(path: Path, version: str, repo: Path = REPO) -> list[tuple[str, 
         entry_points = read(f"{di}/entry_points.txt")
     fails = list(member_failures(members))
     fails += [("missing", f) for f in wheel_required(repo) if f not in names]
+    fails += demo_failures(members, repo)
     if not metadata:
         fails.append(("missing", f"{di}/METADATA"))
     if not re.search(

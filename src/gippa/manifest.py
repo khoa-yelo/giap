@@ -99,6 +99,7 @@ class ManifestSources:
     island_diagnostics: Sequence[Mapping[str, Any]] | None = None  # C1 order
     calibration: Mapping[str, Any] | None = None  # gippa.data.calibration.load()
     detection_tier: str | None = None  # the tier detection used (genes.tsv, §7.3.2)
+    demo: bool = False  # a ``gippa demo`` run (M11-15 item 2): ``demo: true`` in the manifest
 
 
 def canonical_json(obj: Any) -> str:
@@ -426,5 +427,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "volatile": list(VOLATILE),
         **_content(src),
     }
+    if src.demo:  # ordinary runs omit the key (optional in the schema)
+        m["demo"] = True
     m["provenance_digest"] = provenance_digest(provenance_core(m))
     return m
