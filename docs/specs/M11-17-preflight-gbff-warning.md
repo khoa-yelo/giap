@@ -146,3 +146,8 @@ No statistical claim, so no calibration test.
   supplied them.
 - Q2: the rule warns whatever the executor.
 - Q3: only a regular file counts (`Path.is_file()`); a directory named `<stem>.gbff` does not.
+- Writer amendment (lead decision, 2026-10-28): this amends "no new writer code" in "Where it
+  runs", item 2. `preflight.md` cut every cell at 200 characters, which cut off the expected GBFF
+  path, and the path is the point of the rule. The Message cell is now shown in full for every
+  row; the Value cell keeps the 200-character cap (values can be large JSON). Escaping and
+  whitespace folding are unchanged.
