@@ -9,12 +9,14 @@ restored env is told apart from a new one by its contents. Nothing is ever solve
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import signal
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -42,7 +44,13 @@ case "$1" in
     echo new > "$envs/$n/bin/payload"
     if [ -e "$FAKE_DIR/hold_create_$n" ] && mkdir "$FAKE_DIR/held" 2>/dev/null; then
       touch "$FAKE_DIR/in_create"
-      while [ ! -e "$FAKE_DIR/release" ]; do sleep 0.05; done
+      # Bounded: a test that fails before it writes the release file must not leave this
+      # loop running (two such children once ran 7.7 h after their test had ended).
+      end=$((SECONDS + 120))
+      while [ ! -e "$FAKE_DIR/release" ]; do
+        [ "$SECONDS" -lt "$end" ] || { echo "fake create: never released" >&2; exit 1; }
+        sleep 0.05
+      done
       exit 0
     fi
     if [ -e "$FAKE_DIR/hang_create_$n" ]; then
@@ -169,11 +177,33 @@ class Box:
         return hashlib.sha256(data).hexdigest()
 
 
+def _survivors(fake: Path) -> list[int]:
+    """PIDs of live processes started for this box (they inherit ``FAKE_DIR=<fake>``)."""
+    needle = f"FAKE_DIR={fake}".encode()
+    pids = []
+    for proc in Path("/proc").glob("[0-9]*"):
+        try:
+            environ = (proc / "environ").read_bytes()
+        except OSError:  # gone, a zombie or not ours
+            continue
+        if needle in environ.split(b"\0"):
+            pids.append(int(proc.name))
+    return pids
+
+
 @pytest.fixture
-def box(tmp_path: Path) -> Box:
+def box(tmp_path: Path) -> Iterator[Box]:
     b = Box(tmp_path)
     b.version("bakta", "bakta 1.12.2")
-    return b
+    yield b
+    # No child of the test may outlive it (a held fake create once ran 7.7 h).
+    deadline = time.monotonic() + 10
+    while (left := _survivors(b.fake)) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    for pid in left:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+    assert not left, f"processes outlived the test: {left}"
 
 
 def _assert_old_kept(box: Box, tool: str) -> None:
@@ -477,6 +507,7 @@ def test_second_build_of_one_env_waits_out_the_first(box: Box, impl: str) -> Non
         env=box.env(**extra),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        start_new_session=True,  # its fake create child is killed with it in the finally
     )
     try:
         _wait_for(box.fake / "in_create", first)
@@ -492,9 +523,13 @@ def test_second_build_of_one_env_waits_out_the_first(box: Box, impl: str) -> Non
         (box.fake / "release").write_text("")
         out, err = first.communicate(timeout=120)
     finally:
+        (box.fake / "release").write_text("")  # frees a held create if an assert failed above
         if first.poll() is None:
-            first.kill()
-            first.wait()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                first.communicate(timeout=30)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(first.pid, signal.SIGKILL)  # the whole group, not only bash
+        first.wait()
     assert first.returncode == 0, (out + err).decode()
     _assert_new(box)
     assert box.run("bakta", **extra).returncode == 0, "the lock was not released"

@@ -8,7 +8,8 @@
   (partition MaxMemPerCPU 4000 MB); discordance asks 2 x 16000 MB and gets 8 CPUs, not 4. The plan
   allocates 126 CPUs, 127 with the rows job; the launcher sums the same.
 - The ⅔ rule (docs/specs/M11-03c-calibration-full-sharding.md, "Initial plan"): each suite job's
-  LPT estimate from ``calibration_durations.tsv`` is at most ⅔ of its ``time``.
+  LPT estimate from ``calibration_durations.tsv`` is at most ⅔ of its ``time``. A shard lane's
+  estimate includes the merge, which runs in the same job time (backlog 2026-10-27).
 - A probe-log test that started and never finished gets a lower bound (last stamp minus start).
 - A nameless ``<testcase time="0.001"/>`` (an interrupted lane) is never counted as a test.
 """
@@ -205,10 +206,57 @@ def collection(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, 
     return out
 
 
+# The merge phase (block 2 of the pending checks, ``--merge`` on the shard lanes after the shards)
+# runs inside the same job time. Its time is recorded in ``calibration_durations.tsv`` only through
+# the JUnit sum: a row is ``durations_from_junit`` over every part of the run, shard lanes *and*
+# ``task-<i>.merge.lane<k>.junit.xml``, so a shard test's row is block 1 + block 2 and
+# ``row / shards`` is one lane's shard work plus its merge work. That holds where the merge
+# finished: placement and variants (run 45bc3599, jobs 1900336 / 1900349, merge exit 0; e.g.
+# variants g1 = 7730.8 s shards + 8604.4 s merge = its 16335.2 s row).
+#
+# novel_orfs' merge (job 1900347) was killed at 0.95 h: only merge lane 0 of 6 wrote its JUnit, so
+# its rows hold 1/6 of the merge. The block-2 records in that run's ``novel_orfs.jsonl`` hold the
+# rest (``duration`` of each lane's block-2 slice); the seeds are fixed, so the same checks are
+# pending again (R7). Seconds of merge work missing from the rows, per nodeid:
+_GC = ("tests/calibration/attacks/test_attack_m7_gate.py::"
+       "test_attack_gc_poor_intergenic_fdp_at_level_full")  # fmt: skip
+_MULTI = ("tests/calibration/attacks/test_attack_novel_class_fdr.py::"
+          "test_denovo_orf_fdr_with_multi_peptide_false_orfs[full]")  # fmt: skip
+_G4K3 = ("tests/calibration/test_novel_orfs_gate.py::"
+         "test_g4k3_clustered_false_orfs_full[intergenic-0.01]")  # fmt: skip
+MERGE_NOT_IN_DURATIONS: dict[str, dict[str, float]] = {
+    "novel_orfs": {
+        _GC: 20487.4 - 3406.041,  # 6 block-2 slices (3328-3534 s) minus lane 0's JUnit time
+        _MULTI: 59.2 - 9.672,
+    },
+}
+# novel_orfs ``g4k3.intergenic`` (``fdr_counts``, R = 300) was in the merge's confirm list but the
+# kill came before it logged block 2. Block 2 runs the same R replicates as block 1, so it weighs
+# its block-1 row (which holds no merge part: lane 0's JUnit has no g4k3 testcase).
+MERGE_AS_BLOCK1: dict[str, tuple[str, ...]] = {"novel_orfs": (_G4K3,)}
+# Where each sharded suite's merge time comes from. determinants has no recorded merge: it ran
+# unsharded in 45bc3599 and its per-model rows (``1901050:measured``) are block 1 only (#445 N6).
+# Block 2 runs only for checks whose block 1 is not decided; if all its shard checks went to block
+# 2, its lane would be about twice its block-1 estimate.
+MERGE_SOURCE = {
+    "placement": "rows (1900336 merge finished)",
+    "variants": "rows (1900349 merge finished)",
+    "novel_orfs": "rows + MERGE_NOT_IN_DURATIONS + MERGE_AS_BLOCK1 (1900347 merge killed)",
+    "determinants": "none (block 1 only, 1901050:measured)",
+}
+
+
+def _merge_extra_s(suite: str, durations: dict[str, float]) -> float:
+    """Merge seconds (summed over lanes) that the durations rows of ``suite`` do not hold."""
+    extra = sum(MERGE_NOT_IN_DURATIONS.get(suite, {}).values())
+    return extra + sum(durations[n] for n in MERGE_AS_BLOCK1.get(suite, ()))
+
+
 def _estimate_s(mod: ModuleType, row: object, report: dict[str, bool],
-                durations: dict[str, float]) -> float:  # fmt: skip
+                durations: dict[str, float], *, merge: bool = True) -> float:  # fmt: skip
     """The job's estimate: its longest group lane (LPT) or a shard lane's share of the shard tests
-    (their recorded single-process time over ``shards``); a missing test weighs ``unknown_min``."""
+    and of the merge (their recorded single-process time, plus the merge work the rows miss, over
+    ``shards``); a missing test weighs ``unknown_min``."""
     lanes = mod.lanes(row, report, durations)
 
     def w(n: str) -> float:
@@ -217,7 +265,10 @@ def _estimate_s(mod: ModuleType, row: object, report: dict[str, bool],
     loads = [sum(w(n) for n in ln.expected) for ln in lanes if ln.kind == "group"]
     shard = [ln for ln in lanes if ln.kind == "shard"]
     if shard:
-        loads.append(sum(w(n) for n in shard[0].expected) / len(shard))
+        work = sum(w(n) for n in shard[0].expected)
+        if merge:
+            work += _merge_extra_s(row.suite, durations)  # type: ignore[attr-defined]
+        loads.append(work / len(shard))
     return max(loads)
 
 
@@ -238,6 +289,52 @@ def test_lpt_estimate_within_two_thirds_of_time(lanes_mod: ModuleType,
     row = rows[suite]
     est = _estimate_s(lanes_mod, row, collection[suite], durations)
     assert est <= 2 / 3 * row.time_s, (suite, est / 3600, row.time)
+
+
+def test_every_sharded_suite_states_its_merge_source(
+    lanes_mod: ModuleType, collection: dict[str, dict[str, bool]]
+) -> None:
+    """A new sharded suite must say where its merge time comes from; the merge corrections name
+    shard tests of their suite (a group test never reaches the merge)."""
+    rows = lanes_mod.read_plan(PLAN, _suites())
+    assert {r.suite for r in rows if r.shards > 0} == set(MERGE_SOURCE)
+    durations = lanes_mod.read_durations(DURATIONS)
+    for r in rows:
+        named = [*MERGE_NOT_IN_DURATIONS.get(r.suite, {}), *MERGE_AS_BLOCK1.get(r.suite, ())]
+        if not named:
+            continue
+        shard = [ln for ln in lanes_mod.lanes(r, collection[r.suite], durations)
+                 if ln.kind == "shard"]  # fmt: skip
+        for n in named:
+            assert n in shard[0].expected, (r.suite, n)
+            assert n in durations, n
+
+
+def test_durations_rows_hold_the_merge_parts(lanes_mod: ModuleType, tmp_path: Path) -> None:
+    """Why ``row / shards`` covers a finished merge: the rows sum shard and merge JUnit parts."""
+    case = '<testcase classname="tests.calibration.test_v" name="test_g1_full" time="{}"/>'
+    parts = {"task-13.shard0": 3865.0, "task-13.shard1": 3866.0,
+             "task-13.merge.lane0": 4305.0, "task-13.merge.lane1": 4299.0}  # fmt: skip
+    paths = []
+    for name, t in parts.items():
+        p = tmp_path / f"{name}.junit.xml"
+        p.write_text(f"<testsuites><testsuite>{case.format(t)}</testsuite></testsuites>")
+        paths.append(p)
+    got = lanes_mod.durations_from_junit(paths)
+    assert got == {"tests/calibration/test_v.py::test_g1_full": pytest.approx(sum(parts.values()))}
+
+
+def test_novel_orfs_estimate_counts_its_killed_merge(
+    lanes_mod: ModuleType, collection: dict[str, dict[str, bool]]
+) -> None:
+    """Dry run 1900347 killed the merge after 0.95 h; the rows hold lane 0's part only. The
+    estimate adds the other lanes' block-2 gc time and g4k3's pending block 2 over 8 shards."""
+    row = {r.suite: r for r in lanes_mod.read_plan(PLAN, _suites())}["novel_orfs"]
+    d = lanes_mod.read_durations(DURATIONS)
+    lanes_only = _estimate_s(lanes_mod, row, collection["novel_orfs"], d, merge=False)
+    est = _estimate_s(lanes_mod, row, collection["novel_orfs"], d)
+    assert est - lanes_only == pytest.approx((17081.359 + 49.528 + d[_G4K3]) / row.shards)
+    assert est > 4 * 3600  # 1900347: six shard lanes of 4.7 h, then the merge
 
 
 def test_durations_rows_are_the_max_of_old_and_new(lanes_mod: ModuleType) -> None:
