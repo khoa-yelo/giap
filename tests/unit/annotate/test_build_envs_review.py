@@ -49,6 +49,7 @@ case "$1" in
     n="$(name_of "$@")"
     [ -e "$FAKE_DIR/fail_create_$n" ] && exit 1
     mkdir -p "$envs/$n/conda-meta" "$envs/$n/bin"
+    printf '#!/bin/sh\nexit 0\n' > "$envs/$n/bin/pip"; chmod +x "$envs/$n/bin/pip"
     exit 0 ;;
   remove)
     n="$(name_of "$@")"; rm -rf "${envs:?}/$n"; exit 0 ;;
