@@ -1154,9 +1154,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
 
 ### 2026-10-27 (lead)
 - **#445 review nits (calibration plan; S1–S3 fixed in the PR):**
-  - N1: `probe_log_lower_bounds` across several probe logs keeps the last file's bound, not the largest (`calibration_lanes.py` main, `lower.update`); under `--max` a `:lower-bound` row is never replaced by a smaller real measurement; interrupted JUnit lanes give no lower bounds.
-  - N2: a lower bound assumes the test ran until the log's last stamp; a silently dead worker overstates it. Add a docstring caveat.
-  - N3: mutant M8 (lower bounds override measured values) survives; add a two-file CLI test (finished in log A, unfinished in log B).
+  - ~~N1~~ done (`fix/calibration-lanes-nits`: `merge_lower_bounds` keeps the max; under `--max` a measurement replaces a `:lower-bound` row; interrupted JUnit lanes still give no lower bounds): `probe_log_lower_bounds` across several probe logs keeps the last file's bound, not the largest (`calibration_lanes.py` main, `lower.update`); under `--max` a `:lower-bound` row is never replaced by a smaller real measurement; interrupted JUnit lanes give no lower bounds.
+  - ~~N2~~ done (docstring caveat, `fix/calibration-lanes-nits`): a lower bound assumes the test ran until the log's last stamp; a silently dead worker overstates it. Add a docstring caveat.
+  - ~~N3~~ done (`tests/unit/test_calibration_lanes_lower_bounds.py`, `fix/calibration-lanes-nits`): mutant M8 (lower bounds override measured values) survives; add a two-file CLI test (finished in log A, unfinished in log B).
   - N4: mutant M9 (`>` to `>=` in `--max`) survives; a tie relabels the source. Harmless.
   - N5: `test_durations_rows_are_the_max_of_old_and_new` checks one row; compare against `origin/main`'s `calibration_durations.tsv` and assert no row went down.
   - N6: the per-model determinants rows (`1901050:measured`, 23579 / 78976 s) are hand-entered and cover block 1 only, so the ⅔ test passes determinants on block 1 only (the PR's known gap).
