@@ -1,4 +1,4 @@
-"""Calibration of the M6-01 decoy-FDR engine (GIAP_SPEC.md §7.4.4, §8.2, §8.4; suite
+"""Calibration of the M6-01 decoy-FDR engine (GIPPA_SPEC.md §7.4.4, §8.2, §8.4; suite
 ``missed_operons``).
 
 Engine-level claims only: the operon-level gate (planted missed operons through the pair table, the
@@ -36,7 +36,7 @@ import numpy.typing as npt
 import pytest
 from _gate import Gate, calibrate_levels
 
-from giap.stats.decoy_fdr import local_fdr, max_decoy_fdr, reweighted_fdr
+from gippa.stats.decoy_fdr import local_fdr, max_decoy_fdr, reweighted_fdr
 
 SUITE = "missed_operons"
 FAST_SECONDS = 60.0

@@ -7,7 +7,7 @@ The lead's decisions pinned here:
 (b) H6: ``success``/``skipped`` pass; ``neutral``, ``cancelled``, ``timed_out``, ``failure`` and
     ``action_required`` fail; a null conclusion (still running) is ``pending``; every run of a
     ``--check-runs`` file must carry ``head_sha`` = the commit under check, else ``fail``;
-(c) TE7 reads the real ``metrics.json`` shape, ``te7.giap.status`` (``validation/pilot/te7.py``
+(c) TE7 reads the real ``metrics.json`` shape, ``te7.gippa.status`` (``validation/pilot/te7.py``
     writes no ``te7.passed``); a ``te7`` or ``te_real`` without ``schema`` is a placeholder
     (``metrics.te_placeholders()``, status ``pending (M10-06)``) and gives ``pending``;
 (d) the peptide guard: no lowercasing; a peptide-like run not on a fixed allow-list is redacted,
@@ -66,7 +66,7 @@ def pilot_metrics() -> ModuleType:
     if str(REPO) not in sys.path:
         sys.path.insert(0, str(REPO))  # it imports validation.proxies.te_proxies
     spec = importlib.util.spec_from_file_location(
-        "giap_pilot_metrics_m11_03", REPO / "validation/pilot/metrics.py"
+        "gippa_pilot_metrics_m11_03", REPO / "validation/pilot/metrics.py"
     )
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
@@ -76,13 +76,13 @@ def pilot_metrics() -> ModuleType:
 
 
 def te7_doc(status: str = "pass") -> dict[str, Any]:
-    """``te7`` as ``validation/pilot/te7.py::te7`` writes it (schema giap-pilot-te7/1): the verdict
-    is ``giap.status`` from ``classify_tree``; there is no ``passed`` key."""
+    """``te7`` as ``validation/pilot/te7.py::te7`` writes it (schema gippa-pilot-te7/1): the verdict
+    is ``gippa.status`` from ``classify_tree``; there is no ``passed`` key."""
     return {
-        "schema": "giap-pilot-te7/1",
+        "schema": "gippa-pilot-te7/1",
         "spec": "0" * 64,
         "pair": {},
-        "giap": {"status": status, "differing": [], "external_differing": [],
+        "gippa": {"status": status, "differing": [], "external_differing": [],
                  "figures_differing": [], "n_gate": 41, "n_external": 2, "n_figures": 9,
                  "n_excluded": 4},
         "diann": {"status": "identical_report", "l0": True, "l3": None},
@@ -91,9 +91,9 @@ def te7_doc(status: str = "pass") -> dict[str, Any]:
 
 
 def te_real_doc(statuses: dict[str, str] | None = None) -> dict[str, Any]:
-    """``te_real`` as ``validation/pilot/te_real.py`` writes it (schema giap-pilot-te-real/1)."""
+    """``te_real`` as ``validation/pilot/te_real.py`` writes it (schema gippa-pilot-te-real/1)."""
     st_ = {k: "pass" for k in TE_KEYS} | (statuses or {})
-    return {"schema": "giap-pilot-te-real/1", "spec": "0" * 64,
+    return {"schema": "gippa-pilot-te-real/1", "spec": "0" * 64,
             **{k: {"status": s} for k, s in st_.items()}}  # fmt: skip
 
 
@@ -142,13 +142,13 @@ def test_real_shape_helpers_match_pilot_code() -> None:
     """The placeholder shape comes from the pilot code itself, not from a hand-made fixture."""
     ph = pilot_metrics().te_placeholders()
     assert "schema" not in ph["te7"] and "passed" not in ph["te7"]
-    assert ph["te7"]["giap"]["status"].startswith("pending")
+    assert ph["te7"]["gippa"]["status"].startswith("pending")
     assert "schema" not in ph["te_real"]
     assert all(ph["te_real"][k]["status"].startswith("pending") for k in TE_KEYS)
     assert "passed" not in te7_doc()
 
 
-# ------------------------------------------------------------------ item 1: TE7 = te7.giap.status
+# ------------------------------------------------------------------ item 1: TE7 = te7.gippa.status
 
 
 def test_item1_te7_real_shape_passes(fx: Fixture) -> None:
@@ -160,7 +160,7 @@ def test_item1_te7_real_shape_passes(fx: Fixture) -> None:
     assert re.search(r"TE7 pass", r5["value"]), r5["value"]
 
 
-def test_item1_te7_giap_fail_fails(fx: Fixture) -> None:
+def test_item1_te7_gippa_fail_fails(fx: Fixture) -> None:
     fx.write_json(METRICS, real_metrics(te7="fail"))
     _, doc = compute(fx)
     assert row(doc, "R6")["status"] == "fail"
@@ -170,7 +170,7 @@ def test_item1_te7_giap_fail_fails(fx: Fixture) -> None:
 
 def test_item1_invented_passed_key_is_not_read(fx: Fixture) -> None:
     doc = real_metrics(te7="fail")
-    doc["te7"]["passed"] = True  # a key the pilot never writes; the verdict is giap.status
+    doc["te7"]["passed"] = True  # a key the pilot never writes; the verdict is gippa.status
     fx.write_json(METRICS, doc)
     _, out = compute(fx)
     assert row(out, "R6")["status"] == "fail"
@@ -284,26 +284,26 @@ def test_item5_rename_out_of_src_is_stale(fx: Fixture) -> None:
     compute(fx)
     fx.commit("readiness paperwork")
     assert "commit rule: pass" in out_of(fx.verify())  # control: paperwork only
-    git(fx.repo, "mv", "src/giap/cli.py", "docs/cli.py")
+    git(fx.repo, "mv", "src/gippa/cli.py", "docs/cli.py")
     git(fx.repo, "commit", "-q", "-m", "move cli into docs")
     p = fx.verify()
     assert p.returncode == 1
-    assert "commit rule: fail (stale: src/giap/cli.py)" in out_of(p), out_of(p)
+    assert "commit rule: fail (stale: src/gippa/cli.py)" in out_of(p), out_of(p)
 
 
 # ------------------------------------------------------------------ item 6: ancestry with merges
 
 
 def _merge_history(fx: Fixture) -> tuple[str, str]:
-    """main: R - Z (docs) - M (merge); side: R - Y (src/giap/stats/bh.py). Returns (Y, Z)."""
+    """main: R - Z (docs) - M (merge); side: R - Y (src/gippa/stats/bh.py). Returns (Y, Z)."""
     git(fx.repo, "checkout", "-q", "-b", "side")
-    fx.write_text("src/giap/stats/bh.py", '"""BH (fixture), changed on side."""\n')
+    fx.write_text("src/gippa/stats/bh.py", '"""BH (fixture), changed on side."""\n')
     y = fx.commit("Y: src change on side")
     git(fx.repo, "checkout", "-q", "main")
     fx.write_text("docs/a.md", "# a\n")
     z = fx.commit("Z: docs on main")
     git(fx.repo, "merge", "-q", "--no-ff", "side", "-m", "M: merge side")
-    assert git(fx.repo, "diff", "--name-only", z, "HEAD", "--", "src") == "src/giap/stats/bh.py"
+    assert git(fx.repo, "diff", "--name-only", z, "HEAD", "--", "src") == "src/gippa/stats/bh.py"
     assert git(fx.repo, "diff", "--name-only", y, "HEAD", "--", "src") == ""
     return y, z
 
@@ -326,7 +326,7 @@ def test_item6_code_equal_side_commit_counts(fx: Fixture) -> None:
 
 
 def test_item6_rename_out_of_src_invalidates_row(fx: Fixture) -> None:
-    git(fx.repo, "mv", "src/giap/stats/bh.py", "docs/bh.py")
+    git(fx.repo, "mv", "src/gippa/stats/bh.py", "docs/bh.py")
     git(fx.repo, "commit", "-q", "-m", "move bh into docs")
     _, doc = compute(fx)
     assert row(doc, "R3")["status"] == "pending"
@@ -443,7 +443,7 @@ def test_item8_check_runs_for_another_commit_fail(fx: Fixture) -> None:
 
 def test_item8_check_runs_stale_after_new_commit(fx: Fixture) -> None:
     write_runs(fx)  # for R
-    fx.write_text("README.md", "# GIAP 1.0\n")
+    fx.write_text("README.md", "# GIPPA 1.0\n")
     fx.commit("readme")
     _, doc = fx.compute()  # the file is not rewritten: its head_sha is R, HEAD is newer
     assert row(doc, "H6")["status"] == "fail"
@@ -497,7 +497,7 @@ def test_item10_r6_integration_paths_invalidate(fx: Fixture, path: str) -> None:
     assert r6["status"] == "pending", r6
 
 
-K12_DIED = "k12_mg1655: gate 30 passed; giap run exit 1 ended during giap run (exit 1)"
+K12_DIED = "k12_mg1655: gate 30 passed; gippa run exit 1 ended during gippa run (exit 1)"
 
 
 @pytest.mark.parametrize(("exit_", "summary"), [(1, K12_DIED), (0, "k12_mg1655: gate 30 passed;")])
@@ -529,7 +529,7 @@ def test_item10_te8_uses_ok_not_exit_only(fx: Fixture) -> None:
     c = fx.short(fx.r)
     fx.set_weekly(
         nightly_row("2026-11-01", "3000_0", c, 0,
-                    "k12_mg1655: gate 2 failed, 28 passed; giap run exit 0; TE8 x.json;")
+                    "k12_mg1655: gate 2 failed, 28 passed; gippa run exit 0; TE8 x.json;")
     )  # fmt: skip
     _, doc = compute(fx)
     r5 = row(doc, "R5")
@@ -549,7 +549,7 @@ def test_decision_f_no_calibration_full_row_is_pending(fx: Fixture) -> None:
                       "benchmarks: 57 passed in 519.92s (0:08:39) (wheat wheat-02)")
         + nightly_row("2026-11-02", "2000_2", c, 0,
                       "calibration_nightly: 17290 passed, 108 skipped, 13 xfailed in 20556.28s")
-        + nightly_row("2026-11-02", "2000_3", c, 0, "giap run sim100k: exit 0")
+        + nightly_row("2026-11-02", "2000_3", c, 0, "gippa run sim100k: exit 0")
     )  # fmt: skip
     _, doc = compute(fx)
     r3, r4 = row(doc, "R3"), row(doc, "R4")

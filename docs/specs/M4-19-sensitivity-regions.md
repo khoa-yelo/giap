@@ -19,7 +19,7 @@ test lines) · **can start now** on fixtures once dependencies merge · **not on
 
 ## Public interface
 
-`src/giap/context/sensitivity.py`
+`src/gippa/context/sensitivity.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class Variant:
@@ -27,18 +27,18 @@ class Variant:
     overrides: Mapping[str, object]            # config keys changed
     single_peptide_detected: bool = False
 
-Family = Callable[[pd.DataFrame, GiapConfig, np.random.Generator], frozenset[str]]  # flagged IDs
+Family = Callable[[pd.DataFrame, GippaConfig, np.random.Generator], frozenset[str]]  # flagged IDs
 FAMILIES: dict[str, Family]                    # M4 registers "regions"; M5–M8 add theirs
 
-def variants(cfg: GiapConfig, tier: str) -> list[Variant]: ...
+def variants(cfg: GippaConfig, tier: str) -> list[Variant]: ...
 def jaccard(a: frozenset[str], b: frozenset[str]) -> float | None: ...
 def sensitivity_rows(primary: Mapping[str, frozenset[str]], reruns: Mapping[tuple[str, str], frozenset[str]]) -> pd.DataFrame: ...
-def regions_family(genes: pd.DataFrame, cfg: GiapConfig, rng) -> frozenset[str]: ...   # "<region_id>:<stat>" with q ≤ alpha.context
+def regions_family(genes: pd.DataFrame, cfg: GippaConfig, rng) -> frozenset[str]: ...   # "<region_id>:<stat>" with q ≤ alpha.context
 ```
-`src/giap/steps/sensitivity.py`: `run_sensitivity(work_dir, cfg)`: for each variant, rebuild the
+`src/gippa/steps/sensitivity.py`: `run_sensitivity(work_dir, cfg)`: for each variant, rebuild the
 abundance (M4-14 with `policy`), and for `single_peptide_detected` also the detection column and a
 refitted `p_detect` (M4-13), then rerun each registered family with `stats.permutations = 199`;
-writes `tables/sensitivity.tsv` (`io/sensitivity_tsv.py`, schema `src/giap/schemas/tables/sensitivity.json`).
+writes `tables/sensitivity.tsv` (`io/sensitivity_tsv.py`, schema `src/gippa/schemas/tables/sensitivity.json`).
 
 - `variants`: `off` → none; `basic` → `missing=<p>` for each p in `abundance.sensitivity` (skipping
   the primary policy), plus `single_peptide_detected` when tier is `two_peptide`; `full` adds `top3`
@@ -46,7 +46,7 @@ writes `tables/sensitivity.tsv` (`io/sensitivity_tsv.py`, schema `src/giap/schem
 - Primary set for comparison is recomputed with B = 199 too, so differences reflect the choice,
   not Monte Carlo error at different B (see Q2).
 - `jaccard(∅, ∅)` = None → written `NA`; otherwise |A ∩ B| / |A ∪ B|.
-- RNG: `giap.rng.for_step("sensitivity", seed)`; each (family, variant) draws from a child stream
+- RNG: `gippa.rng.for_step("sensitivity", seed)`; each (family, variant) draws from a child stream
   keyed by its name.
 
 ## Examples
@@ -109,8 +109,8 @@ sets, the single-peptide rerun refits detectability.
 8. A family whose module is disabled produces no rows (backlog test once module switches exist).
 9. `top3` is not rerun when `abundance.method` is already `top3`; it is skipped with a "top3" log line when
    there are no peptide intensities.
-10. Writer `giap.io.sensitivity_tsv`, output `tables/sensitivity.tsv`, schema
-    `src/giap/schemas/tables/sensitivity.schema.json` (repo convention); the test may stop accepting
+10. Writer `gippa.io.sensitivity_tsv`, output `tables/sensitivity.tsv`, schema
+    `src/gippa/schemas/tables/sensitivity.schema.json` (repo convention); the test may stop accepting
     `sensitivity.json` later.
 11. The implementer starts after M4-15 (#111) merges, since the integration tests need its steps.
 

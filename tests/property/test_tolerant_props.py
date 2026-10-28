@@ -1,4 +1,4 @@
-"""Hypothesis properties of the banded tolerant verifier (issue M3-06; GIAP_SPEC.md §7.2.4, §11.2).
+"""Hypothesis properties of the banded tolerant verifier (issue M3-06; GIPPA_SPEC.md §7.2.4, §11.2).
 
 "Tolerant matcher = brute force": random (query, window) pairs are built by planting 0-2
 operations of each type (substitution, swap, block, near_block; every residue order and both
@@ -23,9 +23,9 @@ from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from oracle_tolerant import align_window, oracle_verify, window_cost
 
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import decode, encode_query, encode_target
-from giap.mapping.tolerant_dp import verify
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import decode, encode_query, encode_target
+from gippa.mapping.tolerant_dp import verify
 
 TABLES = block_tables()
 SETTINGS = settings(max_examples=300, deadline=None)

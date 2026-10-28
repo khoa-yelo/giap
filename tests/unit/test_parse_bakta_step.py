@@ -1,7 +1,7 @@
-"""The ``parse_bakta`` step (M2-04; GIAP_SPEC.md §6.2, §7.1.2, §9.3, §9.4, §6.5, §6.6).
+"""The ``parse_bakta`` step (M2-04; GIPPA_SPEC.md §6.2, §7.1.2, §9.3, §9.4, §6.5, §6.6).
 
-Runs the registered step through ``giap.steps.registry.run_step`` (M2-02) on a hand-written Bakta
-JSON and on giapsim's ``bakta_like.json`` (M3-18). Work-directory outputs are internal, so Parquet
+Runs the registered step through ``gippa.steps.registry.run_step`` (M2-02) on a hand-written Bakta
+JSON and on gippasim's ``bakta_like.json`` (M3-18). Work-directory outputs are internal, so Parquet
 coordinates stay 0-based half-open (Bakta 1-based closed ``start`` → ``start - 1``, ``stop`` →
 ``end``); only user-facing writers convert to 1-based (§6.5).
 
@@ -10,7 +10,7 @@ Decisions pinned here (ambiguities in the spec):
   ``skipped_types`` (type → count, ``{}`` when none) and the step logs a WARNING naming each type.
 - ncRNA ``class`` is not needed (M2-03 decision 7): ``features.parquet`` has exactly the
   spec columns.
-- ``rrna16s.fa`` sequences come from the feature's ``nt`` or, when absent (giapsim, recorded JSON
+- ``rrna16s.fa`` sequences come from the feature's ``nt`` or, when absent (gippasim, recorded JSON
   without ``nt``), from the genome, strand-aware.
 - Outputs do not depend on ``cfg.seed`` (the step draws no randomness).
 """
@@ -28,7 +28,7 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 OUT_FILES = {
     "genes": "genes.parquet",
@@ -94,21 +94,21 @@ def _rc(s: str) -> str:
 @pytest.fixture
 def reg() -> Any:
     """The real registry with ``parse_bakta`` (robust to earlier temporary registries)."""
-    from giap.steps import registry
+    from gippa.steps import registry
 
-    mod = importlib.import_module("giap.steps.annotation")
+    mod = importlib.import_module("gippa.steps.annotation")
     if "parse_bakta" not in registry._REGISTRY:
         importlib.reload(mod)
     return registry
 
 
 def _run(
-    reg: Any, bakta_json: Path, genome: Path, outdir: Path, cfg: GiapConfig | None = None
+    reg: Any, bakta_json: Path, genome: Path, outdir: Path, cfg: GippaConfig | None = None
 ) -> dict[str, Path]:
     outs = {k: outdir / v for k, v in OUT_FILES.items()}
     reg.run_step(
         "parse_bakta",
-        cfg or GiapConfig(seed=1),
+        cfg or GippaConfig(seed=1),
         {"bakta_json": bakta_json, "genome": genome},
         outs,
     )
@@ -376,7 +376,7 @@ def test_rrna16s_fasta(ran: dict[str, Path]) -> None:
 
 
 def test_trna_counts_tsv(ran: dict[str, Path]) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     header, rows = read_tsv(ran["trna_counts"])
     assert header == ["anticodon", "amino_acid", "n_copies"]
@@ -471,7 +471,7 @@ def test_flags_sorted_with_light_db_and_default(reg: Any, tmp_path: Path) -> Non
 
 def test_configured_anti_sd_override(reg: Any, tmp_path: Path) -> None:
     js, fa = _write_inputs(tmp_path / "in")
-    cfg = GiapConfig.model_validate({"seed": 1, "annotation": {"ostir": {"anti_sd": "TCCTCCACT"}}})
+    cfg = GippaConfig.model_validate({"seed": 1, "annotation": {"ostir": {"anti_sd": "TCCTCCACT"}}})
     meta = _meta(_run(reg, js, fa, tmp_path / "work", cfg))
     assert meta["anti_sd"] == "TCCTCCACT"
     assert "anti_sd_default" not in meta["flags"]
@@ -482,7 +482,7 @@ def test_configured_anti_sd_override(reg: Any, tmp_path: Path) -> None:
 
 def test_byte_identical_rerun(reg: Any, tmp_path: Path, ran: dict[str, Path]) -> None:
     js, fa = _write_inputs(tmp_path / "in2")
-    again = _run(reg, js, fa, tmp_path / "work2", GiapConfig(seed=99))
+    again = _run(reg, js, fa, tmp_path / "work2", GippaConfig(seed=99))
     for key in OUT_FILES:
         assert again[key].read_bytes() == ran[key].read_bytes(), key
 
@@ -518,7 +518,7 @@ def test_genome_mismatch_fails(reg: Any, tmp_path: Path) -> None:
         _run(reg, js, fa, tmp_path / "work")
 
 
-# ------------------------------------------------------------------ giapsim bakta_like.json
+# ------------------------------------------------------------------ gippasim bakta_like.json
 
 
 def _tsv_dicts(path: Path) -> list[dict[str, str]]:
@@ -527,7 +527,7 @@ def _tsv_dicts(path: Path) -> list[dict[str, str]]:
 
 
 def test_simulator_m0_gene_count(reg: Any, tmp_path: Path) -> None:
-    from giapsim import SimConfig, simulate
+    from gippasim import SimConfig, simulate
 
     res = simulate(SimConfig(genome_length=50_000), seed=1, outdir=tmp_path / "sim")
     outs = _run(reg, res.bakta_json, res.genome_fasta, tmp_path / "work")
@@ -544,7 +544,7 @@ def test_simulator_m0_gene_count(reg: Any, tmp_path: Path) -> None:
 
 @pytest.fixture
 def sim_rich(tmp_path: Path) -> Any:
-    from giapsim import SimConfig, simulate
+    from gippasim import SimConfig, simulate
 
     cfg = SimConfig(
         genome_length=60_000,
@@ -600,7 +600,7 @@ def test_simulator_rich(reg: Any, tmp_path: Path, sim_rich: Any) -> None:
     assert meta["n_genes"] == len(gene_truth)
     assert meta["n_features"] == len(nc_truth)
 
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     _, rows = read_tsv(outs["trna_counts"])
     assert sum(int(r[2] or 0) for r in rows) == 5
@@ -609,6 +609,6 @@ def test_simulator_rich(reg: Any, tmp_path: Path, sim_rich: Any) -> None:
 
 def test_simulator_rerun_byte_identical(reg: Any, tmp_path: Path, sim_rich: Any) -> None:
     a = _run(reg, sim_rich.bakta_json, sim_rich.genome_fasta, tmp_path / "w1")
-    b = _run(reg, sim_rich.bakta_json, sim_rich.genome_fasta, tmp_path / "w2", GiapConfig(seed=7))
+    b = _run(reg, sim_rich.bakta_json, sim_rich.genome_fasta, tmp_path / "w2", GippaConfig(seed=7))
     for key in OUT_FILES:
         assert a[key].read_bytes() == b[key].read_bytes(), key

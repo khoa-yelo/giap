@@ -5,7 +5,7 @@ docs/specs/M10-10-a3-run.md (rules A10, A11 for ``--arm A3``; rule set C for N l
 evidence holds provenance only (paths, sha256s, byte sizes, exit codes, states, resources), never
 a value from the tables (Khoa's 2026-10-23 rule).
 
-Usage (``PYTHONPATH=$GIAP_REPO/src``; exit 0 when ``failures`` is empty, else 1)::
+Usage (``PYTHONPATH=$GIPPA_REPO/src``; exit 0 when ``failures`` is empty, else 1)::
 
     python validation/pilot/run_evidence.py arm OUT --arm A1|A2 --job JOBID --expect-commit SHA \
         --expect-input genome=SHA --expect-input annotation=SHA --expect-input peptides=SHA \
@@ -76,7 +76,7 @@ def _job_rows(rows: Sequence[Mapping[str, str]], job: str) -> list[Mapping[str, 
 
 
 def _process(name: str) -> str:
-    """``GIAP:ANNOTATION:BAKTA (genome)`` → ``BAKTA``."""
+    """``GIPPA:ANNOTATION:BAKTA (genome)`` → ``BAKTA``."""
     return name.split(" ", 1)[0].rsplit(":", 1)[-1]
 
 
@@ -89,7 +89,7 @@ def manifest_errors(doc: Any) -> list[str]:
     """JSON pointers of the schema violations of ``doc``."""
     import jsonschema  # type: ignore[import-untyped]
 
-    res = resources.files("giap.schemas").joinpath("run_manifest.schema.json")
+    res = resources.files("gippa.schemas").joinpath("run_manifest.schema.json")
     schema = json.loads(res.read_text(encoding="utf-8"))
     errors = jsonschema.Draft202012Validator(schema).iter_errors(doc)
     return sorted({"/" + "/".join(str(p) for p in e.absolute_path) for e in errors})
@@ -196,7 +196,7 @@ def _nonempty(path: Path) -> bool:
 
 
 def _genes_failure(path: Path) -> list[str]:
-    from giap.io.output_checks import check_tsv
+    from gippa.io.output_checks import check_tsv
 
     if not path.is_file():
         return [f"genes_table:missing {path}"]
@@ -210,7 +210,7 @@ def _genes_failure(path: Path) -> list[str]:
 def arm_evidence(
     outdir: Path, sacct_rows: Sequence[Mapping[str, str]], expect: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Rule set A on one ``giap run`` output directory; ``failures`` empty when the arm passes.
+    """Rule set A on one ``gippa run`` output directory; ``failures`` empty when the arm passes.
 
     ``sacct_rows``: the head job's rows (``JobID == expect["job"]`` and its steps) and the task
     jobs' rows (``JobID`` in the trace ``native_id`` column). ``expect``: ``arm``, ``job``,
@@ -262,7 +262,7 @@ def arm_evidence(
 
 
 def _stability_families() -> list[str]:
-    res = resources.files("giap.schemas").joinpath("tables", "compare_stability.schema.json")
+    res = resources.files("gippa.schemas").joinpath("tables", "compare_stability.schema.json")
     fields = json.loads(res.read_text(encoding="utf-8"))["fields"]
     return list(next(f for f in fields if f["name"] == "family")["constraints"]["enum"])
 
@@ -272,7 +272,7 @@ def _pair(row: Mapping[str, str]) -> tuple[str | None, str | None]:
 
 
 def _compare_failures(cmp: Path, cmp2: Path, labels: Sequence[str], genes: Path) -> list[str]:
-    from giap.io.output_checks import check_tsv
+    from gippa.io.output_checks import check_tsv
 
     pairs = list(combinations(labels, 2))  # P = N(N-1)/2 pairs in label order
     fail: list[str] = []
@@ -344,7 +344,7 @@ def _pair_warnings(cmp: Path, pair_cmp: Path | None, labels: Sequence[str]) -> l
 def compare_evidence(
     cmp: Path, cmp2: Path, labels: Sequence[str], *, genes: Path, pair_cmp: Path | None = None
 ) -> dict[str, Any]:
-    """Rule set C on a ``giap compare`` directory and its same-seed repeat ``cmp2``; ``genes`` is
+    """Rule set C on a ``gippa compare`` directory and its same-seed repeat ``cmp2``; ``genes`` is
     ``out_a1/tables/genes.tsv`` (G of rule C3). N labels give P = N(N-1)/2 pairs in label order
     (N = 2 is M10-04's rule set). ``pair_cmp`` is pass 1's ``cmp_a1_a2`` (rule C7, N = 3 only:
     differences go to ``warnings``, never to ``failures``)."""

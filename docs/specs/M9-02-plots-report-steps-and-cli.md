@@ -1,4 +1,4 @@
-# M9-02: The `plots` and `report` steps, a minimal static report, and `giap report`
+# M9-02: The `plots` and `report` steps, a minimal static report, and `gippa report`
 
 Milestone M9 · **pass 1 — the report integration milestone** · depends on: M9-01 · estimate
 ≈ 380 code lines (+ ≈ 380 test lines, + nf-test) · not statistical
@@ -7,7 +7,7 @@ Milestone M9 · **pass 1 — the report integration milestone** · depends on: M
 
 Without this issue, plots exist only as functions. It registers the two §6.2 steps, adds the
 `REPORT` subworkflow at the end of `main.nf`, publishes `plots/` and `report/` under both executors,
-implements `giap report OUT`, and renders a static `report/report.html` with all 13 §10.3
+implements `gippa report OUT`, and renders a static `report/report.html` with all 13 §10.3
 sections. A section shows every registered plot that rendered, and says why the others did not.
 Plots added by later issues appear in the report with no change here.
 
@@ -17,7 +17,7 @@ Plots added by later issues appear in the report with no change here.
   `report/report.html` | core"; §6.1 data flow (plots after the tables).
 - §7.9.4 "Rebuilds `plots/` and `report/` from existing tables without recomputing statistics.
   Running it twice MUST produce identical `plots/data/*.tsv`."
-- §5.1 `giap report OUT [--no-interactive] [--plots V01,V02,...]`, shared options, exit codes 0, 1,
+- §5.1 `gippa report OUT [--no-interactive] [--plots V01,V02,...]`, shared options, exit codes 0, 1,
   4, 5. §5.2 `report.*`.
 - §10.3 bullet 1 (one HTML file, Jinja2, inline CSS, no network), bullet 2 (the 13 sections),
   bullet 4 (top rows with a link to the full TSV); the interactive half is M9-14, the full content
@@ -27,7 +27,7 @@ Plots added by later issues appear in the report with no change here.
 
 ## Public interface
 
-`src/giap/steps/plots.py`
+`src/gippa/steps/plots.py`
 ```python
 @step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, "events", "genome",
       "features", "replicons", "genes"], outputs=["plots"])
@@ -37,20 +37,20 @@ def plots_step(ctx: StepContext) -> None: ...
       outputs=["report"])
 def report_step(ctx: StepContext) -> None: ...
 
-def render_plots(view: RunView, cfg: GiapConfig, plots_dir: Path,
+def render_plots(view: RunView, cfg: GippaConfig, plots_dir: Path,
                  only: Sequence[str] | None) -> list[PlotEvent]
 ```
 (`genome`, `features`, `replicons` and `genes` are used only by the support writers of M9-03 and
 M9-18.)
 
-`src/giap/report/build.py` (pure: data in, HTML string out)
+`src/gippa/report/build.py` (pure: data in, HTML string out)
 ```python
 SECTIONS: tuple[Section, ...]   # 13 entries: id, heading, plot IDs, tables
 def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping[str, str],
-                 cfg: GiapConfig) -> str
+                 cfg: GippaConfig) -> str
 ```
-`src/giap/report/templates/report.html.j2`, `src/giap/report/templates/report.css` (inlined).
-`workflow/subworkflows/local/report.nf` (`REPORT`, `GIAP_STEP as PLOTS; GIAP_STEP as REPORT_HTML`).
+`src/gippa/report/templates/report.html.j2`, `src/gippa/report/templates/report.css` (inlined).
+`workflow/subworkflows/local/report.nf` (`REPORT`, `GIPPA_STEP as PLOTS; GIPPA_STEP as REPORT_HTML`).
 
 ## Behaviour
 
@@ -78,15 +78,15 @@ def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping
    `p_value ≤ stats.alpha.context`, "FWER-controlled"), flagged operon pairs (count with `q_value ≤
    stats.alpha.operon_flags`), novel ORFs called (with `class_fdr` or `unestimated`). Cards whose
    table is absent are not shown. M9-16 completes the set.
-6. **Provenance (pass 1).** GIAP version (`giap.__version__`), the preflight input file names and
+6. **Provenance (pass 1).** GIPPA version (`gippa.__version__`), the preflight input file names and
    SHA-256s, and the SHA-256 of `resolved_config.yaml` when readable. No timestamps, no absolute
    paths (§6.6).
-7. **`giap report OUT`.** Resolves the config as other commands do; `RunView.from_outdir(OUT)`
-   (exit 1 on `NotAGiapRun`); for the selected plot IDs, `remove_plot_files` first, so a plot that
+7. **`gippa report OUT`.** Resolves the config as other commands do; `RunView.from_outdir(OUT)`
+   (exit 1 on `NotAGippaRun`); for the selected plot IDs, `remove_plot_files` first, so a plot that
    is now skipped leaves no stale files; runs `render_plots` then `build_report` in process;
    `--no-interactive` sets `report.interactive = false` for this call. Unknown `--plots` ID → exit
    1. A plot exception → exit 4 naming the plot. Prints the report path.
-8. **`giap run`.** Local executor: both steps join the topological order (all their inputs are
+8. **`gippa run`.** Local executor: both steps join the topological order (all their inputs are
    optional except `preflight`, so they run last); `PUBLISHED` gains `plots` → `plots/` and
    `report` → `report/`. Nextflow: `REPORT` takes one channel of `[key, file]` pairs mixed from the
    subworkflows' published outputs plus their `events` emissions, `collect()`s it, and runs
@@ -99,11 +99,11 @@ def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping
 
 | Situation | Behaviour |
 |---|---|
-| `giap report` on a directory that is not a GIAP run | exit 1, "OUT has no tables/ or preflight/" |
-| `giap report` on a run with `function` off | V14 note "not run: module `function` off"; exit 0 |
+| `gippa report` on a directory that is not a GIPPA run | exit 1, "OUT has no tables/ or preflight/" |
+| `gippa report` on a run with `function` off | V14 note "not run: module `function` off"; exit 0 |
 | every analysis table header-only (sim100k validation run) | each plot draws its empty state; exit 0 |
 | `--plots V07` only | V07 files rebuilt; other plot files left as they are; report rebuilt from all present plot files |
-| an `OUT/plots/` written by an older GIAP | rebuilt plots replace their own files only |
+| an `OUT/plots/` written by an older GIPPA | rebuilt plots replace their own files only |
 | `report.formats = [svg]` | the report still links PNG/PDF only when they exist |
 | Nextflow run where OPERONS did not run | no operon keys in the channel; V11 skips with `input_absent` |
 
@@ -111,14 +111,14 @@ def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local` on sim100k (giapsim seed 20261014) | `plots/` with every pass-1 plot that has input, `plots/data/*.tsv`, `report/report.html`; exit 0 |
+| 1 | `gippa run --executor local` on sim100k (gippasim seed 20261014) | `plots/` with every pass-1 plot that has input, `plots/data/*.tsv`, `report/report.html`; exit 0 |
 | 2 | the same through Nextflow (`-profile test`) | identical `plots/data/*.tsv` bytes (executor equality) |
-| 3 | `giap report OUT` twice on example 1's `OUT` | identical `plots/data/*.tsv` (§7.9.4) and identical `report.html` |
-| 4 | `giap report OUT --plots V1,V99` | exit 1, "unknown plot ID V99" |
-| 5 | `giap report /tmp/empty_dir` | exit 1 |
+| 3 | `gippa report OUT` twice on example 1's `OUT` | identical `plots/data/*.tsv` (§7.9.4) and identical `report.html` |
+| 4 | `gippa report OUT --plots V1,V99` | exit 1, "unknown plot ID V99" |
+| 5 | `gippa report /tmp/empty_dir` | exit 1 |
 | 6 | report of example 1 parsed with `html.parser` | 13 `<section>` elements with the ids of item 3, in order |
 | 7 | report of example 1 | no `src=`/`href=` starting with `http`, `//` or `file:`; every relative link resolves to an existing file |
-| 8 | `giap report OUT --plots V17` after deleting `OUT/plots/V07_obs_vs_exp.svg` | V07 not rebuilt; its section notes "plot file absent" |
+| 8 | `gippa report OUT --plots V17` after deleting `OUT/plots/V07_obs_vs_exp.svg` | V07 not rebuilt; its section notes "plot file absent" |
 | 9 | nf-test stub of `REPORT` | `plots/` and `report/report.html` emitted |
 
 ## Acceptance criteria
@@ -132,7 +132,7 @@ def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping
   executor-equality test.
 - [ ] `workflow/tests/report.nf.test` (stub, example 9) and the registry key test for `plots` /
   `report` (as `test_nf_annotate_registry.py`).
-- [ ] `giap report` no longer calls `_not_implemented`.
+- [ ] `gippa report` no longer calls `_not_implemented`.
 
 ## Test ideas
 
@@ -153,7 +153,7 @@ def build_report(view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping
    largest fan-in in the workflow. Alternative: plots read `OUT/` after publishing. **Proposed
    default:** staged inputs (Nextflow's `publishDir` is asynchronous, so reading `OUT/` from a task
    races; and inputs keep the step a function of declared files, §6.2).
-3. `giap report` writes into `OUT/plots` and `OUT/report` in place (the spec's wording "rebuilds").
+3. `gippa report` writes into `OUT/plots` and `OUT/report` in place (the spec's wording "rebuilds").
    **Proposed default:** in place; no `--outdir` option (§5.1 has none).
 4. Is a run whose report shows empty states for most plots (sim100k) an acceptable pass-1 done?
    **Proposed default:** yes; M9-13 records which plots rendered non-empty.

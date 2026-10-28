@@ -1,7 +1,7 @@
 """Brute-force tolerant matcher with consumable stop cells (M7-16 rule 4; ADR-0058 item 1).
 
 Written by the test author from docs/specs/M7-16-stop-codon-readthrough.md only. It does not
-import ``giap.mapping.readthrough``, ``giap.mapping.tolerant_dp`` or ``giap.mapping.diffops``,
+import ``gippa.mapping.readthrough``, ``gippa.mapping.tolerant_dp`` or ``gippa.mapping.diffops``,
 and the M3-06/M3-07 oracles (``oracle_tolerant.py``, ``brute_tolerant.py``) are not edited.
 
 It is the unbanded M3-07 brute force (``brute_tolerant.semi_global_costs``) with a boolean mask of
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from giap.mapping.sixframe import ALPHABET, Frame, encode_query
+from gippa.mapping.sixframe import ALPHABET, Frame, encode_query
 
 INF = 1 << 20
 NRES = 19  # residue codes 0..18; 19 '*', 20 'X', 21 query NOMATCH

@@ -3,7 +3,7 @@
 - ``prefetch_indices`` (B2): unsharded -> block 1 ``0..R-1``; ``--shard`` block 1 -> the shard's
   range; ``--shard --block 2`` -> the shard's range offset by R (the replicates ``calibrate``
   runs); confirm run -> none.
-- ``sharded`` (B1): true under ``GIAP_CALIBRATION_REPLICATES`` or ``GIAP_CALIBRATION_CONFIRM``.
+- ``sharded`` (B1): true under ``GIPPA_CALIBRATION_REPLICATES`` or ``GIPPA_CALIBRATION_CONFIRM``.
 - ``cpu_share`` / ``workers`` (nit 1): the job's CPUs divided by the xdist worker count.
 - ``pick_one_per_collection`` (nit 3): one distinct term per collection in ``ORA_ORDER``,
   ``go_slim`` excluding taken IDs, an empty collection's slot substituted by an untaken term (a
@@ -30,7 +30,7 @@ import _criteria as C  # noqa: E402
 from helpers import function_gate_chain as F  # noqa: E402
 
 ENV = (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV, "SLURM_CPUS_PER_TASK",
-       "PYTEST_XDIST_WORKER_COUNT", "GIAP_M815_WORKERS")  # fmt: skip
+       "PYTEST_XDIST_WORKER_COUNT", "GIPPA_M815_WORKERS")  # fmt: skip
 
 
 @pytest.fixture(autouse=True)
@@ -183,7 +183,7 @@ namespace: biological_process
 
 
 def test_slim_obo_every_third_non_root_term_bare(tmp_path: Path) -> None:
-    from giap.io.function_resources import read_go
+    from gippa.io.function_resources import read_go
 
     slim = F.slim_obo(OBO)
     ids = re.findall(r"^id: (\S+)", slim, re.M)
@@ -197,9 +197,9 @@ def test_slim_obo_every_third_non_root_term_bare(tmp_path: Path) -> None:
 
 
 def test_slim_obo_of_a_world_parses_and_stays_reserved(tmp_path: Path) -> None:
-    import giapsim.function_sim as fs
-    import giapsim.scenarios as sc
-    from giap.io.function_resources import read_go
+    import gippasim.function_sim as fs
+    import gippasim.scenarios as sc
+    from gippa.io.function_resources import read_go
 
     w = fs.draw(sc.ora_null(400), np.random.default_rng(0))
     path = tmp_path / "slim.obo"

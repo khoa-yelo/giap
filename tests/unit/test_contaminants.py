@@ -1,4 +1,4 @@
-"""M3-15: unmapped bucket and contaminants (``giap.mapping.contaminants``), examples 1-10.
+"""M3-15: unmapped bucket and contaminants (``gippa.mapping.contaminants``), examples 1-10.
 
 Input contracts used here (the spec names the frames but not their columns; test-author choices,
 reported to the lead):
@@ -13,7 +13,7 @@ reported to the lead):
   either route). Assigned proteins never enter the bucket.
 - ``unmapped_table(..., tolerant_min_len=10)``: keyword (default 10 = ``mapping.tolerant.min_len``)
   so ``too_short`` follows the configured tolerant minimum (M3-15 Q2 / M3-index decision).
-- blastp tabular output uses the 15 tblastn columns (``giap.mapping.tblastn.OUTFMT``); identity =
+- blastp tabular output uses the 15 tblastn columns (``gippa.mapping.tblastn.OUTFMT``); identity =
   ``pident / 100``, coverage = ``(qend - qstart + 1) / qlen`` of one HSP; both thresholds inclusive;
   several passing hits: highest bitscore, identity, coverage, then lowest ID (lead decision 2).
 """
@@ -35,8 +35,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 from contaminant_oracle import blast_line
 
-from giap.io.protein_fasta import ProteinRecord, read_protein_fasta
-from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+from gippa.io.protein_fasta import ProteinRecord, read_protein_fasta
+from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
 
 MINI = Path(__file__).resolve().parents[1] / "data" / "contaminants_mini.faa"
 TRYPSIN, KRT1, KRT10, ALBUMIN = "P00761", "P04264", "P13645", "P02769"
@@ -45,7 +45,7 @@ UNMAPPED_FIELDS = ("sequence_id", "sequence", "kind", "label", "reason", "contam
 
 
 def _c() -> ModuleType:
-    return importlib.import_module("giap.mapping.contaminants")
+    return importlib.import_module("gippa.mapping.contaminants")
 
 
 @pytest.fixture(scope="module")
@@ -249,7 +249,7 @@ def test_no_peptides() -> None:
 
 
 def test_blastp_cmd(tmp_path: Path) -> None:
-    from giap.mapping.tblastn import OUTFMT
+    from gippa.mapping.tblastn import OUTFMT
 
     q, lib = tmp_path / "leftovers.faa", tmp_path / "contaminants.fasta"
     cmd = _c().blastp_cmd(q, lib, 4)

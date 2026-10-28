@@ -1,4 +1,4 @@
-# GIAP pilot report (arms A1, A2 and A3)
+# GIPPA pilot report (arms A1, A2 and A3)
 
 Rendered by `validation/pilot/metrics.py render --final` from `metrics.json` (docs/specs/M10-05-pilot-metrics.md, docs/specs/M10-15-pilot-gate.md).
 Every value below is followed by the file and key it comes from; none is typed by hand.
@@ -8,14 +8,14 @@ This template holds no numbers. Only aggregates appear here: no sequence, no gen
 
 | §15.6 bullet | Status | Evidence |
 |---|---|---|
-| GIAP runs end to end on A1, A2 and A3 | {{checklist.0.status}} | {{checklist.0.evidence}} |
+| GIPPA runs end to end on A1, A2 and A3 | {{checklist.0.status}} | {{checklist.0.evidence}} |
 | ≥ 99.5 % of A2 peptides map exactly (TE1) | {{checklist.1.status}} | {{checklist.1.evidence}} |
 | A1 and A2 detections and abundances are compared | {{checklist.2.status}} | {{checklist.2.evidence}} |
 | Measured runtimes replace the estimates | {{checklist.3.status}} | {{checklist.3.evidence}} |
 | TE2–TE5 are reported; failures explained | {{checklist.4.status}} | {{checklist.4.evidence}} |
 
 A failing bullet is explained in the notes below; no threshold was moved to make a bullet pass (R3).
-GIAP commit: {{giap_commit}}. Spec SHA: {{spec}}.
+GIPPA commit: {{gippa_commit}}. Spec SHA: {{spec}}.
 Submitted for Khoa's review (§14.8 item 4).
 
 ## 2. Data and arms
@@ -73,11 +73,11 @@ Subsets: all of G (cds, sorf), by replicon (`plasmid:<contig>` per plasmid; `unk
 chromosome nor plasmid), by region (prophage, bgc), by K-12 class (`no_peptides`: no in-silico
 tryptic peptide); `pseudogene` is outside G.
 
-### Metric 4: quantitative agreement (shared genes, from `giap compare`)
+### Metric 4: quantitative agreement (shared genes, from `gippa compare`)
 
 Spearman rho {{m4.spearman_rho}} [{{m4.ci_low}}, {{m4.ci_high}}] on {{m4.n_shared}} shared genes (TU-block bootstrap); Bland–Altman bias {{m4.ba_bias_log2}} log2; flags: {{m4.flags}}.
 
-### Metric 5: stability of conclusions (Jaccard, from `giap compare`)
+### Metric 5: stability of conclusions (Jaccard, from `gippa compare`)
 
 | family | Jaccard | note |
 |---|---|---|
@@ -100,7 +100,7 @@ expected unestimated (no spectrum pairing).
 
 <!-- if m6.overlap_a2_a3.novel_orfs -->
 A2/A3 overlap. Novel ORFs key on the stop codon (contig, strand, end), which does not depend on the
-peptides; ALT sites key on (contig, codon start, strand, ALT residue) as `giap compare` does. The
+peptides; ALT sites key on (contig, codon start, strand, ALT residue) as `gippa compare` does. The
 `high` set is each arm's own high-confidence ALT rows.
 
 | set | A2 | A3 | shared | union | Jaccard | A3 confirmed by A2 | A2 found by A3 |
@@ -108,7 +108,7 @@ peptides; ALT sites key on (contig, codon start, strand, ALT residue) as `giap c
 <!-- m6 overlap rows -->
 
 Novel ORFs called in both arms with the same class: {{m6.overlap_a2_a3.novel_orfs.called.class_agree}}.
-`giap compare`'s novel-ORF Jaccard (keyed on `orf_id`, which can split one ORF): {{m6.overlap_a2_a3.novel_orfs.orf_id_jaccard}}.
+`gippa compare`'s novel-ORF Jaccard (keyed on `orf_id`, which can split one ORF): {{m6.overlap_a2_a3.novel_orfs.orf_id_jaccard}}.
 High-confidence ALT Jaccard: {{m6.overlap_a2_a3.alt_sites.high.jaccard}}; called novel-ORF Jaccard: {{m6.overlap_a2_a3.novel_orfs.called.jaccard}}.
 
 <!-- end m6.overlap_a2_a3.novel_orfs -->
@@ -184,10 +184,10 @@ Every TE that did not pass has a `## Diagnosis: TE<n>` section in the notes belo
 | TE3: ribosomal proteins detected (≥ 90 %) and in the top quartile | {{te_real.te3.status}} | detected {{te_real.te3.detection.share}}; median percentile rank {{te_real.te3.abundance.percentile_rank}} |
 | TE4: operon stoichiometry (iBAQ, molar scale) | {{te_real.te4.status}} | log2 RplL/RplJ {{te_real.te4.pairs.rplL/rplJ.log2_ratio}} in [1, 3]; log2 AtpA/AtpD {{te_real.te4.pairs.atpA/atpD.log2_ratio}} in [−1, 1] |
 | TE5: trypsin and keratin peptides in the contaminant bucket (A1 and A2) | {{te_real.te5.status}} | in the bucket: A1 {{te_real.te5.A1.share_bucket}}, A2 {{te_real.te5.A2.share_bucket}} |
-| TE7: a second A2 run gives byte-identical tables | {{te7.giap.status}} | gate files compared {{te7.giap.n_gate}} |
+| TE7: a second A2 run gives byte-identical tables | {{te7.gippa.status}} | gate files compared {{te7.gippa.n_gate}} |
 
-TE7 is decided by GIAP's own tables only; the DIA-NN layer (a second search of the same spectra) is an
-upstream finding, never the verdict: {{te7.diann.status}}. Raw data to GIAP tables reproduce byte for byte: {{te7.end_to_end}}.
+TE7 is decided by GIPPA's own tables only; the DIA-NN layer (a second search of the same spectra) is an
+upstream finding, never the verdict: {{te7.diann.status}}. Raw data to GIPPA tables reproduce byte for byte: {{te7.end_to_end}}.
 A `known_lapack` difference is still a fail (M4-20 decision 9; writer rounding is the decision 10 backlog item).
 TE7 is not a §15.6 bullet: a TE7 fail is shown here and in section 9 with its diagnosis and listed as an open item.
 
@@ -221,7 +221,7 @@ The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.cr
 **H4** (genome-anchored de novo precision against the precision measured on A2): verdict {{h4.verdict}}.
 DIA gives no spectrum pairing, so the only measure against A2 is sequence-level: the share of a
 bin's de novo queries that A2 identified at 1 % FDR (I = L), a lower bound on the bin's precision.
-The data can therefore count against H4 but never confirm it. A bin is reportable when GIAP reports
+The data can therefore count against H4 but never confirm it. A bin is reportable when GIPPA reports
 its precision and it holds at least 20 queries; the verdict uses the Bonferroni-adjusted relation
 over the {{h4.B}} reportable bins (`relation_adj`), the 95 % relation is descriptive.
 
@@ -275,7 +275,7 @@ Benchmark definition (ADR-M10-D): {{evidence.benchmark.adr}}, status {{evidence.
 
 Freeze commit of the runbook: {{evidence.runbook.freeze_commit}} (runbook status {{evidence.runbook.status}}); every arm, the compare and the metrics ran at it (`validation/pilot/reproduce.md`, Evidence table).
 The runbook's check writes `verify-<commit>.json` beside the freeze runs; it is part of the review packet.
-TE7 at the freeze commit: {{te7.giap.status}}.
+TE7 at the freeze commit: {{te7.gippa.status}}.
 The benchmark was not re-run at the freeze commit (M10-12 L12); its commit is in section 8.
 Row-level outputs stay on FarmShare and are removed only by the runbook's guarded clean-up step.
 

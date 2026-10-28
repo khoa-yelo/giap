@@ -1,7 +1,7 @@
 """M8-10 writers: any model table the step can build writes a schema-valid
 ``determinants_model.tsv`` with its rows in order, and any attribution table a schema-valid
 ``determinants_attribution.tsv`` (docs/specs/M8-10-determinants-step-and-run.md example 6;
-GIAP_SPEC.md §9.2, §9.3, §9.5). Contract choices: tests/helpers/determinants_step_data.py.
+GIPPA_SPEC.md §9.2, §9.3, §9.5). Contract choices: tests/helpers/determinants_step_data.py.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def attribution_rows(draw: st.DrawFn) -> pd.DataFrame:
 @settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(model_rows())
 def test_model_writer_valid_and_order_kept(df: pd.DataFrame) -> None:
-    from giap.io.determinants_tables import write_determinants_model
+    from gippa.io.determinants_tables import write_determinants_model
 
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "determinants_model.tsv"
@@ -83,7 +83,7 @@ def test_model_writer_valid_and_order_kept(df: pd.DataFrame) -> None:
 @settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(attribution_rows())
 def test_attribution_writer_valid(df: pd.DataFrame) -> None:
-    from giap.io.determinants_tables import write_determinants_attribution
+    from gippa.io.determinants_tables import write_determinants_attribution
 
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "determinants_attribution.tsv"

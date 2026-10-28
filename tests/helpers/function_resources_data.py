@@ -84,7 +84,7 @@ def _term_block(t: str, name: str, ns: str, isa: Sequence[str], part: Sequence[s
                 alt: Sequence[str] = (), subset: str | None = None) -> str:  # fmt: skip
     lines = ["[Term]", f"id: {t}", f"name: {name}", f"namespace: {ns}"]
     lines += [f"alt_id: {a}" for a in alt]
-    lines.append(f'def: "Synthetic test term {t}." [GOC:giap]')
+    lines.append(f'def: "Synthetic test term {t}." [GOC:gippa]')
     if subset:
         lines.append(f"subset: {subset}")
     lines += [f"is_a: {p} ! {TERMS[p][0]}" for p in isa]
@@ -103,7 +103,7 @@ def go_obo_text() -> str:
         f"id: {OBSOLETE}\n"
         "name: obsolete toy process\n"
         "namespace: biological_process\n"
-        'def: "OBSOLETE. Synthetic." [GOC:giap]\n'
+        'def: "OBSOLETE. Synthetic." [GOC:gippa]\n'
         "is_obsolete: true\n"
         f"replaced_by: {B1}\n"
     )

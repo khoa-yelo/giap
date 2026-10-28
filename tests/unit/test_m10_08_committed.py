@@ -59,7 +59,7 @@ def test_src_and_validation_never_import_pilot_tools() -> None:
     assert not bad, bad
 
 
-#: scripts that run inside the giap-cascadia env with ``python -I`` (the launcher, and the CPU
+#: scripts that run inside the gippa-cascadia env with ``python -I`` (the launcher, and the CPU
 #: array's prep/work/merge driver, which installs the launcher's offline guard first)
 CASCADIA_SIDE = {LAUNCHER.resolve(), (REPO / "scripts" / "pilot" / "cascadia_shards.py").resolve()}
 

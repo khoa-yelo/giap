@@ -1,10 +1,10 @@
-"""``run_preflight``, ``exit_code`` and ``write_outputs`` (issue M1-12; GIAP_SPEC.md §5.1, §6.2,
+"""``run_preflight``, ``exit_code`` and ``write_outputs`` (issue M1-12; GIPPA_SPEC.md §5.1, §6.2,
 §7.0) plus the real environment probe left over from M1-11 (question 1 and the "probe raises"
 edge case; ADR-0005 item 3).
 
-The real probe is selected with ``probe=None``; it reads ``$GIAP_DB_DIR/db_manifest.json`` and
-probes resources live (never ``.giap/capabilities.json``; M1-12 review). ``GIAP_REPO`` and
-``GIAP_DB_DIR`` point at empty directories in ``tmp_path``. A missing manifest is info under
+The real probe is selected with ``probe=None``; it reads ``$GIPPA_DB_DIR/db_manifest.json`` and
+probes resources live (never ``.gippa/capabilities.json``; M1-12 review). ``GIPPA_REPO`` and
+``GIPPA_DB_DIR`` point at empty directories in ``tmp_path``. A missing manifest is info under
 ``mode="preflight"`` and an environment error under ``mode="run"``; a probe failure (here: an
 unreadable manifest) is exactly one ``environment.tools`` error (exit 2) in either mode.
 """
@@ -19,15 +19,15 @@ from typing import Any
 import jsonschema
 import pytest
 
-import giap
-from giap.config import GiapConfig, resolve_config
-from giap.exitcodes import ExitCode
-from giap.preflight.checks import Check
-from giap.preflight.environment import GIB, EnvProbe, requirements
-from giap.preflight.report import PreflightReport
+import gippa
+from gippa.config import GippaConfig, resolve_config
+from gippa.exitcodes import ExitCode
+from gippa.preflight.checks import Check
+from gippa.preflight.environment import GIB, EnvProbe, requirements
+from gippa.preflight.report import PreflightReport
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 ALL_MODULES = ["core", "mobile", "bgc", "function"]
 PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
@@ -42,13 +42,13 @@ def _empty_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     db.mkdir()
     repo = tmp_path / "repo"
     repo.mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
-    monkeypatch.setenv("GIAP_REPO", str(repo))
-    monkeypatch.setenv("GIAP_ROOT", str(repo))  # never the real $GIAP_ROOT (decision 4c)
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_REPO", str(repo))
+    monkeypatch.setenv("GIPPA_ROOT", str(repo))  # never the real $GIPPA_ROOT (decision 4c)
     return db
 
 
-def cfg(*extra: str) -> GiapConfig:
+def cfg(*extra: str) -> GippaConfig:
     return resolve_config(overrides=[*LOW, *extra])
 
 
@@ -65,7 +65,7 @@ def fake_probe(**override: str | None) -> EnvProbe:
 
 
 def inputs(tmp_path: Path, genome: str | None = None, with_peptides: bool = True) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     g = tmp_path / "g.fa"
     g.write_text(genome if genome is not None else f">chr1 circular=true\n{acgt(150_000)}\n")
@@ -79,7 +79,7 @@ def inputs(tmp_path: Path, genome: str | None = None, with_peptides: bool = True
 
 
 def run(tmp_path: Path, probe: EnvProbe | None, mode: str = "preflight", **kw: Any) -> Any:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     return run_preflight(inputs(tmp_path, **kw), cfg(), probe, mode)  # type: ignore[arg-type]
 
@@ -95,7 +95,7 @@ def chk(rule_id: str, level: str, exit_code: int = 0) -> Check:
 
 def report_of(checks: Sequence[Check]) -> PreflightReport:
     return PreflightReport(
-        giap_version=giap.__version__,
+        gippa_version=gippa.__version__,
         inputs=[],
         checks=list(checks),
         routing={
@@ -126,7 +126,7 @@ def validate(path: Path) -> dict[str, Any]:
 def test_preflight_inputs_defaults_and_frozen(tmp_path: Path) -> None:
     from dataclasses import FrozenInstanceError
 
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     inp = PreflightInputs(genome=tmp_path / "g.fa")
     assert (inp.proteins, inp.peptides, inp.abundance, inp.annotation) == (None,) * 4
@@ -157,7 +157,7 @@ def test_preflight_inputs_defaults_and_frozen(tmp_path: Path) -> None:
 def test_exit_code_precedence_1_over_2_over_3(
     checks: list[Check], strict: bool, expected: int
 ) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     code = exit_code(report_of(checks), strict)
     assert code == expected
@@ -168,7 +168,7 @@ def test_exit_code_precedence_1_over_2_over_3(
 
 
 def test_run_preflight_clean_with_fake_probe(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _norm = run(tmp_path, fake_probe())
     assert isinstance(report, PreflightReport)
@@ -184,7 +184,7 @@ def test_run_preflight_clean_with_fake_probe(tmp_path: Path) -> None:
 
 
 def test_run_preflight_missing_tool_is_exit_2(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _ = run(tmp_path, fake_probe(bakta_db=None))
     tools = [c for c in env_checks(report) if c.rule_id == "environment.tools"]
@@ -196,7 +196,7 @@ def test_run_preflight_missing_tool_is_exit_2(tmp_path: Path) -> None:
 
 
 def test_run_preflight_uses_enabled_modules_only(tmp_path: Path) -> None:
-    from giap.preflight.run import PreflightInputs, run_preflight
+    from gippa.preflight.run import PreflightInputs, run_preflight
 
     inp = inputs(tmp_path)
     assert isinstance(inp, PreflightInputs)
@@ -215,7 +215,7 @@ def test_run_preflight_routing_counts_short_proteins_as_peptides(tmp_path: Path)
 
 
 def test_run_preflight_genome_error_is_exit_1(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _ = run(tmp_path, fake_probe(), genome=">c\nACGU\n")
     parse = [c for c in report.checks if c.rule_id == "genome.parse"]
@@ -227,7 +227,7 @@ def test_run_preflight_genome_error_is_exit_1(tmp_path: Path) -> None:
 
 
 def test_real_probe_missing_manifest_is_info_under_preflight(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _ = run(tmp_path, None, mode="preflight")
     env = env_checks(report)
@@ -238,7 +238,7 @@ def test_real_probe_missing_manifest_is_info_under_preflight(tmp_path: Path) -> 
 
 
 def test_real_probe_missing_manifest_is_error_under_run(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _ = run(tmp_path, None, mode="run")
     tools = [c for c in env_checks(report) if c.rule_id == "environment.tools"]
@@ -254,7 +254,7 @@ def test_real_probe_missing_manifest_is_error_under_run(tmp_path: Path) -> None:
 def test_real_probe_failure_is_one_environment_tools_error(
     tmp_path: Path, _empty_db_dir: Path, mode: str, content: str
 ) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     (_empty_db_dir / "db_manifest.json").write_text(content)
     report, _ = run(tmp_path, None, mode=mode)
@@ -271,14 +271,14 @@ def test_real_probe_failure_is_one_environment_tools_error(
 
 
 def test_write_outputs_clean_report_writes_report_and_work_files(tmp_path: Path) -> None:
-    from giap.preflight.run import write_outputs
+    from gippa.preflight.run import write_outputs
 
     report, norm = run(tmp_path, fake_probe())
     out = tmp_path / "out"
     write_outputs(out, report, norm)
     data = validate(out / "preflight" / "preflight.json")
     assert data["summary"]["n_error"] == 0
-    assert (out / "preflight" / "preflight.md").read_text().startswith("# GIAP preflight")
+    assert (out / "preflight" / "preflight.md").read_text().startswith("# GIPPA preflight")
     work = sorted(p.name for p in (out / "work" / "preflight").iterdir())
     assert work == sorted(
         [
@@ -298,7 +298,7 @@ def test_write_outputs_clean_report_writes_report_and_work_files(tmp_path: Path)
 
 
 def test_write_outputs_error_report_writes_no_work_files(tmp_path: Path) -> None:
-    from giap.preflight.run import write_outputs
+    from gippa.preflight.run import write_outputs
 
     report, norm = run(tmp_path, fake_probe(), genome=">c\nACGU\n")
     out = tmp_path / "out"
@@ -310,7 +310,7 @@ def test_write_outputs_error_report_writes_no_work_files(tmp_path: Path) -> None
 
 
 def test_write_outputs_environment_error_still_writes_report(tmp_path: Path) -> None:
-    from giap.preflight.run import write_outputs
+    from gippa.preflight.run import write_outputs
 
     report, norm = run(tmp_path, fake_probe(bakta=None))
     out = tmp_path / "out"
@@ -321,7 +321,7 @@ def test_write_outputs_environment_error_still_writes_report(tmp_path: Path) -> 
 
 
 def test_write_outputs_twice_is_byte_identical(tmp_path: Path) -> None:
-    from giap.preflight.run import write_outputs
+    from gippa.preflight.run import write_outputs
 
     report, norm = run(tmp_path, fake_probe())
     a, b = tmp_path / "a", tmp_path / "b"

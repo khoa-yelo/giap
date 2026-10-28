@@ -39,9 +39,9 @@ from helpers.novel_evidence_fixture import (
 from helpers.novel_oracle import Case, Seq, cds, hit_row, il, mirror_case, revcomp, translate
 from helpers.novel_outputs_fixture import C1, L, ex1, orfs_of
 
-from giap.model.coords import Interval
-from giap.novel.candidates import Orf, candidate_rows, peptide_loci, reconstruct
-from giap.novel.evidence import (
+from gippa.model.coords import Interval
+from gippa.novel.candidates import Orf, candidate_rows, peptide_loci, reconstruct
+from gippa.novel.evidence import (
     junction_labels,
     pseudogene_junction,
     terminator_downstream,
@@ -54,8 +54,8 @@ def _candidates_parquet(case: Case, path: Path) -> list[Orf]:
     """What the ``novel_candidates`` step writes for ``case``."""
     from helpers.novel_outputs_fixture import cfg as out_cfg
 
-    from giap.io.parquet import write_parquet_deterministic
-    from giap.steps.novel import _CAND_COLS, _candidate_records
+    from gippa.io.parquet import write_parquet_deterministic
+    from gippa.steps.novel import _CAND_COLS, _candidate_records
 
     rows = candidate_rows(case.hits_df(), case.peptides_df(), None)
     orfs = reconstruct(rows, case.gm, case.genome, out_cfg())
@@ -91,7 +91,7 @@ def test_novel_candidates_peptide_columns_are_the_exact_hit_intervals(tmp_path: 
 
 
 def test_read_peptide_intervals_round_trip(tmp_path: Path) -> None:
-    from giap.steps.novel import read_peptide_intervals
+    from gippa.steps.novel import read_peptide_intervals
 
     case = ex1()
     path = tmp_path / "novel_candidates.parquet"
@@ -104,7 +104,7 @@ def test_read_peptide_intervals_round_trip(tmp_path: Path) -> None:
 
 
 def test_read_peptide_intervals_old_file_without_columns_is_empty(tmp_path: Path) -> None:
-    from giap.steps.novel import read_peptide_intervals
+    from gippa.steps.novel import read_peptide_intervals
 
     path = tmp_path / "old.parquet"
     _candidates_parquet(ex1(), path)
@@ -114,8 +114,8 @@ def test_read_peptide_intervals_old_file_without_columns_is_empty(tmp_path: Path
 
 
 def test_read_peptide_intervals_skips_a_peptide_without_a_locus(tmp_path: Path) -> None:
-    from giap.io.parquet import write_parquet_deterministic
-    from giap.steps.novel import _CAND_COLS, _candidate_records, read_peptide_intervals
+    from gippa.io.parquet import write_parquet_deterministic
+    from gippa.steps.novel import _CAND_COLS, _candidate_records, read_peptide_intervals
 
     case = ex1()
     rows = candidate_rows(case.hits_df(), case.peptides_df(), None)
@@ -150,7 +150,7 @@ def _shifted_pseudo_case() -> Case:
 def test_junction_spanned_from_the_written_peptide_intervals(tmp_path: Path) -> None:
     """Decision 5 end to end: the step's ``novel_candidates`` intervals, read back by
     ``read_peptide_intervals``, label the pseudogene ``junction_spanned``."""
-    from giap.steps.novel import read_peptide_intervals
+    from gippa.steps.novel import read_peptide_intervals
 
     case = _shifted_pseudo_case()
     assert pseudogene_junction(case.genes[0], case.genome["c1"], circ()) == 600
@@ -168,7 +168,7 @@ def test_junction_spanned_from_the_written_peptide_intervals(tmp_path: Path) -> 
 def test_readthrough_candidate_from_the_written_peptide_intervals(tmp_path: Path) -> None:
     """Decision 5 for ``cterm_extension``: the written intervals reach the readthrough label
     (gene G2 + [42, 75), its stop codon [72, 75) inside the second peptide)."""
-    from giap.steps.novel import read_peptide_intervals
+    from gippa.steps.novel import read_peptide_intervals
 
     case = ex1_case("cterm_extension", gene="G2")
     path = tmp_path / "novel_candidates.parquet"

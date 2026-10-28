@@ -1,5 +1,5 @@
 """Hypothesis properties of the M6-04 pair table (docs/specs/M6-04-pair-table.md, acceptance
-criteria; GIAP_SPEC.md §7.4.1).
+criteria; GIPPA_SPEC.md §7.4.1).
 
 * the OP/NO/CV/DV rows are exactly ``adjacent_chain``, each pair once, one class per pair, the
   class agreeing with the strands; SW rows are the brute-force sandwiches and never adjacent pairs;
@@ -20,8 +20,8 @@ from helpers.pairs_data import frame, gene, gene_tbl, reps
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.operons import adjacent_pairs
-from giap.model.genes import Gene
+from gippa.annotate.operons import adjacent_pairs
+from gippa.model.genes import Gene
 
 P_VALUES = (0.05, 0.3, 0.45, 0.5, 0.69, 0.7, 0.95)
 
@@ -52,7 +52,7 @@ def _key(a: str, b: str) -> frozenset[str]:
 @settings(max_examples=60, deadline=None)
 @given(layouts())
 def test_adjacent_rows_are_the_chain_and_sw_rows_the_sandwiches(lay: tuple) -> None:
-    from giap.operons.pairs import adjacent_chain
+    from gippa.operons.pairs import adjacent_chain
 
     genes, replicons, probs, tbl = lay
     df = frame(genes, replicons, probs, tbl=tbl)

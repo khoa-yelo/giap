@@ -1,4 +1,4 @@
-"""TE8 in-silico proxy on a recorded UniProt K-12 excerpt (issue M3-22; GIAP_SPEC.md §11.6 TE8).
+"""TE8 in-silico proxy on a recorded UniProt K-12 excerpt (issue M3-22; GIPPA_SPEC.md §11.6 TE8).
 
 §11.6 TE8: "UniProt K-12 tryptic peptides on the K-12 genome map >= 99.5 % exactly; on the
 Nissle genome, the decoy-estimated placement FDR at defaults is <= 1 % and tolerant plus unmapped
@@ -70,7 +70,7 @@ def _te_proxies() -> Any:
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 
 def read_fasta(path: Path) -> dict[str, str]:
@@ -89,7 +89,7 @@ def read_fasta(path: Path) -> dict[str, str]:
 
 
 def _digest_products(fasta: Path) -> list[tuple[int, str]]:
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     return [(st, p) for seq in read_fasta(fasta).values() for st, _, p in digest(seq)]
 
@@ -111,7 +111,7 @@ def exact_hits(peptides: set[str], genome: Path) -> set[str]:
 
 def k12_non_atg_nterm(fasta: Path) -> set[str]:
     """Decision 6: UniProt N-terminal peptides equal to a strict non-ATG K-12 N-terminal product."""
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     with gzip.open(K12_JSON, "rt") as fh:
         feats = json.load(fh)["features"]

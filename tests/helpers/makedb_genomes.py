@@ -1,4 +1,4 @@
-"""Hand-built genomes and Bakta-like JSON for the `giap makedb` tests (issue M3-23).
+"""Hand-built genomes and Bakta-like JSON for the `gippa makedb` tests (issue M3-23).
 
 Background is ``WALL`` (a stop in every frame of both strands in every 22 nt), so background
 ORFs stay < 20 aa. Planted stretches are built from 15-nt units whose frame 0 has no stop while
@@ -199,7 +199,7 @@ def build_example() -> ExampleGenome:
     chr1.put(240, g2)
     aa[G2] = protein(g2)
     feats.append(feature("cds", "chr1", 240, 480, "+", locus=G2, aa=aa[G2]))  # no product
-    expect["antisense"] = "GIAPORF_antisense_chr1_301_390_m"
+    expect["antisense"] = "GIPPAORF_antisense_chr1_301_390_m"
     expect["antisense_aa"] = translate(revcomp(chr1.text[300:390]))
 
     # G1 with a 12-aa in-frame upstream extension (example 7)
@@ -225,12 +225,12 @@ def build_example() -> ExampleGenome:
     # intergenic ORFs (examples 4 and 6, the 20-aa boundary)
     ex4 = "ATG" + stretch(29, 6)
     chr1.put(1197, "TAA" + ex4 + "TAA")
-    expect["intergenic"] = "GIAPORF_intergenic_chr1_1201_1290_p"
+    expect["intergenic"] = "GIPPAORF_intergenic_chr1_1201_1290_p"
     expect["intergenic_aa"] = translate(ex4)
     chr1.put(1497, "TAA" + stretch(19, 7) + "TAA")
-    expect["orf19"] = "GIAPORF_intergenic_chr1_1501_1557_p"
+    expect["orf19"] = "GIPPAORF_intergenic_chr1_1501_1557_p"
     chr1.put(1697, "TAA" + stretch(20, 1) + "TAA")
-    expect["orf20"] = "GIAPORF_intergenic_chr1_1701_1760_p"
+    expect["orf20"] = "GIPPAORF_intergenic_chr1_1701_1760_p"
 
     # sORF S1 in frame with a 20-aa stop-to-stop segment
     s1 = _gene_nt(18, 2)
@@ -263,7 +263,7 @@ def build_example() -> ExampleGenome:
     # origin-crossing ORF: [3240, 3390) = 50 aa, stops at 3237 and 90 (unwrapped 3390)
     orig = stretch(50, 2)
     chr1.put(3237, "TAA" + orig + "TAA")
-    expect["origin"] = "GIAPORF_intergenic_chr1_3241_3390_p"
+    expect["origin"] = "GIPPAORF_intergenic_chr1_3241_3390_p"
     expect["origin_aa"] = translate(orig)
 
     # lin1 (linear)
@@ -273,7 +273,7 @@ def build_example() -> ExampleGenome:
     with_n = with_n[:90] + "GNA" + with_n[93:]
     lin1.put(200, "TAA" + with_n + "TAA")
     lin1.put(582, "TAA" + stretch(25, 3))
-    expect["lin_end"] = "GIAPORF_intergenic_lin1_586_660_p"
+    expect["lin_end"] = "GIPPAORF_intergenic_lin1_586_660_p"
     expect["lin_end_aa"] = translate(stretch(25, 3))
 
     # JSON in non-coordinate order (gene-model order is by coordinate)
@@ -287,8 +287,8 @@ def write_patch_gff3(path: Path, genome: ExampleGenome) -> Path:
         "##gff-version 3",
         f"##sequence-region chr1 1 {L_CHR}",
         f"##sequence-region lin1 1 {L_LIN}",
-        f"chr1\tgiap\tCDS\t565\t900\t.\t+\t0\tID={G1};locus_tag={G1};Note=nterm_extension",
-        "chr1\tgiap\tCDS\t1201\t1293\t.\t+\t0\tID=NOVEL_chr1_1201_p;product=novel ORF",
+        f"chr1\tgippa\tCDS\t565\t900\t.\t+\t0\tID={G1};locus_tag={G1};Note=nterm_extension",
+        "chr1\tgippa\tCDS\t1201\t1293\t.\t+\t0\tID=NOVEL_chr1_1201_p;product=novel ORF",
     ]
     path.write_text("\n".join(lines) + "\n")
     return path

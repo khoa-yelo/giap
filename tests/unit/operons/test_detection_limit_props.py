@@ -21,13 +21,13 @@ from helpers import detection_limit_data as D
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 
 
 def _dl() -> Any:
-    from giap.operons import detection_limit
+    from gippa.operons import detection_limit
 
     return detection_limit
 
@@ -143,9 +143,9 @@ aa_st = st.text(alphabet="ACDEFGHKMNPQRSTVWY", min_size=0, max_size=300)
 @SETTINGS
 @given(aa_st, st.sampled_from(["trypsin_p", "trypsin"]))
 def test_observable_peptides_count_matches_m4_10(aa: str, enzyme: str) -> None:
-    from giap.genetable.covariates import n_observable_peptides
+    from gippa.genetable.covariates import n_observable_peptides
 
-    cfg = GiapConfig(abundance={"enzyme": enzyme})
+    cfg = GippaConfig(abundance={"enzyme": enzyme})
     got = _dl().observable_peptides(aa, cfg)
     assert len(got) == n_observable_peptides(aa, enzyme, (7, 30))  # type: ignore[arg-type]
     assert all(7 <= n <= 30 for n, _ in got)

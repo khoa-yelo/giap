@@ -1,7 +1,7 @@
 """M8-16 item 3 at step level: the registered ``sensitivity`` step with the ``enriched_categories``
-and ``determinants`` families on the M4-19 giapsim work directory (docs/specs/M8-16-sensitivity-
+and ``determinants`` families on the M4-19 gippasim work directory (docs/specs/M8-16-sensitivity-
 function-determinants.md items 1-3, degenerate cases, acceptance "a run with function and
-determinants on writes the two families"; GIAP_SPEC.md §8.6, §6.2 ``sensitivity`` row).
+determinants on writes the two families"; GIPPA_SPEC.md §8.6, §6.2 ``sensitivity`` row).
 
 A new file rather than an extension of ``test_sensitivity_step.py`` (the test author never edits
 an existing test). Interface assumed (test author):
@@ -50,8 +50,8 @@ REQUIRED = {"gene_table", "replicons", "regions", "region_genes", "tus"}
 
 
 def _spec() -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     return reg.get("sensitivity")
@@ -106,8 +106,8 @@ def _features(g: pd.DataFrame, keep: int | None = None) -> pd.DataFrame:
 def _build(root: Path, **sim: Any) -> World:
     from helpers.function_db import write_function_db
 
-    from giap.io.determinants_tables import write_determinants_features
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.determinants_tables import write_determinants_features
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     work = sd.sim_work_dir(root / "work", **sim)
     g, xrefs = _function_columns(read_genes_parquet(work / "genetable" / "genes.parquet"))
@@ -143,7 +143,7 @@ class _Engine:
         self.params: list[Any] = []
 
     def __call__(self, call: Any) -> Any:
-        from giap.function.gsea import SIMPLE_ENGINE
+        from gippa.function.gsea import SIMPLE_ENGINE
 
         self.params.append(call.params)
         return SIMPLE_ENGINE(call)
@@ -151,9 +151,9 @@ class _Engine:
 
 def _families(mp: pytest.MonkeyPatch, engine: _Engine, *, ec: bool = True,
               det: bool = True) -> None:  # fmt: skip
-    from giap.context import sensitivity as S
-    from giap.determinants.sensitivity import determinants_family
-    from giap.function.sensitivity import enriched_categories_family
+    from gippa.context import sensitivity as S
+    from gippa.determinants.sensitivity import determinants_family
+    from gippa.function.sensitivity import enriched_categories_family
 
     fams: dict[str, Any] = {}
     if ec:
@@ -190,13 +190,13 @@ def _run(
     ec: bool = True,
     det: bool = True,
 ) -> Run:
-    from giap.steps.registry import run_step
+    from gippa.steps.registry import run_step
 
     _spec()
     ins = {k: v for k, v in w.inputs.items() if k not in drop} | dict(replace or {})
     eng = _Engine()
     h = _Records()
-    root = logging.getLogger("giap")
+    root = logging.getLogger("gippa")
     old = root.level
     root.addHandler(h)
     root.setLevel(logging.DEBUG)
@@ -221,9 +221,9 @@ def _events(records: list[logging.LogRecord]) -> list[logging.LogRecord]:
 
 def _validate(tsv: Path) -> None:
     frictionless = pytest.importorskip("frictionless")
-    import giap
+    import gippa
 
-    path = Path(giap.__file__).resolve().parent / "schemas" / "tables" / "sensitivity.schema.json"
+    path = Path(gippa.__file__).resolve().parent / "schemas" / "tables" / "sensitivity.schema.json"
     d = {k: v for k, v in json.loads(path.read_text(encoding="utf-8")).items()
          if k != "coordinates"}  # fmt: skip
     res = frictionless.Resource(path=tsv.name, basepath=str(tsv.parent),
@@ -287,12 +287,12 @@ def test_writes_both_families(full: Run) -> None:
 def test_enriched_categories_n_primary_is_the_primary_rerun(world: World, full: Run) -> None:
     """n_primary = the family on the primary gene table with the step's collections, stream and
     base config (cog:J is flagged: its 40 genes are the most abundant)."""
-    from giap.function.collections import build_collections
-    from giap.function.gsea import SIMPLE_ENGINE
-    from giap.function.sensitivity import enriched_categories_family
-    from giap.genetable.eligibility import eligible
-    from giap.io.function_resources import read_resources
-    from giap.rng import for_step
+    from gippa.function.collections import build_collections
+    from gippa.function.gsea import SIMPLE_ENGINE
+    from gippa.function.sensitivity import enriched_categories_family
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.function_resources import read_resources
+    from gippa.rng import for_step
 
     res = read_resources({k: world.inputs[k] for k in RESOURCES})
     colls, _ = build_collections(world.genes, eligible(world.genes), res)
@@ -315,8 +315,8 @@ def test_determinants_rows_min_exclude_agree(world: World, full: Run) -> None:
     """Imputed genes never enter the determinants models (M8-08 rule 1), so with common random
     numbers ``min`` / ``exclude`` reproduce the primary: agreement 1, n_variant = n_shared =
     n_primary, which is the primary rerun's flagged count."""
-    from giap.determinants.sensitivity import determinants_family
-    from giap.rng import for_step
+    from gippa.determinants.sensitivity import determinants_family
+    from gippa.rng import for_step
 
     det = full.rows[full.rows["family"] == sf.DET]
     want = determinants_family(world.genes, sf.base_config(),
@@ -384,7 +384,7 @@ def test_no_determinants_features_no_rows_and_event(world: World, tmp_path: Path
 
 
 def test_determinants_below_the_minimum_no_rows_and_event(world: World, tmp_path: Path) -> None:
-    from giap.io.determinants_tables import write_determinants_features
+    from gippa.io.determinants_tables import write_determinants_features
 
     small = tmp_path / "determinants_features.tsv"
     write_determinants_features(small, _features(world.genes, keep=60))

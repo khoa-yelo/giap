@@ -1,4 +1,4 @@
-# M8-06: The `function` step, its three tables, and wiring them into `giap run`
+# M8-06: The `function` step, its three tables, and wiring them into `gippa run`
 
 Milestone M8 · track T (tables and integration) · **pass 1, the Module 7 integration milestone** ·
 depends on: M8-03 (merged), M8-05 + M8-05b (merged), M8-04a (merged), **M8-04b (PR #179, in
@@ -6,9 +6,9 @@ review)** · estimate ≈ 420 lines in `src/` and `workflow/`, of which ≈ 130 
 (+ ≈ 520 test lines, + nf-test) · **split into M8-06a and M8-06b** (see "Split") · not statistical
 
 **Revision 2 (2026-10-22).** Revision 1 was written before M8-03, M8-04 and M8-05 were built.
-This revision matches the code those issues actually expose: `giap.function.collections` and
-`giap.io.function_resources` (main), `giap.function.gsea` (main), and `giap.function.ora` /
-`giap.function.summary` (branch `origin/m8/ora`, PR #179). Anything marked **[#179]** depends on
+This revision matches the code those issues actually expose: `gippa.function.collections` and
+`gippa.io.function_resources` (main), `gippa.function.gsea` (main), and `gippa.function.ora` /
+`gippa.function.summary` (branch `origin/m8/ora`, PR #179). Anything marked **[#179]** depends on
 an interface that review could still change.
 
 ## The gap this closes
@@ -41,7 +41,7 @@ Python. This issue:
 - §9.2 conventions, §9.3 the three column dictionaries as amended (below), §9.4 run flags
   (`layer_missing:<layer>`, `bakta_db_light`), §9.5 Frictionless resources.
 - §7.9.1: the setup items `go_basic`, `goslim_generic`, `kegg_ko_pathway`, `kegg_pathway_names`
-  and `cog2020_fun`. Their paths come from `src/giap/data/db_sources.yaml`, and `giap setup --go
+  and `cog2020_fun`. Their paths come from `src/gippa/data/db_sources.yaml`, and `gippa setup --go
   --kegg --cog` installs them. All five are `ok` in FarmShare's `local/db/db_manifest.json`
   (retrieved 2026-10-15).
 
@@ -49,12 +49,12 @@ Python. This issue:
 
 | Function | Module | Signature (as on main / #179) | Run flags it returns |
 |---|---|---|---|
-| resources | `giap.io.function_resources` | `read_resources(paths: Mapping[str, Path \| None]) -> Resources` (keys = the five item names; None or absent means not installed) | none |
-| collections | `giap.function.collections` | `build_collections(genes, eligible: B8, res) -> (list[GeneSets], list[str])`, in `COLLECTIONS` order (cog, kegg, go_bp, go_mf, go_cc, go_slim) | `layer_missing:cog`, `layer_missing:kegg`, `layer_missing:go`, in that order; `bakta_db_light` when any `annotation_source == "bakta_light"` |
-| eligibility | `giap.genetable.eligibility` | `eligible(genes) -> B8` (non-partial, finite `p_detect`) | none |
-| summary **[#179]** | `giap.function.summary` | `category_summary(genes, colls, B: int, rng) -> DataFrame` | none (row flag `ci_few_units`) |
-| ORA **[#179]** | `giap.function.ora` | `detection_enrichment(genes, colls, size: tuple[int, int], alpha, *, folds: Mapping[str, int] \| None) -> DataFrame` | `df.attrs["run_flags"]`: `tu_recal_skipped`, `p_detect_clipped`, `null_degenerate` |
-| GSEA | `giap.function.gsea` | `gsea_table(genes, colls, size, cfg: GseaConfig, alpha, rng, replicons=None) -> DataFrame` | `df.attrs["run_flags"]`: `layer_missing:abundance` or `too_few_ranked_tus` |
+| resources | `gippa.io.function_resources` | `read_resources(paths: Mapping[str, Path \| None]) -> Resources` (keys = the five item names; None or absent means not installed) | none |
+| collections | `gippa.function.collections` | `build_collections(genes, eligible: B8, res) -> (list[GeneSets], list[str])`, in `COLLECTIONS` order (cog, kegg, go_bp, go_mf, go_cc, go_slim) | `layer_missing:cog`, `layer_missing:kegg`, `layer_missing:go`, in that order; `bakta_db_light` when any `annotation_source == "bakta_light"` |
+| eligibility | `gippa.genetable.eligibility` | `eligible(genes) -> B8` (non-partial, finite `p_detect`) | none |
+| summary **[#179]** | `gippa.function.summary` | `category_summary(genes, colls, B: int, rng) -> DataFrame` | none (row flag `ci_few_units`) |
+| ORA **[#179]** | `gippa.function.ora` | `detection_enrichment(genes, colls, size: tuple[int, int], alpha, *, folds: Mapping[str, int] \| None) -> DataFrame` | `df.attrs["run_flags"]`: `tu_recal_skipped`, `p_detect_clipped`, `null_degenerate` |
+| GSEA | `gippa.function.gsea` | `gsea_table(genes, colls, size, cfg: GseaConfig, alpha, rng, replicons=None) -> DataFrame` | `df.attrs["run_flags"]`: `layer_missing:abundance` or `too_few_ranked_tus` |
 
 Consequences for the step:
 
@@ -74,7 +74,7 @@ Consequences for the step:
 
 ## Public interface
 
-`src/giap/steps/function.py`
+`src/gippa/steps/function.py`
 ```python
 @step("function", module="function",
       inputs=["gene_table", "replicons", "tu_folds"],
@@ -84,24 +84,24 @@ Consequences for the step:
 def function_step(ctx: StepContext) -> None: ...
 
 def run_function(genes: pd.DataFrame, replicons: pd.DataFrame, folds: Mapping[str, int],
-                 res: Resources, cfg: GiapConfig
+                 res: Resources, cfg: GippaConfig
                  ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     """(category_summary, enrichment_detection, enrichment_gsea, run_flags). Pure."""
 ```
-`src/giap/io/function_tables.py`
+`src/gippa/io/function_tables.py`
 ```python
 def write_category_summary_tsv(path: Path, df: pd.DataFrame) -> None: ...
 def write_enrichment_detection_tsv(path: Path, df: pd.DataFrame) -> None: ...
 def write_enrichment_gsea_tsv(path: Path, df: pd.DataFrame) -> None: ...
 ```
-`src/giap/setupdb/installed.py`
+`src/gippa/setupdb/installed.py`
 ```python
 FUNCTION_RESOURCES: tuple[str, ...] = ("go_basic", "goslim_generic", "kegg_ko_pathway",
                                        "kegg_pathway_names", "cog2020_fun")
 def resource(db_dir: Path | None, name: str) -> Path | None: ...   # cog_table generalised
 def cog_table(db_dir: Path | None) -> Path | None: ...            # = resource(db_dir, "cog2020_def")
 ```
-Also `src/giap/schemas/tables/{category_summary,enrichment_detection,enrichment_gsea}.schema.json`.
+Also `src/gippa/schemas/tables/{category_summary,enrichment_detection,enrichment_gsea}.schema.json`.
 
 ### 1. TU folds: a new `detectability` output
 
@@ -118,7 +118,7 @@ Also `src/giap/schemas/tables/{category_summary,enrichment_detection,enrichment_
 
 ### 2. Order inside the step (`run_function`)
 
-1. `el = giap.genetable.eligibility.eligible(genes)`. `res = read_resources({k: ctx.inputs.get(k)
+1. `el = gippa.genetable.eligibility.eligible(genes)`. `res = read_resources({k: ctx.inputs.get(k)
    for k in FUNCTION_RESOURCES})`. A resource file that does not parse (for example a bad OBO)
    raises, and the step exits 4. There is no silent fallback.
 2. `colls, flags = build_collections(genes, el, res)`.
@@ -133,7 +133,7 @@ Also `src/giap/schemas/tables/{category_summary,enrichment_detection,enrichment_
    `gsea.attrs["run_flags"]`, without duplicates, in first-seen order.
 
 The streams follow the `context_stats.<part>` precedent: sub-streams from
-`giap.rng.for_step(name, cfg.seed)`, not the step's own `ctx.rng`. Adding a draw to one part
+`gippa.rng.for_step(name, cfg.seed)`, not the step's own `ctx.rng`. Adding a draw to one part
 therefore never moves the other.
 
 **No eligible gene** (an empty gene table, or every gene partial). The step does not call steps 3
@@ -153,7 +153,7 @@ pinned anywhere.
 
 ### 4. Writers (§9.2, ADR-0006)
 
-- Cells use `giap.io.tsv.write_tsv`: `NA`, `%.6g`, `true`/`false`, `;`-joined `leading_edge` and
+- Cells use `gippa.io.tsv.write_tsv`: `NA`, `%.6g`, `true`/`false`, `;`-joined `leading_edge` and
   `flags`. A NA `redundant` (boolean dtype) or `parent_group` (None) is written as `NA`.
 - Column order is each module's `COLUMNS`, verbatim.
 - Rows are sorted stably by (collection in `COLLECTIONS` order, term, and direction for ORA).
@@ -205,7 +205,7 @@ so this criterion is dropped (Q7).
 
 ### 6. Module switch (§6.3)
 
-- **Local.** `giap.runner.local._enabled` already plans a `module="function"` step only when
+- **Local.** `gippa.runner.local._enabled` already plans a `module="function"` step only when
   `"function" in cfg.modules`. The default config includes it.
 - **Nextflow.** `main.nf` calls `FUNCTION` only when `'function' in (params.modules ?: [])`. This
   is the first module switch in `main.nf`. `mobile` and `bgc` are not switched there yet (Q5).
@@ -235,7 +235,7 @@ so this criterion is dropped (Q7).
 
 `workflow/subworkflows/local/function.nf` follows the OPERONS/DETERMINANTS style:
 
-- the alias is `GIAP_STEP as FUNCTION_STEP`, because an alias cannot share the subworkflow's
+- the alias is `GIPPA_STEP as FUNCTION_STEP`, because an alias cannot share the subworkflow's
   name `FUNCTION`;
 - it uses `stepIn`, `kv` and `pick` from `./annotate`;
 - it runs at `process_single`, because the step needs < 2 GB and seconds to minutes (index
@@ -267,7 +267,7 @@ Other wiring changes:
   `if ('function' in (params.modules ?: [])) FUNCTION(GENETABLE.out.gene_table, gene_model,
   GENETABLE.out.tu_folds, functionResources())`.
 - **Publishing (M6-08 decision 7).** Only the three `tables/*.tsv` files and
-  `genetable/tu_folds.parquet` are named. `giap.runner.local.PUBLISHED_FILES` gains the same four
+  `genetable/tu_folds.parquet` are named. `gippa.runner.local.PUBLISHED_FILES` gains the same four
   keys, which `tests/unit/test_local_publish_names.py` pins against the Nextflow names.
 - **Registry pin.** `workflow/tests/data/annotate/step_registry.json` gains the `function` entry,
   and `detectability`'s outputs gain `tu_folds`.
@@ -285,9 +285,9 @@ Other wiring changes:
 | PR | Content | Code | Tests (test-author) |
 |---|---|---|---|
 | **M8-06a**: step and tables (Python only) | items 1 to 5; `installed.resource`; `step_registry.json`. `tu_folds` stays optional-output and unwired in Nextflow; nothing new is staged by `cli` or published. Under `--executor local` the step is planned (default modules) and writes to `work/` only, with no resources staged | ≈ 210 Python + ≈ 125 JSON | `tests/unit/steps/test_function_step.py` (examples 4 to 9, via `run_step`); writer and schema tests; `tests/unit/steps/test_detectability_folds.py` (example 7); a synthetic function DB helper (Q6) |
-| **M8-06b**: `giap run` under both executors | items 6 to 8: `cli` staging, `PUBLISHED_FILES`, `function.nf`, `main.nf`, `genetable.nf`, the pins; the real Slurm run | ≈ 85 Groovy/Python | `tests/integration/test_m8_06_function_run.py` (examples 1 to 3); `workflow/tests/function.nf.test`; `workflow/tests/main_function.nf.test`; pin updates |
+| **M8-06b**: `gippa run` under both executors | items 6 to 8: `cli` staging, `PUBLISHED_FILES`, `function.nf`, `main.nf`, `genetable.nf`, the pins; the real Slurm run | ≈ 85 Groovy/Python | `tests/integration/test_m8_06_function_run.py` (examples 1 to 3); `workflow/tests/function.nf.test`; `workflow/tests/main_function.nf.test`; pin updates |
 
-M8-06a imports `giap.function.ora` and `giap.function.summary`, so until #179 merges,
+M8-06a imports `gippa.function.ora` and `gippa.function.summary`, so until #179 merges,
 `m8/function-step` merges `origin/m8/ora` (stacked, no rebase). M8-06a merges after #179.
 M8-06b stacks on M8-06a. One PR at ≈ 420 lines (schema JSON included) is the alternative
 (Q8).
@@ -318,7 +318,7 @@ M8-06b stacks on M8-06a. One PR at ≈ 420 lines (schema JSON included) is the a
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local --modules core,function` on sim100k (M3-19 proteomics, precomputed layers, seed 7) with `$GIAP_DB_DIR` = the synthetic function DB (Q6) | `OUT/tables/{category_summary,enrichment_detection,enrichment_gsea}.tsv` exist and validate; `category_summary.tsv` and `enrichment_detection.tsv` have ≥ 1 row; every detection and GSEA row's `flags` contains `ci_unestimated`; the `function.run_flags` event contains `tu_recal_skipped` (constant model on ~100 genes); exit 0 |
+| 1 | `gippa run --executor local --modules core,function` on sim100k (M3-19 proteomics, precomputed layers, seed 7) with `$GIPPA_DB_DIR` = the synthetic function DB (Q6) | `OUT/tables/{category_summary,enrichment_detection,enrichment_gsea}.tsv` exist and validate; `category_summary.tsv` and `enrichment_detection.tsv` have ≥ 1 row; every detection and GSEA row's `flags` contains `ci_unestimated`; the `function.run_flags` event contains `tu_recal_skipped` (constant model on ~100 genes); exit 0 |
 | 2 | example 1 through `--executor nextflow --profile farmshare_local` | the three tables and `genetable/tu_folds.parquet` byte-identical to example 1 (§6.4) |
 | 3 | example 1 with `--modules core` | no `tables/category_summary.tsv`, `enrichment_detection.tsv` or `enrichment_gsea.tsv`; `tables/operons.tsv` still written; exit 0 |
 | 4 | `run_step("function", …)` on a 4-gene toy gene table (g1–g4 in TU_1…TU_4, non-partial, `cog_category` J, J, J, NA; `detected` T, T, F, F; `p_detect` 0.9, 0.5, 0.4, 0.3; no abundance) with only `cog2020_fun` (J = "Translation, ribosomal structure and biogenesis") | `category_summary.tsv` = header + one row `cog  J  Translation, ribosomal structure and biogenesis  3  2  1.8  0.2  NA  NA  NA  0.75  ci_few_units`; `enrichment_detection.tsv` header-only (3 TUs < `ora_size` 5); `enrichment_gsea.tsv` header-only; run flags `layer_missing:kegg`, `layer_missing:go`, `tu_recal_skipped`, `layer_missing:abundance` |
@@ -327,7 +327,7 @@ M8-06b stacks on M8-06a. One PR at ≈ 420 lines (schema JSON included) is the a
 | 7 | `detectability` on a 600-gene non-constant fixture (the M4-13 test frame) | `tu_folds.parquet` rows == `fit_detectability(...).fold_of_tu`, sorted by natural TU ID; feeding it to `function` gives no `tu_recal_skipped`; replacing it with a header-only file gives `tu_recal_skipped` and different `p_value`s |
 | 8 | the same inputs and seed twice; then seed 7 vs 8 | byte-identical tables; with seed 8, `enrichment_detection.tsv` is unchanged (deterministic), `category_summary.tsv` CIs and GSEA p-values may change |
 | 9 | `frictionless validate` on the three outputs of examples 1, 4, 5 | valid; a row with `method = wallenius_ora` or flag `foo` is rejected |
-| 10 | `sbatch scripts/slurm/giap_run.sbatch` on sim100k with FarmShare's `local/db` (real GO/KEGG/COG) | completes; the three tables exist and validate (they may be sparse: random simulator IDs); job ID in PROGRESS.md |
+| 10 | `sbatch scripts/slurm/gippa_run.sbatch` on sim100k with FarmShare's `local/db` (real GO/KEGG/COG) | completes; the three tables exist and validate (they may be sparse: random simulator IDs); job ID in PROGRESS.md |
 
 Example 4's numbers: n_genes = 3, n_detected = 2, expected = 0.9 + 0.5 + 0.4 = 1.8, O − E = 0.2,
 and 3 TUs < `CI_MIN_UNITS` 10, so the CI is NA with `ci_few_units`. Coverage is 3/4 = 0.75,
@@ -375,7 +375,7 @@ M8-06b:
   - `test_local_publish_names.py` passes;
   - the `functionResources()` paths are pinned against `db_sources.yaml`.
 - [ ] **Evidence that counts (the MVP rule):** example 10, one real `sbatch
-  scripts/slurm/giap_run.sbatch` that reaches the end. Its job ID goes in PROGRESS.md.
+  scripts/slurm/gippa_run.sbatch` that reaches the end. Its job ID goes in PROGRESS.md.
 
 ## Hardening owed (pass 2)
 
@@ -465,5 +465,5 @@ M8-06b:
    - Every ORA row carries `ora_uncalibrated` in pass 1.
    - A skipped recalibration adds `tu_recal_skipped` to the rows as well.
    - The schema-equals-`COLUMNS` test pins the final #179 columns.
-4. **The M8-06b test contract is accepted (TA 9a931e5).** Q6's premise was wrong: sim100k writes `db_xrefs: []`, so the simulator has no GO, KEGG or COG IDs. The integration fixture therefore writes deterministic `db_xrefs` into the simulated `bakta_like.json` before either run, and builds the synthetic DB from those IDs. Giving giapsim real xrefs goes to the backlog (M8-14). The lead added `FUNCTION_STEP` to the MVP-02 process-list pin and `genetable/tu_folds.parquet` to the genetable published files.
+4. **The M8-06b test contract is accepted (TA 9a931e5).** Q6's premise was wrong: sim100k writes `db_xrefs: []`, so the simulator has no GO, KEGG or COG IDs. The integration fixture therefore writes deterministic `db_xrefs` into the simulated `bakta_like.json` before either run, and builds the synthetic DB from those IDs. Giving gippasim real xrefs goes to the backlog (M8-14). The lead added `FUNCTION_STEP` to the MVP-02 process-list pin and `genetable/tu_folds.parquet` to the genetable published files.
 

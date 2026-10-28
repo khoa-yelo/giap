@@ -1,4 +1,4 @@
-"""Bakta command builder and DB selection (issue M2-03 example 10; GIAP_SPEC.md §7.1.1, §5.2)."""
+"""Bakta command builder and DB selection (issue M2-03 example 10; GIPPA_SPEC.md §7.1.1, §5.2)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ REPLICONS = Path("/w/replicons.tsv")
 
 
 def _cmd(**kw: Any) -> list[str]:
-    from giap.annotate.bakta_cmd import bakta_command
+    from gippa.annotate.bakta_cmd import bakta_command
 
     args: dict[str, Any] = {
         "genome": GENOME,
@@ -127,7 +127,7 @@ def test_extra_args_last_before_genome() -> None:
 
 
 def test_returns_list_of_str() -> None:
-    from giap.annotate.bakta_cmd import bakta_command
+    from gippa.annotate.bakta_cmd import bakta_command
 
     cmd = bakta_command(
         genome=GENOME,
@@ -155,7 +155,7 @@ def test_returns_list_of_str() -> None:
     ],
 )
 def test_db_auto(tmp_path: Path, present: list[str], expected_dir: str, expected_type: str) -> None:
-    from giap.annotate.bakta_cmd import bakta_db_path
+    from gippa.annotate.bakta_cmd import bakta_db_path
 
     for name in present:
         (tmp_path / "bakta" / name).mkdir(parents=True)

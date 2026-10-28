@@ -1,16 +1,16 @@
 """M11-14w ``genetic_code_check``: examples 6-10, the ``_decide`` boundary, the ``info`` paths,
 AC 1, AC 3 (fixture seeds), AC 4 (determinism, revcomp and record order) and AC 5 (preflight
-wiring) (docs/specs/M11-14w-wrong-genetic-code-warning.md; GIAP_SPEC.md §7.0, M1-12).
+wiring) (docs/specs/M11-14w-wrong-genetic-code-warning.md; GIPPA_SPEC.md §7.0, M1-12).
 
 Interface assumed (spec "Where it runs" items 1, 5 and example 8):
-- ``giap.preflight.genetic_code.genetic_code_check(seqs: Sequence[str], table: int) -> Check``;
-- ``giap.preflight.genetic_code._decide(bp11, bp4, n4)`` returns a ``Check`` or a level string
+- ``gippa.preflight.genetic_code.genetic_code_check(seqs: Sequence[str], table: int) -> Check``;
+- ``gippa.preflight.genetic_code._decide(bp11, bp4, n4)`` returns a ``Check`` or a level string
   (both accepted here; only the level is read from it);
 - ``genetic_code_check`` gets its per-record counts from the module-level ``long_orf_cover``
   looked up at call time (the truncated-ratio wording test patches it; spec example 8 asks for
   ``ratio 0.54`` at bp11 = 549, bp4 = 1000, which no small real sequence gives);
 - ``run_preflight`` calls ``genetic_code_check`` as a name it can see at call time in
-  ``giap.preflight.run`` or ``giap.preflight.genetic_code`` (AC 5 patches both).
+  ``gippa.preflight.run`` or ``gippa.preflight.genetic_code`` (AC 5 patches both).
 
 The fixture generator is ``helpers.genetic_code_fixture.synthetic_genome`` (spec test plan).
 """
@@ -33,9 +33,9 @@ from helpers.genetic_code_fixture import random_dna, revcomp, synthetic_genome
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.exitcodes import ExitCode
-from giap.preflight.checks import Check
+from gippa.config import GippaConfig, resolve_config
+from gippa.exitcodes import ExitCode
+from gippa.preflight.checks import Check
 
 RULE_ID = "genome.genetic_code"
 RULE_TEXT = (
@@ -47,7 +47,7 @@ MSG_FEW = "not evaluated: fewer than 20 open reading frames of at least 300 codo
 WARN_START = "This genome probably uses genetic code 4"
 VALUE_KEYS = {"min_codons", "bp_tga_stop", "bp_tga_sense", "n_orfs_tga_sense", "ratio", "threshold"}
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
@@ -57,7 +57,7 @@ SEEDS = [1, 2, 3, 4, 5]
 
 
 def gcc(seqs: Sequence[str], table: int = 11) -> Check:
-    from giap.preflight.genetic_code import genetic_code_check
+    from gippa.preflight.genetic_code import genetic_code_check
 
     c = genetic_code_check(seqs, table)
     assert isinstance(c, Check)
@@ -132,7 +132,7 @@ def test_warning_wording() -> None:
     for phrase in (
         "(TGA = Trp; Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma)",
         "or another code in which TGA is not a stop",
-        "GIAP 1.0 supports genetic code 11 only: genes will be cut at TGA",
+        "GIPPA 1.0 supports genetic code 11 only: genes will be cut at TGA",
         "proteins and peptides that contain W will not map",
         "strain_difference and nterm_extension_evidence flags will be artefacts",
         "This warning does not change any result.",
@@ -154,7 +154,7 @@ def test_example7_code11_fixture_ok() -> None:
 
 
 def test_example8_decide_boundary_on_integers() -> None:
-    from giap.preflight.genetic_code import _decide
+    from gippa.preflight.genetic_code import _decide
 
     assert level_of(_decide(550, 1000, 20)) == "ok"
     assert level_of(_decide(549, 1000, 20)) == "warn"
@@ -168,7 +168,7 @@ def test_example8_decide_boundary_on_integers() -> None:
 @settings(max_examples=300, deadline=None)
 @given(bp4=st.integers(18_000, 10**9), frac=st.integers(0, 10**6), n4=st.integers(20, 10**5))
 def test_decide_is_the_exact_integer_rule(bp4: int, frac: int, n4: int) -> None:
-    from giap.preflight.genetic_code import _decide
+    from gippa.preflight.genetic_code import _decide
 
     bp11 = bp4 * frac // 10**6
     want = "warn" if 20 * bp11 < 11 * bp4 else "ok"
@@ -176,7 +176,7 @@ def test_decide_is_the_exact_integer_rule(bp4: int, frac: int, n4: int) -> None:
 
 
 def test_example8_ratio_is_truncated_in_the_message(monkeypatch: pytest.MonkeyPatch) -> None:
-    import giap.preflight.genetic_code as gc_mod
+    import gippa.preflight.genetic_code as gc_mod
 
     def fake(seq: str, stops: Any, min_codons: int) -> tuple[int, int]:
         assert min_codons == 300
@@ -257,7 +257,7 @@ def test_runs_never_cross_records() -> None:
 
 
 def test_records_are_summed() -> None:
-    from giap.preflight.genetic_code import long_orf_cover
+    from gippa.preflight.genetic_code import long_orf_cover
 
     seqs = [code4(1)[:200_000], code11(2)[:150_000], "A" * 3000]
     v = assert_value(gcc(seqs))
@@ -349,18 +349,18 @@ def test_ac4_property_revcomp_and_permutation(seqs: list[str], data: st.DataObje
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("db", "repo"):
         (tmp_path / name).mkdir(exist_ok=True)
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db"))
-    monkeypatch.setenv("GIAP_REPO", str(tmp_path / "repo"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "repo"))  # never the real $GIAP_ROOT
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db"))
+    monkeypatch.setenv("GIPPA_REPO", str(tmp_path / "repo"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "repo"))  # never the real $GIPPA_ROOT
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
 
 
-def _cfg(*extra: str) -> GiapConfig:
+def _cfg(*extra: str) -> GippaConfig:
     return resolve_config(overrides=[*LOW, *extra])
 
 
 def _probe() -> Any:
-    from giap.preflight.environment import GIB, EnvProbe, requirements
+    from gippa.preflight.environment import GIB, EnvProbe, requirements
 
     found: dict[str, str | None] = {
         r.name: r.min_version or "1.0"
@@ -370,7 +370,7 @@ def _probe() -> Any:
 
 
 def _inputs(tmp_path: Path, fasta: str, annotation: bool = False) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     g = tmp_path / "g.fa"
     g.write_text(fasta)
@@ -390,7 +390,7 @@ def _fasta(seqs: Sequence[str]) -> str:
 
 
 def _run(tmp_path: Path, fasta: str, *extra: str, annotation: bool = False) -> Any:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     return run_preflight(_inputs(tmp_path, fasta, annotation), _cfg(*extra), _probe(), "preflight")
 
@@ -448,7 +448,7 @@ def test_topology_is_ignored(tmp_path: Path) -> None:
 
 
 def test_preflight_json_and_md_carry_the_check(tmp_path: Path) -> None:
-    from giap.preflight.run import write_outputs
+    from gippa.preflight.run import write_outputs
 
     report, norm = _run(tmp_path, _fasta([code4()]))
     out = tmp_path / "OUT"
@@ -479,9 +479,9 @@ def _same(a: Any, b: Any) -> bool:
 
 
 def test_ac5_warning_changes_only_checks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import giap.preflight.genetic_code as gc_mod
-    import giap.preflight.run as run_mod
-    from giap.preflight.run import exit_code
+    import gippa.preflight.genetic_code as gc_mod
+    import gippa.preflight.run as run_mod
+    from gippa.preflight.run import exit_code
 
     fasta = _fasta([code4()])
     warned, norm_w = _run(tmp_path, fasta)
@@ -508,7 +508,7 @@ def test_ac5_warning_changes_only_checks(tmp_path: Path, monkeypatch: pytest.Mon
 
 
 def test_ac5_strict_turns_the_warning_into_exit_3(tmp_path: Path) -> None:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     report, _ = _run(tmp_path, _fasta([code4()]))
     others = [c for c in report.checks if c.level == "warn" and c.rule_id != RULE_ID]

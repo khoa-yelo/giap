@@ -1,0 +1,17 @@
+{
+  "name": "regions",
+  "description": "annotation/regions.tsv: prophage, plasmid, BGC, CRISPR and AMR regions (GIPPA_SPEC.md §9.3).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "region_id", "type": "string", "description": "Region ID (<type>_<n>)", "constraints": {"required": true}},
+    {"name": "region_type", "type": "string", "description": "Region type", "constraints": {"required": true, "enum": ["prophage", "plasmid", "bgc", "crispr", "amr"]}},
+    {"name": "contig", "type": "string", "description": "Replicon", "constraints": {"required": true}},
+    {"name": "start", "type": "integer", "description": "Start (1-based); NA for AMR gene sets", "constraints": {"minimum": 1}},
+    {"name": "end", "type": "integer", "description": "End (closed; > length when crossing the origin); NA for AMR gene sets", "constraints": {"minimum": 1}},
+    {"name": "source_tool", "type": "string", "description": "Tool(s) that called the region", "constraints": {"required": true}},
+    {"name": "score", "type": "number", "description": "Tool score"},
+    {"name": "genes", "type": "string", "description": "Member locus tags (';'-separated)"},
+    {"name": "notes", "type": "string", "description": "Notes"}
+  ]
+}

@@ -6,7 +6,7 @@ because the role guard forbids editing existing tests).
 The fake ``nextflow`` (as tests/unit/manifest/test_manifest_cli_nextflow.py) exits ``$FAKE_NF_RC``
 and publishes nothing, so ``OUT/report/`` is absent after a completed graph: the tail writes the
 page fresh (degenerate row "``OUT/report/report.html`` absent"). ``rerender_report`` is looked up
-on ``giap.steps.plots`` at call time. ``$GIAP_ROOT`` and ``$GIAP_DB_DIR`` are fakes from
+on ``gippa.steps.plots`` at call time. ``$GIPPA_ROOT`` and ``$GIPPA_DB_DIR`` are fakes from
 ``helpers.fake_env``.
 """
 
@@ -22,10 +22,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 from helpers.report_fixtures import parse, swap_registry
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -35,11 +35,11 @@ exit "${FAKE_NF_RC:-0}"
 
 @pytest.fixture
 def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     db.mkdir()
     write_setup_manifest(db)
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     for var in ("SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE", "FAKE_NF_RC"):
         monkeypatch.delenv(var, raising=False)
     bindir = tmp_path / "fakebin"
@@ -65,8 +65,8 @@ def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
 
 @pytest.fixture
 def spy(monkeypatch: pytest.MonkeyPatch) -> list[bytes | None]:
-    """Wrap ``giap.steps.plots.rerender_report``; record the manifest bytes at call time."""
-    from giap.steps import plots as P
+    """Wrap ``gippa.steps.plots.rerender_report``; record the manifest bytes at call time."""
+    from gippa.steps import plots as P
 
     calls: list[bytes | None] = []
     real = getattr(P, "rerender_report", None)
@@ -82,7 +82,7 @@ def spy(monkeypatch: pytest.MonkeyPatch) -> list[bytes | None]:
 
 
 def _run(nf: dict[str, Path], out: Path) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["run", "--genome", str(nf["genome"]), "--proteins", str(nf["proteins"]),
             "--outdir", str(out)]  # fmt: skip

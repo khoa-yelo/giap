@@ -48,15 +48,15 @@ SHARD0_ONLY = {
 }
 #: the shard-0-only skip reason (conftest constant) of each flagged test in a shard K > 0
 SHARD0_REASON = {"test_teeth": "TEETH_SKIP", "test_unshardable": "UNSHARDABLE_SKIP"}
-LANE_VARS = ("GIAP_CALIBRATION_CONFIRM_SLICE", "GIAP_CALIBRATION_CONFIRM_LANES",
-             "GIAP_CALIBRATION_CONFIRM_JUNIT")  # fmt: skip
+LANE_VARS = ("GIPPA_CALIBRATION_CONFIRM_SLICE", "GIPPA_CALIBRATION_CONFIRM_LANES",
+             "GIPPA_CALIBRATION_CONFIRM_JUNIT")  # fmt: skip
 
 
 def _env(log: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
     drop = (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV, *LANE_VARS, "PYTEST_ADDOPTS",
             "PYTEST_XDIST_WORKER")  # fmt: skip
     keep = {k: v for k, v in os.environ.items() if k not in drop}
-    return {**keep, C.LOG_DIR_ENV: str(log), "GIAP_SHARD_FIXTURE": "1", **(extra or {})}
+    return {**keep, C.LOG_DIR_ENV: str(log), "GIPPA_SHARD_FIXTURE": "1", **(extra or {})}
 
 
 def _args(selection: str | None) -> list[str]:
@@ -268,8 +268,8 @@ def test_direct_layout_shard_lanes_plus_group_lanes_equal_unsharded(
         monkeypatch.delenv(var, raising=False)
     monkeypatch.chdir(C.REPO)
     rcs = [C.main(["--suite", SUITE, "--fast", "--shard", f"{k}/2"]) for k in range(2)]
-    monkeypatch.setenv("GIAP_CALIBRATION_CONFIRM_LANES", "2")
-    monkeypatch.setenv("GIAP_CALIBRATION_CONFIRM_JUNIT", str(shards / "task-5.merge"))
+    monkeypatch.setenv("GIPPA_CALIBRATION_CONFIRM_LANES", "2")
+    monkeypatch.setenv("GIPPA_CALIBRATION_CONFIRM_JUNIT", str(shards / "task-5.merge"))
     rc_merge = C.main(["--suite", SUITE, "--fast", "--merge"])
 
     g_rcs, g_logs, _out = _run_groups(tmp_path, group_tests, 2, universe=sorted(report))

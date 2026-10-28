@@ -1,4 +1,4 @@
-"""ADR-0049 A6a through ``giap.steps.variants.run_variants_qc`` at the edges the review of PR #269
+"""ADR-0049 A6a through ``gippa.steps.variants.run_variants_qc`` at the edges the review of PR #269
 names (items 2b and 2e; docs/adr/ADR-0049-m7-variant-precision.md).
 
 * 2b: a substitution at the first codon of a ``+`` gene that starts at coordinate 0 of a linear
@@ -18,11 +18,11 @@ from typing import Any
 
 import pandas as pd
 
-from giap.config import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
-from giap.steps.variants import run_variants_qc
+from gippa.config import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
+from gippa.steps.variants import run_variants_qc
 
 ME = "mass_equivalent"
 CODON = {
@@ -89,7 +89,7 @@ def _table() -> pd.DataFrame:
     hits = _hits()
     peptides = pd.DataFrame({"peptide": sorted({h["peptide"] for h in hits}),
                              "search_db": "same"})  # fmt: skip
-    cfg = GiapConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
+    cfg = GippaConfig.model_validate({"genome_relation": "related", "sample_name": "S1"})
     genome = {"e1": SEQ_E1, "e2": SEQ_E2, "c3": SEQ_C3}
     _, table, _, _ = run_variants_qc(pd.DataFrame(hits), None, peptides, _gm(), genome, cfg)
     return table

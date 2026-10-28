@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from giap.stats.scan import scan_null_max
+from gippa.stats.scan import scan_null_max
 
 from ._unit_helpers import timed
 

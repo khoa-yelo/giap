@@ -4,8 +4,8 @@ the same file the steps read, so they cannot catch a wrong value."""
 
 from __future__ import annotations
 
-from giap.config import GiapConfig
-from giap.data.calibration import load as load_calibration
+from gippa.config import GippaConfig
+from gippa.data.calibration import load as load_calibration
 
 
 def test_recorded_k12_values() -> None:
@@ -21,6 +21,6 @@ def test_recorded_k12_values() -> None:
 
 
 def test_defaults_mirror_the_recorded_thresholds() -> None:
-    ann = GiapConfig().annotation
+    ann = GippaConfig().annotation
     assert ann.uniop.pair_threshold == 0.5
     assert ann.terminators.terminatornet_yes == 0.9999999999961204

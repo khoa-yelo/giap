@@ -4,8 +4,8 @@ Every builder takes 1-based closed coordinates, as the published TSVs carry them
 converts the ``start`` columns to 0-based on read); BED rows are 0-based half-open. Tables go
 through ``helpers.viz_out_tree.write_schema_table`` (schema header; absent cells ``NA``);
 ``annotation/tus.tsv`` and ``annotation/regions.tsv`` have no schema and use the writer column
-orders of ``giap.annotate.operons.TUS_COLUMNS`` and ``giap.annotate.regions.TSV_COLUMNS``.
-Nothing here touches ``$GIAP_DB_DIR`` or the network.
+orders of ``gippa.annotate.operons.TUS_COLUMNS`` and ``gippa.annotate.regions.TSV_COLUMNS``.
+Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from giap.io.tsv import write_tsv
+from gippa.io.tsv import write_tsv
 from helpers.viz_out_tree import gene_row, make_out, write_schema_table
 
 #: chr1 100 kb circular chromosome, lin1 30 kb linear contig
@@ -35,7 +35,7 @@ def preflight(replicons: Sequence[Mapping[str, Any]] = REPLICONS) -> dict[str, A
     """A minimal ``preflight.json`` (``preflight.schema.json`` fields) carrying ``replicons``."""
     return {
         "schema_version": "1.0",
-        "giap_version": "0.0.1",
+        "gippa_version": "0.0.1",
         "inputs": [],
         "checks": [],
         "summary": {"n_error": 0, "n_warn": 0, "n_info": 0, "n_ok": 0},

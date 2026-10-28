@@ -5,14 +5,14 @@ Agent-Role: validation. Follow-up to #390 (`PYTHONNOUSERSITE=1` for tool runs).
 ## What changed
 
 The full OSTIR 1.1.3 recordings for K-12 MG1655 and Nissle 1917
-(`$GIAP_ROOT/recordings/ostir/{k12_mg1655,nissle1917}/`, recorded 2026-10-15) were folded with
+(`$GIPPA_ROOT/recordings/ostir/{k12_mg1655,nissle1917}/`, recorded 2026-10-15) were folded with
 ViennaRNA 2.7.1 imported from `~/.local`. They were not folded with the locked env's 2.6.4,
 although `run.log` printed 2.6.4. Both samples were re-recorded with the unchanged recorder
-`scripts/slurm/record_tools.sbatch ostir`, using `PYTHONNOUSERSITE=1` and the `giap-ostir` env
+`scripts/slurm/record_tools.sbatch ostir`, using `PYTHONNOUSERSITE=1` and the `gippa-ostir` env
 (lock hashes in `versions.txt` unchanged; `RNA.__version__` 2.6.4 from the env's site-packages).
 
-- Slurm job **1896079** (`giap-record-ostir`, 8 CPUs, rye-02, 19 min, COMPLETED, 0 failures).
-  The job wrote to a staging directory (`RECORD_OUT=$GIAP_ROOT/staging/ostir-rerecord-2026-10-26`)
+- Slurm job **1896079** (`gippa-record-ostir`, 8 CPUs, rye-02, 19 min, COMPLETED, 0 failures).
+  The job wrote to a staging directory (`RECORD_OUT=$GIPPA_ROOT/staging/ostir-rerecord-2026-10-26`)
   because the recorder `rm -rf`s an incomplete target. Changed files were then moved into the
   recording directories.
 - Every replaced file is kept next to its replacement as `<file>.usersite-2026-10-26.bak`
@@ -61,7 +61,7 @@ Cross-checks:
 
 | consumer | uses these recordings? | affected? | action |
 |---|---|---|---|
-| `tests/contract/test_ostir_contract.py` (full-run tests via `$GIAP_ROOT`) | yes | no: parse/input checks only | reran: 14 passed |
+| `tests/contract/test_ostir_contract.py` (full-run tests via `$GIPPA_ROOT`) | yes | no: parse/input checks only | reran: 14 passed |
 | `tests/data/recorded/ostir/1.1.3/{k12_mg1655,nissle1917}` excerpts | yes (copied rows) | no: byte-identical | none |
 | `tests/data/recorded/ostir/PROVENANCE.md` | yes (full-file sha256s) | yes: the output hashes were stale | updated in this PR |
 | `tests/data/recorded/ostir/1.1.3/sim100k`, `sim100k_novel` | separate recordings | no: byte-identical on rerun (investigation) | none |

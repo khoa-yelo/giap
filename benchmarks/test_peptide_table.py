@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from giap.config.model import InputConfig
-from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+from gippa.config.model import InputConfig
+from gippa.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
 
 from ._unit_helpers import load_test_module, timed
 

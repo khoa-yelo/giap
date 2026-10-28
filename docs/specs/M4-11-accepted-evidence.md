@@ -24,12 +24,12 @@ Milestone M4 · track G · depends on: M4-06 · estimate ≈ 300 code lines (+ �
 
 ## Public interface
 
-`src/giap/genetable/evidence.py` (pure)
+`src/gippa/genetable/evidence.py` (pure)
 ```python
 ASSIGNING_CLASSES = ("cds_inframe", "sorf", "nterm_extension", "pseudogene")   # see M4-06 Q3
 
 def accepted_peptides(peptide_hits: pd.DataFrame, peptides: pd.DataFrame | None,
-                      cfg: GiapConfig) -> pd.DataFrame: ...
+                      cfg: GippaConfig) -> pd.DataFrame: ...
     # one row per (gene, peptide) accepted pair: gene, peptide, q_value, pep, score, intensity,
     # uniqueness, route, locus_class, abundance_eligible (bool), start, end, contig, crosses_origin
 def gene_evidence(genes: pd.DataFrame, peptide_hits: pd.DataFrame, accepted: pd.DataFrame,

@@ -1,4 +1,4 @@
-"""``giap run`` writes MAPPING's inputs into ``OUT/work/params.json`` (M3-17 decision 17).
+"""``gippa run`` writes MAPPING's inputs into ``OUT/work/params.json`` (M3-17 decision 17).
 
 docs/specs/M3-17-mapping-steps.md, lead decision 17 after the code review of PR #96: the
 reviewer's mutants H (``_NORM_INPUTS`` dropped: the raw peptide TSV reaches Nextflow) and I
@@ -7,10 +7,10 @@ runs MAPPING from ``params.inputs.peptides`` = the preflight-normalised
 ``OUT/work/preflight/peptides.norm.parquet``, ``params.inputs.proteins_long`` =
 ``OUT/work/preflight/proteins.long.faa`` and ``params.inputs.contaminants`` =
 ``<db_dir>/contaminants/contaminants.fasta`` when the db manifest lists ``contaminants``
-(``giap.runner.local.contaminant_library``).
+(``gippa.runner.local.contaminant_library``).
 
 A fake ``nextflow`` on ``PATH`` exits 0; the database directory is a tmp copy of the real-format
-``giap setup`` manifest (tests/data/db_manifest); the real ``$GIAP_DB_DIR`` is never read.
+``gippa setup`` manifest (tests/data/db_manifest); the real ``$GIPPA_DB_DIR`` is never read.
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FAKE_NF = "#!/bin/sh\nexit 0\n"
 LONG_PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
@@ -34,9 +34,9 @@ LONG_PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPD
 
 @pytest.fixture(autouse=True)
 def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
-    monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
+    monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
     exe = bindir / "nextflow"
@@ -75,7 +75,7 @@ def _db(path: Path, *, library: bool = True, drop: tuple[str, ...] = ()) -> Path
 
 
 def _run(ins: dict[str, Path], out: Path, db: Path, *, peptides: bool = True) -> dict[str, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     argv = ["run", "--genome", str(ins["genome"]), "--proteins", str(ins["proteins"])]
     if peptides:

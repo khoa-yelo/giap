@@ -1,8 +1,8 @@
 """M4-16 basic detection summary (docs/specs/M4-16-detection-summary.md, examples 1-5).
 
-Spec: GIAP_SPEC.md §7.3.5(a) (n_genes, n_detected, % detected, E = sum p_detect, O - E with a 95 %
+Spec: GIPPA_SPEC.md §7.3.5(a) (n_genes, n_detected, % detected, E = sum p_detect, O - E with a 95 %
 TU-block bootstrap CI, O/E per replicon, feature class and COG category), §8.2 ("resample TUs, not
-genes"), §9.3 (long format), §6.6 (``giap.rng.for_step``).
+genes"), §9.3 (long format), §6.6 (``gippa.rng.for_step``).
 
 Resolved ambiguities (pinned here):
 - Every basic group also reports a metric row ``n_tu`` (distinct TUs of the group's eligible
@@ -37,13 +37,13 @@ SEED = 20261015
 
 
 def _summary() -> Any:
-    from giap.context import summary
+    from gippa.context import summary
 
     return summary
 
 
 def _rng(seed: int = SEED) -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step("context_stats", seed)
 
@@ -127,7 +127,7 @@ def test_example_2_ci_within_attainable_range() -> None:
 
 def test_example_2_matches_tu_block_bootstrap() -> None:
     """The basic CI is the M4-04 TU-block bootstrap of the group sum of d - p (one group)."""
-    from giap.stats.bootstrap import tu_block_bootstrap
+    from gippa.stats.bootstrap import tu_block_bootstrap
 
     genes = _ex1()
     out = _basic(genes)

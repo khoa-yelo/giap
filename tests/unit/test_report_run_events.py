@@ -1,13 +1,13 @@
 """PR #205 review round B6 (reviewer N1): run events reach the ``plots`` and ``report`` steps in
-``giap run --executor local`` as they reach ``giap report`` (``OUT/logs``), so a plot declaring
+``gippa run --executor local`` as they reach ``gippa report`` (``OUT/logs``), so a plot declaring
 ``layers=[...]`` skips with ``layer_missing:<layer>`` in both (M9-01 behaviour 5, M9-02
-behaviour 1, 2, 8; GIAP_SPEC.md §6.4 executor equality, §6.7 events).
+behaviour 1, 2, 8; GIPPA_SPEC.md §6.4 executor equality, §6.7 events).
 
 A swapped step registry holds the real ``plots`` and ``report`` steps and one toy step that
 logs the run flag ``layer_missing:fakelayer`` (as ``context_layers`` / ``novel`` do) and writes
 ``pairs`` (an optional input of ``plots``, so it runs first). A swapped plot registry holds a fake
 V11 declaring ``layers=["fakelayer"]`` and a plain fake V07. Inputs as
-tests/unit/test_steps_review.py (a toy genome, one peptide, a test ``$GIAP_DB_DIR``).
+tests/unit/test_steps_review.py (a toy genome, one peptide, a test ``$GIPPA_DB_DIR``).
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import pytest
 from helpers.report_fixtures import figure, frame, parse, register_fake, swap_registry
 from helpers.viz_out_tree import write_schema_table
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 FLAG = "layer_missing:fakelayer"
 
@@ -32,22 +32,22 @@ def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.Monke
     from helpers.mapping_steps import write_test_db
 
     db = write_test_db(tmp_path_factory.mktemp("test_db"))
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
 
 
 @pytest.fixture
 def steps(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[ModuleType]:
     """The real ``plots`` / ``report`` specs plus a toy flag-emitting step, nothing else."""
-    import giap.steps
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    import gippa.steps
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     keep = {n: reg.get(n) for n in ("plots", "report")}
     monkeypatch.setattr(reg, "_REGISTRY", dict(keep))
     empty = tmp_path / "steps_pkg"
     empty.mkdir()
-    monkeypatch.setattr(giap.steps, "__path__", [str(empty)])
+    monkeypatch.setattr(gippa.steps, "__path__", [str(empty)])
 
     def toy_flags(ctx: Any) -> None:
         data = {"layer": "fakelayer", "flag": FLAG}
@@ -63,7 +63,7 @@ def steps(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[ModuleTyp
 @pytest.fixture
 def plots(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     swap_registry(monkeypatch)
-    from giap.viz import base
+    from gippa.viz import base
 
     calls: list[str] = []
 
@@ -83,7 +83,7 @@ def _genome(tmp_path: Path) -> Path:
 
 
 def _exit_code(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -116,7 +116,7 @@ def _skips(out: Path) -> dict[str, str]:
     return found
 
 
-def test_b6_layer_missing_skip_fires_in_giap_run_local(
+def test_b6_layer_missing_skip_fires_in_gippa_run_local(
     steps: ModuleType, plots: list[str], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"
@@ -131,7 +131,7 @@ def test_b6_layer_missing_skip_fires_in_giap_run_local(
     assert "not run" in text and "fakelayer" in text, text
 
 
-def test_b6_giap_run_and_giap_report_agree_on_the_layer_missing_skip(
+def test_b6_gippa_run_and_gippa_report_agree_on_the_layer_missing_skip(
     steps: ModuleType, plots: list[str], tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"

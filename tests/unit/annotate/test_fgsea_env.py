@@ -7,7 +7,7 @@
   goseq or BiasedUrn (ADR-0038 item 5).
 - Lead decision 9: conda-only, no apptainer anywhere in the wrapper.
 - R5: ``scripts/ci/check_no_rscript.py src`` passes with the new wrapper in the tree;
-  ``workflow/bin/giap_fgsea.R`` is executable with the spec's shebang and installs nothing.
+  ``workflow/bin/gippa_fgsea.R`` is executable with the spec's shebang and installs nothing.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 ENV = REPO / "workflow" / "envs" / "fgsea.yml"
 LOCK = REPO / "workflow" / "envs" / "locks" / "fgsea.explicit.txt"
-WRAPPER = REPO / "src" / "giap" / "io" / "fgsea_r.py"
-SCRIPT = REPO / "workflow" / "bin" / "giap_fgsea.R"
+WRAPPER = REPO / "src" / "gippa" / "io" / "fgsea_r.py"
+SCRIPT = REPO / "workflow" / "bin" / "gippa_fgsea.R"
 CHECK = REPO / "scripts" / "ci" / "check_no_rscript.py"
 RECORD = REPO / "scripts" / "slurm" / "record_fgsea.sbatch"
 
@@ -67,17 +67,17 @@ def _package(url: str) -> str:
 
 
 def test_env_file_passes_env_problems() -> None:
-    from giap.annotate.tools import env_problems, read_env_file
+    from gippa.annotate.tools import env_problems, read_env_file
 
     env = read_env_file(ENV)
-    assert env.name == "giap-fgsea"
+    assert env.name == "gippa-fgsea"
     assert env_problems(env) == []
     assert env.pip == ()
 
 
 def test_env_pins_match_spec_and_wrapper() -> None:
-    from giap.annotate.tools import read_env_file
-    from giap.io.fgsea_r import FGSEA_VERSION
+    from gippa.annotate.tools import read_env_file
+    from gippa.io.fgsea_r import FGSEA_VERSION
 
     assert FGSEA_VERSION == "1.36.2"
     conda = set(read_env_file(ENV).conda)
@@ -174,9 +174,9 @@ def _string_constants(path: Path) -> list[str]:
 def test_wrapper_never_reads_an_image_variable() -> None:
     """Lead decision 9 was reversed by M11-14 14c (the image launcher starts ``apptainer exec``
     or ``docker run`` itself); the image ref still comes from images.json, never from a
-    ``GIAP_FGSEA_IMAGE`` override."""
+    ``GIPPA_FGSEA_IMAGE`` override."""
     consts = _string_constants(WRAPPER)
-    assert not [c for c in consts if c == "GIAP_FGSEA_IMAGE"]
+    assert not [c for c in consts if c == "GIPPA_FGSEA_IMAGE"]
 
 
 def test_wrapper_reuses_env_built() -> None:
@@ -213,7 +213,7 @@ def test_check_no_rscript_still_catches_a_mention(tmp_path: Path) -> None:
     assert proc.returncode == 1
 
 
-# ---------------------------------------------------------------- giap_fgsea.R (static)
+# ---------------------------------------------------------------- gippa_fgsea.R (static)
 
 
 def test_script_shebang_and_mode() -> None:
@@ -274,7 +274,7 @@ def test_script_accepts_exactly_the_spec_arguments() -> None:
 def test_record_sbatch_header() -> None:
     text = RECORD.read_text(encoding="utf-8")
     assert text.splitlines()[0] == "#!/bin/bash"
-    assert re.search(r"^#SBATCH --job-name=giap-record-fgsea$", text, re.M)
+    assert re.search(r"^#SBATCH --job-name=gippa-record-fgsea$", text, re.M)
     cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
     assert cpus and int(cpus.group(1)) <= 2
     assert re.search(r"^#SBATCH --time=00:30:00$", text, re.M)

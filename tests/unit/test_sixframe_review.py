@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.mapping.sixframe import (
+from gippa.mapping.sixframe import (
     ALPHABET,
     AMBIG,
     NOMATCH,
@@ -22,7 +22,7 @@ from giap.mapping.sixframe import (
     encode_target,
     translate11,
 )
-from giap.model import Interval, Replicon
+from gippa.model import Interval, Replicon
 
 G = "ATGGCTAAAATTCTGTGGTAACGTNNA"  # 27 nt, linear
 R = "AAAGAACTGTAAGGCTCCATGCCG"  # 24 nt, circular

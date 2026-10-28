@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from giap.mapping.chance import residue_freqs
-from giap.mapping.sixframe import ALPHABET, STOP, SixFrameIndex, build_sixframe
-from giap.model.coords import Replicon
+from gippa.mapping.chance import residue_freqs
+from gippa.mapping.sixframe import ALPHABET, STOP, SixFrameIndex, build_sixframe
+from gippa.model.coords import Replicon
 
 X_CODE = ALPHABET.index("X")
 CODONS = ("GCA", "ACG", "CAG", "GAC", "AGC", "CCG", "GGA", "AAC")

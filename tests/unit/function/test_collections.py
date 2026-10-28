@@ -6,12 +6,12 @@ obsolete term), a toy slim OBO, a synthetic two-pathway KEGG table (``path:map``
 ``path:ko`` duplicates, overview maps) and a toy COG fun-20 table. Never real KEGG content
 (M8 index, lead decision 4).
 
-Pinned interface (spec "Public interface"): ``giap.function.collections.build_collections(genes,
+Pinned interface (spec "Public interface"): ``gippa.function.collections.build_collections(genes,
 eligible, res) -> (list[GeneSets], run_flags)``, ``GeneSets`` fields ``collection``, ``sets``,
-``names``, ``parents``, ``coverage``, ``n_unknown_ids``; ``giap.io.function_resources.
+``names``, ``parents``, ``coverage``, ``n_unknown_ids``; ``gippa.io.function_resources.
 read_resources(paths) -> Resources`` keyed by the db_sources.yaml item names (``go_basic``,
 ``goslim_generic``, ``kegg_ko_pathway``, ``kegg_pathway_names``, ``cog2020_def``,
-``cog2020_fun``); ``giap.genetable.eligible(genes)`` (the shared §7.3 helper).
+``cog2020_fun``); ``gippa.genetable.eligible(genes)`` (the shared §7.3 helper).
 """
 
 from __future__ import annotations
@@ -55,8 +55,8 @@ GO = ("go_bp", "go_mf", "go_cc")
 
 
 def _mods() -> tuple[Any, Any]:
-    from giap.function import collections as col
-    from giap.io import function_resources as fr
+    from gippa.function import collections as col
+    from gippa.io import function_resources as fr
 
     return col, fr
 
@@ -324,7 +324,7 @@ def test_eligible_argument_is_used(res: Any) -> None:
 
 
 def test_shared_eligible_helper() -> None:
-    from giap.genetable import eligible
+    from gippa.genetable import eligible
 
     g = pd.DataFrame({
         "locus_tag": ["a", "b", "c", "d", "e"],

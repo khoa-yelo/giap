@@ -1,6 +1,6 @@
 """M2-13 lead decisions after code review (PR #76), items 5-7.
 
-5. ``promoter_windows`` runs end to end through ``giap.steps.registry.run_step``: it reads
+5. ``promoter_windows`` runs end to end through ``gippa.steps.registry.run_step``: it reads
    ``replicons`` (circular wraps) and writes its chunks into the ``windows/`` directory
    (``windows/windows_000.fa`` ...), never next to it.
 6. One test per surviving mutant of the review (local/scratch/review-m2-13/mutants.py): BED merge
@@ -25,10 +25,10 @@ import pyarrow.parquet as pq
 import pytest
 from helpers.promoter_oracle import api
 
-from giap.annotate.operons import Tu
-from giap.config import GiapConfig
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import Tu
+from gippa.config import GippaConfig
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 N = 100_000
 CHR1 = Replicon("chr1", N, "circular", "chromosome")
@@ -152,14 +152,14 @@ def test_write_chunks_rejects_a_window_longer_than_40(tmp_path: Path) -> None:
 
 @pytest.fixture
 def reg() -> Iterator[ModuleType]:
-    from giap.steps import load_step_modules, registry
+    from gippa.steps import load_step_modules, registry
 
     with pytest.MonkeyPatch.context() as mp:
         names = load_step_modules()
         mp.setattr(registry, "_REGISTRY", {})
         for n in names:
             if n != "registry":
-                importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+                importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
         yield registry
 
 
@@ -206,7 +206,7 @@ def test_promoter_windows_step_end_to_end_through_the_registry(
     ins, seqs, genes = _write_inputs(tmp_path / "in")
     out = tmp_path / "out"
     outs = {"windows": out / "windows", "windows_map": out / "windows_map.parquet"}
-    reg.run_step("promoter_windows", GiapConfig(seed=1), ins, outs)
+    reg.run_step("promoter_windows", GippaConfig(seed=1), ins, outs)
 
     assert (out / "windows").is_dir()
     chunks = sorted(p.name for p in (out / "windows").iterdir())

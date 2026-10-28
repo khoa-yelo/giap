@@ -1,4 +1,4 @@
-# M7-08: The novel-ORF steps, second-round Promotech and OSTIR, and a real `giap run`
+# M7-08: The novel-ORF steps, second-round Promotech and OSTIR, and a real `gippa run`
 
 Milestone M7 · track T (tables and integration) · **pass 1 — the Module 6 integration milestone**
 · depends on: M7-06, M7-07; merged M2-13/M2-16 steps and processes (`PROMOTECH`, `OSTIR`), the
@@ -11,7 +11,7 @@ simulator lines, + ≈ 350 test lines, + nf-test) · not statistical
 The §13 deliverable "second-round Promotech and OSTIR" is an integration item: two external tools
 run a second time on windows that exist only after mapping. This issue registers the five steps,
 runs the second round under both executors, makes the simulator supply the second-round layers for
-the local executor, writes the four Module 6 files through `giap run`, and proves it with a real
+the local executor, writes the four Module 6 files through `gippa run`, and proves it with a real
 Slurm run — before the evidence rules (M7-09) and the FDR (M7-11) arrive.
 
 ## Spec sections implemented
@@ -27,7 +27,7 @@ Slurm run — before the evidence rules (M7-09) and the FDR (M7-11) arrive.
 
 ## Public interface
 
-`src/giap/steps/novel.py`
+`src/gippa/steps/novel.py`
 ```python
 @step("novel_candidates",
       inputs=["mapping", "peptides", "genes", "features", "replicons", "genome", "annotation_meta"],
@@ -46,10 +46,10 @@ external("ostir_novel", inputs=["ostir_input_novel"], outputs=["ostir_novel"],
       optional_inputs=["novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators"],
       outputs=["novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch"])
 ```
-`src/giap/annotate/ostir.py` gains `parse_ostir_starts(path, requested: Mapping[str, set[int]])
+`src/gippa/annotate/ostir.py` gains `parse_ostir_starts(path, requested: Mapping[str, set[int]])
 -> dict[str, dict[int, RbsFeatures]]` (every requested start of an id, not only one).
-`src/giap/config/model.py` + `defaults.yaml`: `annotation.precomputed.rbs_novel: null` (decision 1).
-`src/giap/annotate/precomputed.py`: layer `rbs_novel` = `contig, strand, start (pos), tir_ostir,
+`src/gippa/config/model.py` + `defaults.yaml`: `annotation.precomputed.rbs_novel: null` (decision 1).
+`src/gippa/annotate/precomputed.py`: layer `rbs_novel` = `contig, strand, start (pos), tir_ostir,
 sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 
 ## Rules
@@ -78,7 +78,7 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
    A run with peptides and without `rbs_novel` is an error naming the key (§6.4), exactly as a
    missing `rbs` is today. As for every replaced step, `novel_orfs` then receives the layer's TSV
    (M2-02 format, read with `load_precomputed`) instead of the Parquet, and must accept both.
-6. **Simulator** (`tests/sim/giapsim/layers.py`): writes `rbs_novel.tsv` — one row per start codon
+6. **Simulator** (`tests/sim/gippasim/layers.py`): writes `rbs_novel.tsv` — one row per start codon
    (`annotation.start_codons`) on both strands of every replicon, `tir_ostir` drawn from the
    "true" distribution (lognormal 8, as `rbs_row`) at planted novel-ORF and planted N-terminal
    true starts and from the background (lognormal 6) elsewhere — and adds the key to its
@@ -87,18 +87,18 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 7. **Nextflow** `workflow/subworkflows/local/novel.nf` (CONTEXT style). `take:` genome,
    gene_model, contract (C4 `annotation_meta`), mapping, peptides, contaminants, gene_table,
    layers (first-round `promoter_windows`, `terminators`; each optional). Processes:
-   `GIAP_STEP as NOVEL_CANDIDATES`, `PROMOTECH as PROMOTECH_NOVEL` (one task per chunk, the M2-13
-   pattern), `GIAP_STEP as NOVEL_PROMOTER_LAYER`, `OSTIR as OSTIR_NOVEL`, `GIAP_STEP as
-   NOVEL_RBS_LAYER`, `GIAP_STEP as NOVEL_ORFS`. `main.nf` calls `NOVEL` after `GENETABLE` (it needs
+   `GIPPA_STEP as NOVEL_CANDIDATES`, `PROMOTECH as PROMOTECH_NOVEL` (one task per chunk, the M2-13
+   pattern), `GIPPA_STEP as NOVEL_PROMOTER_LAYER`, `OSTIR as OSTIR_NOVEL`, `GIPPA_STEP as
+   NOVEL_RBS_LAYER`, `GIPPA_STEP as NOVEL_ORFS`. `main.nf` calls `NOVEL` after `GENETABLE` (it needs
    `gene_table` for M7-09's RBS quantile). Publishes `tables/novel_orfs.tsv`,
    `tables/novel_orfs.gff3`, `tables/novel_orfs.faa`, `tables/annotation_patch.gff3`.
 8. **Tools.** No new tool, env or image: the second round reuses `workflow/envs/promotech.yml`
-   (Promotech @ `56251ad`, GPL-3.0, conda env with lock; RF-HOT model from `$GIAP_DB_DIR/promotech`)
+   (Promotech @ `56251ad`, GPL-3.0, conda env with lock; RF-HOT model from `$GIPPA_DB_DIR/promotech`)
    and `workflow/envs/ostir.yml` (OSTIR 1.1.3, GPL-3.0, ViennaRNA 2.6.4; lock present). Both stay
    separate processes, never imported (`scripts/ci/check_imports.py`). Neither has an upstream
    image (ADR-0008), so `-profile apptainer` runs them from the conda env.
 9. **OSTIR range recording.** One real OSTIR run with a multi-start `start`/`end` window on three
-   sim100k candidates (minutes, `sbatch` with the `giap-` prefix, ≤ 4 CPUs) is recorded under
+   sim100k candidates (minutes, `sbatch` with the `gippa-` prefix, ≤ 4 CPUs) is recorded under
    `tests/data/recorded/ostir/1.1.3/sim100k_novel/` with `PROVENANCE.md`; `parse_ostir_starts`
    gets a contract test on it (the existing recordings only hold single-start rows).
 
@@ -119,13 +119,13 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local` on sim100k with planted novel ORFs (M3-18 counts) and the new `rbs_novel` layer | the four files under `tables/`; `novel_orfs.tsv` has one row per reconstructed ORF; `start_best_ostir` set where a start exists; exit 0 |
+| 1 | `gippa run --executor local` on sim100k with planted novel ORFs (M3-18 counts) and the new `rbs_novel` layer | the four files under `tables/`; `novel_orfs.tsv` has one row per reconstructed ORF; `start_best_ostir` set where a start exists; exit 0 |
 | 2 | the same through Nextflow (`-profile test`, stubs) | byte-identical tables (executor equality) |
 | 3 | stub run of `NOVEL` with two chunks | `PROMOTECH_NOVEL` runs twice, `OSTIR_NOVEL` once; the four outputs are emitted and named as §9.1 |
 | 4 | a run whose peptides give no candidate | header-only/pragma-only files; `PROMOTECH_NOVEL` and `OSTIR_NOVEL` do not run |
 | 5 | `parse_ostir_starts` on the recorded range run | one feature row per requested start, `start_position` matched 1-based |
 | 6 | local run with peptides, sim config without `rbs_novel` | exit 2, message names `annotation.precomputed.rbs_novel` |
-| 7 | `sbatch scripts/slurm/giap_run.sbatch` on sim100k (real Promotech and OSTIR in the second round, conda envs) | completes; four files present; trace shows `PROMOTECH_NOVEL` and `OSTIR_NOVEL` tasks |
+| 7 | `sbatch scripts/slurm/gippa_run.sbatch` on sim100k (real Promotech and OSTIR in the second round, conda envs) | completes; four files present; trace shows `PROMOTECH_NOVEL` and `OSTIR_NOVEL` tasks |
 
 ## Acceptance criteria
 
@@ -137,7 +137,7 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
   steps' declared keys match the subworkflow's.
 - [ ] Config sync test passes with the new `annotation.precomputed.rbs_novel` key (defaults.yaml ↔
   model); `precomputed.py` validates the layer.
-- [ ] **Evidence that counts:** example 7 as one real `sbatch scripts/slurm/giap_run.sbatch` run;
+- [ ] **Evidence that counts:** example 7 as one real `sbatch scripts/slurm/gippa_run.sbatch` run;
   the job ID in PROGRESS.md. R14: the second round is ≤ 2 chunks on sim100k; the job stays within
   16 CPUs.
 - [ ] Runtime of `novel_candidates` and of the second round on a 4,500-gene genome recorded in
@@ -167,7 +167,7 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 3. `NOVEL` needs `gene_table` (RBS quantile at detected genes, M7-09), so it runs after GENETABLE;
    without a gene table it does not run. **Proposed default:** accept — the RBS threshold is
    undefined without detection calls. The alternative (run without and mark every RBS test
-   `unestimated`) adds a branch for a case `giap run` never produces.
+   `unestimated`) adds a branch for a case `gippa run` never produces.
 4. Is a sim100k run with few or no *called* ORFs an acceptable pass-1 definition of done?
    **Proposed default:** yes, as M6-08 Q3: the acceptance criterion is "the four files exist with
    the right schema"; M7-12 builds the scenario where calls are informative.
@@ -196,4 +196,4 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
    - The implementer's choices are accepted, including the empty-run GFF3s.
    - When the table is empty, the step writes pragma-only GFF3s (header and `##sequence-region` lines) through `write_pragma_gff3`. The M7-07 writers are unchanged. The difference from a non-empty run, which has `region` lines, is intended: an empty file has no features.
    - The PR is about 510 code lines. That is over the ~400 target and under the 800 gate, and it is accepted because it is one integration unit.
-   - **Owed:** example 7 (the real `giap_run.sbatch` run on sim100k) and the benchmark entry.
+   - **Owed:** example 7 (the real `gippa_run.sbatch` run on sim100k) and the benchmark entry.

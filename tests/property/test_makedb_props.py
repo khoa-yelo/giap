@@ -1,4 +1,4 @@
-"""Hypothesis properties of `giap makedb` (issue M3-23; GIAP_SPEC.md §7.9.2, §6.6).
+"""Hypothesis properties of `gippa makedb` (issue M3-23; GIPPA_SPEC.md §7.9.2, §6.6).
 
 Random small genomes (1-2 contigs, circular or linear, 150-900 nt, AT-rich so ORFs stay short)
 with up to three planted genes (CDS or sORF; ATG/GTG/TTG starts; either strand; origin-crossing
@@ -25,13 +25,13 @@ import numpy as np
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.genetable.covariates import digest
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.sixframe import build_sixframe
-from giap.model.coords import Replicon
-from giap.rng import for_step
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.genetable.covariates import digest
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.sixframe import build_sixframe
+from gippa.model.coords import Replicon
+from gippa.rng import for_step
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 
@@ -56,7 +56,7 @@ _SENSE = [a + b + c for a in "ACGT" for b in "ACGT" for c in "ACGT" if a + b + c
 
 
 def _build(annotation: Path, outdir: Path, **kw: Any) -> Path:
-    from giap.makedb.build import MakedbOptions, build_strain_db
+    from gippa.makedb.build import MakedbOptions, build_strain_db
 
     build_strain_db(MakedbOptions(annotation=annotation, genome=None, outdir=outdir, **kw))
     return outdir
@@ -165,7 +165,7 @@ def test_annotated_records_and_id_map(data: Any, min_aa: int, orfs: bool) -> Non
             if r["kind"] == "orf":
                 cls = r["class"]
                 sfx = "p" if r["strand"] == "+" else "m"
-                assert r["db_id"] == f"GIAPORF_{cls}_{r['contig']}_{r['start']}_{r['end']}_{sfx}"
+                assert r["db_id"] == f"GIPPAORF_{cls}_{r['contig']}_{r['start']}_{r['end']}_{sfx}"
                 assert int(r["start"] or 0) <= int(r["end"] or 0)
                 if cls != "nterm_extension":
                     assert len(seq) >= min_aa and "X" not in seq

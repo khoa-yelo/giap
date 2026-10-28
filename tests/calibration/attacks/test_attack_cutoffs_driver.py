@@ -1,4 +1,4 @@
-"""Attack nulls for the part-B TerminatorNet composites (GIAP_SPEC.md §8.5; PR #264 statistician
+"""Attack nulls for the part-B TerminatorNet composites (GIPPA_SPEC.md §8.5; PR #264 statistician
 review item 10). This ports ``local/logs/stat264_probe_tn.py``, cut down to the fast tier.
 
 The composites are wired the way ``validation/calibrate_cutoffs.py`` wires them:
@@ -33,10 +33,10 @@ import math
 import numpy as np
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     Window,
     coincidence_rate,
     downstream_windows,

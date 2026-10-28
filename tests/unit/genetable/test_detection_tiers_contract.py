@@ -1,6 +1,6 @@
-"""M4-12 on the real input contract: giapsim tables written to disk and read back by M4-06
+"""M4-12 on the real input contract: gippasim tables written to disk and read back by M4-06
 ``load_m4_inputs``, then M4-10 covariates, M4-11 evidence and ``detect``
-(docs/specs/M4-12-detection-tiers.md; GIAP_SPEC.md §7.3.2, §9.3).
+(docs/specs/M4-12-detection-tiers.md; GIPPA_SPEC.md §7.3.2, §9.3).
 
 - decoys ``rev_<locus_tag>`` (M4-09) -> ``decoy_picked``, every decoy paired;
 - ``protein_ids = foreign`` (UniProt-like ``UP_<n>``, pilot arm A1 without ``proteins.faa``):
@@ -25,11 +25,11 @@ SCORED = frozenset({"q_value", "pep", "score", "is_decoy", "intensity", "protein
 
 
 def _load(tmp_path: Path, **ev_kw: Any) -> tuple[Any, Any]:
-    import giapsim.evidence as ev
-    import giapsim.expression as ex
-    import giapsim.layout as la
-    from giap.io.work_tables import FILE_NAMES, load_m4_inputs
-    from giapsim.contract_tables import write_contract_tables
+    import gippasim.evidence as ev
+    import gippasim.expression as ex
+    import gippasim.layout as la
+    from gippa.io.work_tables import FILE_NAMES, load_m4_inputs
+    from gippasim.contract_tables import write_contract_tables
 
     rng = np.random.default_rng(20261015)
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=200), rng)
@@ -47,9 +47,9 @@ def _load(tmp_path: Path, **ev_kw: Any) -> tuple[Any, Any]:
 
 
 def _detect(inputs: Any, config: Any = None) -> Any:
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detection import detect
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detection import detect
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
 
     c = config if config is not None else fx.cfg()
     acc = accepted_peptides(inputs.peptide_hits, inputs.peptides, c)
@@ -74,7 +74,7 @@ def test_loaded_tables_with_decoys_give_decoy_picked(tmp_path: Path) -> None:
 
 
 def test_foreign_ids_mapped_by_peptide_vote(tmp_path: Path) -> None:
-    from giap.genetable.detection import protein_gene_map
+    from gippa.genetable.detection import protein_gene_map
 
     inputs, e = _load(tmp_path, pi_wrong=0.01, emit=SCORED, protein_ids="foreign")
     pmap = protein_gene_map(inputs.genes, inputs.peptides, inputs.peptide_hits,
@@ -115,9 +115,9 @@ def test_sequences_only_gives_two_peptide(tmp_path: Path, emit: frozenset[str]) 
 
 
 def test_pep_only_loaded_tables_detect_genes(tmp_path: Path) -> None:
-    """Decision 5: giapsim without q (PEP only, no decoys) -> ``mayu`` with genes detected.
+    """Decision 5: gippasim without q (PEP only, no decoys) -> ``mayu`` with genes detected.
 
-    giapsim's q is the running mean of target PEP, so the PEP-derived q reproduces it and the
+    gippasim's q is the running mean of target PEP, so the PEP-derived q reproduces it and the
     detected set matches the q + PEP run of the same replicate up to the acceptance difference
     (PEP-only rows have no q to filter on)."""
     pep_dir, q_dir = tmp_path / "pep", tmp_path / "q"
@@ -141,7 +141,7 @@ def test_pep_only_loaded_tables_detect_genes(tmp_path: Path) -> None:
 def test_contaminant_decoys_injected_into_loaded_tables(
     tmp_path: Path, flag_contaminant: bool
 ) -> None:
-    """Decision 6: decoys of contaminants (``rev_CON__...``) added to giapsim's C9 in a number
+    """Decision 6: decoys of contaminants (``rev_CON__...``) added to gippasim's C9 in a number
     that would push the paired share below 0.8 leave tier, counts and gene q unchanged."""
     import dataclasses
 
@@ -169,8 +169,8 @@ def test_contaminant_decoys_injected_into_loaded_tables(
 def test_detection_map_matches_detect_inputs_on_foreign_ids(tmp_path: Path) -> None:
     """Decision 8: ``Detection.protein_gene_map`` is the map ``detect`` built (accepted peptides,
     configured contaminant prefixes), the one M4-14 reuses."""
-    from giap.genetable.detection import protein_gene_map
-    from giap.genetable.evidence import accepted_peptides
+    from gippa.genetable.detection import protein_gene_map
+    from gippa.genetable.evidence import accepted_peptides
 
     inputs, _ = _load(tmp_path, pi_wrong=0.05, emit=SCORED, protein_ids="foreign")
     c = fx.cfg()

@@ -1,9 +1,9 @@
-"""Runtime and peak RSS of the ``plots`` and ``report`` steps on a 5-Mb giapsim run
-(docs/specs/M9-26-scale-and-determinism.md work item 1; GIAP_SPEC.md §10.1, §11.2, §12).
+"""Runtime and peak RSS of the ``plots`` and ``report`` steps on a 5-Mb gippasim run
+(docs/specs/M9-26-scale-and-determinism.md work item 1; GIPPA_SPEC.md §10.1, §11.2, §12).
 
 The run is the M4 chain on ``build_m4_fixture(size="sim4500")`` (≈ 4.6 Mb, 4,500 genes,
 ≈ 45,000 peptide placements, an iBAQ abundance table), prepared once and not timed. Each step
-then runs through ``giap.steps.registry.run_step`` in a fresh interpreter, so its wall time and
+then runs through ``gippa.steps.registry.run_step`` in a fresh interpreter, so its wall time and
 peak RSS (``VmHWM``) are its own. The measured entries live in ``benchmarks/baseline.json`` as
 two flat entries, ``plots_5mb_sim4500`` and ``report_5mb_sim4500`` (found by their ``benchmark``
 field; M9-26 lead decision 4). After the timed runs every registered plot is rendered once more
@@ -13,7 +13,7 @@ on each instance (M9-26 lead decision 2, gap 5). Budgets (lead decision 4): 120 
 starts after imports, so interpreter start-up is excluded.
 
 Run with ``pytest benchmarks/test_plots_bench.py --benchmark-only -p no:xdist`` (needs
-``tests/sim`` on PYTHONPATH for giapsim).
+``tests/sim`` on PYTHONPATH for gippasim).
 """
 
 from __future__ import annotations
@@ -44,13 +44,13 @@ ELEMENT_ITEM = "≤ 20,000 drawn elements"
 _CHILD = """
 import json, sys, time
 from pathlib import Path
-from giap.config.model import GiapConfig
-from giap.steps import load_step_modules
-from giap.steps.registry import run_step
+from gippa.config.model import GippaConfig
+from gippa.steps import load_step_modules
+from gippa.steps.registry import run_step
 name, seed = sys.argv[1], int(sys.argv[2])
 ins, outs = json.loads(sys.argv[3]), json.loads(sys.argv[4])
 load_step_modules()
-cfg = GiapConfig.model_validate({"seed": seed})
+cfg = GippaConfig.model_validate({"seed": seed})
 t0 = time.perf_counter()
 run_step(name, cfg, {k: Path(v) for k, v in ins.items()}, {k: Path(v) for k, v in outs.items()})
 secs = time.perf_counter() - t0
@@ -64,7 +64,7 @@ print(json.dumps({"secs": round(secs, 3), "maxrss_mb": round(rss, 1)}))
 def _inputs(work: Path) -> dict[str, Path]:
     """The step inputs of the work directory: every published key it holds, the ``mapping``
     directory and the support writers' work tables."""
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     ins = {"preflight": work / "preflight" / "preflight.json", "mapping": work / "mapping",
            "replicons": work / "replicons.parquet", "features": work / "features.parquet",
@@ -107,10 +107,10 @@ def _child(name: str, ins: dict[str, Path], outs: dict[str, Path]) -> dict[str, 
 
 def _element_failures(ins: dict[str, Path], plots: Path, dest: Path) -> list[str]:
     """Every registered plot rendered on the run, checked for the M9-24 element item."""
-    from giap.io.plot_files import write_instance
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base, checklist, style
+    from gippa.io.plot_files import write_instance
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base, checklist, style
 
     load_plot_modules()
     style.apply()

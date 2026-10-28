@@ -1,4 +1,4 @@
-"""Fast calibration of the MAYU closed form under its own model (M4-02; GIAP_SPEC.md §7.3.2, §8.4).
+"""Fast calibration of the MAYU closed form under its own model (M4-02; GIPPA_SPEC.md §7.3.2, §8.4).
 
 Generator with known truth: G genes in two size groups (bins aligned with the groups), a fixed set
 of truly present genes, and F false peptides landing on genes with probability ∝ a_g. A gene hit
@@ -21,8 +21,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.stats.mayu import mayu_gene_fdr
-from giap.stats.poisson_binomial import poisson_binomial_pmf
+from gippa.stats.mayu import mayu_gene_fdr
+from gippa.stats.poisson_binomial import poisson_binomial_pmf
 
 pytestmark = pytest.mark.calibration
 

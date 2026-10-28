@@ -40,10 +40,10 @@ from helpers.pileup_oracle import (
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 REP = Replicon("c1", L, "circular")
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -53,11 +53,11 @@ GENES = {"G1": G1, "G2": G2}
 
 
 def pl() -> ModuleType:
-    return importlib.import_module("giap.variants.pileup")
+    return importlib.import_module("gippa.variants.pileup")
 
 
 def al() -> ModuleType:
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
 def _gene(spec: GeneSpec) -> Gene:
@@ -77,7 +77,7 @@ def run(
     genome: Mapping[str, str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     m = pl()
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"genome_relation": relation, "variants": {"high_min_peptides": high}}
     )
     s = {p: m.Support(p, v.source, v.search_db, v.q, v.uniqueness) for p, v in support.items()}

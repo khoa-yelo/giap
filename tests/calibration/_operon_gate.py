@@ -1,20 +1,20 @@
-"""Shared helpers of the M6-09 operon gate (docs/specs/M6-09-calibration-gate.md; GIAP_SPEC.md
+"""Shared helpers of the M6-09 operon gate (docs/specs/M6-09-calibration-gate.md; GIPPA_SPEC.md
 §7.4.7 "Calibration", §8.1 rows "Operon discordance" and "Missed operon", §8.4, §8.5).
 
-Replicate ``i`` of stream ``s`` draws one genome with ``giapsim.simulate_operons(cfgs,
+Replicate ``i`` of stream ``s`` draws one genome with ``gippasim.simulate_operons(cfgs,
 suite_seed(s, i))`` and runs the merged steps on its pair table:
 
-- missed operons: ``giap.operons.missed.missed_operons(pairs, cfg)``; a call is a scored NO row
+- missed operons: ``gippa.operons.missed.missed_operons(pairs, cfg)``; a call is a scored NO row
   with ``q_value <= q``. A call is **true** when the pair is a planted co-abundant pair
   (``truth["missed_operons"]``) or a UniOP false negative (``true_operon``: the two genes share a
   TU); every other call is false. The §8.1 family is "all scored NO pairs of the run" at q, one
   family per run, as the step forms it.
-- discordance: ``giap.operons.discordance.discordance(pairs, genes, cfg, p_miss)``; the §8.1
+- discordance: ``gippa.operons.discordance.discordance(pairs, genes, cfg, p_miss)``; the §8.1
   family is every OP row with ``test = both_detected_t`` (one BH family per run; P(miss) stays
   out of it, M6-index decision 1).
 
 Pair classes are re-derived from ``uniop_p`` with the calibrated UniOP threshold in
-``giap/data/calibration.yaml`` (ADR-0022, M6-12c; 0.5 by Khoa's decision 2026-10-24), so the gate
+``gippa/data/calibration.yaml`` (ADR-0022, M6-12c; 0.5 by Khoa's decision 2026-10-24), so the gate
 uses the cut-off the pipeline ships. Pure apart from the module-level replicate caches.
 """
 
@@ -52,19 +52,19 @@ def levels() -> tuple[float, ...]:
 
 
 def uniop_threshold() -> float:
-    from giap.data.calibration import load
+    from gippa.data.calibration import load
 
     return float(load()["uniop_pair_threshold"]["value"])
 
 
-def giap_cfg(decoys: Sequence[str] = DEFAULT_DECOYS, pi0: float = 1.0) -> Any:
-    from giap.config import GiapConfig
+def gippa_cfg(decoys: Sequence[str] = DEFAULT_DECOYS, pi0: float = 1.0) -> Any:
+    from gippa.config import GippaConfig
 
-    return GiapConfig(operons={"decoys": list(decoys), "pi0": pi0})
+    return GippaConfig(operons={"decoys": list(decoys), "pi0": pi0})
 
 
 def scenario(name: str, *args: Any, **kw: Any) -> Cfgs:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     cfgs: Cfgs = getattr(sc, name)(*args, **kw)
     return cfgs
@@ -72,12 +72,12 @@ def scenario(name: str, *args: Any, **kw: Any) -> Cfgs:
 
 def reclass(pairs: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """Same-strand pairs re-classed OP / NO at ``threshold`` by the step's own rule,
-    ``giap.operons.pairs.classify`` (OP iff ``uniop_p >= threshold``); CV, DV and SW unchanged.
+    ``gippa.operons.pairs.classify`` (OP iff ``uniop_p >= threshold``); CV, DV and SW unchanged.
     ``classify`` reads only the strand and the locus tag of the two genes, so they are passed as
     stand-ins."""
     from types import SimpleNamespace
 
-    from giap.operons.pairs import classify
+    from gippa.operons.pairs import classify
 
     def gene(tag: object, strand: object) -> Any:
         return SimpleNamespace(locus_tag=str(tag), interval=SimpleNamespace(strand=str(strand)))
@@ -95,9 +95,9 @@ def reclass(pairs: pd.DataFrame, threshold: float) -> pd.DataFrame:
 
 def simulate(cfgs: Cfgs, seed: int) -> Any:
     """One replicate, its pair classes at the calibrated UniOP threshold. The planted
-    co-abundant pairs must still be NO (giapsim draws them with ``uniop_p < 0.5``): a threshold
+    co-abundant pairs must still be NO (gippasim draws them with ``uniop_p < 0.5``): a threshold
     move that turns them OP would take them out of the missed-operon family."""
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     s = sc.simulate_operons(cfgs, int(seed))
     pairs = reclass(s.pairs, uniop_threshold())
@@ -119,7 +119,7 @@ class _Sim:
 
 def _quiet() -> None:
     # per-replicate bin warnings of the step would flood the logs (one per sparse bin per rep)
-    logging.getLogger("giap.operons.missed").setLevel(logging.ERROR)
+    logging.getLogger("gippa.operons.missed").setLevel(logging.ERROR)
 
 
 # --------------------------------------------------------------------------- missed operons
@@ -135,7 +135,7 @@ def missed_counts(
 ) -> dict[str, Any]:
     """Count record per level (``f"q{q:g}"``: n_called, n_false, n_planted_called, n_planted)
     plus ``min_q`` and ``n_targets`` of one run of the missed-operon step."""
-    from giap.operons.missed import missed_operons
+    from gippa.operons.missed import missed_operons
 
     _quiet()
     p = sim.pairs if pairs is None else pairs
@@ -296,12 +296,12 @@ def discordance_run(
     """The discordance step on ``pairs`` (default: the simulated table). ``abundance`` is the
     pair mean read from ``abundance_pairs`` (default ``pairs``), so an attack can stratify on the
     abundances it planted from rather than on its transformed ones."""
-    from giap.config import GiapConfig
-    from giap.operons.discordance import discordance
+    from gippa.config import GippaConfig
+    from gippa.operons.discordance import discordance
 
     p = sim.pairs if pairs is None else pairs
     genes = sim.expression.genes[["locus_tag"]]
-    res = discordance(p, genes, GiapConfig(), p_miss)
+    res = discordance(p, genes, GippaConfig(), p_miss)
     ap = p if abundance_pairs is None else abundance_pairs
     rows = res.rows.merge(ap[["pair_id", "abundance_log2_a", "abundance_log2_b"]], on="pair_id")
     t = rows["test"].to_numpy() == "both_detected_t"

@@ -1,4 +1,4 @@
-"""Calibration harness fixtures and suite selection (issue M4-05; GIAP_SPEC.md §8.4, §11.2).
+"""Calibration harness fixtures and suite selection (issue M4-05; GIPPA_SPEC.md §8.4, §11.2).
 
 - ``full``: true for tests marked ``calibration_full`` (nightly R), false otherwise.
 - Suite assignment is explicit (PR #54 lead decision 4): every calibration test belongs to exactly
@@ -9,7 +9,7 @@
   (``_criteria.pytest_args``). A calibration test in no entry
   runs in no array task; ``test_criteria_review.py`` fails on such orphans, so register new files.
 - Results are appended by ``_criteria`` to ``local/logs/calibration/<suite>.jsonl``.
-- Confirm runs (``GIAP_CALIBRATION_CONFIRM``, set only by ``--merge``'s block-2 run; M7-13 lead
+- Confirm runs (``GIPPA_CALIBRATION_CONFIRM``, set only by ``--merge``'s block-2 run; M7-13 lead
   decisions 7-8): a calibration test that cannot reach the harness skips before setup, and a
   harness test that stops before its first harness call skips (its block-1 path was judged in
   the shards). See ``reaches_harness``.
@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 
 # Engine and attack tests use the suite whose R they draw (replicates_fast/full.<suite>); tests
 # with no R of their own sit with their consumer: chance hits and exact recall with placement, the
-# giapsim v2 knobs (promoters, terminators, TUs) with missed_operons, harness self-tests with
+# gippasim v2 knobs (promoters, terminators, TUs) with missed_operons, harness self-tests with
 # regions.
 SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
     {
@@ -177,7 +177,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_readthrough_decoy_balance.py::test_readthrough_decoy_balance",
         "test_readthrough_stressed.py::test_readthrough_stressed_arm",
         "attacks/test_attack5_reversed_stretches.py::test_attack5_reversed_stretches_shuffle_decoys",
-        "attacks/test_attack_readthrough_decoys.py::test_attack_readthrough_decoys_giapsim",
+        "attacks/test_attack_readthrough_decoys.py::test_attack_readthrough_decoys_gippasim",
         "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_gene_label_at_level",
         "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_tu_block_at_level",
         "attacks/test_attack_autocorr.py::test_attack_short_prophage_join_count_at_level",
@@ -211,7 +211,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_autocorrelation_calibration.py::test_label_null_pooled_rate_recorded",
         "test_autocorrelation_calibration.py::test_tu_null_lag_level",
         "test_autocorrelation_calibration.py::test_tu_null_bh_family_any_rejection",
-        "test_denovo_precision_sim.py::test_denovo_precision_on_giapsim",
+        "test_denovo_precision_sim.py::test_denovo_precision_on_gippasim",
         "test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance",
         "test_detection_summary_calibration.py::test_o_minus_e_ci_covers_zero_under_tu_correlated_null",
         "test_detection_tiers_gene_fdr.py::test_gene_fdr_controlled",
@@ -222,7 +222,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_mapping_steps_gate.py::test_placement_fdr_through_the_steps",
         "test_mapping_steps_gate.py::test_recall_of_planted_peptides_through_the_steps",
         "test_oriter_calibration.py::test_pooled_slope_ci_covers_the_planted_curve",
-        "test_placement_fdr_genome.py::test_realised_placement_fdr_on_giapsim",
+        "test_placement_fdr_genome.py::test_realised_placement_fdr_on_gippasim",
         "test_placement_fdr_sim.py::test_database_shuffled_placement_fdr",
         "test_placement_fdr_sim.py::test_database_stressed_stratum0_placement_fdr",
         "test_placement_fdr_sim.py::test_database_stratum0_pi_hat_covers_the_wrong_share",
@@ -266,7 +266,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 # --------------------------------------------------------------------------- confirm runs
 # M7-13 lead decisions 7-8. The block-2 confirm run reruns only the harness checks listed in
-# GIAP_CALIBRATION_CONFIRM. A test that asserts directly (G2, A6a, the reference arm, M7-10's
+# GIPPA_CALIBRATION_CONFIRM. A test that asserts directly (G2, A6a, the reference arm, M7-10's
 # class-error tests) has no block 2: its verdict is its shard exit code, so rerunning it there
 # repeats block 1 and its result would be thrown away. Such tests skip before setup. Harness
 # tests are found statically (no marker to maintain): the test function, its fixtures and the
@@ -396,7 +396,7 @@ def pytest_collection_finish(session: pytest.Session) -> None:
 
 
 # --------------------------------------------------------------------------- shards
-# Sharding (``--shard K/N``, GIAP_CALIBRATION_REPLICATES=start:stop@K/N). A harness check runs its
+# Sharding (``--shard K/N``, GIPPA_CALIBRATION_REPLICATES=start:stop@K/N). A harness check runs its
 # shard of replicates in every shard and gets its verdict from --merge. Everything else in a test is
 # a *direct* part (an assertion on all replicates, a recorded quartile table, a fixed fit): it runs
 # exactly once, where ``C.owns_direct_checks()`` is true (shard 0 of block 1), so its verdict is

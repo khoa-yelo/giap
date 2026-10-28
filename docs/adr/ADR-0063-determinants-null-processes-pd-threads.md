@@ -28,7 +28,7 @@ predicts) at 143 s.
   `determinants_null_b400_n400_t8`.
 
 ## Evidence (before → after: metrics, tests, simulations)
-- Pilot pass-3 A1 determinants step replayed from its staged inputs (`giap _step determinants`,
+- Pilot pass-3 A1 determinants step replayed from its staged inputs (`gippa _step determinants`,
   `threads` 12, rye-01 AMD EPYC 9754, no profiler); origin/main f1ff5b2f run at the same time:
   | variant | origin/main | this branch | speed-up |
   |---|---|---|---|

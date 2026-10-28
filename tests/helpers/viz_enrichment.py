@@ -10,7 +10,7 @@ largest |nes|, then collection, term). It is written from the contract, not from
 ``running`` is fgsea's running sum (scoreType std, gseaParam 1; tests/unit/stats/
 test_fgsea_running_es.py): a hit at rank i adds |score_i| / N_R, a miss subtracts 1 / (n - m).
 A set's ``es`` in the table is the signed max deviation of that sum, so support and table agree.
-Nothing here touches ``$GIAP_DB_DIR`` or the network.
+Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -207,7 +207,7 @@ def running_rows(sets: Sequence[Mapping[str, object]]) -> list[list[object]]:
 
 
 def write_running(out: Path, rows: Sequence[Sequence[object]], *, gz: bool = True) -> Path:
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     sup = out / "plots" / "support"
     sup.mkdir(parents=True, exist_ok=True)

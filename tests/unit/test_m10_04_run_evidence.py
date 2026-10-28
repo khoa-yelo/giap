@@ -5,9 +5,9 @@ cases "Empty input", "Head job killed before the tail", "Detection tier differs"
 Fixtures are built in ``tmp_path`` by ``helpers.pilot_runs_m10_04``: manifests come from the real
 ``build_manifest`` and validate against ``run_manifest.schema.json``; ``sacct`` rows are passed as
 data to the pure functions and served by the fake ``sacct`` (``helpers.slurm_sandbox``) to the CLI.
-The compare fixtures are the output of the real ``giap compare`` on two tiny arms (criterion 4).
+The compare fixtures are the output of the real ``gippa compare`` on two tiny arms (criterion 4).
 
-Pinned by the test-author (spec Q6, lead decision 1): ``giap compare`` (M9-22) writes one
+Pinned by the test-author (spec Q6, lead decision 1): ``gippa compare`` (M9-22) writes one
 ``compare_stability`` row per schema family even when neither run has that table (``n_a``/``n_b``
 NA, flags ``missing_in:A1;missing_in:A2``), so C4 is "one row per enum family". Failure strings
 whose suffix the spec leaves open (``manifest_invalid:<path>``, ``genes_table:<message>``,
@@ -40,7 +40,7 @@ from helpers.pilot_runs_m10_04 import (
     bakta_task,
     default_trace,
     edit_manifest,
-    giap_compare,
+    gippa_compare,
     load_run_evidence,
     run_evidence_cli,
     sacct_rows,
@@ -117,7 +117,7 @@ def test_report_and_tables_are_hashed_not_read(tmp_path: Path) -> None:
 
 
 def test_task_summary_from_trace_and_sacct(tmp_path: Path) -> None:
-    trace = [*default_trace(), trace_task("GIAP:CORE:DETECTION (detection)", "1900004",
+    trace = [*default_trace(), trace_task("GIPPA:CORE:DETECTION (detection)", "1900004",
                                           attempt=2, task_id=3)]  # fmt: skip
     out = write_arm(tmp_path / "out_a2", trace=trace)
     rows = sacct_rows(tasks={TASK_JOBS[0]: 14, TASK_JOBS[1]: 8, "1900004": 12})
@@ -167,7 +167,7 @@ def _break(case: str, tmp: Path) -> tuple[Path, list[dict[str, str]], dict[str, 
         write_arm(out, manifest=False)
         rows = sacct_rows(state="TIMEOUT", exit_code="0:15")
     elif case == "run_failed":
-        trace = [*default_trace(), trace_task("GIAP:OPERONS:OPERONS_STEP (operons)", "1900005",
+        trace = [*default_trace(), trace_task("GIPPA:OPERONS:OPERONS_STEP (operons)", "1900005",
                                               status="FAILED", task_id=5)]  # fmt: skip
         write_arm(out, trace=trace, exit_code=4, failed_step="operons")
         rows = sacct_rows(state="FAILED", exit_code="4:0",
@@ -334,11 +334,11 @@ def test_empty_results_still_pass(tmp_path: Path) -> None:
 
 @pytest.fixture(scope="module")
 def compare_pair(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
-    """``CMP`` and ``CMP2`` from the real ``giap compare`` on two tiny arms (example 7)."""
+    """``CMP`` and ``CMP2`` from the real ``gippa compare`` on two tiny arms (example 7)."""
     tmp = tmp_path_factory.mktemp("m10_04_cmp")
     a1, a2 = two_arms(tmp)
     for name in ("cmp_a1_a2", "cmp2"):
-        res = giap_compare(a1, a2, tmp / name, env_root=tmp / "env")
+        res = gippa_compare(a1, a2, tmp / name, env_root=tmp / "env")
         assert res.returncode == 0, res.stdout[-2000:] + res.stderr[-2000:]
     return tmp / "cmp_a1_a2", tmp / "cmp2"
 
@@ -473,7 +473,7 @@ def test_compare_on_empty_arms_passes(tmp_path: Path) -> None:
     """Edge case "Empty input": all ``not_detected``, the rho row NA plus its flag; C1 holds."""
     a1, a2 = two_arms(tmp_path, detected=False)
     for name in ("cmp_a1_a2", "cmp2"):
-        res = giap_compare(a1, a2, tmp_path / name, env_root=tmp_path / "env")
+        res = gippa_compare(a1, a2, tmp_path / name, env_root=tmp_path / "env")
         assert res.returncode == 0, res.stderr[-2000:]
     assert _compare(tmp_path / "cmp_a1_a2", tmp_path / "cmp2")["failures"] == []
 

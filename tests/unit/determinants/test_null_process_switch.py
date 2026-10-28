@@ -18,8 +18,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_models_data as d
 
-from giap.determinants import null as N
-from giap.rng import for_step
+from gippa.determinants import null as N
+from gippa.rng import for_step
 
 SEED = 20261027
 

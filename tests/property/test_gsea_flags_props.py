@@ -28,7 +28,7 @@ SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=list(H
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 

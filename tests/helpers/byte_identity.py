@@ -1,17 +1,17 @@
 """Render every registered plot of one ``OUT/`` tree in a fresh interpreter, for the M9-26
 byte-identity tests (docs/specs/M9-26-scale-and-determinism.md work item 4, example 2; M9-01
-item 7; GIAP_SPEC.md R7/TE7).
+item 7; GIPPA_SPEC.md R7/TE7).
 
 ``render_in_subprocess`` runs ``python -m helpers.byte_identity OUT DEST`` with a chosen
 ``PYTHONHASHSEED``: two renders in two interpreters with different hash seeds catch any output
 that depends on ``set``/``dict`` iteration of strings or on process state, which two calls in one
 process would not. Each plot goes through its registry wrapper (declared skips skip), after
-``giap.viz.style.apply()`` as the ``plots`` step does, and every instance is written with
-``giap.io.plot_files.write_instance`` in ``svg``, ``pdf`` and ``png``.
+``gippa.viz.style.apply()`` as the ``plots`` step does, and every instance is written with
+``gippa.io.plot_files.write_instance`` in ``svg``, ``pdf`` and ``png``.
 
-``golden_out`` builds a small rich ``OUT/`` from the committed giapsim sim50k golden tables
+``golden_out`` builds a small rich ``OUT/`` from the committed gippasim sim50k golden tables
 (``tests/data/golden/sim50k``) plus a one-replicon ``preflight.json`` (``chr1``, 50 kb,
-circular), so many plots draw something; nothing touches ``$GIAP_DB_DIR`` or the network.
+circular), so many plots draw something; nothing touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k"
 FORMATS = ("svg", "pdf", "png")
-#: golden file -> its ``OUT/``-relative path (``giap.io.run_view.PATHS``)
+#: golden file -> its ``OUT/``-relative path (``gippa.io.run_view.PATHS``)
 GOLDEN_FILES = {
     "m4/genes.tsv": "tables/genes.tsv",
     "m4/detection_summary.tsv": "tables/detection_summary.tsv",
@@ -58,11 +58,11 @@ def golden_out(tmp: Path) -> Path:
 def render_all(out: Path, dest: Path, pids: Sequence[str] = (), dpi: int = 100) -> dict[str, str]:
     """Render every registered plot (or only ``pids``) of ``out`` into ``dest``; returns
     ``{pid: "rendered" | "skip:<reason>"}``."""
-    from giap.config import resolve_config
-    from giap.io.plot_files import write_instance
-    from giap.io.run_view import RunView
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base, style
+    from gippa.config import resolve_config
+    from gippa.io.plot_files import write_instance
+    from gippa.io.run_view import RunView
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base, style
 
     load_plot_modules()
     style.apply()

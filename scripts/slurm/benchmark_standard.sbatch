@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-bench
+#SBATCH --job-name=gippa-bench
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --array=0-2%1
@@ -8,28 +8,28 @@
 #SBATCH --constraint=CPU_SKU:6148
 #SBATCH --time=22:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
-# The standard-run benchmark (GIAP_SPEC.md §13.2, §15.2 step 9; docs/specs/M10-12-benchmark-standard.md).
+# The standard-run benchmark (GIPPA_SPEC.md §13.2, §15.2 step 9; docs/specs/M10-12-benchmark-standard.md).
 # Array task r is repeat r+1: the cells k12|sim5m x standard|core run one after another in a
 # rotated order, each as its own srun step (16 CPUs, 64,000 MB = MaxMemPerCPU x 16, so Slurm
 # allocates exactly 16 CPUs) under `timeout`, from a fresh launch directory, with a fresh numba
-# cache, on BENCH_COMMIT checked out detached in $GIAP_ROOT/ci/bench-<sha7>. Every run writes
+# cache, on BENCH_COMMIT checked out detached in $GIPPA_ROOT/ci/bench-<sha7>. Every run writes
 # RUN_DIR=$BENCH_DIR/<bench_id>/r<k>[.<attempt>]/<genome>_<variant>/{bench_run.json,runtimes.md,
-# cotenancy.tsv}, recorded by $GIAP_REPO/scripts/dev/bench_record.py; wall_s is the step's sacct
+# cotenancy.tsv}, recorded by $GIPPA_REPO/scripts/dev/bench_record.py; wall_s is the step's sacct
 # Elapsed. scripts/dev/benchmark_summary.py summarises.
 # Variables: BENCH_COMMIT (required, 40 hex, on origin), BENCH_ID (<submit date>_<sha7>; required for a replacement),
-# BENCH_DIR ($GIAP_ROOT/bench), BENCH_GENOMES, BENCH_VARIANTS, BENCH_ONLY=<genome>/<variant> with
+# BENCH_DIR ($GIPPA_ROOT/bench), BENCH_GENOMES, BENCH_VARIANTS, BENCH_ONLY=<genome>/<variant> with
 # BENCH_ATTEMPT=b|c (a replacement), BENCH_RUN_TIMEOUT (5h; the cells x it fit in --time), BENCH_PROFILE (farmshare_local,
 # apptainer; the Slurm-executor profile `farmshare` is refused, R14), BENCH_DRY_RUN=1 (preconditions
 # and the planned lines only). Exit 0 all runs ok, 1 any failed/timeout/invalid, 2 a
 # precondition, 143 on SIGTERM (the current run is written as timeout). Never pushes or commits.
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 K12_GENOME_REL=tests/data/genomes/k12_mg1655.fna.gz
 K12_GENOME_SHA256=4bfd7163f6f0de6394a2131cbfdbe75100daa55cbee227ec3e403a44640ac03c
 K12_JSON_REL=tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz
 K12_JSON_SHA256=c08c6466edf99d16cbe79679a8971b6e06e081cfc6adb9cc6f1ea9d51d3f083d
-MV="$GIAP_ROOT/mvp04/20261023"           # MVP-04 K-12 peptides and config.yaml
+MV="$GIPPA_ROOT/mvp04/20261023"           # MVP-04 K-12 peptides and config.yaml
 PROFILE="${BENCH_PROFILE:-farmshare_local,apptainer}"
 TIMEOUT="${BENCH_RUN_TIMEOUT:-5h}"
 GENOMES="${BENCH_GENOMES-k12 sim5m}"
@@ -82,9 +82,9 @@ if [ -z "${BENCH_ID:-}" ] && [ -n "${SLURM_ARRAY_JOB_ID:-}" ]; then
 fi
 BENCH_ID="${BENCH_ID:-${sub:-$(date +%F)}_$SHA7}"
 REP_NAME="r$REPEAT"; [ "$ATT" = a ] || REP_NAME="r$REPEAT.$ATT"
-REP="${BENCH_DIR:-$GIAP_ROOT/bench}/$BENCH_ID/$REP_NAME"
-IN="${BENCH_DIR:-$GIAP_ROOT/bench}/$BENCH_ID/inputs"   # the K-12 JSON (the same bytes every task); SIM5M per repeat
-W="$GIAP_ROOT/ci/bench-$SHA7"
+REP="${BENCH_DIR:-$GIPPA_ROOT/bench}/$BENCH_ID/$REP_NAME"
+IN="${BENCH_DIR:-$GIPPA_ROOT/bench}/$BENCH_ID/inputs"   # the K-12 JSON (the same bytes every task); SIM5M per repeat
+W="$GIPPA_ROOT/ci/bench-$SHA7"
 
 ALL=(k12/standard k12/core sim5m/standard sim5m/core)   # rotated by the task: rows of the spec's table
 CELLS=(); ORDER=(); i=0
@@ -104,18 +104,18 @@ tsec=$(printf '%s\n' "$TIMEOUT" | awk '/^[0-9]+[smhd]?$/ {n = $0 + 0; u = substr
 [ -n "$tsec" ] || die "BENCH_RUN_TIMEOUT='$TIMEOUT' is not N[smhd]"
 [ $((tsec * ${#CELLS[@]})) -le 79200 ] || die "${#CELLS[@]} runs x BENCH_RUN_TIMEOUT=$TIMEOUT overrun --time=22:00:00"
 
-mkdir -p "$GIAP_ROOT/ci"
+mkdir -p "$GIPPA_ROOT/ci"
 (
   flock 9
-  git -C "$GIAP_REPO" fetch -q origin || exit 1
-  [ -n "$(git -C "$GIAP_REPO" branch -r --contains "$BENCH_COMMIT" 2>/dev/null)" ] || exit 1
-  [ -d "$W" ] || git -C "$GIAP_REPO" worktree add -q --detach "$W" "$BENCH_COMMIT" || exit 1
+  git -C "$GIPPA_REPO" fetch -q origin || exit 1
+  [ -n "$(git -C "$GIPPA_REPO" branch -r --contains "$BENCH_COMMIT" 2>/dev/null)" ] || exit 1
+  [ -d "$W" ] || git -C "$GIPPA_REPO" worktree add -q --detach "$W" "$BENCH_COMMIT" || exit 1
   git -C "$W" checkout -q -f --detach "$BENCH_COMMIT"
-) 9>"$GIAP_ROOT/ci/.git.lock" || die "BENCH_COMMIT=$BENCH_COMMIT is not on origin or cannot be checked out in $W"
+) 9>"$GIPPA_ROOT/ci/.git.lock" || die "BENCH_COMMIT=$BENCH_COMMIT is not on origin or cannot be checked out in $W"
 cd "$W" || die "cannot enter $W"
 export PYTHONPATH="$W/src:$W/tests/sim" NXF_ANSI_LOG=false
-giap setup --check --db-dir "$GIAP_DB_DIR" --bakta full --genomad --antismash --promotech-models \
-  --go --kegg --cog --contaminants >&2 || die "giap setup --check --db-dir $GIAP_DB_DIR failed"
+gippa setup --check --db-dir "$GIPPA_DB_DIR" --bakta full --genomad --antismash --promotech-models \
+  --go --kegg --cog --contaminants >&2 || die "gippa setup --check --db-dir $GIPPA_DB_DIR failed"
 case " ${CELLS[*]} " in *" k12/"*)
   [ -f "$MV/peptides.tsv" ] && [ -f "$MV/config.yaml" ] || die "K-12 peptides.tsv/config.yaml missing under $MV (mvp04_inputs.sbatch)"
   [ "$(sha256sum < "$K12_GENOME_REL" | cut -d' ' -f1)" = "$K12_GENOME_SHA256" ] || die "$K12_GENOME_REL differs from the pinned sha256"
@@ -136,7 +136,7 @@ plan() {  # plan <genome> <variant>: the run's command line in CMD
   if [ "$2" = core ]; then extra+=(--annotation "$ann" --modules core); else extra+=(--set annotation.bakta.db=full); fi
   CMD=(srun --ntasks=1 --cpus-per-task=16 --mem=64000M --export=ALL
     timeout --signal=TERM --kill-after=5m "$TIMEOUT"
-    giap run --genome "$gen" --peptides "$pep" "${extra[@]}" --db-dir "$GIAP_DB_DIR" --threads 16
+    gippa run --genome "$gen" --peptides "$pep" "${extra[@]}" --db-dir "$GIPPA_DB_DIR" --threads 16
     --memory 56.GB --profile "$PROFILE" --seed 20261014 --outdir "$REP/$1_$2/out")
 }
 
@@ -153,11 +153,11 @@ snap() {  # the image and tool-environment caches, one entry per line
   done
   return 0
 }
-sample() {  # one cotenancy.tsv row: epoch, node CPUAlloc, CPULoad, AllocMem, our other giap-* jobs
+sample() {  # one cotenancy.tsv row: epoch, node CPUAlloc, CPULoad, AllocMem, our other gippa-* jobs
   local n q
   n=$(scontrol show node "$NODE" 2>/dev/null | awk '{for (i = 1; i <= NF; i++) {split($i, a, "="); v[a[1]] = a[2]}}
     END {printf "%s\t%s\t%s", v["CPUAlloc"], v["CPULoad"], v["AllocMem"]}')
-  q=$(squeue -u "$ME" -t R -h -o '%A|%j|%C|%N' 2>/dev/null | awk -F'|' -v me="$JOBRAW" '$1 != me && $2 ~ /^giap-/' | paste -sd';' -)
+  q=$(squeue -u "$ME" -t R -h -o '%A|%j|%C|%N' 2>/dev/null | awk -F'|' -v me="$JOBRAW" '$1 != me && $2 ~ /^(giap|gippa)-/' | paste -sd';' -)
   printf '%s\t%s\t%s\n' "$(date +%s)" "$n" "$q" >> "$1"
 }
 sacct_step() {  # SACCT = the step's complete row; 3 tries over 2 min (accounting can lag or be down)
@@ -171,11 +171,11 @@ sacct_step() {  # SACCT = the step's complete row; 3 tries over 2 min (accountin
 }
 record() {  # record <genome> <variant> <order> <exit> [<forced status>]: RUN_DIR/bench_run.json; prints the status
   local rd="$REP/$1_$2" st rc
-  st=$(python "$GIAP_REPO/scripts/dev/bench_record.py" "$rd" "$1" "$2" "$3" "$step" "$4" "$t0" "$t1" "${5:-}" \
+  st=$(python "$GIPPA_REPO/scripts/dev/bench_record.py" "$rd" "$1" "$2" "$3" "$step" "$4" "$t0" "$t1" "${5:-}" \
     "$SACCT" "$BENCH_ID" "$BENCH_COMMIT" "$REPEAT" "$ATT" "$JOBID" "$TASK" "$NODE" "$SKU" "${CMD[@]}"); rc=$?
   if [ "$rc" != 0 ] || [ -z "$st" ]; then  # the minimal record: the summary names this repeat failed
     st=failed
-    printf '{"schema": "giap-bench-run/1", "bench_id": "%s", "commit": "%s", "genome": "%s", "variant": "%s", "repeat": %s, "attempt": "%s", "job_id": "%s", "node": "%s", "exit_code": %s, "status": "failed", "invalid_reasons": ["record_error:bench_record.py exit %s"], "warnings": []}\n' \
+    printf '{"schema": "gippa-bench-run/1", "bench_id": "%s", "commit": "%s", "genome": "%s", "variant": "%s", "repeat": %s, "attempt": "%s", "job_id": "%s", "node": "%s", "exit_code": %s, "status": "failed", "invalid_reasons": ["record_error:bench_record.py exit %s"], "warnings": []}\n' \
       "$BENCH_ID" "$BENCH_COMMIT" "$1" "$2" "$REPEAT" "$ATT" "$JOBID" "$NODE" "$4" "$rc" > "$rd/bench_run.json"
   fi
   echo "$st"
@@ -183,7 +183,7 @@ record() {  # record <genome> <variant> <order> <exit> [<forced status>]: RUN_DI
 run_cell() {  # run_cell <genome> <variant> <order index>
   local rd="$REP/$1_$2" rc status
   plan "$1" "$2"; mkdir -p "$rd/launch"
-  numba_tmp=$(mktemp -d "$NODETMP/giap-bench-numba.XXXXXX")
+  numba_tmp=$(mktemp -d "$NODETMP/gippa-bench-numba.XXXXXX")
   snap > "$rd/caches.before"
   sample "$rd/cotenancy.tsv"
   ( while :; do sleep 300; sample "$rd/cotenancy.tsv"; done ) & spid=$!
@@ -197,7 +197,7 @@ run_cell() {  # run_cell <genome> <variant> <order index>
   status=$(record "$1" "$2" "$3" "$rc"); cur=""
   echo "RUN $1/$2 exit=$rc status=${status:-?} step=$JOBRAW.$step"
   [ "$status" = ok ] || worst=1
-  python "$GIAP_REPO/scripts/measure_runtimes.py" "$rd/out/logs/trace.tsv" --sacct "$JOBRAW" --genome "$1 ($2)" > "$rd/runtimes.md" 2>/dev/null || true
+  python "$GIPPA_REPO/scripts/measure_runtimes.py" "$rd/out/logs/trace.tsv" --sacct "$JOBRAW" --genome "$1 ($2)" > "$rd/runtimes.md" 2>/dev/null || true
   rm -rf "$rd/out/work" "$numba_tmp"; numba_tmp=""
 }
 
@@ -211,8 +211,8 @@ case " ${CELLS[*]} " in *" k12/core "*)  # shared by the repeats: skip the same 
   fi ;;
 esac
 case " ${CELLS[*]} " in *" sim5m/"*)
-  python -c 'import sys; from giapsim import SIM5M, SIM5M_SEED, simulate; simulate(SIM5M, SIM5M_SEED, sys.argv[1])' \
-    "$IN/sim5m_$REP_NAME" || die "giapsim SIM5M generation failed" ;;
+  python -c 'import sys; from gippasim import SIM5M, SIM5M_SEED, simulate; simulate(SIM5M, SIM5M_SEED, sys.argv[1])' \
+    "$IN/sim5m_$REP_NAME" || die "gippasim SIM5M generation failed" ;;
 esac
 i=0
 while [ "$i" -lt "${#CELLS[@]}" ]; do

@@ -1,4 +1,4 @@
-"""Hypothesis properties of placement q-values (issue M3-10; GIAP_SPEC.md §7.2.5, §8.3; ADR-0010).
+"""Hypothesis properties of placement q-values (issue M3-10; GIPPA_SPEC.md §7.2.5, §8.3; ADR-0010).
 
 - ``stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)``, one weight per decoy and a scalar
   c = ``pi_plus`` >= max weight (as ``placement`` passes it): q in [0, 1]; q non-decreasing in E;
@@ -21,9 +21,9 @@ import pandas as pd
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
-from giap.mapping.placement_fdr import PeptideCosts, placement, stratum_qvalues
-from giap.stats.tda import tda_qvalues
+from gippa.config import GippaConfig
+from gippa.mapping.placement_fdr import PeptideCosts, placement, stratum_qvalues
+from gippa.stats.tda import tda_qvalues
 
 FAST = settings(max_examples=150, deadline=None)
 EPS = 1e-12
@@ -173,7 +173,7 @@ def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
 
 
 def _q(rows: list[dict[str, Any]]) -> dict[str, float]:
-    per, _ = placement(_frame(rows), GiapConfig())
+    per, _ = placement(_frame(rows), GippaConfig())
     return {
         str(p): float(q)
         for p, q in zip(per["peptide"], per["placement_q"], strict=True)

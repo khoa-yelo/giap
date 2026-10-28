@@ -1,9 +1,9 @@
-"""``plots`` and ``report`` in ``giap run`` under both executors (M9-02 behaviour 8; acceptance
+"""``plots`` and ``report`` in ``gippa run`` under both executors (M9-02 behaviour 8; acceptance
 "the registry key test for ``plots`` / ``report`` (as ``test_nf_annotate_registry.py``)").
 
 Local executor: ``PUBLISHED`` gains ``plots`` -> ``plots/`` and ``report`` -> ``report/``; both
 steps run after every producer of a published key. Nextflow: ``workflow/subworkflows/local/
-report.nf`` defines ``REPORT`` with ``GIAP_STEP as PLOTS`` and ``GIAP_STEP as REPORT_HTML``, whose
+report.nf`` defines ``REPORT`` with ``GIPPA_STEP as PLOTS`` and ``GIPPA_STEP as REPORT_HTML``, whose
 out keys equal the registry outputs; ``main.nf`` includes ``REPORT`` and calls it last. The
 nf-test fixture ``workflow/tests/data/annotate/step_registry.json`` lists both steps (it is read
 by workflow/tests/report.nf.test). No Nextflow needed.
@@ -15,9 +15,9 @@ import json
 import re
 from pathlib import Path
 
-from giap.runner.local import PUBLISHED, PUBLISHED_FILES, publish
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.runner.local import PUBLISHED, PUBLISHED_FILES, publish
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 REPO = Path(__file__).resolve().parents[2]
 REPORT_NF = REPO / "workflow" / "subworkflows" / "local" / "report.nf"
@@ -53,7 +53,7 @@ def test_publish_copies_the_plots_and_report_directories(tmp_path: Path) -> None
 
 
 def test_plots_and_report_run_last() -> None:
-    from giap.runner.local import MEMBER_KEYS
+    from gippa.runner.local import MEMBER_KEYS
 
     load_step_modules()
     py = [s.name for s in reg.all_steps() if s.kind == "py"]
@@ -83,12 +83,12 @@ def _calls() -> dict[str, list[str]]:
     return out
 
 
-def test_report_nf_defines_report_with_two_giap_step_aliases() -> None:
+def test_report_nf_defines_report_with_two_gippa_step_aliases() -> None:
     assert REPORT_NF.is_file(), "workflow/subworkflows/local/report.nf does not exist"
     text = _strip(REPORT_NF.read_text(encoding="utf-8"))
     assert re.search(r"\bworkflow\s+REPORT\s*\{", text)
     for alias in ALIASES:
-        assert re.search(rf"GIAP_STEP\s+as\s+{alias}\b", text), alias
+        assert re.search(rf"GIPPA_STEP\s+as\s+{alias}\b", text), alias
 
 
 def test_report_nf_out_keys_equal_the_registry_outputs() -> None:

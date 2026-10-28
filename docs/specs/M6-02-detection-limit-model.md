@@ -1,8 +1,8 @@
 # M6-02: The detection-limit model — P(detect | abundance) and P(miss)
 
 Milestone M6 · track S (statistics engine) · **pass 2 (hardening)** · depends on: nothing new
-(reuses merged `giap.stats.poisson_binomial_sf`, `giap.genetable.covariates.digest`,
-`giap.genetable.detectability` conventions) · estimate ≈ 300 code lines (+ ≈ 350 test lines) ·
+(reuses merged `gippa.stats.poisson_binomial_sf`, `gippa.genetable.covariates.digest`,
+`gippa.genetable.detectability` conventions) · estimate ≈ 300 code lines (+ ≈ 350 test lines) ·
 **statistical** (label `stats`)
 
 ## Why it is pass 2
@@ -26,7 +26,7 @@ state; this issue turns the test on (together with M6-05H).
 
 ## Public interface
 
-`src/giap/operons/detection_limit.py`
+`src/gippa/operons/detection_limit.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class PMissModel:
@@ -37,7 +37,7 @@ class PMissModel:
     auc: float
     usable: bool
 
-def observable_peptides(aa: str, cfg: GiapConfig) -> list[tuple[int, float]]: ...  # (length, gravy)
+def observable_peptides(aa: str, cfg: GippaConfig) -> list[tuple[int, float]]: ...  # (length, gravy)
 def fit_peptide_model(genes, peptide_hits, cfg, rng) -> PMissModel: ...
 def fit_replicate_model(genes, peptide_runs, cfg, rng) -> PMissModel: ...
 def p_detect(model: PMissModel, a: float, peps: Sequence[tuple[int, float]]) -> float: ...
@@ -66,7 +66,7 @@ def p_miss(model: PMissModel, a_v: float, ratios: ArrayLike,
 6. **Usability.** `usable = False` when: no peptides and < 2 runs; < 50 training rows; the fitted
    model is constant (M4-13's `_constant` path); or the gene has no observable peptide. A
    non-usable model makes M6-05 emit `no_detection_limit_model`.
-7. **RNG.** `giap.rng.for_step("operons.detection_limit", seed)` for the fold assignment only.
+7. **RNG.** `gippa.rng.for_step("operons.detection_limit", seed)` for the fold assignment only.
 
 ## Degenerate cases
 

@@ -1,9 +1,9 @@
-"""M4-15 lead decision 15: ``giap run --executor local`` stages ``cog2020_def`` from the setup
+"""M4-15 lead decision 15: ``gippa run --executor local`` stages ``cog2020_def`` from the setup
 manifest (like ``contaminants``), so ``cog_category`` is set under the local executor too; and the
 local gene table keeps string NAs null (decision 11).
 
-Inputs: the 50-kb giapsim run of tests/integration/test_mapping_local.py with a test
-``$GIAP_DB_DIR`` (never the real one) whose manifest also lists ``cog2020_def`` and holds the
+Inputs: the 50-kb gippasim run of tests/integration/test_mapping_local.py with a test
+``$GIPPA_DB_DIR`` (never the real one) whose manifest also lists ``cog2020_def`` and holds the
 fixture ``cog/cog-20.def.tab``. The simulated Bakta JSON has no COG xrefs, so a copy gives the first
 two CDS ``COG:COG0593`` / ``COG:COG0002``. The local work directory names files by key
 (``work/gene_table`` is the ``detectability`` output).
@@ -30,8 +30,8 @@ SEED = 7
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
 
     out = tmp_path_factory.mktemp("sim50k_cog")
     cfg = SimConfig(proteomics=ProteomicsConfig(), write_precomputed=True)
@@ -65,9 +65,9 @@ def _annotation(sim: Any, root: Path) -> tuple[Path, dict[str, str]]:
 def test_local_executor_stages_cog_table(
     sim: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
-    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path)))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_db(tmp_path)))
     ann, given = _annotation(sim, tmp_path)
     out = tmp_path / "OUT"
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
@@ -92,10 +92,10 @@ def test_local_executor_stages_abundance_and_preflight(
     """Lead decision 20(b): with ``--abundance`` the local run stages ``abundance`` and
     ``preflight`` (into ``work/preflight/``), the scale is read without a
     ``contract.preflight.abundance_scale`` issue, and the abundance columns are filled."""
-    from giap.cli import cli
+    from gippa.cli import cli
 
     assert sim.abundance is not None and Path(sim.abundance).is_file()
-    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path)))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(_db(tmp_path)))
     out = tmp_path / "OUT"
     args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
             "--abundance", str(sim.abundance), "--annotation", str(sim.bakta_json),

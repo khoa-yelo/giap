@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 from helpers import detection_limit_data as D
 
-from giap.config import GiapConfig
-from giap.rng import for_step
+from gippa.config import GippaConfig
+from gippa.rng import for_step
 
 SUITE = "detectability"
 STREAM = "detection_limit.gene_slope"
@@ -48,12 +48,12 @@ def _citl(d: np.ndarray, p: np.ndarray) -> float:
 
 
 def _replicate(rng: np.random.Generator, n_genes: int) -> tuple[float, float]:
-    from giap.operons import detection_limit as dl
+    from gippa.operons import detection_limit as dl
 
     s = D.simulate_peptides(rng, n_genes, BETA, a_mu=15.0, a_sd=2.5, n_peps=(5, 20), tu_size=2)
     seed = int(rng.integers(0, 2**31 - 1))
     model: Any = dl.fit_peptide_model(
-        s.genes, s.hits, GiapConfig(seed=seed), for_step(D.STEP, seed)
+        s.genes, s.hits, GippaConfig(seed=seed), for_step(D.STEP, seed)
     )
     assert model.usable
     p = np.array(

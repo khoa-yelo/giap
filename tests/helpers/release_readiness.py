@@ -4,8 +4,8 @@
 R = HEAD) and every evidence file of a release that passes: fake ``PROGRESS.md`` (gate blocks
 M1-M10, M10 with a Khoa review line), ``validation/pilot/metrics/metrics.json``,
 ``validation/pilot/REPORT.md``, ``benchmarks/baseline.json``, version 1.0.0 in
-``src/giap/__init__.py`` and ``CITATION.cff``, a built ``CHANGELOG.md``, an empty ``changelog.d/``,
-and copies of the checkout's ``workflow/conf/containers.config``, ``src/giap/annotate/tools.py``,
+``src/gippa/__init__.py`` and ``CITATION.cff``, a built ``CHANGELOG.md``, an empty ``changelog.d/``,
+and copies of the checkout's ``workflow/conf/containers.config``, ``src/gippa/annotate/tools.py``,
 ``NOTICE.md`` and ``LICENSE`` (H4/H5 read them). ``tmp_path/logs`` holds ``nightly.tsv`` and
 ``weekly.tsv`` rows for R (date, job_task, commit (8-hex short), exit, summary: the
 ``scripts/slurm/nightly.sbatch`` layout), and ``tmp_path/check_runs.json`` a ``gh api
@@ -49,7 +49,7 @@ _GIT_ENV = {
 
 COPIED = (
     "workflow/conf/containers.config",
-    "src/giap/annotate/tools.py",
+    "src/gippa/annotate/tools.py",
     "NOTICE.md",
     "LICENSE",
 )
@@ -58,7 +58,7 @@ COPIED = (
 @functools.cache
 def load_module() -> ModuleType:
     """``scripts/release/readiness.py`` as a module (its CLI sits behind ``__main__``)."""
-    spec = importlib.util.spec_from_file_location("giap_release_readiness", SCRIPT)
+    spec = importlib.util.spec_from_file_location("gippa_release_readiness", SCRIPT)
     assert spec is not None and spec.loader is not None, f"{SCRIPT} missing"
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -75,7 +75,7 @@ def git(repo: Path, *args: str) -> str:
 
 
 def progress_md(gates: range | list[int] = range(1, 11), khoa_m10: bool = True) -> str:
-    out = ["# GIAP progress (fixture)", "", "## Gates", ""]
+    out = ["# GIPPA progress (fixture)", "", "## Gates", ""]
     for k in gates:
         out += [f"### Gate M{k}", f"- Evidence: fixture evidence for M{k}."]
         if k == 10 and khoa_m10:
@@ -95,7 +95,7 @@ def report_md(statuses: tuple[str, ...] = ("pass",) * 5) -> str:
 def metrics_doc(share: float = 0.9971, passed: bool | None = None) -> dict[str, Any]:
     p = {"status": "pass"}
     return {
-        "schema": "giap-pilot-metrics/1",
+        "schema": "gippa-pilot-metrics/1",
         "te1": {
             "n_peptides": 10000,
             "exact_inframe": round(share * 10000),
@@ -104,9 +104,9 @@ def metrics_doc(share: float = 0.9971, passed: bool | None = None) -> dict[str, 
             "passed": share >= 0.995 if passed is None else passed,
         },
         "mapping_fdr": {"value": 0.0083, "threshold": 0.01},
-        "te_real": {"schema": "giap-pilot-te-real/1",
+        "te_real": {"schema": "gippa-pilot-te-real/1",
                     "te2": dict(p), "te3": dict(p), "te4": dict(p), "te5": dict(p)},
-        "te7": {"schema": "giap-pilot-te7/1", "giap": dict(p),
+        "te7": {"schema": "gippa-pilot-te7/1", "gippa": dict(p),
                 "diann": {"status": "identical_report"}, "end_to_end": True},
     }  # fmt: skip
 
@@ -152,7 +152,7 @@ def passing_nightly(commit: str, date: str = "2026-11-02", job: str = "2000") ->
 def passing_weekly(commit: str, date: str = "2026-11-01", job: str = "3000") -> str:
     return nightly_row(
         date, f"{job}_0", commit, 0,
-        "k12_mg1655: giap run exit 0; TE8 /scratch/ci/validation/2026-11-01_te8_3000.json;",
+        "k12_mg1655: gippa run exit 0; TE8 /scratch/ci/validation/2026-11-01_te8_3000.json;",
     )  # fmt: skip
 
 
@@ -178,17 +178,17 @@ class Fixture:
             dst = repo / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(REPO / rel, dst)
-        fx.write_text("src/giap/__init__.py", f'"""GIAP."""\n\n__version__ = "{VERSION}"\n')
-        fx.write_text("src/giap/cli.py", '"""CLI (fixture)."""\n')
-        fx.write_text("src/giap/stats/bh.py", '"""BH (fixture)."""\n')
+        fx.write_text("src/gippa/__init__.py", f'"""GIPPA."""\n\n__version__ = "{VERSION}"\n')
+        fx.write_text("src/gippa/cli.py", '"""CLI (fixture)."""\n')
+        fx.write_text("src/gippa/stats/bh.py", '"""BH (fixture)."""\n')
         fx.write_text(
             "CITATION.cff",
-            f'cff-version: 1.2.0\ntitle: "GIAP"\nversion: {VERSION}\nlicense: MIT\n',
+            f'cff-version: 1.2.0\ntitle: "GIPPA"\nversion: {VERSION}\nlicense: MIT\n',
         )
         fx.write_text(
             "CHANGELOG.md",
             "# Changelog\n\n<!-- towncrier release notes start -->\n\n"
-            f"## GIAP {VERSION} (2026-11-01)\n\n### Features\n\n- First release.\n",
+            f"## GIPPA {VERSION} (2026-11-01)\n\n### Features\n\n- First release.\n",
         )
         fx.write_text("changelog.d/.gitkeep", "")
         fx.write_text("PROGRESS.md", progress_md())
@@ -198,7 +198,7 @@ class Fixture:
         fx.write_text("docs/user-guide/install.md", "# Install\n")
         fx.write_text("docs/adr/ADR-0001-fixture.md", adr_text(1, "accepted-by-khoa", "none"))
         fx.x = fx.commit("X: fixture")
-        fx.write_text("README.md", "# GIAP\n")
+        fx.write_text("README.md", "# GIPPA\n")
         fx.r = fx.commit("R: fixture")
         if nightly:
             fx.set_nightly(passing_nightly(fx.short(fx.r)))

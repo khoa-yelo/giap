@@ -11,7 +11,7 @@
   `NOVEL_PER_CLASS_GATE = 300` ORFs per class: the picked class q `(D + 1)/T` cannot fall below
   1/T, so the default counts (16 at 300 kb, 40 at 1 Mb) call nothing at α = 0.01 (M7-12
   decision 26, statistician round 3 on #225).
-- Each gate replicate is one 1-Mb simulation and a GIAP run per regime (database and de novo),
+- Each gate replicate is one 1-Mb simulation and a GIPPA run per regime (database and de novo),
   assumed ≈ 90 s each (to be measured in M7-13a).
 - `replicates_fast.novel_orfs` = 50 is shared with the cheap simulator checks of the same suite
   (`test_sim_m7_*`, `test_attack_m7_sixframe_picked.py`). At 50 × 2 × 90 s ≈ 2.5 h single-core the

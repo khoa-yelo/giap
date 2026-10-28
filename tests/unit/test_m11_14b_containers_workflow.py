@@ -21,7 +21,7 @@ Interface fixed by these tests (readings chosen where the spec leaves room):
   digests go into the digest PR, example 5); the digest-PR job reads that output.
 * The build job's re-check is the step right before ``docker/build-push-action`` and fails with
   ``tag exists: <ref>``.
-* The image prefix is not written in the workflow: no ``giap-`` literal appears in any ``run`` or
+* The image prefix is not written in the workflow: no ``gippa-`` literal appears in any ``run`` or
   ``with`` value; ``pyproject.toml`` is read in a job the build needs.
 """
 
@@ -248,8 +248,8 @@ def test_prefix_is_not_hard_coded() -> None:
     for name, job in _jobs().items():
         for s in _steps(job):
             body = str(s.get("run", "")) + yaml.safe_dump(s.get("with", {}), width=10_000)
-            assert not re.search(r"\bgiap-", body), f"{name}: literal `giap-` image prefix"
-    assert not re.search(r"\bgiap-", yaml.safe_dump(_load().get("env", {}), width=10_000))
+            assert not re.search(r"\bgippa-", body), f"{name}: literal `gippa-` image prefix"
+    assert not re.search(r"\bgippa-", yaml.safe_dump(_load().get("env", {}), width=10_000))
 
 
 def test_prefix_is_read_from_pyproject_in_a_job_the_build_needs() -> None:

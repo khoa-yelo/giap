@@ -19,7 +19,7 @@ Slurm
 
 ## Public interface
 
-`src/giap/stats/scores.py` (pure)
+`src/gippa/stats/scores.py` (pure)
 ```python
 def blom_scores(x: ArrayLike, censored_mask: ArrayLike) -> npt.NDArray[np.float64]: ...
 ```
@@ -30,7 +30,7 @@ def blom_scores(x: ArrayLike, censored_mask: ArrayLike) -> npt.NDArray[np.float6
   raises `ValueError` (the caller decides who is scored; see M5-06).
 - Lengths of `x` and `censored_mask` differ → `ValueError`. n = 0 → empty array.
 
-`src/giap/stats/smooth.py` (pure)
+`src/gippa/stats/smooth.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class LoessFit:
@@ -103,7 +103,7 @@ below the detection limit, so their order is unknown but their position is not),
 ## Questions for the lead
 
 1. Is a separate engine helper for LOESS acceptable (§8.3 does not list one)? **Proposed default:** yes,
-   `giap.stats.smooth.loess_detrend`; it is an internal helper, not a new interface of the CLI or
+   `gippa.stats.smooth.loess_detrend`; it is an internal helper, not a new interface of the CLI or
    tables, so no ADR.
 2. Robust LOESS (statsmodels default `it=3`) or plain local linear (`it=0`)? Robustness iterations
    would treat islands as outliers and keep them out of the trend (more power), but they make the
@@ -117,7 +117,7 @@ below the detection limit, so their order is unknown but their position is not),
 
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
-1. Q1: yes — `giap.stats.smooth.loess_detrend` as an internal engine helper, no ADR. It accepts positions
+1. Q1: yes — `gippa.stats.smooth.loess_detrend` as an internal engine helper, no ADR. It accepts positions
    0…n−1 (the ordinal among genes with values), so the smoother is one matrix for every permutation
    (ADR-0020 needs this; TU-block permutations move the valued positions).
 2. Q2: plain local-linear LOESS (`it = 0`); robust iterations would make the trend depend on the island.

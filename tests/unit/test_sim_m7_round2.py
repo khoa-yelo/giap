@@ -1,9 +1,9 @@
-"""giapsim M7-12 round 2: lead decisions 11-16 after the statistician's block on PR #225
-(docs/specs/M7-12-sim-variant-novel-scenarios.md; GIAP_SPEC.md §7.5.6, §7.6.6, §8.4, §11.3).
+"""gippasim M7-12 round 2: lead decisions 11-16 after the statistician's block on PR #225
+(docs/specs/M7-12-sim-variant-novel-scenarios.md; GIPPA_SPEC.md §7.5.6, §7.6.6, §8.4, §11.3).
 
-The oracle is tests/helpers/m7_round2_oracle.py (no giapsim import). The 1-Mb cases are ``slow``.
+The oracle is tests/helpers/m7_round2_oracle.py (no gippasim import). The 1-Mb cases are ``slow``.
 
-Interface choices pinned here (names follow the existing giapsim API):
+Interface choices pinned here (names follow the existing gippasim API):
 
 * **Decision 11.** ``truth/alt_sites.tsv`` keeps its seven columns first and adds
   ``frameshift_upstream`` (``true``/``false``). Each row is the SNV codon in the *sample* gene's
@@ -15,7 +15,7 @@ Interface choices pinned here (names follow the existing giapsim API):
   net-zero case with frameshifts is left open). ``truth/indel_sites.tsv`` now lists **every**
   ins/del inside a gene (in-frame and frameshifting), adding ``frameshift`` (bool) and
   ``junction`` (int: 1-based reference coordinate of the first reference base after the VCF
-  anchor, ``pos_reference + 1``). ``giapsim.truth.read_alt_sites`` / ``read_indel_sites`` parse
+  anchor, ``pos_reference + 1``). ``gippasim.truth.read_alt_sites`` / ``read_indel_sites`` parse
   the new columns as bool / int.
 * **Decision 12.** ``ProteomicsConfig.wrong_source = "sixframe_noncoding"`` (opt-in; the default
   stays ``"shuffled"``): wrong peptides are Trypsin/P products of six-frame translations of
@@ -25,13 +25,13 @@ Interface choices pinned here (names follow the existing giapsim API):
   end, strand`` (1-based closed), ``n_loci_genome >= 1``; they get null-component scores, and
   ``n_decoy_rows = "match_wrong"`` gives one decoy row per wrong target row. ``novel_orf_power``
   turns it on; ``variant_f1`` and ``isobaric_attack`` keep ``"shuffled"``.
-* **Decision 13.** ``giapsim.scenarios.SIZES["300k"] = 300_000`` and
+* **Decision 13.** ``gippasim.scenarios.SIZES["300k"] = 300_000`` and
   ``NOVEL_PER_CLASS["300k"]``; ``novel_orf_power(seed, "300k")`` has >= 200 annotated
-  non-pseudo CDSs (so GIAP's decoy-picked detection floor 1/n is below q = 0.01).
+  non-pseudo CDSs (so GIPPA's decoy-picked detection floor 1/n is below q = 0.01).
 * **Decision 14.** ``SimConfig.planted_tir: tuple[float, float]`` = (mu, sigma) of the planted
   starts' log TIR in ``rbs_novel``; ``novel_orf_power`` sets (8.0, 0.8) at every size. Changing it
   changes only those TIRs.
-* **Decision 15.** ``giapsim.features.novel_orfs`` uses ``min_gap = 3 * (hi + 1) + 2 * margin + 1``
+* **Decision 15.** ``gippasim.features.novel_orfs`` uses ``min_gap = 3 * (hi + 1) + 2 * margin + 1``
   (still at least 160) and, with fewer usable gaps than requested intergenic ORFs, plants one per
   gap and logs a WARNING mentioning "intergenic"; ``truth/novel_orfs.tsv`` then holds the realised
   rows (power denominators read the truth).
@@ -51,15 +51,15 @@ import pytest
 from helpers import m7_round2_oracle as R
 from helpers import m7_sim_oracle as O
 
-import giapsim
+import gippasim
 
 SEED = 20261022
 
 
 def sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 @pytest.fixture(scope="module")
@@ -72,7 +72,7 @@ def outs(tmp_path_factory: pytest.TempPathFactory) -> Any:
             d = tmp_path_factory.mktemp(f"r2_{name}_{seed}_{size}")
             fn = getattr(sc(), name)
             cfg = fn(seed, size) if name in ("variant_f1", "novel_orf_power") else fn(seed)
-            giapsim.simulate(cfg, seed, d)
+            gippasim.simulate(cfg, seed, d)
             cache[key] = d
         return cache[key]
 
@@ -170,7 +170,7 @@ def test_indel_sites_list_frameshifts_with_junction(outs: Any, seed: int) -> Non
 
 
 def test_truth_readers_parse_new_columns(outs: Any) -> None:
-    from giapsim.truth import read_alt_sites, read_indel_sites
+    from gippasim.truth import read_alt_sites, read_indel_sites
 
     out = outs("variant_f1", 7)
     alt = read_alt_sites(out)
@@ -200,7 +200,7 @@ def wrong_rows(out: Path) -> list[dict[str, str]]:
 
 
 def test_sixframe_source_is_opt_in() -> None:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     assert ProteomicsConfig().wrong_source == "shuffled"
     assert ProteomicsConfig(wrong_source="sixframe_noncoding").wrong_source == "sixframe_noncoding"
@@ -301,7 +301,7 @@ def test_sim300k_has_200_genes(outs: Any) -> None:
 
 
 def test_planted_tir_is_a_config_field() -> None:
-    fields = {f.name for f in dataclasses.fields(giapsim.SimConfig)}
+    fields = {f.name for f in dataclasses.fields(gippasim.SimConfig)}
     assert "planted_tir" in fields
     for size in ("100k", "300k", "1M"):
         assert tuple(sc().novel_orf_power(SEED, size).planted_tir) == (8.0, 0.8)
@@ -310,7 +310,7 @@ def test_planted_tir_is_a_config_field() -> None:
 def test_planted_tir_changes_only_planted_tirs(outs: Any, tmp_path: Path) -> None:
     base = outs("novel_orf_power")
     cfg = dataclasses.replace(sc().novel_orf_power(SEED), planted_tir=(9.0, 0.5))
-    giapsim.simulate(cfg, SEED, tmp_path)
+    gippasim.simulate(cfg, SEED, tmp_path)
     for f in ("genome.fasta", "truth/novel_orfs.tsv", "precomputed/rbs.tsv", "peptides.tsv"):
         assert (tmp_path / f).read_bytes() == (base / f).read_bytes(), f
     planted = {
@@ -338,7 +338,7 @@ def test_novel_orf_power_100k_seed14_does_not_crash(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level(logging.WARNING):
-        giapsim.simulate(sc().novel_orf_power(14), 14, tmp_path)
+        gippasim.simulate(sc().novel_orf_power(14), 14, tmp_path)
     rows = O.rows(tmp_path / "truth" / "novel_orfs.tsv")
     n_inter = sum(r["class"] == "intergenic" for r in rows)
     assert 1 <= n_inter <= sc().NOVEL_PER_CLASS["100k"]
@@ -352,14 +352,14 @@ def test_novel_orf_power_100k_seed14_does_not_crash(
 
 @pytest.mark.slow
 def test_novel_orf_power_1mb_seed103_does_not_crash(tmp_path: Path) -> None:
-    giapsim.simulate(sc().novel_orf_power(103, "1M"), 103, tmp_path)
+    gippasim.simulate(sc().novel_orf_power(103, "1M"), 103, tmp_path)
     rows = O.rows(tmp_path / "truth" / "novel_orfs.tsv")
     assert sum(r["class"] == "intergenic" for r in rows) == sc().NOVEL_PER_CLASS["1M"]
 
 
 def _gap_case(gap: int, hi: int = 60, margin: int = 20) -> tuple[list[list[Any]], int, int]:
-    from giapsim.features import Feat, novel_orfs
-    from giapsim.simulate import SimConfig, _Sim
+    from gippasim.features import Feat, novel_orfs
+    from gippasim.simulate import SimConfig, _Sim
 
     a = 300
     b = a + gap
@@ -407,7 +407,7 @@ def test_novel_stop_is_one_based(outs: Any) -> None:
 
 
 def test_novel_reader_stop_one_based(outs: Any) -> None:
-    from giapsim.truth import read_novel_orfs
+    from gippasim.truth import read_novel_orfs
 
     df = read_novel_orfs(outs("novel_orf_power"))
     plus = df[df["strand"] == "+"]

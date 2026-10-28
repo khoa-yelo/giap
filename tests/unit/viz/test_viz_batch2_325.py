@@ -33,10 +33,10 @@ from helpers.viz_out_tree import make_out, write_schema_table
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, checklist, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, checklist, style
+from gippa.viz.base import Instance, Skip
 
 SNAPSHOT = Path(__file__).resolve().parents[2] / "data" / "snapshot" / "sim_plots" / "OUT"
 needs_snapshot = pytest.mark.skipif(not SNAPSHOT.is_dir(), reason="M9-25 snapshot fixture absent")
@@ -49,18 +49,18 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 def _spec(pid: str) -> base.PlotSpec:
-    from giap.steps.plots import load_plot_modules
+    from gippa.steps.plots import load_plot_modules
 
     load_plot_modules()
     return base.registered()[pid]
 
 
-def _render(pid: str, out: Path, cfg: GiapConfig) -> Instance:
+def _render(pid: str, out: Path, cfg: GippaConfig) -> Instance:
     result = _spec(pid).fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -88,7 +88,7 @@ NO_PLACEMENTS = "Placement FDR unestimated: no peptide placements"
                        (3, "; de novo precision in 3 score bins")]
 )  # fmt: skip
 def test_v06_denovo_only_title_names_the_score_bins(
-    tmp_path: Path, cfg: GiapConfig, bins: int, tail: str
+    tmp_path: Path, cfg: GippaConfig, bins: int, tail: str
 ) -> None:
     rows = [denovo_row(i, 0.8 + 0.05 * i, 0.7, 0.99) for i in range(1, bins + 1)]
     inst = _render("V06", mapping_out(tmp_path, fdr=rows), cfg)
@@ -100,7 +100,7 @@ def test_v06_denovo_only_title_names_the_score_bins(
 
 
 def test_v06_no_rows_at_all_is_the_whole_figure_empty_state(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render("V06", mapping_out(tmp_path, fdr=[]), cfg)
     assert checklist.is_empty_state(inst)
@@ -110,7 +110,7 @@ def test_v06_no_rows_at_all_is_the_whole_figure_empty_state(
 
 
 def test_v06_shuffle_fallback_names_the_decoys_on_a_second_line(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """Batch 2: "(shuffle decoys)" goes on its own line (one line ran into the next title)."""
     rows = [*full_placement({}), *full_placement(EXAMPLE4_TOTALS, decoy_type="shuffle")]
@@ -146,7 +146,7 @@ def _detection_summary() -> list[dict[str, object]]:
     return rows
 
 
-def test_v18_no_input_writes_one_explanatory_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v18_no_input_writes_one_explanatory_row(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render("V18", make_out(tmp_path), cfg)
     assert len(inst.data) == 1
     row = inst.data.iloc[0]
@@ -160,12 +160,12 @@ def test_v18_no_input_writes_one_explanatory_row(tmp_path: Path, cfg: GiapConfig
     assert all(_isna(row[c]) for c in others), row.to_dict()
 
 
-def test_v18_no_input_row_is_the_only_empty_state_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v18_no_input_row_is_the_only_empty_state_row(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render("V18", make_out(tmp_path), cfg)
     assert list(inst.data["metric"]) == ["empty_state"]
 
 
-def test_v18_p_values_only_keeps_panel_a_at_zero_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v18_p_values_only_keeps_panel_a_at_zero_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     write_schema_table(out / "tables" / "regions_stats.tsv", "regions_stats",
                        [_region(0.01, 0), _region(0.5, 1)])  # fmt: skip
@@ -176,7 +176,9 @@ def test_v18_p_values_only_keeps_panel_a_at_zero_rows(tmp_path: Path, cfg: GiapC
     assert int((inst.data["panel"] == "b").sum()) > 0
 
 
-def test_v18_detectability_only_keeps_panel_b_at_zero_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v18_detectability_only_keeps_panel_b_at_zero_rows(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     out = make_out(tmp_path)
     write_schema_table(out / "tables" / "detection_summary.tsv", "detection_summary",
                        _detection_summary())  # fmt: skip
@@ -190,7 +192,7 @@ def test_v18_detectability_only_keeps_panel_b_at_zero_rows(tmp_path: Path, cfg: 
 # --- V15 (M9-20 amendment) --------------------------------------------------------------------
 
 
-def test_v15_header_only_model_is_the_too_few_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v15_header_only_model_is_the_too_few_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vd.build_out(
         tmp_path,
         model=[],
@@ -205,7 +207,7 @@ def test_v15_header_only_model_is_the_too_few_empty_state(tmp_path: Path, cfg: G
 
 
 def test_v15_header_only_model_with_full_inputs_is_still_too_few(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render("V15", vd.build_out(tmp_path, model=[]), cfg)
     assert checklist.is_empty_state(inst)
@@ -231,7 +233,7 @@ def _site(rate: object, **kw: object) -> dict[str, object]:
      ("0.872576", "0.87"), ("unestimated", "unestimated")],
 )  # fmt: skip
 def test_v12_site_line_rounds_the_class_error(rate: object, shown: str) -> None:
-    from giap.viz.variants import _header
+    from gippa.viz.variants import _header
 
     text = _header(_site(rate))
     if shown == "unestimated":
@@ -246,7 +248,7 @@ def test_v12_site_line_rounds_the_class_error(rate: object, shown: str) -> None:
 @settings(max_examples=200, deadline=None)
 @given(st.floats(min_value=1e-3, max_value=1.0, allow_nan=False))
 def test_v12_site_line_class_error_is_base_sig(rate: float) -> None:
-    from giap.viz.variants import _header
+    from gippa.viz.variants import _header
 
     star = "*" if rate == 1 else ""
     want = f"class error {base.sig(rate)}{star} (pooled, class of 1805 paired reads)"
@@ -285,7 +287,7 @@ def _alt(rates: list[object]) -> pd.DataFrame:
      ([0.5], "0.5"), ([0.8721, 0.8749, 0.87], "0.87")],
 )  # fmt: skip
 def test_v12_title_equal_ends_print_once(rates: list[object], rng: str) -> None:
-    from giap.viz.variants import title
+    from gippa.viz.variants import title
 
     assert title(_alt(rates)).endswith(
         f"(class error {rng}, pooled per class over ALT and mixed sites)"
@@ -296,7 +298,7 @@ def test_v12_title_equal_ends_print_once(rates: list[object], rng: str) -> None:
 @given(st.lists(st.floats(min_value=1e-3, max_value=1.0, allow_nan=False), min_size=1,
                 max_size=6))  # fmt: skip
 def test_v12_title_range_property(rates: list[float]) -> None:
-    from giap.viz.variants import title
+    from gippa.viz.variants import title
 
     lo, hi = base.sig(min(rates)), base.sig(max(rates))
     want = lo if lo == hi else f"{lo}{EN_DASH}{hi}"
@@ -325,7 +327,7 @@ def _colours(fig: Any) -> set[str]:
 
 
 def test_v01_density_colour_is_the_envelope_grey() -> None:
-    from giap.viz import circos
+    from gippa.viz import circos
 
     assert style.NEUTRAL_GREY["envelope"] == circos.DENSITY_COLOUR
     assert mcolors.to_hex(circos.DENSITY_COLOUR) == "#cccccc"

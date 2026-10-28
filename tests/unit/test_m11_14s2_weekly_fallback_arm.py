@@ -7,17 +7,17 @@ arm writes its `weekly.tsv` row". ADR-0022 addendum (14s2): "a `weekly.tsv` row,
 gated".
 
 ``scripts/slurm/weekly.sbatch`` runs in the M2-21 sandbox (``helpers.slurm_sandbox``: fake Slurm,
-``gh``, ``python -m pytest``, a sandbox ``GIAP_REPO`` with a local ``origin``, a temporary
-``GIAP_ROOT``; no network, no real Slurm, no ``$GIAP_DB_DIR``). This file replaces the logging
-``giap`` fake with one that also writes ``<outdir>/run_manifest.json`` (``operon_source`` as the
+``gh``, ``python -m pytest``, a sandbox ``GIPPA_REPO`` with a local ``origin``, a temporary
+``GIPPA_ROOT``; no network, no real Slurm, no ``$GIPPA_DB_DIR``). This file replaces the logging
+``gippa`` fake with one that also writes ``<outdir>/run_manifest.json`` (``operon_source`` as the
 real run records it, M11-14d) and records the ``--genome`` header, and puts two one-record
-genomes under the sandbox ``$GIAP_ROOT/data/genomes`` (K-12 ``U00096.3``, Nissle ``CP171242``) so
+genomes under the sandbox ``$GIPPA_ROOT/data/genomes`` (K-12 ``U00096.3``, Nissle ``CP171242``) so
 the K-12 run can be told apart.
 
 Conventions settled by the test author (the spec leaves the shape open):
 
 * **Placement-agnostic.** The arm may live inside the K-12 task or be its own array task: every
-  task of ``#SBATCH --array`` runs with one job ID and all ``weekly.tsv`` rows / ``giap`` calls are
+  task of ``#SBATCH --array`` runs with one job ID and all ``weekly.tsv`` rows / ``gippa`` calls are
   pooled.
 * **The fallback row** is the one row whose label (``summary`` up to the first ``:``, the rule of
   ``scripts/release/readiness.py``) is neither ``k12_mg1655`` nor ``nissle1917``; the label names
@@ -28,7 +28,7 @@ Conventions settled by the test author (the spec leaves the shape open):
   value when it did not, and never ``distance_model`` without a manifest.
 * **TU agreement** with RegulonDB: the row's text names RegulonDB and, besides the operon-source
   token, the UniOP arm (the value "next to the UniOP arm"); the agreement reads the RegulonDB
-  truth under ``$GIAP_DATA_DIR`` (static check). The metric itself is not pinned here.
+  truth under ``$GIPPA_DATA_DIR`` (static check). The metric itself is not pinned here.
 * **Not gated** (reported only): a failing fallback run changes neither the exit column of the
   other rows nor the exit code of a task that writes one of them, the fallback row's exit column
   stays ``0`` (a red exit column would gate), and its text reports the run's exit.
@@ -46,7 +46,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_giap_repo, make_sandbox, write_exe
+from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_gippa_repo, make_sandbox, write_exe
 
 WEEKLY = REPO / "scripts" / "slurm" / "weekly.sbatch"
 READINESS = REPO / "scripts" / "release" / "readiness.py"
@@ -55,17 +55,17 @@ FLAG = "annotation.uniop.enabled=false"
 MAIN_LABELS = {"k12_mg1655", "nissle1917"}
 K12_ID, NISSLE_ID = "U00096.3", "CP171242.1"
 
-# A ``giap`` fake: logs like the sandbox logger (``calls.log``), records argv and the genome header
-# (``giap_runs.jsonl``) and writes ``<outdir>/run_manifest.json`` for ``giap run``. With
+# A ``gippa`` fake: logs like the sandbox logger (``calls.log``), records argv and the genome header
+# (``gippa_runs.jsonl``) and writes ``<outdir>/run_manifest.json`` for ``gippa run``. With
 # ``annotation.uniop.enabled=false`` the manifest's operon_source is $FAKE_FALLBACK_SOURCE
 # (default distance_model), no manifest is written under FAKE_FALLBACK_NO_MANIFEST=1, and the exit
 # is $FAKE_FALLBACK_RC (default 0); every other run records uniop and exits 0.
-_GIAP = r"""#!{python}
+_GIPPA = r"""#!{python}
 import json, os, sys
 state = os.environ["FAKE_SLURM_DIR"]
 argv = sys.argv[1:]
 with open(os.path.join(state, "calls.log"), "a") as fh:
-    fh.write("giap " + " ".join(argv) + "\n")
+    fh.write("gippa " + " ".join(argv) + "\n")
 def opt(name):
     val = None
     for i, a in enumerate(argv):
@@ -83,7 +83,7 @@ if genome and os.path.isfile(genome):
         header = fh.readline().strip()
 rec = {"argv": argv, "sets": sets, "fallback": fallback, "genome_header": header,
        "outdir": outdir, "cwd": os.getcwd()}
-with open(os.path.join(state, "giap_runs.jsonl"), "a") as fh:
+with open(os.path.join(state, "gippa_runs.jsonl"), "a") as fh:
     fh.write(json.dumps(rec) + "\n")
 if argv[:1] == ["run"] and outdir:
     os.makedirs(outdir, exist_ok=True)
@@ -124,9 +124,9 @@ def _genome(root: Path, sample: str, rid: str) -> None:
 
 
 def _week(tmp: Path, **env: str) -> Week:
-    assert_honours_giap_repo(WEEKLY.read_text(), "weekly.sbatch")
+    assert_honours_gippa_repo(WEEKLY.read_text(), "weekly.sbatch")
     sb = make_sandbox(tmp)
-    write_exe(sb.bin / "giap", _GIAP.replace("{python}", sys.executable))
+    write_exe(sb.bin / "gippa", _GIPPA.replace("{python}", sys.executable))
     _genome(sb.root, "k12_mg1655", K12_ID)
     _genome(sb.root, "nissle1917", NISSLE_ID)
     tasks = _array_tasks()
@@ -141,7 +141,7 @@ def _week(tmp: Path, **env: str) -> Week:
             "SLURM_JOB_ID": str(6100 + t),
             "SLURM_ARRAY_TASK_COUNT": str(len(tasks)),
             "SLURM_CPUS_PER_TASK": "2",
-            "SLURM_JOB_NAME": "giap-weekly",
+            "SLURM_JOB_NAME": "gippa-weekly",
         }
         res = sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "weekly.sbatch")],
                      env={**base, **env})  # fmt: skip
@@ -150,7 +150,7 @@ def _week(tmp: Path, **env: str) -> Week:
         task_rows[t] = rows[seen:]
         seen = len(rows)
         out.append(f"--- task {t} rc={res.returncode}\n{res.stdout}\n{res.stderr}")
-    return Week(sb, sb.tsv_rows("weekly.tsv"), rcs, task_rows, sb.jsonl("giap_runs.jsonl"),
+    return Week(sb, sb.tsv_rows("weekly.tsv"), rcs, task_rows, sb.jsonl("gippa_runs.jsonl"),
                 "\n".join(out))  # fmt: skip
 
 
@@ -187,18 +187,19 @@ def week(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Week]:
 
 def test_script_runs_k12_with_uniop_disabled() -> None:
     code = _code()
-    assert re.search(r"\bgiap\s+run\b", code)
+    assert re.search(r"\bgippa\s+run\b", code)
     assert re.search(r"--set\s+\"?annotation\.uniop\.enabled=false\b", code), (
-        "weekly.sbatch has no `giap run ... --set annotation.uniop.enabled=false` arm (M11-14 14s2)"
+        "weekly.sbatch has no `gippa run ... --set annotation.uniop.enabled=false` arm"
+        " (M11-14 14s2)"
     )
 
 
 def test_agreement_reads_the_regulondb_truth() -> None:
-    """The arm's TU agreement is against RegulonDB, read from $GIAP_DATA_DIR (real data)."""
+    """The arm's TU agreement is against RegulonDB, read from $GIPPA_DATA_DIR (real data)."""
     code = _code()
     assert re.search(r"regulondb", code, re.I), "no RegulonDB TU agreement in weekly.sbatch"
-    assert re.search(r"\$\{?GIAP_DATA_DIR\}?/regulondb", code), (
-        "the RegulonDB truth is read from $GIAP_DATA_DIR/regulondb"
+    assert re.search(r"\$\{?GIPPA_DATA_DIR\}?/regulondb", code), (
+        "the RegulonDB truth is read from $GIPPA_DATA_DIR/regulondb"
     )
 
 
@@ -207,7 +208,7 @@ def test_agreement_reads_the_regulondb_truth() -> None:
 
 def test_exactly_one_fallback_run_on_k12(week: Week) -> None:
     fb = [r for r in week.runs if r["argv"][:1] == ["run"] and r["fallback"]]  # type: ignore[index]
-    assert len(fb) == 1, f"fallback giap runs: {fb}\n{week.out[-4000:]}"
+    assert len(fb) == 1, f"fallback gippa runs: {fb}\n{week.out[-4000:]}"
     header = str(fb[0]["genome_header"] or "")
     assert header.startswith(f">{K12_ID}"), f"the fallback arm runs on K-12, not {header!r}"
 
@@ -268,7 +269,7 @@ def test_fallback_row_reports_regulondb_agreement_next_to_uniop(week: Week) -> N
 
 def test_readiness_still_reads_the_uniop_k12_row(week: Week) -> None:
     """R5 takes the newest `k12_mg1655` row for TE8; the fallback row must not shadow it."""
-    spec = importlib.util.spec_from_file_location("giap_readiness_14s2", READINESS)
+    spec = importlib.util.spec_from_file_location("gippa_readiness_14s2", READINESS)
     assert spec is not None and spec.loader is not None
     mod: ModuleType = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod

@@ -1,17 +1,17 @@
 # M9 "Visualisation and report": issue index
 
-Spec: GIAP_SPEC.md §13 row M9. Deliverables: "16 plots, style module, report, `giap report`,
-`giap compare` + V16". **Gate:** "**Khoa approves** the plot snapshots and report layout" (§14.8
+Spec: GIPPA_SPEC.md §13 row M9. Deliverables: "16 plots, style module, report, `gippa report`,
+`gippa compare` + V16". **Gate:** "**Khoa approves** the plot snapshots and report layout" (§14.8
 checkpoint 3). After approval, a style change is a reviewed change (§10.1).
 
 Sources read: §10 (whole: §10.1 conventions and the colour table, §10.2 the 16-plot catalogue,
 §10.3 the report), §2.1 decision 13 (interactive self-contained report), §2.3, §1 rule 6
 ("detected", never "expressed"), §4 repository layout (`viz/`, `report/`, `compare/`,
-`subworkflows/local/report.nf`), §5.1 (`giap report`, `giap compare`, exit codes), §5.2 `report:`
+`subworkflows/local/report.nf`), §5.1 (`gippa report`, `gippa compare`, exit codes), §5.2 `report:`
 keys, `stats.alpha.*`, `stats.bootstrap`, §6.2 steps `plots`, `report`, `manifest`, `finalize`,
 §6.3/§6.4 (executors, optional modules, `layer_missing`), §6.5 (coordinates, origin-crossing
 features), §6.6/§6.7 (determinism, events, manifest), §7.3.4–§7.3.5, §7.4.5, §7.5.3, §7.6.5,
-§7.7.5, §7.8.2 caveats, §7.9.3 (`giap compare`), §7.9.4 (`giap report`), §8.2 (R4 wording), §8.6,
+§7.7.5, §7.8.2 caveats, §7.9.3 (`gippa compare`), §7.9.4 (`gippa report`), §8.2 (R4 wording), §8.6,
 §9.1–§9.5 (every table the plots read), §11.2 (snapshot layer, < 2 min), §11.4 (fixtures, R11
 sizes), §12 (`ci.yml` runs the snapshot layer), §14.4 (visualisation loop and the style
 checklist), §14.8, §16. ADRs read for their effect on plots and report text: ADR-0006 (value
@@ -31,13 +31,13 @@ running sum, a partial-dependence curve), not a new inference.
 ## How M9 is sequenced (Khoa's standing direction: MVP first)
 
 - **Pass 1 (integration), 01–13.** The style module and the plot framework (01), the `plots` and
-  `report` steps with a minimal static report and `giap report` (02), the small "plot support"
+  `report` steps with a minimal static report and `gippa report` (02), the small "plot support"
   files that carry run inputs which are not in the §9.1 tree (03), then every plot whose producing
   table is **on main today** (04–12), and an integration closer (13) that renders every available
-  plot end-to-end from a real sim100k `giap run` under both executors.
+  plot end-to-end from a real sim100k `gippa run` under both executors.
 - **Pass 2 (hardening and the gate), 14–26.** The interactive report (Plotly), the full report
   content, plot-support outputs from the analysis steps (model and null artefacts that tables do not
-  hold), the plots whose tables land later (V12, V14, V15, V18 null panels), `giap compare` and V16,
+  hold), the plots whose tables land later (V12, V14, V15, V18 null panels), `gippa compare` and V16,
   the automated style checklist and accessibility, the snapshot baselines for **Khoa's approval**,
   and scale and determinism hardening.
 
@@ -55,8 +55,8 @@ Nothing is dropped; it is scheduled. A plot whose input is missing is skipped wi
 
 | Order | Issue | Pass | Scope | Depends on | Code lines | Stats |
 |---|---|---|---|---|---|---|
-| 1 | [M9-01](M9-01-style-and-plot-framework.md) | 1 | `giap.viz.style` (§10.1 palettes and widths), plot registry, `RunView` table loader, writers (svg/png/pdf + data TSV), empty states, binning, title helpers | none | 360 | no |
-| 2 | [M9-02](M9-02-plots-report-steps-and-cli.md) | 1 | `plots` and `report` steps, minimal static `report.html` (13 sections), `giap report`, `REPORT` subworkflow, local publish | 01 | 380 | no |
+| 1 | [M9-01](M9-01-style-and-plot-framework.md) | 1 | `gippa.viz.style` (§10.1 palettes and widths), plot registry, `RunView` table loader, writers (svg/png/pdf + data TSV), empty states, binning, title helpers | none | 360 | no |
+| 2 | [M9-02](M9-02-plots-report-steps-and-cli.md) | 1 | `plots` and `report` steps, minimal static `report.html` (13 sections), `gippa report`, `REPORT` subworkflow, local publish | 01 | 380 | no |
 | 3 | [M9-03](M9-03-plot-support-run-inputs.md) | 1 | `plots/support/`: replicon landmarks (oriC, terminus), GC skew, from run inputs that are not in `OUT/` (ADR-M9-A) | 02 | 160 | no |
 | 4 | [M9-04](M9-04-v17-qc.md) | 1 | V17 `qc` | 01 | 220 | no |
 | 5 | [M9-05](M9-05-v05-v06-mapping.md) | 1 | V5 `mapping_sankey` (custom alluvial), V6 `mapping_fdr` | 01 | 340 | no |
@@ -67,17 +67,17 @@ Nothing is dropped; it is scheduled. A plot whose input is missing is skipped wi
 | 10 | [M9-10](M9-10-v03-locus-plots.md) | 1 | V3 `locus_<id>` renderer (pyGenomeViz), locus selection and ordering | 01 | 340 | no |
 | 11 | [M9-11](M9-11-v11-operon-pairs.md) | 1 | V11 `operon_pairs` | 01 | 260 | no |
 | 12 | [M9-12](M9-12-v13-novel-orfs.md) | 1 | V13 `novel_orfs` (a) counts, (b) top-20 locus views | 10 | 160 | no |
-| 13 | [M9-13](M9-13-pass1-integration.md) | 1 | **pass-1 closer:** real sim100k `giap run` with plots and report, both executors; `giap report` idempotence; link and offline checks | 02–12 | 100 | no |
+| 13 | [M9-13](M9-13-pass1-integration.md) | 1 | **pass-1 closer:** real sim100k `gippa run` with plots and report, both executors; `gippa report` idempotence; link and offline checks | 02–12 | 100 | no |
 | 14 | [M9-14](M9-14-interactive-report.md) | 2 | Plotly.js inlined once, figure embedding, sortable/filterable tables, `--no-interactive`, the 25 MB budget | 02 | 320 | no |
 | 15 | [M9-15](M9-15-plotly-twins.md) | 2 | interactive twins of V2, V5 (Sankey), V6, V7, V8, V10, V11, V17, V18 | 14, 04–09, 11 | 380 | no |
 | 16 | [M9-16](M9-16-report-content.md) | 2 | all summary cards, methods and caveats snippets, sensitivity section, provenance, ADR-required caveats, wording checks | 02 | 360 | no |
-| 16b | [M9-16b](M9-16b-report-after-manifest.md) | 2 | `giap run` re-renders `report.html` after `run_manifest.json` (both executors, no plot redraw, atomic, one-way report → manifest rule); conditional removal of the #178 guards | 16; MVP-03a (KEGG half: MVP-03c) | 70 | no |
+| 16b | [M9-16b](M9-16b-report-after-manifest.md) | 2 | `gippa run` re-renders `report.html` after `run_manifest.json` (both executors, no plot redraw, atomic, one-way report → manifest rule); conditional removal of the #178 guards | 16; MVP-03a (KEGG half: MVP-03c) | 70 | no |
 | 17 | [M9-17](M9-17-plot-support-analysis.md) | 2 | plot support from analysis steps: GSEA running-score data, per-feature SHAP, partial dependence, null draws (regions, islands, determinants) | 03; #178, #181 merged | 340 | stats (light) |
 | 18 | [M9-18](M9-18-v12-variants.md) | 2 | V12 `variants` (+ `variant_windows.tsv` support) | 03, 10; #164, #175 merged | 320 | no |
 | 19 | [M9-19](M9-19-v14-enrichment.md) | 2 | V14 `enrichment` | 17; #181 and its `FUNCTION` wiring merged | 340 | stats (light) |
 | 20 | [M9-20](M9-20-v15-determinants.md) | 2 | V15 `determinants` | 17; #178 merged | 340 | stats (light) |
 | 21 | [M9-21](M9-21-v18-null-panels.md) | 2 | V18 panel (c): null distributions against the observed statistic | 07, 17 | 160 | no |
-| 22 | [M9-22](M9-22-compare-tables.md) | 2 | `giap compare`: genome check, `compare_detection`, `compare_abundance` (ρ + TU-bootstrap CI, Bland–Altman), `compare_stability` (Jaccard), schemas | none | 380 | **yes** |
+| 22 | [M9-22](M9-22-compare-tables.md) | 2 | `gippa compare`: genome check, `compare_detection`, `compare_abundance` (ρ + TU-bootstrap CI, Bland–Altman), `compare_stability` (Jaccard), schemas | none | 380 | **yes** |
 | 23 | [M9-23](M9-23-v16-compare-plot.md) | 2 | V16 `compare` (custom matplotlib UpSet, concordance), `report/compare.html` | 22, 14 | 320 | no |
 | 24 | [M9-24](M9-24-style-checklist.md) | 2 | the §14.4 style checklist as code: units, overlaps, font size, palette, deuteranopia, element count, title-states-finding | 01 | 300 | no |
 | 25 | [M9-25](M9-25-snapshot-baselines.md) | 2 | **gate:** pytest-mpl snapshot suite on a frozen fixture, report-structure snapshot, CI `--mpl` job, the approval packet for Khoa | 13, 24 (and each plot) | 150 | no |
@@ -113,7 +113,7 @@ Pass 2   02 ─► 14 ─► 15 (Plotly twins)      02 ─► 16 (report content
 | A (now) | 01, 22 | 22 needs no plot code; it reads `OUT/` trees and the stats engine |
 | B | 02, 04, 05, 06, 07, 10, 11 | six plot PRs in parallel once 01 merges; each is testable on in-memory frames |
 | C | 03, 08, 09, 12, 24 | 08 and 09 draw the landmark and GC-skew tracks only when 03's files exist |
-| D | 13 | pass-1 evidence: one real `sbatch scripts/slurm/giap_run.sbatch` on sim100k with `plots/` and `report/report.html` |
+| D | 13 | pass-1 evidence: one real `sbatch scripts/slurm/gippa_run.sbatch` on sim100k with `plots/` and `report/report.html` |
 | E (hardening) | 14, 16, 17, 18, 23; then 15, 19, 20, 21 | 17–20 wait for #164/#175/#178/#181; 18–20 are coded against the branch schemas listed below |
 | F (gate) | 25, 26 | 25 renders the approval packet; Khoa approves; the baselines are locked |
 
@@ -121,12 +121,12 @@ Pass 2   02 ─► 14 ─► 15 (Plotly twins)      02 ─► 16 (report content
 
 | Piece | State |
 |---|---|
-| `src/giap/viz/__init__.py`, `src/giap/report/__init__.py`, `src/giap/compare/__init__.py` | docstring-only packages |
-| `giap report OUT [--no-interactive] [--plots …]`, `giap compare RUNS … --outdir --labels` | Click commands exist with the §5.1 options; both call `_not_implemented(…, "M9")` (exit 5) |
+| `src/gippa/viz/__init__.py`, `src/gippa/report/__init__.py`, `src/gippa/compare/__init__.py` | docstring-only packages |
+| `gippa report OUT [--no-interactive] [--plots …]`, `gippa compare RUNS … --outdir --labels` | Click commands exist with the §5.1 options; both call `_not_implemented(…, "M9")` (exit 5) |
 | `report:` config keys (`interactive`, `max_locus_plots`, `formats`, `dpi`) | in `defaults.yaml` and the pydantic model; **no change needed** (protected) |
 | `plots` / `report` / `manifest` / `finalize` steps | **not registered**; `workflow/subworkflows/local/report.nf` does not exist |
 | `tests/snapshot/` | does not exist; `ci.yml` runs the tests tree **without** `--mpl`, so pytest-mpl tests would run as smoke tests only |
-| `giap.determinants.CAVEATS` | on the #178 branch (M8-10): the §7.8.2 caveats as constant text for the report |
+| `gippa.determinants.CAVEATS` | on the #178 branch (M8-10): the §7.8.2 caveats as constant text for the report |
 | `run_manifest.json` | schema exists (`schemas/run_manifest.schema.json`), **no writer**: no step writes it yet (decision 26) |
 
 Dependencies: matplotlib 3.11.2 (PSF-style), pyCirclize 1.10.1 (MIT), pyGenomeViz 1.7.0 (MIT),
@@ -145,7 +145,7 @@ Removing the unused dependency is a later lock change with its own ADR (decision
 
 ## What M9 consumes (producing table → plot)
 
-Status: **main** = written by a `giap run` on main today; **PR** = the producing step is in an open
+Status: **main** = written by a `gippa run` on main today; **PR** = the producing step is in an open
 PR (schema read from that branch with `git show origin/<branch>:<path>`); **none** = no table holds
 it (plot-support files, decision 3).
 
@@ -174,13 +174,13 @@ it (plot-support files, decision 3).
 1. **Plot IDs and names.** Files use the two-digit ID (`V01_circos`); `--plots` accepts `V1` or
    `V01` and normalises; an unknown ID is exit 1 (M9-02 Q1).
 2. **Two steps, one input map.** `plots` and `report` are §6.2 steps whose inputs are the published
-   files, keyed by the work keys that `giap.runner.local.PUBLISHED` / `PUBLISHED_FILES` already map
-   to `OUT/` paths. `giap report OUT` runs the same two step functions with inputs resolved from
+   files, keyed by the work keys that `gippa.runner.local.PUBLISHED` / `PUBLISHED_FILES` already map
+   to `OUT/` paths. `gippa report OUT` runs the same two step functions with inputs resolved from
    `OUT/` (M9-01 `RunView`, M9-02).
 3. **ADR-M9-A "plot support files".** A plot input that no §9.1 file holds (GC skew, oriC/ter,
    variant reference windows, GSEA running scores, per-feature SHAP, partial dependence, null draws)
    is written once to `OUT/plots/support/<name>.tsv[.gz]` by the step that can compute it, listed
-   in `schemas/datapackage.json` with `role: plot_support`, and read by `giap report`. No plot refits
+   in `schemas/datapackage.json` with `role: plot_support`, and read by `gippa report`. No plot refits
    a model or reruns a null (§7.9.4) (M9-03, M9-17).
 4. **Missing input, three states.** (a) module off or the required file absent → no plot files; an
    event `plots.skipped {plot, reason}` with `reason` ∈ {`module_off:<m>`, `layer_missing:<l>`,
@@ -198,7 +198,7 @@ it (plot-support files, decision 3).
 8. **COG super-categories** use the four NCBI groups with Okabe–Ito hues: information storage and
    processing `#0072B2`, cellular processes and signalling `#009E73`, metabolism `#E69F00`, poorly
    characterised `#999999` (the Okabe–Ito grey); letters are labelled. The 26 letter descriptions
-   are bundled in `giap/data/cog_categories.tsv` (§4 lists "COG categories" as bundled data) (M9-01
+   are bundled in `gippa/data/cog_categories.tsv` (§4 lists "COG categories" as bundled data) (M9-01
    Q4).
 9. **Detection-status colours:** `detected` `#0072B2`, `not_detected` and `partial_excluded`
    `#BBBBBB` (partial hatched), `single_peptide_unestimated` `#E69F00` (§10.1 "unestimated").
@@ -216,7 +216,7 @@ it (plot-support files, decision 3).
     `category_summary.tsv` (one COG estimate per plot) (M9-06 Q1).
 16. **V11 densities are density-normalised histograms** with shared bins, not KDEs (no bandwidth
     choice) (M9-11 Q1).
-17. **V2's trend is `giap.stats.smooth` LOESS** at `context.islands.detrend_span_frac`, circular on
+17. **V2's trend is `gippa.stats.smooth` LOESS** at `context.islands.detrend_span_frac`, circular on
     circular replicons; the statistician confirms it is the displayed analogue of the islands
     detrend (M9-09 Q1).
 18. **Locus pool and order (V3):** prophage and BGC regions (`regions_stats`, `stat = o_minus_e`,
@@ -239,13 +239,13 @@ it (plot-support files, decision 3).
 25. **Wording:** a test fails if a title, a report string or a template contains "express"
     (§1 rule 6) (M9-16).
 26. **Provenance without a manifest.** No step writes `run_manifest.json` yet. The report shows the
-    manifest digest when the file exists; otherwise the preflight input SHA-256s, the GIAP version
-    and the SHA-256 of `resolved_config.yaml`, marked "manifest not written". `giap compare` checks
+    manifest digest when the file exists; otherwise the preflight input SHA-256s, the GIPPA version
+    and the SHA-256 of `resolved_config.yaml`, marked "manifest not written". `gippa compare` checks
     genome identity through `preflight.json` until the manifest exists (M9-16 Q1, M9-22 Q1).
-27. **`giap compare` tables** all live under `CMP/tables/`; `compare_detection.tsv` is long format
+27. **`gippa compare` tables** all live under `CMP/tables/`; `compare_detection.tsv` is long format
     with `section` ∈ {`matrix`, `intersection`} (dynamic per-run columns cannot have a fixed schema)
     (ADR-M9-B, M9-22 Q2).
-28. **`giap compare` joins genes by `locus_tag`** and requires the same locus-tag set in every run
+28. **`gippa compare` joins genes by `locus_tag`** and requires the same locus-tag set in every run
     (exit 1 otherwise, with counts) (M9-22 Q3).
 29. **UpSetPlot is not used** (broken on pandas 3; above); V16 draws a custom UpSet. The dependency
     stays in `pyproject.toml` until the next lock update (no lock change in M9).
@@ -259,7 +259,7 @@ it (plot-support files, decision 3).
 
 - **ADR-M9-A "Plot support files under `plots/support/`"** (03, 17, 18): adds a directory to the
   §9.1 tree; non-breaking; lead-level (decision 3).
-- **ADR-M9-B "`giap compare` output layout"** (22): fills §7.9.3's gaps (paths, long format,
+- **ADR-M9-B "`gippa compare` output layout"** (22): fills §7.9.3's gaps (paths, long format,
   locus-tag join, genome check through `preflight.json` until the manifest exists); lead-level.
 - Conditional: if Khoa wants a colour-distance gate (decision 30) or a different font minimum
   (decision 31), the checklist thresholds get an ADR (they become reviewed style rules after the
@@ -306,14 +306,14 @@ on one plot, R9 applies.
 Every plot is matplotlib on Agg, single-threaded, seconds per plot on sim100k (pyCirclize rendered a
 two-sector, three-track SVG in 0.5 s in the session). The `plots` step runs at `process_low`. A
 5-Mb genome needs binning only for the per-gene tracks (≈ 4,500 genes, far under 20,000). No Slurm
-job beyond the pass-1 `giap_run.sbatch` and the M9-26 K-12 run.
+job beyond the pass-1 `gippa_run.sbatch` and the M9-26 K-12 run.
 
 ## Questions for the lead (summary; details per issue)
 
-1. ADR-M9-A (support files) — accept the directory and the "no refit in `giap report`" rule?
+1. ADR-M9-A (support files) — accept the directory and the "no refit in `gippa report`" rule?
    **Proposed default:** yes.
 2. Who builds the §6.2 `manifest` and `finalize` steps? They are not in any milestone's
-   deliverables, and M9's provenance section and `giap compare` want the manifest. **Proposed
+   deliverables, and M9's provenance section and `gippa compare` want the manifest. **Proposed
    default:** the lead schedules them as an MVP issue before M9-16; M9 reads the manifest when
    present (decision 26).
 3. V7 "region types": §10.2 lists them, but no table holds a region-**type** O − E (§7.3.5(a) has
@@ -328,20 +328,20 @@ job beyond the pass-1 `giap_run.sbatch` and the M9-26 K-12 run.
 - The 32 decisions taken in these specs are confirmed as written, including the display defaults
   (DejaVu Sans with a 6 pt minimum, four COG super-category hues, a ±2 kb locus window, histograms
   for V11, a 10-kb GC-skew window, the 20,000-element rule per track, measured abundance values only).
-- Q1, ADR-M9-A: accepted. `plots/support/` is written by the producing steps; `giap report` never
+- Q1, ADR-M9-A: accepted. `plots/support/` is written by the producing steps; `gippa report` never
   refits or reruns a null. The ADR is written in M9-03.
 - Q2: the §6.2 `manifest` and `finalize` steps become an MVP issue (MVP-03), scheduled before
   M9-16. M9 reads the manifest when present.
 - Q3: V7 omits region-type rows. A backlog line goes to M4.
 - Q4: V12, V14 and V15 stay in pass 2. Each starts the day its producing PR merges.
-- ADR-M9-B (`giap compare` layout, decision 22's one-leg snapshot comparison): accepted as proposed;
+- ADR-M9-B (`gippa compare` layout, decision 22's one-leg snapshot comparison): accepted as proposed;
   written in M9-22.
 - The Khoa questions below wait for Khoa; pass 1 does not depend on them.
 
 ## Questions that need Khoa (not the lead)
 
 1. The M9 gate itself: approval of the snapshot baselines and the report layout (M9-25 packet).
-2. `giap compare`'s ρ CI is a new statistical claim; gating its coverage needs a
+2. `gippa compare`'s ρ CI is a new statistical claim; gating its coverage needs a
    `replicates_fast/full.compare` entry in the protected `tests/calibration/tolerances.yaml`
    (an ADR accepted by Khoa). Until then M9-22 records coverage without gating (M9-22 Q2).
 3. Whether a colour-distance threshold for the deuteranopia check (decision 30) or a different

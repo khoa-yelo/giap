@@ -1,5 +1,5 @@
-// miniprot 0.18 (MIT): route 2a protein alignment (GIAP_SPEC.md §7.2.3, §7.1.1; M3-12).
-// Mirrors giap.mapping.miniprot.miniprot_index_cmd / miniprot_align_cmd. §7.1.1 gotcha: -T 11 is
+// miniprot 0.18 (MIT): route 2a protein alignment (GIPPA_SPEC.md §7.2.3, §7.1.1; M3-12).
+// Mirrors gippa.mapping.miniprot.miniprot_index_cmd / miniprot_align_cmd. §7.1.1 gotcha: -T 11 is
 // an indexing option; the alignment options (mapping.proteins.miniprot_args) arrive through
 // task.ext.args (set in conf/base.config from params.mapping). Container pin: conf/containers.config.
 process MINIPROT {

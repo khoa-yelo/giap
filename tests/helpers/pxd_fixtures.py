@@ -1,6 +1,6 @@
 """Synthetic fixtures and a fake download sandbox for the M10-01 tests (PXD078459 download).
 
-Nothing here reaches the network, the real ``$GIAP_DATA_DIR``/``$GIAP_ROOT`` or real MS data:
+Nothing here reaches the network, the real ``$GIPPA_DATA_DIR``/``$GIPPA_ROOT`` or real MS data:
 
 * ``px_xml`` writes a small ProteomeXchange record (PX XML 1.4 layout) from a list of file specs;
 * ``make_tdf``/``make_run`` build a minimal Bruker ``analysis.tdf`` (SQLite) with the tables the
@@ -120,7 +120,7 @@ def px_xml(
         ' xsi:noNamespaceSchemaLocation="proteomeXchange-1.4.0.xsd">',
         '  <DatasetSummary announceDate="2026-01-15" hostingRepository="iProX"'
         ' title="Synthetic test record: E. coli Nissle 1917 proteome">',
-        "    <Description>Synthetic fixture for the GIAP M10-01 tests; not real data."
+        "    <Description>Synthetic fixture for the GIPPA M10-01 tests; not real data."
         "</Description>",
         '    <ReviewLevel><cvParam cvRef="PRIDE" accession="PRIDE:0000414"'
         ' name="Peer-reviewed dataset"/></ReviewLevel>',

@@ -1,12 +1,12 @@
 # M4 "Gene table, detectability, region tests": issue index
 
-Spec: GIAP_SPEC.md §13 row M4. Deliverables: "gene table, detection tiers, detectability, abundance,
+Spec: GIPPA_SPEC.md §13 row M4. Deliverables: "gene table, detection tiers, detectability, abundance,
 basic statistics, region tests". **Gate:** "circular-shift tests calibrated; gene-level FDR calibrated
 (picked, MAYU)" — i.e. the `regions` suite (R = 100 per PR / 1,000 nightly) passes the §8.4 level
 check for every region type and statistic, and the `gene_fdr` suite (R = 50 / 300) passes the FDR
 check for the `decoy_picked` and `mayu` tiers (`tests/calibration/tolerances.yaml`).
 
-Sources: §7.3 (Module 3), §8 (claims, rules, shared engine `src/giap/stats/`, calibration, attack
+Sources: §7.3 (Module 3), §8 (claims, rules, shared engine `src/gippa/stats/`, calibration, attack
 nulls, sensitivity), §9.3/§9.4 (genes.tsv, detection_summary, regions_stats, flags), §11.3 (simulator
 expression and proteomics), Appendix B.1, B.3, B.4; decisions 2, 3, 4, 13, 14; G5, G6, G7, G9.
 
@@ -21,9 +21,9 @@ One issue = one PR; size counts **code** only (ADR-0007: ≤ ~400 lines under `s
 | 4 | [M4-04](M4-04-stats-bootstrap-hl.md) | S | `stats/`: `tu_block_bootstrap`, `circular_block_bootstrap`, `hodges_lehmann` | none | 260 | yes |
 | 5 | [M4-05](M4-05-calibration-harness.md) | S | `tests/calibration/_criteria.py` (test-author only) + engine calibration tests | 01, 03 (tests) | 0 (+150 test infra) | yes |
 | 6 | [M4-06](M4-06-input-contract.md) | C | **input contract** C1–C14 (M1/M2/M3 → M4), validators, `load_m4_inputs` | none | 330 | yes |
-| 7 | [M4-07](M4-07-sim-layout-tables.md) | F | giapsim sequence-free layout, regions, operon pairs; contract-table writer | 06 | (380 sim) | yes |
-| 8 | [M4-08](M4-08-sim-expression.md) | F | giapsim expression (AR(1), region/plasmid/island effects) and detection truth | 07 | (300 sim) | yes |
-| 9 | [M4-09](M4-09-sim-evidence.md) | F | giapsim peptides, false IDs ∝ size, decoys, q/PEP, C8–C11 tables | 08 | (380 sim) | yes |
+| 7 | [M4-07](M4-07-sim-layout-tables.md) | F | gippasim sequence-free layout, regions, operon pairs; contract-table writer | 06 | (380 sim) | yes |
+| 8 | [M4-08](M4-08-sim-expression.md) | F | gippasim expression (AR(1), region/plasmid/island effects) and detection truth | 07 | (300 sim) | yes |
+| 9 | [M4-09](M4-09-sim-evidence.md) | F | gippasim peptides, false IDs ∝ size, decoys, q/PEP, C8–C11 tables | 08 | (380 sim) | yes |
 | 10 | [M4-10](M4-10-protein-covariates.md) | G | covariates: observable peptides, GRAVY, pI, MW, TM segments (G6) | none | 220 | yes |
 | 11 | [M4-11](M4-11-accepted-evidence.md) | G | accepted evidence (§7.3.1), per-gene counts, coverage, evidence flags | 06 | 300 | yes |
 | 12 | [M4-12](M4-12-detection-tiers.md) | G | tiers: picked, MAYU, two-peptide, protein list; protein→gene map; **gene-FDR calibration** | 01, 02, 11 (cal: 09) | 380 | yes |
@@ -139,7 +139,7 @@ Open alignment items: pseudogene assignment (M3-14 Q3 says no, M4-06 Q3 says yes
   `no_reference_replicon` (M4-18 Q2).
 - The sensitivity framework is built in M4 (regions family only), off the gate path (M4-19 Q1).
 - Steps register with M2-02's `@step` registry if merged, else in M4-20 (M4-15 Q1); schemas go to
-  `src/giap/schemas/tables/` like M3-16 (M4-15 Q2).
+  `src/gippa/schemas/tables/` like M3-16 (M4-15 Q2).
 - `poisson_binomial_*` is owned by M3-09 (`stats/poisson_binomial.py`); M3-10 should reuse `tda_qvalues` (M4-01 Q3);
   M3-19 and M4-09 share one score/PEP/q helper (M4-09 Q3).
 
@@ -147,10 +147,10 @@ Open alignment items: pseudogene assignment (M3-14 Q3 says no, M4-06 Q3 says yes
 1. Pseudogene peptides: no conflict — M3-14 Q3 was accepted as "placements on pseudogenes are assigned
    to the pseudogene", so M4-06 Q3 stands and pseudogenes stay eligible.
 2. `cog_category`: from Bakta's COG cross-references mapped through the COG 2020 category table that
-   `giap setup` downloads; NA when the table is not installed. `gc_local_dev`: produced by M2-20's
+   `gippa setup` downloads; NA when the table is not installed. `gc_local_dev`: produced by M2-20's
    layers table (added to the M2 index).
-3. Shared code: M3-10 uses `giap.stats` `tda_qvalues` (M4-01) — M4-01 is therefore a foundation issue
-   built early; M4-02 reuses M3-09's Poisson-binomial functions; giapsim gets one shared
+3. Shared code: M3-10 uses `gippa.stats` `tda_qvalues` (M4-01) — M4-01 is therefore a foundation issue
+   built early; M4-02 reuses M3-09's Poisson-binomial functions; gippasim gets one shared
    score/PEP/q helper used by M3-19 and M4-09.
 4. Decoys pass the same engine q threshold as targets before picking. The decoy-pairing cut-off is NOT a
    code constant: it reuses `mapping.proteins.min_identity` / `min_coverage` (decision 6, 0.80).

@@ -2,9 +2,9 @@
 (docs/specs/MVP-04-ecoli-evidence-run.md acceptance 9, §11.6 TE7, rule 3).
 
 The excerpt TE7 test in tests/unit/test_mvp04_real_genome.py compares the tables directly; this
-one runs the **summary's** ``gate9`` on two real ``scored_null`` giapsim calls (the evidence
+one runs the **summary's** ``gate9`` on two real ``scored_null`` gippasim calls (the evidence
 scenario, the decoys that matter for gates 2-7), so the gate cannot pass on a comparison that
-misses a table giapsim writes. Same seed: pass with no differing file; another seed: fail, naming
+misses a table gippasim writes. Same seed: pass with no differing file; another seed: fail, naming
 ``peptides.tsv`` and the truth tables that changed. Three excerpt simulations, about 3 s in all,
 so not marked slow.
 """
@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from helpers import mvp04_data as M
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "dev" / "mvp04_summary.py"
@@ -42,7 +42,7 @@ def summary() -> ModuleType:
 
 
 def cfg() -> Any:
-    base = importlib.import_module("giapsim.scenarios").k12_evidence()
+    base = importlib.import_module("gippasim.scenarios").k12_evidence()
     assert base.proteomics.decoys == "scored_null"
     expr = replace(base.expression,
                    islands=tuple(IslandSpec(M.CONTIG, f, 8, e) for f, e in ISLANDS))  # fmt: skip
@@ -50,7 +50,7 @@ def cfg() -> Any:
 
 
 def simulate(ex: M.Excerpt, out: Path, seed: int) -> Path:
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         cfg(), seed, out, genome_fasta=ex.fasta, bakta_json=ex.bakta_json, tu_set=None,
         check_hashes=False,
     )  # fmt: skip
@@ -65,7 +65,7 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
             "other": simulate(ex, root / "other", SEED + 1)}  # fmt: skip
 
 
-def test_giapsim_writes_every_table_gate9_needs(runs: dict[str, Path]) -> None:
+def test_gippasim_writes_every_table_gate9_needs(runs: dict[str, Path]) -> None:
     for rel in REQUIRED:
         assert (runs["a"] / rel).is_file(), rel
 

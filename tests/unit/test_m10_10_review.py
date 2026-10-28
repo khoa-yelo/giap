@@ -40,7 +40,7 @@ def job(tmp_path: Path):  # type: ignore[no-untyped-def]
 
 
 def _env(box) -> dict[str, str]:  # type: ignore[no-untyped-def]
-    return {"GIAP_PYTHON": str(box.recording_python())}
+    return {"GIPPA_PYTHON": str(box.recording_python())}
 
 
 def _evidence_calls(box, name: str) -> list[list[str]]:  # type: ignore[no-untyped-def]
@@ -105,7 +105,7 @@ def test_three_arguments_never_pass_pair_cmp_nor_warn(job) -> None:  # type: ign
 def _summary(tmp: Path, *, tamper: bool) -> tuple[int, dict[str, Any], Path]:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     a3 = tmp / "A3"
     paths = [write_ssl(a3 / r / f"{r}.ssl", r, TWELVE[r]) for r in RUNS]
@@ -118,7 +118,7 @@ def _summary(tmp: Path, *, tamper: bool) -> tuple[int, dict[str, Any], Path]:
     res = CliRunner().invoke(cli, argv)
     assert res.exit_code == 0, res.output
     log.write_text("".join(ln + "\n" for ln in res.output.splitlines()
-                           if ln.startswith("giap convert:")))  # fmt: skip
+                           if ln.startswith("gippa convert:")))  # fmt: skip
     victim = paths[1]
     if tamper:  # a blank line: same rows (rule 1 stays quiet), different bytes
         with victim.open("a") as fh:

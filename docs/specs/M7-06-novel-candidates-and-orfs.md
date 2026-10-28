@@ -26,7 +26,7 @@ M2-13 (`gene_windows`, `dedupe_and_chunk`), M2-16 (`ostir_row`, `write_ostir_inp
 
 ## Public interface
 
-`src/giap/novel/candidates.py` (pure)
+`src/gippa/novel/candidates.py` (pure)
 ```python
 NovelClass = Literal["nterm_extension", "cterm_extension", "intergenic", "cds_outframe",
                      "antisense", "pseudogene", "sorf"]
@@ -50,7 +50,7 @@ class Orf:
 def candidate_rows(peptide_hits: pd.DataFrame, peptides: pd.DataFrame,
                    contaminants: Sequence[ProteinRecord] | None) -> pd.DataFrame: ...
 def reconstruct(rows: pd.DataFrame, gm: GeneModel, genome: Mapping[str, str],
-                cfg: GiapConfig) -> list[Orf]: ...
+                cfg: GippaConfig) -> list[Orf]: ...
 def promoter_windows(orfs: Sequence[Orf], gm: GeneModel, genome, cfg) -> list[Window]: ...
 def ostir_rows(orfs: Sequence[Orf], gm: GeneModel, genome, anti_sd: str, cfg) -> list[OstirRow]: ...
 ```
@@ -181,7 +181,7 @@ None here; class FDR (M7-11) and the novel-ORF F1 (M7-13) measure it.
 6. `novel_candidate_id` in `peptide_hits.tsv`: back-fill it (that file is published by LOCI, before
    Module 6 runs) or leave it NA? **Proposed default:** leave NA in pass 1; in M7-15 the
    `novel_orfs` step rewrites the published `mapping/peptide_hits.tsv` with the column filled (one
-   writer, `giap.mapping.outputs`), or `finalize` does it when it exists.
+   writer, `gippa.mapping.outputs`), or `finalize` does it when it exists.
 
 ## Lead decisions
 

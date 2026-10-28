@@ -1,5 +1,5 @@
 """M2-14b example 5 and item 4: ``-resume`` reruns only the Promoter Calculator batch whose region
-changed (docs/specs/M2-14b-promoter-calculator-batching.md; GIAP_SPEC.md §6.3 ``-resume``).
+changed (docs/specs/M2-14b-promoter-calculator-batching.md; GIPPA_SPEC.md §6.3 ``-resume``).
 
 Stub runs of ``workflow/main.nf`` (ANNOTATE, ``modules = ['core']``) with ``-profile test,stub
 -stub-run`` and ``params.stub.tu_regions = 250``: the stubbed ``operon_pairs`` step emits

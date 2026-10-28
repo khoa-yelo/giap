@@ -19,8 +19,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from giap.model import Replicon
-from giap.model.genes import GeneModel
+from gippa.model import Replicon
+from gippa.model.genes import GeneModel
 from helpers.readthrough_toys import CODON, gene, model, write_annotation, write_genome
 
 FIXTURE = Path(__file__).resolve().parents[1] / "data/mapping/readthrough/sixframe_format1.npz"
@@ -92,9 +92,9 @@ def inputs(tmp: Path) -> dict[str, Path]:
 
 
 def run_sixframe_index(tmp: Path, with_genes: bool = True) -> Path:
-    from giap.config import resolve_config
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import resolve_config
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     ins = inputs(tmp)

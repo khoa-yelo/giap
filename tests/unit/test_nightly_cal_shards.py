@@ -30,7 +30,7 @@ from helpers.slurm_sandbox import (
     _PYTHON,
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     export_pairs,
     make_sandbox,
     option,
@@ -55,9 +55,9 @@ if [ "${1:-}" = "-m" ] && [ "${2:-}" = "coverage" ]; then
 fi
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pytest" ]; then
   printf 'pytest %s\n' "${*:3}" >> "$FAKE_SLURM_DIR/calls.log"
-  if [ "${FAKE_COV:-}" = real ]; then   # real data: src/giap/mod.py run under coverage, branch on
+  if [ "${FAKE_COV:-}" = real ]; then   # real data: src/gippa/mod.py run under coverage, branch on
     {python} -c 'import coverage, runpy; c = coverage.Coverage(branch=True); c.start()
-runpy.run_path("src/giap/mod.py"); c.stop(); c.save()'
+runpy.run_path("src/gippa/mod.py"); c.stop(); c.save()'
   elif [ -n "${COVERAGE_FILE:-}" ]; then echo data > "$COVERAGE_FILE"; fi
   case "${FAKE_SHARD_PYTEST:-ok}" in
     fail) echo "2 failed, 10 passed, 1 warning in 7.25s"; exit 1 ;;
@@ -72,14 +72,14 @@ fi
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
     require_gnu_userland()
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     box = make_sandbox(tmp_path)
     head, _, rest = _PYTHON.replace("{python}", sys.executable).partition("\n")
     for name in ("python", "python3"):
         write_exe(box.bin / name, f"{head}\n{_HOOK.replace('{python}', sys.executable)}{rest}")
     env = {**os.environ, **box.env}
     srcs = {f: "def test_x():\n    pass\n" for f in FILES}  # shard_tests.py needs test files
-    srcs["src/giap/mod.py"] = "def f(x):\n    return x + 1 if x else 0\n\n\nf(1)\nf(0)\n"
+    srcs["src/gippa/mod.py"] = "def f(x):\n    return x + 1 if x else 0\n\n\nf(1)\nf(0)\n"
     for f, text in srcs.items():
         (box.repo / f).parent.mkdir(parents=True, exist_ok=True)
         (box.repo / f).write_text(text)
@@ -89,7 +89,7 @@ def sb(tmp_path: Path) -> Sandbox:
         ["push", "-q", "origin", "HEAD:main"],
     ):
         subprocess.run(["git", *cmd], cwd=box.repo, env=env, check=True, capture_output=True)
-    box.set_squeue("giap-nightly-summary", [f"9100 nightly:{JOB}"])
+    box.set_squeue("gippa-nightly-summary", [f"9100 nightly:{JOB}"])
     return box
 
 
@@ -138,7 +138,7 @@ def _load(path: Path, name: str) -> ModuleType:
 
 
 def _readiness_view(row: list[str]) -> tuple[str, bool]:
-    rd = _load(REPO / "scripts" / "release" / "readiness.py", "giap_readiness_shards")
+    rd = _load(REPO / "scripts" / "release" / "readiness.py", "gippa_readiness_shards")
     rows, bad = rd.parse_log("\t".join(row) + "\n")
     assert bad == 0 and len(rows) == 1, row
     return rows[0].label, rows[0].ok()
@@ -249,7 +249,7 @@ def test_summary_job_fails_the_row_of_a_shard_that_never_recorded(sb: Sandbox) -
     sb.set_next_job_id(7001)
     res = _run(sb)
     assert not _rows(sb), _diag(res, sb)
-    sb.set_sacct([{"JobID": "7001", "JobName": "giap-nightly", "State": "CANCELLED"}])
+    sb.set_sacct([{"JobID": "7001", "JobName": "gippa-nightly", "State": "CANCELLED"}])
     for _ in range(2):  # the second run must not add a row
         res = _summary(sb)
     rows = _rows(sb)
@@ -304,7 +304,7 @@ def test_launcher_asks_for_two_shards_within_r14(sb: Sandbox) -> None:
 
 # ---------------------------------------------------------------- the fold itself
 
-NS = _load(REPO / "scripts" / "ci" / "nightly_shards.py", "giap_nightly_shards")
+NS = _load(REPO / "scripts" / "ci" / "nightly_shards.py", "gippa_nightly_shards")
 
 
 def test_fold_sums_counts_keeps_the_longest_time_and_notes() -> None:

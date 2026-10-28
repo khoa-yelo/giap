@@ -1,6 +1,6 @@
-"""Independent oracles and fixture loaders for the M2-19 region tests (GIAP_SPEC.md §7.1.7).
+"""Independent oracles and fixture loaders for the M2-19 region tests (GIPPA_SPEC.md §7.1.7).
 
-Nothing here imports ``giap.annotate.regions``: overlaps are counted base by base, subsets use
+Nothing here imports ``gippa.annotate.regions``: overlaps are counted base by base, subsets use
 a separately written keyword table, and the recorded inputs are read through the merged
 producers (M2-03 ``parse_bakta_json``, M2-18 ``parse_genomad`` / ``parse_antismash_json``).
 """
@@ -15,18 +15,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from giap.annotate.antismash import BgcRegion, parse_antismash_json
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.genomad import GenomadResult, VirusGene, parse_genomad
-from giap.model.coords import Interval, Replicon, RepliconKind, Topology
-from giap.model.genes import Gene, NcFeature
+from gippa.annotate.antismash import BgcRegion, parse_antismash_json
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.genomad import GenomadResult, VirusGene, parse_genomad
+from gippa.model.coords import Interval, Replicon, RepliconKind, Topology
+from gippa.model.genes import Gene, NcFeature
 
 TESTS = Path(__file__).resolve().parents[1]
 RECORDED = TESTS / "data" / "recorded"
 EXCERPTS = RECORDED / "regions"
 GENOMAD_REC = RECORDED / "genomad" / "1.12.0"
 ANTISMASH_REC = RECORDED / "antismash" / "8.0.4"
-FULL = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings"
+FULL = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings"
 
 TSV_HEADER = [
     "region_id", "region_type", "contig", "start", "end", "source_tool", "score", "genes", "notes",
@@ -159,7 +159,7 @@ def full_available(sample: str) -> bool:
 
 
 def load_full(sample: str) -> Sample:
-    """Full recordings under ``$GIAP_ROOT/recordings`` (Bakta full DB, geNOMAD, antiSMASH)."""
+    """Full recordings under ``$GIPPA_ROOT/recordings`` (Bakta full DB, geNOMAD, antiSMASH)."""
     ann = parse_bakta_json(FULL / "bakta_full" / sample / "bakta" / f"{sample}.json")
     reps = dict(ann.model.replicons)
     gm = parse_genomad(FULL / "genomad" / sample / "genomad", "genome", reps)

@@ -8,13 +8,13 @@ Interface pinned here (readings chosen where the spec leaves room; listed in the
 
 - ``db_sources.yaml`` row ``uniop_source`` exactly as item 1b lays it out. The fetch, the
   checksum check and the image key read the pin at call time from the ``SOURCES`` mapping of the
-  ``giap.setupdb`` modules (tests patch it: the real archive's sha256 is computed on FarmShare).
+  ``gippa.setupdb`` modules (tests patch it: the real archive's sha256 is computed on FarmShare).
 - ``SetupOptions`` gains ``uniop: bool = False``; ``plan()`` adds ``uniop_source`` only with it.
-- ``giap setup --uniop --profile P [--cache-dir DIR] [--accept-uniop-terms]``. The archive goes to
+- ``gippa setup --uniop --profile P [--cache-dir DIR] [--accept-uniop-terms]``. The archive goes to
   ``<db_dir>/uniop/UniOP-<commit>.tar.gz`` (dir ``0700``, file ``0600``) through the real
   ``HttpsFetcher`` (one GET of the pinned URL, GitHub's 302 to codeload followed).
-- ``REDIRECT_HOSTS["github.com"] == frozenset({"codeload.github.com"})`` in ``giap.setupdb.run``.
-- ``giap.preflight.environment.uniop_runtime(profile)`` is R(P): ``"micromamba"``,
+- ``REDIRECT_HOSTS["github.com"] == frozenset({"codeload.github.com"})`` in ``gippa.setupdb.run``.
+- ``gippa.preflight.environment.uniop_runtime(profile)`` is R(P): ``"micromamba"``,
   ``"apptainer"``, ``"docker"``, or ``None`` for no runtime **and** for an ambiguous list; setup
   tells the two apart in its message (``no container or conda profile`` /
   ``ambiguous UniOP runtime for <P>: use one of conda | docker | apptainer``).
@@ -22,7 +22,7 @@ Interface pinned here (readings chosen where the spec leaves room; listed in the
   sorted with the file lines; ``uncovered_copy_sources("uniop")`` accepts ``uniop-src.tar.gz``.
 
 No test touches the network (``no_network``; ``FakeNet`` replaces ``http.client``) or the real
-``$GIAP_DB_DIR``; ``docker`` is a logging fake on ``PATH``.
+``$GIPPA_DB_DIR``; ``docker`` is a logging fake on ``PATH``.
 """
 
 from __future__ import annotations
@@ -100,7 +100,7 @@ def uniop_args(db: Path, *extra: str, profile: str = "docker") -> list[str]:
 
 def test_no_network_fixture_blocks_a_real_https_fetch(tmp_path: Path) -> None:
     """Under ``no_network`` the real fetcher (no FakeNet) cannot reach any host."""
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     with pytest.raises((SourceError, OSError)):
         HttpsFetcher().fetch(ARCHIVE_URL, tmp_path / "a.tar.gz")
@@ -111,7 +111,7 @@ def test_no_network_fixture_blocks_a_real_https_fetch(tmp_path: Path) -> None:
 
 
 def test_uniop_source_row_is_laid_out_like_the_others() -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     row = uniop_source()
     assert row.name == "uniop_source"
@@ -127,7 +127,7 @@ def test_uniop_source_row_is_laid_out_like_the_others() -> None:
 
 
 def test_uniop_source_loads_through_load_sources() -> None:
-    from giap.setupdb.items import _load_sources
+    from gippa.setupdb.items import _load_sources
 
     assert _load_sources()["uniop_source"] == uniop_source()
 
@@ -151,14 +151,14 @@ def test_uniop_source_loads_through_load_sources() -> None:
     ),
 )
 def test_plain_setup_never_plans_the_uniop_archive(bakta: str, flags: dict[str, bool]) -> None:
-    from giap.setupdb.items import SetupOptions, plan
+    from gippa.setupdb.items import SetupOptions, plan
 
     names = [i.name for i in plan(SetupOptions(db_dir=Path("/x"), bakta=bakta, **flags))]  # type: ignore[arg-type]
     assert "uniop_source" not in names
 
 
 def test_uniop_option_plans_the_archive() -> None:
-    from giap.setupdb.items import SetupOptions, plan
+    from gippa.setupdb.items import SetupOptions, plan
 
     opts = SetupOptions(db_dir=Path("/x"), bakta="skip", genomad=False, promotech_models=False,
                         uniop=True)  # type: ignore[call-arg]  # fmt: skip
@@ -169,7 +169,7 @@ def test_uniop_option_plans_the_archive() -> None:
 
 
 def test_redirect_allowlist_adds_only_codeload_for_github() -> None:
-    from giap.setupdb.run import REDIRECT_HOSTS
+    from gippa.setupdb.run import REDIRECT_HOSTS
 
     assert REDIRECT_HOSTS["github.com"] == frozenset({"codeload.github.com"})
     assert REDIRECT_HOSTS["purl.obolibrary.org"] == frozenset(
@@ -181,7 +181,7 @@ def test_redirect_allowlist_adds_only_codeload_for_github() -> None:
 def test_github_302_to_codeload_is_followed_without_content_length(
     net: FakeNet, tmp_path: Path
 ) -> None:
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     data = fixture_archive()
     net.serve_github(data)
@@ -202,7 +202,7 @@ def test_github_302_to_codeload_is_followed_without_content_length(
 def test_example_16a_redirect_to_any_other_host_is_refused(
     net: FakeNet, tmp_path: Path, location: str
 ) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     net.routes[("github.com", ARCHIVE_PATH)] = Route(302, {"Location": location})
     with pytest.raises(SourceError, match="refused"):
@@ -213,7 +213,7 @@ def test_example_16a_redirect_to_any_other_host_is_refused(
 
 def test_codeload_is_allowed_only_as_a_github_redirect(net: FakeNet, tmp_path: Path) -> None:
     """The allowlist is per source: a zenodo source may not be sent to codeload."""
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     path = "/records/1/files/x.tar.gz"
     net.routes[("zenodo.org", path)] = Route(302, {"Location": "https://codeload.github.com/x"})
@@ -348,7 +348,7 @@ def test_offline_records_a_failure_that_preflight_reads(
     assert item["status"] == "absent", item
     assert "github.com" in item["message"], item
     assert item["version"] == VERSION and item["url"] == ARCHIVE_URL
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     record = getattr(environment, "uniop_setup_record", None)  # 14d (#387) reads it
     if record is not None:
@@ -385,11 +385,11 @@ R_OF_P = [
 
 
 def _runtime(profile: str) -> str | None:
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     fn = getattr(environment, "uniop_runtime", None)
     if fn is None:
-        pytest.fail("giap.preflight.environment.uniop_runtime (R(P)) is not implemented")
+        pytest.fail("gippa.preflight.environment.uniop_runtime (R(P)) is not implemented")
     return fn(profile)  # type: ignore[no-any-return]
 
 
@@ -447,7 +447,7 @@ def _pin_hex() -> str:
 
 
 def test_uniop_key_text_has_the_archive_line() -> None:
-    from giap.io.image_key import key_text
+    from gippa.io.image_key import key_text
 
     lines = key_text("uniop").splitlines(keepends=True)
     assert f"uniop-src.tar.gz\t100644\t{_pin_hex()}\n" in lines
@@ -457,21 +457,21 @@ def test_uniop_key_text_has_the_archive_line() -> None:
 
 
 def test_uniop_def_is_a_key_input() -> None:
-    from giap.io.image_key import key_inputs
+    from gippa.io.image_key import key_inputs
 
     assert UNIOP_DEF.is_file(), "workflow/containers/uniop/uniop.def is new in 14u1"
     assert "workflow/containers/uniop/uniop.def" in key_inputs("uniop")
 
 
 def test_other_tools_have_no_archive_line() -> None:
-    from giap.io.image_key import key_text
+    from gippa.io.image_key import key_text
 
     for tool in ("ostir", "promotech", "fgsea"):
         assert "uniop-src.tar.gz" not in key_text(tool), tool
 
 
 def test_the_key_is_sha256_of_the_text_with_the_archive_line() -> None:
-    from giap.io.image_key import key, key_text
+    from gippa.io.image_key import key, key_text
 
     assert key("uniop") == hashlib.sha256(key_text("uniop").encode()).hexdigest()[:12]
 
@@ -483,7 +483,7 @@ def test_the_key_is_sha256_of_the_text_with_the_archive_line() -> None:
 def test_a_pin_bump_changes_the_key_and_the_tag(
     monkeypatch: pytest.MonkeyPatch, a: bytes, b: bytes
 ) -> None:
-    from giap.io.image_key import key, key_text, tag
+    from gippa.io.image_key import key, key_text, tag
 
     with monkeypatch.context() as mp:
         pin_uniop_source(mp, a.hex())
@@ -498,7 +498,7 @@ def test_a_pin_bump_changes_the_key_and_the_tag(
 
 
 def test_changing_uniop_def_changes_the_key(tmp_path: Path) -> None:
-    from giap.io.image_key import key
+    from gippa.io.image_key import key
 
     root = tmp_path / "root"
     shutil.copytree(REPO / "workflow" / "containers" / "uniop", root / "workflow/containers/uniop")
@@ -529,7 +529,7 @@ def test_dockerfile_copies_the_verified_archive() -> None:
         if words and words[0].upper() == "COPY":
             sources += [w for w in words[1:-1] if not w.startswith("--")]
     assert "uniop-src.tar.gz" in sources
-    assert COMMIT in DOCKERFILE.read_text(encoding="utf-8"), "GIAP_COMMIT is still the pin"
+    assert COMMIT in DOCKERFILE.read_text(encoding="utf-8"), "GIPPA_COMMIT is still the pin"
 
 
 def test_dockerfile_header_says_local_build_only() -> None:
@@ -543,6 +543,6 @@ def test_dockerfile_header_says_local_build_only() -> None:
 
 
 def test_copy_sources_are_covered_by_the_key() -> None:
-    from giap.io.image_key import uncovered_copy_sources
+    from gippa.io.image_key import uncovered_copy_sources
 
     assert uncovered_copy_sources("uniop") == []

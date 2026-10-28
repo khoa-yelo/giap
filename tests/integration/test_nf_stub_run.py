@@ -1,4 +1,4 @@
-"""Stub run of the skeleton pipeline and ``-resume`` (M2-06 example 8; GIAP_SPEC.md §3.8 "Resume").
+"""Stub run of the skeleton pipeline and ``-resume`` (M2-06 example 8; GIPPA_SPEC.md §3.8 "Resume").
 
 Runs ``workflow/main.nf`` with ``-profile test,stub -stub-run`` (the profiles ``ci.yml`` gives
 nf-test) twice in the same work directory; the second run with ``-resume`` must take every task
@@ -39,7 +39,7 @@ def _run(tmp: Path, trace: str, resume: bool) -> list[dict[str, str]]:
 def test_stub_run_then_resume_is_fully_cached(tmp_path: Path) -> None:
     first = _run(tmp_path, "trace1.tsv", resume=False)
     assert first, "stub run executed no task"
-    assert any("GIAP_STEP" in r["name"] for r in first), [r["name"] for r in first]
+    assert any("GIPPA_STEP" in r["name"] for r in first), [r["name"] for r in first]
     assert all(r["status"] == "COMPLETED" for r in first), first
     versions = list((tmp_path / "OUT" / "work").rglob("versions.yml"))
     assert versions, "no task emitted versions.yml"

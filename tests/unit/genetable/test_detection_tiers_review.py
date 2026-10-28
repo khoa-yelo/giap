@@ -16,7 +16,7 @@
    at more than 50 % non-tryptic peptides, not at exactly 50 %.
 
 Inputs come from the merged producers (tests/helpers/detection_tiers_fixtures.py: M4-11
-``accepted_peptides`` / ``gene_evidence``, M4-10 ``covariate_table``); the giapsim (M4-09) versions
+``accepted_peptides`` / ``gene_evidence``, M4-10 ``covariate_table``); the gippasim (M4-09) versions
 of 5, 6 and 8 are in test_detection_tiers_contract.py.
 """
 
@@ -36,7 +36,7 @@ from detection_tiers_fixtures import Builder, cfg, tag
 
 
 def _det() -> Any:
-    from giap.genetable import detection
+    from gippa.genetable import detection
 
     return detection
 
@@ -65,7 +65,7 @@ def test_pep_only_reviewer_reproduction_detects_genes() -> None:
 
 
 def test_pep_only_gene_q_is_mayu_on_running_mean_of_pep() -> None:
-    from giap.stats.mayu import mayu_gene_fdr
+    from gippa.stats.mayu import mayu_gene_fdr
 
     b = Builder(40)
     t = b.tags or []

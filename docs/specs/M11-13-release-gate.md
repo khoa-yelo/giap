@@ -20,7 +20,7 @@ hand-off, transcribing Khoa's answer), implementer (13c CITATION DOI, README bad
 
 | Step | PR / action | Who | Output |
 |---|---|---|---|
-| 1 | **13a** `chore(release): 1.0.0`: `__version__ = "1.0.0"`; `+known-limitations.misc.md` updated with the open non-gate issues (Q-K12); `towncrier build --version 1.0.0 --date <merge day> --yes` (fragments removed, `CHANGELOG.md` gains `## GIAP 1.0.0 (<date>)`); `CITATION.cff` `version: 1.0.0`, `date-released` | docs + lead | merged commit **R** |
+| 1 | **13a** `chore(release): 1.0.0`: `__version__ = "1.0.0"`; `+known-limitations.misc.md` updated with the open non-gate issues (Q-K12); `towncrier build --version 1.0.0 --date <merge day> --yes` (fragments removed, `CHANGELOG.md` gains `## GIPPA 1.0.0 (<date>)`); `CITATION.cff` `version: 1.0.0`, `date-released` | docs + lead | merged commit **R** |
 | 2 | evidence on R: `calibration_full.sbatch`, nightly calibration subset + attacks, `weekly.sbatch` (K-12, Nissle, TE8), `test_branch.sbatch` full suite; R14 CPU sum before each sbatch | validation | job IDs in PROGRESS; rows in `nightly.tsv`/`weekly.tsv` for R |
 | 3 | **13b** `docs(release): readiness 1.0.0`: `readiness.py compute --version 1.0.0 --freeze-run <A2 freeze dir> --out validation/release/1.0.0/` | validation | `readiness.json`, `READINESS.md`; paperwork-only diff |
 | 4 | `gh workflow run release.yml -f version=1.0.0 -f dry_run=true` on main | lead | green run URL; artefact sha256s |
@@ -58,7 +58,7 @@ hand-off, transcribing Khoa's answer), implementer (13c CITATION DOI, README bad
    accepted-by-khoa ADRs) and `readiness.py verify` passes at the commit Khoa dispatched.
 2. A green `dry_run=true` run on that commit precedes Khoa's non-dry dispatch.
 3. Khoa's written approval is transcribed in PROGRESS before the dispatch.
-4. After Khoa's dispatch: PyPI has `giap 1.0.0` (wheel + sdist with the dry run's sha256s), tag
+4. After Khoa's dispatch: PyPI has `gippa 1.0.0` (wheel + sdist with the dry run's sha256s), tag
    `v1.0.0` points at the dispatched commit, the GitHub release has the notes, and Zenodo has a DOI;
    `CITATION.cff` carries the DOI (13c).
 5. No agent commit, command log or PR in M11 creates or pushes a tag (the lead checks

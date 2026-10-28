@@ -12,7 +12,7 @@ collection, so no re-test call).
 Slurm only: ``slow`` and ``requires_r`` keep these out of GitHub CI. Run with
 ``pytest tests/calibration -m "calibration and requires_r" -n 8`` through
 ``scripts/slurm/test_branch.sbatch`` (Slurm 1868835: 8 CPUs, 52 min); the weekly run is the
-``gsea`` array task. The ``giap-fgsea`` env must be built
+``gsea`` array task. The ``gippa-fgsea`` env must be built
 (``sbatch scripts/slurm/build_envs.sbatch fgsea``). The fast arm is the first
 ``replicates_fast.gsea`` replicates of the full arm, not independent evidence; the teeth live in
 ``tests/calibration/attacks/test_attack_gsea_r_engine.py``.
@@ -32,8 +32,8 @@ from _gate import calibrate_levels
 from helpers.gsea_data import gene_sets
 from test_gsea_tu_calibration import _operon_world, _packed, _tied
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
 
 pytestmark = [
     pytest.mark.calibration,
@@ -50,7 +50,7 @@ ALPHA = 0.05
 
 @pytest.fixture(scope="module")
 def engine(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     return r_fgsea_engine(
         resolve_launcher(os.environ), tmp_root=Path(tmp_path_factory.mktemp("fgsea_cal"))
@@ -58,7 +58,7 @@ def engine(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _p(engine: Any, genes: pd.DataFrame, members: list[str], rng: np.random.Generator) -> float:
-    from giap.function.gsea import gsea_table
+    from gippa.function.gsea import gsea_table
 
     seed = int(rng.integers(0, 2**31 - 1))
     out = gsea_table(

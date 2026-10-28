@@ -1,4 +1,4 @@
-"""UniOP adapter: Prodigal-style GFF, ``uniop.pred`` parser, command (M2-12; GIAP_SPEC.md §7.1.1,
+"""UniOP adapter: Prodigal-style GFF, ``uniop.pred`` parser, command (M2-12; GIPPA_SPEC.md §7.1.1,
 §7.1.3; Module 1 test "adapter round-trip for UniOP (Bakta → Prodigal-style GFF → back to locus
 tags)").
 
@@ -34,13 +34,13 @@ from pathlib import Path
 
 import pytest
 
-import giapsim
-from giap.annotate.bakta import parse_bakta_json
-from giap.annotate.operons import adjacent_pairs
-from giap.annotate.uniop_adapter import PairProb, parse_uniop_pred, write_prodigal_gff
-from giap.annotate.uniop_cmd import uniop_command
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+import gippasim
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.annotate.operons import adjacent_pairs
+from gippa.annotate.uniop_adapter import PairProb, parse_uniop_pred, write_prodigal_gff
+from gippa.annotate.uniop_cmd import uniop_command
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 CHR = Replicon("chr1", 100_000, "circular", "chromosome")
 PL = Replicon("p2", 8_000, "circular", "plasmid")
@@ -67,7 +67,7 @@ BLANK = " " * 9  # UniOP's empty probability cell
 
 def write_gff(path: Path, lines: list[tuple[str, int, int, str, str]]) -> Path:
     """(contig, start1, end1, strand, id) lines in the given order, Prodigal-style."""
-    body = [f"{c}\tGIAP\tCDS\t{a}\t{b}\t.\t{s}\t0\tID={i}" for c, a, b, s, i in lines]
+    body = [f"{c}\tGIPPA\tCDS\t{a}\t{b}\t.\t{s}\t0\tID={i}" for c, a, b, s, i in lines]
     path.write_text("\n".join(["##gff-version 3", *body]) + "\n")
     return path
 
@@ -329,8 +329,8 @@ def test_write_prodigal_gff_is_deterministic(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- example 10: round trip
 
 
-def _sim_genes(cfg: giapsim.SimConfig, seed: int, out: Path) -> tuple[list[Gene], list[Replicon]]:
-    res = giapsim.simulate(cfg, seed, out)
+def _sim_genes(cfg: gippasim.SimConfig, seed: int, out: Path) -> tuple[list[Gene], list[Replicon]]:
+    res = gippasim.simulate(cfg, seed, out)
     model = parse_bakta_json(res.bakta_json).model
     return list(model.genes), list(model.replicons.values())
 
@@ -348,9 +348,9 @@ def _non_wrap(genes: list[Gene], reps: list[Replicon]) -> set[tuple[str, str]]:
 
 
 ROUND_TRIP = {
-    "sim100k": (giapsim.SIM100K, giapsim.SIM100K_SEED),
+    "sim100k": (gippasim.SIM100K, gippasim.SIM100K_SEED),
     "origin_crossing": (
-        giapsim.SimConfig(
+        gippasim.SimConfig(
             genome_length=40_000,
             n_plasmids=1,
             plasmid_length=(6_000, 9_000),
@@ -407,9 +407,9 @@ def test_uniop_command() -> None:
 def test_uniop_modules_never_import_uniop() -> None:
     import ast
 
-    import giap.annotate.operons as ops
-    import giap.annotate.uniop_adapter as uni
-    import giap.annotate.uniop_cmd as ucmd
+    import gippa.annotate.operons as ops
+    import gippa.annotate.uniop_adapter as uni
+    import gippa.annotate.uniop_cmd as ucmd
 
     for mod in (uni, ucmd, ops):
         tree = ast.parse(Path(mod.__file__).read_text())  # type: ignore[arg-type]

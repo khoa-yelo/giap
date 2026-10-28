@@ -1,15 +1,15 @@
-// NOVEL subworkflow (GIAP_SPEC.md §6.2, §7.6.2, §9.1; M7-08): MAPPING's loci tables -> candidate
+// NOVEL subworkflow (GIPPA_SPEC.md §6.2, §7.6.2, §9.1; M7-08): MAPPING's loci tables -> candidate
 // novel ORFs and their second-round windows (novel_candidates), Promotech RF-HOT on each window
 // chunk (PROMOTECH_NOVEL, one task per chunk as M2-13) -> novel_promoter_layer, OSTIR on the
 // multi-start rows (OSTIR_NOVEL) -> novel_rbs_layer, then novel_orfs -> the four §9.1 files under
-// tables/. The py steps run through GIAP_STEP aliases; both tools reuse their modules and envs.
+// tables/. The py steps run through GIPPA_STEP aliases; both tools reuse their modules and envs.
 // A non-null annotation.precomputed.promoters / .rbs_novel replaces the tool and its layer step
 // (§6.4, ADR-0024), as in annotate.nf. With no candidate start the window directory is empty and
 // the OSTIR CSV header-only: neither tool runs, nor its layer step (rule 3). NOVEL runs only with
 // a gene table (lead decision 3). Stub runs: params.stub.novel_windows_chunks window files (0 =
 // no candidate start).
-include { GIAP_STEP as NOVEL_CANDIDATES; GIAP_STEP as NOVEL_PROMOTER_LAYER;
-          GIAP_STEP as NOVEL_RBS_LAYER; GIAP_STEP as NOVEL_ORFS } from '../../modules/local/giap_step/main'
+include { GIPPA_STEP as NOVEL_CANDIDATES; GIPPA_STEP as NOVEL_PROMOTER_LAYER;
+          GIPPA_STEP as NOVEL_RBS_LAYER; GIPPA_STEP as NOVEL_ORFS } from '../../modules/local/gippa_step/main'
 include { PROMOTECH as PROMOTECH_NOVEL } from '../../modules/local/promotech/main'
 include { OSTIR as OSTIR_NOVEL } from '../../modules/local/ostir/main'
 include { stepIn; kv; pick; byName; inDir; scatterSpec } from './annotate'
@@ -33,7 +33,7 @@ workflow NOVEL {
     // or empty; ANNOTATE's [key, path] layer pairs (promoter_windows, terminators are used);
     // [hits_exact, hits_tolerant, placement_costs] from MAPPING (M7-11b class FDR, optional)
     def pc = params.annotation.precomputed
-    def db = params.db_dir ?: System.getenv('GIAP_DB_DIR') ?: "${launchDir}/db"
+    def db = params.db_dir ?: System.getenv('GIPPA_DB_DIR') ?: "${launchDir}/db"
     def n_chunks = params.stub?.novel_windows_chunks != null ? params.stub.novel_windows_chunks as int : 1
     def g = kv('genome', genome)
     def genes = kv('genes', gene_model.map { a -> a[0] })

@@ -1,14 +1,14 @@
-"""TE8 on the full UniProt K-12 proteome (issue M3-22 example 6; GIAP_SPEC.md §11.6 TE8, §12).
+"""TE8 on the full UniProt K-12 proteome (issue M3-22 example 6; GIPPA_SPEC.md §11.6 TE8, §12).
 
 Weekly only (lead decision 3): ``e2e`` + ``slow`` + ``needs_net("rest.uniprot.org")``; without the
 network the test is skipped by the capability marker (example 6). It never runs in CI or in the
 session allocation (``scripts/slurm/weekly.sbatch``).
 
 Assumed: ``python validation/fetch_uniprot_k12.py`` downloads UP000000625 into
-``$GIAP_DATA_DIR/uniprot/`` (a FASTA named ``UP000000625*.fa*``) and records its SHA-256 and the
+``$GIPPA_DATA_DIR/uniprot/`` (a FASTA named ``UP000000625*.fa*``) and records its SHA-256 and the
 retrieval date in a file next to it (§11.4, R11: never committed). The test points
-``$GIAP_DATA_DIR`` at a temporary directory, so it never touches the shared data directory, and
-uses a test ``$GIAP_DB_DIR``.
+``$GIPPA_DATA_DIR`` at a temporary directory, so it never touches the shared data directory, and
+uses a test ``$GIPPA_DB_DIR``.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ pytestmark = [pytest.mark.e2e, pytest.mark.slow, pytest.mark.needs_net("rest.uni
 
 def test_te8_full_uniprot_k12_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data_dir = tmp_path / "data"
-    monkeypatch.setenv("GIAP_DATA_DIR", str(data_dir))
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path / "db")))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path / "db")))
     script = REPO / "validation" / "fetch_uniprot_k12.py"
     run = subprocess.run(
         [sys.executable, str(script)], env=dict(os.environ), capture_output=True, text=True

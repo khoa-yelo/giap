@@ -1,6 +1,6 @@
 """M7 gate, variants half (M7-13a): G1 variant F1, G2 same-strain, attack 6 (A6a-c) and the
 reference-proteome arm (docs/specs/M7-13-calibration-gate.md § Checks, rules 1-4, 7, 9-11, risks
-1-2, lead decisions 1-3; GIAP_SPEC.md §7.5.6, §8.4, §8.5 attack 6, §13 row M7; ADR-0015, ADR-0042).
+1-2, lead decisions 1-3; GIPPA_SPEC.md §7.5.6, §8.4, §8.5 attack 6, §13 row M7; ADR-0015, ADR-0042).
 
 R is ``replicates_fast/full.variants`` (20 / 100, ADR-0042); every check is fixed-seed through
 ``helpers.m7_gate_records`` (seed bases there). Fast checks are nightly (> 60 s); the per-PR
@@ -48,7 +48,7 @@ NOT_FAILED = frozenset({"pass", "unconfirmed", C.SHARD_STATUS, C.SKIPPED_STATUS}
 G1_GUARD = {"n_truth": 50, "n_pred": 50}
 REF_MIN_RATE, REF_MIN_N = 0.95, 10
 ADR_0049 = "ADR-0049 (proposed, pending Khoa)"
-#: lead decision 6: a ``--shard`` or ``GIAP_CALIBRATION_CONFIRM`` run has no verdict (``skipped``:
+#: lead decision 6: a ``--shard`` or ``GIPPA_CALIBRATION_CONFIRM`` run has no verdict (``skipped``:
 #: a check not listed for block 2), so a strict xfail must not XPASS there
 NO_VERDICT = frozenset({C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS})
 SHARD_SKIP = "shard run: the verdict comes from --merge"

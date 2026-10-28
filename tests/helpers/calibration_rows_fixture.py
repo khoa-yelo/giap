@@ -48,7 +48,7 @@ OUTCOMES = ("passed", "failed", "error", "skipped", "xfailed")
 def load_rows_module() -> ModuleType:
     """``scripts/ci/calibration_rows.py`` as a module (its CLI sits behind ``__main__``)."""
     assert SCRIPT.is_file(), f"{SCRIPT} does not exist (M11-03b row writer)"
-    spec = importlib.util.spec_from_file_location("giap_calibration_rows", SCRIPT)
+    spec = importlib.util.spec_from_file_location("gippa_calibration_rows", SCRIPT)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod

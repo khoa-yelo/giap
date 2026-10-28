@@ -1,6 +1,6 @@
-r"""TU pair agreement of ``giap run`` outputs with RegulonDB (M11-14 14s2, weekly fallback arm).
+r"""TU pair agreement of ``gippa run`` outputs with RegulonDB (M11-14 14s2, weekly fallback arm).
 
-The truth is ``pair_truth.tsv`` of ``validation/regulondb_truth.py`` (GIAP_SPEC.md §15.4 step 2:
+The truth is ``pair_truth.tsv`` of ``validation/regulondb_truth.py`` (GIPPA_SPEC.md §15.4 step 2:
 adjacent same-strand K-12 pairs labelled positive / negative / ambiguous on the recorded full-DB
 Bakta gene model), the same pairs and labels 14s2 used for the operating point. A pair is called
 co-transcribed when both genes lie in one TU of the run's ``tables/operons.tsv``. Over the
@@ -14,7 +14,7 @@ A missing truth or output is reported as "not available" (exit 0: reported, neve
 
 Usage::
 
-    python scripts/tu_agreement.py --regulondb-dir $GIAP_DATA_DIR/regulondb/14.5.0 \
+    python scripts/tu_agreement.py --regulondb-dir $GIPPA_DATA_DIR/regulondb/14.5.0 \
         --arm fallback=<outdir> --arm "uniop=<outdir>"
 """
 

@@ -1,7 +1,7 @@
-"""The four Module 6 files through ``giap run`` under both executors (issue M7-08 example 2) and
-TE7 on them (GIAP_SPEC.md §6.4 executor equality, §11.6 TE7).
+"""The four Module 6 files through ``gippa run`` under both executors (issue M7-08 example 2) and
+TE7 on them (GIPPA_SPEC.md §6.4 executor equality, §11.6 TE7).
 
-Inputs: giapsim ``SIM100K`` with proteomics, planted novel ORFs and N-terminal extensions, and
+Inputs: gippasim ``SIM100K`` with proteomics, planted novel ORFs and N-terminal extensions, and
 every precomputed layer including the simulator's ``rbs_novel`` (tests/helpers/
 novel_steps_fixture.py). As in tests/integration/test_m2_21_local_vs_nextflow.py, the Nextflow
 run is real Nextflow with ``--profile farmshare_local``: every layer is precomputed, so no tool
@@ -45,7 +45,7 @@ def test_te7_two_local_runs_byte_identical(
     outs = []
     with nf.db_env(root):
         for tag in ("a", "b"):
-            code, log = nf.run_giap(sim, root / tag / "OUT")
+            code, log = nf.run_gippa(sim, root / tag / "OUT")
             assert code == 0, log
             outs.append(_four(root / tag / "OUT"))
     assert outs[0] == outs[1]
@@ -60,9 +60,9 @@ def test_example_2_local_and_nextflow_byte_identical(
     root = tmp_path_factory.mktemp("ex2")
     monkeypatch.setenv("NXF_ANSI_LOG", "false")
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, root / "LOCAL" / "OUT")
+        code, log = nf.run_gippa(sim, root / "LOCAL" / "OUT")
         assert code == 0, log
-        code, log = nf.run_giap(sim, root / "NF" / "OUT", "--profile", "farmshare_local",
+        code, log = nf.run_gippa(sim, root / "NF" / "OUT", "--profile", "farmshare_local",
                                 executor="nextflow")  # fmt: skip
         assert code == 0, log
     local, flow = _four(root / "LOCAL" / "OUT"), _four(root / "NF" / "OUT")
@@ -72,9 +72,9 @@ def test_example_2_local_and_nextflow_byte_identical(
 
 # ---------------------------------------------------------------- M7-11b acceptance criterion 5
 #
-# The class-FDR wiring (docs/specs/M7-11b-class-fdr-wiring.md criterion 5): a giapsim
+# The class-FDR wiring (docs/specs/M7-11b-class-fdr-wiring.md criterion 5): a gippasim
 # ``novel_orf_power(seed, "100k")`` run, whose database peptide table carries makedb six-frame
-# ``rev_GIAPORF_...`` decoys, under both executors. The four tables and the published side table
+# ``rev_GIPPAORF_...`` decoys, under both executors. The four tables and the published side table
 # ``novel/novel_class_fdr.parquet`` must be the same bytes. The side table must show the picked
 # regime, so the parity covers the wired class FDR and not only its ``decoys_not_makedb`` path.
 
@@ -83,12 +83,12 @@ SIDE = "novel/novel_class_fdr.parquet"
 
 @pytest.fixture(scope="module")
 def power_sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    import giapsim.scenarios as sc
+    import gippasim
+    import gippasim.scenarios as sc
 
-    seed = giapsim.SIM100K_SEED
+    seed = gippasim.SIM100K_SEED
     root = tmp_path_factory.mktemp("m7_11b_power")
-    return giapsim.simulate(sc.novel_orf_power(seed, "100k"), seed, root / "sim")
+    return gippasim.simulate(sc.novel_orf_power(seed, "100k"), seed, root / "sim")
 
 
 @pytest.mark.needs_nextflow
@@ -101,9 +101,9 @@ def test_m7_11b_power_run_local_and_nextflow_byte_identical_with_side_table(
     root = tmp_path_factory.mktemp("m7_11b_ex5")
     monkeypatch.setenv("NXF_ANSI_LOG", "false")
     with nf.db_env(root):
-        code, log = nf.run_giap(power_sim, root / "LOCAL" / "OUT")
+        code, log = nf.run_gippa(power_sim, root / "LOCAL" / "OUT")
         assert code == 0, log
-        code, log = nf.run_giap(power_sim, root / "NF" / "OUT", "--profile", "farmshare_local",
+        code, log = nf.run_gippa(power_sim, root / "NF" / "OUT", "--profile", "farmshare_local",
                                 executor="nextflow")  # fmt: skip
         assert code == 0, log
     lo, fl = root / "LOCAL" / "OUT", root / "NF" / "OUT"

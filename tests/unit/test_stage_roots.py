@@ -1,4 +1,4 @@
-"""``giap.runner.local.stage_roots`` (M4-15 lead decisions 19-21; GIAP_SPEC.md §6.4).
+"""``gippa.runner.local.stage_roots`` (M4-15 lead decisions 19-21; GIPPA_SPEC.md §6.4).
 
 A root file is copied to ``workdir/<key>``. Only for the key ``preflight``, whose
 ``workdir/preflight`` is preflight's own work directory, does the file go inside that directory
@@ -21,7 +21,7 @@ def _src(tmp_path: Path, name: str, text: str) -> Path:
 
 
 def test_file_root_copied_to_key(tmp_path: Path) -> None:
-    from giap.runner.local import stage_roots
+    from gippa.runner.local import stage_roots
 
     work = tmp_path / "work"
     stage_roots(work, {"abundance": _src(tmp_path, "abundance.norm.parquet", "x")})
@@ -29,7 +29,7 @@ def test_file_root_copied_to_key(tmp_path: Path) -> None:
 
 
 def test_preflight_into_existing_directory(tmp_path: Path) -> None:
-    from giap.runner.local import stage_roots
+    from gippa.runner.local import stage_roots
 
     work = tmp_path / "work"
     (work / "preflight").mkdir(parents=True)
@@ -41,7 +41,7 @@ def test_preflight_into_existing_directory(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("key", ["abundance", "genome", "cog2020_def"])
 def test_other_key_onto_directory_fails_loudly(tmp_path: Path, key: str) -> None:
-    from giap.runner.local import stage_roots
+    from gippa.runner.local import stage_roots
 
     work = tmp_path / "work"
     (work / key).mkdir(parents=True)

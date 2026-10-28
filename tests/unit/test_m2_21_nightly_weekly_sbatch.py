@@ -1,5 +1,5 @@
-"""Static checks of ``scripts/slurm/nightly.sbatch`` and ``weekly.sbatch`` (M2-21; GIAP_SPEC.md §12,
-§3.6, R14; docs/specs/M2-21-integration-nightly-runtimes.md and its lead decisions 3-5).
+"""Static checks of ``scripts/slurm/nightly.sbatch`` and ``weekly.sbatch`` (M2-21; GIPPA_SPEC.md
+§12, §3.6, R14; docs/specs/M2-21-integration-nightly-runtimes.md and its lead decisions 3-5).
 
 Nothing is submitted: the scripts are parsed (``bash -n``) and read as text.
 
@@ -10,9 +10,9 @@ Conventions settled by the test author:
 * Decision 3: ``0`` = ``tests/integration`` + ``tests/contract`` with ``--require-capabilities``
   and the ``farmshare_nightly`` list of ``ci/gates.yaml`` (named literally or read from that file);
   ``1`` = benchmarks pinned to wheat; ``2`` = the ``calibration_nightly`` tests; ``3`` = a real
-  ``giap run`` on sim100k with Bakta light and with the recorded full-DB JSON.
+  ``gippa run`` on sim100k with Bakta light and with the recorded full-DB JSON.
 * ``MODE`` defaults to ``test``; ``record`` runs the ``record_tools.sbatch`` logic.
-* Never pushes or commits (decision 5: ``main`` only; §12 worktrees under ``$GIAP_ROOT/ci/``).
+* Never pushes or commits (decision 5: ``main`` only; §12 worktrees under ``$GIPPA_ROOT/ci/``).
 """
 
 from __future__ import annotations
@@ -85,8 +85,8 @@ def test_script_parses(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
-def test_job_name_is_giap_prefixed(name: str) -> None:
-    assert _sbatch(SCRIPTS[name], "job-name") == f"giap-{name}"
+def test_job_name_is_gippa_prefixed(name: str) -> None:
+    assert _sbatch(SCRIPTS[name], "job-name") == f"gippa-{name}"
 
 
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
@@ -119,7 +119,7 @@ def test_requires_its_gate_capabilities(name: str) -> None:
 def test_tests_main_only_in_a_ci_worktree(name: str) -> None:
     code = _code(SCRIPTS[name])
     assert "origin/main" in code
-    assert re.search(r"\$\{?GIAP_ROOT\}?/ci/", code), "worktrees live under $GIAP_ROOT/ci/ (§12)"
+    assert re.search(r"\$\{?GIPPA_ROOT\}?/ci/", code), "worktrees live under $GIPPA_ROOT/ci/ (§12)"
 
 
 def test_nightly_array_matches_decision_3() -> None:
@@ -136,7 +136,7 @@ def test_nightly_array_matches_decision_3() -> None:
     assert "tests/integration" in a0 and "tests/contract" in a0 and "--require-capabilities" in a0
     assert "benchmark" in a1 and "wheat" in a1
     assert "calibration_nightly" in a2
-    assert re.search(r"\bgiap\s+run\b", a3) and "sim100k" in a3
+    assert re.search(r"\bgippa\s+run\b", a3) and "sim100k" in a3
     assert "light" in a3, "arm 3 runs Bakta with the light DB"
     assert re.search(r"--annotation|bakta_json|bakta_full", a3), (
         "and with the recorded full-DB JSON"
@@ -177,4 +177,4 @@ def test_weekly_covers_k12_nissle_and_antismash() -> None:
     code = _code(WEEKLY).lower()
     assert "k12" in code and "nissle" in code
     assert "antismash" in code
-    assert re.search(r"\bgiap\s+run\b", code)
+    assert re.search(r"\bgippa\s+run\b", code)

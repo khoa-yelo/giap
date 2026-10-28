@@ -1,8 +1,8 @@
-"""Attack nulls for the M7-11 novel-ORF class FDR (GIAP_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009,
+"""Attack nulls for the M7-11 novel-ORF class FDR (GIPPA_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009,
 ADR-0010; docs/specs/M7-11-novel-class-fdr.md; statistician, PR #237 review).
 
 Statistics-only generators on the frame layouts of ``tests/helpers/novel_fdr_fixture.py``; the
-giapsim attacks of the spec (reversed stretches concentrated in intergenic space, GC-poor false
+gippasim attacks of the spec (reversed stretches concentrated in intergenic space, GC-poor false
 peptides) stay with M7-13. Criterion ``fdr`` (mean FDP <= q + k SE, ADR-0015 two-block
 confirmation), suite ``novel_orfs``, q in ``levels``, streams ``novel_orfs.attack.<name>``.
 
@@ -54,7 +54,7 @@ from helpers.novel_fdr_fixture import (
     q_of,
 )
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
@@ -68,7 +68,7 @@ Replicate = tuple[dict[str, float], list[str], set[str]]
 
 
 def _fdr():  # type: ignore[no-untyped-def]
-    import giap.novel.fdr as m
+    import gippa.novel.fdr as m
 
     return m
 
@@ -117,7 +117,7 @@ def _picked_world(
                 if rng.random() < loss:  # tagged, parseable, but not an id_map entry
                     n_lost += 1
                     lo = 9_000_001 + 600 * n_lost
-                    did = f"GIAPORF_{cls}_{contig}_{lo}_{lo + 299}_p"
+                    did = f"GIPPAORF_{cls}_{contig}_{lo}_{lo + 299}_p"
                 w.decoy(did, 0, q=_q_in(s), score=s)
     return w, false_ids, cls_of
 

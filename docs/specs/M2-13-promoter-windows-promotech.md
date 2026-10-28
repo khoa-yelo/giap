@@ -24,7 +24,7 @@ capabilities: none (recording the Promotech fixture needs `needs_conda`, `needs_
 
 ## Public interface
 
-`src/giap/annotate/promoters.py`, `src/giap/annotate/promotech_cmd.py`; steps `promoter_windows`,
+`src/gippa/annotate/promoters.py`, `src/gippa/annotate/promotech_cmd.py`; steps `promoter_windows`,
 `promoter_layer`.
 ```python
 @dataclass(frozen=True, slots=True)
@@ -104,11 +104,11 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    inclusive bounds mirrored on the minus strand, unwrapped origin-crossing record split by the writer).
 2. Errors are `ValueError` (never `AssertionError`): short windows, a Promotech header other than
    `CHROM SEQ PRED`.
-3. (Corrected — GIAP_SPEC.md §7.1, `promoters.bed`): windows with score ≥ 0.5 that overlap are merged into
+3. (Corrected — GIPPA_SPEC.md §7.1, `promoters.bed`): windows with score ≥ 0.5 that overlap are merged into
    one record with the maximum score, as in example 9; windows that only touch (end == start) are not merged.
-4. Q2 (revised): `annotation.promoters.mode: genome` is a valid config — `giap preflight` accepts it and
+4. Q2 (revised): `annotation.promoters.mode: genome` is a valid config — `gippa preflight` accepts it and
    checks its resource needs (M1-11/M1-12 tests: exit 0, exit 3 with --strict). It is rejected at run time:
-   `giap run` exits 1 before launching anything ("annotation.promoters.mode: genome is not implemented"),
+   `gippa run` exits 1 before launching anything ("annotation.promoters.mode: genome is not implemented"),
    and the `promoter_windows` step raises the same error if reached. Not at config load.
 
 ## Lead decisions after code review (PR #76, changes requested)
@@ -121,7 +121,7 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    circular normalisation in `promoter_between`; the `max(a, 0)` clamp; the `lo1` wrap (a window ending at
    end3p == n); the pseudogene filter in the step; the header check with a TAB-separated foreign header.
 7. `gene_promoter_features(…, replicons)` requires `replicons` (no silent linear default).
-8. Review finding 5 (`giap _step` never loads step modules) is fixed by the run-wiring PR #78.
+8. Review finding 5 (`gippa _step` never loads step modules) is fixed by the run-wiring PR #78.
 
 ### Tests pinning decisions 5–7 (test-author)
 - 5: `tests/unit/test_promoter_review.py::test_promoter_windows_step_end_to_end_through_the_registry`

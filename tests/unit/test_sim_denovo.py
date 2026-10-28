@@ -1,4 +1,4 @@
-"""giapsim de novo errors and reference peptides (issue M3-20; GIAP_SPEC.md §11.3, §5.3, §8.4).
+"""gippasim de novo errors and reference peptides (issue M3-20; GIPPA_SPEC.md §11.3, §5.3, §8.4).
 
 Examples 1-8 of docs/specs/M3-20-sim-denovo-errors.md, truth-label checks against the independent
 oracle tests/helpers/denovo_oracle.py, the M3-11 consumer contract, determinism and backward
@@ -7,8 +7,8 @@ the statistical claims in tests/calibration/test_sim_denovo_calibration.py.
 
 Conventions these tests pin where the spec is silent:
 
-* API in ``giapsim.denovo``: ``DenovoConfig``, ``ERROR_TYPES``, ``DEFAULT_ERROR_WEIGHTS``,
-  ``BLOCKS``/``NEAR_BLOCKS`` (giapsim's own copy of §7.2.4, pairs of strings), the pure error
+* API in ``gippasim.denovo``: ``DenovoConfig``, ``ERROR_TYPES``, ``DEFAULT_ERROR_WEIGHTS``,
+  ``BLOCKS``/``NEAR_BLOCKS`` (gippasim's own copy of §7.2.4, pairs of strings), the pure error
   operators ``swap_adjacent(pep, i)``, ``reverse_stretch(pep, start, length)``,
   ``exchange_block(pep, start, old, new)``, ``misread_modification(pep, i)``,
   ``redraw_il(pep, rng)`` and the random operator ``apply_error(pep, error_type, rng)`` (returns
@@ -22,7 +22,7 @@ Conventions these tests pin where the spec is silent:
   ``truth/denovo_precision.tsv`` states the model's precision for each bin (within 0.02 of the
   configured value). Default weights are the spec's proposal (Questions for the lead, 1).
 * Score deciles are pooled over every row of ``peptides_denovo.tsv`` (all runs): edges at the
-  k/10 quantiles, right-closed, as ``giap.mapping.denovo_precision.score_bins``.
+  k/10 quantiles, right-closed, as ``gippa.mapping.denovo_precision.score_bins``.
 * One de novo row per non-decoy row of ``peptides.tsv`` (same ``run``, ``spectrum_id``,
   ``charge``); decoy rows get none. ``true_peptide`` is the database peptide of that spectrum
   whenever the database identification is correct (truth ``is_wrong`` false).
@@ -58,9 +58,9 @@ from helpers.denovo_oracle import (
     norm_pairs,
 )
 
-import giapsim
-from giap.config.model import InputConfig
-from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+import gippasim
+from gippa.config.model import InputConfig
+from gippa.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
 
 DENOVO_FILES = (
     "peptides_denovo.tsv",
@@ -110,13 +110,13 @@ def truthy(v: str) -> bool:
 
 
 def dn(**kw: Any) -> Any:
-    from giapsim.denovo import DenovoConfig
+    from gippasim.denovo import DenovoConfig
 
     return DenovoConfig(**kw)
 
 
 def prot(**kw: Any) -> Any:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     return ProteomicsConfig(**kw)
 
@@ -176,8 +176,8 @@ class DnRun:
 
 
 def simulate(out: Path, seed: int, **kw: Any) -> DnRun:
-    cfg = giapsim.SimConfig(**kw)
-    res = giapsim.simulate(cfg, seed, out)
+    cfg = gippasim.SimConfig(**kw)
+    res = gippasim.simulate(cfg, seed, out)
     return DnRun(out, res, {"cfg": cfg, "seed": seed})
 
 
@@ -216,7 +216,7 @@ def big(mk: Any) -> DnRun:
 
 
 def test_example1_block_n_to_gg() -> None:
-    from giapsim.denovo import exchange_block
+    from gippasim.denovo import exchange_block
 
     out = exchange_block("PEPTNDEKAR", 4, "N", "GG")
     assert out == "PEPTGGDEKAR"
@@ -225,7 +225,7 @@ def test_example1_block_n_to_gg() -> None:
 
 
 def test_block_reverse_direction_and_two_residue_blocks() -> None:
-    from giapsim.denovo import exchange_block
+    from gippasim.denovo import exchange_block
 
     assert exchange_block("PEPTGGDEKAR", 4, "GG", "N") == "PEPTNDEKAR"
     assert exchange_block("PEGTDEKAR", 2, "GT", "SA") == "PESADEKAR"
@@ -234,14 +234,14 @@ def test_block_reverse_direction_and_two_residue_blocks() -> None:
 
 
 def test_example2_adjacent_swap() -> None:
-    from giapsim.denovo import swap_adjacent
+    from gippasim.denovo import swap_adjacent
 
     assert swap_adjacent("AKLMNPQRSTVW", 4) == "AKLMPNQRSTVW"
     assert explains("AKLMNPQRSTVW", "AKLMPNQRSTVW", "swap")
 
 
 def test_example3_il_redraw_counted_correct() -> None:
-    from giapsim.denovo import redraw_il
+    from gippasim.denovo import redraw_il
 
     seen = set()
     for s in range(64):
@@ -263,7 +263,7 @@ def test_example3_truth_marks_il_variants_correct(default: DnRun) -> None:
 
 
 def test_example4_reversed_stretch() -> None:
-    from giapsim.denovo import reverse_stretch
+    from gippasim.denovo import reverse_stretch
 
     assert reverse_stretch("MKAESTVLLR", 2, 4) == "MKTSEAVLLR"
     assert explains("MKAESTVLLR", "MKTSEAVLLR", "reversed_stretch")
@@ -273,7 +273,7 @@ def test_example4_reversed_stretch() -> None:
 
 
 def test_example5_modification_misread() -> None:
-    from giapsim.denovo import misread_modification
+    from gippasim.denovo import misread_modification
 
     assert misread_modification("PEPTADEKAR", 4) == "PEPTSDEKAR"  # A + Oxidation = S
     assert misread_modification("PEPTNDEKAR", 4) == "PEPTDDEKAR"  # N + Deamidated = D
@@ -289,7 +289,7 @@ def test_modification_reads_are_mass_equivalent() -> None:
     delta = {("A", "S"): OXIDATION, ("N", "D"): DEAMIDATED, ("G", "A"): METHYL}
     for (a, b), d in delta.items():
         assert abs(RESIDUE_MASS[a] + d - RESIDUE_MASS[b]) < 0.001
-    from giapsim.denovo import misread_modification
+    from gippasim.denovo import misread_modification
 
     for a, b in MOD_READS:
         assert misread_modification(f"PEPT{a}DEKAR", 4) == f"PEPT{b}DEKAR"
@@ -299,8 +299,8 @@ def test_modification_reads_are_mass_equivalent() -> None:
 
 
 def test_block_lists_equal_spec_and_diffops() -> None:
-    from giap.mapping import diffops
-    from giapsim.denovo import BLOCKS, NEAR_BLOCKS
+    from gippa.mapping import diffops
+    from gippasim.denovo import BLOCKS, NEAR_BLOCKS
 
     spec_b = norm_pairs(tuple(p) for p in SPEC_BLOCKS)
     spec_n = norm_pairs(tuple(p) for p in SPEC_NEAR_BLOCKS)
@@ -310,12 +310,12 @@ def test_block_lists_equal_spec_and_diffops() -> None:
     assert norm_pairs(diffops.NEAR_BLOCKS) == spec_n
 
 
-def test_block_lists_are_giapsims_own_copy() -> None:
-    import giapsim.denovo as d
-    from giap.mapping import diffops
+def test_block_lists_are_gippasims_own_copy() -> None:
+    import gippasim.denovo as d
+    from gippa.mapping import diffops
 
     src = Path(d.__file__).read_text()
-    assert "giap.mapping" not in src  # independent of the code under test
+    assert "gippa.mapping" not in src  # independent of the code under test
     assert d.BLOCKS is not diffops.BLOCKS
 
 
@@ -323,8 +323,8 @@ def test_block_lists_are_giapsims_own_copy() -> None:
 
 
 def test_error_types_and_default_weights() -> None:
-    from giapsim.denovo import DEFAULT_ERROR_WEIGHTS
-    from giapsim.denovo import ERROR_TYPES as SIM_TYPES
+    from gippasim.denovo import DEFAULT_ERROR_WEIGHTS
+    from gippasim.denovo import ERROR_TYPES as SIM_TYPES
 
     assert set(SIM_TYPES) == set(ERROR_TYPES)
     assert dict(DEFAULT_ERROR_WEIGHTS) == pytest.approx(PROPOSED_WEIGHTS)
@@ -352,7 +352,7 @@ def test_config_rejects_invalid(kw: dict[str, Any]) -> None:
 
 def test_denovo_needs_proteomics(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
-        giapsim.simulate(giapsim.SimConfig(denovo=dn(), **BASE), SEED, tmp_path)
+        gippasim.simulate(gippasim.SimConfig(denovo=dn(), **BASE), SEED, tmp_path)
 
 
 # ---------------------------------------------------------------- outputs and truth labels
@@ -463,7 +463,7 @@ def test_precision_table_shape(default: DnRun) -> None:
 
 
 def test_bins_agree_with_m311_score_bins(default: DnRun) -> None:
-    from giap.mapping.denovo_precision import score_bins
+    from gippa.mapping.denovo_precision import score_bins
 
     s, _ = default.scores_and_correct()
     np.testing.assert_array_equal(score_bins(s), decile_bins(s))
@@ -544,7 +544,7 @@ def test_off_by_default_unchanged(tmp_path: Path) -> None:
     assert files == M319_FILES
     for f, h in M319_SHA256.items():
         assert sha(run.out / f) == h, f
-    assert giapsim.SimConfig().denovo is None
+    assert gippasim.SimConfig().denovo is None
 
 
 def test_switching_on_leaves_m319_outputs_unchanged(default: DnRun) -> None:

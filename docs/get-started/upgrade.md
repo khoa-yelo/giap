@@ -1,15 +1,15 @@
 # Upgrade
 
-Each GIAP release pins its own tool images (by digest, in the bundled
+Each GIPPA release pins its own tool images (by digest, in the bundled
 `workflow/conf/containers.config` and `workflow/conf/images.json`) and its own databases (version,
-URL and checksum, in the bundled `src/giap/data/db_sources.yaml`). An upgrade is therefore a new
+URL and checksum, in the bundled `src/gippa/data/db_sources.yaml`). An upgrade is therefore a new
 package plus whatever images and databases its pins name.
 
 ## 1. Install the new version
 
 ```bash
-pip install -U giap==1.y.z
-giap --version
+pip install -U gippa==1.y.z
+gippa --version
 ```
 
 Releases follow semantic versioning ([ADR-0060](../adr/ADR-0060-release-versioning-and-image-keys.md)).
@@ -21,13 +21,13 @@ from PyPI gets finals only.
 Run step 3 of [Install](install.md#the-five-steps) again with the same options:
 
 ```bash
-giap setup --db-dir /path/to/db --images --profile apptainer   # or --profile docker
+gippa setup --db-dir /path/to/db --images --profile apptainer   # or --profile docker
 ```
 
 - An image whose pin is unchanged is kept: under Apptainer its `.img` file is already in the
   cache, and its `image:<tool>` record in `db_manifest.json` stays as it was.
 - An image whose digest changed has a new file name, so it is pulled; the record is updated.
-- `--check` verifies databases only. `giap setup --images --check` pulls nothing and does not
+- `--check` verifies databases only. `gippa setup --images --check` pulls nothing and does not
   compare images; to see which images a release changed, compare the bundled `images.json` and
   `containers.config` of the two versions, or read the release notes.
 - **UniOP.** A release whose UniOP build inputs changed reports the old local build as stale in
@@ -38,18 +38,18 @@ giap setup --db-dir /path/to/db --images --profile apptainer   # or --profile do
 ## 3. Check the database pins
 
 ```bash
-giap setup --db-dir /path/to/db --check
+gippa setup --db-dir /path/to/db --check
 ```
 
 Each item prints `<name>: ok v<version>` or its problem. An installed Bakta database of another
 major version than the pin, or a geNOMAD database of another version, is `mismatch` with
-`installed <v_old>, this release pins <v_new>`, and the exit code is 2. Then run `giap setup`
+`installed <v_old>, this release pins <v_new>`, and the exit code is 2. Then run `gippa setup`
 without `--check` (same flags) to install the pinned version. An unchanged pin means the DB
 directory is reused as it is.
 
 ## 4. Compare runs across versions
 
-`giap compare` reads each run's `run_manifest.json` and prints one warning per difference to
+`gippa compare` reads each run's `run_manifest.json` and prints one warning per difference to
 stderr. The same lines go to `CMP/logs/events.jsonl` (step `compare`, level `WARNING`) and to
 `CMP/report/compare.html`:
 
@@ -86,11 +86,11 @@ which tools or databases moved; a major one can break scripts that read the tabl
 ## Roll back
 
 ```bash
-pip install giap==1.x.z
-giap setup --db-dir /path/to/db --images --profile apptainer
+pip install gippa==1.x.z
+gippa setup --db-dir /path/to/db --images --profile apptainer
 ```
 
 Every digest named by a released `containers.config` or `images.json` is kept in the registry
 (ADR-0060 §2), so an older wheel's pins still resolve. Its databases are its own pins: run
-`giap setup --check` after a rollback too, or keep one DB directory per version when a database
+`gippa setup --check` after a rollback too, or keep one DB directory per version when a database
 pin changed.

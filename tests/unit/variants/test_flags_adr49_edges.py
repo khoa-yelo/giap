@@ -1,4 +1,4 @@
-"""ADR-0049 A6a edge cases of ``giap.variants.flags.left_block_site`` and ``left_block_read``
+"""ADR-0049 A6a edge cases of ``gippa.variants.flags.left_block_site`` and ``left_block_read``
 (review of PR #269, items 2a-2d and the two guard nits; docs/adr/ADR-0049-m7-variant-precision.md).
 
 ``left_block_site`` reads the reference over the site codon and the ``q + 1`` codons before it
@@ -8,7 +8,7 @@ of a circular replicon (both strands, every rotation, genome lengths 0, 1 and 2 
 ends of a linear contig, on the minus strand with ``q >= 1``, with a second substitution in the
 peptide, and with alignments that do not belong to the site (other contig, strand or op kind).
 
-Alignments come from ``giap.variants.align.align_hit`` (0-based half-open hits; a hit across the
+Alignments come from ``gippa.variants.align.align_hit`` (0-based half-open hits; a hit across the
 origin has ``end > length``), except the op-kind case, which builds its ops by hand.
 """
 
@@ -18,12 +18,12 @@ from typing import Any
 
 import pytest
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.variants.align import HitAlignment, ResidueOp, align_hit
-from giap.variants.flags import left_block_read, left_block_site, mass_equivalent
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.variants.align import HitAlignment, ResidueOp, align_hit
+from gippa.variants.flags import left_block_read, left_block_site, mass_equivalent
 
-TOL = GiapConfig().variants.mass_equivalent_tol_da
+TOL = GippaConfig().variants.mass_equivalent_tol_da
 CODON = {
     "A": "GCT", "C": "TGT", "D": "GAT", "E": "GAA", "F": "TTT", "G": "GGT", "H": "CAT",
     "I": "ATT", "K": "AAA", "L": "CTG", "M": "ATG", "N": "AAT", "P": "CCT", "Q": "CAA",

@@ -1,6 +1,6 @@
 """Independent oracle for the M4-13 detectability model (docs/specs/M4-13-detectability.md).
 
-Written from the spec text, not from ``giap.genetable.detectability``:
+Written from the spec text, not from ``gippa.genetable.detectability``:
 
 - ``tu_folds``: sorted unique TU IDs, permuted by ``rng.permutation``, fold = position mod k;
 - covariate transforms: log1p(n_observable_peptides), log(length_aa), the rest raw; NaN → median

@@ -1,15 +1,15 @@
 # Converting search-engine output
 
-`giap convert` turns a search engine's output into the generic peptide table that `giap run
+`gippa convert` turns a search engine's output into the generic peptide table that `gippa run
 --peptides` reads (see [Inputs](inputs.md#peptide-table-peptidestsv)). Every option is listed in
-the [CLI reference](../reference/cli.md#giap-convert).
+the [CLI reference](../reference/cli.md#gippa-convert).
 
 ```bash
-giap convert --from diann report.parquet --out peptides.tsv --abundance-out abundance.tsv
-giap run --genome genome.fna --peptides peptides.tsv --outdir out
+gippa convert --from diann report.parquet --out peptides.tsv --abundance-out abundance.tsv
+gippa run --genome genome.fna --peptides peptides.tsv --outdir out
 ```
 
-DIA-NN peptides carry `intensity`, so `giap run` computes gene abundance from the peptides. The
+DIA-NN peptides carry `intensity`, so `gippa run` computes gene abundance from the peptides. The
 abundance table written by `--abundance-out` is then not used, even when you pass it with
 `--abundance`. It is used only for peptides without intensities (see
 [Inputs › Abundance table](inputs.md#abundance-table-abundance)). Passing it with
@@ -36,7 +36,7 @@ abundance table written by `--abundance-out` is then not used, even when you pas
 | `casanovo` | not implemented: exit code 5 | — | — |
 | `instanovo` | not implemented: exit code 5 | — | — |
 
-`--from casanovo` and `--from instanovo` are accepted choices, but GIAP 1.0 has no converter for
+`--from casanovo` and `--from instanovo` are accepted choices, but GIPPA 1.0 has no converter for
 them. Both print "not implemented" and exit with code 5. Until a converter exists, write a generic
 peptide table yourself (see below).
 
@@ -62,8 +62,8 @@ no value are dropped. The command then prints a reminder to use `--abundance-typ
 the table. That reminder applies only when the table is used (see above). With any
 other engine, `--abundance-out` is an error (`no_abundance`, exit code 1).
 
-DIA-NN is proprietary software under its own licence. GIAP never redistributes it, and you run it
-yourself (see [Licences](licences.md)). Keep the decoy rows, so that GIAP can use the
+DIA-NN is proprietary software under its own licence. GIPPA never redistributes it, and you run it
+yourself (see [Licences](licences.md)). Keep the decoy rows, so that GIPPA can use the
 `decoy_picked` detection tier.
 
 ### Cascadia
@@ -79,10 +79,10 @@ The generic converter checks a table you wrote. It strips modifications, such as
 `[+15.995]`, `[UNIMOD:35]`, `+15.995` or `n[42]`, and lower-case residues. It then validates every
 column. `--source` and `--search-db` fill the `source` and `search_db` columns where they are
 empty. Booleans are canonicalised, and columns that are not in the generic table are dropped with
-the warning `unknown_column`. (`giap run` keeps unknown columns instead.)
+the warning `unknown_column`. (`gippa run` keeps unknown columns instead.)
 
 ## Messages and exit codes
 
-Problems are printed as `giap convert: <severity>: <code>: <message>`, with example row numbers.
+Problems are printed as `gippa convert: <severity>: <code>: <message>`, with example row numbers.
 Any `error` exits with code 1, and no table is written. Warnings and info messages do not stop the
-conversion. For the full list of exit codes, see [Running GIAP](run.md#exit-codes).
+conversion. For the full list of exit codes, see [Running GIPPA](run.md#exit-codes).

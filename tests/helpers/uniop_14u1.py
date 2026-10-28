@@ -7,7 +7,7 @@ docs/specs/M11-14-container-install.md item 1b, examples 16, 16a, 16e, 17, 19a, 
   that way) or raise ``OSError`` (offline). No socket is ever opened.
 - ``fixture_archive()``: a few-byte ``UniOP-<commit>/`` tarball made here, never UniOP code (R5).
 - ``pin_uniop_source(monkeypatch, sha_hex)``: the ``uniop_source`` row with its checksum replaced,
-  patched into every loaded ``giap`` module that holds the original ``SOURCES`` mapping (the pin
+  patched into every loaded ``gippa`` module that holds the original ``SOURCES`` mapping (the pin
   of the real archive is computed on FarmShare by the implementer, so the fixture cannot match
   it).
 - ``FAKE_DOCKER``: a logging ``docker`` for ``PATH``. ``build`` copies its context to
@@ -78,7 +78,7 @@ def sha256_hex(data: bytes) -> str:
 
 
 def uniop_source() -> Any:
-    from giap.setupdb import items
+    from gippa.setupdb import items
 
     try:
         return items.SOURCES["uniop_source"]
@@ -91,7 +91,7 @@ def pin_uniop_source(monkeypatch: pytest.MonkeyPatch, sha_hex: str) -> Any:
 
     Without the row (before 14u1) nothing is patched and ``None`` is returned, so the test fails
     on the missing feature itself rather than in a fixture."""
-    from giap.setupdb import items
+    from gippa.setupdb import items
 
     original = items.SOURCES
     row = original.get("uniop_source")
@@ -101,7 +101,7 @@ def pin_uniop_source(monkeypatch: pytest.MonkeyPatch, sha_hex: str) -> Any:
         {**original, "uniop_source": dataclasses.replace(row, checksum=f"sha256:{sha_hex}")}
     )
     for name, mod in list(sys.modules.items()):
-        if (name == "giap" or name.startswith("giap.")) and getattr(mod, "SOURCES", None) is (
+        if (name == "gippa" or name.startswith("gippa.")) and getattr(mod, "SOURCES", None) is (
             original
         ):
             monkeypatch.setattr(mod, "SOURCES", patched)
@@ -257,18 +257,18 @@ def docker_calls(tmp_path: Path, sub: str = "") -> list[list[str]]:
 
 
 def isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never the real ``$GIAP_DB_DIR``/``$GIAP_ROOT``/caches/envs; a fixed umask of 022."""
-    for var in ("GIAP_DB_DIR", "GIAP_ROOT", "GIAP_REPO", "NXF_APPTAINER_CACHEDIR",
-                "GIAP_CONTAINER_RUNTIME", "UNIOP_HOME"):  # fmt: skip
+    """Never the real ``$GIPPA_DB_DIR``/``$GIPPA_ROOT``/caches/envs; a fixed umask of 022."""
+    for var in ("GIPPA_DB_DIR", "GIPPA_ROOT", "GIPPA_REPO", "NXF_APPTAINER_CACHEDIR",
+                "GIPPA_CONTAINER_RUNTIME", "UNIOP_HOME"):  # fmt: skip
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("MAMBA_ROOT_PREFIX", str(tmp_path / "no_mamba"))
 
 
 def setup_cli(args: list[str]) -> tuple[int, str]:
-    """``giap setup <args>`` (no TTY); returns the exit code and stdout + stderr."""
+    """``gippa setup <args>`` (no TTY); returns the exit code and stdout + stderr."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["setup", *args])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -290,7 +290,7 @@ def manifest_items(db: Path) -> dict[str, dict[str, Any]]:
 
 
 def uniop_key() -> str:
-    from giap.io.image_key import key
+    from gippa.io.image_key import key
 
     return key("uniop")
 

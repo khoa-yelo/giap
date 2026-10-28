@@ -1,10 +1,10 @@
-"""`giap setup` core (issue M2-08; GIAP_SPEC.md §5.1, §7.9.1, §3.2, §3.9, R6).
+"""`gippa setup` core (issue M2-08; GIPPA_SPEC.md §5.1, §7.9.1, §3.2, §3.9, R6).
 
-Examples 1-8 and the edge cases of docs/specs/M2-08-giap-setup-core.md, run with a fake command
-runner and a fake fetcher: no test touches the network, a conda environment or $GIAP_ROOT.
+Examples 1-8 and the edge cases of docs/specs/M2-08-gippa-setup-core.md, run with a fake command
+runner and a fake fetcher: no test touches the network, a conda environment or $GIPPA_ROOT.
 
 Ambiguities resolved here (the implementation may choose anything else the spec leaves open):
-- The public names are importable from ``giap.setupdb`` (re-exported from items/manifest/run).
+- The public names are importable from ``gippa.setupdb`` (re-exported from items/manifest/run).
 - ``SetupOptions`` takes keyword fields named after the CLI options: ``db_dir``, ``bakta``,
   ``genomad``, ``antismash``, ``promotech_models``, ``check`` (``go``/``kegg``/``cog``/
   ``contaminants`` default to off).
@@ -36,7 +36,7 @@ from typing import Any, NamedTuple
 import pytest
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 GIB = 1024**3
 BAKTA_LIGHT_MD5 = "md5:4a6e059ded39e9c5537ef4137d2f5648"  # §3.9
@@ -138,7 +138,7 @@ class DownFetcher:
     def fetch(self, url: str, dest: Path) -> None:
         from urllib.parse import urlparse
 
-        from giap.setupdb import SourceError
+        from gippa.setupdb import SourceError
 
         raise SourceError(urlparse(url).hostname or url, "connection refused")
 
@@ -168,17 +168,17 @@ def md5(payload: bytes) -> str:
 
 def pin(monkeypatch: pytest.MonkeyPatch, name: str, payload: bytes) -> Any:
     """Re-pin ``SOURCES[name]`` to the checksum of a fake archive (same algorithm as the pin)."""
-    import giap.setupdb
-    import giap.setupdb.items
-    import giap.setupdb.run
-    from giap.setupdb import SOURCES
+    import gippa.setupdb
+    import gippa.setupdb.items
+    import gippa.setupdb.run
+    from gippa.setupdb import SOURCES
 
     algo = SOURCES[name].checksum.split(":", 1)[0]
     item = dataclasses.replace(
         SOURCES[name], checksum=f"{algo}:{hashlib.new(algo, payload).hexdigest()}"
     )
     patched = {**SOURCES, name: item}
-    for mod in (giap.setupdb, giap.setupdb.items, giap.setupdb.run):
+    for mod in (gippa.setupdb, gippa.setupdb.items, gippa.setupdb.run):
         if hasattr(mod, "SOURCES"):
             monkeypatch.setattr(mod, "SOURCES", patched)
     return item
@@ -195,7 +195,7 @@ def genomad_fetcher(monkeypatch: pytest.MonkeyPatch) -> ZipFetcher:
 
 
 def opts(db: Path, **kw: Any) -> Any:
-    from giap.setupdb import SetupOptions
+    from gippa.setupdb import SetupOptions
 
     base: dict[str, Any] = {
         "db_dir": db,
@@ -210,7 +210,7 @@ def opts(db: Path, **kw: Any) -> Any:
 
 
 def setup(db: Path, runner: Any = None, fetcher: Any = None, **kw: Any) -> int:
-    from giap.setupdb import run_setup
+    from gippa.setupdb import run_setup
 
     return int(run_setup(opts(db, **kw), runner or NoRunner(), fetcher or NoFetcher()))
 
@@ -226,7 +226,7 @@ def items(db: Path) -> dict[str, dict[str, Any]]:
 
 
 def src_path(name: str) -> str:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     return SOURCES[name].path
 
@@ -260,8 +260,8 @@ def text(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture) -
 def test_sources_are_the_official_pinned_ones() -> None:
     from urllib.parse import urlparse
 
-    from giap.annotate.tools import TOOLS
-    from giap.setupdb import SOURCES, DbItem
+    from gippa.annotate.tools import TOOLS
+    from gippa.setupdb import SOURCES, DbItem
 
     assert {"bakta_light", "bakta_full", "genomad", "antismash", "promotech_models"} <= set(SOURCES)
     for name, item in SOURCES.items():
@@ -303,7 +303,7 @@ def test_sources_are_the_official_pinned_ones() -> None:
     ],
 )  # fmt: skip
 def test_plan_follows_the_options(tmp_path: Path, kw: dict[str, Any], names: set[str]) -> None:
-    from giap.setupdb import plan
+    from gippa.setupdb import plan
 
     assert {i.name for i in plan(opts(tmp_path, **kw))} == names
 
@@ -312,7 +312,7 @@ def test_plan_follows_the_options(tmp_path: Path, kw: dict[str, Any], names: set
 
 
 def test_verify_nothing_installed_is_absent_without_network(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     for name in ("bakta_light", "bakta_full", "genomad", "promotech_models"):
         rec = verify(SOURCES[name], tmp_path)
@@ -320,7 +320,7 @@ def test_verify_nothing_installed_is_absent_without_network(tmp_path: Path) -> N
 
 
 def test_verify_bakta_reads_version_json(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     make_bakta(tmp_path, "light")
     rec = verify(SOURCES["bakta_light"], tmp_path)
@@ -330,14 +330,14 @@ def test_verify_bakta_reads_version_json(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(("major", "type_"), [(5, "light"), (6, "full")])
 def test_verify_bakta_rejects_wrong_major_or_type(tmp_path: Path, major: int, type_: str) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     make_bakta(tmp_path, "light", major=major, type_=type_)
     assert verify(SOURCES["bakta_light"], tmp_path).status != "ok"
 
 
 def test_verify_bakta_rejects_unreadable_version_json(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     make_bakta(tmp_path, "light").joinpath("version.json").write_text("{not json")
     assert verify(SOURCES["bakta_light"], tmp_path).status != "ok"
@@ -345,14 +345,14 @@ def test_verify_bakta_rejects_unreadable_version_json(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(("version", "ok"), [("1.9", True), ("1.9.0", True), ("1.8", False)])
 def test_verify_genomad_reads_version_txt(tmp_path: Path, version: str, ok: bool) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     make_genomad(tmp_path, version)
     assert (verify(SOURCES["genomad"], tmp_path).status == "ok") is ok
 
 
 def test_verify_promotech_rejects_model_with_wrong_sha256(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, verify
+    from gippa.setupdb import SOURCES, verify
 
     d = tmp_path / src_path("promotech_models")
     d.mkdir(parents=True)
@@ -426,7 +426,7 @@ def test_example5_promotech_checksum_mismatch(
 
 
 def _source_url(name: str) -> str:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     return SOURCES[name].url
 
@@ -508,7 +508,7 @@ def test_failing_item_does_not_stop_later_items(
 
 
 def test_install_skips_verified_item(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, install
+    from gippa.setupdb import SOURCES, install
 
     make_genomad(tmp_path)
     rec = install(SOURCES["genomad"], tmp_path, NoRunner(), NoFetcher())
@@ -516,7 +516,7 @@ def test_install_skips_verified_item(tmp_path: Path) -> None:
 
 
 def test_install_returns_absent_with_host_on_failure(tmp_path: Path) -> None:
-    from giap.setupdb import SOURCES, install
+    from gippa.setupdb import SOURCES, install
 
     rec = install(SOURCES["genomad"], tmp_path, NoRunner(), DownFetcher())
     assert rec.status == "absent" and "zenodo.org" in rec.message
@@ -601,7 +601,7 @@ def test_check_never_writes_item_files(tmp_path: Path) -> None:
 def test_adr0014_pins_live_in_db_sources_yaml() -> None:
     import yaml
 
-    raw = (Path(__file__).resolve().parents[2] / "src/giap/data/db_sources.yaml").read_text()
+    raw = (Path(__file__).resolve().parents[2] / "src/gippa/data/db_sources.yaml").read_text()
     for pin in (BAKTA_FULL_MD5, GENOMAD_MD5, PROMOTECH_ZIP_SHA256):
         assert pin.split(":", 1)[1] in raw, pin
     assert isinstance(yaml.safe_load(raw), dict)

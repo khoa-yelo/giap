@@ -1,5 +1,5 @@
 """Attack null for M4-24: picked gene FDR with unscored and score-only decoys
-(docs/specs/M4-24-decoy-unscored.md acceptance criterion "Calibration attack"; GIAP_SPEC.md §7.3.2
+(docs/specs/M4-24-decoy-unscored.md acceptance criterion "Calibration attack"; GIPPA_SPEC.md §7.3.2
 picked steps 1-3, §8 preamble / R4, §8.4 suite "Gene FDR (picked, MAYU)", §8.5).
 
 Generator: the ``picked`` input of tests/helpers/detection_tiers_calsim.py (M4-07 layout, 2,000
@@ -11,7 +11,7 @@ genes fast / 4,500 full -> M4-08 -> M4-09 with pi_wrong in {0.01, 0.05}, matched
   replicate, and the picked ranking on the score alone must keep the level. Teeth (recorded in
   the M4-24 test-author hand-off): on main, before the fix, every NA-q decoy ranks below every
   target, D(t) = 0 and this variant is a confirmed ``fail`` at q = 0.01.
-- ``decoys_unscored``: decoy q, PEP and score NA (giapsim M3-19 shape). S is empty: the tier must
+- ``decoys_unscored``: decoy q, PEP and score NA (gippasim M3-19 shape). S is empty: the tier must
   be ``mayu`` (rule 3) in every replicate, and the MAYU estimate must keep the level.
 
 Claims (criterion ``fdr``, mean FDP <= q + k SE, ADR-0015 two-block confirmation, suite
@@ -72,13 +72,13 @@ def run(
     lay: Any, e: Any, peptides: pd.DataFrame, hits: pd.DataFrame, levels: Sequence[float]
 ) -> tuple[dict[float, float], set[str], list[tuple[str, ...]]]:
     """``cs.run_variant`` that also returns the warnings of each ``detect`` call."""
-    from giap.config import GiapConfig
-    from giap.genetable.covariates import covariate_table
-    from giap.genetable.detection import detect
-    from giap.genetable.evidence import accepted_peptides, gene_evidence
+    from gippa.config import GippaConfig
+    from gippa.genetable.covariates import covariate_table
+    from gippa.genetable.detection import detect
+    from gippa.genetable.evidence import accepted_peptides, gene_evidence
 
     present = e.gene_truth.set_index(e.gene_truth["locus_tag"].astype(str))["present"]
-    base = GiapConfig()
+    base = GippaConfig()
     acc = accepted_peptides(hits, peptides, base)
     ev = gene_evidence(lay.genes, hits, acc, lay.replicons,
                        min_peptides=base.detection.min_peptides_sequences_only)  # fmt: skip
@@ -87,7 +87,7 @@ def run(
     tiers: set[str] = set()
     warns: list[tuple[str, ...]] = []
     for q in levels:
-        c = GiapConfig(stats={"alpha": {"identification": q}})
+        c = GippaConfig(stats={"alpha": {"identification": q}})
         d = detect(lay.genes, ev, acc, peptides, hits, cs.protein_hits(e), cov, c)
         out[q] = cs.fdp(d.table, present)
         tiers.add(d.tier)

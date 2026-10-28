@@ -1,7 +1,7 @@
-"""giapsim read-through: the #350 review round (S1-S4, S6) for M7-16 rule 14.
+"""gippasim read-through: the #350 review round (S1-S4, S6) for M7-16 rule 14.
 
 The builds in ``test_sim_readthrough.py`` don't reach some boundaries and branches, so several
-mutants of ``giapsim.readthrough`` / ``giapsim.proteomics`` survive there. This module covers
+mutants of ``gippasim.readthrough`` / ``gippasim.proteomics`` survive there. This module covers
 them:
 
 * **S1.** ``eligible_readthrough`` on handmade sequences: the next stop at k = 4, 5, 60 and 61;
@@ -15,7 +15,7 @@ them:
   1-based closed; ``end`` may pass ``n`` across the origin).
 * **S4.** ``_holds`` and ``readthrough_rows`` directly, on both strands, including a peptide
   that holds a wrapped stop at ``codon_start + n``.
-* **S6.** The shortfall ``ValueError`` must be giapsim's (``match="eligible"``). numpy's own
+* **S6.** The shortfall ``ValueError`` must be gippasim's (``match="eligible"``). numpy's own
   ``rng.choice`` error must not satisfy the test.
 """
 
@@ -36,18 +36,18 @@ from helpers.readthrough_sim_oracle import (
     tsv,
 )
 
-import giapsim.proteomics as proteomics
-from giapsim.codons import revcomp
-from giapsim.features import Feat
-from giapsim.proteomics import Protein, ProteomicsConfig
-from giapsim.readthrough import (
+import gippasim.proteomics as proteomics
+from gippasim.codons import revcomp
+from gippasim.features import Feat
+from gippasim.proteomics import Protein, ProteomicsConfig
+from gippasim.readthrough import (
     ReadThrough,
     _holds,
     eligible_readthrough,
     pick_readthrough,
     readthrough_rows,
 )
-from giapsim.simulate import SimConfig, simulate
+from gippasim.simulate import SimConfig, simulate
 
 # ---------------------------------------------------------------- handmade sequences (S1)
 
@@ -154,7 +154,7 @@ def test_minus_strand_linear_scan_stopping_exactly_at_zero_is_eligible() -> None
 # ---------------------------------------------------------------- S6: our error, not numpy's
 
 
-def test_shortfall_is_giapsims_error() -> None:
+def test_shortfall_is_gippasims_error() -> None:
     seq = _plus(5)
     f = _feat("c", G0, G1, "+")
     with pytest.raises(ValueError, match="eligible"):
@@ -164,7 +164,7 @@ def test_shortfall_is_giapsims_error() -> None:
     assert len(pick_readthrough(1, 0, [f], {"c": seq}, {"c": False})) == 1
 
 
-def test_shortfall_in_a_build_is_giapsims_error(tmp_path: Path) -> None:
+def test_shortfall_in_a_build_is_gippasims_error(tmp_path: Path) -> None:
     cfg = SimConfig(genome_length=12_000, proteomics=ProteomicsConfig())
     n = len(eligible(simulate(cfg, 3, tmp_path / "n0").outdir))
     with pytest.raises(ValueError, match="eligible"):

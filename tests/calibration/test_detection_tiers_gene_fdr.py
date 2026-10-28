@@ -1,5 +1,5 @@
 """Gene-level FDR calibration of M4-12 detection tiers (docs/specs/M4-12-detection-tiers.md,
-acceptance criteria 3-5; GIAP_SPEC.md §7.3.2, §8.4 suite "Gene FDR (picked, MAYU) | false peptides
+acceptance criteria 3-5; GIPPA_SPEC.md §7.3.2, §8.4 suite "Gene FDR (picked, MAYU) | false peptides
 on random genes, size-proportional | FDR | 50 | 300").
 
 Suite ``gene_fdr`` (SUITE_REGISTRY file entry; the spec's ``test_gene_fdr.py`` carries the

@@ -1,10 +1,10 @@
 # Determinants: what explains abundance
 
-Module 8 track R (GIAP_SPEC.md §7.8). Issues M8-07 onward; this note grows with each.
+Module 8 track R (GIPPA_SPEC.md §7.8). Issues M8-07 onward; this note grows with each.
 
 ## Features
 
-Issue M8-07, module `giap.determinants.features` (pure). `feature_frame` builds
+Issue M8-07, module `gippa.determinants.features` (pure). `feature_frame` builds
 `tables/determinants_features.tsv`; `model_matrix` encodes it for M8-08.
 
 **Rows.** One per eligible gene (§7.3: not partial, finite `p_detect`), in §6.5 order (C1 contig
@@ -42,7 +42,7 @@ columns is absent. Run flags (`layer_missing:<layer>`) are the step's (M8-10).
 
 ## Null and attribution
 
-Issue M8-09, modules `giap.determinants.null` and `giap.determinants.attribution` (pure). Outputs:
+Issue M8-09, modules `gippa.determinants.null` and `gippa.determinants.attribution` (pure). Outputs:
 one `NullResult` per model and `tables/determinants_attribution.tsv` (§9.3).
 
 ### The null
@@ -136,9 +136,9 @@ statistician's attacks (R = 100, same jobs; bound at α 0.05: 0.094):
   review of #173).
 - Fewer than 100 model rows: no SHAP and no null; rows have NA predictions and `too_few_rows`.
 
-## Simulator worlds for the M8-15 gate (giapsim, M8-14)
+## Simulator worlds for the M8-15 gate (gippasim, M8-14)
 
-`giapsim.scenarios.determinants_null` / `determinants_planted` (issue M8-14, PR #251; §7.8.3,
+`gippasim.scenarios.determinants_null` / `determinants_planted` (issue M8-14, PR #251; §7.8.3,
 §11.3). Response: `abundance_log2_true = mu + TU effect (SD 1, iid across TUs, ρ 0) + gene noise
 (noise_sd) + Σ_j β_j z_j`, with z_j the ddof-0 z-score of the planted promoter (σ70 box score, one
 value per TU), RBS (Shine-Dalgarno score per gene) and CAI features. Detection is Bernoulli(p_true)

@@ -4,14 +4,14 @@ removal"; test idea "for any subset of registered plots, ``render_plots`` writes
 that subset"). Render and structure checks only, no ``--mpl`` baselines (M9-25).
 
 Interface assumed beyond the spec text (M9-02 test author):
-- ``giap.steps.plots.render_plots(view, cfg, plots_dir, only)`` returns ``PlotEvent`` objects in
+- ``gippa.steps.plots.render_plots(view, cfg, plots_dir, only)`` returns ``PlotEvent`` objects in
   plot-ID order, one per plot considered; a ``PlotEvent`` has ``event`` (``"plots.rendered"`` or
   ``"plots.skipped"``) and ``data`` (``{plot, files, instances}`` or ``{plot, reason}``);
   ``plot`` is the two-digit ID (``"V90"``), ``files`` the written paths relative to ``plots_dir``
   (no absolute path, §6.6), ``instances`` the number of instances; ``only`` holds normalised IDs
   (``None``: every registered plot).
 - The step logs each event through ``ctx.log`` with ``extra={"event": ..., "data": ...}``
-  (``giap.io.events``), like the other steps.
+  (``gippa.io.events``), like the other steps.
 - The ``plots`` output is a directory: ``Vnn_*.<fmt>`` and ``data/Vnn_*.tsv``.
 - The module-off skip follows the run's ``cfg.modules`` in the step (the step has no
   ``resolved_config`` input), so a run with ``--modules core`` records ``module_off:<m>``.
@@ -34,10 +34,10 @@ from helpers.report_fixtures import (
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.run_view import RunView
-from giap.runner.local import PUBLISHED, PUBLISHED_FILES
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.io.run_view import RunView
+from gippa.runner.local import PUBLISHED, PUBLISHED_FILES
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ def test_one_plot_renders_one_skips_files_and_events(
     register_fake("V91", name="other", needs=["pairs"])
     out = run_out(tmp_path, islands=1)
     plots = tmp_path / "work" / "plots"
-    caplog.set_level(logging.INFO, logger="giap.steps")
+    caplog.set_level(logging.INFO, logger="gippa.steps")
     reg.run_step("plots", cfg(), _step_inputs(out, islands=True), {"plots": plots})
 
     assert plots.is_dir()
@@ -150,7 +150,7 @@ def test_module_off_follows_the_run_modules(
     register_fake("V14", module="function", calls=calls)
     out = run_out(tmp_path)
     plots = tmp_path / "work" / "plots"
-    caplog.set_level(logging.INFO, logger="giap.steps")
+    caplog.set_level(logging.INFO, logger="gippa.steps")
     reg.run_step("plots", cfg("modules=[core]"), _step_inputs(out, islands=False), {"plots": plots})
     assert calls == []
     assert _events(caplog) == [("plots.skipped", {"plot": "V14", "reason": "module_off:function"})]
@@ -191,7 +191,7 @@ def test_a_rerun_where_the_plot_now_skips_leaves_no_stale_file(
 
 
 def test_render_plots_subset_and_event_order(fake_registry: ModuleType, tmp_path: Path) -> None:
-    from giap.steps.plots import render_plots
+    from gippa.steps.plots import render_plots
 
     for pid in ("V93", "V90", "V92", "V91"):
         register_fake(pid, name=f"p{pid}")
@@ -209,7 +209,7 @@ def test_render_plots_subset_and_event_order(fake_registry: ModuleType, tmp_path
 def test_render_plots_leaves_other_plot_files_alone(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.steps.plots import render_plots
+    from gippa.steps.plots import render_plots
 
     register_fake("V90", name="fake")
     register_fake("V91", name="other")
@@ -227,7 +227,7 @@ def test_render_plots_leaves_other_plot_files_alone(
 def test_render_plots_twice_gives_identical_data_tsvs(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.steps.plots import render_plots
+    from gippa.steps.plots import render_plots
 
     register_fake("V90", name="fake", suffixes=(None, "x"))
     view = RunView.from_outdir(run_out(tmp_path))
@@ -249,8 +249,8 @@ _POOL = ("V90", "V91", "V92", "V93", "V94")
 def test_property_render_plots_writes_only_the_subset(
     fake_registry: ModuleType, tmp_path: Path, subset: set[str]
 ) -> None:
-    from giap.steps.plots import render_plots
-    from giap.viz import base
+    from gippa.steps.plots import render_plots
+    from gippa.viz import base
 
     if not base.registered():
         for pid in _POOL:

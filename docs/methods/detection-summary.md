@@ -1,7 +1,7 @@
 # Basic detection summary (O − E) and QC rows
 
-Implements `giap.context.summary` (`basic_rows`, `qc_rows`, `detection_summary`) and
-`giap.io.summary_tsv.write_detection_summary` (GIAP_SPEC.md §7.3.5(a), §8.2, §9.3; issue M4-16).
+Implements `gippa.context.summary` (`basic_rows`, `qc_rows`, `detection_summary`) and
+`gippa.io.summary_tsv.write_detection_summary` (GIPPA_SPEC.md §7.3.5(a), §8.2, §9.3; issue M4-16).
 Statistician sign-off: see the end of this note (approved after the review fixes, 2026-10-15).
 
 ## O − E against Σ p_detect
@@ -34,7 +34,7 @@ large, up to cross-fitting noise), so its O − E is a sanity check, not a findi
 
 | Null | group | TUs | non-coverage (SE) |
 |---|---|---|---|
-| TU-comonotone, giapsim 400 genes, p = `p_detect_true` | replicon chr1 (gated) | 223 | 0.046 (0.005) |
+| TU-comonotone, gippasim 400 genes, p = `p_detect_true` | replicon chr1 (gated) | 223 | 0.046 (0.005) |
 | same | feature_class cds / hypothetical | 219 / 84 | 0.054 / 0.060 |
 | same, **gene-level** resampling (teeth) | chr1 | 400 genes | 0.166 |
 | independent detection within TU | chr1 | 223 | 0.054 |

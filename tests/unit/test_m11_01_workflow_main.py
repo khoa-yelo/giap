@@ -1,7 +1,7 @@
 """``workflow_main()`` in a checkout and in an installed package (M11-01 edge cases).
 
 Both layouts are faked in ``tmp_path`` by pointing the module's ``__file__`` at a fake
-``giap/runner/nextflow.py``. Also: nothing in the shipped workflow writes into ``projectDir``
+``gippa/runner/nextflow.py``. Also: nothing in the shipped workflow writes into ``projectDir``
 (site-packages may be read-only).
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-import giap.runner.nextflow as nf
+import gippa.runner.nextflow as nf
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -32,7 +32,7 @@ def test_checkout_layout_prefers_repo_workflow(
 ) -> None:
     repo = tmp_path.resolve() / "repo"
     main = _touch(repo / "workflow" / "main.nf")
-    _module_at(monkeypatch, repo / "src" / "giap")
+    _module_at(monkeypatch, repo / "src" / "gippa")
     assert nf.workflow_main() == main
 
 
@@ -40,19 +40,19 @@ def test_installed_layout_uses_package_workflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     site = tmp_path.resolve() / "venv" / "lib" / "python3.12" / "site-packages"
-    main = _touch(site / "giap" / "workflow" / "main.nf")
-    _module_at(monkeypatch, site / "giap")
+    main = _touch(site / "gippa" / "workflow" / "main.nf")
+    _module_at(monkeypatch, site / "gippa")
     got = nf.workflow_main()
     assert got == main and got.is_file()
-    assert got.parent == site / "giap" / "workflow"
+    assert got.parent == site / "gippa" / "workflow"
 
 
 def test_checkout_wins_when_both_exist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An editable install has the package copy too (if built in place): the checkout still wins."""
     repo = tmp_path.resolve() / "repo"
     main = _touch(repo / "workflow" / "main.nf")
-    _touch(repo / "src" / "giap" / "workflow" / "main.nf")
-    _module_at(monkeypatch, repo / "src" / "giap")
+    _touch(repo / "src" / "gippa" / "workflow" / "main.nf")
+    _module_at(monkeypatch, repo / "src" / "gippa")
     assert nf.workflow_main() == main
 
 

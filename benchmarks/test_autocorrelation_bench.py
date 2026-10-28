@@ -1,9 +1,9 @@
 """Performance budget for the M5-05 autocorrelation table (docs/specs/M5-05 acceptance
 "Performance", lead decision 30).
 
-``giap.context.autocorrelation.autocorrelation_rows`` on a 4,500-gene circular replicon with
+``gippa.context.autocorrelation.autocorrelation_rows`` on a 4,500-gene circular replicon with
 B = 1,000 permutations per null, both nulls, both statistics and lags 1 ... 20: **< 30 s on
-4 CPUs** (the giapsim simulation of the gene table is excluded from the timing). The dominant
+4 CPUs** (the gippasim simulation of the gene table is excluded from the timing). The dominant
 cost is the ADR-0020 re-detrend of every replicate, one (B x n) (n x n) smoother product per
 null, so the number scales with the detected-gene count and with the BLAS thread count: run it
 with ``OMP_NUM_THREADS=4`` / ``srun -c 4``.
@@ -40,8 +40,8 @@ def _inputs() -> tuple[Any, Any, Any]:
 
 
 def test_autocorrelation_rows_b1000_n4500_20_lags_budget(benchmark: Any) -> None:
-    from giap.context.autocorrelation import autocorrelation_rows
-    from giap.rng import for_step
+    from gippa.context.autocorrelation import autocorrelation_rows
+    from gippa.rng import for_step
 
     genes, replicons, cfg = _inputs()
 

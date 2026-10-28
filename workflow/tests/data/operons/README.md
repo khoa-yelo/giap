@@ -1,6 +1,6 @@
 # Fixtures for operons.nf.test (M6-08)
 
-Stub runs only: `GIAP_STEP`'s stub never reads an input, so each file here is a placeholder. It
+Stub runs only: `GIPPA_STEP`'s stub never reads an input, so each file here is a placeholder. It
 only has to exist and carry the name the real pipeline gives it.
 
 * `pairs_raw.parquet`: the M2-12 `operon_pairs` output. It is the only required member of

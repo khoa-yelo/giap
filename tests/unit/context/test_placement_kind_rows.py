@@ -4,7 +4,7 @@ Examples 17 and 18 hold.
 Consistency checks ... ``qc_rows``' output is unchanged"; statistician review of the amendment,
 item 4: counts, never rates).
 
-Interface pinned here: ``giap.context.summary.placement_kind_rows(peptide_hits, unmapped)``, pure,
+Interface pinned here: ``gippa.context.summary.placement_kind_rows(peptide_hits, unmapped)``, pure,
 with ``peptide_hits`` the C11 frame (``peptide``, ``route``, ``diff_types``, ``flags``; the contract
 reader gives lists, the TSV gives ``;``-joined strings, both are accepted) and ``unmapped`` the C13
 frame or ``None``. It returns rows in ``SUMMARY_COLUMNS``: section ``qc``, metric ``n_peptides``
@@ -67,7 +67,7 @@ SUMMARY_COLUMNS = (
 
 
 def _summary() -> Any:
-    from giap.context import summary
+    from gippa.context import summary
 
     return summary
 
@@ -226,7 +226,7 @@ def test_example_17_qc_rows_unchanged_and_consistent() -> None:
 
 
 def test_example_17_sums_and_v05_agreement() -> None:
-    from giap.viz.mapping_sankey import flows
+    from gippa.viz.mapping_sankey import flows
 
     hits, um = example_17()
     got = by_key(kind_rows(hits, um))
@@ -370,7 +370,7 @@ def test_snapshot_rows_equal_the_function_on_its_own_mapping_outputs() -> None:
 
 
 def test_snapshot_cross_checks_against_v05() -> None:
-    from giap.viz.mapping_sankey import flows
+    from gippa.viz.mapping_sankey import flows
 
     ph = _read_tsv(SNAPSHOT / "mapping/peptide_hits.tsv")
     um = _read_tsv(SNAPSHOT / "mapping/unmapped.tsv")

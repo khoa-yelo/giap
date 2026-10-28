@@ -34,7 +34,7 @@ import pytest
 from helpers.gsea_data import as_list
 from helpers.ora_data import T6, Gene, frame, kegg, ora, singletons, t6_frame
 
-from giap.genetable.detectability import tu_folds
+from gippa.genetable.detectability import tu_folds
 
 ALPHA = 0.05
 ALL = (1, 500)

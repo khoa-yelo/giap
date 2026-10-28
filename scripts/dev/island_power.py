@@ -1,11 +1,11 @@
-"""M5-07 island power recorder (GIAP_SPEC.md §7.3.6 "Power (recorded, not gated)"; spec
+"""M5-07 island power recorder (GIPPA_SPEC.md §7.3.6 "Power (recorded, not gated)"; spec
 docs/specs/M5-07-island-calibration-power.md "Public interface", lead decision 30).
 
 Grid: n_tus in {5, 10, 20} x effect in {1, 1.5, 2} SD x direction in {high, low} on the 4,500-gene
 ``scenarios.island_power`` layout at rho 0.5, R = 100 per cell, cell seed ``calibration_base`` +
-cell index; replicate r draws from ``giap.rng.for_step(f"islands_power.r{r}", cell seed)``. The
+cell index; replicate r draws from ``gippa.rng.for_step(f"islands_power.r{r}", cell seed)``. The
 truth (layout + expression) is the simulator's, the scan is the real M5-06 step
-(``giap.context.islands``, ``stats.bootstrap = stats.permutations = 1000``, default
+(``gippa.context.islands``, ``stats.bootstrap = stats.permutations = 1000``, default
 ``context.islands``). One JSON line per cell goes to ``local/logs/calibration/islands_power.jsonl``.
 Runs inside a Slurm job (scripts/slurm/), never in the session allocation.
 
@@ -34,7 +34,7 @@ for _p in ("src", "tests/sim", "tests/helpers", "tests/calibration"):
 import _criteria as C  # noqa: E402
 import islands_data as idat  # noqa: E402
 
-from giap.rng import for_step  # noqa: E402
+from gippa.rng import for_step  # noqa: E402
 
 N_GENES = 4500
 RHO = 0.5
@@ -64,7 +64,7 @@ def scenario(
     default regions are placed at random, so only an empty region set keeps every layout drawn
     off the island).
     """
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     if direction not in ("high", "low"):
         raise ValueError(f"unknown direction {direction!r}")
@@ -86,8 +86,8 @@ def replicate_metrics(
 
 def _replicate(rng: Any, pair: Any) -> tuple[list[Island], frozenset[str]]:
     """Reported islands (direction, TU IDs) and the planted TU IDs of one replicate."""
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     truth_rng = copy.deepcopy(rng)  # the same draws scenario_contigs makes, to read the truth
     lay = la.simulate_layout(pair[0], truth_rng)

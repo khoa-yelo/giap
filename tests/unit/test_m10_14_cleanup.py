@@ -8,7 +8,7 @@ mzML files (plan step 4), and lists the reports and libraries in the dry run as 
 So criterion 3's "CLEAN=1 deletes exactly plan steps 1, 2 and 4" is tested as "steps 1 and 4".
 
 Everything runs in a sandbox (``helpers.m10_14_kit.cleanup_sandbox``): a throw-away checkout, a
-fake ``$GIAP_ROOT`` in ``tmp_path``, and fake ``squeue``, ``sacct``, ``nextflow`` and ``rm`` first
+fake ``$GIPPA_ROOT`` in ``tmp_path``, and fake ``squeue``, ``sacct``, ``nextflow`` and ``rm`` first
 on a minimal ``PATH`` (``rm`` records whether DELETED.tsv already named its target, then runs
 ``/bin/rm``). No Slurm, no network. No statistical claim: no calibration test (spec §8.4).
 """
@@ -33,7 +33,7 @@ from helpers.m10_14_kit import (
     commit_runbook,
     sha256_file,
 )
-from helpers.slurm_sandbox import REPO, assert_honours_giap_repo
+from helpers.slurm_sandbox import REPO, assert_honours_gippa_repo
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="bash script")
 
@@ -41,7 +41,7 @@ pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="bash script")
 @pytest.fixture
 def cs(tmp_path: Path) -> CleanupSandbox:
     assert CLEANUP.is_file(), "scripts/slurm/pilot_cleanup.sbatch does not exist (M10-14)"
-    assert_honours_giap_repo(CLEANUP.read_text(), "pilot_cleanup.sbatch")
+    assert_honours_gippa_repo(CLEANUP.read_text(), "pilot_cleanup.sbatch")
     return cleanup_sandbox(tmp_path)
 
 
@@ -67,7 +67,7 @@ def _changed(before: dict[str, str], after: dict[str, str]) -> set[str]:
 
 
 def test_cleanup_sbatch_house_rules() -> None:
-    check_house_rules(CLEANUP, name="giap-pilot-cleanup", cpus=2, mem_gb=8, minutes=120)
+    check_house_rules(CLEANUP, name="gippa-pilot-cleanup", cpus=2, mem_gb=8, minutes=120)
 
 
 def test_cleanup_sbatch_bash32() -> None:
@@ -105,7 +105,7 @@ def test_dry_run_is_the_default_and_deletes_nothing(cs: CleanupSandbox) -> None:
     assert not _changed(before, after), sorted(_changed(before, after))
     assert not any("-f" in c["argv"] for c in cs.nextflow_calls()), cs.nextflow_calls()
     assert cs.rm_log() == [], cs.rm_log()
-    assert cs.repo_status() == "", f"wrote into $GIAP_REPO: {cs.repo_status()}"
+    assert cs.repo_status() == "", f"wrote into $GIPPA_REPO: {cs.repo_status()}"
 
 
 def test_dry_run_plan_lists_the_targets(cs: CleanupSandbox) -> None:
@@ -155,7 +155,7 @@ def test_clean_deletes_work_dirs_and_mzml_only(cs: CleanupSandbox) -> None:
         assert not w.exists(), f"{w} still exists"
     for d in cs.run_dirs:
         assert (d / ".nextflow").is_dir(), "only OUT/work goes; .nextflow/ stays"
-    assert cs.repo_status() == "", f"wrote into $GIAP_REPO: {cs.repo_status()}"
+    assert cs.repo_status() == "", f"wrote into $GIPPA_REPO: {cs.repo_status()}"
 
 
 def test_clean_calls_nextflow_clean_in_each_run_dir(cs: CleanupSandbox) -> None:
@@ -177,7 +177,7 @@ def test_ledger_rows_precede_each_delete(cs: CleanupSandbox) -> None:
     res = cs.run(CLEAN="1")
     assert res.returncode == 0, _out(res)
     rm = cs.rm_log()
-    assert rm, "no rm call under $GIAP_ROOT (the plan's explicit paths go to rm)"
+    assert rm, "no rm call under $GIPPA_ROOT (the plan's explicit paths go to rm)"
     unledgered = [p for state, p in rm if state != "ledgered"]
     assert not unledgered, f"rm before the DELETED.tsv row was written: {unledgered}"
     rows = cs.ledger()
@@ -234,7 +234,7 @@ def test_symlink_target_is_skipped(cs: CleanupSandbox) -> None:
     res = cs.run(CLEAN="1")
     assert res.returncode == 0, _out(res)
     assert (run / "work").is_symlink(), "the link itself was removed"
-    assert (real / "ab" / "task.out").is_file(), "followed a symlink out of $GIAP_ROOT"
+    assert (real / "ab" / "task.out").is_file(), "followed a symlink out of $GIPPA_ROOT"
     text = (cs.cleanup_dir / "DELETED.tsv").read_text() + _plan_text(cs) + res.stdout
     assert any(str(run / "work") in ln and "skipped_symlink" in ln for ln in text.splitlines()), (
         "the symlink target is not listed as skipped_symlink"
@@ -299,12 +299,18 @@ def test_refuses_without_the_freeze_metrics(cs: CleanupSandbox) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["giap-run-freeze-a1", "giap-diann-A1", "giap-entrapment", "giap-pilot-compare", "giap-bench"],
+    [
+        "gippa-run-freeze-a1",
+        "gippa-diann-A1",
+        "gippa-entrapment",
+        "gippa-pilot-compare",
+        "gippa-bench",
+    ],
 )
 def test_refuses_while_pilot_jobs_run(cs: CleanupSandbox, name: str) -> None:
     cs.set_jobs(
         [
-            {"id": 4242, "name": "giap-pilot-cleanup", "state": "RUNNING"},
+            {"id": 4242, "name": "gippa-pilot-cleanup", "state": "RUNNING"},
             {"id": 5001, "name": name, "state": "PENDING" if "bench" in name else "RUNNING"},
         ]
     )
@@ -314,9 +320,9 @@ def test_refuses_while_pilot_jobs_run(cs: CleanupSandbox, name: str) -> None:
 def test_own_job_and_unrelated_jobs_do_not_block(cs: CleanupSandbox) -> None:
     cs.set_jobs(
         [
-            {"id": 4242, "name": "giap-pilot-cleanup", "state": "RUNNING"},
-            {"id": 5002, "name": "giap-test-branch", "state": "RUNNING"},
-            {"id": 5003, "name": "giap-nightly", "state": "PENDING"},
+            {"id": 4242, "name": "gippa-pilot-cleanup", "state": "RUNNING"},
+            {"id": 5002, "name": "gippa-test-branch", "state": "RUNNING"},
+            {"id": 5003, "name": "gippa-nightly", "state": "PENDING"},
         ]
     )
     res = cs.run(CLEAN="1")
@@ -324,8 +330,8 @@ def test_own_job_and_unrelated_jobs_do_not_block(cs: CleanupSandbox) -> None:
     assert not cs.work_dirs[0].exists()
 
 
-def test_refuses_a_target_resolving_outside_giap_root(cs: CleanupSandbox) -> None:
-    """``realpath -e`` of every target must lie inside $GIAP_ROOT (an ancestor link leads out)."""
+def test_refuses_a_target_resolving_outside_gippa_root(cs: CleanupSandbox) -> None:
+    """``realpath -e`` of every target must lie inside $GIPPA_ROOT (an ancestor link leads out)."""
     te7 = cs.root / "runs" / "pilot" / "te7"
     moved = cs.outside / "te7"
     subprocess.run(["/bin/mv", str(te7), str(moved)], check=True)
@@ -338,7 +344,7 @@ def test_refuses_a_target_resolving_outside_giap_root(cs: CleanupSandbox) -> Non
 def test_refuses_a_target_that_is_a_kept_output(cs: CleanupSandbox) -> None:
     """No target is an Inputs row or an Outputs row with kept = yes."""
     work = cs.work_dirs[2]
-    row = f"| pass1_work | $GIAP_ROOT/{work.relative_to(cs.root)} | {'a' * 64} | - | yes |"
+    row = f"| pass1_work | $GIPPA_ROOT/{work.relative_to(cs.root)} | {'a' * 64} | - | yes |"
     commit_runbook(cs, cleanup_runbook(extra_outputs=[row]))
     _refuses(cs)
 
@@ -346,8 +352,8 @@ def test_refuses_a_target_that_is_a_kept_output(cs: CleanupSandbox) -> None:
 def test_refuses_a_target_that_is_an_input(cs: CleanupSandbox) -> None:
     mz = next(f for f in cs.delete_files if f.suffix == ".mzML")
     row = (
-        f"| wt1_mzml | $GIAP_DATA_DIR/{mz.relative_to(cs.root / 'data')} | {sha256_file(mz)} | "
-        "$GIAP_ROOT/pilot/A1/provenance.json |"
+        f"| wt1_mzml | $GIPPA_DATA_DIR/{mz.relative_to(cs.root / 'data')} | {sha256_file(mz)} | "
+        "$GIPPA_ROOT/pilot/A1/provenance.json |"
     )
     commit_runbook(cs, cleanup_runbook(extra_inputs=[row]))
     _refuses(cs)

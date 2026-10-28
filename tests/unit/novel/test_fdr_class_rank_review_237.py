@@ -16,7 +16,7 @@ import math
 
 from helpers.novel_fdr_fixture import PickedWorld
 
-from giap.novel.fdr import PickedClassFdr, picked_class_fdr
+from gippa.novel.fdr import PickedClassFdr, picked_class_fdr
 
 NAN = math.nan
 Q = 1e-3  # the shared q plateau

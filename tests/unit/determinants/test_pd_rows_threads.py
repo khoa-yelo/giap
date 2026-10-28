@@ -17,8 +17,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_models_data as d
 
-from giap.determinants.models import cross_validate
-from giap.determinants.support import pd_rows
+from gippa.determinants.models import cross_validate
+from gippa.determinants.support import pd_rows
 
 SEED = 20261026
 

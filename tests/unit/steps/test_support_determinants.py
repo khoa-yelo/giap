@@ -13,7 +13,7 @@ deterministic, to get the boosters the step fitted.
 Interface and readings pinned here (test author; contract in tests/helpers/
 support_analysis_data.py):
 
-* ``giap.determinants.attribution.shap_features(cv, X, blocks, *, extra=None)``: the per-column
+* ``gippa.determinants.attribution.shap_features(cv, X, blocks, *, extra=None)``: the per-column
   matrix ``shap_blocks`` sums by block (same rows, index ``X.index`` then ``extra.index``;
   columns the encoded model columns the boosters use). Example 2: its block sums equal
   ``shap_blocks`` to 1e-9.
@@ -82,8 +82,8 @@ def _with_pd_features(work: Path, dest: Path, *, ostir: bool = True) -> Path:
 
 
 def _run(cfg: Any, ins: dict[str, Path], out: Path, *, support: bool = True) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outs = s.outputs(out)
@@ -107,9 +107,9 @@ def full(ins: dict[str, Path], tmp_path_factory: pytest.TempPathFactory) -> dict
 @pytest.fixture(scope="module")
 def chain(ins: dict[str, Path]) -> dict[str, Any]:
     """The step's model chain on the same inputs (deterministic: same seed, threads 1)."""
-    from giap.determinants.features import model_matrix
-    from giap.determinants.models import cross_validate, model_rows, tu_folds
-    from giap.rng import for_step
+    from gippa.determinants.features import model_matrix
+    from gippa.determinants.models import cross_validate, model_rows, tu_folds
+    from gippa.rng import for_step
 
     cfg = s.config(SEED)
     f = s.expected_features(ins)
@@ -174,10 +174,10 @@ def test_validates_against_its_schema(full: dict[str, Path], name: str) -> None:
     import json
 
     frictionless = pytest.importorskip("frictionless")
-    import giap.schemas
+    import gippa.schemas
 
     path = sa.need(full[KEY], name)
-    d = json.loads((Path(giap.schemas.__file__).parent / "plot_support" / f"{name}.json")
+    d = json.loads((Path(gippa.schemas.__file__).parent / "plot_support" / f"{name}.json")
                    .read_text(encoding="utf-8"))  # fmt: skip
     d = {k: v for k, v in d.items() if k != "coordinates"}
     res = frictionless.Resource(path=path.name, basepath=str(path.parent), format="tsv",
@@ -191,8 +191,8 @@ def test_validates_against_its_schema(full: dict[str, Path], name: str) -> None:
 
 @pytest.fixture(scope="module")
 def toy() -> tuple[pd.DataFrame, dict[str, str], Any, pd.DataFrame]:
-    from giap.config.model import DeterminantsConfig, LightgbmConfig
-    from giap.rng import for_step
+    from gippa.config.model import DeterminantsConfig, LightgbmConfig
+    from gippa.rng import for_step
 
     X, y, tu, blocks = da.toy_world(np.random.default_rng(5))
     cfg = DeterminantsConfig(repeats=3, lightgbm=LightgbmConfig(n_estimators=40))
@@ -205,7 +205,7 @@ def toy() -> tuple[pd.DataFrame, dict[str, str], Any, pd.DataFrame]:
 
 
 def test_example_2_shap_features_sum_by_block_to_shap_blocks(toy: Any) -> None:
-    from giap.determinants.attribution import BLOCKS, shap_blocks, shap_features
+    from gippa.determinants.attribution import BLOCKS, shap_blocks, shap_features
 
     X, blocks, cv, extra = toy
     per = shap_features(cv, X, blocks, extra=extra)
@@ -223,7 +223,7 @@ def test_example_2_shap_features_sum_by_block_to_shap_blocks(toy: Any) -> None:
 
 
 def test_shap_features_plus_expected_is_the_oof_prediction(toy: Any) -> None:
-    from giap.determinants.attribution import shap_blocks, shap_features
+    from gippa.determinants.attribution import shap_blocks, shap_features
 
     X, blocks, cv, _ = toy
     per = shap_features(cv, X, blocks)
@@ -233,7 +233,7 @@ def test_shap_features_plus_expected_is_the_oof_prediction(toy: Any) -> None:
 
 
 def test_shap_features_is_a_lightgbm_output(toy: Any) -> None:
-    from giap.determinants.attribution import shap_features
+    from gippa.determinants.attribution import shap_features
 
     X, blocks, cv, _ = toy
     with pytest.raises(ValueError):
@@ -248,7 +248,7 @@ def _top(per: pd.DataFrame, k: int) -> list[str]:
 def test_shap_rows_are_the_model_rows_times_the_top_features(
     full: dict[str, Path], chain: dict[str, Any]
 ) -> None:
-    from giap.determinants.attribution import shap_features
+    from gippa.determinants.attribution import shap_features
 
     shap = _table(full, "determinants_shap")
     per = shap_features(chain["cv"]["lightgbm"], chain["X"], chain["blocks"])
@@ -271,7 +271,7 @@ def test_example_2_on_the_step_full_blocks_match_attribution(
 ) -> None:
     """Block sums of the per-column SHAP the file is cut from equal the attribution table's
     ``shap_<block>`` cells (%.6g) on every model row."""
-    from giap.determinants.attribution import BLOCKS, shap_features
+    from gippa.determinants.attribution import BLOCKS, shap_features
 
     per = shap_features(chain["cv"]["lightgbm"], chain["X"], chain["blocks"])
     per.index = pd.Index(chain["tags"])

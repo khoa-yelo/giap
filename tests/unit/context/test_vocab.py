@@ -1,14 +1,14 @@
-"""M5-09 ``giap.context.vocab``: the controlled flag vocabulary of the region-and-context tables
+"""M5-09 ``gippa.context.vocab``: the controlled flag vocabulary of the region-and-context tables
 (docs/specs/M5-09-context-tables-step.md "Public interface" and the acceptance item
 "``CONTEXT_FLAGS`` ⊇ §9.4 Region-and-context flags; schemas list the same set").
 
-GIAP_SPEC.md §9.4 "Flag vocabulary (controlled; extend only through the schema)", lead decision 36
+GIPPA_SPEC.md §9.4 "Flag vocabulary (controlled; extend only through the schema)", lead decision 36
 (M5 adds ``not_estimable``, ``few_values`` and ``ci_unestimated``) and ADR-0021 Amendment 1 /
 M5-06 decision 48 (``uncalibrated`` is **dropped**: no per-replicon statistic certifies the
 validity domain, so the flag would be false reassurance — "M5-09's schema must not add
 ``uncalibrated``").
 
-Interface assumed: ``giap.context.vocab.CONTEXT_FLAGS``, an iterable of ``str``.
+Interface assumed: ``gippa.context.vocab.CONTEXT_FLAGS``, an iterable of ``str``.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from typing import Any
 import pytest
 
 REPO = Path(__file__).resolve().parents[3]
-SPEC = REPO / "GIAP_SPEC.md"
-TABLE_DIR = REPO / "src" / "giap" / "schemas" / "tables"
+SPEC = REPO / "GIPPA_SPEC.md"
+TABLE_DIR = REPO / "src" / "gippa" / "schemas" / "tables"
 
 #: M4 additions the spec lists (the merged ``regions_stats`` / ``detection_summary`` producers)
 M4_FLAGS = ("few_shifts", "split_contigs", "hl_variance_nonpositive", "no_reference_replicon",
@@ -34,7 +34,7 @@ UNCALIBRATED = "uncalibrated"
 
 
 def _flags() -> set[str]:
-    from giap.context.vocab import CONTEXT_FLAGS
+    from gippa.context.vocab import CONTEXT_FLAGS
 
     return {str(f) for f in CONTEXT_FLAGS}
 
@@ -88,7 +88,7 @@ def test_uncalibrated_is_not_in_the_vocabulary() -> None:
 
 
 def test_flag_names_are_snake_case_and_unique() -> None:
-    from giap.context.vocab import CONTEXT_FLAGS
+    from gippa.context.vocab import CONTEXT_FLAGS
 
     names = list(CONTEXT_FLAGS)
     assert len(names) == len(set(names))
@@ -114,9 +114,9 @@ def test_regions_stats_schema_is_inside_the_vocabulary() -> None:
 def test_every_flag_the_m5_producers_can_emit_is_in_the_vocabulary() -> None:
     """The flag constants of M5-05, M5-06 and M5-08 (the only sources of ``flags`` in the two
     new tables) are all vocabulary members."""
-    from giap.context import autocorrelation as ac
-    from giap.context import islands as isl
-    from giap.context import oriter as ot
+    from gippa.context import autocorrelation as ac
+    from gippa.context import islands as isl
+    from gippa.context import oriter as ot
 
     emitted = {
         ac.NOT_ESTIMABLE, ac.FEW_VALUES, ac.CI_UNESTIMATED,

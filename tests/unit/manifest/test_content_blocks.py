@@ -6,7 +6,7 @@
 Amendment 1; ADR-0017 KEGG date read by M9-16).
 
 Interface assumed (test-author choice; the spec names the fields and their sources only). New
-keyword fields of ``giap.manifest.ManifestSources``, all already parsed (the builder reads no
+keyword fields of ``gippa.manifest.ManifestSources``, all already parsed (the builder reads no
 file):
 
 ``sensitivity``         rows of ``tables/sensitivity.tsv`` as dicts (``family``, ``variant``,
@@ -17,7 +17,7 @@ file):
                         ``to_pylist()``: ``contig``, ``scanned``, ``block_rule``, ``l_hat``,
                         ``block_len``, ``morans_i_lag1`` (NaN when not scanned), ``flags``
                         (list)), C1 order, or None when absent. Default None.
-``calibration``         the mapping ``giap.data.calibration.load()`` returns, or None. Default
+``calibration``         the mapping ``gippa.data.calibration.load()`` returns, or None. Default
                         None: then no ``uncalibrated:`` flag is added (the run tail and the
                         registry step always pass ``load()``; the 03a builder tests stay exact).
 
@@ -53,7 +53,7 @@ from helpers.manifest_data import build, event, layer_missing, schema, validate
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 KEYS_03C = {"sensitivity", "context", "operons", "mapping", "calibration"}
 ORIC_EVENT = "context_stats.oriter.multiple_oric"
@@ -62,8 +62,8 @@ SEARCH_EVENT = "mapping.search_db_resolved"
 DIAG_COLS = ("contig", "scanned", "block_rule", "l_hat", "block_len", "morans_i_lag1", "flags")
 
 
-def _cfg(**over: Any) -> GiapConfig:
-    return GiapConfig.model_validate({"seed": 7, **over})
+def _cfg(**over: Any) -> GippaConfig:
+    return GippaConfig.model_validate({"seed": 7, **over})
 
 
 def _bins(lower0: float = -math.inf, upper_last: float = math.inf) -> list[dict[str, Any]]:
@@ -108,7 +108,7 @@ def _diag_rows() -> list[dict[str, Any]]:
 
 
 CALIBRATION = {
-    "operon_distance": {"d0": 50, "s": 20, "provenance": "GIAP_SPEC §7.1.3 default",
+    "operon_distance": {"d0": 50, "s": 20, "provenance": "GIPPA_SPEC §7.1.3 default",
                         "calibrated": False},
     "terminatornet_yes": {"value": 0.5, "calibrated": False},
 }  # fmt: skip
@@ -303,8 +303,8 @@ def test_mapping_resume_duplicate_collapses() -> None:
 
 
 def test_mapping_stub_event_without_values_still_validates() -> None:
-    """A ``GIAP_STEP`` stub writes ``mapping.search_db_resolved`` with ``data = {key, stub}``
-    only (workflow/modules/local/giap_step/main.nf ``stubEvent``): no crash, a valid manifest,
+    """A ``GIPPA_STEP`` stub writes ``mapping.search_db_resolved`` with ``data = {key, stub}``
+    only (workflow/modules/local/gippa_step/main.nf ``stubEvent``): no crash, a valid manifest,
     and no invented value."""
     stub = event("placement", SEARCH_EVENT, {"key": "search_db", "stub": True})
     m = build(events=[stub])
@@ -324,7 +324,7 @@ def test_no_mapping_event_gives_null_block() -> None:
 def test_calibration_lists_both_bundled_keys_and_flags_them() -> None:
     """Acceptance 03c / backlog M2-15: every calibration.yaml key, ``uncalibrated:<key>`` only
     while ``calibrated: false`` (all three keys are calibrated since ADR-0022, M6-12 part C)."""
-    from giap.data.calibration import load
+    from gippa.data.calibration import load
 
     cal = load()
     m = build(calibration=cal)
@@ -339,7 +339,7 @@ def test_calibration_lists_both_bundled_keys_and_flags_them() -> None:
 def test_calibration_block_exact() -> None:
     m = build(calibration=copy.deepcopy(CALIBRATION))
     assert m["calibration"] == {
-        "operon_distance": {"calibrated": False, "provenance": "GIAP_SPEC §7.1.3 default"},
+        "operon_distance": {"calibrated": False, "provenance": "GIPPA_SPEC §7.1.3 default"},
         "terminatornet_yes": {"calibrated": False, "provenance": None},
     }
     assert m["flags"] == ["uncalibrated:operon_distance", "uncalibrated:terminatornet_yes"]
@@ -367,7 +367,7 @@ def test_uncalibrated_flags_merge_sorted_with_event_flags() -> None:
 def test_uncalibrated_flag_is_accepted() -> None:
     """Needs Khoa item 1, answered by ADR-0041: ``uncalibrated:<key>`` and the three other
     run-scope tokens are registered run flags."""
-    from giap.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
+    from gippa.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
 
     assert "uncalibrated:" in RUN_FLAGS
     assert "uncalibrated:" not in RUN_FLAGS_PENDING
@@ -439,7 +439,7 @@ def test_failed_items_are_left_out() -> None:
 
 
 def test_databases_are_in_the_provenance_core_and_digest() -> None:
-    from giap.manifest import provenance_core
+    from gippa.manifest import provenance_core
 
     doc = {"schema_version": "1.0", "items": copy.deepcopy(SETUP_ITEMS)}
     a = build(db_manifest=doc)
@@ -477,7 +477,7 @@ def test_tools_rows_exact_and_sorted() -> None:
     reports = [
         _report("NOVEL:TBLASTN", "blast", "2.16.0", "sha256:" + "a" * 64),
         _report("ANNOTATE:BAKTA", "bakta", "1.11.4", "sha256:" + "b" * 64),
-        _report("ANNOTATE:GIAP_STEP", "giap", "0.1.0"),
+        _report("ANNOTATE:GIPPA_STEP", "gippa", "0.1.0"),
     ]
     m = build(executor="nextflow", trace=[], local_steps=(), tool_reports=reports)
     assert m["tools"] == [

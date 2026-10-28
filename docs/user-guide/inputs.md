@@ -1,8 +1,8 @@
 # Inputs
 
-GIAP reads one assembled genome and proteomics evidence from the search you already ran. It never
-searches spectra itself. Run `giap preflight` to check every input in seconds before a run (see
-[Running GIAP](run.md)).
+GIPPA reads one assembled genome and proteomics evidence from the search you already ran. It never
+searches spectra itself. Run `gippa preflight` to check every input in seconds before a run (see
+[Running GIPPA](run.md)).
 
 | Input | Option | Required | Format |
 |---|---|---|---|
@@ -15,8 +15,8 @@ searches spectra itself. Run `giap preflight` to check every input in seconds be
 | Replicon depth | `--replicon-depth` | optional | TSV with columns `contig` and `mean_depth` |
 | Configuration | `--config` | optional | YAML; see the [configuration reference](../reference/configuration.md) |
 
-`giap preflight` takes `--genome`, `--proteins`, `--peptides`, `--abundance` and `--annotation`.
-`giap run` takes them all. Without `--peptides` and `--proteins`, preflight stops with the error
+`gippa preflight` takes `--genome`, `--proteins`, `--peptides`, `--abundance` and `--annotation`.
+`gippa run` takes them all. Without `--peptides` and `--proteins`, preflight stops with the error
 `inputs.evidence_present` (exit code 1). It does the same when every peptide row was dropped and
 no proteins were given.
 
@@ -56,7 +56,7 @@ Other genome checks warn on the following:
 
 ## Peptide table (`peptides.tsv`)
 
-The generic peptide table is a UTF-8 TSV with one header row. `giap convert` writes it from
+The generic peptide table is a UTF-8 TSV with one header row. `gippa convert` writes it from
 DIA-NN or Cascadia output (see [Converting search-engine output](convert.md)). You can also write
 it yourself. Only `peptide` is required.
 
@@ -86,7 +86,7 @@ Intensities are summed over charges and modified forms within a run. The median 
 then taken (`abundance.run_aggregation`). Rows whose stripped length is outside `input.peptide_len`
 (7–40 aa by default) are dropped, and preflight reports them under `peptides.content`.
 
-**Decoys help.** Keep the search engine's decoy rows, with their `protein_ids`. GIAP can then use
+**Decoys help.** Keep the search engine's decoy rows, with their `protein_ids`. GIPPA can then use
 picked target–decoy FDR at the gene level, the `decoy_picked` tier. With DIA-NN, search with
 `diann --report-decoys`. See
 [Interpreting results](interpreting-results.md#detection-tiers).
@@ -123,7 +123,7 @@ The abundance table is used only when the peptides carry no intensities.
 
 ## Existing annotation (`--annotation`)
 
-- **Bakta JSON** (`.json` or `.json.gz`). GIAP uses it as is and does not run Bakta. The Bakta and
+- **Bakta JSON** (`.json` or `.json.gz`). GIPPA uses it as is and does not run Bakta. The Bakta and
   database versions are read from the JSON. Use this when your search database came from the same
   Bakta annotation, so that the protein IDs match the locus tags.
 - **GFF3 or GBFF** from another annotator. Bakta runs with `bakta --regions` on that file's CDS, so the
@@ -138,7 +138,7 @@ optionally gzipped.
 A generic peptide table from a database search of the same spectra against this strain's
 proteins. It is used for two things:
 
-- the de novo precision of de novo peptides (without it, GIAP assumes a value and flags the run
+- the de novo precision of de novo peptides (without it, GIPPA assumes a value and flags the run
   `c_assumed`);
 - the error rates of ALT calls in the variant module.
 
@@ -149,6 +149,6 @@ gives a copy-number offset for plasmid contrasts. Rows flagged `depth_adjusted` 
 
 ## Coordinates in inputs
 
-Input GFF3 and GBFF files use their formats' own 1-based closed coordinates. GIAP converts them
+Input GFF3 and GBFF files use their formats' own 1-based closed coordinates. GIPPA converts them
 once on reading. Every output coordinate convention is listed in
 [Outputs › Coordinates](outputs.md#coordinates).

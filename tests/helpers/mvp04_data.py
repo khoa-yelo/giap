@@ -1,4 +1,4 @@
-"""Test-time K-12 excerpts and oracles for the MVP-04 giapsim tests.
+"""Test-time K-12 excerpts and oracles for the MVP-04 gippasim tests.
 
 Spec: docs/specs/MVP-04-ecoli-evidence-run.md.
 
@@ -8,7 +8,7 @@ pytest temporary directory. The excerpt is the first ``length`` bases of the com
 the new origin) with the recorded full-DB Bakta features that lie inside it, as a circular replicon.
 
 The translation, ORF and TSV helpers are independent oracles (table 11 written out here), not
-giapsim code.
+gippasim code.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ SHA_JSON_FILE = "c08c6466edf99d16cbe79679a8971b6e06e081cfc6adb9cc6f1ea9d51d3f083
 
 #: RegulonDB 14.5.0 as fetched by M6-11 (never committed, R11); tests skip when it is absent.
 REGULONDB_DIR = (
-    Path(os.environ.get("GIAP_DATA_DIR", REPO / "local" / "data")) / "regulondb" / "14.5.0"
+    Path(os.environ.get("GIPPA_DATA_DIR", REPO / "local" / "data")) / "regulondb" / "14.5.0"
 )
 TUSET = REGULONDB_DIR / "TUSet.txt"
 

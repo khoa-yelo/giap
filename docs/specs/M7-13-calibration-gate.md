@@ -1,8 +1,8 @@
 # M7-13: The M7 gate — variant and novel-ORF F1, the class-FDR suite, attack 6
 
 Milestone M7 · track C (calibration) · **pass 2 — the gate** · depends on: M7-05, M7-09, M7-10
-(#239), M7-11 (#237, the pure `giap.novel.fdr`), **M7-11b** (the `novel_orfs` step wiring of
-`giap.novel.fdr`; backlog, not yet specified), M7-12 (#225), the wired steps M7-04 and M7-08 ·
+(#239), M7-11 (#237, the pure `gippa.novel.fdr`), **M7-11b** (the `novel_orfs` step wiring of
+`gippa.novel.fdr`; backlog, not yet specified), M7-12 (#225), the wired steps M7-04 and M7-08 ·
 estimate ≈ 0 `src/` lines, ≈ 60 harness lines (`tests/calibration/_criteria.py`), ≈ 750 test
 lines, 1 sbatch line · **stats** · split in three PRs (§ Split)
 
@@ -36,13 +36,13 @@ Refreshed 2026-10-23 against main 9da78562 (M7-10, M7-12 merged), origin/m7/nove
 
 | Piece | Interface |
 |---|---|
-| scenarios | `giapsim.scenarios.variant_f1(seed, size)`, `novel_orf_power(seed, size, n_per_class=None)`, `same_strain_insilico(seed)` (100 kb only), `isobaric_attack(seed)` (100 kb only); `SIZES = {"100k", "300k", "1M"}`; `NOVEL_PER_CLASS = {100k: 8, 300k: 16, 1M: 40}`; **`NOVEL_PER_CLASS_GATE = 300`** (M7-12 decision 26); `giapsim.simulate(cfg, seed, out)` |
+| scenarios | `gippasim.scenarios.variant_f1(seed, size)`, `novel_orf_power(seed, size, n_per_class=None)`, `same_strain_insilico(seed)` (100 kb only), `isobaric_attack(seed)` (100 kb only); `SIZES = {"100k", "300k", "1M"}`; `NOVEL_PER_CLASS = {100k: 8, 300k: 16, 1M: 40}`; **`NOVEL_PER_CLASS_GATE = 300`** (M7-12 decision 26); `gippasim.simulate(cfg, seed, out)` |
 | variant truth | `truth/alt_sites.tsv`: `contig, codon_start (1-based lowest base), strand, gene, ref_aa, alt_aa, n_true_peptides, frameshift_upstream`; `truth/indel_sites.tsv`: `… frameshift, junction` (`pos_reference + 1`); `truth/denovo.tsv` (error type per spectrum, M7-12 decision 6) |
 | novel truth | `truth/novel_orfs.tsv`: `orf_id, class, contig, start, end, strand, aa, stop (1-based lowest base of the stop codon), true_start, n_true_peptides, rbs_planted`; `truth/novel_orfs.json` `{requested, realised, shortfall}` per class (intergenic saturates at ≈ 100–145 at 1M) |
-| peptide files | `peptides.tsv` (database, six-frame wrong peptides with scored `rev_GIAPORF_*` decoys in `novel_orf_power`), `peptides_denovo.tsv`, `reference_peptides.tsv` (paired `spectrum_id`) |
+| peptide files | `peptides.tsv` (database, six-frame wrong peptides with scored `rev_GIPPAORF_*` decoys in `novel_orf_power`), `peptides_denovo.tsv`, `reference_peptides.tsv` (paired `spectrum_id`) |
 | harness | `_criteria.calibrate(suite, criterion, level, fn, R, stream=…)` (criteria `level`, `uniform`, `fdr`, `fwer`; ADR-0015), `replicates(suite, full)`, `suite_seed`, `replicate_rng(stream, i)`, `log_dir()`, `replicate_range`, shards/`--merge`; `conftest.SUITE_REGISTRY`, `NIGHTLY` (fast tests > 60 s) |
 | array | `calibration_full.sbatch --array=0-12` today; task i = i-th key of `replicates_full`: … 11 `novel_orfs`, 12 `denovo_precision`, **13 `variants`**, **14 `compare`** |
-| GIAP outputs | `variants.tsv` (`confidence`, `alt_type`, `flags` incl. `mass_equivalent`, `start_codon`, `stop_codon`; `class_error_rate`, `class_error_n`); `novel_orfs.tsv` (`class`, `called`, `class_fdr`, `flags`, starts); after M7-11b: per-class T, D, regime in `events.jsonl` `novel_orfs.class_fdr` |
+| GIPPA outputs | `variants.tsv` (`confidence`, `alt_type`, `flags` incl. `mass_equivalent`, `start_codon`, `stop_codon`; `class_error_rate`, `class_error_n`); `novel_orfs.tsv` (`class`, `called`, `class_fdr`, `flags`, starts); after M7-11b: per-class T, D, regime in `events.jsonl` `novel_orfs.class_fdr` |
 
 ## Checks
 
@@ -65,10 +65,10 @@ Every gated check runs through the harness with ADR-0015 two-block confirmation 
 ## Rules
 
 1. **One run per replicate feeds every check of that replicate.** A replicate is one
-   `giapsim.simulate` call seeded `int(replicate_rng(stream_base, i).integers(0, 2**31 - 1))` (the
-   M7-10 pattern), then the GIAP chain through `variants` or `novel_orfs`. G3 and both G4 regimes
+   `gippasim.simulate` call seeded `int(replicate_rng(stream_base, i).integers(0, 2**31 - 1))` (the
+   M7-10 pattern), then the GIPPA chain through `variants` or `novel_orfs`. G3 and both G4 regimes
    share the simulation; a per-replicate count record (JSON under `log_dir()`) holds every count a
-   check needs, so a check never reruns GIAP and shards can be merged.
+   check needs, so a check never reruns GIPPA and shards can be merged.
 2. **Pooled F1.** Over the R replicates of a block: P = ΣTP_P / Σ|pred| (TP_P = predictions
    matching any truth row); Rc = ΣTP_R / Σ|truth_R| (TP_R = recall-truth rows matched by a
    prediction); F1 = 2·P·Rc / (P + Rc), and F1 = 0 when Σ|pred| = 0 or Σ|truth_R| = 0. A replicate
@@ -104,7 +104,7 @@ Every gated check runs through the harness with ADR-0015 two-block confirmation 
    appended to `peptides_denovo.tsv` with fresh `spectrum_id`s. The methods note's 1–5 generator
    failed at q = 0.01 (0.0185 vs bound 0.0117), so this check may fail (risk 2).
 9. **A6 rows.** Swap and block tokens are compared after folding I/L/J, and a folded token reaching
-   ≥ 2 distinct peptides counts as `high` even if GIAP split it (backlog line 360), so the I/L
+   ≥ 2 distinct peptides counts as `high` even if GIPPA split it (backlog line 360), so the I/L
    split cannot hide a failure; the unfolded count is recorded too. The systematic transform
    (A6c): per replicate, 30 protein sites are drawn; every de novo read covering one is rewritten
    with the same adjacent swap at that site (statistician NIT "systematic error keyed by protein
@@ -151,7 +151,7 @@ Each attack has a mutant that must fail, so the check has teeth (statistician, P
   ≤ 45 s per `variant_f1` 1M replicate and ≤ 90 s per `novel_orf_power` 1M gate replicate and
   regime. Task 13 ≈ 100 × 45 s + 3 × 100 × 5 s ≈ 1.7 h on 4 CPUs (fits `--time=02:00:00`, else
   `--shard K/2`). G3/G4 full ≈ 300 × 2 × 90 s ≈ 15 h CPU: submitted as `--array=<task> --shard K/10`
-  then `--merge` (40 CPUs; sum the running `giap-*` CPUs first, R14), the job IDs in PROGRESS.md.
+  then `--merge` (40 CPUs; sum the running `gippa-*` CPUs first, R14), the job IDs in PROGRESS.md.
 - The harness gains a pooled criterion (≈ 60 lines with self-tests): `check_pooled_min` /
   `calibrate_pooled(suite, stream, key, bound, records, R)` over the per-replicate count records,
   shard-mergeable, ADR-0015 blocks, statuses `pass` / `unconfirmed` / `fail` / `vacuous` (Q4).
@@ -182,7 +182,7 @@ Each attack has a mutant that must fail, so the check has teeth (statistician, P
 | intergenic below 100 targets at q = 0.01 | `vacuous`, reported, not a pass and not a fail |
 | `class_fdr = unestimated` on a class (paired share < 80 %, `decoys_unscored`, `no_makedb_pair`) | the class's G4 checks fail: the scenario provides scored makedb-tagged decoys, so `unestimated` is a bug |
 | ORF across the origin (circular replicon) | key compared modulo the replicon length (none planted; M7-12 pool excludes them) |
-| open-3′ ORF on a linear contig | key `stop ± 3` as M7-11 decision 13 (not expected in the circular giapsim genomes) |
+| open-3′ ORF on a linear contig | key `stop ± 3` as M7-11 decision 13 (not expected in the circular gippasim genomes) |
 | minus strand | every coordinate is the lowest 1-based base, codon and stop alike |
 | multi-allelic site (two ALT residues) | one prediction per residue |
 | two calls with one key | one TP, the others FP |
@@ -266,7 +266,7 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    reference IDs absent from the reference digest), recorded plus the ≥ 0.95 degeneracy assertion;
    the "every class rate is 1" run flag stays an M7-10 backlog item.
 9. **Class q floor wording** (backlog 688). **Proposed default:** the gate record and the
-   methods-note calibration log carry the sentence of rule 6; a GIAP run warning when a class has
+   methods-note calibration log carry the sentence of rule 6; a GIPPA run warning when a class has
    T < 1/α belongs to M7-11b (backlog).
 10. **M7-11b is not specified.** G3/G4 need `class_fdr` and the class-q call rule in
     `novel_orfs.tsv`. **Proposed default:** M7-13a proceeds; M7-13b's test-author starts once the
@@ -341,9 +341,9 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      labelled shard 1/2, ran replicates 50:100. Decision 6's wording is corrected here.
    - **Exit codes** (statistician B2, code review B1): the task fails if any shard's pytest, the
      merge or the confirm run is non-zero. Tests that bypass the harness (G2, A6a, the A6a/A6c
-     vacuity `RuntimeError`, M7-10's three full tests) skip under `GIAP_CALIBRATION_CONFIRM`, so
+     vacuity `RuntimeError`, M7-10's three full tests) skip under `GIPPA_CALIBRATION_CONFIRM`, so
      the confirm run reruns only block 2 of the confirmed records. `main()` strips a leaked
-     `GIAP_CALIBRATION_CONFIRM` from the shard environment.
+     `GIPPA_CALIBRATION_CONFIRM` from the shard environment.
    - **Time** (code review B2): the array's `--time` becomes 04:00:00. Shards take about 40 min
      each and block 2 of G1, A6b and A6c about 80 min.
    - **G1 guard miss** (statistician B3): G1 raises `RuntimeError` on a guard miss (rule 7), as
@@ -363,10 +363,10 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
 8. **Review-fix tests (88d007f3): gaps 1–6 accepted as proposed.**
    - `--merge=` is not supported; the wrapper `case` recognises `--shard=*` and `--merge`.
    - A non-zero confirm-run pytest gives `MERGE_ERROR` (2).
-   - Under `GIAP_CALIBRATION_CONFIRM` a conftest-level hook skips every calibration test that does
+   - Under `GIPPA_CALIBRATION_CONFIRM` a conftest-level hook skips every calibration test that does
      not reach the harness, at every tier (the reference arm and M7-10's fast tests included).
    - A merged G1 guard miss is `fail` (`MERGE_FAIL`); the gate's `RuntimeError` covers unsharded runs.
-   - The sbatch keeps its `GIAP_REPO`, `uv run` and `GIAP_WORKTREE` hooks.
+   - The sbatch keeps its `GIPPA_REPO`, `uv run` and `GIPPA_WORKTREE` hooks.
    - A leaked CONFIRM variable is stripped in sharded and unsharded `main()` runs alike.
    - Next: the implementer.
 9. **Review-fix implementer (07766776, da2839de): accepted.**
@@ -398,9 +398,9 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      tier only.
    - The new `fdr_counts` criterion in `_criteria`, which keeps rule-6 vacuity across `--merge`,
      is accepted.
-2. **The simulator gap is fixed upstream.** In `novel_orf_power`, giapsim target rows carry
+2. **The simulator gap is fixed upstream.** In `novel_orf_power`, gippasim target rows carry
    `NOVEL_…` and `sixframe:…` IDs, not makedb entry IDs, so picked lists held 38–60 ORFs per class
-   (Slurm 1873143). M7-11b lead decision 9 (#256) fixes giapsim. M7-13b merges #256 when it
+   (Slurm 1873143). M7-11b lead decision 9 (#256) fixes gippasim. M7-13b merges #256 when it
    lands and re-measures; no M7-13b number before then counts.
 3. **Degenerate cases: the spec stands.** A class with ORFs `unestimated` for `paired_share_low`,
    `decoys_unscored`, `no_makedb_pair`, `decoys_not_makedb` or `denovo_inputs_missing` fails that
@@ -412,7 +412,7 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    strict xfails naming the method ADR for decision 3 (the per-ORF minimum q, which the M7-11b
    statistician also flags as anti-conservative). The tolerance is never widened (R3).
 5. **Next:** the implementer (`_m7_gate.py` novel helpers, `_criteria.FDR_COUNTS`, the gate
-   harness), working against #256's source. Then the full-tier run, after the giapsim fix.
+   harness), working against #256's source. Then the full-tier run, after the gippasim fix.
 6. **Implementer (00b0cb16): accepted, with one lead test edit.**
    - The readings are accepted: vacuous records carry `observed` = mean FDP and `bound` null;
      `fdp_of` refuses bools, non-integers and negatives; `match_novel` counts mismatches per
@@ -420,24 +420,24 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - `test_shards_merge_to_the_unsharded_verdict` contradicted the §8.4 FDP criterion (two FDP 0.5
      of six pass the bound 0.26). The lead makes block 1 hold five, so it fails.
    - Measured on #256's source (Slurm 1873888, fast tier, R = 10): G3 and G4 pass; G4 nterm fails
-     only on `no_makedb_pair` (22 over 10 replicates), which goes back to #256's giapsim fix; G4-k3
+     only on `no_makedb_pair` (22 over 10 replicates), which goes back to #256's gippasim fix; G4-k3
      fails as decision 4 foresaw (the full tier decides); attacks a and d have no teeth, which goes
      to the statistician (attack-null owner) before any change.
-   - Measuring against another branch's giapsim needs `-o pythonpath=<that>/tests/sim`, because
+   - Measuring against another branch's gippasim needs `-o pythonpath=<that>/tests/sim`, because
      `pyproject.toml` puts this branch's `tests/sim` first (backlog).
    - Next: #256 nterm fix; the statistician on attacks a and d; then the full tier.
 7. **Statistician on attacks a and d (Slurm 1874863; probes in local/stat/m713b-attacks/):
    accepted.**
-   - **Cause:** the scenario, not the criterion or the harness. giapsim draws wrong peptides one
+   - **Cause:** the scenario, not the criterion or the harness. gippasim draws wrong peptides one
      product at a time over a large non-coding pool, so nearly every false ORF has one peptide and
      fails the class rule. The "no filter" set is already ≥ 95 % true (intergenic 0.055 at q 0.10),
      and pooling (d) cannot exceed it. G4's own cds_outframe/antisense picked checks are close to
      vacuous for the same reason.
-   - **Fix (test-side, giapsim unchanged):** a clustered-null arm. Per replicate, on the gate seed
+   - **Fix (test-side, gippasim unchanged):** a clustered-null arm. Per replicate, on the gate seed
      and its own stream, M = 400 null `antisense` makedb entries are added: non-coding stop-to-stop
      segments with ≥ 5 products that the simulation did not hit, each sent to the target or decoy
      side with p = 1/2, with k = 3–5 distinct products (decoys reversed, `rev_<id>`) and (q, pep,
-     score) resampled from the simulation's `rev_GIAPORF_` rows. GIAP's database arm runs once
+     score) resampled from the simulation's `rev_GIPPAORF_` rows. GIPPA's database arm runs once
      more on it. Attacks a and d run on this arm; its filtered G4 is recorded (not gated) as a
      non-trivial picked-regime FDR measurement.
    - **Evidence at M = 400 (R = 200, two blocks):** a 0.356 / 0.364 against a bound of 0.104 and d
@@ -476,13 +476,13 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
 10. **G4-k3 confirmed fail; ADR-0050 proposed** (options 1–5, pending Khoa). Interim: G4-k3
     (cds_outframe and antisense at 0.01 and 0.05, intergenic at 0.01) and attack GC at q 0.01
     become strict xfails naming ADR-0050. GC's full-tier result supersedes its fast-tier pass.
-11. **Chance shared peptides.** `no_makedb_pair` is right when every peptide row of a GIAP ORF names
+11. **Chance shared peptides.** `no_makedb_pair` is right when every peptide row of a GIPPA ORF names
     another planted ORF's makedb entry: a short Met-initial 7-mer recurring at another ATG. The G4
     harness exempts this case from `UNESTIMATED_BUGS`, counts it as the diagnostic
     `shared_peptide_no_pair`, and still fails on any other `no_makedb_pair`. Reversible; the
-    alternative is giapsim avoiding such recurrences.
+    alternative is gippasim avoiding such recurrences.
 12. **`test_attack_oracle_picked_class_fdp_dense`** (M7-12, full tier) fails with "no calls at 0.01,
-    intergenic" on #256/#267's giapsim. It goes to #267 as a follow-up (test-author check first).
+    intergenic" on #256/#267's gippasim. It goes to #267 as a follow-up (test-author check first).
     Shard the nightly block 2 (serial G4-k3 block 2 ≈ 3.2 h against `--time` 04:00); backlog.
 13. **Decision 10 amended (test-author 27ad304a, gap 1).**
     - Fast-tier GC at q 0.01 is a hard check again. Its fixed seeds pass, so a strict xfail there

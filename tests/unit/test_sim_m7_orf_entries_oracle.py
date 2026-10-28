@@ -1,11 +1,11 @@
-"""giapsim ``OrfEntries`` against real ``giap makedb --six-frame-orfs`` on every pool product
+"""gippasim ``OrfEntries`` against real ``gippa makedb --six-frame-orfs`` on every pool product
 (M7-12 lead decision 28; code review #225 R1).
 
-``giapsim.proteomics.OrfEntries`` restates ``giap.makedb.build`` to name the makedb entry a
-six-frame product lies in (the ``rev_GIAPORF_…`` decoy ID of decision 21). This test checks the
+``gippasim.proteomics.OrfEntries`` restates ``gippa.makedb.build`` to name the makedb entry a
+six-frame product lies in (the ``rev_GIPPAORF_…`` decoy ID of decision 21). This test checks the
 restatement exhaustively: every product of the six-frame non-coding pool, in all four classes, gets
 exactly the ``db_id`` of the unique entry ``m7_round3_oracle.EntryIndex.entry_of`` finds in the
-database GIAP itself builds (None when there is no entry). The config is stressed so the edge
+database GIPPA itself builds (None when there is no entry). The config is stressed so the edge
 cases of the restatement are exercised: rRNA operons and tRNAs, pseudogenes, sORFs, a linear
 contig, a plasmid and an origin-crossing gene.
 """
@@ -20,9 +20,9 @@ from typing import Any
 import pytest
 from helpers import m7_round3_oracle as Q
 
-import giapsim
-import giapsim.proteomics as P
-import giapsim.scenarios as S
+import gippasim
+import gippasim.proteomics as P
+import gippasim.scenarios as S
 
 pytestmark = pytest.mark.slow
 
@@ -58,7 +58,7 @@ def test_orf_entries_match_makedb_on_a_stressed_config(
 
     cfg = dataclasses.replace(S.novel_orf_power(seed, "100k"), **STRESS)
     out = tmp_path / "sim"
-    giapsim.simulate(cfg, seed, out)
+    gippasim.simulate(cfg, seed, out)
     assert "pool" in cap and "oe" in cap, "simulate did not build the pool / OrfEntries"
     entries = Q.makedb_entries(out, tmp_path / "db")
     lens = Q.lengths(out)

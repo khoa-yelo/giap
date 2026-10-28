@@ -1,6 +1,6 @@
-"""M9-22 ``giap.compare.stability.stability``: Jaccard overlap of five result families between
+"""M9-22 ``gippa.compare.stability.stability``: Jaccard overlap of five result families between
 runs (docs/specs/M9-22-compare-tables.md "compare_stability.tsv", examples 3 and 4, the
-``function``-off degenerate row, lead decision 3; GIAP_SPEC.md §7.9.3).
+``function``-off degenerate row, lead decision 3; GIPPA_SPEC.md §7.9.3).
 
 File named ``test_compare_stability.py`` for unique basenames (tests/ has no ``__init__.py``).
 
@@ -36,8 +36,8 @@ from helpers.compare_data import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
 
 FAST = settings(max_examples=25, deadline=None)
 GENES = [gene(f"g{i}", start=100 * i) for i in range(1, 6)]
@@ -52,8 +52,8 @@ def _views(root: Path, tables: Mapping[str, Tables]) -> dict[str, RunView]:
     return out
 
 
-def _stab(root: Path, tables: Mapping[str, Tables], cfg: GiapConfig | None = None) -> pd.DataFrame:
-    from giap.compare.stability import stability
+def _stab(root: Path, tables: Mapping[str, Tables], cfg: GippaConfig | None = None) -> pd.DataFrame:
+    from gippa.compare.stability import stability
 
     views = _views(root, tables)
     return stability(views, list(tables), cfg or resolve_config())

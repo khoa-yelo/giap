@@ -1,1 +1,1 @@
-- `giap report OUT` on a local run (no `resolved_config.yaml`) now takes the run's config, modules included, from `run_manifest.json`, so a `--modules core` run's page is byte-identical to the run's own report.
+- `gippa report OUT` on a local run (no `resolved_config.yaml`) now takes the run's config, modules included, from `run_manifest.json`, so a `--modules core` run's page is byte-identical to the run's own report.

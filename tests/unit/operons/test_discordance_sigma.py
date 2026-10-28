@@ -1,5 +1,5 @@
 """M6-13: the abundance-dependent scale in the discordance step (ADR-0055 option (a);
-docs/specs/M6-13-discordance-abundance-sigma.md; GIAP_SPEC.md §7.4.2, §7.4.3, §8.1).
+docs/specs/M6-13-discordance-abundance-sigma.md; GIPPA_SPEC.md §7.4.2, §7.4.3, §8.1).
 
 Interface pinned here:
 
@@ -33,17 +33,17 @@ from scipy import stats as sps
 from test_discordance import _t_draws
 from test_discordance import chain as m605_chain
 
-import giap.stats.tdist as tdist
-from giap.config import GiapConfig
-from giap.operons import discordance as disc
-from giap.stats.multitest import bh
-from giap.stats.tdist import ScaledStudentT, StudentT, fit_student_t, student_t_two_sided
+import gippa.stats.tdist as tdist
+from gippa.config import GippaConfig
+from gippa.operons import discordance as disc
+from gippa.stats.multitest import bh
+from gippa.stats.tdist import ScaledStudentT, StudentT, fit_student_t, student_t_two_sided
 
 _REAL_MINIMIZE = scipy.optimize.minimize
 
 
-def _cfg() -> GiapConfig:
-    return GiapConfig(seed=1)
+def _cfg() -> GippaConfig:
+    return GippaConfig(seed=1)
 
 
 def frame(
@@ -176,7 +176,7 @@ def test_sigma_model_parameter_defaults_to_loglinear() -> None:
 
 def test_module_constant_sigma_model_is_loglinear() -> None:
     """Q2 default: no config key yet; a module constant ``SIGMA_MODEL = "loglinear"``."""
-    import giap.steps.operons as step
+    import gippa.steps.operons as step
 
     values = {getattr(mod, "SIGMA_MODEL", None) for mod in (disc, step)} - {None}
     assert values == {"loglinear"}
@@ -415,7 +415,7 @@ def test_constant_model_does_not_try_the_scaled_fit(
     fail_scaled: None, caplog: pytest.LogCaptureFixture
 ) -> None:
     pairs, genes = frame(*hetero(200, 3))
-    with caplog.at_level(logging.WARNING, logger="giap"):
+    with caplog.at_level(logging.WARNING, logger="gippa"):
         res = run(pairs, genes, sigma_model="constant")
     assert res.scaled.reason == "disabled"
     assert not [r for r in caplog.records if "not_converged" in r.getMessage()]

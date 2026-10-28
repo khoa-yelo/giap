@@ -1,9 +1,9 @@
-"""M10-05 acceptance criterion 10: the pilot metrics on two real local GIAP runs of giapsim.
+"""M10-05 acceptance criterion 10: the pilot metrics on two real local GIPPA runs of gippasim.
 
 Spec: docs/specs/M10-05-pilot-metrics.md, acceptance criterion 10 (``slow``; Slurm via
 ``scripts/slurm/test_branch.sbatch``, never the session allocation).
 
-Two ``giap run --executor local`` runs on giapsim SIM100K (``tests/helpers/m4_real.py``,
+Two ``gippa run --executor local`` runs on gippasim SIM100K (``tests/helpers/m4_real.py``,
 ``pi_wrong = 0`` so every simulated identification is a true one):
 
 * "A2": the simulator's same-strain peptides plus two planted ones, an out-of-frame translation
@@ -12,12 +12,12 @@ Two ``giap run --executor local`` runs on giapsim SIM100K (``tests/helpers/m4_re
 * "A1": the simulator's table with ``search_db = other``, UniProt-like ``protein_ids`` and a few
   residues substituted so that tolerant and unmapped peptides exist.
 
-Then ``giap compare``, ``metrics.py compute`` and ``render``. Oracle: TE1's misses are exactly the
+Then ``gippa compare``, ``metrics.py compute`` and ``render``. Oracle: TE1's misses are exactly the
 planted out-of-frame peptide and the non-ATG N-terminal products in D2 (the planted one and the
 simulator's own, which are structural misses by the spec's "What TE1 shows"); every other peptide
 is exact in frame. Metric 2's A1 ``tolerant + unmapped`` equals ``genome_inconsistent_rate * n``;
-metric 3's prophage, BGC and plasmid subsets equal giapsim's planted region gene sets; metric 7
-has one entry per manifest step. A test ``$GIAP_DB_DIR`` only; no network.
+metric 3's prophage, BGC and plasmid subsets equal gippasim's planted region gene sets; metric 7
+has one entry per manifest step. A test ``$GIPPA_DB_DIR`` only; no network.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ SEED = 20261023
 
 def _translate_out_of_frame(genome: dict[str, str], g: Any) -> str | None:
     """A 12-aa stop-free stretch of frame +1 inside ``+`` strand gene ``g``, or None."""
-    from giap.mapping.sixframe import translate11_text
+    from gippa.mapping.sixframe import translate11_text
 
     iv = g.interval
     seq = genome[iv.contig][iv.start + 1 : iv.end - 2]
@@ -59,8 +59,8 @@ def _translate_out_of_frame(genome: dict[str, str], g: Any) -> str | None:
 def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     from click.testing import CliRunner
 
-    from giap.cli import cli
-    from giap.io.fasta import read_genome_fasta
+    from gippa.cli import cli
+    from gippa.io.fasta import read_genome_fasta
 
     root = tmp_path_factory.mktemp("m10_05_sim_pilot")
     db = mc.test_db(root / "db")
@@ -109,8 +109,8 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     a1.to_csv(pep_a1, sep="\t", index=False)
 
     out_a1, out_a2, cmp = root / "out_a1", root / "out_a2", root / "cmp_a1_a2"
-    mr.giap_run(dataclasses.replace(sim, peptides=pep_a2), out_a2, db, SEED)
-    mr.giap_run(dataclasses.replace(sim, peptides=pep_a1), out_a1, db, SEED)
+    mr.gippa_run(dataclasses.replace(sim, peptides=pep_a2), out_a2, db, SEED)
+    mr.gippa_run(dataclasses.replace(sim, peptides=pep_a1), out_a1, db, SEED)
     with mc.db_env(db):
         r = CliRunner().invoke(cli, ["compare", str(out_a1), str(out_a2), "--labels", "A1,A2",
                                      "--outdir", str(cmp)])  # fmt: skip
@@ -154,14 +154,14 @@ def _doc(w: dict[str, Any]) -> dict[str, Any]:
 
 
 def _d2(w: dict[str, Any]) -> set[str]:
-    from giap.config import GiapConfig
-    from giap.io.peptides import read_peptide_table, validate_peptides
-    from giap.steps.mapping import select_queries
+    from gippa.config import GippaConfig
+    from gippa.io.peptides import read_peptide_table, validate_peptides
+    from gippa.steps.mapping import select_queries
 
     man = json.loads((w["out_a2"] / "run_manifest.json").read_text(encoding="utf-8"))
-    cfg = GiapConfig.model_validate(man["config"])  # the run's own config (review S7)
+    cfg = GippaConfig.model_validate(man["config"])  # the run's own config (review S7)
     raw, _ = read_peptide_table(w["root"] / "inputs" / "a2.tsv")
-    table, _ = validate_peptides(raw, cfg.input)  # GIAP's mapping front end (review S2)
+    table, _ = validate_peptides(raw, cfg.input)  # GIPPA's mapping front end (review S2)
     return set(select_queries(table, cfg)["peptide"].astype(str))  # no Cont_ rows
 
 
@@ -231,7 +231,7 @@ def test_hypotheses_and_render(world: dict[str, Any]) -> None:
     assert world["oof"] not in text and world["planted_nonatg"] not in text
     assert "**missing:" not in text  # every table is present: no marker (review B2)
     assert (
-        doc["giap_commit"]
+        doc["gippa_commit"]
         == json.loads((world["out_a2"] / "run_manifest.json").read_text(encoding="utf-8"))[
             "git_commit"
         ]

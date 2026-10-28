@@ -10,7 +10,7 @@ timed. Only ``run_step("function", ...)`` is timed, with every resource installe
 minutes"); it is about 3 x the recorded time.
 
 Run with ``pytest benchmarks/test_function_step_bench.py --benchmark-only`` (needs ``tests/sim``
-on PYTHONPATH for giapsim).
+on PYTHONPATH for gippasim).
 """
 
 from __future__ import annotations
@@ -36,9 +36,9 @@ TABLES = ("category_summary", "enrichment_detection", "enrichment_gsea")
 
 @pytest.fixture(scope="module")
 def prepared(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Path], Path, Any]:
-    from giap.steps import load_step_modules
-    from giap.steps.gene_table import run_gene_table
-    from giap.steps.registry import run_step
+    from gippa.steps import load_step_modules
+    from gippa.steps.gene_table import run_gene_table
+    from gippa.steps.registry import run_step
 
     load_step_modules()
     root = tmp_path_factory.mktemp("function_bench")
@@ -60,7 +60,7 @@ def prepared(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Path],
 def test_function_step_4500_genes_budget(
     benchmark: Any, prepared: tuple[dict[str, Path], Path, Any]
 ) -> None:
-    from giap.steps.registry import run_step
+    from gippa.steps.registry import run_step
 
     ins, out, cfg = prepared
     assert cfg.stats.bootstrap == 1000

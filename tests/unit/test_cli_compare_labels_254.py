@@ -1,9 +1,9 @@
-"""``giap compare`` run labels that would break V16 (PR #254 review B4; M9-23 lead decision 5).
+"""``gippa compare`` run labels that would break V16 (PR #254 review B4; M9-23 lead decision 5).
 
 The ``compare_detection`` intersection names join labels with ``&`` and V16's ``runs`` column
 joins them with ``;``; ``none`` and ``other`` are the reserved intersection rows. A label holding
-``&`` or ``;``, or equal to ``none`` or ``other``, is rejected by ``giap.io.compare_io._labels``
-with a ``CompareInputError`` naming the label, so ``giap compare`` exits 1 before any table is
+``&`` or ``;``, or equal to ``none`` or ``other``, is rejected by ``gippa.io.compare_io._labels``
+with a ``CompareInputError`` naming the label, so ``gippa compare`` exits 1 before any table is
 written (the M9-22 rule "no table is written when the command exits 1").
 """
 
@@ -16,7 +16,7 @@ import pytest
 from click.testing import CliRunner, Result
 from helpers.compare_data import gene, write_run
 
-from giap.exitcodes import ExitCode
+from gippa.exitcodes import ExitCode
 
 TABLES = ("compare_detection", "compare_abundance", "compare_stability")
 N = 12
@@ -26,8 +26,8 @@ BAD = ["a&b", "a;b", "none", "other"]
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "db_empty"))
 
 
 def _genes(shift: float) -> list[dict[str, object]]:
@@ -37,7 +37,7 @@ def _genes(shift: float) -> list[dict[str, object]]:
 
 
 def _compare(*args: str) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["compare", *args, "--set", "stats.bootstrap=50"])
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -54,7 +54,7 @@ def _nothing_written(cmp: Path) -> bool:
 
 @pytest.mark.parametrize("bad", BAD)
 def test_labels_function_rejects_reserved_and_separator_labels(bad: str) -> None:
-    from giap.io.compare_io import CompareInputError, _labels
+    from gippa.io.compare_io import CompareInputError, _labels
 
     with pytest.raises(CompareInputError) as err:
         _labels([Path("runA"), Path("runB")], f"{bad},ok")
@@ -63,7 +63,7 @@ def test_labels_function_rejects_reserved_and_separator_labels(bad: str) -> None
 
 @pytest.mark.parametrize("bad", BAD)
 def test_labels_function_rejects_them_in_any_position(bad: str) -> None:
-    from giap.io.compare_io import CompareInputError, _labels
+    from gippa.io.compare_io import CompareInputError, _labels
 
     with pytest.raises(CompareInputError):
         _labels([Path("runA"), Path("runB"), Path("runC")], f"x,y,{bad}")
@@ -71,7 +71,7 @@ def test_labels_function_rejects_them_in_any_position(bad: str) -> None:
 
 @pytest.mark.parametrize("good", ["A1", "run-1", "a.b", "a_b", "None2", "others"])
 def test_ordinary_labels_still_pass(good: str) -> None:
-    from giap.io.compare_io import _labels
+    from gippa.io.compare_io import _labels
 
     assert _labels([Path("runA"), Path("runB")], f"{good},z") == [good, "z"]
 

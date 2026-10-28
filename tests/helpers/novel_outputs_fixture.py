@@ -26,12 +26,12 @@ from typing import Any
 
 import pandas as pd
 
-from giap.config.model import GiapConfig
-from giap.io.gff3 import read_gff3, write_gff3
-from giap.io.protein_fasta import write_protein_fasta
-from giap.io.tsv import read_tsv
-from giap.model.coords import Replicon
-from giap.novel.candidates import Orf, candidate_rows, minimal_call, reconstruct
+from gippa.config.model import GippaConfig
+from gippa.io.gff3 import read_gff3, write_gff3
+from gippa.io.protein_fasta import write_protein_fasta
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Replicon
+from gippa.novel.candidates import Orf, candidate_rows, minimal_call, reconstruct
 from helpers.novel_oracle import Case, Seq, cds, hit_row, mirror_case, revcomp, translate, wrapped
 
 L = 1000
@@ -44,7 +44,7 @@ NOVEL_ORFS_COLUMNS: tuple[str, ...] = (
     "terminator_downstream", "terminator_conf", "terminator_distance_nt", "rbs_supported",
     "class_fdr", "called", "rank", "overlapping_gene", "flags",
 )  # fmt: skip
-PATCH_PRODUCT = "hypothetical protein (GIAP novel ORF)"
+PATCH_PRODUCT = "hypothetical protein (GIPPA novel ORF)"
 FILES = ("novel_orfs.tsv", "novel_orfs.gff3", "novel_orfs.faa", "annotation_patch.gff3")
 
 EX1_CODONS = ["GCT", "ATT", "GAA", "AAA", "CGT", "GAT", "TCT", "CCG", "CAT", "TGG", "TTC", "AAC",
@@ -54,19 +54,19 @@ ZZ_CODONS = EX1_CODONS[4:] + EX1_CODONS[:4]  # other peptides: multi-locus ones 
 
 
 def outputs() -> Any:
-    import giap.novel.outputs as m
+    import gippa.novel.outputs as m
 
     return m
 
 
 def novel_io() -> Any:
-    import giap.io.novel_tables as m
+    import gippa.io.novel_tables as m
 
     return m
 
 
-def cfg() -> GiapConfig:
-    return GiapConfig(seed=1)
+def cfg() -> GippaConfig:
+    return GippaConfig(seed=1)
 
 
 # ---------------------------------------------------------------- scenarios
@@ -248,7 +248,7 @@ def tsv_rows(path: Path) -> list[dict[str, str | None]]:
 
 
 def feature_lines(path: Path) -> list[list[str]]:
-    """Feature lines of a GIAP GFF3 (pragmas and ``Is_circular`` region lines dropped)."""
+    """Feature lines of a GIPPA GFF3 (pragmas and ``Is_circular`` region lines dropped)."""
     out = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith("#"):
@@ -279,7 +279,7 @@ def check_gff3(path: Path, replicons: dict[str, Replicon]) -> list[Any]:
     regions = [ln for ln in lines if ln.startswith("##sequence-region")]
     assert regions == [f"##sequence-region {r.id} 1 {r.length}" for r in replicons.values()]
     for r in replicons.values():
-        region = f"{r.id}\tgiap\tregion\t1\t{r.length}\t.\t.\t.\tID={r.id};Is_circular=true"
+        region = f"{r.id}\tgippa\tregion\t1\t{r.length}\t.\t.\t.\tID={r.id};Is_circular=true"
         assert (region in lines) == (r.topology == "circular")
     ids: list[str] = []
     for cols in feature_lines(path):

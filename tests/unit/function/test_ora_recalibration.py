@@ -38,8 +38,8 @@ from helpers.ora_calsim import collection, simulate, whole_tu_sets
 from helpers.ora_data import ora, singletons, t6_frame
 from scipy.special import logit
 
-from giap.genetable.detectability import tu_folds
-from giap.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
+from gippa.genetable.detectability import tu_folds
+from gippa.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
 
 
 def _sim(seed: int, **kw):  # type: ignore[no-untyped-def]

@@ -5,14 +5,14 @@ Spec: docs/specs/M10-02-diann-searches.md deliverables 1 and 6, "The committed s
 
 Khoa's decision of 2026-10-23 replaces the committed samples: **no DIA-NN report rows are ever
 committed**. The stratified sample stays on FarmShare under
-``$GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/``. Under ``tests/data/recorded/diann/`` only these
+``$GIPPA_ROOT/pilot/recorded/diann/2.3.1/<arm>/``. Under ``tests/data/recorded/diann/`` only these
 may be committed:
 
 * ``2.3.1/PROVENANCE.md`` only. The column list (``schema.tsv``) stays with the sample on
   FarmShare too (Khoa, 2026-10-23: nothing derived from the reports is committed).
 
 The guard tests apply to whatever is tracked and pass vacuously until something lands; the
-pin test fails until deliverable 1 exists. Tests that need real sample rows read ``$GIAP_ROOT``
+pin test fails until deliverable 1 exists. Tests that need real sample rows read ``$GIPPA_ROOT``
 and skip with a reason when the sample is absent (as on CI).
 """
 
@@ -103,10 +103,10 @@ def test_no_column_list_is_committed() -> None:
 
 
 def _sample_dir(arm: str) -> Path:
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if not root:
         pytest.skip(
-            "GIAP_ROOT is not set: the DIA-NN samples live on FarmShare only (Khoa 2026-10-23)"
+            "GIPPA_ROOT is not set: the DIA-NN samples live on FarmShare only (Khoa 2026-10-23)"
         )
     d = Path(root) / "pilot" / "recorded" / "diann" / "2.3.1" / arm
     if not (d / "report.sample.parquet").is_file():

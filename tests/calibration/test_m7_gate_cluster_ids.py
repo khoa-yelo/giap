@@ -4,9 +4,9 @@
 A segment carries ``nt = (nt0, t, n)`` in strand-local coordinates (``nt0`` the first base of the
 stop-free stretch, ``t`` the first base of its closing stop codon, ``n`` the contig length) and
 ``stop``, the 1-based lowest plus-strand base of the stop codon (``_segments``). The ID is
-``GIAPORF_<cls>_<contig>_<a>_<b>_<p|m>`` with ``a = nt0 + 1, b = t`` on ``+`` and
+``GIPPAORF_<cls>_<contig>_<a>_<b>_<p|m>`` with ``a = nt0 + 1, b = t`` on ``+`` and
 ``a = n - t + 1, b = n - nt0`` on ``-``: the stretch without its stop codon, 1-based closed, in
-plus-strand coordinates (giapsim's makedb convention; statistician probe check_ids.py).
+plus-strand coordinates (gippasim's makedb convention; statistician probe check_ids.py).
 """
 
 from __future__ import annotations
@@ -25,21 +25,21 @@ def seg(strand: str, nt0: int, t: int, n: int, contig: str = "c1") -> dict[str, 
 
 def test_plus_strand_id_example() -> None:
     s = seg("+", 10, 40, 1000)
-    assert N.makedb_id("antisense", s) == "GIAPORF_antisense_c1_11_40_p"
+    assert N.makedb_id("antisense", s) == "GIPPAORF_antisense_c1_11_40_p"
     assert N.segment_span(s) == (10, 43)
     assert s["stop"] == 41
 
 
 def test_minus_strand_id_example() -> None:
     s = seg("-", 10, 40, 1000)
-    assert N.makedb_id("antisense", s) == "GIAPORF_antisense_c1_961_990_m"
+    assert N.makedb_id("antisense", s) == "GIPPAORF_antisense_c1_961_990_m"
     assert N.segment_span(s) == (957, 990)
     assert s["stop"] == 958
 
 
 def test_class_and_contig_enter_the_id() -> None:
     assert N.makedb_id("intergenic", seg("+", 0, 30, 99, "chr_2")) == (
-        "GIAPORF_intergenic_chr_2_1_30_p"
+        "GIPPAORF_intergenic_chr_2_1_30_p"
     )
 
 

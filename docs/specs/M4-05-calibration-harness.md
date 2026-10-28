@@ -94,7 +94,7 @@ computed, the discrete-p rule, seed derivation, and how suites map to `tolerance
 ## Lead decisions after statistician review (PR #54, BLOCK)
 1. Fail closed: `check_level`, `check_fwer` (and `check_fdr` for FDP) raise ValueError on non-finite or
    out-of-[0,1] input; `check_fdr` rejects R < 2. The statistician's two unmarked tests must pass.
-2. `--shard K/N` is honoured: suites read `GIAP_CALIBRATION_REPLICATES=start:stop` through the harness and
+2. `--shard K/N` is honoured: suites read `GIPPA_CALIBRATION_REPLICATES=start:stop` through the harness and
    run only that range; a merge step (`merge_shards` / `--merge`) combines shard records and evaluates the
    criterion on the full R. Without the variable, behaviour is unchanged.
 3. ADR-0015 (accepted by Khoa): two-block confirmation — a failing check is re-run on replicates R..2R−1;

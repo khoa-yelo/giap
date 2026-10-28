@@ -81,8 +81,8 @@ def _repo(tmp_path: Path, base_files: Mapping[str, str] | None = None) -> Repo:
     r.commit(
         "chore: base",
         {
-            "src/giap/cli.py": "x = 1\n",
-            "src/giap/x.py": "y = 1\n",
+            "src/gippa/cli.py": "x = 1\n",
+            "src/gippa/x.py": "y = 1\n",
             "docs/user-guide/run.md": "# run\n",
             "workflow/main.nf": "// main\n",
             "workflow/tests/old.nf.test": "// t\n",
@@ -134,17 +134,17 @@ def test_script_exists() -> None:
 
 
 def test_example1_code_with_fragment_passes(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/cli.py": "x = 2\n", "changelog.d/341.feature.md": "New flag.\n"})
+    r = _pr(tmp_path, {"src/gippa/cli.py": "x = 2\n", "changelog.d/341.feature.md": "New flag.\n"})
     res = _run(r)
     assert res.code == 0, res.out
 
 
 def test_example2_code_without_fragment_fails_with_message(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/cli.py": "x = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/cli.py": "x = 2\n"})
     res = _run(r)
     assert res.code == 1, res.out
     assert MISSING in res.out
-    assert "src/giap/cli.py" in res.out
+    assert "src/gippa/cli.py" in res.out
     assert "changelog.d/" in res.out
     assert "no-changelog" in res.out
 
@@ -163,7 +163,7 @@ def test_example4_workflow_tests_only_passes(tmp_path: Path) -> None:
 
 
 def test_example5_label_no_changelog_exempts(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/cli.py": "x = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/cli.py": "x = 2\n"})
     res = _run(r, labels=["enhancement", "no-changelog"])
     assert res.code == 0, res.out
     assert EXEMPT_LABEL in res.out
@@ -171,22 +171,22 @@ def test_example5_label_no_changelog_exempts(tmp_path: Path) -> None:
 
 def test_example6_refactor_only_commits_exempt(tmp_path: Path) -> None:
     r = _repo(tmp_path)
-    r.commit("refactor: split x", {"src/giap/x.py": "y = 2\n"})
-    r.commit("refactor(cli): rename", {"src/giap/x.py": "y = 3\n"})
+    r.commit("refactor: split x", {"src/gippa/x.py": "y = 2\n"})
+    r.commit("refactor(cli): rename", {"src/gippa/x.py": "y = 3\n"})
     res = _run(r)
     assert res.code == 0, res.out
     assert EXEMPT_TYPES in res.out
 
 
 def test_example7_empty_fragment_fails(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", "changelog.d/342.bugfix.md": ""})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", "changelog.d/342.bugfix.md": ""})
     res = _run(r)
     assert res.code == 1, res.out
     assert "empty fragment" in res.out
 
 
 def test_example8_misnamed_fragment_fails(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", "changelog.d/notes.txt": "Notes.\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", "changelog.d/notes.txt": "Notes.\n"})
     res = _run(r)
     assert res.code == 1, res.out
     assert MISSING in res.out
@@ -226,20 +226,20 @@ def test_no_changes_passes(tmp_path: Path) -> None:
 
 def test_deleted_src_file_needs_a_fragment(tmp_path: Path) -> None:
     r = _repo(tmp_path)
-    r.git("rm", "-q", "src/giap/x.py")
+    r.git("rm", "-q", "src/gippa/x.py")
     r.commit("feat: drop x")
     res = _run(r)
     assert res.code == 1, res.out
-    assert "src/giap/x.py" in res.out
+    assert "src/gippa/x.py" in res.out
 
 
 def test_rename_into_src_counts_at_new_path(tmp_path: Path) -> None:
     r = _repo(tmp_path, base_files={"tools/helper.py": "def h():\n    return 1\n" * 5})
-    r.git("mv", "tools/helper.py", "src/giap/helper.py")
+    r.git("mv", "tools/helper.py", "src/gippa/helper.py")
     r.commit("feat: move helper")
     res = _run(r)
     assert res.code == 1, res.out
-    assert "src/giap/helper.py" in res.out
+    assert "src/gippa/helper.py" in res.out
 
 
 # ---- has a fragment -----------------------------------------------------------------------------
@@ -249,7 +249,7 @@ def test_rename_into_src_counts_at_new_path(tmp_path: Path) -> None:
     "name", [f"341.{t}.md" for t in TYPES] + ["+m11-release.feature.md", "+fix-x.bugfix.md"]
 )
 def test_valid_fragment_names_pass(tmp_path: Path, name: str) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", f"changelog.d/{name}": "Text.\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", f"changelog.d/{name}": "Text.\n"})
     res = _run(r)
     assert res.code == 0, res.out
 
@@ -266,18 +266,18 @@ def test_valid_fragment_names_pass(tmp_path: Path, name: str) -> None:
     ],
 )
 def test_invalid_fragment_names_fail(tmp_path: Path, name: str) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", f"changelog.d/{name}": "Text.\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", f"changelog.d/{name}": "Text.\n"})
     res = _run(r)
     assert res.code == 1, res.out
 
 
 def test_fragment_outside_changelog_dir_does_not_count(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", "docs/341.feature.md": "Text.\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", "docs/341.feature.md": "Text.\n"})
     assert _run(r).code == 1
 
 
 def test_whitespace_only_fragment_is_empty(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n", "changelog.d/342.bugfix.md": " \n\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n", "changelog.d/342.bugfix.md": " \n\n"})
     res = _run(r)
     assert res.code == 1, res.out
     assert "empty fragment" in res.out
@@ -287,7 +287,7 @@ def test_one_valid_fragment_beside_a_misnamed_file_passes(tmp_path: Path) -> Non
     r = _pr(
         tmp_path,
         {
-            "src/giap/x.py": "y = 2\n",
+            "src/gippa/x.py": "y = 2\n",
             "changelog.d/notes.txt": "n\n",
             "changelog.d/343.feature.md": "Text.\n",
         },
@@ -297,20 +297,20 @@ def test_one_valid_fragment_beside_a_misnamed_file_passes(tmp_path: Path) -> Non
 
 def test_fragment_already_on_base_does_not_count(tmp_path: Path) -> None:
     # the base already holds +m00-scaffold.feature.md; the PR must *add* one
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n"})
     assert _run(r).code == 1
 
 
 def test_fragment_in_a_later_commit_counts(tmp_path: Path) -> None:
     r = _repo(tmp_path)
-    r.commit("feat: x", {"src/giap/x.py": "y = 2\n"})
+    r.commit("feat: x", {"src/gippa/x.py": "y = 2\n"})
     r.commit("docs: fragment", {"changelog.d/344.feature.md": "Text.\n"})
     assert _run(r).code == 0
 
 
 def test_fragment_added_then_deleted_does_not_count(tmp_path: Path) -> None:
     r = _repo(tmp_path)
-    r.commit("feat: x", {"src/giap/x.py": "y = 2\n", "changelog.d/344.feature.md": "Text.\n"})
+    r.commit("feat: x", {"src/gippa/x.py": "y = 2\n", "changelog.d/344.feature.md": "Text.\n"})
     r.git("rm", "-q", "changelog.d/344.feature.md")
     r.commit("feat: oops")
     assert _run(r).code == 1
@@ -320,20 +320,20 @@ def test_fragment_added_then_deleted_does_not_count(tmp_path: Path) -> None:
 
 
 def test_other_labels_do_not_exempt(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n"})
     res = _run(r, labels=["documentation", "changelog"])
     assert res.code == 1, res.out
     assert EXEMPT_LABEL not in res.out
 
 
 def test_event_without_pull_request_is_not_exempt(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n"})
     res = _run(r, event={"ref": "refs/heads/main", "labels": [{"name": "no-changelog"}]})
     assert res.code == 1, res.out
 
 
 def test_missing_event_file_is_not_exempt(tmp_path: Path) -> None:
-    r = _pr(tmp_path, {"src/giap/x.py": "y = 2\n"})
+    r = _pr(tmp_path, {"src/gippa/x.py": "y = 2\n"})
     env_unset = _run(r)  # GITHUB_EVENT_PATH removed by _git_env
     assert env_unset.code == 1, env_unset.out
 
@@ -351,7 +351,7 @@ def test_missing_event_file_is_not_exempt(tmp_path: Path) -> None:
 def test_maintenance_only_subjects_exempt(tmp_path: Path, subjects: list[str]) -> None:
     r = _repo(tmp_path)
     for i, s in enumerate(subjects):
-        r.commit(s, {"src/giap/x.py": f"y = {i + 10}\n"})
+        r.commit(s, {"src/gippa/x.py": f"y = {i + 10}\n"})
     res = _run(r)
     assert res.code == 0, res.out
     assert EXEMPT_TYPES in res.out
@@ -372,7 +372,7 @@ def test_maintenance_only_subjects_exempt(tmp_path: Path, subjects: list[str]) -
 def test_other_subjects_do_not_exempt(tmp_path: Path, subjects: list[str]) -> None:
     r = _repo(tmp_path)
     for i, s in enumerate(subjects):
-        r.commit(s, {"src/giap/x.py": f"y = {i + 10}\n"})
+        r.commit(s, {"src/gippa/x.py": f"y = {i + 10}\n"})
     res = _run(r)
     assert res.code == 1, res.out
     assert EXEMPT_TYPES not in res.out
@@ -380,11 +380,11 @@ def test_other_subjects_do_not_exempt(tmp_path: Path, subjects: list[str]) -> No
 
 def test_release_prep_deleting_fragments_is_exempt(tmp_path: Path) -> None:
     """Edge case: release prep drops all fragments, bumps the version (``chore(release):``)."""
-    r = _repo(tmp_path, base_files={"src/giap/__init__.py": '__version__ = "0.0.1"\n'})
+    r = _repo(tmp_path, base_files={"src/gippa/__init__.py": '__version__ = "0.0.1"\n'})
     r.git("rm", "-q", "changelog.d/+m00-scaffold.feature.md")
     r.commit(
         "chore(release): 1.0.0",
-        {"src/giap/__init__.py": '__version__ = "1.0.0"\n', "CHANGELOG.md": "# 1.0.0\n"},
+        {"src/gippa/__init__.py": '__version__ = "1.0.0"\n', "CHANGELOG.md": "# 1.0.0\n"},
     )
     res = _run(r)
     assert res.code == 0, res.out
@@ -399,7 +399,7 @@ def test_main_changes_merged_into_the_branch_do_not_count(tmp_path: Path) -> Non
     r = _repo(tmp_path)
     r.commit("docs: page", {"docs/user-guide/run.md": "# run\nmore\n"})
     r.git("checkout", "-q", "main")
-    r.commit("feat: main moves on", {"src/giap/cli.py": "x = 99\n"})
+    r.commit("feat: main moves on", {"src/gippa/cli.py": "x = 99\n"})
     r.git("checkout", "-q", "feature")
     r.git("merge", "-q", "--no-ff", "--no-edit", "main")
     res = _run(r)
@@ -408,7 +408,7 @@ def test_main_changes_merged_into_the_branch_do_not_count(tmp_path: Path) -> Non
 
 def test_merge_commit_subject_does_not_break_the_type_exemption(tmp_path: Path) -> None:
     r = _repo(tmp_path)
-    r.commit("refactor: split", {"src/giap/x.py": "y = 2\n"})
+    r.commit("refactor: split", {"src/gippa/x.py": "y = 2\n"})
     r.git("checkout", "-q", "main")
     r.commit("docs: main moves on", {"docs/other.md": "o\n"})
     r.git("checkout", "-q", "feature")
@@ -436,7 +436,7 @@ def test_property_any_rule_conforming_fragment_passes(
 ) -> None:
     r = _pr(
         tmp_path_factory.mktemp("p"),
-        {"src/giap/x.py": "y = 2\n", f"changelog.d/{stem}.{kind}.md": "Text.\n"},
+        {"src/gippa/x.py": "y = 2\n", f"changelog.d/{stem}.{kind}.md": "Text.\n"},
     )
     res = _run(r)
     assert res.code == 0, res.out
@@ -454,7 +454,7 @@ def test_property_unknown_type_fails(
 ) -> None:
     r = _pr(
         tmp_path_factory.mktemp("p"),
-        {"src/giap/x.py": "y = 2\n", f"changelog.d/{number}.{kind}.md": "Text.\n"},
+        {"src/gippa/x.py": "y = 2\n", f"changelog.d/{number}.{kind}.md": "Text.\n"},
     )
     res = _run(r)
     assert res.code == 1, res.out

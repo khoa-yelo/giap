@@ -15,7 +15,7 @@ Milestone M1 · depends on: M1-01 · estimate ≈ 360 changed lines (≈ 160 cod
 
 ## Public interface
 
-`src/giap/io/tsv.py`
+`src/gippa/io/tsv.py`
 ```python
 NA = "NA"
 COLUMN_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -33,7 +33,7 @@ but a tab, `\n` or `\r` inside raises `ValueError`. `write_tsv` checks every col
 with `gzip.GzipFile(mtime=0, filename="")` so bytes are reproducible. `read_tsv` uses `open_text`
 (gzip by magic), strips a UTF-8 BOM, errors on ragged rows with the 1-based line number.
 
-`src/giap/io/bed.py`
+`src/gippa/io/bed.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class BedRecord:
@@ -44,7 +44,7 @@ class BedRecord:
 def bed_lines(rec: BedRecord, replicon: Replicon) -> list[str]: ...  # 1 line, or 2 if origin-crossing
 def write_bed(path: Path, records: Iterable[BedRecord], replicons: Mapping[str, Replicon]) -> None: ...
 ```
-`src/giap/io/probed.py`
+`src/gippa/io/probed.py`
 ```python
 PROBED_EXTRA = ("proteinAccession", "peptideSequence", "uniqueness", "genomeReferenceVersion",
     "psmScore", "fdr", "modifications", "charge", "expMassToCharge", "calcMassToCharge",

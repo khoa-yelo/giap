@@ -1,9 +1,9 @@
-"""M8-06a item 7: ``giap.setupdb.installed.resource(db_dir, name)`` (the ``cog_table`` rule of
+"""M8-06a item 7: ``gippa.setupdb.installed.resource(db_dir, name)`` (the ``cog_table`` rule of
 M4-15 decision 5, generalised; docs/specs/M8-06-function-step-and-run.md).
 
 ``resource`` returns ``db_dir / SOURCES[name].path`` when the setup manifest lists ``name`` and the
 file exists, else None; ``cog_table(db) == resource(db, "cog2020_def")``. The test DB is
-``helpers.function_db`` (never the real ``$GIAP_DB_DIR``).
+``helpers.function_db`` (never the real ``$GIPPA_DB_DIR``).
 """
 
 from __future__ import annotations
@@ -24,14 +24,14 @@ def _xrefs() -> pd.DataFrame:
 
 
 def test_function_resources_constant() -> None:
-    from giap.setupdb.installed import FUNCTION_RESOURCES as LIVE
+    from gippa.setupdb.installed import FUNCTION_RESOURCES as LIVE
 
     assert LIVE == FUNCTION_RESOURCES
 
 
 def test_paths_come_from_db_sources_yaml() -> None:
     """The helper's layout is ``db_sources.yaml``'s (what ``resource`` joins onto ``db_dir``)."""
-    from giap.setupdb.items import SOURCES
+    from gippa.setupdb.items import SOURCES
 
     for name in ITEMS:
         assert SOURCES[name].path == PATHS[name], name
@@ -39,8 +39,8 @@ def test_paths_come_from_db_sources_yaml() -> None:
 
 @pytest.mark.parametrize("name", [*FUNCTION_RESOURCES, "cog2020_def"])
 def test_listed_and_present_gives_the_path(name: str, tmp_path: Path) -> None:
-    from giap.setupdb.installed import resource
-    from giap.setupdb.items import SOURCES
+    from gippa.setupdb.installed import resource
+    from gippa.setupdb.items import SOURCES
 
     db = write_function_db(tmp_path, _xrefs())
     got = resource(tmp_path, name)
@@ -51,7 +51,7 @@ def test_listed_and_present_gives_the_path(name: str, tmp_path: Path) -> None:
 @pytest.mark.parametrize("name", FUNCTION_RESOURCES)
 def test_listed_but_absent_gives_none(name: str, tmp_path: Path) -> None:
     """Degenerate case: listed in the manifest, file deleted -> not installed."""
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     db = write_function_db(tmp_path, _xrefs())
     path = db.paths[name]
@@ -62,7 +62,7 @@ def test_listed_but_absent_gives_none(name: str, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("name", FUNCTION_RESOURCES)
 def test_present_but_not_listed_gives_none(name: str, tmp_path: Path) -> None:
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     others = [n for n in ITEMS if n != name]
     write_function_db(tmp_path, _xrefs(), listed=others)
@@ -71,7 +71,7 @@ def test_present_but_not_listed_gives_none(name: str, tmp_path: Path) -> None:
 
 
 def test_no_db_dir_or_no_manifest_gives_none(tmp_path: Path) -> None:
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     assert resource(None, "go_basic") is None
     (tmp_path / "go").mkdir()
@@ -81,7 +81,7 @@ def test_no_db_dir_or_no_manifest_gives_none(tmp_path: Path) -> None:
 
 def test_provisional_manifest_form_is_read(tmp_path: Path) -> None:
     """``read_manifest``'s provisional ``{"<name>": {"version": ...}}`` form counts too."""
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     write_function_db(tmp_path, _xrefs(), items=["cog2020_fun"])
     doc = {"cog2020_fun": {"version": "2020", "path": PATHS["cog2020_fun"]}}
@@ -91,7 +91,7 @@ def test_provisional_manifest_form_is_read(tmp_path: Path) -> None:
 
 
 def test_status_not_ok_is_not_installed(tmp_path: Path) -> None:
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     write_function_db(tmp_path, _xrefs())
     doc = manifest_doc(ITEMS)
@@ -105,7 +105,7 @@ def test_status_not_ok_is_not_installed(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("case", ["listed", "absent", "unlisted", "none"])
 def test_cog_table_is_resource_cog2020_def(case: str, tmp_path: Path) -> None:
-    from giap.setupdb.installed import cog_table, resource
+    from gippa.setupdb.installed import cog_table, resource
 
     db_dir: Path | None = tmp_path
     if case == "listed":
@@ -131,7 +131,7 @@ def test_resource_is_listed_and_present(
 ) -> None:
     """Property: ``resource(db, n)`` is a path iff ``n`` is listed and its file exists, and then
     it is that file."""
-    from giap.setupdb.installed import resource
+    from gippa.setupdb.installed import resource
 
     root = tmp_path_factory.mktemp("prop")
     write_function_db(root, _xrefs(), items=written, listed=listed)

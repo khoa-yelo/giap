@@ -5,7 +5,7 @@ docs/specs/M7-13-calibration-gate.md rules 3, 4, 9, examples 1-6 and 10, the var
 Interface pinned here (pure functions, pandas in, ints out):
 
 * ``GATE_R`` = ``{"fast": 10, "full": 300}`` (lead decision 1, ADR-0048 pending);
-  ``INDEL_MASK_NT`` = 3; ``ISOBARIC_ERRORS`` = ``{"block", "modification"}`` (giapsim's
+  ``INDEL_MASK_NT`` = 3; ``ISOBARIC_ERRORS`` = ``{"block", "modification"}`` (gippasim's
   mass-equivalent error types; ``near_block`` and ``swap`` are not).
 * ``fold_il(s)``: I, L and J become one letter, every other residue unchanged.
 * ``g1_predictions(variants)``: ``variants.tsv`` as written (strings, ``codon_start`` 1-based) ->
@@ -13,7 +13,7 @@ Interface pinned here (pure functions, pandas in, ints out):
   ``confidence = high`` and ``alt_type = substitution`` (a ``mixed`` site's ALT rows included),
   one per ``(contig, codon_start, strand, fold_il(alt_aa))``.
 * ``match_variants(pred, alt_sites, indel_sites)`` -> ``{n_pred, tp_p, n_truth, tp_r, masked}``
-  (rules 3-4). Truth frames as ``giapsim.truth.read_alt_sites`` / ``read_indel_sites`` give them.
+  (rules 3-4). Truth frames as ``gippasim.truth.read_alt_sites`` / ``read_indel_sites`` give them.
   Masked: the codon ``[c, c+2]`` and a ``junction`` j on the same contig with
   ``c - 3 <= j <= c + 2 + 3``. A masked prediction is removed before matching (neither TP nor
   FP, so it cannot recall a truth row either) and counted in ``masked``.
@@ -41,7 +41,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.variants.vcf_records import VARIANTS_COLUMNS
+from gippa.variants.vcf_records import VARIANTS_COLUMNS
 
 ALT_COLS = ["contig", "codon_start", "strand", "gene", "ref_aa", "alt_aa", "n_true_peptides",
             "frameshift_upstream"]  # fmt: skip

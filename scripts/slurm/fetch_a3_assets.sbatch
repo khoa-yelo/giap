@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-fetch-a3-assets
+#SBATCH --job-name=gippa-fetch-a3-assets
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=1
@@ -13,12 +13,12 @@
 #   A3_WEIGHTS_HOST_OK=1 sbatch scripts/slurm/fetch_a3_assets.sbatch             # 2. verified copy
 #
 # - Cascadia weights: HTTPS from the Drive file ID in validation/pilot/a3_assets.tsv to
-#   $GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt (0444). Drive is not a §3.2 source: only once
+#   $GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt (0444). Drive is not a §3.2 source: only once
 #   ADR-M10-B is accepted (A3_WEIGHTS_HOST_OK=1 exactly), otherwise exit 2 before any request.
 #   The body must be a zip (Lightning checkpoint, PK\x03\x04), never an HTML page, in both modes.
 #   curl: 2 attempts x 3000 s + 60 s delay = 6060 s < the 2 h --time.
-# - Unimod table: psims' vendored unimod_tables.xml.gz, gunzipped from the built giap-cascadia
-#   env to $GIAP_DB_DIR/cascadia/unimod_tables.xml (0444). No network, so it runs without the
+# - Unimod table: psims' vendored unimod_tables.xml.gz, gunzipped from the built gippa-cascadia
+#   env to $GIPPA_DB_DIR/cascadia/unimod_tables.xml (0444). No network, so it runs without the
 #   weights gate.
 # - --resolve prints each asset's sha256 and bytes (trust on first use: no checksum is
 #   published) for the lead to commit into a3_assets.tsv; it installs nothing. Without --resolve
@@ -27,11 +27,11 @@
 # R6: https only, TLS verification never off. R11: nothing is written into the checkout.
 # Exit codes: 0 done; 1 a download or verification failed; 2 a precondition.
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 
-ASSETS="$GIAP_REPO/validation/pilot/a3_assets.tsv"
-DEST="$GIAP_DB_DIR/cascadia"
-CASCADIA_ENV="$MAMBA_ROOT_PREFIX/envs/giap-cascadia"
+ASSETS="$GIPPA_REPO/validation/pilot/a3_assets.tsv"
+DEST="$GIPPA_DB_DIR/cascadia"
+CASCADIA_ENV="$MAMBA_ROOT_PREFIX/envs/gippa-cascadia"
 RESOLVE=0
 case "${1:-}" in
   "") ;;

@@ -1,4 +1,4 @@
-"""Calibration of the M6-01 Student-t engine (GIAP_SPEC.md §7.4.2, §7.4.3, §8.4; suite
+"""Calibration of the M6-01 Student-t engine (GIPPA_SPEC.md §7.4.2, §7.4.3, §8.4; suite
 ``discordance``).
 
 Engine-level claims only; the operon-level discordance level (the t fitted on the OP pairs of a
@@ -37,7 +37,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.tdist import StudentT, fit_student_t, student_t_two_sided
+from gippa.stats.tdist import StudentT, fit_student_t, student_t_two_sided
 
 SUITE = "discordance"
 FAST_SECONDS = 60.0

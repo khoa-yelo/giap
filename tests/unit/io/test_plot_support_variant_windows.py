@@ -6,12 +6,12 @@ test_plots_support_step.py (M9-03's tests are not edited here).
 
 Interface assumed beyond the spec text (M9-18 test author):
 
-- ``src/giap/schemas/plot_support/variant_windows.json`` with fields ``variant_id, gene, aa_pos,
+- ``src/gippa/schemas/plot_support/variant_windows.json`` with fields ``variant_id, gene, aa_pos,
   window_start_aa, ref_window`` (``aa_pos`` / ``window_start_aa`` integers ≥ 1), listed in
   ``schemas/datapackage.json`` as resource ``variant_windows`` with ``role: plot_support``.
 - The ``plots`` step writes ``plots/support/variant_windows.tsv`` when it is given both
   ``variants`` (``tables/variants.tsv``) and ``genes`` (C2 ``genes.parquet``); without either,
-  no ``variant_windows`` file. ``giap report`` never writes it (it only reads it back).
+  no ``variant_windows`` file. ``gippa report`` never writes it (it only reads it back).
 """
 
 from __future__ import annotations
@@ -25,10 +25,10 @@ import pytest
 from helpers import viz_variants as vv
 from helpers.report_fixtures import cfg, run_out, swap_registry
 
-import giap.schemas
-from giap.steps import registry as reg
+import gippa.schemas
+from gippa.steps import registry as reg
 
-SCHEMAS = Path(giap.schemas.__file__).resolve().parent
+SCHEMAS = Path(gippa.schemas.__file__).resolve().parent
 NAME = "variant_windows"
 COLUMNS = ["variant_id", "gene", "aa_pos", "window_start_aa", "ref_window"]
 
@@ -36,7 +36,7 @@ COLUMNS = ["variant_id", "gene", "aa_pos", "window_start_aa", "ref_window"]
 @pytest.fixture(autouse=True)
 def _no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
 
 
 @pytest.fixture
@@ -79,9 +79,9 @@ def test_datapackage_lists_variant_windows_with_role_plot_support() -> None:
 
 def test_written_table_validates_against_its_schema(tmp_path: Path) -> None:
     frictionless = pytest.importorskip("frictionless")
-    from giap.io.plot_support import write_support
-    from giap.io.run_view import RunView
-    from giap.viz.support import variant_windows
+    from gippa.io.plot_support import write_support
+    from gippa.io.run_view import RunView
+    from gippa.viz.support import variant_windows
 
     out = vv.build_out(tmp_path, vv.main_variants())
     variants = RunView.from_outdir(out).table("variants")
@@ -160,7 +160,7 @@ def test_step_variant_windows_is_byte_identical_across_runs(
 def test_plots_rendered_by_the_step_see_variant_windows(
     fake_registry: ModuleType, tmp_path: Path
 ) -> None:
-    from giap.viz import base
+    from gippa.viz import base
 
     seen: dict[str, Any] = {}
 

@@ -8,8 +8,8 @@ import pytest
 from helpers.novel_oracle import Case, hit_row, translate
 from helpers.novel_outputs_fixture import orfs_of
 
-from giap.model.coords import Replicon
-from giap.novel.outputs import gff_features, orf_table
+from gippa.model.coords import Replicon
+from gippa.novel.outputs import gff_features, orf_table
 
 N = 300
 _BODY = "GCT" * 10 + "GCTATTGAAAAACGTGATTCTCCGCATTGG" + "TTCAACCAGGACTACAAGCGCGTTGAGCAC"

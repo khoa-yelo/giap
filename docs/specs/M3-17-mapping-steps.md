@@ -1,8 +1,8 @@
 # M3-17: Mapping steps, query selection and workflow wiring
 
 Milestone M3 · depends on: M3-01 … M3-16; M1-12 (normalised work files); M2-02 (step registry,
-`StepContext`, `giap _step`) and M2-06 (Nextflow skeleton) (if absent, see Q1) · creates `src/giap/steps/mapping.py`,
-`workflow/subworkflows/local/mapping.nf`, process modules `workflow/modules/local/giap_mapping/`
+`StepContext`, `gippa _step`) and M2-06 (Nextflow skeleton) (if absent, see Q1) · creates `src/gippa/steps/mapping.py`,
+`workflow/subworkflows/local/mapping.nf`, process modules `workflow/modules/local/gippa_mapping/`
 · pure Python + Nextflow (external tools only through M3-12/13/15 processes) · estimate ≈ 330
 code lines
 
@@ -17,7 +17,7 @@ code lines
   `unmapped.tsv`).
 - §6.1 data flow ("six-frame index ─► exact peptides ─► tolerant (+ decoys) ─► placement FDR";
   "proteins > 40 aa ─► miniprot ─► tblastn (leftovers)"); §6.3 one process per Python step group,
-  `giap _step <name>`, stub blocks; §6.4 local executor (no external tools: protein routes need
+  `gippa _step <name>`, stub blocks; §6.4 local executor (no external tools: protein routes need
   `annotation.precomputed`-style injection or are skipped when there are no long proteins).
 - §7.2 "Each sequence takes the cheapest route that can place it; only failures move on."
 - §7.3.1 (consumer contract): accepted evidence requires `q_value ≤ input.q_value_max`.
@@ -43,7 +43,7 @@ code lines
 @step(name="sixframe_index", inputs=[...], outputs=["work/sixframe.npz"], module="core")
 def sixframe_index_step(ctx: StepContext) -> None: ...
 # map_exact, map_tolerant, placement, loci: same pattern; pure functions from M3-02…16 do the work
-def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
+def select_queries(peptides: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame: ...
 ```
 
 ## Examples
@@ -69,7 +69,7 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
 
 ## Questions for the lead
 
-1. If M2-02's step registry (`@step`, `StepContext`, `giap _step`) is not merged when M3 reaches
+1. If M2-02's step registry (`@step`, `StepContext`, `gippa _step`) is not merged when M3 reaches
    this issue: **Proposed default:** M3-17 waits for it (it is the only M3 issue that needs it);
    all other M3 issues are plain functions.
 2. Peptides with q above `input.q_value_max`: map them or not? **Proposed default:** not mapped
@@ -91,8 +91,8 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
 
 ## Lead decisions after code review (PR #77, changes requested)
 5. Split (size): #77 keeps the steps and the local executor; the MAPPING Nextflow subworkflow, the
-   `giap_mapping` module and workflow/tests/mapping.nf.test move to a follow-up PR (branch
-   m3/mapping-nf, after #77), which follows M2-07 (`GIAP_STEP` + `stepIn`, no duplicate processes,
+   `gippa_mapping` module and workflow/tests/mapping.nf.test move to a follow-up PR (branch
+   m3/mapping-nf, after #77), which follows M2-07 (`GIPPA_STEP` + `stepIn`, no duplicate processes,
    real stub headers) and wires `contaminants` (review findings 4 (nf part) and 7).
 6. `search_db: auto` is resolved in the mapping steps (M3-10 decision 4: `same` when ≥ 95 % of peptides'
    protein_ids are in the database, else `other`), recorded in the run metadata; test.
@@ -107,8 +107,8 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
 11. The local executor publishes mapping outputs to `OUT/mapping` (§9.1), like Nextflow.
 12. Tests kill the surviving mutants (tolerant decoys per query, frameshift wiring, best-cost filter,
     de novo π̂, tolerant `min_len` boundary, reference peptides, leftover assignment, tblastn leftover
-    filter, protein_ids separator, genome sha); `test_giap_step_cli_exits_4_on_a_corrupt_index` uses
-    `fresh_steps`; tests never read the real $GIAP_DB_DIR (tmp DB dir with a test manifest).
+    filter, protein_ids separator, genome sha); `test_gippa_step_cli_exits_4_on_a_corrupt_index` uses
+    `fresh_steps`; tests never read the real $GIPPA_DB_DIR (tmp DB dir with a test manifest).
 
 ## Lead decisions after the re-review (PR #77)
 13. When an enabled target step is pruned only because a REQUIRED root is missing (e.g. `bakta_json`:
@@ -121,14 +121,14 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
     check) and M10 (`placed` set).
 
 ## Lead decisions after the code review of PR #96 (changes requested)
-15. Decision 14 under Nextflow: the per-task `logs/events.jsonl` written by `giap _step` (placement,
-    loci, any step) is an optional GIAP_STEP output; the workflow collects them and `giap run` appends
+15. Decision 14 under Nextflow: the per-task `logs/events.jsonl` written by `gippa _step` (placement,
+    loci, any step) is an optional GIPPA_STEP output; the workflow collects them and `gippa run` appends
     them to `OUT/logs/events.jsonl` after Nextflow ends (order: task completion as listed in the trace;
     each event keeps its step name). Test on the run directory, not the task directory.
 16. Integration example 5 is `xfail(strict=False, reason="needs M2-20 context_layers")` until M2-20
     merges; its backlog line is restored.
 17. Tests kill the surviving mutants: `gene_model` channel order (features vs replicons); main.nf wiring
-    of `proteins_long` and `reference_peptides`; `params.json` contents written by `giap run`
+    of `proteins_long` and `reference_peptides`; `params.json` contents written by `gippa run`
     (`_NORM_INPUTS` peptides.norm.parquet, proteins_long, contaminants path).
-18. The Groovy contaminants fallback reads the current `giap setup` manifest format (db_manifest.json as
+18. The Groovy contaminants fallback reads the current `gippa setup` manifest format (db_manifest.json as
     written today), tested with that shape.

@@ -1,10 +1,10 @@
-# M1-12: `run_preflight`, normalised inputs and `giap preflight` CLI with exit codes
+# M1-12: `run_preflight`, normalised inputs and `gippa preflight` CLI with exit codes
 
 Milestone M1 · depends on: M1-02 … M1-11 · estimate ≈ 360 changed lines (≈ 160 code, ≈ 200 tests)
 
 ## Spec sections implemented
 
-- §5.1: `giap preflight --genome G.fasta [--proteins P.faa] [--peptides T.tsv] [--abundance A.tsv]
+- §5.1: `gippa preflight --genome G.fasta [--proteins P.faa] [--peptides T.tsv] [--abundance A.tsv]
   [--annotation X] [--outdir DIR] [--strict]`; exit codes "0 success · 1 invalid input (preflight
   errors) · 2 environment error · 3 warnings were raised and `--strict` was given".
 - §7.0: "Errors stop the run (exit 1)." · "The exit codes are 0, 1 and 3 (`--strict`)." ·
@@ -17,14 +17,14 @@ Milestone M1 · depends on: M1-02 … M1-11 · estimate ≈ 360 changed lines (�
 
 ## Public interface
 
-`src/giap/preflight/run.py`
+`src/gippa/preflight/run.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class PreflightInputs:
     genome: Path; proteins: Path | None = None; peptides: Path | None = None
     abundance: Path | None = None; annotation: Path | None = None
 
-def run_preflight(inp: PreflightInputs, cfg: GiapConfig, probe: EnvProbe | None,
+def run_preflight(inp: PreflightInputs, cfg: GippaConfig, probe: EnvProbe | None,
                   mode: Literal["preflight", "run"]) -> tuple[PreflightReport, NormalisedInputs]: ...
 def exit_code(report: PreflightReport, strict: bool) -> ExitCode: ...
 def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs) -> None: ...
@@ -41,14 +41,14 @@ under `OUT/work/preflight/` only when the report has no error. File formats:
 - Proteins of 7–40 aa join `peptides.norm.parquet` as rows with `protein_ids=[id]`.
 
 `exit_code` precedence: any `error` with `exit_code=1` (input) → 1; else any environment error → 2;
-else `strict` and any `warn` → 3; else 0. CLI: `preflight` in `src/giap/cli.py` calls these, prints
+else `strict` and any `warn` → 3; else 0. CLI: `preflight` in `src/gippa/cli.py` calls these, prints
 `preflight.md` to stdout, and exits with the code. Without `--outdir`, nothing is written.
 
 ## Examples (tiny files written in `tmp_path`; thresholds lowered with `--set`)
 
 | # | Command | Expected |
 |---|---|---|
-| 1 | `giap preflight --genome g.fa` with `>c circular=true` + 120 kb random ACGT, `--set preflight.min_n50_warn=1 --set preflight.min_largest_contig_warn=1` | exit 0; stdout contains `0 errors` |
+| 1 | `gippa preflight --genome g.fa` with `>c circular=true` + 120 kb random ACGT, `--set preflight.min_n50_warn=1 --set preflight.min_largest_contig_warn=1` | exit 0; stdout contains `0 errors` |
 | 2 | same genome without the threshold overrides (largest < 1 Mb → contiguity warn) | exit 0 |
 | 3 | #2 with `--strict` | exit 3 |
 | 4 | genome file containing `>c\nACGU\n` | exit 1 |
@@ -76,7 +76,7 @@ else `strict` and any `warn` → 3; else 0. CLI: `preflight` in `src/giap/cli.py
 
 ## Questions for the lead
 
-1. Without `--outdir`, should `giap preflight` write `./preflight/`? **Proposed default:** no; print
+1. Without `--outdir`, should `gippa preflight` write `./preflight/`? **Proposed default:** no; print
    the summary only (the command is "input validation only (seconds)").
 2. Bakta's replicon table: original and new IDs both the safe ID, name `-`, no header. **Proposed
    default:** as written; the M2 Bakta contract test confirms the format.
@@ -88,12 +88,12 @@ else `strict` and any `warn` → 3; else 0. CLI: `preflight` in `src/giap/cli.py
   temporary directory under `--outdir` and moved into place with `os.replace`; `preflight/preflight.json`
   is written last as the completion marker. A run with errors leaves no normalised inputs behind.
 - Resources are probed live (`shutil.disk_usage(outdir)`; Slurm/cgroup memory limit, else total RAM),
-  not from `.giap/capabilities.json`. `preflight.json` keeps only the outcome (`level`, and for
+  not from `.gippa/capabilities.json`. `preflight.json` keeps only the outcome (`level`, and for
   `environment.resources` the needed vs. available verdict without raw numbers), so it is identical
   across nodes (§6.6). The raw numbers go to `logs/events.jsonl` (§6.7).
 - Protein FASTA headers are written as safe IDs (`write_fasta` default); `work/preflight/protein_map.tsv`
   maps safe IDs to the original IDs and group members (§5.3 "mapping saved"). `safe_ids=False` is removed.
 - `--outdir` pointing at an existing file exits 1 (invalid input), not 5.
 - `db_manifest.json` (provisional): `{"<name>": {"version": "<v>", "sha256": "<hex>", ...}}`; M2's
-  `giap setup` pins it with `src/giap/schemas/db_manifest.schema.json`.
-- The probe code lives in `giap.preflight.environment`; `route_by_length` runs once.
+  `gippa setup` pins it with `src/gippa/schemas/db_manifest.schema.json`.
+- The probe code lives in `gippa.preflight.environment`; `route_by_length` runs once.

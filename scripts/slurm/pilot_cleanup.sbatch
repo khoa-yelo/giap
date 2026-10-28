@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-pilot-cleanup
+#SBATCH --job-name=gippa-pilot-cleanup
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=2
@@ -14,32 +14,32 @@
 # Plan step 1: `nextflow clean -f -k` in every pilot/bench run directory with a .nextflow/, then
 # its work/ is deleted. Step 4: the mzML directory. Step 2 (the DIA-NN reports and libraries) and
 # the de novo outputs (*.ssl, *.mztab) are listed as "kept pending K2" and never deleted (lead
-# decisions 2026-10-24); steps 3, 5 and 6 are kept. Everything goes to $GIAP_ROOT/pilot/cleanup/: plan.tsv
+# decisions 2026-10-24); steps 3, 5 and 6 are kept. Everything goes to $GIPPA_ROOT/pilot/cleanup/: plan.tsv
 # and the append-only ledger DELETED.tsv (a row before each delete, a second row after it, so a
 # re-run after a kill continues; a target already gone is `absent`). F is read from the runbook
-# header ($RUNBOOK, default $GIAP_REPO/validation/pilot/reproduce.md). Exit 0 done or dry run;
+# header ($RUNBOOK, default $GIPPA_REPO/validation/pilot/reproduce.md). Exit 0 done or dry run;
 # 1 a deletion or a `nextflow clean` failed; 2 a precondition (nothing deleted).
 set -euo pipefail
 set -f
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/giap.XXXXXX")"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/gippa.XXXXXX")"
 export TMPDIR
 trap 'rm -rf "$TMPDIR"' EXIT
 
 die2() { echo "pilot_cleanup: $*" >&2; exit 2; }
 
-GIAP_PYTHON="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
-RUNBOOK="${RUNBOOK:-$GIAP_REPO/validation/pilot/reproduce.md}"
+GIPPA_PYTHON="${GIPPA_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
+RUNBOOK="${RUNBOOK:-$GIPPA_REPO/validation/pilot/reproduce.md}"
 DRY_RUN="${DRY_RUN:-1}"
 [ "${CLEAN:-0}" = 1 ] && DRY_RUN=0
 JOB="${SLURM_JOB_ID:-$$}"
-ROOT="$(realpath -e -- "$GIAP_ROOT")" || die2 "GIAP_ROOT=$GIAP_ROOT does not exist"
+ROOT="$(realpath -e -- "$GIPPA_ROOT")" || die2 "GIPPA_ROOT=$GIPPA_ROOT does not exist"
 OUT="$ROOT/pilot/cleanup"
 [ -f "$RUNBOOK" ] || die2 "no runbook at $RUNBOOK"
 
 # ---- the freeze commit and the protected paths (Inputs rows, Outputs rows with kept = yes)
-"$GIAP_PYTHON" -I "$GIAP_REPO/validation/pilot/reproduce_check.py" protected "$RUNBOOK" \
-  --repo "$GIAP_REPO" > "$TMPDIR/protected" || die2 "cannot read $RUNBOOK"
+"$GIPPA_PYTHON" -I "$GIPPA_REPO/validation/pilot/reproduce_check.py" protected "$RUNBOOK" \
+  --repo "$GIPPA_REPO" > "$TMPDIR/protected" || die2 "cannot read $RUNBOOK"
 F="$(head -n 1 "$TMPDIR/protected")"
 case "$F" in
   *[!0-9a-f]*|"") die2 "the runbook names no freeze commit (freeze_commit=$F)" ;;
@@ -52,7 +52,7 @@ squeue -u "${USER:-$(id -un)}" -h -o '%i %j' > "$TMPDIR/jobs" || die2 "squeue fa
 while read -r id name; do
   [ -n "$id" ] && [ "$id" != "$JOB" ] || continue
   case "$name" in
-    giap-run-*pilot*|giap-run-freeze-*|giap-diann-*|giap-entrapment*|giap-denovo*|giap-pilot-*|giap-bench*)
+    gippa-run-*pilot*|gippa-run-freeze-*|gippa-diann-*|gippa-entrapment*|gippa-denovo*|gippa-pilot-*|gippa-bench*)
       die2 "pilot job $id ($name) is pending or running" ;;
   esac
 done < "$TMPDIR/jobs"
@@ -60,7 +60,7 @@ done < "$TMPDIR/jobs"
 # ---- the evidence preconditions and the plan (plan.tsv: path, kind, step, action)
 mkdir -p "$OUT"
 # Any error in this step (an unreadable or malformed JSON included) is a precondition: exit 2.
-"$GIAP_PYTHON" -I - "$ROOT" "$F" "${GIAP_DATA_DIR:-$ROOT/data}" "$TMPDIR/protected" \
+"$GIPPA_PYTHON" -I - "$ROOT" "$F" "${GIPPA_DATA_DIR:-$ROOT/data}" "$TMPDIR/protected" \
   "$OUT/plan.tsv" <<'PY' || exit 2
 import glob, json, os, sys
 root, F, data, protected_file, plan = sys.argv[1:6]
@@ -122,7 +122,7 @@ with open(plan, "w") as fh:
     fh.writelines("\t".join(r) + "\n" for r in rows)
 PY
 
-# ---- every target resolves inside $GIAP_ROOT
+# ---- every target resolves inside $GIPPA_ROOT
 while IFS="$(printf '\t')" read -r path kind step action; do
   [ "$action" = delete ] || [ "$action" = nextflow_clean ] || continue
   case "$path" in "$ROOT"/?*) ;; *) die2 "$path is not inside $ROOT" ;; esac

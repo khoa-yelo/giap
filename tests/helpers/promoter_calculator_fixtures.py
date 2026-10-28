@@ -23,8 +23,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from giap.annotate.operons import Tu
-from giap.model.coords import Interval, Replicon
+from gippa.annotate.operons import Tu
+from gippa.model.coords import Interval, Replicon
 
 HEADER = (
     "promoter_sequence,TSS,UP,hex35,spacer,hex10,disc,ITR,dG_total,dG_10,dG_35,dG_disc,dG_ITR,"

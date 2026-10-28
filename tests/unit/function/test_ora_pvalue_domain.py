@@ -17,7 +17,7 @@ import pytest
 from helpers.ora_calsim import collection, simulate, whole_tu_sets
 from helpers.ora_data import ora
 
-from giap.stats.poisson_binomial import CpbTails, conditional_poisson_binomial, tilt_pair
+from gippa.stats.poisson_binomial import CpbTails, conditional_poisson_binomial, tilt_pair
 
 ONE_PLUS_ULP = float(np.nextafter(1.0, 2.0))
 

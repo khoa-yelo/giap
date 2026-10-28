@@ -1,6 +1,6 @@
 """Bakta-derived layers: ribosomal set, 16S and anti-SD, tRNA counts, xrefs, nearest genes (M2-04).
 
-Examples 1-9 of ``docs/specs/M2-04-parse-bakta-step.md`` plus its edge cases; GIAP_SPEC.md §7.1.2
+Examples 1-9 of ``docs/specs/M2-04-parse-bakta-step.md`` plus its edge cases; GIPPA_SPEC.md §7.1.2
 (ribosomal-protein regexes, anti-SD rule, tRNA copy numbers), §9.3 ``annotation_source``.
 Lead decision M2-index 7: ``annotation_source`` comes from the Bakta DB type, ``user`` only when
 the DB type is unknown. M2-04 Q1 (proposed default): a configured anti-SD other than ``auto`` is a
@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from giap.model import Interval
-from giap.model.coords import Replicon
-from giap.model.genes import Gene, NcFeature
+from gippa.model import Interval
+from gippa.model.coords import Replicon
+from gippa.model.genes import Gene, NcFeature
 
 ECOLI_TAIL = "GATCACCTCCTTA"
 
@@ -71,7 +71,7 @@ def _nc(
 
 
 def test_constants() -> None:
-    from giap.annotate import bakta_layers as bl
+    from gippa.annotate import bakta_layers as bl
 
     assert bl.DEFAULT_ANTI_SD == "ACCTCCTTA"
     assert bl.RIBOSOMAL_PRODUCT.search("30S ribosomal protein S1")
@@ -85,40 +85,40 @@ def test_constants() -> None:
 
 
 def test_example1_seven_copies() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     copies = ["ACGT" * 10 + ECOLI_TAIL] * 7
     assert anti_sd(copies) == ("ACCTCCTTA", ())
 
 
 def test_example2_no_16s() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd([]) == ("ACCTCCTTA", ("anti_sd_default",))
 
 
 def test_example3_tail_without_cctcc() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd(["ACGTACGT" + "GATCATTTAAG"]) == ("ACCTCCTTA", ("anti_sd_default",))
 
 
 def test_example4_majority_wins() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     copies = ["GGGG" + "ACCTCCTTA", "TTTT" + "ACCTCCTTT", "CCCC" + "ACCTCCTTA"]
     assert anti_sd(copies) == ("ACCTCCTTA", ())
 
 
 def test_example5_user_override_ignores_16s() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd(["AAAA" + ECOLI_TAIL], configured="TCCTCCACT") == ("TCCTCCACT", ())
     assert anti_sd([], configured="TCCTCCACT") == ("TCCTCCACT", ())
 
 
 def test_explicit_auto_is_default() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     copies = ["AAAA" + ECOLI_TAIL]
     assert anti_sd(copies, configured="auto") == anti_sd(copies)
@@ -126,21 +126,21 @@ def test_explicit_auto_is_default() -> None:
 
 @pytest.mark.parametrize("bad", ["ACCTCCTT", "ACCTCCTTAA", "ACCUCCUUA", "acctcctta", "NCCTCCTTA"])
 def test_override_must_be_nine_nt_dna(bad: str) -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     with pytest.raises(ValueError):
         anti_sd([], configured=bad)
 
 
 def test_tie_first_copy_in_genome_order_wins() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd(["AA" + "ACCTCCTTT", "AA" + "ACCTCCTTA"]) == ("ACCTCCTTT", ())
     assert anti_sd(["AA" + "ACCTCCTTA", "AA" + "ACCTCCTTT"]) == ("ACCTCCTTA", ())
 
 
 def test_short_16s_skipped() -> None:
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     assert anti_sd(["CCTCC", "CCTCCTT", "AAAA" + "TCCTCCACT"]) == ("TCCTCCACT", ())
     assert anti_sd(["CCTCCTTA"]) == ("ACCTCCTTA", ("anti_sd_default",))
@@ -148,7 +148,7 @@ def test_short_16s_skipped() -> None:
 
 def test_most_common_lacks_cctcc_gives_default() -> None:
     """The rule checks the most common 9-mer only; a minority copy with CCTCC does not rescue it."""
-    from giap.annotate.bakta_layers import anti_sd
+    from gippa.annotate.bakta_layers import anti_sd
 
     copies = ["AA" + "TCATTTAAG", "AA" + "TCATTTAAG", "AA" + "TCCTCCACT"]
     assert anti_sd(copies) == ("ACCTCCTTA", ("anti_sd_default",))
@@ -174,14 +174,14 @@ def test_most_common_lacks_cctcc_gives_default() -> None:
     ],
 )
 def test_example6_is_ribosomal_protein(gene: str | None, product: str, expected: bool) -> None:
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     assert is_ribosomal_protein(_gene("X_1", 0, 300, gene=gene, product=product)) is expected
 
 
 def test_ribosomal_pseudogene_still_ribosomal() -> None:
     """Edge case: a gene can be both ribosomal_protein and pseudogene (M2-17 excludes it later)."""
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     g = _gene(
         "X_1", 0, 300, gene="rplB", product="50S ribosomal protein L2", feature_type="pseudogene"
@@ -193,7 +193,7 @@ def test_ribosomal_pseudogene_still_ribosomal() -> None:
 
 
 def test_rrna16s_selection_by_product_or_gene() -> None:
-    from giap.annotate.bakta_layers import rrna16s
+    from gippa.annotate.bakta_layers import rrna16s
 
     feats = [
         _nc("r1", "rrna", 0, 1500, product="16S ribosomal RNA", gene="rrs"),
@@ -208,7 +208,7 @@ def test_rrna16s_selection_by_product_or_gene() -> None:
 
 
 def test_rrna16s_empty() -> None:
-    from giap.annotate.bakta_layers import rrna16s
+    from gippa.annotate.bakta_layers import rrna16s
 
     assert rrna16s([]) == []
 
@@ -217,7 +217,7 @@ def test_rrna16s_empty() -> None:
 
 
 def test_example7_trna_counts() -> None:
-    from giap.annotate.bakta_layers import trna_counts
+    from gippa.annotate.bakta_layers import trna_counts
 
     feats = [
         _nc("t1", "trna", 0, 76, anticodon="CAG", amino_acid="Leu"),
@@ -228,7 +228,7 @@ def test_example7_trna_counts() -> None:
 
 
 def test_trna_counts_sorted_and_only_trna() -> None:
-    from giap.annotate.bakta_layers import trna_counts
+    from gippa.annotate.bakta_layers import trna_counts
 
     feats = [
         _nc("t1", "trna", 0, 76, anticodon="TTC", amino_acid="Glu"),
@@ -246,7 +246,7 @@ def test_trna_counts_sorted_and_only_trna() -> None:
 
 
 def test_example8_split_xrefs() -> None:
-    from giap.annotate.bakta_layers import split_xrefs
+    from gippa.annotate.bakta_layers import split_xrefs
 
     g = _gene(
         "b3702",
@@ -270,7 +270,7 @@ def test_example8_split_xrefs() -> None:
 
 
 def test_split_xrefs_gene_order_and_empty() -> None:
-    from giap.annotate.bakta_layers import split_xrefs
+    from gippa.annotate.bakta_layers import split_xrefs
 
     genes = [
         _gene("A_1", 0, 300, xrefs=("RefSeq:WP_000001.1",)),
@@ -286,7 +286,7 @@ def test_split_xrefs_gene_order_and_empty() -> None:
 
 
 def test_split_xrefs_splits_at_first_colon_only() -> None:
-    from giap.annotate.bakta_layers import split_xrefs
+    from gippa.annotate.bakta_layers import split_xrefs
 
     g = _gene("A_1", 0, 300, xrefs=("UniRef:UniRef50:P0A7V0",))
     assert split_xrefs([g]) == [("A_1", "UniRef", "UniRef50:P0A7V0")]
@@ -300,7 +300,7 @@ def test_split_xrefs_splits_at_first_colon_only() -> None:
     [("full", "bakta_full"), ("light", "bakta_light"), ("unknown", "user")],
 )
 def test_example9_annotation_source(db_type: str, expected: str) -> None:
-    from giap.annotate.bakta_layers import annotation_source
+    from gippa.annotate.bakta_layers import annotation_source
 
     assert annotation_source(db_type) == expected
 
@@ -322,14 +322,14 @@ def _origin_genes() -> list[Gene]:
 
 
 def test_nearest_genes_circular_is_origin_aware() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     assert nearest_genes(oric, _origin_genes(), CIRC) == [("A", 150), ("B", 200)]
 
 
 def test_nearest_genes_linear_never_wraps() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     assert nearest_genes(oric, _origin_genes(), LIN) == [("B", 200), ("C", 4_700)]
@@ -341,7 +341,7 @@ def test_nearest_genes_linear_never_wraps() -> None:
 
 
 def test_nearest_genes_overlap_is_zero() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     genes = [_gene("D", 250, 400, "+"), *_origin_genes()]
@@ -349,7 +349,7 @@ def test_nearest_genes_overlap_is_zero() -> None:
 
 
 def test_nearest_genes_origin_crossing_gene_overlaps() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     genes = [_gene("O", 9_900, 10_150, "+"), _gene("B", 500, 800, "-")]
@@ -357,7 +357,7 @@ def test_nearest_genes_origin_crossing_gene_overlaps() -> None:
 
 
 def test_nearest_genes_adjacent_is_zero_gap() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     genes = [_gene("E", 300, 600, "+"), _gene("F", 40, 100, "-")]
@@ -365,7 +365,7 @@ def test_nearest_genes_adjacent_is_zero_gap() -> None:
 
 
 def test_nearest_genes_fewer_than_n() -> None:
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta_layers import nearest_genes
 
     oric = _nc("oriC_1", "oric", 100, 300, strand=".")
     assert nearest_genes(oric, [_gene("B", 500, 800)], CIRC, n=5) == [("B", 200)]

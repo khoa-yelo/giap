@@ -91,7 +91,7 @@ def _h(shape: str, z: np.ndarray) -> np.ndarray:
 
 def noise_by_shape(pairs: pd.DataFrame, shape: str) -> pd.DataFrame:
     """D-1 / D-1b: OP pairs with both abundances finite, z on their pair mean."""
-    from giapsim.scenarios import OPERON_T
+    from gippasim.scenarios import OPERON_T
 
     loc = OPERON_T[0]
     out = pairs.copy()
@@ -143,10 +143,10 @@ def sigma_run(pairs: pd.DataFrame, genes: pd.DataFrame, sigma_model: str,
               strata: Mapping[str, pd.Series]) -> SigmaRun:  # fmt: skip
     """``discordance(..., sigma_model=sigma_model)``; ``strata`` maps a name to a Series indexed
     by ``pair_id`` (read at the tested pairs)."""
-    from giap.config import GiapConfig
-    from giap.operons.discordance import discordance
+    from gippa.config import GippaConfig
+    from gippa.operons.discordance import discordance
 
-    res = discordance(pairs, genes[["locus_tag"]], GiapConfig(), None, sigma_model=sigma_model)
+    res = discordance(pairs, genes[["locus_tag"]], GippaConfig(), None, sigma_model=sigma_model)
     t = res.rows[res.rows["test"] == "both_detected_t"]
     ids = t["pair_id"].astype(str).to_numpy()
     return SigmaRun(

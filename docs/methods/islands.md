@@ -1,7 +1,7 @@
 # Islands: expression islands along the replicon
 
 Issues M5-01 (scores, detrending) and M5-03 (scan engine) add the engine helpers; the island step
-itself is M5-06 (GIAP_SPEC.md §7.3.5(d)). Each section records its own statistician sign-off; the
+itself is M5-06 (GIPPA_SPEC.md §7.3.5(d)). Each section records its own statistician sign-off; the
 block-bootstrap null and its calibration are signed off with M5-06/M5-07.
 
 ## Report text (M9-16)
@@ -30,7 +30,7 @@ lists, per replicon:
 
 ## Gene scores: left-censored Blom
 
-`giap.stats.scores.blom_scores(x, censored_mask)` (§7.3.5(d) step 1, §8.3). Within a replicon the
+`gippa.stats.scores.blom_scores(x, censored_mask)` (§7.3.5(d) step 1, §8.3). Within a replicon the
 eligible genes are ranked by log2 abundance. Undetected genes are **left-censored**: they lie below
 the detection limit, so their order among themselves is unknown, but their position (below every
 detected gene) is known. All n₀ of them therefore share the average of ranks 1 … n₀,
@@ -49,7 +49,7 @@ The scores are detrended with the shared LOESS helper (docs/methods/autocorrelat
 
 ## Scan and maximum statistic (M5-03)
 
-`giap.stats.scan` (§7.3.5(d) steps 4–6, §8.3). **Windows** are lengths w = wmin … min(wmax, cap)
+`gippa.stats.scan` (§7.3.5(d) steps 4–6, §8.3). **Windows** are lengths w = wmin … min(wmax, cap)
 with cap = n − 1 on circular replicons (no window covers the whole circle; after detrending such a
 window has S ≈ 0) and n on linear ones. Circular windows start at every position and wrap. They are
 ordered by length, then start. S_w = Σ_{t∈w} z_t / √n_w comes from prefix sums. The observed series
@@ -102,7 +102,7 @@ Signed off by the statistician (PR #118 review).
 
 ## The island step (M5-06)
 
-`giap.context.islands` (§7.3.5(d) steps 1–10, §8.1 row "Islands", §9.3 `tables/islands.tsv`).
+`gippa.context.islands` (§7.3.5(d) steps 1–10, §8.1 row "Islands", §9.3 `tables/islands.tsv`).
 This section is the claim the island table makes; the two sections above are the pieces it is
 built from.
 
@@ -158,7 +158,7 @@ scanned (below) contributes nothing to M_b, consumes no draws and cannot carry a
 
 ### Validity domain (ADR-0021 Amendment 1)
 
-**The FWER is claimed for a dependence regime, not for a replicon size.** It is claimed for giapsim
+**The FWER is claimed for a dependence regime, not for a replicon size.** It is claimed for gippasim
 `ar1_background` at ρ ≤ 0.5 at every size measured (557 / 1,001 / 2,501 scored TUs: 0.020 / 0.031 /
 0.037 at α = 0.05, R = 1,000, bound 0.0638), for the 4,500-gene chromosome at ρ = 0.9 (0.024, where
 ℓ̂ ≈ 8 makes ℓ′ = 17 span the 20-TU windows) and for the §8.5 attacks that stay in that regime.
@@ -215,7 +215,7 @@ go below −√w·|c|: about 3.4 at q = 0.45 and w = 20, against a genome-wide c
 a ρ = 0.5 null with 10 / 20 / 40
 consecutive TUs silenced entirely: ceiling 3.42 / 3.38 / 3.35, M_b 95th percentile 4.92 / 4.57 /
 4.49, best low p = 1.000, no low island at any α. The high direction has no such cap — the top Blom
-score is about +3.3 at these sizes — which is why planted low islands are missed on giapsim at the
+score is about +3.3 at these sizes — which is why planted low islands are missed on gippasim at the
 default detection rate while high ones are found.
 
 The bound is exact for the raw TU scores; the detrended statistic differs from it by √w times the
@@ -299,7 +299,7 @@ Signed off by the statistician (PR #131 review).
 ### Calibration and power (M5-07)
 
 **The M5 gate** (§8.4 row "Islands"; `tests/calibration/test_island_fwer.py`). Each replicate draws
-giapsim `ar1_background` with no island planted; the indicator is "at least one island reported".
+gippasim `ar1_background` with no island planted; the indicator is "at least one island reported".
 Settings: `stats.bootstrap = stats.permutations = 1000`, default `context.islands`, criterion `fwer`
 with the ADR-0015 two-block confirmation. Levels and bounds come from
 `tests/calibration/tolerances.yaml` (0.05 + 2 SE: 0.0189 / 0.0695 / 0.1268 at α = 0.01 / 0.05 /
@@ -390,7 +390,7 @@ False-island rates in the low cells (R = 100), covariates_only, 5 / 10 / 20 TUs 
 0.04, 0.05, 0.05 / 0.03, 0.00, 0.01 / 0.06, 0.05, 0.07; detection from abundance: 0.02, 0.05, 0.05
 / 0.04, 0.03, 0.00 / 0.00, 0.03, 0.02.
 
-The planning target of ≥ 0.8 is not met under giapsim defaults: 0.20 at 20 TUs × 2 SD. When
+The planning target of ≥ 0.8 is not met under gippasim defaults: 0.20 at 20 TUs × 2 SD. When
 detection follows abundance (0.65), a high island also raises detection, and the left-censored
 Blom score turns that into larger scores. Pooled false-island rates with a planted island: high
 cells 18/900 = 0.020 (covariates_only) and 16/900 = 0.018 (abundance); low cells 36/900 = 0.040 and
@@ -405,7 +405,7 @@ intact and M_b sits at the islands' own S. On the K-12 evidence layout (RegulonD
 q ≈ 0.38) three 8-TU high islands at +3 SD have median S 4.7–6.7 (range 3.5–7.3), raise ℓ̂ from a median of
 4 to 5 (ℓ′ 7–19, at least 9 in 21 of 22 runs, longer than an 8-TU island), and lift the 95th percentile of M_b from 5.0–5.7 (no islands) to 6.3–7.4. They
 were recovered in 3 of 33 island-seeds with truth detection (Wilson [0.03, 0.24]; 1 of 33 with
-GIAP-like detection). A single 20-TU island at +3 SD also raises the 95th percentile of M_b
+GIPPA-like detection). A single 20-TU island at +3 SD also raises the 95th percentile of M_b
 (6.3–9.5), but its S of 7.5–10.3 stays above it: it was recovered in 21 of 22 seeds
 ([0.78, 0.99]). The one miss had ℓ̂ = 12, ℓ′ = 20, so an intact copy fits in a block. The three
 8-TU low islands of the same layout had S −1.6 to −3.3 against a ceiling of 2.2–2.5 and were never

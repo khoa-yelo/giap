@@ -1,4 +1,4 @@
-"""PR #205 review round, the summary cards and unreadable tables (M9-02 behaviour 5; GIAP_SPEC.md
+"""PR #205 review round, the summary cards and unreadable tables (M9-02 behaviour 5; GIPPA_SPEC.md
 §10.3 "Wording", R4; review B1, B2, B5 and the lead decisions of that round).
 
 * B1: the novel-ORF card's FDR is over CALLED rows only, the max ``class_fdr`` among them; any
@@ -26,9 +26,9 @@ from helpers.viz_out_tree import gene_row, write_schema_table
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.run_view import RunView
-from giap.io.tsv import format_value
-from giap.steps import registry as reg
+from gippa.io.run_view import RunView
+from gippa.io.tsv import format_value
+from gippa.steps import registry as reg
 
 NOVEL_CLASSES = ("nterm_extension", "cterm_extension", "intergenic", "sorf", "antisense")
 
@@ -43,7 +43,7 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _page(out: Path, *overrides: str) -> Page:
-    from giap.report.build import build_report
+    from gippa.report.build import build_report
 
     return parse(build_report(RunView.from_outdir(out), {}, {}, cfg(*overrides)))
 

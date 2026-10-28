@@ -1,17 +1,17 @@
 # M11-14w: warn when a default-11 genome probably uses genetic code 4
 
 Milestone M11 · pass 2 · depends on: #413 (preflight refuses `annotation.translation_table != 11`),
-M1 preflight (`giap.preflight`, ADR-0005 item 3), MVP-03 (manifest `warnings`), M9-16 (report
+M1 preflight (`gippa.preflight`, ADR-0005 item 3), MVP-03 (manifest `warnings`), M9-16 (report
 summary section) · estimate ≈ 120 code lines + ≈ 220 test lines, one PR · **`stats`**: the
 statistician reviewed the rule and set the 0.55 threshold (#419 review; a classification
-cut-off with a false-warning rate) · roles: implementer (`src/giap/preflight/`, `src/giap/report/`), test-author
+cut-off with a false-warning rate) · roles: implementer (`src/gippa/preflight/`, `src/gippa/report/`), test-author
 (`tests/unit/test_m11_14w_*.py`) · decision: Khoa, 2026-10-27, Q-K30.
 
 ## Spec sections implemented
 
 - §7.0 Preflight ("every evaluated rule yields one check"; `warn` never stops a run; `--strict`
   turns warnings into exit 3, M1-12), §6.5 (0-based half-open), §9.2 manifest `warnings`, R1, R3.
-- Q-K30 (Khoa, 2026-10-27): GIAP 1.0 supports genetic code 11 only; code 4 is a later release
+- Q-K30 (Khoa, 2026-10-27): GIPPA 1.0 supports genetic code 11 only; code 4 is a later release
   (backlog "Genetic code 4 support (post-1.0)"). For 1.0, warn when a genome left at the default
   11 probably uses code 4 (Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma: TGA = Trp).
 
@@ -71,7 +71,7 @@ warning never prints `0.55 < 0.55`):
 > This genome probably uses genetic code 4 (TGA = Trp; Mycoplasma, Spiroplasma, Mesoplasma,
 > Ureaplasma) or another code in which TGA is not a stop. Long open reading frames cover {q4} % of
 > the genome when TGA is read as a codon but only {q11} % when it is a stop (ratio {ratio} < 0.55).
-> GIAP 1.0 supports genetic code 11 only: genes will be cut at TGA, proteins and peptides that
+> GIPPA 1.0 supports genetic code 11 only: genes will be cut at TGA, proteins and peptides that
 > contain W will not map, and strain_difference and nterm_extension_evidence flags will be
 > artefacts. This warning does not change any result.
 
@@ -130,7 +130,7 @@ on each strand, seed 7.
   (160 kb) n4 = 75, Sulcia (191 kb) n4 = 94.
 
 Constants, not config keys (no schema change): `MIN_CODONS = 300`, `RATIO_WARN = 0.55` (decided as `20 * bp11 < 11 * bp4`),
-`MIN_LONG_ORFS = 20`, in `giap/preflight/genetic_code.py`.
+`MIN_LONG_ORFS = 20`, in `gippa/preflight/genetic_code.py`.
 
 Rejected as the primary signal (they need annotation or mapping, which come after the expensive
 steps): the median CDS length, the TGA-terminated CDS followed in frame by a same-strand CDS, and
@@ -139,7 +139,7 @@ backlog entry.
 
 ## Where it runs and where it surfaces
 
-1. `giap.preflight.genetic_code.genetic_code_check(seqs: Sequence[str], table: int) -> Check`.
+1. `gippa.preflight.genetic_code.genetic_code_check(seqs: Sequence[str], table: int) -> Check`.
    The function is pure (no I/O, no randomness, numpy only, no new dependency). `run_preflight`
    calls it on the records it has already read (`read_genome_fasta`) and puts the check directly
    after `*checks_genome`. Helper `long_orf_cover(seq, stops, min_codons) -> tuple[int, int]`
@@ -147,7 +147,7 @@ backlog entry.
 2. **Preflight table**: `preflight.json` `checks[]` and the `preflight.md` table, through the
    existing writers. There is no new writer code.
 3. **Manifest**: `run_manifest.json` `warnings` contains `preflight:genome.genetic_code`, through
-   the existing `giap.manifest._warnings`. There is no new manifest code, only a test.
+   the existing `gippa.manifest._warnings`. There is no new manifest code, only a test.
 4. **Report**: when the run's `preflight.json` has `genome.genetic_code` at `warn`, the `summary`
    section starts with `<div class="alert" data-warning="genome.genetic_code">` holding the
    message (escaped). It is read through `RunView.preflight()`. When there is no warning, nothing
@@ -225,7 +225,7 @@ are fixed by the definitions, and the test computes them with a brute-force refe
    `summary`. Without the warning, the HTML has no such element (snapshot unchanged).
 8. Performance: on a 10 Mb synthetic genome on one core, the check takes ≤ 5 s
    (`benchmarks/`, reported only; not a CI gate).
-9. Tests use no network, no `$GIAP_DB_DIR` and no `$GIAP_ROOT` (except the optional `slow`
+9. Tests use no network, no `$GIPPA_DB_DIR` and no `$GIPPA_ROOT` (except the optional `slow`
    validation test below, which skips when the files are absent). Lint, format and mypy are clean.
 
 ## Test plan
@@ -235,16 +235,16 @@ are fixed by the definitions, and the test computes them with a brute-force refe
 - `tests/unit/test_m11_14w_check.py`: examples 6–10, the `_decide` boundary, the `info` paths,
   AC 3 seeds, AC 4 and AC 5 (`run_preflight` with `probe` stubbed, as the existing preflight tests
   do).
-- Fixture generator (in the test module or `tests/sim/giapsim/`, implementer's choice per AGENTS
-  "giapsim is tooling"): `n_genes = 300`, 400 codons each (ATG, 398 sense codons, TAA), drawn from
+- Fixture generator (in the test module or `tests/sim/gippasim/`, implementer's choice per AGENTS
+  "gippasim is tooling"): `n_genes = 300`, 400 codons each (ATG, 398 sense codons, TAA), drawn from
   base frequencies at GC `g` excluding TAA/TAG/TGA. For code 4, each sense codon is replaced by
   TGA with probability `r` (0.01, or 0.005 at GC 0.40). Genes are separated by 60 bp random
   spacers and half are reverse-complemented. Use `numpy.random.default_rng(seed)`.
 - `tests/unit/test_m11_14w_surfaces.py`: AC 6 (manifest) and AC 7 (report, with a minimal
   `RunView` fixture as in the M9-16 tests).
 - Optional validation (`@pytest.mark.slow`, skipped when the files are absent; never in CI): the
-  four real genomes in the table, read from `$GIAP_ROOT/more_datasets/*/raw/genome/` and
-  `$GIAP_ROOT/data/genomes/k12_mg1655/`, with the ratios to ±0.01.
+  four real genomes in the table, read from `$GIPPA_ROOT/more_datasets/*/raw/genome/` and
+  `$GIPPA_ROOT/data/genomes/k12_mg1655/`, with the ratios to ±0.01.
 
 ## Questions for the lead
 

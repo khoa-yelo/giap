@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve an image tag to its manifest digest (registry v2 API; GIAP_SPEC.md §3.1, §12).
+"""Resolve an image tag to its manifest digest (registry v2 API; GIPPA_SPEC.md §3.1, §12).
 
 Usage: python scripts/resolve_digest.py <image:tag> [...]
 Prints one `<image>@sha256:<64 hex>` per argument (bare, no scheme; ADR-0059); a `docker://`

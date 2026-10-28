@@ -1,6 +1,6 @@
 # Licences
 
-GIAP itself is MIT-licensed. The tools and databases it uses keep their own licences. Some of
+GIPPA itself is MIT-licensed. The tools and databases it uses keep their own licences. Some of
 these restrict who may use them. Read this page before you install the databases or publish
 results.
 
@@ -8,31 +8,31 @@ results.
 
 - **geNOMAD is for non-commercial use only.** geNOMAD (module `mobile`) is licensed for
   non-commercial use. For commercial use, switch the module off: run with
-  `--modules core,bgc,function`, and install with `giap setup --no-genomad`.
-- **KEGG is free for academic use only.** `giap setup --kegg` downloads the KEGG KO-to-pathway
+  `--modules core,bgc,function`, and install with `gippa setup --no-genomad`.
+- **KEGG is free for academic use only.** `gippa setup --kegg` downloads the KEGG KO-to-pathway
   links and pathway names from `rest.kegg.jp`. Academic users may use them freely. Other users need
   a licence from KEGG. Runs with the `function` module contain KEGG pathway names, and the manifest
   records the KEGG retrieval date.
 - **GPL and AGPL tools run as separate programs.** Bakta, Promotech, Promoter Calculator, OSTIR,
   TransTermHP and BacTermFinder (GPL-3.0), and antiSMASH (AGPL-3.0), each run in their own pinned
-  container or Conda environment. GIAP calls them as separate processes and never imports or
+  container or Conda environment. GIPPA calls them as separate processes and never imports or
   vendors their code. A CI check (`scripts/ci/check_imports.py`) guards this. R and the fgsea runner run
   the same way ([ADR-0038](../adr/ADR-0038-gsea-runs-r-fgsea.md)).
-- **UniOP has no licence.** UniOP's repository has no licence file. GIAP fetches it from its
-  upstream repository at a pinned commit (`3ed14dfc`) when the tool environments are built. GIAP
+- **UniOP has no licence.** UniOP's repository has no licence file. GIPPA fetches it from its
+  upstream repository at a pinned commit (`3ed14dfc`) when the tool environments are built. GIPPA
   never redistributes it, and no UniOP container image is published.
 - **DIA-NN is proprietary.** DIA-NN is used only for your own searches, under your own DIA-NN
-  licence (NOTICE.md: "proprietary (academic licence)"). GIAP never redistributes DIA-NN binaries, and
-  `giap convert --from diann` reads only its report files.
-- **RegulonDB is not redistributed.** GIAP's developers use RegulonDB only to calibrate cut-offs.
-  `giap setup` does not download it.
+  licence (NOTICE.md: "proprietary (academic licence)"). GIPPA never redistributes DIA-NN binaries, and
+  `gippa convert --from diann` reads only its report files.
+- **RegulonDB is not redistributed.** GIPPA's developers use RegulonDB only to calibrate cut-offs.
+  `gippa setup` does not download it.
 - **The contaminant library has no licence file.** The universal protein contaminant FASTA
-  (Frankenfield et al. 2022) is therefore downloaded by `giap setup --contaminants` at a pinned
+  (Frankenfield et al. 2022) is therefore downloaded by `gippa setup --contaminants` at a pinned
   commit and never vendored.
 
 ## Tools
 
-| Tool | Licence | How GIAP uses it |
+| Tool | Licence | How GIPPA uses it |
 |---|---|---|
 | Bakta | GPL-3.0 | separate process |
 | UniOP | no licence | separate process; fetched at a pinned commit, never redistributed |
@@ -46,7 +46,7 @@ results.
 | antiSMASH | AGPL-3.0 | separate process; module `bgc` |
 | miniprot | MIT | separate process |
 | BLAST+ | public domain (NCBI) | separate process |
-| fgsea (R) | MIT; R is GPL-2 | separate process (`workflow/bin/giap_fgsea.R`); parts of fgsea are also ported to Python under its MIT licence |
+| fgsea (R) | MIT; R is GPL-2 | separate process (`workflow/bin/gippa_fgsea.R`); parts of fgsea are also ported to Python under its MIT licence |
 | codon-bias | MIT | imported (the only in-process tool) |
 | DIA-NN | proprietary | your own search only; never redistributed |
 

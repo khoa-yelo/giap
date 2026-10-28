@@ -1,10 +1,10 @@
-"""Attack nulls for the M8-05 TU-collapsed GSEA (GIAP_SPEC.md §7.7.4, §8.2, §8.5; statistician
+"""Attack nulls for the M8-05 TU-collapsed GSEA (GIPPA_SPEC.md §7.7.4, §8.2, §8.5; statistician
 review of M8-05, 2026-10-21). Statistician-owned.
 
 Each arm keeps "abundance independent of the set" at the gene level and adds one structure the
 committed null arms (tests/calibration/test_gsea_tu_calibration.py) do not have. Probe evidence
 (R = 2,000 single-set replicates through an independent implementation of spec rules 1-4 on
-M8-02's ``fgsea_simple``; ``$GIAP_ROOT/stat/m805/``), rejection rate at alpha 0.01 / 0.05 / 0.10:
+M8-02's ``fgsea_simple``; ``$GIPPA_ROOT/stat/m805/``), rejection rate at alpha 0.01 / 0.05 / 0.10:
 
 * **(a) default median imputation** (gated): 20 % of genes imputed to the observed median, a
   contiguous 15-TU set: 0.0125 / 0.0475 / 0.090. The committed ties arm covers only ``min``.
@@ -40,8 +40,8 @@ import pytest
 from _gate import calibrate_levels
 from helpers.gsea_data import Gene, frame, gene_sets
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("gsea")]
 
@@ -55,7 +55,7 @@ XFAIL_ADR = pytest.mark.xfail(
 
 
 def _p(genes: pd.DataFrame, members: list[str], rng: np.random.Generator) -> float:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     seed = int(rng.integers(0, 2**31 - 1))
     out = gsea.gsea_table(genes, [gene_sets("kegg", {"S": members})], SIZE, CFG, ALPHA,

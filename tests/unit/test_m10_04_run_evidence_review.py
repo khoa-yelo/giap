@@ -81,9 +81,9 @@ def test_a6_counts_the_tasks_without_a_row(tmp_path: Path) -> None:
 
 def test_a6_fails_when_the_trace_has_no_native_ids(tmp_path: Path) -> None:
     """Local executor or wrong profile: ``native_id`` is ``-`` everywhere; n = the task count."""
-    trace = [trace_task("GIAP:CORE:GENE_TABLE (gene_table)", "-", task_id=1),
-             trace_task("GIAP:CORE:DETECTION (detection)", "-", task_id=2),
-             trace_task("GIAP:CORE:OPERONS (operons)", "", task_id=3)]  # fmt: skip
+    trace = [trace_task("GIPPA:CORE:GENE_TABLE (gene_table)", "-", task_id=1),
+             trace_task("GIPPA:CORE:DETECTION (detection)", "-", task_id=2),
+             trace_task("GIPPA:CORE:OPERONS (operons)", "", task_id=3)]  # fmt: skip
     out = write_arm(tmp_path / "out_a2", trace=trace)
     assert arm_doc(out)["failures"] == ["cpu_cap:unknown:3"]
 
@@ -98,8 +98,8 @@ def test_a6_unknown_through_the_cli(tmp_path: Path) -> None:
 def test_cli_and_pure_function_share_the_id_filter(tmp_path: Path) -> None:
     """An array-style ``native_id`` (``1900002_4``) with its own ``sacct`` row: whatever the filter
     decides, the CLI (which queries ``sacct``) and ``arm_evidence`` (given every row) agree."""
-    trace = [trace_task("GIAP:CORE:GENE_TABLE (gene_table)", "1900002_4", task_id=1),
-             trace_task("GIAP:CORE:DETECTION (detection)", TASK_JOBS[1], task_id=2)]  # fmt: skip
+    trace = [trace_task("GIPPA:CORE:GENE_TABLE (gene_table)", "1900002_4", task_id=1),
+             trace_task("GIPPA:CORE:DETECTION (detection)", TASK_JOBS[1], task_id=2)]  # fmt: skip
     out = write_arm(tmp_path / "out_a2", trace=trace)
     rows = sacct_rows(tasks={"1900002_4": 16, TASK_JOBS[1]: 14})
     pure = arm_doc(out, rows)["failures"]
@@ -114,7 +114,7 @@ def test_cli_and_pure_function_share_the_id_filter(tmp_path: Path) -> None:
 def test_a6_unknown_count_property(has_row: list[bool]) -> None:
     """Property: ``cpu_cap:unknown:<k>`` exactly when k > 0 tasks lack an allocation row."""
     ids = [f"19100{i:02d}" for i in range(len(has_row))]
-    trace = [trace_task(f"GIAP:CORE:GENE_TABLE (g{i})", j, task_id=i + 1)
+    trace = [trace_task(f"GIPPA:CORE:GENE_TABLE (g{i})", j, task_id=i + 1)
              for i, j in enumerate(ids)]  # fmt: skip
     rows = sacct_rows(tasks={j: 4 for j, ok in zip(ids, has_row, strict=True) if ok})
     k = has_row.count(False)
@@ -342,7 +342,7 @@ def test_cpu_cap_boundary(tmp_path: Path, cpus: int, want: list[str]) -> None:
 
 def test_head_rows_do_not_take_a_task_with_a_longer_id(tmp_path: Path) -> None:
     """Mutant 15: task ``19000011`` starts with head ``1900001`` but is not one of its steps."""
-    trace = [*default_trace(), trace_task("GIAP:CORE:OPERONS (operons)", "19000011", task_id=3)]
+    trace = [*default_trace(), trace_task("GIPPA:CORE:OPERONS (operons)", "19000011", task_id=3)]
     out = write_arm(tmp_path / "out_a2", trace=trace)
     rows = sacct_rows()
     rows.append({"JobID": "19000011", "State": "COMPLETED", "ExitCode": "0:0",
@@ -377,7 +377,7 @@ def test_rss_bytes_units(text: str | None, want: int | None) -> None:
 
 def test_failed_then_retried_task_is_counted(tmp_path: Path) -> None:
     """Mutant 19: a FAILED attempt 1 then a COMPLETED attempt 2 of the same task."""
-    op = "GIAP:CORE:OPERONS (operons)"
+    op = "GIPPA:CORE:OPERONS (operons)"
     trace = [*default_trace(), trace_task(op, "1900004", status="FAILED", task_id=3),
              trace_task(op, "1900005", attempt=2, task_id=4)]  # fmt: skip
     out = write_arm(tmp_path / "out_a2", trace=trace)
@@ -389,7 +389,7 @@ def test_failed_then_retried_task_is_counted(tmp_path: Path) -> None:
 def test_cli_queries_sacct_in_chunks(tmp_path: Path) -> None:
     """Mutant 38: 250 task jobs; the one breaching the cap is past the first chunk of 200."""
     ids = [str(1910000 + i) for i in range(250)]
-    trace = [trace_task(f"GIAP:CORE:GENE_TABLE (g{i})", j, task_id=i + 1)
+    trace = [trace_task(f"GIPPA:CORE:GENE_TABLE (g{i})", j, task_id=i + 1)
              for i, j in enumerate(ids)]  # fmt: skip
     out = write_arm(tmp_path / "out_a2", trace=trace)
     rows = sacct_rows(tasks={j: (16 if i == 240 else 4) for i, j in enumerate(ids)})

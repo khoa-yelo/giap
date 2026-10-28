@@ -1,5 +1,5 @@
 """Properties of the M5-10 ``islands`` sensitivity family
-(docs/specs/M5-10-sensitivity-islands.md "Public interface"; GIAP_SPEC.md §8.6).
+(docs/specs/M5-10-sensitivity-islands.md "Public interface"; GIPPA_SPEC.md §8.6).
 
 - I1 for any island rows M5-06 reports, the flagged set is exactly
   ``{<direction>:<locus_tag>}`` over every gene of every row (directions kept apart);
@@ -31,7 +31,7 @@ _FN = [HealthCheck.function_scoped_fixture]
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(sid.STREAM, 1)
 
@@ -67,7 +67,7 @@ def test_i3_islands_row(
     a: list[tuple[str, list[str]]],
     b: list[tuple[str, list[str]]],
 ) -> None:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     with monkeypatch.context() as m:
         sid.patch_islands_frame(m, [sid.fake_islands(a), sid.fake_islands(b)])

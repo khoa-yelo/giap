@@ -14,13 +14,13 @@ Milestone M4 · track S · depends on: none · estimate ≈ 220 code lines (+ �
   where S̄ is the null mean and K the number of shifts."
 - §8.2: "p = (1 + b)/(1 + B), and seeds recorded"; "sequential Besag–Clifford permutation (stop after
   h = 10 exceedances), which avoid the 1/(B + 1) floor." §2.1 decision 14.
-- §6.6: randomness only through `giap.rng.for_step`; functions here take a `np.random.Generator`.
+- §6.6: randomness only through `gippa.rng.for_step`; functions here take a `np.random.Generator`.
 - Appendix B.4: "Exhaustive circular shifts on a 100-gene circular replicon give K = 99 shifts. If the
   observed statistic is more extreme than all 99, p = (1 + 0)/(1 + 99) = 0.01."
 
 ## Public interface
 
-`src/giap/stats/permutation.py`
+`src/gippa/stats/permutation.py`
 ```python
 Alternative = Literal["two-sided", "greater", "less"]
 

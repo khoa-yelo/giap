@@ -1,4 +1,4 @@
-"""Calibration of giapsim v2's statistical knobs (issue M2-05; GIAP_SPEC.md §11.3, §8.4).
+"""Calibration of gippasim v2's statistical knobs (issue M2-05; GIPPA_SPEC.md §11.3, §8.4).
 
 Claims checked, pooled over ``N_SEEDS`` replicate genomes (seeds ``SIM100K_SEED + i``):
 
@@ -25,17 +25,17 @@ from typing import Any
 
 import pytest
 
-import giapsim
-from giapsim import simulate
+import gippasim
+from gippasim import simulate
 
 N_SEEDS = 6
 
 
 def _sim100k() -> tuple[Any, int]:
-    for mod in (giapsim, giapsim.simulate):
+    for mod in (gippasim, gippasim.simulate):
         if hasattr(mod, "SIM100K"):
             return mod.SIM100K, mod.SIM100K_SEED
-    raise AssertionError("giapsim exports no SIM100K / SIM100K_SEED")
+    raise AssertionError("gippasim exports no SIM100K / SIM100K_SEED")
 
 
 def _rows(path: Path) -> list[dict[str, str]]:

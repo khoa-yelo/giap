@@ -34,7 +34,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 RELEASE_YML = REPO / ".github" / "workflows" / "release.yml"
-OWNER = "ghcr.io/khoa-yelo/giap"
+OWNER = "ghcr.io/khoa-yelo/gippa"
 OSTIR = f"{OWNER}-ostir@sha256:{'a' * 64}"
 FGSEA = f"{OWNER}-fgsea@sha256:{'b' * 64}"
 BAKTA = f"oschwengers/bakta@sha256:{'c' * 64}"

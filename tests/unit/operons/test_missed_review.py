@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from helpers.missed_data import block, cfg, example_frame, genes_for, stack
 
-from giap.operons.missed import TEST, missed_operons
+from gippa.operons.missed import TEST, missed_operons
 
 EDGES_NO_OVERLAP = [0.0, 50.0, 150.0, 300.0, float("inf")]
 
@@ -25,7 +25,7 @@ def test_pairs_outside_every_bin_are_counted_in_a_warning(
     n_no = int(((pairs["class"] == "NO") & (pairs["intergenic_bp"] < 0)).sum())
     n_d = int(((pairs["class"] != "NO") & (pairs["intergenic_bp"] < 0)).sum())
     assert n_no and n_d
-    with caplog.at_level(logging.WARNING, logger="giap.operons.missed"):
+    with caplog.at_level(logging.WARNING, logger="gippa.operons.missed"):
         res = missed_operons(pairs, cfg(distance_bins_bp=EDGES_NO_OVERLAP))
     msg = [r.getMessage() for r in caplog.records if "outside every" in r.getMessage()]
     assert len(msg) == 1
@@ -34,7 +34,7 @@ def test_pairs_outside_every_bin_are_counted_in_a_warning(
 
 
 def test_default_bins_never_warn_about_out_of_bin_pairs(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="giap.operons.missed"):
+    with caplog.at_level(logging.WARNING, logger="gippa.operons.missed"):
         missed_operons(example_frame(), cfg())
     assert not any("outside every" in r.getMessage() for r in caplog.records)
 
@@ -84,10 +84,10 @@ def test_scored_rows_keep_their_input_flags() -> None:
 
 
 def test_pi0_below_one_warns(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="giap.operons.missed"):
+    with caplog.at_level(logging.WARNING, logger="gippa.operons.missed"):
         missed_operons(example_frame(), cfg(pi0=0.8))
     assert any("operons.pi0 = 0.8" in r.getMessage() for r in caplog.records)
     caplog.clear()
-    with caplog.at_level(logging.WARNING, logger="giap.operons.missed"):
+    with caplog.at_level(logging.WARNING, logger="gippa.operons.missed"):
         missed_operons(example_frame(), cfg())
     assert not any("operons.pi0" in r.getMessage() for r in caplog.records)

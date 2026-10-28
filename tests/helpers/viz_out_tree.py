@@ -1,8 +1,8 @@
 """Small synthetic ``OUT/`` trees for the M9 plot framework tests (M9-01).
 
-Tables are written through ``giap.io.tsv.write_tsv`` with the columns of their Frictionless
-schema (``src/giap/schemas/tables/<name>.schema.json``); a cell left out of a row dict is ``NA``.
-Nothing here touches ``$GIAP_DB_DIR`` or the network.
+Tables are written through ``gippa.io.tsv.write_tsv`` with the columns of their Frictionless
+schema (``src/gippa/schemas/tables/<name>.schema.json``); a cell left out of a row dict is ``NA``.
+Nothing here touches ``$GIPPA_DB_DIR`` or the network.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from typing import Any
 
 import yaml
 
-from giap.io.tsv import write_tsv
+from gippa.io.tsv import write_tsv
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMAS = ROOT / "src" / "giap" / "schemas" / "tables"
+SCHEMAS = ROOT / "src" / "gippa" / "schemas" / "tables"
 
 
 def schema_fields(schema: str) -> list[dict[str, Any]]:
@@ -54,8 +54,8 @@ def write_events(path: Path, records: Iterable[Mapping[str, Any] | str]) -> Path
 
 
 def write_resolved_config(path: Path, modules: Sequence[str]) -> Path:
-    """A full resolved config (as ``giap.runner.nextflow`` writes it) with ``modules``."""
-    from giap.config import resolve_config
+    """A full resolved config (as ``gippa.runner.nextflow`` writes it) with ``modules``."""
+    from gippa.config import resolve_config
 
     cfg = resolve_config(overrides=[f"modules=[{', '.join(modules)}]"])
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,7 +64,7 @@ def write_resolved_config(path: Path, modules: Sequence[str]) -> Path:
 
 
 def make_out(tmp: Path, name: str = "OUT") -> Path:
-    """An ``OUT/`` that counts as a GIAP run: it has ``tables/``."""
+    """An ``OUT/`` that counts as a GIPPA run: it has ``tables/``."""
     out = tmp / name
     (out / "tables").mkdir(parents=True, exist_ok=True)
     return out

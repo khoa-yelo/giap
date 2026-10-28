@@ -10,7 +10,7 @@ Slurm tools and an unreachable proxy. **Nothing reaches the network or the real 
 
 Conventions settled by the test author:
 
-* ``--resolve`` saves the record to ``$GIAP_DATA_DIR/pxd078459/record/PXD078459.xml``, prints (or
+* ``--resolve`` saves the record to ``$GIPPA_DATA_DIR/pxd078459/record/PXD078459.xml``, prints (or
   writes under ``record/``) its sha256 and the UTC date, and writes the draft manifest as a
   ``.tsv`` under ``record/``. It never GETs a raw file; HEAD requests are allowed.
 * An ``ftp://`` record URI becomes ``url = https://<same host and path>`` in the draft only when a

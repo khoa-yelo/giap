@@ -1,6 +1,6 @@
 """M2-20 ``annotation/genes.gff3``: the merged model with source-tagged layers (spec table
 "`annotation/genes.gff3` (M1-05 writer), one source per layer in column 2"; example 7;
-GIAP_SPEC.md §7.1.8, §9.5 "a GFF3 parser round trip").
+GIPPA_SPEC.md §7.1.8, §9.5 "a GFF3 parser round trip").
 
 The file written by ``context_layers`` on the SIM100K producer chain (``helpers.layers_chain``)
 is read back with the M1-05 ``read_gff3``.
@@ -11,7 +11,7 @@ Settled by the test author (lead question 1 proposes the SO types used below):
   pseudogenes (no phase); attributes ``ID`` = ``locus_tag`` = the locus tag, ``feature_type``,
   ``gene`` / ``product`` when set. Coordinates equal ``genes.parquet``.
 * IDs are unique per file (lead decision 8, §9.5): Bakta's gene IDs as given (the locus tag);
-  every ID GIAP writes carries its feature kind as a prefix — ``operon:<tu_id>``,
+  every ID GIPPA writes carries its feature kind as a prefix — ``operon:<tu_id>``,
   ``promoter:<promoters.bed name>``, ``terminator:<terminators.bed name>``,
   ``region:<region_id>`` — so a region ``plasmid_1`` never collides with the contig
   ``plasmid_1``'s ``Is_circular`` region line (``ID=plasmid_1``, M1-05 writer).
@@ -38,9 +38,9 @@ import pytest
 from helpers import layers_oracle as orc
 from helpers.layers_chain import Chain, build_chain, fresh_steps
 
-from giap.config import GiapConfig
-from giap.io.gff3 import GffFeature, read_gff3
-from giap.io.tsv import format_value
+from gippa.config import GippaConfig
+from gippa.io.gff3 import GffFeature, read_gff3
+from gippa.io.tsv import format_value
 
 REGION_TYPES = {
     "prophage": "prophage", "plasmid": "plasmid", "bgc": "biosynthetic_gene_cluster",
@@ -60,7 +60,7 @@ def gff(chain: Chain, tmp_path_factory: pytest.TempPathFactory) -> Path:
     outs = {"annotation": out / "annotation", "layers": out / "layers.parquet"}
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
-        reg.run_step("context_layers", GiapConfig(seed=1), dict(chain.inputs), outs)
+        reg.run_step("context_layers", GippaConfig(seed=1), dict(chain.inputs), outs)
     return outs["annotation"] / "genes.gff3"
 
 
@@ -127,10 +127,10 @@ def test_tu_features(chain: Chain, feats: list[GffFeature]) -> None:
 
 
 def test_promoter_features_follow_promoters_bed(chain: Chain, feats: list[GffFeature]) -> None:
-    from giap.annotate.promoters import promoters_bed
+    from gippa.annotate.promoters import promoters_bed
 
     reps = orc.replicons(chain.frame("replicons"))
-    yes = GiapConfig().annotation.promoters.promotech_yes
+    yes = GippaConfig().annotation.promoters.promotech_yes
     recs = promoters_bed(chain.frame("promoter_windows"), reps, yes)
     prom = [f for f in feats if f.type == "promoter"]
     assert prom and len(prom) == len(recs)
@@ -145,7 +145,7 @@ def test_promoter_features_follow_promoters_bed(chain: Chain, feats: list[GffFea
 
 
 def test_terminator_features(chain: Chain, feats: list[GffFeature]) -> None:
-    from giap.annotate.terminators import terminators_bed
+    from gippa.annotate.terminators import terminators_bed
 
     reps = orc.replicons(chain.frame("replicons"))
     recs = terminators_bed(orc.terminators(chain.frame("terminators")), reps)
@@ -189,7 +189,7 @@ def test_gff3_layers_without_optional_inputs(chain: Chain, tmp_path: Path) -> No
     keep = {k: chain.inputs[k] for k in ("genes", "replicons", "pairs_raw", "tus", "genome")}
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
-        reg.run_step("context_layers", GiapConfig(seed=1), keep, outs)
+        reg.run_step("context_layers", GippaConfig(seed=1), keep, outs)
     got = read_gff3(outs["annotation"] / "genes.gff3", orc.replicons(chain.frame("replicons")))
     assert {f.type for f in got} == {"CDS", "pseudogene", "operon"}
     n = len([f for f in got if f.source == "Bakta" and f.type in ("CDS", "pseudogene")])
@@ -228,7 +228,7 @@ def test_ids_unique_per_file_with_a_contig_named_like_a_region(chain: Chain, gff
 
 
 def test_ids_carry_the_feature_kind(chain: Chain, gff: Path) -> None:
-    """GIAP-written IDs: ``<kind>:<id>``; Bakta gene IDs are the locus tags as given."""
+    """GIPPA-written IDs: ``<kind>:<id>``; Bakta gene IDs are the locus tags as given."""
     prefix = {"operon": "operon:", "promoter": "promoter:", "terminator": "terminator:",
               **{t: "region:" for t in REGION_TYPES.values()}}  # fmt: skip
     tags = set(chain.frame("genes")["locus_tag"])

@@ -10,9 +10,9 @@
 ADR-0014 covers the pins of versioned resources only.
 
 ## Decision
-Unversioned sources carry `version: ""` and `checksum: ""` in db_sources.yaml. At download, `giap setup`
+Unversioned sources carry `version: ""` and `checksum: ""` in db_sources.yaml. At download, `gippa setup`
 validates the content (KEGG link/name format checks), records the retrieval date as version and the
-sha256 of the bytes in db_manifest.json, and `giap setup --check` verifies against that recorded checksum.
+sha256 of the bytes in db_manifest.json, and `gippa setup --check` verifies against that recorded checksum.
 Every run report states the KEGG retrieval date.
 
 ## Consequences

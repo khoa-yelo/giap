@@ -1,4 +1,4 @@
-"""``giap convert --from cascadia`` through the CLI (M10-09; GIAP_SPEC.md §5.1, §5.4, §6.6).
+"""``gippa convert --from cascadia`` through the CLI (M10-09; GIPPA_SPEC.md §5.1, §5.4, §6.6).
 
 Spec: docs/specs/M10-09-cascadia-convert.md, decision D7, example 12, criteria 1 and 3.
 Fixtures are hand-made 0.0.7-shaped ``.ssl`` text written into ``tmp_path``.
@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner, Result
 
-from giap.cli import cli
-from giap.exitcodes import ExitCode
+from gippa.cli import cli
+from gippa.exitcodes import ExitCode
 
 W1 = "file\tscan\tcharge\tsequence\tscore-type\tscore\tretention-time\tstart-time\tend-time"
 EX1_LINES = [

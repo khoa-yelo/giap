@@ -1,4 +1,4 @@
-"""Recorded-fixture layout and provenance validator (M2-10; GIAP_SPEC.md §11.4, R11).
+"""Recorded-fixture layout and provenance validator (M2-10; GIPPA_SPEC.md §11.4, R11).
 
 §11.4: "Recorded native outputs live in `tests/data/recorded/<tool>/<version>/<input>/`, with a
 `PROVENANCE.md` giving the command, environment lock or digest, date and host." M2-10's

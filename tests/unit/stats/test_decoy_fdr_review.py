@@ -10,7 +10,7 @@ import numpy.typing as npt
 import pytest
 from scipy import stats as sps
 
-from giap.stats.decoy_fdr import _reflected_density, bin_index, local_fdr, max_decoy_fdr
+from gippa.stats.decoy_fdr import _reflected_density, bin_index, local_fdr, max_decoy_fdr
 
 F64 = npt.NDArray[np.float64]
 

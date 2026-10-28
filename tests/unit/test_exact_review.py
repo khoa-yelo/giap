@@ -20,12 +20,12 @@ import ahocorasick
 import pandas as pd
 import pytest
 
-import giap.mapping.exact as exact_mod
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, decode
-from giap.model import Interval, Replicon
-from giap.rng import for_step
+import gippa.mapping.exact as exact_mod
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, decode
+from gippa.model import Interval, Replicon
+from gippa.rng import for_step
 
 REPO = Path(__file__).resolve().parents[2]
 G = "ATGGCTAAAATTCTGTGGTAACGTNNA"  # +0 = MAKLLW*RX (M3-02 genome)

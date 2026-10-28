@@ -19,7 +19,7 @@ Interface fixed here (the spec names the quantities, not the functions):
 * ``mz(peptide, charge, oxidised_at=None) -> float`` (carbamidomethyl on every C; ``oxidised_at``
   the 0-based index of the one oxidised M); ``n_prec(peptide, settings=DEFAULT_SETTINGS) -> int``;
 * ``build_index(genome, replicons, strain_db=None)`` (``genome``: contig -> nucleotides,
-  ``replicons``: contig -> ``giap.model.coords.Replicon``, ``strain_db``: protein sequences or
+  ``replicons``: contig -> ``gippa.model.coords.Replicon``, ``strain_db``: protein sequences or
   None for "L2 answered no"), an opaque index;
 * ``present(peptides, index) -> Mapping[str, Presence]`` keyed by the peptides passed, with
   ``Presence.rule`` in ``{"exact", "strain_db", "mass_equivalent", None}``; it is the one
@@ -190,7 +190,7 @@ def test_literal_i_does_not_change_the_mass() -> None:
 
 
 def test_carbamidomethyl_on_every_c() -> None:
-    from giap.mapping.masses import MOD_DELTA, RESIDUE_MASS
+    from gippa.mapping.masses import MOD_DELTA, RESIDUE_MASS
 
     pep = "CAGCGGGK"
     mass = sum(RESIDUE_MASS[c] for c in pep) + 18.010565 + 2 * MOD_DELTA["Carbamidomethyl"]
@@ -598,10 +598,10 @@ def test_discovery_classes_equal_universe_classes(ex1: Any) -> None:
 
 
 def _tolerant_types(peptide: str, contigs: Mapping[str, str]) -> set[frozenset[str]]:
-    """The ``diff_types`` of GIAP's tolerant target rows for ``peptide`` (fixture guard)."""
-    from giap.config import resolve_config
-    from giap.mapping.sixframe import build_sixframe
-    from giap.mapping.tolerant import match_tolerant
+    """The ``diff_types`` of GIPPA's tolerant target rows for ``peptide`` (fixture guard)."""
+    from gippa.config import resolve_config
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.mapping.tolerant import match_tolerant
 
     six = build_sixframe(dict(contigs), replicons(contigs, list(contigs)))
     cfg = resolve_config().mapping.tolerant

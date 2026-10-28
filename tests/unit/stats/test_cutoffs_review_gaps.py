@@ -1,4 +1,4 @@
-"""Review gaps of PR #263 (M6-12 part A, ``giap.stats.cutoffs``): blockers B1-B4 of the code
+"""Review gaps of PR #263 (M6-12 part A, ``gippa.stats.cutoffs``): blockers B1-B4 of the code
 review and item 1 of the statistician's review.
 
 Spec docs/specs/M6-12-uniop-terminator-cutoffs.md (lead decisions 6-8); methods
@@ -24,10 +24,10 @@ import math
 import numpy as np
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     DEFAULT_SEED,
     STEP,
     Window,

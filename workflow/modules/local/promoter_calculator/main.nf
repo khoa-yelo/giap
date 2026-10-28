@@ -1,4 +1,4 @@
-// Promoter Calculator on a batch of TU upstream regions, -j 1 (GIAP_SPEC.md §7.1.1, G11; M2-14, M2-14b).
+// Promoter Calculator on a batch of TU upstream regions, -j 1 (GIPPA_SPEC.md §7.1.1, G11; M2-14, M2-14b).
 // One task runs each region of the batch in the given (TU-id) order and writes <TU>.csv per region;
 // a failing region fails the batch (Nextflow's default task shell, bash -ue; keep it).
 process PROMOTER_CALCULATOR {

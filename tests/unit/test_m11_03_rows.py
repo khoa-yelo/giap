@@ -154,7 +154,7 @@ def test_r2_freeze_run_without_table_pending(fx: Fixture, tmp_path: Path) -> Non
 def test_example9_code_change_after_logged_commit_pending(fx: Fixture) -> None:
     fx.set_nightly(passing_nightly(fx.short(fx.r)))
     x = fx.r
-    fx.write_text("src/giap/stats/bh.py", '"""BH (fixture), changed."""\n')
+    fx.write_text("src/gippa/stats/bh.py", '"""BH (fixture), changed."""\n')
     fx.commit("change bh")
     _, doc = fx.compute()
     r3 = row(doc, "R3")
@@ -304,9 +304,9 @@ def test_r5_no_weekly_te8_row_pending(fx: Fixture) -> None:
     assert proc.returncode == 3
 
 
-def test_r6_te7_giap_fail_fails(fx: Fixture) -> None:
+def test_r6_te7_gippa_fail_fails(fx: Fixture) -> None:
     doc = metrics_doc()
-    doc["te7"]["giap"]["status"] = "fail"
+    doc["te7"]["gippa"]["status"] = "fail"
     fx.write_json("validation/pilot/metrics/metrics.json", doc)
     _, out = fx.compute()
     assert row(out, "R6")["status"] == "fail"
@@ -415,9 +415,9 @@ def test_h1_gate_m1_not_matched_by_m10(fx: Fixture) -> None:
 @pytest.mark.parametrize("where", ["init", "citation"])
 def test_h2_version_disagreement(fx: Fixture, where: str) -> None:
     if where == "init":
-        fx.write_text("src/giap/__init__.py", '__version__ = "0.9.0"\n')
+        fx.write_text("src/gippa/__init__.py", '__version__ = "0.9.0"\n')
     else:
-        fx.write_text("CITATION.cff", 'cff-version: 1.2.0\ntitle: "GIAP"\nversion: 0.9.0\n')
+        fx.write_text("CITATION.cff", 'cff-version: 1.2.0\ntitle: "GIPPA"\nversion: 0.9.0\n')
     _, doc = fx.compute()
     assert row(doc, "H2")["status"] == "fail"
 

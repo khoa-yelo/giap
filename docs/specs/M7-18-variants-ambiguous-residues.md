@@ -13,7 +13,7 @@ The M7-15 K-12 run (TE8 peptides, `farmshare,apptainer`) fails in the `variants`
 ValueError: no table-11 codon encodes 'X'
 ```
 
-raised by `minimal_alt_codon` in `src/giap/variants/vcf_records.py`. `flags.nt_class` calls the
+raised by `minimal_alt_codon` in `src/gippa/variants/vcf_records.py`. `flags.nt_class` calls the
 same function and fails the same way. 13 of the 151,424 K-12 TE8 peptides contain B, J, O, U, X
 or Z.
 
@@ -97,7 +97,7 @@ UAG → Pyl), so lead decision 9 counts it as REF.
 
 No new public function, no new column and no schema change.
 
-`src/giap/variants/pileup.py` (pure):
+`src/gippa/variants/pileup.py` (pure):
 
 ```python
 NONSTANDARD: frozenset[str] = frozenset("BJOUXZ")     # peptide letters that are never ALT
@@ -262,10 +262,10 @@ is `AKCREFGHILWD` itself (exact, REF at every codon).
 - [ ] **No change for standard residues:** a property test checks that on random all-standard
   alignments the pileup, sites and VCF records are equal with and without the new code path. In
   practice that means equal to fixtures recorded on main. Every committed golden (and the M7-15
-  variants goldens, once merged) passes **without** `GIAP_UPDATE_GOLDEN`.
+  variants goldens, once merged) passes **without** `GIPPA_UPDATE_GOLDEN`.
 - [ ] Property: adding a peptide whose only difference from an existing one is a nonstandard
   letter never changes any call, confidence, `n_ref`, `n_il`, `n_alt`, AD or DP.
-- [ ] The M7-15 K-12 real-tool run (Slurm, `giap_run.sbatch`, recorded in PROGRESS.md by the lead)
+- [ ] The M7-15 K-12 real-tool run (Slurm, `gippa_run.sbatch`, recorded in PROGRESS.md by the lead)
   passes the `variants` step. The event reports a `skipped_peptides` count ≤ 13 (only the
   eligible, placed ones among the 13 TE8 peptides).
 - [ ] Lint, format, mypy clean. ≤ 150 counted code lines.
@@ -308,7 +308,7 @@ Tests ≈ 220 lines, not gated. One PR.
    through UGA)". Decision 9 makes U over TGA a REF match instead. **Proposed reversible
    default:** follow decision 9 (REF). The `stop_codon` flag then fires only for a *standard*
    residue at a stop, for example W or C read through UGA. The case is unreachable until M7-16
-   anyway. Because it reads against GIAP_SPEC.md, it probably needs an ADR, or a note in the M7-16
+   anyway. Because it reads against GIPPA_SPEC.md, it probably needs an ADR, or a note in the M7-16
    ADR, if Khoa keeps it. The alternative is to record U at TGA as an ALT `U` with `stop_codon`
    and teach `minimal_alt_codon` that U = TGA and O = TAG. That is also about 10 lines.
 2. **B/Z/J as ambiguous matches?** Should B over D or N (and Z over E/Q, J over I/L) count as REF

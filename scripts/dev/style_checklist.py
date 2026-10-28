@@ -1,4 +1,4 @@
-"""Run the M9-24 style checklist (GIAP_SPEC.md §14.4) over every registered plot of one run.
+"""Run the M9-24 style checklist (GIPPA_SPEC.md §14.4) over every registered plot of one run.
 
 Usage: python scripts/dev/style_checklist.py OUT [NAME]
 
@@ -12,12 +12,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from giap.config import resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.io.tsv import write_tsv
-from giap.steps.plots import load_plot_modules
-from giap.viz import base, checklist, style
+from gippa.config import resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.io.tsv import write_tsv
+from gippa.steps.plots import load_plot_modules
+from gippa.viz import base, checklist, style
 
 REPO = Path(__file__).resolve().parents[2]
 

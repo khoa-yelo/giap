@@ -14,7 +14,7 @@ canonical JSON (sorted keys, 2-space indent, trailing newline) with ``rules``, `
 
 ``evaluate`` (08b) applies the failure rule L6 to a Cascadia ``.ssl``: distinct stripped, I/L-folded
 7-30-mers above the score cut-off (strict ``>``, default 0.8), the top 1,000 matched exactly
-against the six-frame translation with ``giap.mapping`` (contaminant hits count as non-matches).
+against the six-frame translation with ``gippa.mapping`` (contaminant hits count as non-matches).
 ``early-fail`` records E1-E3. Both write the verdict JSON (aggregates only, no sequence).
 
 Exit codes: 0 pass; 3 fail (L6 or early-fail); 1 an error (failed check, unreadable mzML or
@@ -42,16 +42,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.config import resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.io.protein_fasta import read_protein_fasta
-from giap.mapping.contaminants import match_contaminant_peptides
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.sixframe import build_sixframe
-from giap.rng import for_step
-from giap.stats.cutoffs import wilson_ci
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config import resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.mapping.contaminants import match_contaminant_peptides
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.sixframe import build_sixframe
+from gippa.rng import for_step
+from gippa.stats.cutoffs import wilson_ci
 
 REPO = Path(__file__).resolve().parents[2]
 NISSLE_FNA = REPO / "tests/data/genomes/nissle1917.fna.gz"
@@ -272,7 +272,7 @@ def read_ssl(path: Path) -> list[tuple[str, float]]:
 def genome_hits(
     top: list[str], seqs: dict[str, str], replicons: Any
 ) -> tuple[set[str], set[str], Any]:
-    """Steps 9-12 with ``giap.mapping``: target and decoy peptides, and the target hit table."""
+    """Steps 9-12 with ``gippa.mapping``: target and decoy peptides, and the target hit table."""
     cfg = resolve_config()
     index = build_sixframe(seqs, replicons)
     decoys = build_decoys(index, "shuffle", cfg.mapping.decoys.shuffle_window_aa,
@@ -324,10 +324,10 @@ def _inside_checkout(path: Path) -> bool:
 
 
 def _evaluate(args: argparse.Namespace) -> int:
-    db = os.environ.get("GIAP_DB_DIR")
+    db = os.environ.get("GIPPA_DB_DIR")
     cont = args.contaminants or (Path(db) / "contaminants/contaminants.fasta" if db else None)
     if cont is None:
-        print("evaluate: no --contaminants and no $GIAP_DB_DIR", file=sys.stderr)
+        print("evaluate: no --contaminants and no $GIPPA_DB_DIR", file=sys.stderr)
         return 2
     for p in (args.ssl, args.genome, args.bakta_json, cont):
         if not p.is_file() or p.stat().st_size == 0:
@@ -341,7 +341,7 @@ def _evaluate(args: argparse.Namespace) -> int:
         return 2
     if args.detail and _inside_checkout(args.detail):
         print(f"evaluate: --detail {args.detail} is in the checkout and not git-ignored "
-              "(per-peptide data stays under $GIAP_ROOT)", file=sys.stderr)  # fmt: skip
+              "(per-peptide data stays under $GIPPA_ROOT)", file=sys.stderr)  # fmt: skip
         return 2
     try:
         t = tally(read_ssl(args.ssl), args.cutoff)
@@ -414,9 +414,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     ev.add_argument("ssl", type=Path)
     ev.add_argument("--genome", type=Path, default=NISSLE_FNA)
     ev.add_argument("--bakta-json", type=Path, default=NISSLE_JSON)
-    ev.add_argument("--contaminants", type=Path, help="default $GIAP_DB_DIR/contaminants/...")
+    ev.add_argument("--contaminants", type=Path, help="default $GIPPA_DB_DIR/contaminants/...")
     ev.add_argument("--cutoff", type=float, help="Cascadia's -t (default its CLI default 0.8)")
-    ev.add_argument("--detail", type=Path, help="per-peptide top list (under $GIAP_ROOT only)")
+    ev.add_argument("--detail", type=Path, help="per-peptide top list (under $GIPPA_ROOT only)")
     _provenance(ev)
     ef = sub.add_parser("early-fail", help="record E1-E3 (verdict fail, no counts)")
     ef.add_argument("--reason", choices=EARLY, required=True)

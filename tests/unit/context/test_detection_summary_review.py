@@ -1,7 +1,7 @@
 """M4-16 lead decisions 4-9 after the statistician's review (PR #87, changes requested).
 
 Spec: docs/specs/M4-16-detection-summary.md ("Lead decisions after the statistician's review"),
-GIAP_SPEC.md §7.5.1 (``id_mixups``, genome-inconsistent peptides), §7.3.5(a), §8.2;
+GIPPA_SPEC.md §7.5.1 (``id_mixups``, genome-inconsistent peptides), §7.3.5(a), §8.2;
 docs/methods/detection-summary.md (statistician sign-off items 1-3).
 
 Resolved ambiguities (pinned here):
@@ -44,13 +44,13 @@ SEED = 20261015
 
 
 def _summary() -> Any:
-    from giap.context import summary
+    from gippa.context import summary
 
     return summary
 
 
 def _basic(genes: pd.DataFrame, b: int = 200, seed: int = SEED) -> pd.DataFrame:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return _summary().basic_rows(genes, b, for_step("context_stats", seed))  # type: ignore[no-any-return]
 
@@ -127,7 +127,7 @@ def test_flag_only_on_o_minus_e(n: int) -> None:
 def _oracle_cis(
     genes: pd.DataFrame, b: int, seed: int
 ) -> dict[tuple[str, str], tuple[float, float]]:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = for_step("context_stats", seed)
     out = {}
@@ -168,7 +168,7 @@ def test_groups_draw_in_sorted_order() -> None:
 
 def test_reversed_group_order_would_change_cis() -> None:
     """Sanity of the oracle: drawing the groups in reverse order gives different CIs here."""
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     g = _order_frame()
     groups = fx.group_members(g)

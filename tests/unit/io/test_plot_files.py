@@ -1,4 +1,4 @@
-"""``giap.io.plot_files``: image and data-TSV writers (M9-01 behaviour 7, example 9, index
+"""``gippa.io.plot_files``: image and data-TSV writers (M9-01 behaviour 7, example 9, index
 decision 6). Render and structure checks only: no ``--mpl`` baselines (Khoa approves them at
 M9-25).
 
@@ -17,9 +17,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.io.plot_files import remove_plot_files, write_instance
-from giap.viz import style
-from giap.viz.base import Instance
+from gippa.io.plot_files import remove_plot_files, write_instance
+from gippa.viz import style
+from gippa.viz.base import Instance
 
 ALL = ["svg", "png", "pdf"]
 

@@ -1,4 +1,4 @@
-"""Hypothesis properties of permutation p-values and circular shifts (issue M4-03; GIAP_SPEC.md
+"""Hypothesis properties of permutation p-values and circular shifts (issue M4-03; GIPPA_SPEC.md
 §7.3.5(b), §8.2, §8.3).
 
 - shifted sets keep their size and pairwise gaps (circular distance on circular replicons, plain
@@ -14,8 +14,8 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.rng import for_step
-from giap.stats.permutation import (
+from gippa.rng import for_step
+from gippa.stats.permutation import (
     apply_shift,
     besag_clifford,
     choose_shifts,

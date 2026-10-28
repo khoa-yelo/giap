@@ -3,22 +3,22 @@
 Shared by ``tests/snapshot/test_checklist_all.py`` (the M9-25 frozen fixtures) and
 ``tests/integration/test_checklist_sim100k.py`` (a real sim100k run). Each plot is called through
 its registry wrapper (so declared skips skip), each instance is written with ``write_instance``
-into ``plots_dir`` and checked with ``giap.viz.checklist.check_instance``.
+into ``plots_dir`` and checked with ``gippa.viz.checklist.check_instance``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from giap.config import resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
+from gippa.config import resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
 
 
 def sweep(out: Path, plots_dir: Path) -> tuple[dict[str, list[str]], dict[str, str]]:
     """``(failures, skipped)``: stem -> failing gated items with details; pid -> skip reason."""
-    from giap.steps.plots import load_plot_modules
-    from giap.viz import base, checklist, style
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz import base, checklist, style
 
     load_plot_modules()
     style.apply()

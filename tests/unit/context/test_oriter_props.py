@@ -49,7 +49,7 @@ CFG = {"bootstrap": 20, "permutations": 9}
 
 
 def _oriter() -> Any:
-    from giap.context import oriter
+    from gippa.context import oriter
 
     return oriter
 
@@ -197,7 +197,7 @@ def genome(draw: Any) -> tuple[Any, ...]:
 @given(genome())
 def test_row_contract_holds_on_every_genome(frames: tuple[Any, ...]) -> None:
     """Example 8 and the degenerate table as a property of any genome."""
-    from giap.context.autocorrelation import AUTOCORR_COLUMNS
+    from gippa.context.autocorrelation import AUTOCORR_COLUMNS
 
     genes, tus, replicons, feats = frames
     cfg = od.config(**CFG)

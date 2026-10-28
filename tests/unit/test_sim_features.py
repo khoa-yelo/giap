@@ -1,4 +1,4 @@
-"""giapsim genome features for mapping (issue M3-18; GIAP_SPEC.md §11.3).
+"""gippasim genome features for mapping (issue M3-18; GIPPA_SPEC.md §11.3).
 
 Examples 1-10 of docs/specs/M3-18-sim-genome-features.md, the round trip through M3-01's
 ``gene_model_from_bakta_json`` and M1-05's ``read_gff3``, truth tables, determinism and speed.
@@ -35,9 +35,9 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.gff3 import read_gff3
-from giap.model.coords import Interval, Replicon, split_at_origin
-from giap.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
+from gippa.io.gff3 import read_gff3
+from gippa.model.coords import Interval, Replicon, split_at_origin
+from gippa.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
 
 BASES = "TCAG"
 AA_11 = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
@@ -186,7 +186,7 @@ def overlap_bp(a: Interval, b: Interval, reps: dict[str, Replicon]) -> int:
 
 
 class Run:
-    """One simulation: parsed JSON, genome sequences, replicons and the GIAP gene model."""
+    """One simulation: parsed JSON, genome sequences, replicons and the GIPPA gene model."""
 
     def __init__(self, out: Path) -> None:
         self.out = out
@@ -217,18 +217,18 @@ class Run:
 def strain_config(**kw: Any) -> Any:
     import importlib
 
-    import giapsim
+    import gippasim
 
-    cls = getattr(giapsim, "StrainConfig", None)
+    cls = getattr(gippasim, "StrainConfig", None)
     if cls is None:
-        cls = importlib.import_module("giapsim.strain").StrainConfig
+        cls = importlib.import_module("gippasim.strain").StrainConfig
     return cls(**kw)
 
 
 def simulate(out: Path, seed: int = 1, **kw: Any) -> Run:
-    import giapsim
+    import gippasim
 
-    giapsim.simulate(giapsim.SimConfig(**kw), seed=seed, outdir=out)
+    gippasim.simulate(gippasim.SimConfig(**kw), seed=seed, outdir=out)
     return Run(out)
 
 
@@ -271,17 +271,17 @@ def full(mk: Any) -> Run:
 
 
 def test_example1_defaults_byte_identical_to_m0(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    giapsim.simulate(giapsim.SimConfig(), seed=1, outdir=tmp_path)
+    gippasim.simulate(gippasim.SimConfig(), seed=1, outdir=tmp_path)
     for name, digest in M0_SHA256.items():
         assert hashlib.sha256((tmp_path / name).read_bytes()).hexdigest() == digest, name
 
 
 def test_new_config_fields_default_off() -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig()
+    cfg = gippasim.SimConfig()
     assert cfg.n_plasmids == 0
     assert tuple(cfg.plasmid_length) == (5_000, 60_000)
     assert cfg.linear_contig_length == 0
@@ -614,7 +614,7 @@ def test_strain_reference_annotation_is_lifted(mk: Any) -> None:
             assert f["nt"] == seq_of(f, ref), fid(f)
 
 
-# ---------------------------------------------------------------- round trip with GIAP's readers
+# ---------------------------------------------------------------- round trip with GIPPA's readers
 
 
 def test_full_run_read_by_gene_model(full: Run) -> None:
@@ -682,11 +682,11 @@ def _tree(root: Path) -> dict[str, bytes]:
 
 
 def test_same_seed_byte_identical_directories(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(**all_options(50_000))
-    giapsim.simulate(cfg, seed=7, outdir=tmp_path / "a")
-    giapsim.simulate(cfg, seed=7, outdir=tmp_path / "b")
+    cfg = gippasim.SimConfig(**all_options(50_000))
+    gippasim.simulate(cfg, seed=7, outdir=tmp_path / "a")
+    gippasim.simulate(cfg, seed=7, outdir=tmp_path / "b")
     a, b = _tree(tmp_path / "a"), _tree(tmp_path / "b")
     assert {"genome.fasta", "bakta_like.json", "annotation.gff3", "reference.fasta"} <= set(a)
     assert {"truth/features.tsv", "truth/novel_orfs.tsv", "truth/strain_differences.tsv"} <= set(a)
@@ -694,11 +694,11 @@ def test_same_seed_byte_identical_directories(tmp_path: Path) -> None:
 
 
 def test_different_seed_differs(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(**all_options(50_000))
-    giapsim.simulate(cfg, seed=7, outdir=tmp_path / "a")
-    giapsim.simulate(cfg, seed=8, outdir=tmp_path / "b")
+    cfg = gippasim.SimConfig(**all_options(50_000))
+    gippasim.simulate(cfg, seed=7, outdir=tmp_path / "a")
+    gippasim.simulate(cfg, seed=8, outdir=tmp_path / "b")
     for name in ("genome.fasta", "truth/features.tsv", "truth/strain_differences.tsv"):
         assert (tmp_path / "a" / name).read_bytes() != (tmp_path / "b" / name).read_bytes()
 
@@ -745,27 +745,27 @@ def test_invariants_on_full_run(full: Run) -> None:
 
 
 def test_100kb_all_options_under_1s(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
-    cfg = giapsim.SimConfig(**all_options(100_000))
+    cfg = gippasim.SimConfig(**all_options(100_000))
     best = float("inf")
     for i in range(3):
         t0 = time.perf_counter()
-        giapsim.simulate(cfg, seed=9, outdir=tmp_path / str(i))
+        gippasim.simulate(cfg, seed=9, outdir=tmp_path / str(i))
         best = min(best, time.perf_counter() - t0)
-    # loose 10x guard; the 1 s budget is enforced in benchmarks/test_giapsim.py
+    # loose 10x guard; the 1 s budget is enforced in benchmarks/test_gippasim.py
     assert best < 10.0, best
 
 
 @pytest.mark.slow
 def test_example10_5mb_all_options_under_30s(tmp_path: Path) -> None:
-    import giapsim
+    import gippasim
 
     opts = all_options(5_000_000) | {"n_rrna_operons": 7, "n_trna": 86, "n_sorfs": 40}
-    cfg = giapsim.SimConfig(**opts)
+    cfg = gippasim.SimConfig(**opts)
     t0 = time.perf_counter()
-    giapsim.simulate(cfg, seed=10, outdir=tmp_path)
-    # loose 10x guard; the 30 s budget is enforced in benchmarks/test_giapsim.py
+    gippasim.simulate(cfg, seed=10, outdir=tmp_path)
+    # loose 10x guard; the 30 s budget is enforced in benchmarks/test_gippasim.py
     assert time.perf_counter() - t0 < 300.0
     run = Run(tmp_path)
     assert len(run.genomes[run.data["sequences"][0]["id"]]) == 5_000_000

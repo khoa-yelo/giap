@@ -1,32 +1,32 @@
-"""M9-13, the pass-1 closer: every pass-1 plot in ``report.html`` from a real sim100k ``giap run``
+"""M9-13, the pass-1 closer: every pass-1 plot in ``report.html`` from a real sim100k ``gippa run``
 (docs/specs/M9-13-pass1-integration.md examples 1-5 and the zero-detection degenerate row;
-GIAP_SPEC.md §6.4 executor equality, §7.9.4 ``giap report`` idempotence, §10.3 link and offline
+GIPPA_SPEC.md §6.4 executor equality, §7.9.4 ``gippa report`` idempotence, §10.3 link and offline
 checks, R7/TE7 extended to ``plots/data/``).
 
 Inputs, as tests/integration/test_report_run.py (M9-02) and tests/integration/
-test_m2_21_local_vs_nextflow.py (the existing executor-equality test): the giapsim ``SIM100K``
+test_m2_21_local_vs_nextflow.py (the existing executor-equality test): the gippasim ``SIM100K``
 genome at the default seed ``SIM100K_SEED`` with M3-19 proteomics and every precomputed layer
 (``config.yaml``), peptides and abundance, ``--modules core``, ``--seed 7``, the test DB of
-tests/helpers/mapping_steps.py in ``GIAP_DB_DIR`` (never the real one); default report formats.
+tests/helpers/mapping_steps.py in ``GIPPA_DB_DIR`` (never the real one); default report formats.
 No network.
 
 Interface choices (M9-13 test author, beyond the spec text):
 
 - the pass-1 plot list of example 1 is pinned as ``(plot ID, §10.2 name)``; a plot missing from
-  ``giap.viz.base.registered()`` fails, it is never skipped (lead decision 2). V03 is satisfied by
+  ``gippa.viz.base.registered()`` fails, it is never skipped (lead decision 2). V03 is satisfied by
   its index ``plots/data/V03_locus.tsv`` (M9-10 decision 4); every other plot by at least one
   ``plots/<ID>_<name>[_<suffix>].svg`` whose ``plots/data/<stem>.tsv`` exists;
 - the events are read from ``OUT/logs/events.jsonl`` (``{"event": ..., "data": {...}}``, §6.7):
   each registered plot has exactly one ``plots.rendered`` (``data.files`` relative to ``plots/``,
   all on disk) or one ``plots.skipped`` with a non-empty declared reason
   (``module_off:``/``layer_missing:``/``input_absent:``) -- never both;
-- examples 2 and 3 use ``giap.report.checks`` (tests/unit/report/test_checks.py pins it); the
+- examples 2 and 3 use ``gippa.report.checks`` (tests/unit/report/test_checks.py pins it); the
   relative links of ``report/report.html`` resolve against ``OUT/report/``;
 - example 4 runs ``--executor nextflow --profile farmshare_local`` (real Nextflow, prebuilt env)
   like every existing executor-equality test: the spec's "-profile test" with stubs cannot give
   byte-identical tables (see tests/integration/test_novel_local_vs_nextflow.py). Compared: the
   recursive file list and bytes of ``plots/data/`` (``diff -r``);
-- example 5 copies ``OUT`` (without ``work/``) and runs ``giap report OUT`` twice;
+- example 5 copies ``OUT`` (without ``work/``) and runs ``gippa report OUT`` twice;
 - zero detections: the same run with every peptide sequence replaced by a distinct
   ``[WCMH]{11}K`` string (absent from a 100-kb genome's six-frame translation) and no abundance;
   precondition: ``tables/genes.tsv`` has no detected gene. The run exits 0, writes
@@ -74,14 +74,14 @@ ZERO_EMPTY = ("V07", "V10", "V18")
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    assert giapsim.SIM100K_SEED == 20261014
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    assert gippasim.SIM100K_SEED == 20261014
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 @pytest.fixture(scope="module")
@@ -92,10 +92,10 @@ def db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _invoke(args: list[str], db: Path) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -123,8 +123,8 @@ def local(sim: Any, db: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _registered() -> dict[str, Any]:
-    from giap.steps.plots import load_plot_modules
-    from giap.viz.base import registered
+    from gippa.steps.plots import load_plot_modules
+    from gippa.viz.base import registered
 
     load_plot_modules()
     return dict(registered())
@@ -194,7 +194,7 @@ def test_every_registered_plot_rendered_or_skipped_with_reason(local: Path) -> N
         ev = mine[0]
         if ev["event"] == "plots.skipped":
             reason = str(ev["data"].get("reason", ""))
-            # V16 is written only by `giap compare` (M9-23 decision 2): its run-time skip says so
+            # V16 is written only by `gippa compare` (M9-23 decision 2): its run-time skip says so
             assert REASON.match(reason), (pid, ev)  # V16: input_absent:compare (M9-23 amended)
         else:
             files = ev["data"]["files"]
@@ -219,13 +219,13 @@ def test_example_1_pass1_plots_render_not_skip_on_sim100k(local: Path, pid: str,
 
 
 def test_example_2_report_loads_nothing_external(local: Path) -> None:
-    from giap.report.checks import external_loads
+    from gippa.report.checks import external_loads
 
     assert external_loads(_html(local)) == []
 
 
 def test_example_3_every_relative_link_exists(local: Path) -> None:
-    from giap.report.checks import relative_links
+    from gippa.report.checks import relative_links
 
     links = relative_links(_html(local))
     assert links, "report.html links to no file under OUT/"
@@ -237,7 +237,7 @@ def test_example_3_every_relative_link_exists(local: Path) -> None:
 
 
 def test_example_3_report_links_every_rendered_data_tsv(local: Path) -> None:
-    from giap.report.checks import relative_links
+    from gippa.report.checks import relative_links
 
     links = {(local / "report" / u).resolve() for u in relative_links(_html(local))}
     for e in _events(local):
@@ -251,7 +251,7 @@ def test_example_3_report_links_every_rendered_data_tsv(local: Path) -> None:
 # ---------------------------------------------------------------- example 5
 
 
-def test_example_5_giap_report_twice_identical(
+def test_example_5_gippa_report_twice_identical(
     local: Path, db: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     out = tmp_path_factory.mktemp("REPORT13") / "OUT"
@@ -261,10 +261,10 @@ def test_example_5_giap_report_twice_identical(
         res = _invoke(["report", str(out)], db)
         assert res.exit_code == 0, res.output
         runs.append((_data_tsvs(out), (out / "report" / "report.html").read_bytes()))
-    assert runs[0][0], "giap report wrote no plots/data/*.tsv"
-    assert runs[0][0] == runs[1][0], "plots/data/*.tsv differ between two giap report runs"
-    assert runs[0][1] == runs[1][1], "report.html differs between two giap report runs"
-    assert runs[0][0] == _data_tsvs(local), "giap report rebuilt different plot data than the run"
+    assert runs[0][0], "gippa report wrote no plots/data/*.tsv"
+    assert runs[0][0] == runs[1][0], "plots/data/*.tsv differ between two gippa report runs"
+    assert runs[0][1] == runs[1][1], "report.html differs between two gippa report runs"
+    assert runs[0][0] == _data_tsvs(local), "gippa report rebuilt different plot data than the run"
 
 
 # ---------------------------------------------------------------- example 4
@@ -321,7 +321,7 @@ def test_zero_detections_precondition(zero: Path) -> None:
 
 
 def test_zero_detections_report_written(zero: Path) -> None:
-    from giap.report.checks import external_loads, relative_links
+    from gippa.report.checks import external_loads, relative_links
 
     html = _html(zero)
     assert external_loads(html) == []

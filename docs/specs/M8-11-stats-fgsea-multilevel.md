@@ -31,7 +31,7 @@ and the implementer records the diff in `docs/methods/fgsea-port.md`.
 
 ## Public interface
 
-`src/giap/stats/fgsea.py` (extends M8-02; kernels in `_fgsea_kernels.py`)
+`src/gippa/stats/fgsea.py` (extends M8-02; kernels in `_fgsea_kernels.py`)
 ```python
 @dataclass(frozen=True, slots=True)
 class MultilevelResult:
@@ -53,12 +53,12 @@ def fgsea_multilevel(prep: Prepared, simple: SimpleResult, sample_size: int, eps
 4. **Unchanged from M8-02**: ES, NES, leading edge, and every set not needing multilevel (their
    simple p and simple `log2err`).
 5. **Randomness.** One child seed per size group from `SeedSequence.spawn` in the group order
-   (fgsea shuffles the group order with `sample()`; GIAP iterates groups by size ascending, which
+   (fgsea shuffles the group order with `sample()`; GIPPA iterates groups by size ascending, which
    only changes which random stream a group gets). Parallel over groups; results identical for any
-   thread count. `sampleSize` even → +1 (fgsea's rule; GIAP's 101 is odd).
+   thread count. `sampleSize` even → +1 (fgsea's rule; GIPPA's 101 is odd).
 6. **Call site.** M8-05's `gsea_table` calls `fgsea_multilevel` after `fgsea_simple` and sets
    `method = fgsea_multilevel` on every row of the run (one method per run, decision Q2). This
-   switch is part of this PR (≤ 20 lines in `giap.function.gsea`).
+   switch is part of this PR (≤ 20 lines in `gippa.function.gsea`).
 
 ## Degenerate cases
 
@@ -99,12 +99,12 @@ def fgsea_multilevel(prep: Prepared, simple: SimpleResult, sample_size: int, eps
 ## Hardening owed
 
 - If M8-13 fails the p tolerance after 3 iterations (R9): stop, write the §7.7.4 fallback ADR (R
-  fgsea as an external tool in `giap-golden-r`-like runtime env) for Khoa, and leave
+  fgsea as an external tool in `gippa-golden-r`-like runtime env) for Khoa, and leave
   `method = fgsea_simple` in place meanwhile — never widen `fgsea_log10p_k`.
 
 ## Questions for the lead
 
-1. Group order: fgsea shuffles size groups; GIAP iterates by size (proposed) — results are
+1. Group order: fgsea shuffles size groups; GIPPA iterates by size (proposed) — results are
    statistically equivalent and deterministic. Acceptable?
 2. One `method` value per run (`fgsea_multilevel`, proposed), or per row (`fgsea_simple` for sets
    that did not need the multilevel stage)? fgsea itself reports no per-row method.

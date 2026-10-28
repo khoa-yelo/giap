@@ -208,7 +208,7 @@ fdnG needs ADR-0058 item 6.
     interval; otherwise raise `ValueError` naming the CDS. After that substitution, any remaining
     internal `*` raises exactly as today. The terminal `*` is stripped as today. Non-cterm patch
     rows are unchanged.
-14. **Simulator** (giapsim, tooling). `SimConfig.n_readthrough: int = 0`. With the default 0, every
+14. **Simulator** (gippasim, tooling). `SimConfig.n_readthrough: int = 0`. With the default 0, every
     existing scenario and seed is byte-identical. With `n > 0` the simulator picks `n` annotated
     genes (seeded through the generator's stream). Each must have its next in-frame stop 5–60 codons
     after the annotated stop, inside the replicon, wrapping on circular ones. The expressed protein
@@ -242,8 +242,8 @@ with `genome_relation = same`.
 | 4b | Same window, `NEFKWVPAGHT` (11 aa, k = 1) | one row `[42, 75) +`, `n_diff` 1 (the stop is the only allowed difference) |
 | 4c | `NEFKWVPAGHAL` (12 aa, k = 2) vs `NEFK*VPAGHTL` | one row `[42, 78) +`, `n_diff` 2, `diff_types` `substitution;substitution`, stratum m = 2 |
 | 5 | **Decoy symmetry:** `reverse` decoy of the 42-aa frame | mirrored cell 42 − 1 − 18 = 23 holds `*` and is marked; p = 30 → 11 is not. Query `LTHGAPVWKFENLQW` (the reverse of example 1): no target row; one decoy row at decoy `aa [16, 31)`, cost 1, mirrored target interval `[33, 78) +`. With the decoy cells removed (a deliberately broken build) that decoy row disappears: the test that pins symmetry. `shuffle` decoy: cell 18 marked, `*` at 18, 30, 41 in place |
-| 6 | **`cterm_extension` past the annotated stop into the 3′ flank:** example 1's peptide plus `KWVPAGHTLDMR` (12 aa, `aa [17, 29)` = `K*VPAGHTLDMR`, cost 1) | both `cterm_extension` on G1. M7-06 ORF: G1's start to the next in-frame stop, `[0, 93) +` (stop TAA at p = 30). M7-09: `spans_annotated_stop` true, label `readthrough_candidate`, class FDR `unestimated`, 2 distinct peptides → `called` true. M7-07 `annotation_patch.gff3`: `c1 GIAP CDS 1 93 . + 0 ID=G1;locus_tag=G1;Note=cterm_extension` |
-| 7 | **makedb patch with `X`:** `giap makedb --patch` on example 6's patch | record `>G1_patch …` with sequence `MSDKPLTEAGRWQLNEFKXVPAGHTLDMRK` (p = 18 → `X`, terminal `*` stripped); `db_id_map.tsv` row `G1_patch patch G1 … c1 1 93 +` |
+| 6 | **`cterm_extension` past the annotated stop into the 3′ flank:** example 1's peptide plus `KWVPAGHTLDMR` (12 aa, `aa [17, 29)` = `K*VPAGHTLDMR`, cost 1) | both `cterm_extension` on G1. M7-06 ORF: G1's start to the next in-frame stop, `[0, 93) +` (stop TAA at p = 30). M7-09: `spans_annotated_stop` true, label `readthrough_candidate`, class FDR `unestimated`, 2 distinct peptides → `called` true. M7-07 `annotation_patch.gff3`: `c1 GIPPA CDS 1 93 . + 0 ID=G1;locus_tag=G1;Note=cterm_extension` |
+| 7 | **makedb patch with `X`:** `gippa makedb --patch` on example 6's patch | record `>G1_patch …` with sequence `MSDKPLTEAGRWQLNEFKXVPAGHTLDMRK` (p = 18 → `X`, terminal `*` stripped); `db_id_map.tsv` row `G1_patch patch G1 … c1 1 93 +` |
 | 7b | Patch row `Note=cterm_extension`, G1, `[0, 126) +` (runs over p = 30) | `ValueError`: "patch CDS G1_patch has an internal stop codon" (only the annotated stop becomes `X`) |
 | 8 | **Minus strand:** contig `c2` linear, 300 nt; G2 CDS `−` `[120, 210)`, stop codon `[120, 123)` (gene-strand TAA) | site `(c2, −, 120)`; cell in frame `−0` (`ext_nt` 300, offset 0) at p = (300 − 0 − 3 − 120)/3 = 59; `to_interval(−0, 59, 60)` = `c2:[120, 123) −`. A read-through peptide's flank lies at coordinates < 120 |
 | 9 | Second-pass peptide over the patched `X`: the engine reports `…NEFKXVPAG…` | placed as example 1 (any query letter over a marked cell costs 1); variants skip the X op (`ambiguous`, M7-18), so no ALT site; the ORF evidence (example 6) is unchanged |
@@ -396,7 +396,7 @@ one table. Acceptance checks that they agree.
       "accepted at q" on their own.
 18. **Vocabulary and schema.** §9.4 *Placement* gains `readthrough` (16b), and `sec_site` and
     `pyl_site` (16c). §9.4's own heading ("extend only through the schema") allows this. The
-    `flags` field of `src/giap/schemas/tables/peptide_hits.schema.json` gains a `pattern`
+    `flags` field of `src/gippa/schemas/tables/peptide_hits.schema.json` gains a `pattern`
     constraint in the form `variants.schema.json` uses (`(?:a|b|…)(?:;(?:a|b|…))*`). It lists every
     value the code writes today plus the new ones: `engine_protein_mismatch`, `low_complexity`,
     `multi`, `multi_identical`, `nterm_extension_evidence`, `origin_spanning`, `readthrough`,
@@ -413,8 +413,8 @@ one table. Acceptance checks that they agree.
     `sec_site` (rule 24). The flag depends on the consumed site's `kind` and `codon`, never on the
     query letter: a `W` read over fdnG's TGA still gets `sec_site` in `peptide_hits`, and
     `variants` calls it an ordinary `W` ALT with flags `snv;stop_codon` (rule 26, example 30).
-20. **Strain stop-loss in giapsim (D5).**
-    - **Finding (the strain model, checked).** `giapsim.strain.derive_reference` puts SNVs at
+20. **Strain stop-loss in gippasim (D5).**
+    - **Finding (the strain model, checked).** `gippasim.strain.derive_reference` puts SNVs at
       uniform positions, stop codons included. The mapping genome is the sample. The reference
       carries the SNVs, and `_lift` translates each reference feature over the lifted interval
       only (`protein(g.nt)`, which stops at the first stop or at the interval end). When an SNV
@@ -430,7 +430,7 @@ one table. Acceptance checks that they agree.
       become **`stop_codon` ALT sites**: REF `*`, ALT the reference residue, flags
       `snv;strain_difference;stop_codon` (every single-base sense change of a stop is one nt away;
       `nt_class` comes from the codon), confidence `candidate` with one distinct peptide. The
-      giapsim model never makes the other-strain peptides extend past the stop, so the
+      gippasim model never makes the other-strain peptides extend past the stop, so the
       `cterm_extension` path is covered only by `n_readthrough` (rule 14).
     - **Simulator knob** (tooling, implementer). `StrainConfig.n_stop_loss: int = 0`. With 0,
       every existing strain build is byte-identical and no new file is written. With `k > 0`,
@@ -507,7 +507,7 @@ p = 18).
     flags `readthrough`, `sec_site` and `pyl_site`, the GFF3 attributes `readthrough_codon` and
     `recoded_codon`, the optional `loci` input and the rule-17 summary rows replace that sentence;
   - Consequences › TE1: under item 6 the 4 misses become `sec_site` exceptions.
-- **GIAP_SPEC.md, no ADR needed in my reading** (Q15):
+- **GIPPA_SPEC.md, no ADR needed in my reading** (Q15):
   - §9.4 Placement gains three flags, which §9.4's heading allows "through the schema";
   - §9.3 `peptide_hits.tsv` columns are unchanged;
   - §9.3 `detection_summary.tsv` gains rows of the existing `qc` section with no new column. The
@@ -587,14 +587,14 @@ older 16c sentence disagree, this section wins.
       - a new key `recoded_skipped` holds `recoded_skips(...)`, for example
         `{"length_mismatch": 0, "codon_mismatch": 0}` (Q21).
 
-23. **Simulator `n_selenoproteins`** (giapsim tooling; replaces rule 14's last sentence).
+23. **Simulator `n_selenoproteins`** (gippasim tooling; replaces rule 14's last sentence).
     - **Config.** `SimConfig.n_selenoproteins: int = 0`.
     - **Default stays byte-identical.** With 0, nothing is drawn and nothing is edited.
       `truth/selenoproteins.tsv` is not written, so every existing scenario and seed is
-      byte-identical, including the committed giapsim goldens.
+      byte-identical, including the committed gippasim goldens.
     - **Generator.** All draws come from a separate generator,
       `np.random.default_rng([seed, _SEC_STREAM])`, with a new SeedSequence key that no other
-      giapsim module uses. Keys in use on 267d0130 are 1–9 and 40, so 12 is suggested. No other
+      gippasim module uses. Keys in use on 267d0130 are 1–9 and 40, so 12 is suggested. No other
       stream moves.
     - **Gene choice.** `n` distinct genes are drawn uniformly without replacement from the
       eligible genes. A gene is eligible if it:
@@ -609,11 +609,11 @@ older 16c sentence disagree, this section wins.
       simulator edit (stop-loss, N-terminal extension, novel ORF).
     - **Edit.** The codon is replaced by `TGA` on the gene strand (`TCA` on `+` coordinates for a
       `−` gene). Only that codon changes, so no other in-frame stop appears in the gene.
-    - **Annotation and expression.** Residue `i` of the gene's `aa` becomes `U` wherever giapsim
+    - **Annotation and expression.** Residue `i` of the gene's `aa` becomes `U` wherever gippasim
       writes the annotated protein: the gene table, the Bakta JSON and `genes.parquet`. The
       expressed protein carries `U` at `i` as well, so true peptides spanning it contain `U` and
-      digestion treats it as an ordinary residue. The implementer checks that giapsim's peptide
-      mass and digestion code accept `U`; giap's `residue_masses.tsv` already has
+      digestion treats it as an ordinary residue. The implementer checks that gippasim's peptide
+      mass and digestion code accept `U`; gippa's `residue_masses.tsv` already has
       `U 150.95364`.
     - **Truth.** `truth/selenoproteins.tsv`, one row per planted site, sorted by (contig,
       `codon_start`). Columns: `locus_tag`, `contig`, `strand`, `codon_start` (0-based, lowest
@@ -679,7 +679,7 @@ makes no stop on the gene's strand and frame. Sites are written
 | 29 | **Nissle recording** (`1.12.2-full/nissle`), `sixframe_index` (example 10's 16c column). | `mapping.stop_sites`: `terminal` 4,689, `recoded` 3, `not_a_stop` 3, `cells_target` 4,692, `cells_decoy` 4,692 for each decoy type, `recoded_skipped` `{0, 0}`. The recoded sites are `(contig of JMJJOG_02511, −, 2578627, (JMJJOG_02511,), TGA, recoded)`, JMJJOG_04733 `+` 4825395 and JMJJOG_04490 `+` 4576497 (residues 195, 195, 139) |
 | 30 | **Rule 26.** Nissle `same` search with a strain-like peptide `SLGMLAVDNQARVWHGPTVASLAPTFGR` over JMJJOG_02511's recoded TGA. | `peptide_hits` row tolerant, `n_diff` 1, flags `sec_site` (no `readthrough`), GFF3 `recoded_codon=2578628`. `variants`: ALT `W` at codon 2578627, flags `snv;stop_codon`, a VCF record (TGA → TGG on the gene strand) |
 | 31 | **TE1 label** (`te1_result`, unit). Sources `{pS: {G1}, pT: {G1}, pU: {G1}}`, no exclusion. `peptide_hits`: pS two tolerant rows, flags `sec_site` and `sec_site;multi`; pT one tolerant row, flags `""`; pU no row. | `misses` 3, `sec_site` 1. Exceptions: `{kind: sec_site, peptide: pS, hits: "tolerant:…;tolerant:…"}`, `{kind: miss, peptide: pT}`, `{kind: miss, peptide: pU, hits: "unplaced"}`. The share and `passed` are as without the flags column |
-| 32 | **giapsim** sim100k, same strain, `n_selenoproteins = 5`, seed 1. | `truth/selenoproteins.tsv` has 5 rows. Each genome codon there reads TGA on the gene strand, and the gene's `aa` has `U` at `residue`. The event reports `recoded` 5. `n_selenoproteins = 0` gives an output tree byte-identical to the config without the field. `n_selenoproteins` above the eligible count raises `ValueError` |
+| 32 | **gippasim** sim100k, same strain, `n_selenoproteins = 5`, seed 1. | `truth/selenoproteins.tsv` has 5 rows. Each genome codon there reads TGA on the gene strand, and the gene's `aa` has `U` at `residue`. The event reports `recoded` 5. `n_selenoproteins = 0` gives an output tree byte-identical to the config without the field. `n_selenoproteins` above the eligible count raises `ValueError` |
 
 ### Edge cases (16c)
 
@@ -692,7 +692,7 @@ makes no stop on the gene's strand and frame. Sites are written
   1's wrapped reader. `frame_cells` treats it like a terminal codon at the origin (16a edge case).
 - **Empty input.** An empty gene model gives `((), 0)` for any `recoded` value, and
   `recoded_skips` gives zeros. A gene model whose proteins have no `U`/`O` gives exactly the
-  `recoded=False` output, which is the 16a/16b toys and giapsim by default.
+  `recoded=False` output, which is the 16a/16b toys and gippasim by default.
 - **Ties.** Two features recoding the same codon (alternative starts): one recoded site, tags
   merged. A terminal and a recoded site at the same key: one `recoded` site (example 27). Sites
   never tie in the sort after merging, because the key is unique.
@@ -761,7 +761,7 @@ Following the statistician's Q5 item 6. Slow and Slurm cases are marked.
 - **C10** `tests/unit/test_te_proxies_recoded.py`: example 31; `te1_result` without `flags`
   equals today's result except for `sec_site` 0; the `per_peptide` fields; `te2_result`
   `alt_stop_codon` and the rule-25 note string.
-- **C11** `tests/unit/test_giapsim_selenoproteins.py` (tooling test): example 32's truth, genome
+- **C11** `tests/unit/test_gippasim_selenoproteins.py` (tooling test): example 32's truth, genome
   and annotation checks; the codon is ≥ 10 codons from both ends and overlaps no other feature;
   the expressed protein has `U`; the 0 setting is byte-identical; shortfall and `strain` raise.
 - **C12** `tests/integration/test_recoded_sim.py` (integration; `slow` only if over the budget):
@@ -776,7 +776,7 @@ Following the statistician's Q5 item 6. Slow and Slurm cases are marked.
 
 ### Re-runs (16c; replaces "fast tier suffices")
 
-Every M3-21 suite runs on giapsim, which has no `U`. With `n_selenoproteins = 0` they are
+Every M3-21 suite runs on gippasim, which has no `U`. With `n_selenoproteins = 0` they are
 byte-identical by construction, so they are regression evidence only. Required, with job IDs
 in PROGRESS.md, `placement-fdr.md` (16c paragraph) and ADR-0058 Evidence:
 
@@ -785,7 +785,7 @@ in PROGRESS.md, `placement-fdr.md` (16c paragraph) and ADR-0058 Evidence:
    FDP tables are identical to main's and the cell counts are unchanged. No full tier.
 2. **Attack (d)** in `tests/calibration/attacks/test_attack_readthrough_recoded.py` (a new file), written by the
    statistician once the 16c API exists, with no new tolerance key:
-   - **d1:** a recoded-dense giapsim world with ≥ 50 recoded cells per replicate, kind-split
+   - **d1:** a recoded-dense gippasim world with ≥ 50 recoded cells per replicate, kind-split
      masses, and criteria (a)–(c) plus the structural check on the recoded part;
    - **d2:** three broken builds that must fail (decoys without recoded cells; recoded cells
      mirrored off by one; target without recoded cells);
@@ -828,16 +828,16 @@ No full M3-21 tier, no stressed-arm run beyond item 1, and no 16b observer re-ru
 
 | File | Change | Lines |
 |---|---|---|
-| `src/giap/mapping/readthrough.py` | recoded scan, merge, `recoded_skips` | 45 |
-| `src/giap/steps/mapping.py` | `recoded=True`, event counts, `recoded_skipped` | 8 |
-| `src/giap/steps/variants.py` | `recoded=True` | 1 |
-| `src/giap/mapping/loci.py` | kind/codon → flag, `recoded_codon` work column | 15 |
-| `src/giap/mapping/outputs.py` | GFF3 `recoded_codon` | 8 |
-| `src/giap/context/summary.py` | two `placement_flag` groups | 4 |
-| `src/giap/schemas/tables/peptide_hits.schema.json` | pattern values | 1 |
+| `src/gippa/mapping/readthrough.py` | recoded scan, merge, `recoded_skips` | 45 |
+| `src/gippa/steps/mapping.py` | `recoded=True`, event counts, `recoded_skipped` | 8 |
+| `src/gippa/steps/variants.py` | `recoded=True` | 1 |
+| `src/gippa/mapping/loci.py` | kind/codon → flag, `recoded_codon` work column | 15 |
+| `src/gippa/mapping/outputs.py` | GFF3 `recoded_codon` | 8 |
+| `src/gippa/context/summary.py` | two `placement_flag` groups | 4 |
+| `src/gippa/schemas/tables/peptide_hits.schema.json` | pattern values | 1 |
 | `validation/proxies/te_proxies.py` | TE1 kind, count, `per_peptide`; TE2 note, `alt_stop_codon`; docstring | 30 |
 | | **counted total** | **≈ 112** |
-| `tests/sim/giapsim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins` (tooling, not counted) | ≈ 70 |
+| `tests/sim/gippasim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins` (tooling, not counted) | ≈ 70 |
 | tests (C1–C14) | not counted | ≈ 450 |
 
 ≈ 112 counted lines fits under the ~400 cap: **one PR, no split.**
@@ -851,7 +851,7 @@ No full M3-21 tier, no stressed-arm run beyond item 1, and no 16b observer re-ru
 - **Q22 (lead).** A merged terminal/recoded codon gets `kind = recoded` and therefore `sec_site`.
   **Default:** recoded, because the protein evidence says the codon is decoded. Alternative:
   `terminal` with `readthrough`.
-- **Q23 (Khoa, batch).** No Pyl planting in giapsim. **Default:** Sec only, and `pyl_site` is
+- **Q23 (Khoa, batch).** No Pyl planting in gippasim. **Default:** Sec only, and `pyl_site` is
   unit-tested only, a stated limitation. Alternative: an `n_pyrrolysine` knob (≈ 15 more
   simulator lines, the same rules with `O`/TAG).
 - **Q24 (lead).** `not_a_stop` features (3′-partial) are not scanned for `U`/`O`. **Default:**
@@ -876,12 +876,12 @@ No full M3-21 tier, no stressed-arm run beyond item 1, and no 16b observer re-ru
 ## Public interface and touch points
 
 ```python
-# src/giap/mapping/sixframe.py
+# src/gippa/mapping/sixframe.py
 READTHROUGH: int = 22          # target-only code of a marked (consumable) stop; never in frames
 def load_stop_cells(path: Path) -> StopCells: ...            # format 2; format 1 raises
 # save_index(path, index, decoys, cells: StopCells | None = None)  -> writes format 2
 
-# src/giap/mapping/readthrough.py   (new, pure)
+# src/gippa/mapping/readthrough.py   (new, pure)
 @dataclass(frozen=True, slots=True)
 class StopSite:
     contig: str; strand: Literal["+", "-"]; codon_start: int
@@ -902,39 +902,39 @@ def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]
 
 | PR | File | Function / change |
 |---|---|---|
-| 16a | `src/giap/mapping/readthrough.py` (new) | the above (rules 1–3) |
-| 16a | `src/giap/mapping/sixframe.py` | `READTHROUGH`; `save_index` format 2 + cells; `load_stop_cells` |
-| 16a | `src/giap/mapping/tolerant_dp.py` | `_verify_core` (1, 1) case (rule 4); module docstring |
-| 16a | `src/giap/mapping/tolerant.py` | `Search(frames, marked=None)`; `match_tolerant(..., cells=None)` |
-| 16a | `src/giap/mapping/frameshift.py` | `_FSearch(..., marked)`; `nonfs_overlap` (1, 1) case; `match_frameshift(..., cells=None)` |
-| 16a | `src/giap/steps/mapping.py` | `sixframe_index` input `genes`, event; `map_tolerant` passes cells |
+| 16a | `src/gippa/mapping/readthrough.py` (new) | the above (rules 1–3) |
+| 16a | `src/gippa/mapping/sixframe.py` | `READTHROUGH`; `save_index` format 2 + cells; `load_stop_cells` |
+| 16a | `src/gippa/mapping/tolerant_dp.py` | `_verify_core` (1, 1) case (rule 4); module docstring |
+| 16a | `src/gippa/mapping/tolerant.py` | `Search(frames, marked=None)`; `match_tolerant(..., cells=None)` |
+| 16a | `src/gippa/mapping/frameshift.py` | `_FSearch(..., marked)`; `nonfs_overlap` (1, 1) case; `match_frameshift(..., cells=None)` |
+| 16a | `src/gippa/steps/mapping.py` | `sixframe_index` input `genes`, event; `map_tolerant` passes cells |
 | 16a | `workflow/subworkflows/local/mapping.nf` | `stepIn('sixframe_index', [g, pep, gm[2], gm[0]])` |
 | 16a | `docs/methods/placement-fdr.md` | ADR-0058 section; required content in "Methods note (16a)" below |
-| 16b | `src/giap/variants/align.py` | `_residues`, `_dp`, `align_hit`, `align_hits` (`stop_sites`) |
-| 16b | `src/giap/variants/pileup.py` | rule 4c narrowed (U/TGA, O/TAG → ALT) |
-| 16b | `src/giap/variants/vcf_records.py`, `flags.py` | `U → TGA`, `O → TAG` zero-change; no `nt_class`, `vcf_unrepresentable` |
-| 16b | `src/giap/steps/variants.py` | build `site_keys(annotated_stops(...))`, pass to `align_hits` |
-| 16b | `src/giap/novel/evidence.py` | `cterm_extension` rule (rule 12) |
-| 16b | `src/giap/novel/outputs.py` | `patch_features` cterm rows |
-| 16b | `src/giap/makedb/build.py` | patch `X` at the annotated stop (rule 13) |
-| 16b | `src/giap/mapping/readthrough.py` | `consumed_sites` (rule 15) |
-| 16b | `src/giap/mapping/loci.py` | `annotate_peptide_hits(…, consumed=None)`: `readthrough` flag, `readthrough_codon` work column (rule 16) |
-| 16b | `src/giap/steps/mapping.py` | `loci` optional input `sixframe`, `load_stop_cells`, WARNING `mapping.readthrough_unchecked` |
+| 16b | `src/gippa/variants/align.py` | `_residues`, `_dp`, `align_hit`, `align_hits` (`stop_sites`) |
+| 16b | `src/gippa/variants/pileup.py` | rule 4c narrowed (U/TGA, O/TAG → ALT) |
+| 16b | `src/gippa/variants/vcf_records.py`, `flags.py` | `U → TGA`, `O → TAG` zero-change; no `nt_class`, `vcf_unrepresentable` |
+| 16b | `src/gippa/steps/variants.py` | build `site_keys(annotated_stops(...))`, pass to `align_hits` |
+| 16b | `src/gippa/novel/evidence.py` | `cterm_extension` rule (rule 12) |
+| 16b | `src/gippa/novel/outputs.py` | `patch_features` cterm rows |
+| 16b | `src/gippa/makedb/build.py` | patch `X` at the annotated stop (rule 13) |
+| 16b | `src/gippa/mapping/readthrough.py` | `consumed_sites` (rule 15) |
+| 16b | `src/gippa/mapping/loci.py` | `annotate_peptide_hits(…, consumed=None)`: `readthrough` flag, `readthrough_codon` work column (rule 16) |
+| 16b | `src/gippa/steps/mapping.py` | `loci` optional input `sixframe`, `load_stop_cells`, WARNING `mapping.readthrough_unchecked` |
 | 16b | `workflow/subworkflows/local/mapping.nf` | `stepIn('loci', [...])` gains `six` |
-| 16b | `src/giap/mapping/outputs.py` | GFF3 attribute `readthrough_codon`; the work column never reaches the TSV |
-| 16b | `src/giap/schemas/tables/peptide_hits.schema.json` | `flags` `pattern` (rule 18) |
-| 16b | `src/giap/context/summary.py`, `src/giap/steps/context_stats.py` | `placement_kind_rows` (rule 17) as one more summary part |
+| 16b | `src/gippa/mapping/outputs.py` | GFF3 attribute `readthrough_codon`; the work column never reaches the TSV |
+| 16b | `src/gippa/schemas/tables/peptide_hits.schema.json` | `flags` `pattern` (rule 18) |
+| 16b | `src/gippa/context/summary.py`, `src/gippa/steps/context_stats.py` | `placement_kind_rows` (rule 17) as one more summary part |
 | 16b | `docs/specs/M3-16-mapping-outputs.md`, `docs/specs/M4-16-detection-summary.md` | amendment notes pointing to rules 15–19 and 17 (written with this amendment) |
 | 16b | `docs/methods/placement-fdr.md` (16a section) | a short "16b reporting" paragraph: the flag and the count are counts, not a subset FDR (item 5); the flagged rows are a subset of a list accepted at q and that subset is not FDR-controlled (items 5–6) |
-| 16b | `tests/sim/giapsim/{config,features,proteomics,truth}.py` | `n_readthrough`, `truth/readthrough.tsv` (tooling) |
-| 16b | `tests/sim/giapsim/{strain,proteomics,truth}.py` | `StrainConfig.n_stop_loss`, `truth/stop_loss.tsv`, C-terminal wrong peptides first (rule 20; tooling) |
+| 16b | `tests/sim/gippasim/{config,features,proteomics,truth}.py` | `n_readthrough`, `truth/readthrough.tsv` (tooling) |
+| 16b | `tests/sim/gippasim/{strain,proteomics,truth}.py` | `StrainConfig.n_stop_loss`, `truth/stop_loss.tsv`, C-terminal wrong peptides first (rule 20; tooling) |
 | 16b | `validation/proxies/te_proxies.py` | TE2 note text (internal Sec sites are not annotated stops; ADR-0058) |
 | 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls; `variants.md` states that REF `*` and U/O zero-change ALTs pool in `(substitution, mass_equivalent = false)` and that their `class_error_rate` does not measure read-through reads (rule 11) |
-| 16c | `src/giap/mapping/readthrough.py` | `annotated_stops(gm, genome, recoded: bool = False)`; `recoded_skips` (rules 21–22) |
-| 16c | `src/giap/steps/mapping.py`, `steps/variants.py` | both pass `recoded=True`; event `recoded`, cell totals, `recoded_skipped` (rule 22) |
-| 16c | `tests/sim/giapsim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins`, `truth/selenoproteins.tsv` (rule 23; tooling) |
+| 16c | `src/gippa/mapping/readthrough.py` | `annotated_stops(gm, genome, recoded: bool = False)`; `recoded_skips` (rules 21–22) |
+| 16c | `src/gippa/steps/mapping.py`, `steps/variants.py` | both pass `recoded=True`; event `recoded`, cell totals, `recoded_skipped` (rule 22) |
+| 16c | `tests/sim/gippasim/{simulate,layout,proteomics,truth}.py` | `n_selenoproteins`, `truth/selenoproteins.tsv` (rule 23; tooling) |
 | 16c | `validation/proxies/te_proxies.py` | TE1 `kind = sec_site`, count `sec_site`, `per_peptide` q-values (rule 24); TE2 note, `alt_stop_codon` (rule 25) |
-| 16c | `src/giap/mapping/loci.py`, `outputs.py`, `context/summary.py`, `peptide_hits.schema.json` | `sec_site`/`pyl_site` flags, `recoded_codon`, summary groups, pattern values (rule 19) |
+| 16c | `src/gippa/mapping/loci.py`, `outputs.py`, `context/summary.py`, `peptide_hits.schema.json` | `sec_site`/`pyl_site` flags, `recoded_codon`, summary groups, pattern values (rule 19) |
 
 Edits to **existing** tests are the lead's (rules.md). Expected ones: the step-registration test
 (`sixframe_index` inputs) and mapping.nf nf-test channel wiring; `test_variants_align` tests that
@@ -976,13 +976,13 @@ The statistician signs it off before 16a merges (review change 3). It must state
    peptide law (D_rt/T_rt = 1 to 1e-16). But the local context is mirrored, not kept: gene | `*` |
    3′ flank becomes reversed flank | `*` | reversed gene. Under a law that is not
    reversal-symmetric (tryptic, C-terminal K/R), the per-genome read-through D_rt/T_rt was
-   0.52–1.89 (reverse) and 0.58–1.74 (shuffle) on giapsim 1 Mb, and 0.81–1.15 (reverse) and
+   0.52–1.89 (reverse) and 0.58–1.74 (shuffle) on gippasim 1 Mb, and 0.81–1.15 (reverse) and
    1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at
-   worst −9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle). Cite Slurm jobs 1889319 (Nissle) and
-   1889320 (giapsim), and the stressed arm's measured values once it has run.
+   worst −9.4 × 10⁻⁴ (gippasim) and −1.3 × 10⁻⁴ (Nissle). Cite Slurm jobs 1889319 (Nissle) and
+   1889320 (gippasim), and the stressed arm's measured values once it has run.
 4. **The added mass is an approximation, not a bound:** ≈ G/(N(1 − s)) at m = 1 and
    ≈ 2G/(N(1 − s)) at m = 2, independent of L, scaling with gene density G/N. The measured realised
-   shares were 0.04–0.08 % on Nissle and 0.05–0.20 % on giapsim (i.i.d. and tryptic laws).
+   shares were 0.04–0.08 % on Nissle and 0.05–0.20 % on gippasim (i.i.d. and tryptic laws).
 5. **The read-through ratio is not a subset FDR.** D_rt/T_rt does not estimate the false discovery
    rate of the read-through placements. The list FDR does not control that subset, and no output,
    table or report may present the ratio as one (R3).
@@ -1011,7 +1011,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
   results. `NUMBA_DISABLE_JIT=1` subset agrees.
 - **Property: zero false negatives with the new rule** (`tests/property/brute_readthrough.py` +
   `test_readthrough_props.py`). This is an independent brute-force matcher written from this spec.
-  It must not import `giap.mapping.readthrough` or `tolerant_dp`, and the existing oracles are not
+  It must not import `gippa.mapping.readthrough` or `tolerant_dp`, and the existing oracles are not
   edited. It is the unbanded M3-07 brute force with a set of consumable cells per frame, where a
   cell can be consumed only by a substitution. Random genomes ≤ 50 kb (linear and circular, both
   strands) carry random annotated CDS. Queries come from planting 0–2 differences into windows
@@ -1032,7 +1032,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
   equality not apply, the test file's docstring says why, and a count-level property (equal
   numbers of suppressed splits per target/decoy pair) is the minimum.
 - **Determinism of the decoy cells (review change 7)** (`tests/unit/test_readthrough_sites.py`):
-  `mirror_cells` draws no randomness (a spy on `giap.rng.for_step` and on `numpy.random` sees no
+  `mirror_cells` draws no randomness (a spy on `gippa.rng.for_step` and on `numpy.random` sees no
   call, and the shuffle stream of the step yields the same next draw with and without the call).
   For the same seed, the decoy frames saved in index format 2 are byte-identical to those of
   format 1. The existing golden decoy tables do not move.
@@ -1077,7 +1077,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
     the 0–5 rows (methods note item 8), each counted row is split by the suite's own truth
     scoring into rows placed at their peptide's origin locus and the rest. Every origin row's
     site must have a sample codon that differs from the reference codon at its lifted position
-    (a strain stop-loss); under the giapsim strain model this is implied, not sampled (rule 20),
+    (a strain stop-loss); under the gippasim strain model this is implied, not sampled (rule 20),
     so it is asserted without a tolerance. Off-origin rows are chance read-through placements:
     they are already false placements in the FDP, so they are counted and reported (expected
     ≈ 0: α · T_acc(m ≥ 1) · ρ, methods note item 6) and not asserted. That confirms the
@@ -1085,7 +1085,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
     no tolerance key is added.
 - **Statistical re-run (R3: no tolerance, bound, α or R change).** Run the M3-21 placement suites
   on the 16a branch, fast (`-m calibration`, `scripts/slurm/test_branch.sbatch`) and full
-  (`calibration_full.sbatch` placement tasks, `GIAP_WORKTREE` + `PYTHONPATH` exported), in two
+  (`calibration_full.sbatch` placement tasks, `GIPPA_WORKTREE` + `PYTHONPATH` exported), in two
   groups (review change 1):
   - **Regression-only** (byte-identical by construction: they pass `cells=None` or use no
     matcher): `test_tolerant_recall.py` (calls `match_tolerant` without `cells`),
@@ -1102,7 +1102,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
     chance mass).
 - **Decoy-balance check** (`tests/calibration/test_readthrough_decoy_balance.py`, statistician
   signs off; reuses `replicates_*.placement` and `se_multiplier`, no new tolerance key; review
-  change 2). On giapsim 1 Mb null genomes (no read-through planted) with the M3-19/M3-20
+  change 2). On gippasim 1 Mb null genomes (no read-through planted) with the M3-19/M3-20
   wrong-peptide arms, it counts per replicate and **per decoy type** (`reverse`, `shuffle`) the
   false target placements whose window holds a marked cell (T_rt), the decoy rows holding a
   mirrored cell (D_rt), and the read-through share T_rt / T (all false target placements). It
@@ -1135,7 +1135,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
   replicate mean D_rt/T_rt ≥ 1 − 0.01 − `se_multiplier` · SE; (c) tryptic law, both decoys: net
   shift (D_rt − T_rt)/T_regular of the replicate mean ≥ −0.01; (d) the recoded cells, d1–d4 as
   in "Re-runs (16c)", written by the statistician once the 16c API exists (the old "(d) … covers
-  them unchanged" was vacuous: giapsim has no `U`). The test-author does not write it. **16a's
+  them unchanged" was vacuous: gippasim has no `U`). The test-author does not write it. **16a's
   merge waited for (a)–(c); 16c's merge waits for (d), fast and full.**
 
 ## Acceptance criteria
@@ -1196,16 +1196,16 @@ The statistician signs it off before 16a merges (review change 3). It must state
   `qc_rows`' output is unchanged.
 - [ ] **16b (rule 18):** the `peptide_hits` schema `flags` pattern accepts every committed
   `peptide_hits.tsv` and the new flag, and rejects an unknown value. §9.4 is not edited
-  (GIAP_SPEC.md is read-only); the schema description and this spec record the extension.
+  (GIPPA_SPEC.md is read-only); the schema description and this spec record the extension.
 - [ ] **16b (D5, rule 20):** the strain stop-loss e2e passes. With `n_stop_loss = 0` every
-  existing giapsim strain build is byte-identical (a golden or hash test). The related-strain
+  existing gippasim strain build is byte-identical (a golden or hash test). The related-strain
   observer's assertion holds on the full tier, and the PR records the Slurm job ID.
 - [ ] **16c (approved by Khoa, 2026-10-24; amended 2026-10-25):** examples 2 (16c column) and
   21–32 pass as unit/integration tests C1–C13, and every 16c edge case is covered. With
   `recoded=False`, `annotated_stops` equals the 16a output on every input. `mapping.stop_sites`
   on Nissle reports `terminal` 4,689, `recoded` 3, `not_a_stop` 3, `cells_target` 4,692, 4,692
   cells per decoy type and `recoded_skipped` zeros (example 29).
-- [ ] **16c (rule 23):** `n_selenoproteins = 0` leaves every giapsim output and committed golden
+- [ ] **16c (rule 23):** `n_selenoproteins = 0` leaves every gippasim output and committed golden
   byte-identical (no regeneration). With `n > 0` the truth file, the TGA codons, the `U` in the
   annotation and the expressed protein, the ≥ 10-codon margins, the shortfall `ValueError` and the
   `strain` `ValueError` hold (C11). C12 passes.
@@ -1302,7 +1302,7 @@ plumbing (rule 19 extends rules 16–18), so it merges main after 16b.
    included iff its last codon is a stop (rule 1).
 9. **Statistical evidence.** **Answered by the statistician (2026-10-24): a stressed arm is
    required.** The added chance-hit mass is an approximation, ≈ G/(N(1 − s)) at m = 1 and
-   ≈ 2G/(N(1 − s)) at m = 2 (measured 0.04–0.08 % on Nissle, up to 0.20 % on giapsim under the
+   ≈ 2G/(N(1 − s)) at m = 2 (measured 0.04–0.08 % on Nissle, up to 0.20 % on gippasim under the
    tryptic law), not a bound. The evidence is the exercised M3-21 re-runs, the stressed arm and
    the statistician's attack; the decoy-balance check may be vacuous (test plan).
 10. **Index format.** **Default:** bump to 2; format-1 files raise (no silent fallback); Nextflow
@@ -1364,7 +1364,7 @@ Added with the amendment (16b, 16c labels). Each has a reversible default, and n
 
 **APPROVE WITH CHANGES.** 16a code may start; the changes below are required before 16a merges.
 Full review: `local/stat/m7-16-review.md`. Exploratory exact-mass runs: Slurm jobs 1889319 (Nissle)
-and 1889320 (giapsim 1 Mb × 3), script `local/stat/m7-16/rt_mass.py`.
+and 1889320 (gippasim 1 Mb × 3), script `local/stat/m7-16/rt_mass.py`.
 
 Findings:
 - Decoy symmetry holds exactly in counts. The reverse decoy is exact for i.i.d. laws: the
@@ -1375,7 +1375,7 @@ Findings:
 - D_rt/T_rt is not an FDR for the read-through subset.
 - The ADR-0058 added-mass arithmetic is right, but it is an approximation, not a bound. It scales as
   ≈ G/(N(1 − s)) at m = 1 and ≈ 2G/(N(1 − s)) at m = 2. The realised share is 0.04–0.08 % on Nissle
-  and 0.05–0.20 % on giapsim.
+  and 0.05–0.20 % on gippasim.
 - The strata, π̂ (m ≥ 1 → 1), E and the §8.1 families are unchanged. The ADR-0019 stratum-0 π̂ is
   untouched, because read-through hits are never at m = 0.
 - Item 6 changes none of this: 3 cells, coding context on both sides.
@@ -1458,14 +1458,14 @@ M3-21 placement suites need no re-run: rules 15–19 do not touch placement.
 The sim100k e2e cannot meet its floor: at 100 kb the cost-1 stratum holds T_1 = 27–45 targets, so
 the smallest q is (D+1)/T_1 ≥ 0.022 > α 0.01 and no cost-1 row is accepted (measured over seeds 11
 and 12, pi_wrong 0.05–0.3 and SNV rates 5–20 /kb). Overriding α would break R3. The e2e therefore
-runs on a **1 Mb** giapsim genome (seed 11, `n_stop_loss` = 5, floor ≥ 3 planted rows). There T_1
+runs on a **1 Mb** gippasim genome (seed 11, `n_stop_loss` = 5, floor ≥ 3 planted rows). There T_1
 is about 400, D = 0 and q = 0.0025; the chain takes about 30 s, so the test is not marked slow.
 This replaces "sim100k" in rule 20 and its acceptance item. The full-tier observer count (D5) is
 reconciled by the statistician (local/stat/m7-16-observer-reconcile.md, Slurm 1891223): the
 new observer and the 16a counts agree row for row on the same seeds. Replicates 0-6 of the
 `placement.sim_related` stream count 0 rows, so the methods-note numbers stand unchanged.
 Simulator (lead, 2026-10-25): `test_planted_cterm_peptide_is_the_reference_c_terminal_product` is
-stricter than rule 20 (the whole protein must differ only at the stop). The giapsim knob plants on
+stricter than rule 20 (the whole protein must differ only at the stop). The gippasim knob plants on
 such "pure" genes first and falls back to genes that meet rule 20's peptide-level condition, so
 both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as tooling.
 
@@ -1495,7 +1495,7 @@ both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as
   Database input at sim100k puts T_1 = 7 targets in the cost-1 stratum (q_min = 0.14 > α), the
   16b floor problem. De novo read errors fill stratum 1 (T_1 = 1361, q_min = 7.3e-4), so an
   error-free read over the planted stop is accepted; a read that also carries a de novo error is
-  cost 2 (T_2 = 54, q_min = 0.019) and is not. α is unchanged (R3). `giap run --modules core`
+  cost 2 (T_2 = 54, q_min = 0.019) and is not. α is unchanged (R3). `gippa run --modules core`
   takes about 35 s, so the test is not marked slow.
 - **Readings pinned in `tests/helpers/readthrough_sim_oracle.py`, accepted:**
   - eligible genes are non-pseudo CDS and sORFs (rule 1's feature set);

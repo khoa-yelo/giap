@@ -1,5 +1,5 @@
 // M8-10: stub run of the DETERMINANTS subworkflow (workflow/subworkflows/local/determinants.nf;
-// GIAP_SPEC.md §6.2, §7.8.3, §9.1; docs/specs/M8-10-determinants-step-and-run.md step 6,
+// GIPPA_SPEC.md §6.2, §7.8.3, §9.1; docs/specs/M8-10-determinants-step-and-run.md step 6,
 // example 7). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here too.
 //
 // Interface pinned here (test-author choices, reported to the lead):
@@ -10,7 +10,7 @@
 //         gene_context (context/gene_context.parquet from CONTEXT, or channel.empty())
 //   emit: determinants_features, determinants_model, determinants_attribution (one file each,
 //         the §9.1 names), versions
-// The py step runs through GIAP_STEP (found by its tag "determinants", whatever the alias), with the
+// The py step runs through GIPPA_STEP (found by its tag "determinants", whatever the alias), with the
 // registry's keys; it needs gene_table, genes, tus, layers and replicons; C7/C8 and the gene
 // context are optional (CONTEXT skipped: the step still runs). Published: tables/determinants_*.tsv.
 // There is no gene_context fixture under workflow/tests/data (the test author may not add data
@@ -47,7 +47,7 @@ nextflow_workflow {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->
@@ -62,12 +62,12 @@ nextflow_workflow {
             assert workflow.trace.failed().size() == 0
 
             def reg = new groovy.json.JsonSlurper().parse(REG)
-            assert reg.containsKey('determinants') : "step_registry.json has no determinants step (regenerate it from giap.steps)"
+            assert reg.containsKey('determinants') : "step_registry.json has no determinants step (regenerate it from gippa.steps)"
             assert ranTagged('determinants') == 1 : "determinants ran ${ranTagged('determinants')}x; tasks: ${H.names(workflow.trace)}"
             def dirs = dirsTagged(work, 'determinants')
-            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "determinants did not run through GIAP_STEP"
+            assert dirs.size() == 1 && new File(dirs[0], '.gippa_inputs').isFile() : "determinants did not run through GIPPA_STEP"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def din = H.stepInputs(dirs[0])
             def keys = din.collect { it[0] }
@@ -123,7 +123,7 @@ nextflow_workflow {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->
@@ -164,7 +164,7 @@ nextflow_workflow {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
-            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // the step by its GIPPA_STEP tag, whatever the alias (a process alias cannot be the
             // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
             def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
             def dirsTagged = { String w, String step ->

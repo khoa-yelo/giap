@@ -1,4 +1,4 @@
-"""Hypothesis properties of ``giap.stats.cutoffs`` (issue M6-12 part A; spec acceptance criteria
+"""Hypothesis properties of ``gippa.stats.cutoffs`` (issue M6-12 part A; spec acceptance criteria
 1-2; methods "K-12 cut-off calibration (M6-12)" > "Properties the tests rely on").
 
 Strategies build both classes by construction (separate positive and negative score lists, each
@@ -15,8 +15,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.metrics import roc_auc_score
 
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     STEP,
     auroc,
     auroc_ci,

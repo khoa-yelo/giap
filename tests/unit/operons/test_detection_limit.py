@@ -1,9 +1,9 @@
 """M6-02 detection-limit model: examples, degenerate cases and interface
-(docs/specs/M6-02-detection-limit-model.md; GIAP_SPEC.md §7.4.3 "One detected, one not", §7.3.3).
+(docs/specs/M6-02-detection-limit-model.md; GIPPA_SPEC.md §7.4.3 "One detected, one not", §7.3.3).
 
 Interface pinned here (the spec's sketch plus what its acceptance criteria need to be testable):
 
-- ``giap.operons.detection_limit.PMissModel`` (frozen, slots): the six spec fields ``kind``,
+- ``gippa.operons.detection_limit.PMissModel`` (frozen, slots): the six spec fields ``kind``,
   ``coef``, ``k_min``, ``n_fit``, ``auc``, ``usable`` plus, for cross-fitting (spec 2, "a partner's
   peptides never train the model that scores it"), ``fold_of_tu: Mapping[str, int]`` and
   ``fold_coef: tuple[Mapping[str, float], ...]`` (``fold_coef[j]`` trained on the TUs whose fold is
@@ -36,14 +36,14 @@ import pandas as pd
 import pytest
 from helpers import detection_limit_data as D
 
-from giap.config import GiapConfig
-from giap.rng import for_step
+from gippa.config import GippaConfig
+from gippa.rng import for_step
 
 SEED = 20261021
 
 
 def _dl() -> Any:
-    from giap.operons import detection_limit
+    from gippa.operons import detection_limit
 
     return detection_limit
 
@@ -54,8 +54,8 @@ def _toy(k_min: int = 1, **kw: Any) -> Any:
     )
 
 
-def _cfg(**kw: Any) -> GiapConfig:
-    return GiapConfig(seed=SEED, **kw)
+def _cfg(**kw: Any) -> GippaConfig:
+    return GippaConfig(seed=SEED, **kw)
 
 
 def _rng(seed: int = SEED) -> np.random.Generator:
@@ -142,7 +142,7 @@ def test_example5_partner_expected_far_higher() -> None:
 
 
 def test_example6_engine_check() -> None:
-    from giap.stats.poisson_binomial import poisson_binomial_sf
+    from gippa.stats.poisson_binomial import poisson_binomial_sf
 
     assert poisson_binomial_sf([0.3, 0.4, 0.6], 1) == pytest.approx(0.8320, abs=1e-12)
     assert poisson_binomial_sf([0.3, 0.4, 0.6], 2) == pytest.approx(0.3960, abs=1e-12)

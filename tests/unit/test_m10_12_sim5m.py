@@ -1,6 +1,6 @@
-"""The giapsim ``SIM5M`` scenario (docs/specs/M10-12-benchmark-standard.md, criterion 8).
+"""The gippasim ``SIM5M`` scenario (docs/specs/M10-12-benchmark-standard.md, criterion 8).
 
-``SIM5M`` is implementer tooling (AGENTS.md: the implementer writes giapsim, the test-author tests
+``SIM5M`` is implementer tooling (AGENTS.md: the implementer writes gippasim, the test-author tests
 it), so only its contract is tested: the name and seed are exported next to ``SIM100K``, the
 options are ``SIM100K``'s with the spec's overrides, the real tools must run
 (``write_precomputed=False``), and two ``simulate(SIM5M, SIM5M_SEED)`` calls are byte-identical
@@ -20,19 +20,19 @@ SEED = 20261014
 
 
 def _sim():  # type: ignore[no-untyped-def]
-    mod = importlib.import_module("giapsim.simulate")
-    assert hasattr(mod, "SIM5M"), "giapsim.simulate.SIM5M does not exist (M10-12)"
+    mod = importlib.import_module("gippasim.simulate")
+    assert hasattr(mod, "SIM5M"), "gippasim.simulate.SIM5M does not exist (M10-12)"
     return mod
 
 
 def test_sim5m_exported_next_to_sim100k() -> None:
     mod = _sim()
-    import giapsim
+    import gippasim
 
     for name in ("SIM5M", "SIM5M_SEED"):
-        assert name in mod.__all__, f"giapsim.simulate.__all__ lacks {name}"
-        assert name in giapsim.__all__, f"giapsim.__all__ lacks {name}"
-    assert giapsim.SIM5M is mod.SIM5M and giapsim.SIM5M_SEED == mod.SIM5M_SEED
+        assert name in mod.__all__, f"gippasim.simulate.__all__ lacks {name}"
+        assert name in gippasim.__all__, f"gippasim.__all__ lacks {name}"
+    assert gippasim.SIM5M is mod.SIM5M and gippasim.SIM5M_SEED == mod.SIM5M_SEED
 
 
 def test_sim5m_seed() -> None:
@@ -41,7 +41,7 @@ def test_sim5m_seed() -> None:
 
 def test_sim5m_is_sim100k_with_the_spec_overrides() -> None:
     mod = _sim()
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     expected = dataclasses.replace(
         mod.SIM100K,

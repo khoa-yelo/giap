@@ -1,5 +1,5 @@
 """Novel-ORF class evidence, RBS support, promoter/terminator evidence and ranking (issue M7-09;
-docs/specs/M7-09-novel-evidence-and-ranking.md; GIAP_SPEC.md §7.6.3-§7.6.6, §9.4; ADR-0012,
+docs/specs/M7-09-novel-evidence-and-ranking.md; GIPPA_SPEC.md §7.6.3-§7.6.6, §9.4; ADR-0012,
 ADR-0013).
 
 Examples 1-12 and every degenerate row of the spec, its lead decisions (RBS quantile needs 20
@@ -71,10 +71,10 @@ from helpers.novel_evidence_fixture import (
 from helpers.novel_oracle import cds
 from helpers.novel_outputs_fixture import NOVEL_ORFS_COLUMNS, orfs_of, scored, table, two_contigs
 
-from giap.model.coords import Interval
-from giap.novel.candidates import Orf
+from gippa.model.coords import Interval
+from gippa.novel.candidates import Orf
 
-SCHEMA = Path(__file__).resolve().parents[3] / "src/giap/schemas/tables/novel_orfs.schema.json"
+SCHEMA = Path(__file__).resolve().parents[3] / "src/gippa/schemas/tables/novel_orfs.schema.json"
 
 
 def _orf(strand: str, stop: int, contig: str = "c1") -> Orf:
@@ -782,7 +782,7 @@ def test_flags_mixed_with_m7_07_flags_keep_order() -> None:
 def test_tsv_round_trip_validates(tmp_path: Path) -> None:
     from helpers import novel_steps_fixture as nf
 
-    from giap.io.novel_tables import read_novel_orfs, write_novel_orfs
+    from gippa.io.novel_tables import read_novel_orfs, write_novel_orfs
 
     case = two_contigs()
     orfs = orfs_of(case)

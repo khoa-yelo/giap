@@ -1,9 +1,9 @@
 """Smoke check of the wired novel-ORF class FDR on a power-scenario run (docs/specs/
-M7-11b-class-fdr-wiring.md acceptance criterion 6; GIAP_SPEC.md §7.6.4, §8.1).
+M7-11b-class-fdr-wiring.md acceptance criterion 6; GIPPA_SPEC.md §7.6.4, §8.1).
 
-Input: one giapsim ``novel_orf_power(seed, "100k")`` run (planted ORFs of the four tagged
-classes, makedb six-frame ``rev_GIAPORF_...`` decoys in the database peptide table), through
-``giap run`` with the local executor and the database peptides (no de novo input).
+Input: one gippasim ``novel_orf_power(seed, "100k")`` run (planted ORFs of the four tagged
+classes, makedb six-frame ``rev_GIPPAORF_...`` decoys in the database peptide table), through
+``gippa run`` with the local executor and the database peptides (no de novo input).
 
 Claims (the three bullets of criterion 6):
 
@@ -45,15 +45,15 @@ CLASS_EVENT = "novel_orfs.class_fdr"
 
 @pytest.fixture(scope="module")
 def run(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path]:
-    import giapsim
-    import giapsim.scenarios as sc
+    import gippasim
+    import gippasim.scenarios as sc
 
     root = tmp_path_factory.mktemp("m7_11b_smoke")
-    seed = giapsim.SIM100K_SEED
-    sim = giapsim.simulate(sc.novel_orf_power(seed, "100k"), seed, root / "sim")
+    seed = gippasim.SIM100K_SEED
+    sim = gippasim.simulate(sc.novel_orf_power(seed, "100k"), seed, root / "sim")
     out = root / "OUT"
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, out)
+        code, log = nf.run_gippa(sim, out)
     assert code == 0, log
     return sim, out
 
@@ -78,10 +78,10 @@ def _db_ids(peptides: pd.DataFrame) -> set[str]:
 def test_tagged_classes_have_no_unestimated_orf_but_gene_model_misses(
     run: tuple[Any, Path],
 ) -> None:
-    from giap.io.fasta import read_genome_fasta
-    from giap.makedb.build import nterm_entries
-    from giap.steps.mapping import read_gene_model
-    from giap.steps.novel import read_candidates
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.makedb.build import nterm_entries
+    from gippa.steps.mapping import read_gene_model
+    from gippa.steps.novel import read_candidates
 
     _, out = run
     work = out / "work"

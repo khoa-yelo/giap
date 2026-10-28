@@ -29,7 +29,7 @@ IDS = st.frozensets(st.sampled_from([f"r{i}:c{i % 3}:o_minus_e" for i in range(1
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 

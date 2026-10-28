@@ -26,7 +26,7 @@ dependencies merge
 
 ## Public interface
 
-`src/giap/context/regions_table.py` (pure)
+`src/gippa/context/regions_table.py` (pure)
 ```python
 REGIONS_STATS_COLUMNS: tuple[str, ...]      # §9.3 order + the §9.2 test columns
 def plasmid_rows(genes, replicons, depth: pd.DataFrame | None, cfg, rng) -> pd.DataFrame: ...
@@ -34,10 +34,10 @@ def subset_rows(genes, regions, region_genes) -> pd.DataFrame: ...
 def regions_stats(tests: pd.DataFrame, plasmids: pd.DataFrame, subsets: pd.DataFrame,
                   regions: pd.DataFrame) -> pd.DataFrame: ...
 ```
-`src/giap/io/depth.py`: `read_replicon_depth(path) -> tuple[pd.DataFrame | None, list[Issue]]`.
-`src/giap/io/regions_tsv.py`: `write_regions_stats(path, df)` (1-based coordinates).
-`src/giap/schemas/tables/regions_stats.json`.
-`src/giap/steps/context_stats.py`: `run_context_stats(work_dir, cfg, replicon_depth: Path | None)`
+`src/gippa/io/depth.py`: `read_replicon_depth(path) -> tuple[pd.DataFrame | None, list[Issue]]`.
+`src/gippa/io/regions_tsv.py`: `write_regions_stats(path, df)` (1-based coordinates).
+`src/gippa/schemas/tables/regions_stats.json`.
+`src/gippa/steps/context_stats.py`: `run_context_stats(work_dir, cfg, replicon_depth: Path | None)`
 → `tables/regions_stats.tsv`, `tables/detection_summary.tsv` (M4 sections), ready for M5 to extend.
 
 - **Plasmid rows** (one pair per C7 region with `region_type = plasmid`; M2-19 makes one per Bakta
@@ -99,7 +99,7 @@ adjustment as a known offset) and §"Descriptive rows".
 2. No `chromosome` replicon (draft genome): **proposed default:** plasmid HL = NA with a new flag
    `no_reference_replicon` (schema vocabulary extension, lead to approve), or use all non-plasmid
    replicons as reference — the latter is simpler; choose one.
-3. `--replicon-depth` plumbing in `giap run` does not exist yet. **Proposed default:** M4 exposes the
+3. `--replicon-depth` plumbing in `gippa run` does not exist yet. **Proposed default:** M4 exposes the
    step parameter and reader; CLI wiring lands with the `run` command.
 
 ## Lead decisions (2026-10-20, after the statistician's attack check)
@@ -121,7 +121,7 @@ adjustment as a known offset) and §"Descriptive rows".
 6. Schema rule, both directions: `null_model = none` ⇔ p, q NA and `n_perm = 0`. `regions_stats()`
    never recomputes BH.
 7. RNG: plasmid and subset rows draw from their own child stream keyed by `region_id`
-   (giap.rng.for_step), so adding a plasmid leaves every M4-17 CI unchanged. Test this.
+   (gippa.rng.for_step), so adding a plasmid leaves every M4-17 CI unchanged. Test this.
 8. Subset rows are `descriptive` with CI NA; a TU-block CI is optional.
 
 ## Lead decisions after the test-author's report (2026-10-20)
@@ -135,7 +135,7 @@ adjustment as a known offset) and §"Descriptive rows".
 13. Unpinned points: the dosage-adjusted row carries flag `depth_adjusted` (add it to the schema
     vocabulary); no adjusted row when HL is NA; subset rows have `method = descriptive`,
     `label = descriptive`, CI NA; plasmids with fewer eligible genes than M4-17's small-region threshold
-    (`giap.context.regions.SMALL_REGION`, a module constant) get `small_region` and NA statistics.
+    (`gippa.context.regions.SMALL_REGION`, a module constant) get `small_region` and NA statistics.
 14. The example-7 warning goes through the step's issue/log channel (not `plasmid_rows`); untested at unit
     level. Plasmid HL bias/coverage stays a recorded diagnostic, not a gate (statistician may promote it
     later); the implementer times it on Slurm and the lead adds it to NIGHTLY if > 60 s.

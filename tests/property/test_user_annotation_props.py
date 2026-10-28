@@ -1,6 +1,6 @@
 """Hypothesis properties for ``--annotation`` GFF3/GBFF reading and the id map (M2-11).
 
-docs/specs/M2-11-user-annotation-id-map.md; GIAP_SPEC.md §5.3, §6.5:
+docs/specs/M2-11-user-annotation-id-map.md; GIPPA_SPEC.md §5.3, §6.5:
 
 * GFF3 written by an "other annotator" (origin-crossing CDS as two rows sharing one ID, or one
   unwrapped row) reads back to the same 0-based intervals;
@@ -19,15 +19,15 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.user_annotation import (
+from gippa.annotate.user_annotation import (
     UserCds,
     build_id_map,
     read_user_cds,
     write_bakta_regions,
     write_id_map,
 )
-from giap.io.gff3 import read_gff3
-from giap.model import Gene, Interval, Replicon
+from gippa.io.gff3 import read_gff3
+from gippa.model import Gene, Interval, Replicon
 
 FAST = settings(max_examples=60, deadline=None)
 

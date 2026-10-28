@@ -35,7 +35,7 @@ from region_tests_data import Contig, flag_set, gene_table, pick, region_frames,
 
 
 def _regions() -> Any:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R
 

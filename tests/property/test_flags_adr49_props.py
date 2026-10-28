@@ -18,7 +18,7 @@ from typing import Any
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
+from gippa.config.model import GippaConfig
 
 RES = "ACDEFGHIKLMNPQRSTVWY"
 CODON = {
@@ -30,7 +30,7 @@ TOLS = st.sampled_from([0.0, 0.005, 0.02, 0.05, 0.1])
 
 
 def fl() -> ModuleType:
-    return importlib.import_module("giap.variants.flags")
+    return importlib.import_module("gippa.variants.flags")
 
 
 def fold(s: str) -> str:
@@ -81,7 +81,7 @@ def test_flags_for_flags_every_swap_row(
         "confidence": "high" if n_alt >= 2 else "candidate", "n_ref": 0, "n_alt": n_alt,
         "source": "denovo",
     }  # fmt: skip
-    config = GiapConfig.model_validate(
+    config = GippaConfig.model_validate(
         {"genome_relation": relation, "variants": {"mass_equivalent_tol_da": tol}}
     )
     got = fl().flags_for(row, frozenset(), config, sources)

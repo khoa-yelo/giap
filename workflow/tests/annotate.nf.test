@@ -1,5 +1,5 @@
 // M2-07 examples 1-5 (+ precomputed terminators/regions): stub runs of the ANNOTATE subworkflow
-// through ../main.nf (M2-06: main.nf calls ANNOTATE once it exists). GIAP_SPEC.md §6.1, §6.3, §6.4.
+// through ../main.nf (M2-06: main.nf calls ANNOTATE once it exists). GIPPA_SPEC.md §6.1, §6.3, §6.4.
 // ci.yml runs: nf-test test workflow/tests --profile test,stub ; "-stub" is set here as well.
 //
 // Inputs (data/annotate/, stub mode only): genome.fa (3 kb, one circular contig chr1),
@@ -13,8 +13,8 @@
 // makes the stubbed promoter_windows step emit windows_000.fa … and operon_pairs emit M TU
 // upstream regions.
 //
-// PR #65 review decisions (spec "Lead decisions after code review"): every GIAP_STEP task's --in keys
-// follow the giap.steps registry (data/annotate/step_registry.json, H.registryProblems; decision 1);
+// PR #65 review decisions (spec "Lead decisions after code review"): every GIPPA_STEP task's --in keys
+// follow the gippa.steps registry (data/annotate/step_registry.json, H.registryProblems; decision 1);
 // stub outputs carry the real headers committed in tests/data/recorded/headers (decisions 5-7); a
 // precomputed bakta_json without a GBFF skips antiSMASH with layer_missing (8); the Bakta --regions
 // file is a staged input (9).
@@ -97,7 +97,7 @@ nextflow_pipeline {
 
             // decision 1: --in keys follow the step registry
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             // decisions 5-7: stub headers equal the committed real headers
             def hdr = { String n -> new File("${moduleTestDir}/../../tests/data/recorded/headers/${n}").readLines() }
@@ -151,7 +151,7 @@ nextflow_pipeline {
             }
             assert H.stepCount(workflow.trace, 'context_layers') == 1
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             // decision 8: bakta_like.json has no bakta_like.gbff next to it -> antiSMASH is skipped
             // (never fed the FASTA) and layer_missing is recorded; region_layer gets no antismash input
@@ -214,7 +214,7 @@ nextflow_pipeline {
             assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran despite precomputed.operon_pairs: ${H.names(workflow.trace)}"
             assert H.stepCount(workflow.trace, 'operon_pairs') == 1
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
         }
     }
 
@@ -271,7 +271,7 @@ nextflow_pipeline {
             def targets = H.staged(dirs[0]).collect { it[1] }
             assert !targets.any { it.contains('genomad') || it.contains('antismash') } : "optional inputs staged: ${targets}"
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
         }
     }
 
@@ -415,7 +415,7 @@ nextflow_pipeline {
             def keys = H.stepInputs(dirs[0]).collect { it[0] }
             assert !keys.any { it in ['genomad', 'antismash'] } : "tool inputs given to region_layer: ${keys}"
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             // c7/c8: region_layer writes the contract Parquet
             ['regions.parquet', 'region_genes.parquet'].each { f ->

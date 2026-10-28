@@ -1,4 +1,4 @@
-"""Tool registry `giap.annotate.tools` (M2-01; GIAP_SPEC.md §7.1.1, R5)."""
+"""Tool registry `gippa.annotate.tools` (M2-01; GIPPA_SPEC.md §7.1.1, R5)."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ MODULES = {
 
 @pytest.fixture(scope="module")
 def tools():  # type: ignore[no-untyped-def]
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     return TOOLS
 
@@ -126,7 +126,7 @@ def test_env_paths_and_names(tools) -> None:  # type: ignore[no-untyped-def]
         if spec.in_process:
             continue
         assert spec.env_file == f"workflow/envs/{name}.yml"
-        assert spec.env_name == f"giap-{name}"
+        assert spec.env_name == f"gippa-{name}"
         assert (REPO / spec.env_file).is_file(), spec.env_file
         assert spec.version_cmd and all(isinstance(a, str) and a for a in spec.version_cmd)
 
@@ -136,7 +136,7 @@ def test_only_codon_bias_in_process(tools) -> None:  # type: ignore[no-untyped-d
 
 
 def test_every_env_file_has_a_registry_entry(tools) -> None:  # type: ignore[no-untyped-def]
-    from giap.annotate.tools import PILOT_TOOLS  # M10-08: pilot envs, kept out of TOOLS
+    from gippa.annotate.tools import PILOT_TOOLS  # M10-08: pilot envs, kept out of TOOLS
 
     stems = {p.stem for p in (REPO / "workflow" / "envs").glob("*.yml")} - set(PILOT_TOOLS)
     out_of_process = {n for n, s in tools.items() if not s.in_process}
@@ -152,7 +152,7 @@ def test_toolspec_is_frozen(tools) -> None:  # type: ignore[no-untyped-def]
 
 def test_bakta_prefetch_job_uses_the_pinned_container() -> None:
     # The prefetch job installs the DB with the image pinned for BAKTA (not a separate conda env).
-    from giap.annotate.tools import read_containers_config
+    from gippa.annotate.tools import read_containers_config
 
     pinned = read_containers_config(REPO / "workflow" / "conf" / "containers.config")["BAKTA"]
     text = (REPO / "scripts" / "slurm" / "fetch_bakta_db.sbatch").read_text()
@@ -165,8 +165,8 @@ def test_bakta_prefetch_job_uses_the_pinned_container() -> None:
 
 
 def _names(overrides: list[str]) -> set[str]:
-    from giap.annotate.tools import required_tools
-    from giap.config import resolve_config
+    from gippa.annotate.tools import required_tools
+    from gippa.config import resolve_config
 
     return {t.name for t in required_tools(resolve_config(overrides=overrides))}
 
@@ -188,10 +188,10 @@ def test_required_tools_default_config() -> None:
 
 
 def test_required_tools_returns_toolspecs() -> None:
-    from giap.annotate.tools import TOOLS, ToolSpec, required_tools
-    from giap.config import GiapConfig
+    from gippa.annotate.tools import TOOLS, ToolSpec, required_tools
+    from gippa.config import GippaConfig
 
-    out = required_tools(GiapConfig())
+    out = required_tools(GippaConfig())
     assert isinstance(out, list)
     assert all(isinstance(t, ToolSpec) and TOOLS[t.name] is t for t in out)
     assert len({t.name for t in out}) == len(out)

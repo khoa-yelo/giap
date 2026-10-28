@@ -1,14 +1,14 @@
 # M7-07: `novel_orfs.tsv`, `novel_orfs.gff3`, `novel_orfs.faa` and `annotation_patch.gff3`
 
 Milestone M7 · track N (novel ORFs) · **pass 1** · depends on: M7-06; merged M1-05 GFF3 writer,
-M1-03 protein FASTA writer, M3-23 `giap makedb --patch` · estimate ≈ 300 code lines (+ ≈ 400 test
+M1-03 protein FASTA writer, M3-23 `gippa makedb --patch` · estimate ≈ 300 code lines (+ ≈ 400 test
 lines) · not statistical
 
 ## Spec sections implemented
 
 - §7.6.6 outputs: "`tables/novel_orfs.tsv`; `novel_orfs.gff3`; `novel_orfs.faa` (both start
   variants); `annotation_patch.gff3`: new ORFs as CDS (IDs `NOVEL_*`), and N-terminal extensions as
-  the existing locus tag with the new start and `Note=nterm_extension`. `giap makedb --patch` uses
+  the existing locus tag with the new start and `Note=nterm_extension`. `gippa makedb --patch` uses
   it to rebuild the search database for a second-pass search." Tests: "GFF3 validity; patch →
   `makedb` round trip".
 - ADR-0013 decision 3: "`annotation_patch.gff3` writes it like an N-terminal extension (existing
@@ -21,7 +21,7 @@ lines) · not statistical
 
 ## Public interface
 
-`src/giap/novel/outputs.py` (pure: rows, features, records)
+`src/gippa/novel/outputs.py` (pure: rows, features, records)
 ```python
 NOVEL_ORFS_COLUMNS: tuple[str, ...]          # §9.3 order + the ADR-0012 columns after promoter_score
 def orf_table(orfs: Sequence[Orf], scored: pd.DataFrame | None) -> pd.DataFrame: ...
@@ -30,8 +30,8 @@ def patch_features(table: pd.DataFrame, gm: GeneModel) -> list[GffFeature]: ...
 def protein_records(table: pd.DataFrame, genome: Mapping[str, str],
                     replicons: Mapping[str, Replicon]) -> list[ProteinRecord]: ...
 ```
-`src/giap/io/novel_tables.py` (I/O): `write_novel_orfs`, `read_novel_orfs`.
-Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
+`src/gippa/io/novel_tables.py` (I/O): `write_novel_orfs`, `read_novel_orfs`.
+Schema: `src/gippa/schemas/tables/novel_orfs.schema.json`.
 
 ## Rules
 
@@ -51,7 +51,7 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
    the schema declares it as a string with that pattern.
 4. **Order.** §6.5: contig (FASTA order), then the ORF's lowest coordinate, end, strand, `orf_id`.
    `rank` (M7-09) is a column, not the row order.
-5. **`novel_orfs.gff3`**: every ORF row (called or not), feature type `CDS`, source `GIAP`, phase
+5. **`novel_orfs.gff3`**: every ORF row (called or not), feature type `CDS`, source `GIPPA`, phase
    `0` (ADR-0005: CDS carries a phase), interval = best start (or longest) to stop, attributes
    `ID=<orf_id>`, `class`, `called`, `rank`, `n_peptides`, `start_longest`, `start_codon`, the four
    ADR-0012 values, `Note=<class>`. `##sequence-region` for every replicon, `Is_circular=true`
@@ -62,13 +62,13 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
    initiator codon read as `M` (as Bakta and `makedb` do), no `*`. ORFs without a start codon are
    not written.
 7. **`annotation_patch.gff3`**: **called** ORFs only. New ORFs (`intergenic`, `cds_outframe`,
-   `antisense`) as `CDS` with `ID=<orf_id>`, `product=hypothetical protein (GIAP novel ORF)`, best
+   `antisense`) as `CDS` with `ID=<orf_id>`, `product=hypothetical protein (GIPPA novel ORF)`, best
    start → stop. `nterm_extension`: `ID=<locus_tag>;locus_tag=<locus_tag>;Note=nterm_extension`
    with the new start and the gene's own end. `cterm_extension`: `Note=cterm_extension`, the gene's
    start and the new end — **written only once M7-16 decides how `makedb` translates the read-through
    stop**, because M3-23 rejects a patch CDS with an internal stop (decision 4). `pseudogene` and
    `sorf` rows are not patched (they are already in Bakta's model).
-8. **Round trip.** `giap makedb --patch annotation_patch.gff3` must produce, for every new ORF, a
+8. **Round trip.** `gippa makedb --patch annotation_patch.gff3` must produce, for every new ORF, a
    protein identical to its `|best_ostir` (or `|longest`) record, and for every N-terminal
    extension a `<locus_tag>_patch` record (M3-23's collision rule).
 
@@ -91,11 +91,11 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
 |---|---|---|
 | 1 | TSV row | `orf_id NOVEL_c1_43_p`, `start_longest 43`, `start_best_ostir 61`, `end 123`, `length_aa_longest 26`, `length_aa_best 20`, `start_codon_best GTG`, `n_peptides 2`, `class_fdr unestimated`, `called true` |
 | 2 | FASTA | `>NOVEL_c1_43_p\|longest` 26 aa starting `M`; `>NOVEL_c1_43_p\|best_ostir` 20 aa starting `M` (GTG read as M) |
-| 3 | GFF3 | `c1 GIAP CDS 61 123 . + 0 ID=NOVEL_c1_43_p;class=intergenic;called=true;start_longest=43;…` |
-| 4 | patch | `c1 GIAP CDS 61 123 . + 0 ID=NOVEL_c1_43_p;product=hypothetical protein (GIAP novel ORF)` |
-| 5 | M7-06 example 6 (`nterm_extension` of G at TTG 249, called) | patch `c1 GIAP CDS 250 900 . + 0 ID=G;locus_tag=G;Note=nterm_extension` |
+| 3 | GFF3 | `c1 GIPPA CDS 61 123 . + 0 ID=NOVEL_c1_43_p;class=intergenic;called=true;start_longest=43;…` |
+| 4 | patch | `c1 GIPPA CDS 61 123 . + 0 ID=NOVEL_c1_43_p;product=hypothetical protein (GIPPA novel ORF)` |
+| 5 | M7-06 example 6 (`nterm_extension` of G at TTG 249, called) | patch `c1 GIPPA CDS 250 900 . + 0 ID=G;locus_tag=G;Note=nterm_extension` |
 | 6 | M7-06 example 4 (`−` mirror) | `start_longest 958`, `end 878`; GFF3 interval 878–958 on `−` |
-| 7 | `giap makedb --patch` on examples 4 and 5 | `strain_db.faa` holds `NOVEL_c1_43_p` (= the `best_ostir` protein) and `G_patch` (the extended G protein, starting `M`); `db_id_map.tsv` rows with kind `patch` |
+| 7 | `gippa makedb --patch` on examples 4 and 5 | `strain_db.faa` holds `NOVEL_c1_43_p` (= the `best_ostir` protein) and `G_patch` (the extended G protein, starting `M`); `db_id_map.tsv` rows with kind `patch` |
 | 8 | `read_gff3(write(...))` | the same features (round trip) |
 
 ## Acceptance criteria

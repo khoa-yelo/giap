@@ -1,5 +1,5 @@
-"""Performance budget for the giapsim operon scenarios (docs/specs/M6-03-sim-operon-scenarios.md
-acceptance "Runtime: a 1,800-gene scenario in < 5 s (the giapsim budget)"), seed 1.
+"""Performance budget for the gippasim operon scenarios (docs/specs/M6-03-sim-operon-scenarios.md
+acceptance "Runtime: a 1,800-gene scenario in < 5 s (the gippasim budget)"), seed 1.
 
 One ``simulate_operons`` replicate of each of the five scenarios at 1,800 genes (layout,
 expression, pairs and truth frames): best of 3 < 5 s. The scenario arguments are those of
@@ -28,7 +28,7 @@ CASES = [
 
 @pytest.mark.parametrize("name,args", CASES, ids=[c[0] for c in CASES])
 def test_sim_operon_1800_genes_budget(benchmark: Any, name: str, args: tuple[Any, ...]) -> None:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     cfgs = getattr(sc, name)(*args)
 

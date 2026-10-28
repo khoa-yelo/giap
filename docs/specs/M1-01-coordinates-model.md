@@ -17,7 +17,7 @@ Milestone M1 · depends on: none · estimate ≈ 280 changed lines (≈ 120 code
 - §6.5 sort order: "All tables sort by contig (as in the input FASTA), then start, end, strand and ID."
 - §11.2 unit: "origin-crossing coordinates; BED ↔ GFF"; property: "coordinate round trips".
 
-## Public interface (`src/giap/model/coords.py`, re-exported from `giap.model`)
+## Public interface (`src/gippa/model/coords.py`, re-exported from `gippa.model`)
 
 ```python
 Strand = Literal["+", "-", "."]
@@ -84,7 +84,7 @@ is a `ValueError`. Strand ranks for sorting: `+` < `-` < `.`.
 - [ ] `tests/property/test_coords_roundtrip.py` (Hypothesis): for any valid interval on a random
   replicon (both topologies, both strands), `from_one_based_closed(*to_one_based_closed(iv), …) == iv`,
   and the parts of `split_at_origin` have total length `iv.length_bp` and each lies in `[0, length]`.
-- [ ] No file I/O in `giap.model`; `mypy --strict` and `ruff` clean.
+- [ ] No file I/O in `gippa.model`; `mypy --strict` and `ruff` clean.
 
 ## Questions for the lead
 

@@ -1,11 +1,11 @@
-"""M4-19 ``run_sensitivity`` on a giapsim work directory (docs/specs/M4-19-sensitivity-regions.md
-acceptance "Integration", examples 6-7, edge cases; lead decisions 2-4; GIAP_SPEC.md §8.6, G9).
+"""M4-19 ``run_sensitivity`` on a gippasim work directory (docs/specs/M4-19-sensitivity-regions.md
+acceptance "Integration", examples 6-7, edge cases; lead decisions 2-4; GIPPA_SPEC.md §8.6, G9).
 
 Work directory: M4-07/08/09 contract tables of a 1,000-gene layout (prophage detection shifted,
 so ``prophage_1`` O - E is flagged), 60 genes stripped of peptide intensities (imputed under the
 primary ``median``), and the M4-15 gene table at ``genetable/genes.parquet``
 (``tests/helpers/sensitivity_data.sim_work_dir``). Output: ``tables/sensitivity.tsv``, validated
-against ``src/giap/schemas/tables/sensitivity(.schema).json``.
+against ``src/gippa/schemas/tables/sensitivity(.schema).json``.
 
 Common random numbers (lead decision 2) are checked with a recording family registered in
 ``FAMILIES``: every call of one family (the primary recomputation and each variant) gets a
@@ -30,7 +30,7 @@ import sensitivity_data as sd
 
 
 def _run(work: Path, cfg: Any) -> None:
-    from giap.steps.sensitivity import run_sensitivity
+    from gippa.steps.sensitivity import run_sensitivity
 
     run_sensitivity(work, cfg)
 
@@ -66,9 +66,9 @@ def _fixture_ok(work: Path) -> pd.DataFrame:
 
 
 def _schema() -> dict[str, Any]:
-    import giap
+    import gippa
 
-    table_dir = Path(giap.__file__).resolve().parent / "schemas" / "tables"
+    table_dir = Path(gippa.__file__).resolve().parent / "schemas" / "tables"
     found = [p for p in (table_dir / "sensitivity.schema.json", table_dir / "sensitivity.json")
              if p.is_file()]  # fmt: skip
     assert len(found) == 1, f"expected one sensitivity schema in {table_dir}, got {found}"
@@ -87,8 +87,8 @@ def _validate(tsv: Path) -> None:
 
 def _reported_n(work: Path, cfg: Any) -> int:
     """Lead decision 4 on the reported M4-17 tests (B = 1,000), what regions_stats.tsv holds."""
-    from giap.context.regions import test_all_regions
-    from giap.rng import for_step
+    from gippa.context.regions import test_all_regions
+    from gippa.rng import for_step
 
     m4 = sd.sim_m4(work)
     regions = m4.regions[m4.regions["region_type"].isin(cfg.context.region_types)]
@@ -135,7 +135,7 @@ def test_example_7_exclude_keeps_every_o_minus_e_id(
 ) -> None:
     """Example 7 in the step: the ``missing=exclude`` genes keep the primary detection calls and
     p_detect, so the O - E IDs equal the primary's."""
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     rec = sd.Recorder()
     real = S.regions_family
@@ -172,7 +172,7 @@ def test_same_seed_byte_identical(work: Path) -> None:
 
 def test_empty_sets_written_na(work: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Example 2 in the file: jaccard(empty, empty) is written ``NA``, counts 0."""
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     monkeypatch.setattr(S, "FAMILIES", {"regions": sd.Recorder(frozenset())})
     _run(work, sd.config())
@@ -194,7 +194,7 @@ def test_example_6_off_writes_no_file(work: Path) -> None:
 
 
 def _record(monkeypatch: pytest.MonkeyPatch, **families: sd.Recorder) -> None:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     monkeypatch.setattr(S, "FAMILIES", dict(families))
 
@@ -315,8 +315,8 @@ def test_single_peptide_refit_uses_common_folds(
     (see report): the refit's generator is the one the primary fit used,
     ``for_step("detectability", seed)``, so the TU folds are the primary's and only the
     detection calls differ; a per-variant fold stream fails this."""
-    import giap.genetable.detectability as D
-    from giap.rng import for_step
+    import gippa.genetable.detectability as D
+    from gippa.rng import for_step
 
     real = D.fit_detectability
     states: list[dict[str, Any]] = []
@@ -327,7 +327,7 @@ def test_single_peptide_refit_uses_common_folds(
         return real(*args, **kwargs)
 
     monkeypatch.setattr(D, "fit_detectability", spy)
-    import giap.steps.sensitivity as SS
+    import gippa.steps.sensitivity as SS
 
     monkeypatch.setattr(SS, "fit_detectability", spy, raising=False)
     cfg = sd.config()
@@ -382,7 +382,7 @@ def _copy(src: Path, dst: Path) -> Path:
 
 
 def _rewrite_genes(work: Path, fn: Any) -> pd.DataFrame:
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     path = work / "genetable" / "genes.parquet"
     g = fn(read_genes_parquet(path))
@@ -524,7 +524,7 @@ def test_step_binds_c1_c7_c8(
         seen.append({"regions": regions, "region_genes": region_genes, "replicons": replicons})
         return frozenset()
 
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     monkeypatch.setattr(S, "FAMILIES", {"regions": family})
     _run(w, sd.config())

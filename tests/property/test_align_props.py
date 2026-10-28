@@ -5,7 +5,7 @@ strand, possibly across the origin of a circular contig. The genome residues ``G
 peptide ``P`` are built together from segments: matched residues (an I/L flip now and then) and
 at most two planted differences of every §7.2.4 type (substitution, adjacent swap, every order
 of every ``BLOCKS`` and ``NEAR_BLOCKS`` pair, both directions). ``n_diff`` is the oracle cost of
-the locus (``helpers.align_oracle``: exhaustive banded enumeration, independent of ``giap``).
+the locus (``helpers.align_oracle``: exhaustive banded enumeration, independent of ``gippa``).
 
 - the aligner's ops equal the oracle's rule-4 optimum (cost, diff-type multiset, leftmost);
 - its cost (non-``match``/``il`` ops) equals ``n_diff`` and the M3-06 verifier's cost whenever
@@ -50,10 +50,10 @@ from align_oracle import (
 )
 from fs_genomes import background, codons_for, join_split
 
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import encode_query, encode_target
-from giap.mapping.tolerant_dp import verify
-from giap.model import Replicon
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import encode_query, encode_target
+from gippa.mapping.tolerant_dp import verify
+from gippa.model import Replicon
 
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=list(HealthCheck))
 SENSE = "ACDEFGHIKLMNPQRSTVWY"
@@ -79,7 +79,7 @@ EXCHANGES: dict[str, list[tuple[str, str]]] = {
 
 
 def align() -> ModuleType:
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
 @st.composite

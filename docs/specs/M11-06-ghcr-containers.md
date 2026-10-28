@@ -9,11 +9,11 @@ lines), test-author (`tests/unit/test_m11_06_*.py`, the Apptainer smoke under
 ## Spec sections implemented
 
 - §13 row M11 "containers by digest"; §12 `containers.yml`: "changes to `workflow/containers/**` or
-  `workflow/envs/**`, manual | build per-tool images, push to `ghcr.io/<owner>/giap-<tool>`, open a
+  `workflow/envs/**`, manual | build per-tool images, push to `ghcr.io/<owner>/gippa-<tool>`, open a
   PR updating the digests in `workflow/conf/containers.config`"; §12 Releases "containers pinned by
   digest"; §14.6 "`containers.config` by digest"; §17 "prefer `ghcr.io` images built by
   `containers.yml`".
-- §6.3 container field `ghcr.io/<owner>/giap-<tool>@sha256:…`; G19 (Apptainer runs OCI images by
+- §6.3 container field `ghcr.io/<owner>/gippa-<tool>@sha256:…`; G19 (Apptainer runs OCI images by
   digest).
 - R5/R11: UniOP is unlicensed — its Dockerfile says "never pushed publicly"; it is **not** built by
   this workflow. ADR-0008 (pins), M8-17 decision 9 (fgsea conda-only).
@@ -26,7 +26,7 @@ lines), test-author (`tests/unit/test_m11_06_*.py`, the Apptainer smoke under
    `workflow/envs/**`, and `workflow_dispatch` (input `tools`, default all five). A matrix job per
    tool: `docker/build-push-action` (SHA-pinned, Q-L5), context = repository root, `file =
    workflow/containers/<tool>/Dockerfile`, platform `linux/amd64`, tags
-   `ghcr.io/khoa-yelo/giap-<tool>:<git-sha7>` and `:<tool version>` (from the env file pin),
+   `ghcr.io/khoa-yelo/gippa-<tool>:<git-sha7>` and `:<tool version>` (from the env file pin),
    labels `org.opencontainers.image.source`, `.revision`, `.licenses` (the NOTICE licence). Permissions
    `packages: write` on that job only. Output: the pushed manifest digest.
    A final job collects the digests and runs `update_digests.py` and opens a PR
@@ -36,7 +36,7 @@ lines), test-author (`tests/unit/test_m11_06_*.py`, the Apptainer smoke under
    profile's `withName: '…' { conda = '' }` selector in the same PR (lead decision on test-author
    ambiguity 5: the pinned set equals the conda-off set).
 3. **`scripts/release/update_digests.py --digests digests.json [--config workflow/conf/containers.config] [--nextflow-config workflow/nextflow.config] --date YYYY-MM-DD --source-commit SHA`**:
-   for each `{process: "ghcr.io/khoa-yelo/giap-<tool>@sha256:<hex>"}` adds or replaces exactly the
+   for each `{process: "ghcr.io/khoa-yelo/gippa-<tool>@sha256:<hex>"}` adds or replaces exactly the
    `withName: '<PROCESS>' { container = 'docker://…' }` line, keeps every other line and comment
    byte-identical, updates the "Conda-only for now" comment list, and appends the build date +
    source commit to the "Tags the digests were resolved from" comment. Process names: `PROMOTECH`,
@@ -54,7 +54,7 @@ lines), test-author (`tests/unit/test_m11_06_*.py`, the Apptainer smoke under
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `update_digests.py` on today's `containers.config` with `{"OSTIR": "ghcr.io/khoa-yelo/giap-ostir@sha256:<64 hex>"}` | one new line `withName: 'OSTIR' { container = 'docker://ghcr.io/khoa-yelo/giap-ostir@sha256:…' }` inside `process { }`; `ostir` removed from the conda-only comment; all 7 existing lines unchanged |
+| 1 | `update_digests.py` on today's `containers.config` with `{"OSTIR": "ghcr.io/khoa-yelo/gippa-ostir@sha256:<64 hex>"}` | one new line `withName: 'OSTIR' { container = 'docker://ghcr.io/khoa-yelo/gippa-ostir@sha256:…' }` inside `process { }`; `ostir` removed from the conda-only comment; all 7 existing lines unchanged |
 | 2 | the same input run twice | second run: no diff |
 | 3 | an existing OSTIR line with an older digest | replaced in place (same line number) |
 | 4 | digest `sha256:abc` (not 64 hex) | exit 1, `bad digest for OSTIR` |
@@ -96,5 +96,5 @@ Code ≈ 210 (workflow ≈ 110, `update_digests.py` ≈ 90, config lines ≈ 10)
 ## Questions for the lead (reversible defaults in use)
 
 - Q-K8 (Khoa) public GHCR packages. Default: yes, five packages.
-- Q-L8 no `giap` core image. Q-L5 SHA pins.
+- Q-L8 no `gippa` core image. Q-L5 SHA pins.
 - `linux/arm64` images? Default: no (FarmShare and the tested path are amd64; M11-09 documents it).

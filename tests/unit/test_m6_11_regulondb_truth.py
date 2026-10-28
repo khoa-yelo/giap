@@ -1,8 +1,8 @@
-"""K-12 pair and terminator truth from RegulonDB (M6-11; GIAP_SPEC.md §15.4 steps 1-2).
+"""K-12 pair and terminator truth from RegulonDB (M6-11; GIPPA_SPEC.md §15.4 steps 1-2).
 
 Nothing here reaches the network: the fixtures below are RegulonDB-*shaped* tables we wrote by
 hand (never RegulonDB bytes, which are not committed — R6/R11), and the gene model is built
-directly from :class:`giap.model.genes.Gene` objects.
+directly from :class:`gippa.model.genes.Gene` objects.
 
 The fixture genome, all on ``+`` unless said otherwise (1-based closed, as RegulonDB writes them):
 
@@ -36,9 +36,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.operons import adjacent_pairs
-from giap.model.coords import Interval, Replicon, Strand
-from giap.model.genes import Gene, GeneModel, NcFeature
+from gippa.annotate.operons import adjacent_pairs
+from gippa.model.coords import Interval, Replicon, Strand
+from gippa.model.genes import Gene, GeneModel, NcFeature
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:

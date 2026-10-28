@@ -1,4 +1,4 @@
-"""A1's free entrapment estimate (GIAP_SPEC.md §15.5 metric 8, §8.7); spec
+"""A1's free entrapment estimate (GIPPA_SPEC.md §15.5 metric 8, §8.7); spec
 docs/specs/M10-07-free-entrapment.md with its binding statistician decisions.
 
 K-12 peptides absent from Nissle's translation are the entrapment (E), K-12 peptides present in
@@ -38,23 +38,23 @@ from scipy.stats import binom
 from validation.pilot import metrics as m5
 from validation.pilot.metrics import Inconsistent, Precondition, sha256
 
-from giap.config import resolve_config
-from giap.config.model import Enzyme, TolerantConfig
-from giap.io.fasta import read_genome_fasta
-from giap.io.peptides import read_peptide_table
-from giap.io.protein_fasta import read_protein_fasta
-from giap.io.tsv import write_tsv
-from giap.mapping.decoys import DecoyType
-from giap.mapping.digest import digest
-from giap.mapping.exact import match_exact
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.masses import MOD_DELTA, RESIDUE_MASS
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
-from giap.mapping.tolerant import match_tolerant
-from giap.model.coords import Replicon
+from gippa.config import resolve_config
+from gippa.config.model import Enzyme, TolerantConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.peptides import read_peptide_table
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.io.tsv import write_tsv
+from gippa.mapping.decoys import DecoyType
+from gippa.mapping.digest import digest
+from gippa.mapping.exact import match_exact
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.masses import MOD_DELTA, RESIDUE_MASS
+from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model.coords import Replicon
 
 SPEC = "docs/specs/M10-07-free-entrapment.md"
-SCHEMA = "giap-pilot-entrapment/1"
+SCHEMA = "gippa-pilot-entrapment/1"
 ALPHA = Fraction(1, 100)
 WATER, PROTON = 18.010565, 1.007276
 STANDARD = frozenset("ACDEFGHIKLMNPQRSTVWY")
@@ -206,7 +206,7 @@ def present(peptides: Iterable[str], index: Index) -> dict[str, Presence]:
     sdb = _substrings(rest, index.strain_text or "")
     left = [t for t in rest if t not in sdb]
     rows: dict[str, list[frozenset[str]]] = {}
-    # frameshift rows too (GIAP's tolerant route); they only move the ``far`` stratum (N1)
+    # frameshift rows too (GIPPA's tolerant route); they only move the ``far`` stratum (N1)
     for match in (match_tolerant, match_frameshift) if left and index.tolerant.enabled else ():
         part = match(left, index.sixframe, _NO_DECOYS, dict.fromkeys(left, _NO_DECOY), set(left),
                      index.tolerant)  # fmt: skip
@@ -443,7 +443,7 @@ def settings_mismatch(flags: Mapping[str, list[str]], settings: Settings) -> lis
     if "--unimod4" not in flags:
         bad.append("--unimod4 missing (carbamidomethyl C)")
     if "--met-excision" in flags:
-        bad.append("--met-excision set (GIAP's digest keeps the initiator M)")
+        bad.append("--met-excision set (GIPPA's digest keeps the initiator M)")
     return bad
 
 

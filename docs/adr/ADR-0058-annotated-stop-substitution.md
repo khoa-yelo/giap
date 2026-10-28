@@ -102,7 +102,7 @@ fdnG would take.
   realised searchable mass both sides lose stop-containing windows. **Measured realised shares**
   (exact expected chance mass, statistician, Slurm jobs 1889319 and 1889320,
   `local/stat/m7-16-review.md`): 0.04–0.08 % of the target chance mass on Nissle (i.i.d. and
-  tryptic laws, m = 1 and 2), and 0.05–0.20 % on three giapsim 1-Mb genomes (the top of the range
+  tryptic laws, m = 1 and 2), and 0.05–0.20 % on three gippasim 1-Mb genomes (the top of the range
   under the tryptic law at m = 2). On another genome the share is approximately, not at most,
   the formula's value for its G/N.
 
@@ -112,9 +112,9 @@ fdnG would take.
   consumable cells. Each such cell holds `*` and is mirrored one to one. The tests in M7-16 make
   this a property test. The reverse decoy is exact under any i.i.d. peptide law (measured D_rt/T_rt
   = 1 to 1e-16). The local context is mirrored, not kept (gene | `*` | flank becomes flank | `*` |
-  gene), so under the tryptic law the per-genome read-through D_rt/T_rt was 0.52–1.89 (giapsim)
+  gene), so under the tryptic law the per-genome read-through D_rt/T_rt was 0.52–1.89 (gippasim)
   and 0.81–1.15 (Nissle) for reverse, and 0.58–1.74 and 1.14–1.42 for shuffle. The measured net
-  effect on the total, (D_rt − T_rt)/T_regular, was −9.4 × 10⁻⁴ in the worst giapsim replicate.
+  effect on the total, (D_rt − T_rt)/T_regular, was −9.4 × 10⁻⁴ in the worst gippasim replicate.
   D_rt/T_rt is not an FDR for the read-through subset and is never reported as one.
 - **Calibration.** Before/after numbers come from the re-runs that M7-16 requires (fast + full,
   TE1/TE2/TE8). Only the **exercised** suites are evidence for this rule: the `run_chain` suites
@@ -130,7 +130,7 @@ fdnG would take.
 ## Consequences
 - **Module 2 search space.** Route 3 grows by at most one consumable cell per annotated gene and
   search (≈ 4,700 on Nissle), adding approximately G/(N(1 − s)) (m = 1) to 2G/(N(1 − s)) (m = 2)
-  of the chance-hit mass; measured 0.04–0.08 % on Nissle and up to 0.20 % on giapsim (above). Peptides of 7–9 aa
+  of the chance-hit mass; measured 0.04–0.08 % on Nissle and up to 0.20 % on gippasim (above). Peptides of 7–9 aa
   never reach route 3 (`min_len` 10), so a stop-spanning peptide shorter than 10 aa is never
   placed. At 10–11 aa (k = 1) the stop is the only allowed difference. With no annotated genes the
   matcher is byte-identical to main.

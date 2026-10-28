@@ -1,4 +1,4 @@
-# ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+# ADR-0006: Encoding of special values in GIPPA tables, and strict BED writing
 - Status: accepted
 - Date: 2026-10-14
 - Spec sections: §6.6, §9.2, §9.5

@@ -1,7 +1,7 @@
 """Attack arms 4b and 4c on the TU-counted ORA (issue M8-04b; docs/specs/M8-04 lead decision 12,
-ADR-0035 decision 3; GIAP_SPEC.md §8.4, §8.5).
+ADR-0035 decision 3; GIPPA_SPEC.md §8.4, §8.5).
 
-Reference: the statistician's ``$GIAP_ROOT/stat/m8-04a-review/attack_tusize.py`` (Slurm
+Reference: the statistician's ``$GIPPA_ROOT/stat/m8-04a-review/attack_tusize.py`` (Slurm
 1867453/1867454). Before recalibration (raw q = 1 - prod(1 - p̂)), rejection rates of 3,000 p
 values per cell against the bounds 0.0136 / 0.058 (alpha 0.01 / 0.05):
 
@@ -69,7 +69,7 @@ SCENARIOS: dict[str, tuple[dict[str, float], tuple[str, ...]]] = {
 
 
 def _tables(scenario: str, i: int, recal: bool = True) -> dict[str, pd.DataFrame]:
-    from giap.function import ora
+    from gippa.function import ora
 
     kw, kinds = SCENARIOS[scenario]
     rng = C.replicate_rng(f"{SUITE}.attack_tusize.{scenario}.sim", i)

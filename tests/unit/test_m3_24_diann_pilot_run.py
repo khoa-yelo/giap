@@ -10,7 +10,7 @@ Conventions settled by the test author:
 * ``sbatch scripts/slurm/diann_pilot.sbatch A1|A2`` - the arm is the only positional argument;
   no arm or an unknown arm is a usage error (exit 2, as in deliverable 3).
 * ``DIANN_SIF``, ``RAW_DIR`` and ``OUT_DIR`` are the environment overrides; ``RAW_DIR`` holds the
-  timsTOF ``.d`` runs of PXD078459 and defaults under ``$GIAP_DATA_DIR``.
+  timsTOF ``.d`` runs of PXD078459 and defaults under ``$GIPPA_DATA_DIR``.
 * A missing image exits 2 before any container call, naming the path and ``DIANN_SIF``.
 * Step 1 writes ``--out-lib``; the stub creates both that file and its ``.predicted.speclib``
   sibling (DIA-NN's own convention), and step 2 must pass one of them to ``--lib``.
@@ -89,7 +89,7 @@ def test_diann_sif_override_is_honoured(tmp_path: Path) -> None:
 
 def test_the_default_image_is_the_path_of_decision_1(tmp_path: Path) -> None:
     """With ``DIANN_SIF`` unset the pilot runs the verified copy
-    ``$GIAP_ROOT/images/diann_2.3.1.sif`` (M10-02 lead decision 1; diann_image.sbatch makes it
+    ``$GIPPA_ROOT/images/diann_2.3.1.sif`` (M10-02 lead decision 1; diann_image.sbatch makes it
     from Khoa's image); without that copy it exits 2 naming the path and diann_image.sbatch."""
     pilot = pilot_sandbox(tmp_path)
     pilot.sb.env.pop("DIANN_SIF")
@@ -115,7 +115,7 @@ def test_the_container_call_binds_the_cluster_filesystems(pilot: PilotSandbox) -
 
 
 def test_nothing_is_written_into_the_repository(pilot: PilotSandbox) -> None:
-    """Decision 3: the repo keeps only configs, README and scripts; outputs go to $GIAP_ROOT."""
+    """Decision 3: the repo keeps only configs, README and scripts; outputs go to $GIPPA_ROOT."""
     _run(pilot, "A2")
     assert pilot.repo_is_clean() == "", pilot.repo_is_clean()
     for call in _steps(pilot):
@@ -254,7 +254,8 @@ FETCH_OVERRIDE = {
 
 
 def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSandbox) -> None:
-    """§15.2 step 4 and deliverable 5: three wild-type runs under $GIAP_DATA_DIR with SHA256SUMS."""
+    """§15.2 step 4 and deliverable 5: three wild-type runs under $GIPPA_DATA_DIR with
+    SHA256SUMS."""
     res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
     calls = pilot.fetch_calls()
@@ -280,7 +281,7 @@ def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSand
         assert hashlib.sha256((dest / rel).read_bytes()).hexdigest() == want, rel
 
 
-def test_fetch_writes_only_under_giap_data_dir(pilot: PilotSandbox) -> None:
+def test_fetch_writes_only_under_gippa_data_dir(pilot: PilotSandbox) -> None:
     res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
     assert pilot.repo_is_clean() == "", pilot.repo_is_clean()

@@ -39,8 +39,8 @@ RECODED = {
 
 @pytest.fixture(scope="module")
 def nissle() -> tuple[dict[str, str], Any]:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.io.fasta import read_genome_fasta
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.io.fasta import read_genome_fasta
 
     genome = {r.id: r.sequence for r in read_genome_fasta(NISSLE_GENOME)}
     return genome, parse_bakta_json(NISSLE_JSON, genome=genome).model
@@ -48,9 +48,9 @@ def nissle() -> tuple[dict[str, str], Any]:
 
 @pytest.fixture(scope="module")
 def steps(tmp_path_factory: pytest.TempPathFactory, nissle: Any) -> dict[str, Any]:
-    from giap.config import resolve_config
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.config import resolve_config
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     genome, gm = nissle
@@ -82,7 +82,7 @@ def steps(tmp_path_factory: pytest.TempPathFactory, nissle: Any) -> dict[str, An
             if getattr(record, "event", None) == "mapping.stop_sites":
                 events.append(record)
 
-    logger = logging.getLogger("giap.steps.sixframe_index")
+    logger = logging.getLogger("gippa.steps.sixframe_index")
     h = _H(level=logging.INFO)
     logger.addHandler(h)
     old = logger.level
@@ -104,7 +104,7 @@ def _contig_of(gm: Any, tag: str) -> str:
 
 
 def test_example_29_pure_sites(nissle: Any) -> None:
-    from giap.mapping.readthrough import annotated_stops, recoded_skips
+    from gippa.mapping.readthrough import annotated_stops, recoded_skips
 
     genome, gm = nissle
     sites, n_not = annotated_stops(gm, genome, recoded=True)
@@ -136,7 +136,7 @@ def test_example_29_event(steps: dict[str, Any]) -> None:
 
 
 def test_example_29_index_cells(steps: dict[str, Any]) -> None:
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     cells = load_stop_cells(steps["files"]["sixframe"])
     rec = {(s.locus_tags, s.strand, s.codon_start) for s in cells.sites if s.kind == "recoded"}

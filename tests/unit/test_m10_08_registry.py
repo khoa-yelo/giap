@@ -5,7 +5,7 @@ decisions Q4 (earlier: not in ``TOOLS``), Q10 (pyteomics pinned to 4.7.5) and th
 facts table (PyPI only, Apache-2.0, wheel sha256 ``50b52043…f092a3``, Python 3.10,
 PyTorch 2.0.x with CUDA 11.8). Route B2: TIMSCONVERT at commit ``3cb96aef…`` (tag v2.0.0).
 
-``build_envs.sh`` runs against a throw-away ``GIAP_REPO`` whose ``src``/``scripts`` link to this
+``build_envs.sh`` runs against a throw-away ``GIPPA_REPO`` whose ``src``/``scripts`` link to this
 checkout and a fake ``micromamba`` (bash 3.2: no mapfile, no associative arrays), so nothing is
 solved, cloned or downloaded. No statistical claim, so no calibration test (spec §8.4).
 """
@@ -64,7 +64,7 @@ def _conda(stem: str, pkg: str) -> list[str]:
 
 def test_cascadia_env_name_and_channels() -> None:
     data = _yml("cascadia")
-    assert data["name"] == "giap-cascadia"
+    assert data["name"] == "gippa-cascadia"
     assert data["channels"] == ["conda-forge"], "conda-forge only (deliverable 1)"
 
 
@@ -184,7 +184,7 @@ def test_cascadia_header_records_source_licence_sha_and_date() -> None:
 
 def test_timsconvert_env() -> None:
     data = _yml("timsconvert")
-    assert data["name"] == "giap-timsconvert"
+    assert data["name"] == "gippa-timsconvert"
     assert data["channels"] == ["conda-forge"]
     (py,) = _conda("timsconvert", "python")
     assert re.match(r"^python=3\.11(\.|=|\*|$)", py), py
@@ -244,14 +244,14 @@ def test_locks_when_present(stem: str) -> None:
 
 
 def test_pilot_tools_entries() -> None:
-    from giap.annotate.tools import PILOT_TOOLS, TOOLS, ToolSpec
+    from gippa.annotate.tools import PILOT_TOOLS, TOOLS, ToolSpec
 
     assert set(PILOT_TOOLS) == set(PILOT)
     assert not set(PILOT_TOOLS) & set(TOOLS), "Q4: never in TOOLS"
     for name, spec in PILOT_TOOLS.items():
         assert isinstance(spec, ToolSpec)
         assert spec.name == name
-        assert spec.env_name == f"giap-{name}"
+        assert spec.env_name == f"gippa-{name}"
         assert spec.env_file == f"workflow/envs/{name}.yml"
         assert (REPO / spec.env_file).is_file()
         assert spec.licence == "Apache-2.0"
@@ -262,7 +262,7 @@ def test_pilot_tools_entries() -> None:
 
 
 def test_pilot_tools_is_read_only() -> None:
-    from giap.annotate.tools import PILOT_TOOLS
+    from gippa.annotate.tools import PILOT_TOOLS
 
     with pytest.raises(TypeError):
         PILOT_TOOLS["x"] = PILOT_TOOLS["cascadia"]  # type: ignore[index]
@@ -277,8 +277,8 @@ def test_pilot_tools_is_read_only() -> None:
     ],
 )  # fmt: skip
 def test_required_tools_never_returns_pilot_tools(overrides: list[str]) -> None:
-    from giap.annotate.tools import required_tools
-    from giap.config import resolve_config
+    from gippa.annotate.tools import required_tools
+    from gippa.config import resolve_config
 
     cfg = resolve_config(overrides=overrides)
     for abundance in (False, True):
@@ -344,11 +344,12 @@ class BuildBox:
         (self.fake / "calls.log").write_text("")
 
     def version(self, tool: str, text: str) -> None:
-        (self.fake / f"version_giap-{tool}").write_text(text + "\n")
+        (self.fake / f"version_gippa-{tool}").write_text(text + "\n")
 
     def run(self, *tools: str) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "TMPDIR"}}
-        env.update(GIAP_REPO=str(self.repo), GIAP_ROOT=str(self.root), GIAP_PYTHON=sys.executable,
+        env.update(GIPPA_REPO=str(self.repo), GIPPA_ROOT=str(self.root),
+                   GIPPA_PYTHON=sys.executable,
                    FAKE_DIR=str(self.fake), HOME=str(self.root / "home"))  # fmt: skip
         return subprocess.run(["bash", str(self.repo / "scripts" / "build_envs.sh"), *tools],
                               capture_output=True, text=True, cwd=self.repo, env=env,
@@ -361,7 +362,7 @@ class BuildBox:
 @pytest.mark.parametrize("tool", PILOT)
 def test_build_envs_resolves_pilot_tool(tmp_path: Path, tool: str) -> None:
     require(ENVS / f"{tool}.yml", "deliverables 1-2")
-    from giap.annotate.tools import PILOT_TOOLS
+    from gippa.annotate.tools import PILOT_TOOLS
 
     box = BuildBox(tmp_path)
     box.version(tool, PILOT_TOOLS[tool].version.removeprefix("git:"))
@@ -369,16 +370,16 @@ def test_build_envs_resolves_pilot_tool(tmp_path: Path, tool: str) -> None:
     assert res.returncode == 0, res.stdout + res.stderr
     creates = [c for c in box.calls() if c.startswith("micromamba create")]
     assert len(creates) == 1, box.calls()
-    assert f"-n giap-{tool}" in creates[0]
+    assert f"-n gippa-{tool}" in creates[0]
     assert f"workflow/envs/{tool}.yml" in creates[0]
-    marker = box.root / "micromamba" / "envs" / f"giap-{tool}" / ".giap-built"
+    marker = box.root / "micromamba" / "envs" / f"gippa-{tool}" / ".gippa-built"
     assert marker.is_file()
 
 
 def test_build_envs_all_lists_no_pilot_tool(tmp_path: Path) -> None:
     require(ENVS / "cascadia.yml", "deliverable 1")
     require(ENVS / "timsconvert.yml", "deliverable 2")
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     box = BuildBox(tmp_path)
     for name, spec in TOOLS.items():
@@ -388,13 +389,13 @@ def test_build_envs_all_lists_no_pilot_tool(tmp_path: Path) -> None:
     line = next((ln for ln in res.stdout.splitlines() if ln.startswith("all:")), None)
     assert line is not None, res.stdout + res.stderr
     assert not set(line.split()[1:]) & set(PILOT), line
-    assert not [c for c in box.calls() if "giap-cascadia" in c or "giap-timsconvert" in c]
+    assert not [c for c in box.calls() if "gippa-cascadia" in c or "gippa-timsconvert" in c]
 
 
 def test_build_envs_usage_lists_pilot_tools() -> None:
     require(ENVS / "cascadia.yml", "deliverable 1")
     env = {k: v for k, v in os.environ.items() if k in {"PATH", "HOME", "LANG"}}
-    env["GIAP_REPO"] = str(REPO)
+    env["GIPPA_REPO"] = str(REPO)
     cmd = ["bash", str(REPO / "scripts" / "build_envs.sh"), "no_such_tool"]
     res = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60, check=False)
     assert res.returncode == 2

@@ -1,9 +1,9 @@
-// M9-02 behaviour 8: main.nf calls REPORT last, so `giap run` publishes OUT/plots/ and
-// OUT/report/report.html (GIAP_SPEC.md §6.1 data flow, §6.3, §9.1). Stub runs only; ci.yml runs:
+// M9-02 behaviour 8: main.nf calls REPORT last, so `gippa run` publishes OUT/plots/ and
+// OUT/report/report.html (GIPPA_SPEC.md §6.1 data flow, §6.3, §9.1). Stub runs only; ci.yml runs:
 // nf-test test workflow/tests --profile test,stub.
 //
 // Pinned here (test author): REPORT receives the subworkflows' published outputs as [key, path]
-// pairs, so the `plots` py step (GIAP_STEP tag `plots`) stages, at least, preflight, the CONTEXT
+// pairs, so the `plots` py step (GIPPA_STEP tag `plots`) stages, at least, preflight, the CONTEXT
 // tables (genes_tsv, islands, detection_summary, regions_stats, autocorrelation, sensitivity),
 // the OPERONS tables (pairs, operon_flags), NOVEL's novel_orfs, and the published `mapping` and
 // `annotation` directories (§9.1); its staged files come from the producing tasks. A subworkflow
@@ -47,7 +47,7 @@ nextflow_pipeline {
             assert pl.size() == 1 : "plots ran ${pl.size()}x; tasks: ${H.names(workflow.trace)}"
             assert byTag('report').size() == 1 : "report ran ${byTag('report').size()}x"
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def keys = H.stepInputs(pl[0]).collect { it[0] }.toSet()
             def want = ['preflight', 'genes_tsv', 'islands', 'detection_summary', 'regions_stats',

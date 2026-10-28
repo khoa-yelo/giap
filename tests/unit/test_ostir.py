@@ -1,4 +1,4 @@
-"""OSTIR input rows, writer, command and parser (M2-16 examples 1-8; GIAP_SPEC.md §7.1.1, §7.1.6).
+"""OSTIR input rows, writer, command and parser (M2-16 examples 1-8; GIPPA_SPEC.md §7.1.1, §7.1.6).
 
 Geometry (S = first start-codon base, E = interval end, 0-based): ``+`` → ``genome[S-50, S+50)``;
 ``-`` → ``revcomp(genome[E-50, E+50))``; circular replicons wrap, linear contigs clip and
@@ -11,7 +11,7 @@ Ambiguities resolved here (test author, see the PR description):
 * ``ostir_command`` returns ``list[str]`` (paths and thread count stringified).
 * ``parse_ostir`` fills ``RbsFeatures.start_codon`` from the row (it has no gene); the step
   ``rbs_layer`` replaces it by the gene's start codon (``tests/unit/test_ostir_steps.py``).
-* Origin-crossing genes are stored unwrapped (``end > length``, ``giap.model.coords``); their
+* Origin-crossing genes are stored unwrapped (``end > length``, ``gippa.model.coords``); their
   windows wrap like any other window on a circular replicon.
 """
 
@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 ASD = "ACCTCCTTA"
 N = 100_000
@@ -70,7 +70,7 @@ def gene(start: int, end: int, strand: str, codon: str | None, tag: str = "GSIM_
 
 
 def test_example_1_plus_strand_window() -> None:
-    from giap.annotate.ostir import OstirRow, ostir_row
+    from gippa.annotate.ostir import OstirRow, ostir_row
 
     row = ostir_row(gene(1000, 1300, "+", "ATG"), CIRC, GENOME, ASD)
     assert row == OstirRow("GSIM_00001", GENOME[950:1050], 51, 51, ASD)
@@ -78,7 +78,7 @@ def test_example_1_plus_strand_window() -> None:
 
 
 def test_example_2_minus_strand_window() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(2000, 2900, "-", "GTG"), CIRC, GENOME, ASD)
     assert row.seq == revcomp(GENOME[2850:2950])
@@ -88,7 +88,7 @@ def test_example_2_minus_strand_window() -> None:
 
 
 def test_example_3_linear_contig_clips_upstream() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(20, 300, "+", "TTG"), LIN, GENOME, ASD)
     assert row.seq == GENOME[0:70]
@@ -97,7 +97,7 @@ def test_example_3_linear_contig_clips_upstream() -> None:
 
 
 def test_example_4_circular_contig_wraps_upstream() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(20, 300, "+", "TTG"), CIRC, GENOME, ASD)
     assert row.seq == GENOME[99970:100000] + GENOME[0:70]
@@ -106,7 +106,7 @@ def test_example_4_circular_contig_wraps_upstream() -> None:
 
 
 def test_example_5_minus_gene_at_the_end_of_a_linear_contig() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(99960, 99990, "-", "ATG"), LIN, GENOME, ASD)
     assert row.seq == revcomp(GENOME[99940:100000])
@@ -116,7 +116,7 @@ def test_example_5_minus_gene_at_the_end_of_a_linear_contig() -> None:
 
 
 def test_minus_gene_at_the_end_of_a_circular_contig_wraps() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(99960, 99990, "-", "ATG"), CIRC, GENOME, ASD)
     assert row.seq == revcomp(GENOME[99940:100000] + GENOME[0:40])
@@ -125,7 +125,7 @@ def test_minus_gene_at_the_end_of_a_circular_contig_wraps() -> None:
 
 
 def test_minus_gene_at_the_start_of_a_linear_contig_clips_downstream_only() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g = GENOME[:10] + revcomp("ATG") + GENOME[13:]
     row = ostir_row(gene(5, 13, "-", "ATG"), LIN, g, ASD)  # E = 13: window [-37, 63) → [0, 63)
@@ -135,7 +135,7 @@ def test_minus_gene_at_the_start_of_a_linear_contig_clips_downstream_only() -> N
 
 
 def test_plus_gene_near_the_end_of_a_linear_contig_clips_downstream_only() -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g = GENOME[:99980] + "ATG" + GENOME[99983:]
     row = ostir_row(gene(99980, 99998, "+", "ATG"), LIN, g, ASD)
@@ -146,7 +146,7 @@ def test_plus_gene_near_the_end_of_a_linear_contig_clips_downstream_only() -> No
 @pytest.mark.parametrize("strand", ["+", "-"])
 def test_origin_crossing_gene_unwrapped_end_wraps(strand: str) -> None:
     """Genes crossing the origin are stored unwrapped (end > length) and still get 100 nt."""
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     if strand == "+":
         g = GENOME[:99990] + "ATG" + GENOME[99993:]
@@ -162,7 +162,7 @@ def test_origin_crossing_gene_unwrapped_end_wraps(strand: str) -> None:
 
 def test_custom_window_sizes() -> None:
     """§5.2 ``ostir.upstream_nt`` / ``downstream_nt``: start = end = upstream + 1."""
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(1000, 1300, "+", "ATG"), CIRC, GENOME, ASD, up=30, down=20)
     assert row.seq == GENOME[970:1020]
@@ -173,7 +173,7 @@ def test_custom_window_sizes() -> None:
 
 def test_lower_case_genome_gives_upper_case_rows() -> None:
     """The recorded inputs are upper case; soft-masked input must not leak into OSTIR."""
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     row = ostir_row(gene(1000, 1300, "+", "ATG"), CIRC, GENOME.lower(), ASD)
     assert row.seq == GENOME[950:1050]
@@ -181,7 +181,7 @@ def test_lower_case_genome_gives_upper_case_rows() -> None:
 
 def test_sorf_and_pseudogene_get_rows_too() -> None:
     """Edge cases: sORFs read +50 nt into the next gene; pseudogenes and partial genes get rows."""
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     sorf = dataclasses.replace(gene(1000, 1030, "+", "ATG"), feature_type="sorf")
     assert ostir_row(sorf, CIRC, GENOME, ASD).seq == GENOME[950:1050]
@@ -192,7 +192,7 @@ def test_sorf_and_pseudogene_get_rows_too() -> None:
 
 
 def test_ostir_row_is_frozen() -> None:
-    from giap.annotate.ostir import OstirRow
+    from gippa.annotate.ostir import OstirRow
 
     row = OstirRow("a", "ACGT", 1, 1, ASD)
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -203,7 +203,7 @@ def test_ostir_row_is_frozen() -> None:
 
 
 def test_write_ostir_input_header_rows_and_bytes(tmp_path: Path) -> None:
-    from giap.annotate.ostir import OstirRow, write_ostir_input
+    from gippa.annotate.ostir import OstirRow, write_ostir_input
 
     rows = [
         OstirRow("GSIM_00002", "ACGTACGT", 5, 5, ASD),
@@ -221,7 +221,7 @@ def test_write_ostir_input_header_rows_and_bytes(tmp_path: Path) -> None:
 
 
 def test_write_ostir_input_empty(tmp_path: Path) -> None:
-    from giap.annotate.ostir import write_ostir_input
+    from gippa.annotate.ostir import write_ostir_input
 
     p = tmp_path / "ostir_input.csv"
     write_ostir_input(p, [])
@@ -229,7 +229,7 @@ def test_write_ostir_input_empty(tmp_path: Path) -> None:
 
 
 def test_ostir_command() -> None:
-    from giap.annotate.ostir_cmd import ostir_command
+    from gippa.annotate.ostir_cmd import ostir_command
 
     argv = ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 9)
     assert argv == ["ostir", "-i", "ostir_input.csv", "-o", "ostir.csv", "-j", "9"]
@@ -249,7 +249,7 @@ ROW6 = "GSIM_00005,ATG,51,1523.4,7,-3.1,-9.8,-4.2,0.3,0.0,-1.19"
 
 
 def test_example_6_row_to_features(tmp_path: Path) -> None:
-    from giap.annotate.ostir import RbsFeatures, parse_ostir
+    from gippa.annotate.ostir import RbsFeatures, parse_ostir
 
     got = parse_ostir(_csv(tmp_path, ROW6), {"GSIM_00005": 51})
     assert got == {"GSIM_00005": RbsFeatures(1523.4, -9.8, -4.2, 0.3, 0.0, 7, "ATG")}
@@ -262,7 +262,7 @@ def test_example_6_row_to_features(tmp_path: Path) -> None:
 
 
 def test_example_7_only_the_requested_start_is_kept(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     p = _csv(
         tmp_path,
@@ -275,14 +275,14 @@ def test_example_7_only_the_requested_start_is_kept(tmp_path: Path) -> None:
 
 
 def test_example_7_requested_start_absent_drops_the_gene(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     p = _csv(tmp_path, "GSIM_00005,GTG,63,99.0,5,1.0,-2.0,-3.0,0.1,0.2,-0.07")
     assert parse_ostir(p, {"GSIM_00005": 51}) == {}
 
 
 def test_example_8_missing_gene_is_absent(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     got = parse_ostir(_csv(tmp_path, ROW6), {"GSIM_00005": 51, "GSIM_00006": 51})
     assert set(got) == {"GSIM_00005"}
@@ -290,13 +290,13 @@ def test_example_8_missing_gene_is_absent(tmp_path: Path) -> None:
 
 
 def test_unrequested_ids_are_ignored(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     assert parse_ostir(_csv(tmp_path, ROW6), {"GSIM_00009": 51}) == {}
 
 
 def test_clipped_requested_start(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     p = _csv(tmp_path, ROW6.replace(",51,", ",21,"))
     assert set(parse_ostir(p, {"GSIM_00005": 21})) == {"GSIM_00005"}
@@ -304,6 +304,6 @@ def test_clipped_requested_start(tmp_path: Path) -> None:
 
 
 def test_header_only_output(tmp_path: Path) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     assert parse_ostir(_csv(tmp_path), {"GSIM_00005": 51}) == {}

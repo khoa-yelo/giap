@@ -4,7 +4,7 @@ Track: **MVP / end-to-end** · depends on: **M4-21 (#145)**, whose `region_layer
 precomputed TSV · estimate ≈ 60 workflow lines (+ ≈ 80 nf-test lines) · not statistical · no tools
 
 ## The gap
-After M4-21, `giap run --executor local` with `annotation.precomputed.regions` set plans `region_layer`
+After M4-21, `gippa run --executor local` with `annotation.precomputed.regions` set plans `region_layer`
 (it converts the M2-02 TSV into C7 `regions` / C8 `region_genes`) and then `context_stats` and
 `sensitivity`. The Nextflow path still skips `REGION_LAYER` and therefore `CONTEXT`
 (`workflow/subworkflows/local/annotate.nf` around line 178; `workflow/main.nf` line 6). The two
@@ -32,7 +32,7 @@ With a precomputed regions layer, Nextflow:
   `main_genetable_context.nf.test` "precomputed regions layer: GENETABLE still runs, CONTEXT does not".
 - [ ] nf-test stubs green in CI (`nf-test-stub`).
 - [ ] Example 4 as an integration test if the existing local-vs-Nextflow harness can run it in the
-  stub profile; otherwise one Slurm `giap_run.sbatch` run, job ID in PROGRESS.md.
+  stub profile; otherwise one Slurm `gippa_run.sbatch` run, job ID in PROGRESS.md.
 
 ## Hardening owed (pass 2)
 - The precomputed TSV carries no marker descriptions or core flags, so prophage subsets come from the
@@ -50,5 +50,5 @@ With a precomputed regions layer, Nextflow:
    registry change. Recorded in "Hardening owed".
 3. `context_layers` may receive the Parquet or the TSV under `regions` (both accepted); implementer's
    choice, stated in the PR.
-4. Example 4 is one Slurm `giap_run.sbatch` run after the implementation (local vs Nextflow published
+4. Example 4 is one Slurm `gippa_run.sbatch` run after the implementation (local vs Nextflow published
    table sets), job ID in PROGRESS.md; automating it in `test_m2_21_local_vs_nextflow.py` is pass 2.

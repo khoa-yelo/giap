@@ -8,11 +8,11 @@ M3-25 decision 3: ``placement`` writes the class table as a new output ``stratum
 following M4-18's ``detectability_summary`` pattern; ``mapping_fdr.tsv`` columns are unchanged.
 
 Convention (as for ``c_assumed``, tests/unit/test_mapping_steps.py): a run warning is a WARNING
-record on a ``giap.steps.*`` logger whose message names the flag. Inputs: a 50-kb giapsim genome,
+record on a ``gippa.steps.*`` logger whose message names the flag. Inputs: a 50-kb gippasim genome,
 database input (``search_db = other``, one run, so the row-level mean PEP and the peptide-level one
 agree). Control: the stressed arm (``inject_short`` = 200 short wrong peptides absent from the
 genome, PEP = the true wrong share): k (stratum-0 database peptides without an exact target hit)
-is near n * mean PEP * (1 - r), no warning is due. Pre-filtered (giapsim's wrong identifications
+is near n * mean PEP * (1 - r), no warning is due. Pre-filtered (gippasim's wrong identifications
 dropped, every PEP = 0.05, ``helpers.placement_sims.prefilter_to_genome``): k is ~0 against an
 expected ~35, far below the 0.001 binomial quantile (~20), so the warning must fire.
 """
@@ -42,12 +42,12 @@ class _Sink(logging.Handler):
 
 
 def _chain(tmp: Path, prefilter: bool) -> tuple[Chain, list[logging.LogRecord]]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     kw = {"prefilter": 0.05} if prefilter else {"inject_short": 200}
 
     sink = _Sink()
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(sink)
     log.setLevel(logging.INFO)
@@ -74,13 +74,13 @@ def _warned(records: list[logging.LogRecord]) -> bool:
     return any(
         r.levelno >= logging.WARNING and "input_prefiltered" in r.getMessage()
         for r in records
-        if r.name.startswith("giap.steps")
+        if r.name.startswith("gippa.steps")
     )
 
 
 def _stratum0(ch: Chain) -> tuple[int, int, float]:
     """(n, k, mean PEP) of the database stratum-0 population, from the step's own outputs."""
-    from giap.steps.mapping import select_queries
+    from gippa.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
     q = q[q["source"] == "database"]
@@ -124,7 +124,7 @@ def test_placement_declares_the_stratum0_classes_output() -> None:
 def test_placement_writes_the_class_table(chains: dict[str, tuple]) -> None:
     """The output holds ``stratum0_pi_classes`` of the step's own stratum-0 population: one row
     per ``mapping.length_classes`` class, in config order."""
-    from giap.mapping.placement_fdr import length_class_labels, stratum0_pi_classes
+    from gippa.mapping.placement_fdr import length_class_labels, stratum0_pi_classes
 
     ch, _records = chains["raw"]
     tab = pd.read_parquet(ch.avail[key_like(list(ch.avail), "stratum0_classes")])
@@ -141,10 +141,10 @@ def _population(ch: Chain) -> pd.DataFrame:
     at their best costs, as ``placement`` sees them."""
     from helpers.placement_sims import hits_of
 
-    from giap.mapping.chance import residue_freqs
-    from giap.mapping.placement_fdr import best_costs
-    from giap.mapping.sixframe import load_index
-    from giap.steps.mapping import select_queries
+    from gippa.mapping.chance import residue_freqs
+    from gippa.mapping.placement_fdr import best_costs
+    from gippa.mapping.sixframe import load_index
+    from gippa.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
     idx, _decoys = load_index(ch.avail[key_like(list(ch.avail), "sixframe")])

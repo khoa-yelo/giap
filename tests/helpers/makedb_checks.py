@@ -1,4 +1,4 @@
-"""Readers and shared assertions for the `giap makedb` outputs (issue M3-23 tests)."""
+"""Readers and shared assertions for the `gippa makedb` outputs (issue M3-23 tests)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from pathlib import Path
 
 from makedb_oracle import classified_orfs, nterm_entries, nterm_header, orf_header
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.io.tsv import read_tsv
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.io.tsv import read_tsv
 
 ID_MAP_COLUMNS = ["db_id", "kind", "locus_tag", "class", "contig", "start", "end", "strand"]
 
@@ -53,7 +53,7 @@ def by_id(outdir: Path) -> dict[str, str]:
 
 
 def orf_ids(outdir: Path) -> list[str]:
-    return [i for i in by_id(outdir) if i.startswith("GIAPORF_")]
+    return [i for i in by_id(outdir) if i.startswith("GIPPAORF_")]
 
 
 def assert_orfs_match_oracle(
@@ -82,14 +82,14 @@ def assert_orfs_match_oracle(
     got = [
         (i, s)
         for i, s in by_id(out).items()
-        if i.startswith("GIAPORF_") and "_nterm_extension_" not in i
+        if i.startswith("GIPPAORF_") and "_nterm_extension_" not in i
     ]
     assert [x for x in got if not skipped(x[0])] == [x for x in want if not skipped(x[0])]
     nterms, undefined = nterm_entries(gm, genome)
     rows = {r["db_id"]: r for r in id_map(out)}
     got_n: dict[str | None, tuple[str, str]] = {}
     for i, s in by_id(out).items():
-        if i.startswith("GIAPORF_nterm_extension_"):
+        if i.startswith("GIPPAORF_nterm_extension_"):
             tag = rows[i]["locus_tag"]
             assert tag not in got_n, f"two nterm_extension entries for {tag}"
             got_n[tag] = (i, s)

@@ -1,7 +1,7 @@
 """M9-26 work item 4 on the M9-25 snapshot fixture: every registered plot rendered twice (two
 fresh interpreters, different ``PYTHONHASHSEED``s) gives byte-identical ``.svg``, ``.pdf``,
 ``.png`` and data TSVs (docs/specs/M9-26-scale-and-determinism.md example 2; M9-01 item 7;
-GIAP_SPEC.md R7/TE7). Within one environment only.
+GIPPA_SPEC.md R7/TE7). Within one environment only.
 
 The fixtures are M9-25's frozen ``OUT/`` subsets under ``tests/data/snapshot/`` (as
 tests/snapshot/test_checklist_all.py sweeps them). Until M9-25 commits them the

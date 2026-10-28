@@ -1,14 +1,14 @@
-"""``giap _step NAME`` finds every registered step (M2-07 follow-up, code review item 5 of PR #65).
+"""``gippa _step NAME`` finds every registered step (M2-07 follow-up, code review item 5 of PR #65).
 
-Nextflow calls ``giap _step <name>`` in a fresh process, where nothing has imported the step
-modules yet: the command must call ``giap.steps.load_step_modules()`` before looking the name up.
-An unknown name stays a wiring error, exit code 5 (M2-02 example 7; GIAP_SPEC.md §5.1).
+Nextflow calls ``gippa _step <name>`` in a fresh process, where nothing has imported the step
+modules yet: the command must call ``gippa.steps.load_step_modules()`` before looking the name up.
+An unknown name stays a wiring error, exit code 5 (M2-02 example 7; GIPPA_SPEC.md §5.1).
 
 Each test runs in a fresh interpreter (as under Nextflow), so the in-process registry state of
 other tests cannot hide the bug. The steps get no ``--in``/``--out``: a found step fails its
 key check ("required input … not given", also exit 5), an unfound one says "unknown step".
 
-The every-step check runs all ``giap _step`` calls in ONE fresh interpreter (backlog: one process
+The every-step check runs all ``gippa _step`` calls in ONE fresh interpreter (backlog: one process
 per step took ~55 s and grew with every step). Its first call happens before anything has
 imported a step module, as under Nextflow; the child then lists the registry itself and calls
 ``main(["_step", name, ...])`` for each name, the same entry point the console script uses.
@@ -25,11 +25,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from giap.config import GiapConfig
-from giap.exitcodes import ExitCode
+from gippa.config import GippaConfig
+from gippa.exitcodes import ExitCode
 
 REPO = Path(__file__).resolve().parents[2]
-_MAIN = "import sys; from giap.cli import main; main(sys.argv[1:])"
+_MAIN = "import sys; from gippa.cli import main; main(sys.argv[1:])"
 # One subprocess per call can be slow on a loaded batch node (NFS imports; Slurm 1849060).
 _TIMEOUT = 300
 
@@ -37,10 +37,10 @@ _TIMEOUT = 300
 # {"fresh": [...], "registered": [[name, kind], ...], "calls": {name: [exit_code, stderr]}}.
 _ALL_STEPS = """
 import contextlib, io, json, sys
-from giap.cli import main
+from gippa.cli import main
 
 first, config = sys.argv[1], sys.argv[2]
-fresh = sorted(m for m in sys.modules if m.startswith("giap.steps."))
+fresh = sorted(m for m in sys.modules if m.startswith("gippa.steps."))
 
 
 def call(name):
@@ -55,7 +55,7 @@ def call(name):
 
 
 calls = {first: call(first)}  # before anything else imports a step module
-from giap.steps import load_step_modules, registry as r
+from gippa.steps import load_step_modules, registry as r
 
 load_step_modules()
 registered = [[s.name, s.kind] for s in r.all_steps()]
@@ -73,7 +73,7 @@ def _env() -> dict[str, str]:
     return env
 
 
-def _giap(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _gippa(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-c", _MAIN, *argv],
         cwd=cwd, env=_env(), capture_output=True, text=True, timeout=_TIMEOUT, check=False,
@@ -83,7 +83,7 @@ def _giap(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 @pytest.fixture
 def resolved(tmp_path: Path) -> Path:
     path = tmp_path / "resolved.yaml"
-    path.write_text(yaml.safe_dump(GiapConfig().model_dump(mode="json"), sort_keys=True))
+    path.write_text(yaml.safe_dump(GippaConfig().model_dump(mode="json"), sort_keys=True))
     return path
 
 
@@ -91,7 +91,7 @@ def resolved(tmp_path: Path) -> Path:
 def test_step_finds_a_registered_step_in_a_fresh_process(
     name: str, resolved: Path, tmp_path: Path
 ) -> None:
-    res = _giap(["_step", name, "--config", str(resolved)], tmp_path)
+    res = _gippa(["_step", name, "--config", str(resolved)], tmp_path)
     err = res.stdout + res.stderr
     assert "unknown step" not in err, err
     assert res.returncode == ExitCode.INTERNAL, err
@@ -118,7 +118,7 @@ def test_step_finds_every_registered_step(resolved: Path, tmp_path: Path) -> Non
 
 
 def test_step_unknown_name_is_still_exit_5(resolved: Path, tmp_path: Path) -> None:
-    res = _giap(["_step", "no_such_step", "--config", str(resolved)], tmp_path)
+    res = _gippa(["_step", "no_such_step", "--config", str(resolved)], tmp_path)
     err = res.stdout + res.stderr
     assert res.returncode == ExitCode.INTERNAL, err
     assert "unknown step 'no_such_step'" in err, err

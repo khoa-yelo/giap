@@ -77,7 +77,7 @@ _PATHS = st.sampled_from(
         W_FILE,
         W + "notes.txt",
         W_PROV,
-        "src/giap/function/ora.py",
+        "src/gippa/function/ora.py",
         "tests/data/golden/sim50k/m4/x.tsv",
     ]
 )

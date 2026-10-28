@@ -1,7 +1,7 @@
 # Operons: the within-operon distribution and the missed-operon decoy FDR
 
-Issue M6-01 (GIAP_SPEC.md §7.4.2–§7.4.4, §8.1–§8.3), modules `giap.stats.tdist` and
-`giap.stats.decoy_fdr`, with the lead decisions of `docs/specs/M6-01-lead-decisions.md`. The pair
+Issue M6-01 (GIPPA_SPEC.md §7.4.2–§7.4.4, §8.1–§8.3), modules `gippa.stats.tdist` and
+`gippa.stats.decoy_fdr`, with the lead decisions of `docs/specs/M6-01-lead-decisions.md`. The pair
 table is M6-04, the discordance tests M6-05, the missed-operon step M6-06 and the operon-level
 calibration gate M6-09. This note covers the engine and the discordance step (M6-05); the other step sections come
 later.
@@ -148,7 +148,7 @@ below.
 
 ## Discordance (M6-05, M6-05H)
 
-Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
+Module `gippa.operons.discordance` (GIPPA_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
 decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
 
 **Test.** The t of the previous section, with the abundance-dependent scale (M6-13;
@@ -167,7 +167,7 @@ log2, the fallback reason, the LR). The fit and the test use the same pairs, so 
 **Effect and CI.** `effect = Δ − μ̂` in log2 units: how far the pair sits from the typical
 within-operon ratio. No CI is reported for it (`ci_low`, `ci_high` NA): a single pair has no
 sampling replicate, and the t prediction interval is a statement about the null, not about the
-effect (M6-05 lead decision 2). The claim GIAP makes is "discordant at q ≤ 0.1", and that claim
+effect (M6-05 lead decision 2). The claim GIPPA makes is "discordant at q ≤ 0.1", and that claim
 carries its q.
 
 **One detected (M6-05H).** When the `operons` step has C11 peptide hits and M6-02's model in
@@ -294,7 +294,7 @@ the targets' distance mix. A bin with targets and no decoys contributes N_NO,b, 
 conservative value. π₀ is `operons.pi0` = 1 (π̂₀ estimation is pass-2 work, needs an ADR).
 
 **Which decoy set.** The FDR is computed with each set and the **element-wise maximum** is taken
-first, then made monotone with `giap.stats.tda.monotone_q` (q at a score = the smallest FDR over
+first, then made monotone with `gippa.stats.tda.monotone_q` (q at a score = the smallest FDR over
 thresholds loose enough to accept it), then clipped to [0, 1] (`max_decoy_fdr`). Maximising first
 gives q ≥ each set's own monotone q, so q is at least as conservative as the more conservative set
 at every threshold; the reverse order can report a q below one of the two decoy FDRs (lead
@@ -420,7 +420,7 @@ candidates and is the useful output of this family as specified.
 
 ## The missed-operon step (M6-06)
 
-`giap.operons.missed.missed_operons(pairs, cfg, *, genes=None)` applies the engine above to the
+`gippa.operons.missed.missed_operons(pairs, cfg, *, genes=None)` applies the engine above to the
 M6-04 pair table.
 
 - **Targets.** NO pairs whose two genes are eligible (not `partial`), both detected, with finite
@@ -539,10 +539,10 @@ Until that is decided, two things hold:
 
 ## Simulations (M6-03)
 
-The operon generators live in `tests/sim/giapsim/scenarios.py` (configs) and
-`tests/sim/giapsim/operons.py` (`simulate_operons(cfgs, seed)`: layout, expression truth, the §9.3
+The operon generators live in `tests/sim/gippasim/scenarios.py` (configs) and
+`tests/sim/gippasim/operons.py` (`simulate_operons(cfgs, seed)`: layout, expression truth, the §9.3
 pair table the simulator can know and the truth files `truth/pairs.tsv`, `missed_operons.tsv`,
-`discordant_pairs.tsv`, `operon_t.tsv`, declared in `giapsim.contract_tables.OPERON_TRUTH_TYPES`).
+`discordant_pairs.tsv`, `operon_t.tsv`, declared in `gippasim.contract_tables.OPERON_TRUTH_TYPES`).
 Common to all: half the TU boundaries flip strand (`p_same_strand = 0.5`, so CV, DV and SW decoys
 are frequent), no position decay, ~80 % of genes detected (`covariates_only`, intercept −7.3; the
 detection attack is the exception), and
@@ -615,9 +615,9 @@ anti-conservative direction, and below the gate's resolution.
 
 ## K-12 cut-off calibration (M6-12)
 
-Issue M6-12 (GIAP_SPEC.md §15.4 steps 3–5, §7.1.3, §7.1.5, §7.4.6), spec
+Issue M6-12 (GIPPA_SPEC.md §15.4 steps 3–5, §7.1.3, §7.1.5, §7.4.6), spec
 `docs/specs/M6-12-uniop-terminator-cutoffs.md` with its lead decisions of 2026-10-23. Module
-`giap.stats.cutoffs` holds the pure functions (`auroc`, `threshold_curve`, `choose_cutoff`,
+`gippa.stats.cutoffs` holds the pure functions (`auroc`, `threshold_curve`, `choose_cutoff`,
 `fit_distance_model`). `validation/calibrate_cutoffs.py` is the driver: it does the re-map,
 directons, windows, matching, the bootstrap and the writers. The truth is RegulonDB 14.5.0 on
 K-12 MG1655 (`U00096.3`, circular, 4,641,652 bp).
@@ -654,7 +654,7 @@ Why directons, and not pairs or TUs:
   dependence. The directon CI is therefore the right CI, but it is not a guaranteed upper bound
   on the variance.
 
-The resampler is `giap.stats.bootstrap.tu_block_bootstrap(df, tu_col="directon_id", stat_fn,
+The resampler is `gippa.stats.bootstrap.tu_block_bootstrap(df, tu_col="directon_id", stat_fn,
 B=2000, rng, level=0.95)`, without strata. Each replicate draws `n_directons` directons with
 replacement and keeps all their L rows. Replicates have variable size and a variable P/N mix.
 That is intended: the class mix is part of the sampling variability of a single genome's truth
@@ -924,7 +924,7 @@ gzip in a separate change. As the spec section 4 call is written, it fails with
 
 ### Bootstrap streams and reproducibility
 
-The run has one generator, `rng = giap.rng.for_step("m6_12_cutoffs", 20261014)` (the config
+The run has one generator, `rng = gippa.rng.for_step("m6_12_cutoffs", 20261014)` (the config
 default seed). Each `tu_block_bootstrap` call draws one (B, n_directons) block, B = 2,000. The
 draw order is fixed, and the tests pin it.
 
@@ -1149,11 +1149,11 @@ Lead defaults are in docs/specs/M6-09-calibration-gate.md.
   D-1b-step xfail.
   - The tests ran from the frozen worktree `local/worktrees/cal-m613`, clean at fd701591 (the
     pytest rootdir).
-  - The log does not print `giap.__file__`. The shared venv's editable giap points at main's
+  - The log does not print `gippa.__file__`. The shared venv's editable gippa points at main's
     `src`, which has no `fit_student_t_scaled`, so the passing σ tests must have imported a
     worktree's `src`. src/ is identical from 1abae97e to f9c06a4c.
   - The frozen xfail reason still reads "amendment pending". f9c06a4c changes only that string.
-  - Log: `local/logs/giap-cal-m613.1886733_6.out`. Records:
+  - Log: `local/logs/gippa-cal-m613.1886733_6.out`. Records:
     `local/logs/calibration/m6-13-fd701591-full/`.
 - M6-13 fast tier, `-m calibration -k calsuite_discordance`, at f9c06a4c: the session allocation
   at -n 2, 593 s, 27 passed and 1 xpassed.

@@ -1,8 +1,8 @@
-"""Gene model interface shared by M3 and M2-03 (issue M3-01; GIAP_SPEC.md §6.5, §7.1.2, d16).
+"""Gene model interface shared by M3 and M2-03 (issue M3-01; GIPPA_SPEC.md §6.5, §7.1.2, d16).
 
-``giap.model.genes`` defines ``Gene``, ``NcFeature`` and ``GeneModel`` and one minimal
-constructor, ``gene_model_from_bakta_json``, that reads the Bakta-like JSON of giapsim. Bakta JSON
-is 1-based closed; everything inside GIAP is 0-based half-open, origin-crossing features on
+``gippa.model.genes`` defines ``Gene``, ``NcFeature`` and ``GeneModel`` and one minimal
+constructor, ``gene_model_from_bakta_json``, that reads the Bakta-like JSON of gippasim. Bakta JSON
+is 1-based closed; everything inside GIPPA is 0-based half-open, origin-crossing features on
 circular replicons are stored unwrapped (``end > length``) and linear contigs never wrap.
 
 Ambiguities resolved here (spec silent):
@@ -24,8 +24,8 @@ from typing import Any, get_args
 
 import pytest
 
-from giap.model import Interval, Replicon, interval_sort_key
-from giap.model.genes import (
+from gippa.model import Interval, Replicon, interval_sort_key
+from gippa.model.genes import (
     Gene,
     GeneModel,
     GeneType,
@@ -235,10 +235,10 @@ def test_example7_rrna(tmp_path: Path) -> None:
     assert m.features == (NcFeature("r1", "rrna", Interval("chr1", 5000, 6542, "+")),)
 
 
-def test_example8_giapsim_bakta_like(tmp_path: Path) -> None:
-    import giapsim
+def test_example8_gippasim_bakta_like(tmp_path: Path) -> None:
+    import gippasim
 
-    res = giapsim.simulate(giapsim.SimConfig(genome_length=50_000), seed=1, outdir=tmp_path)
+    res = gippasim.simulate(gippasim.SimConfig(genome_length=50_000), seed=1, outdir=tmp_path)
     reps = {"chr1": Replicon("chr1", 50_000, "circular", "chromosome")}
     m = gene_model_from_bakta_json(res.bakta_json, reps)
     assert len(m.genes) == res.n_genes

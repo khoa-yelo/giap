@@ -17,7 +17,7 @@ lines, + baseline images) · not statistical · **Khoa checkpoint (§14.8 item 3
 
 1. **Frozen fixture** `tests/data/snapshot/sim_plots/`: an `OUT/` subset (only the files `RunView`
    reads; gzipped TSVs, the preflight JSON, the support files) produced by
-   `scripts/dev/make_snapshot_fixture.py` from a `giap run --executor local` on a giapsim
+   `scripts/dev/make_snapshot_fixture.py` from a `gippa run --executor local` on a gippasim
    configuration rich enough that every plot is non-empty (planted island, prophage and BGC with
    low detection, flagged operon pairs, ALT sites, novel ORFs, function and determinants tables at
    ≥ 100 model rows), plus a second, header-only fixture for empty states. Target < 2 MB; a test

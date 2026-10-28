@@ -1,7 +1,7 @@
 # M3-06: Tolerant matching, banded verification DP (numba)
 
 Milestone M3 · depends on: M3-02 (codes), M3-05 (operation tables) · creates
-`src/giap/mapping/tolerant_dp.py` · pure Python + numba · estimate ≈ 300 code lines
+`src/gippa/mapping/tolerant_dp.py` · pure Python + numba · estimate ≈ 300 code lines
 
 ## Spec sections implemented
 

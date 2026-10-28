@@ -1,5 +1,5 @@
-"""Coverage of the ``giap compare`` TU-block bootstrap CI for Spearman rho (M9-22 acceptance
-"Calibration"; suite ``compare``; GIAP_SPEC.md §7.9.3, §8.2, §8.3, §8.4; ADR-0042).
+"""Coverage of the ``gippa compare`` TU-block bootstrap CI for Spearman rho (M9-22 acceptance
+"Calibration"; suite ``compare``; GIPPA_SPEC.md §7.9.3, §8.2, §8.3, §8.4; ADR-0042).
 
 ADR-0042 (accepted by Khoa 2026-10-22, merged in #201) adds ``replicates_fast/full.compare`` =
 100 / 1000 to ``tolerances.yaml`` and states that this file **gates**; M9-22 lead decision 2
@@ -9,7 +9,7 @@ condition. C1 gates (anti-conservative side, two-block confirmation through
 ``local/logs/calibration/compare_coverage.jsonl``.
 
 World (one replicate, ``replicate_rng("compare.rho_ci.<arm>", i)``): ``N_TU`` = 120 TUs of 1-5
-genes (uniform sizes, as giapsim draws operon sizes; about 360 genes). A known common abundance
+genes (uniform sizes, as gippasim draws operon sizes; about 360 genes). A known common abundance
 ``mu = u_TU + v_gene`` (SD 1 and 0.5) is measured twice with independent TU-correlated noise:
 ``a = mu + e_TU^A + eps^A``, ``b = mu + e_TU^B + eps^B`` (TU noise SD 0.7, gene noise SD 0.3). Every
 gene is detected and measured, so all are shared. Marginally ``(a, b)`` is bivariate normal with
@@ -19,7 +19,7 @@ gene is detected and measured, so all are shared. Marginally ``(a, b)`` is bivar
 Claims:
 
 C1 (**gated**, suite ``compare``): the 95 % CI of ``abundance_pairs`` (``tus`` = the TUs of the
-   first run, B = 1000 resamples from ``giap.rng.for_step("compare", seed)``) misses ``rho_s`` in
+   first run, B = 1000 resamples from ``gippa.rng.for_step("compare", seed)``) misses ``rho_s`` in
    at most ``level_bound(0.05, R)`` of R replicates (R = ``replicates_fast/full.compare``).
    Over-coverage beyond the binomial band is recorded and warned, not failed.
 C2 (**recorded**): coverage, mean CI width and the mean bias of rho-hat.
@@ -42,7 +42,7 @@ import pandas as pd
 import pytest
 from helpers.compare_data import gene, genes_frame
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 SUITE = "compare"
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite(SUITE)]
@@ -77,7 +77,7 @@ def _world(rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def _replicate(rng: np.random.Generator, gene_level: bool) -> tuple[float, float, float]:
     """(covered 0/1 or NaN, CI width, rho-hat - rho_s) of one world."""
-    from giap.compare.abundance import abundance_pairs
+    from gippa.compare.abundance import abundance_pairs
 
     fa, fb = _world(rng)
     units = fa["locus_tag"] if gene_level else fa["tu_id"]

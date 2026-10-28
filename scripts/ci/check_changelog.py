@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require a changelog fragment when a PR changes code (GIAP_SPEC.md §14.2, M11-12).
+"""Require a changelog fragment when a PR changes code (GIPPA_SPEC.md §14.2, M11-12).
 
 ``check_changelog.py BASE``: a PR whose ``BASE...HEAD`` diff touches ``src/`` or ``workflow/``
 (``workflow/tests/`` excluded) must add a non-empty ``changelog.d/<PR>.<type>.md`` or

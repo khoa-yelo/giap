@@ -1,7 +1,7 @@
 # M3-07: Tolerant matching, q-gram seeds and the target/decoy search driver
 
 Milestone M3 · depends on: M3-02, M3-03, M3-04 (hit schema), M3-06 · creates
-`src/giap/mapping/qgram.py`, `src/giap/mapping/tolerant.py` · pure Python + numba ·
+`src/gippa/mapping/qgram.py`, `src/gippa/mapping/tolerant.py` · pure Python + numba ·
 estimate ≈ 380 code lines
 
 ## Spec sections implemented

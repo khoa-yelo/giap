@@ -33,11 +33,11 @@ the §8.4 level criterion for all three; KS is computed and **recorded** (decisi
 | centring (recorded, ADR-B) | `gsea_null` and a planted `gsea` power arm, centred vs raw scores | level of both; power difference recorded | 50 |
 
 **Amendment (M8-17b, ADR-0038; statistician, PR #214 N3).** The shipped GSEA engine is R fgsea
-(`RFgseaEngine`, `fgseaMultilevel` 1.36.2 in the `giap-fgsea` env), which GitHub CI cannot run.
+(`RFgseaEngine`, `fgseaMultilevel` 1.36.2 in the `gippa-fgsea` env), which GitHub CI cannot run.
 So the `gsea` gate, its fast tier and the pooled `gsea_null(4000)` arm with ≥ 100 sets, and
 attack 3 and its teeth, run on `RFgseaEngine` on Slurm only (markers `slow` and `requires_r`):
 in the weekly `gsea` task of the full-calibration array (`calsuite gsea`), which needs the
-`giap-fgsea` env built (`sbatch scripts/slurm/build_envs.sbatch fgsea`). The per-PR CI arms that
+`gippa-fgsea` env built (`sbatch scripts/slurm/build_envs.sbatch fgsea`). The per-PR CI arms that
 use the in-process `SIMPLE_ENGINE` (the superseded port) are a **smoke test only**; they carry no
 level claim for `enrichment_gsea.tsv`. The fast arm (R = 50) reuses replicates 0..49 of the full
 arm's stream, so it is a prefix of the full arm and not independent evidence. Existing R-engine
@@ -56,13 +56,13 @@ confirmation and sharding apply.
    `determinants` at 400 genes, B = 99, LightGBM `n_estimators = 50`, elastic net as configured,
    1 CV repeat for the observed value (decision 23 — model-size settings are generator settings,
    not tolerances, so R3 is untouched). **Full tier** (nightly Slurm array): §5.2 parameters,
-   B = 999, 5 repeats, 1,500 genes; tasks `ora`, `gsea`, `determinants`; sum running `giap-*` CPUs
+   B = 999, 5 repeats, 1,500 genes; tasks `ora`, `gsea`, `determinants`; sum running `gippa-*` CPUs
    before submitting (R14); `determinants` is sharded (`--shard K/N`) so ≤ 48 CPUs run at once.
 3. **Evidence** in PROGRESS.md: test names, the level per α with its bound, R, job IDs, the
    recorded arms, the recovery table.
 4. A failure is escalated with numbers and fixed by an ADR on the method — never by editing
    `tolerances.yaml` (R3). Named candidates: attack 2 fails → ADR "ORA null = Poisson-binomial of
-   Σ_C d given p_detect" (`giap.stats.poisson_binomial_sf`); `determinants` anti-conservative →
+   Σ_C d given p_detect" (`gippa.stats.poisson_binomial_sf`); `determinants` anti-conservative →
    ADR on the null (fresh folds per permutation, or repeats in the null).
 
 ## Examples (what a passing run looks like)
@@ -110,7 +110,7 @@ confirmation and sharding apply.
 3. **Q3 yes:** the teeth check (the unweighted attack-2 arm rejects in > 2 × α) is gated.
 4. **Attack 2 arms (statistician, #251):** gate `member_shift` −1.5 as the separation arm and add
    an overlap arm at −0.75 (unweighted teeth 0.95 at α 0.05; it must be a confirmed fail at
-   R ≥ 100). Both arms fit p_detect with GIAP's default `DetectabilityConfig()` on covariates
+   R ≥ 100). Both arms fit p_detect with GIPPA's default `DetectabilityConfig()` on covariates
    recomputed from the sequences by `covariate_table`, never on the `n_obs_true` column.
 5. **Expected conservatism:** the fitted arm is strongly conservative at −1.5 (plug-in variance,
    M8-04 treats q̂ as known; see function.md attack 2). The gate is a level gate only; the power
@@ -139,7 +139,7 @@ confirmation and sharding apply.
    - **No #193 xfails:** ADR-0038 sends GSEA level claims to RFgseaEngine, so nothing needs M8-11.
    - Next: the re-time, the baseline.json entries, then the PR and the statistician.
 9. **Statistician review (e405dcef): BLOCK on B1 and B2, both test-side; accepted.**
-   - **B1 (teeth arm):** the gated teeth arm is GIAP's own engine with the detectability weights
+   - **B1 (teeth arm):** the gated teeth arm is GIPPA's own engine with the detectability weights
      removed: one constant p_detect for every eligible gene (the eligible detection share), run
      through `detection_enrichment(..., folds=<the oracle's tu_folds>)`, `under` p. It must be a
      confirmed fail above 2α in each block at −1.5 and −0.75 (probe: 0.96 / 0.97 at −0.75, 1.00 at

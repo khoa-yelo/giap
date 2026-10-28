@@ -1,11 +1,11 @@
 // M9-17 follow-up: main.nf hands the analysis steps' plot support to the plots step and publishes
 // it under OUT/plots/support/ (docs/specs/M9-17-plot-support-analysis.md lead decisions 5-6;
-// GIAP_SPEC.md §6.2 row "plots", §6.4 executor equality, §9.1). Stub runs only; ci.yml runs:
+// GIPPA_SPEC.md §6.2 row "plots", §6.4 executor equality, §9.1). Stub runs only; ci.yml runs:
 // nf-test test workflow/tests --profile test,stub.
 //
 // Pinned here:
 //   * the plots task (tag "plots") stages one `plots_support` input per support step that ran
-//     (giap.steps.plots._SUPPORT_INPUTS), each from that step's task: function, determinants and
+//     (gippa.steps.plots._SUPPORT_INPUTS), each from that step's task: function, determinants and
 //     context_stats with modules core,function; determinants and context_stats with modules core
 //     (function off); none without peptides;
 //   * what each staged support input holds is published under OUT/plots/support/ by its file
@@ -60,7 +60,7 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.trace.failed().size() == 0
             def probs = H.registryProblems(work, REG)
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
 
             def pd = dirsTagged(work, 'plots')
             assert pd.size() == 1 : "plots ran ${pd.size()}x"

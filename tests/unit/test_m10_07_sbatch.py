@@ -2,16 +2,16 @@
 
 Binding: docs/specs/M10-07-free-entrapment.md, "Lead decisions after the code review (rev-1007)":
 
-* B2: the default output path (``$GIAP_ROOT/pilot/metrics``, with ``GIAP_ROOT`` defaulting to
-  ``$GIAP_REPO/local``) must be git-ignored (``git check-ignore``), and the default run must not
+* B2: the default output path (``$GIPPA_ROOT/pilot/metrics``, with ``GIPPA_ROOT`` defaulting to
+  ``$GIPPA_REPO/local``) must be git-ignored (``git check-ignore``), and the default run must not
   exit 2;
 * S5: ``OUT_A1`` defaults to the M10-04 A1 directory (M10-05's input table:
-  ``$GIAP_ROOT/runs/pilot/pass1/out_a1``); an explicitly set ``OUT_A1``, ``DIANN_CMD`` or
+  ``$GIPPA_ROOT/runs/pilot/pass1/out_a1``); an explicitly set ``OUT_A1``, ``DIANN_CMD`` or
   ``PROVENANCE`` that does not exist exits 2 before anything runs; the sbatch never skips the
   cross-checks silently (a skipped cross-check is logged).
 
 The script sources ``scripts/farmshare_env.sh``, which sets ``UV_PROJECT_ENVIRONMENT`` to
-``$GIAP_ROOT/venv``. The tests point ``GIAP_ROOT`` at a scratch directory and put a stub
+``$GIPPA_ROOT/venv``. The tests point ``GIPPA_ROOT`` at a scratch directory and put a stub
 ``venv/bin/python`` there: it records its argv (one token per line) and exits 0, or (B2) execs
 this interpreter so the real ``entrapment.py`` runs. ``#SBATCH`` lines are bash comments, so
 nothing is submitted to Slurm.
@@ -60,27 +60,27 @@ def _inputs(root: Path) -> dict[str, str]:
     }
 
 
-def _stub_python(giap_root: Path, *, real: bool) -> Path:
-    """``$GIAP_ROOT/venv/bin/python``: records argv to ``$GIAP_ROOT/argv.txt``; ``real`` execs
+def _stub_python(gippa_root: Path, *, real: bool) -> Path:
+    """``$GIPPA_ROOT/venv/bin/python``: records argv to ``$GIPPA_ROOT/argv.txt``; ``real`` execs
     this interpreter afterwards."""
-    py = giap_root / "venv" / "bin" / "python"
+    py = gippa_root / "venv" / "bin" / "python"
     py.parent.mkdir(parents=True, exist_ok=True)
     tail = f'exec "{sys.executable}" "$@"' if real else "exit 0"
     py.write_text(
-        f'#!/bin/bash\nprintf "%s\\n" "$@" > "{giap_root / "argv.txt"}"\n{tail}\n',
+        f'#!/bin/bash\nprintf "%s\\n" "$@" > "{gippa_root / "argv.txt"}"\n{tail}\n',
         encoding="utf-8",
     )
     py.chmod(0o755)
-    return giap_root / "argv.txt"
+    return gippa_root / "argv.txt"
 
 
-def _run(giap_root: Path, **env_over: str) -> subprocess.CompletedProcess[str]:
+def _run(gippa_root: Path, **env_over: str) -> subprocess.CompletedProcess[str]:
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in (*OPTIONAL_VARS, *INPUT_VARS, "METRICS_DIR", "GIAP_ROOT", "GIAP_REPO")
+        if k not in (*OPTIONAL_VARS, *INPUT_VARS, "METRICS_DIR", "GIPPA_ROOT", "GIPPA_REPO")
     }
-    env |= {"GIAP_REPO": str(REPO), "GIAP_ROOT": str(giap_root), **env_over}
+    env |= {"GIPPA_REPO": str(REPO), "GIPPA_ROOT": str(gippa_root), **env_over}
     return subprocess.run(
         ["bash", str(SBATCH)], capture_output=True, text=True, env=env, check=False, timeout=300
     )
@@ -100,7 +100,7 @@ def _show(res: Any) -> str:
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
-    return tmp_path / "giap_root"
+    return tmp_path / "gippa_root"
 
 
 def test_s5_out_a1_defaults_to_the_m10_04_a1_directory(root: Path, tmp_path: Path) -> None:
@@ -138,7 +138,7 @@ def test_s5_a_skipped_cross_check_is_logged(root: Path, tmp_path: Path) -> None:
 
 
 def test_b2_default_metrics_dir_inside_the_checkout_runs(tmp_path: Path) -> None:
-    """``GIAP_ROOT`` under the checkout's git-ignored ``local/`` (farmshare_env.sh's default
+    """``GIPPA_ROOT`` under the checkout's git-ignored ``local/`` (farmshare_env.sh's default
     layout) and ``METRICS_DIR`` left at its default: the real entrapment.py exits 0."""
     base = REPO / "local"
     made_base = not base.exists()

@@ -1,4 +1,4 @@
-"""Contract test: antiSMASH 8.0.4 JSON parser on recorded runs (M2-18; GIAP_SPEC.md §7.1.1).
+"""Contract test: antiSMASH 8.0.4 JSON parser on recorded runs (M2-18; GIPPA_SPEC.md §7.1.1).
 
 Committed recordings (``tests/data/recorded/antismash/PROVENANCE.md``): trimmed ``bakta.json``
 (areas complete, CDS overlapping areas plus flanking CDS) of sim100k, K-12 MG1655 and Nissle 1917,
@@ -7,7 +7,7 @@ plus ``replicons.tsv``. Input was Bakta's GBFF, so core genes carry Bakta locus 
 * sim100k: no areas → ``[]``; K-12: 3 regions; Nissle: 6 regions (acceptance: ≥ 1 BGC).
 * core genes are the ``gene_kind == biosynthetic`` CDS only (``biosynthetic-additional`` excluded),
   including the fuzzy ``[3082708:>3082864](-)`` CDS area in Nissle region 3.
-* full recordings under ``$GIAP_ROOT/recordings/antismash/`` (skipped when missing): the full JSON
+* full recordings under ``$GIPPA_ROOT/recordings/antismash/`` (skipped when missing): the full JSON
   parses to exactly the result of the trimmed copy, and every core gene's locus tag is in the
   Bakta GBFF that antiSMASH read.
 """
@@ -21,11 +21,11 @@ from pathlib import Path
 
 import pytest
 
-from giap.model.coords import Interval, Replicon, check_interval
+from gippa.model.coords import Interval, Replicon, check_interval
 
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "antismash" / "8.0.4"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
-FULL = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings" / "antismash"
+FULL = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings" / "antismash"
 
 K12 = "U00096.3"
 K12_REGIONS = [
@@ -89,7 +89,7 @@ def _replicons(sample: str) -> dict[str, Replicon]:
 
 
 def _parse(sample: str, path: Path | None = None):  # type: ignore[no-untyped-def]
-    from giap.annotate.antismash import parse_antismash_json
+    from gippa.annotate.antismash import parse_antismash_json
 
     return parse_antismash_json(path or RECORDED / sample / "bakta.json", _replicons(sample))
 
@@ -105,7 +105,7 @@ def test_sim100k_has_no_regions() -> None:
 def test_regions(
     sample: str, contig: str, want: list[tuple[int, int, tuple[str, ...], tuple[str, ...]]]
 ) -> None:
-    from giap.annotate.antismash import BgcRegion
+    from gippa.annotate.antismash import BgcRegion
 
     got = _parse(sample)
     assert len(got) >= 1

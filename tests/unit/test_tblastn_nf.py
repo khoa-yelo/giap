@@ -47,7 +47,7 @@ def test_process_name_and_conda_env() -> None:
 
 
 def test_builder_flags_appear_in_script() -> None:
-    from giap.mapping.tblastn import OUTFMT, makeblastdb_cmd, tblastn_cmd
+    from gippa.mapping.tblastn import OUTFMT, makeblastdb_cmd, tblastn_cmd
 
     argv = makeblastdb_cmd(Path("g.fa"), Path("db/g")) + tblastn_cmd(
         Path("db/g"), Path("p.faa"), 2, ""

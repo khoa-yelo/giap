@@ -1,4 +1,4 @@
-"""M8-13 §1.2: GIAP's R fgsea call against the direct R fgsea run on the golden data (ADR-0038).
+"""M8-13 §1.2: GIPPA's R fgsea call against the direct R fgsea run on the golden data (ADR-0038).
 
 The reference is ``make_golden_r.R``'s one ``fgseaMultilevel`` over the golden stats in file
 order (``outputs/fgsea.tsv.gz``, 119 rows: SET_027 drops below minSize). ``gsea_table`` runs on
@@ -23,8 +23,8 @@ The golden GSEA scores are median-exact (M8-12b, Slurm job 1879857), so every ch
 - **G3a exact wiring (slow + requires_r, A3/example 6):** the live engine behind
   :class:`NormalisingEngine` (seed -> GOLDEN_SEED, tie blocks -> file order): R's
   ``results.tsv`` equals ``fgsea.tsv.gz`` as strings, row for row, and G2's table rules hold.
-- **G3b GIAP's own run (slow + requires_r, A4/examples 7-8):** gated on the deterministic rules
-  (live ES = oracle on GIAP's order, tie-insensitive ES and leading edges = golden, no one-sided
+- **G3b GIPPA's own run (slow + requires_r, A4/examples 7-8):** gated on the deterministic rules
+  (live ES = oracle on GIPPA's order, tie-insensitive ES and leading edges = golden, no one-sided
   NA pval/NES); |ΔNES| and the p rule are recorded in the ``gsea_live`` report section.
 """
 
@@ -68,7 +68,7 @@ RESULT_COLUMNS = ("pathway", "pval", "log2err", "ES", "NES", "size", "leadingEdg
 
 
 def _natural(tus: list[str]) -> list[str]:
-    from giap.function.gsea import _natural_key
+    from gippa.function.gsea import _natural_key
 
     return sorted(tus, key=_natural_key)
 
@@ -113,7 +113,7 @@ def test_g1_params(call) -> None:
 
 
 def test_g1_seed_is_the_second_draw(world, call) -> None:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = for_step("function.gsea", golden_seed())
     rng.permutation(len(world.stats))
@@ -123,7 +123,7 @@ def test_g1_seed_is_the_second_draw(world, call) -> None:
 
 
 def test_g1_tie_blocks_follow_the_seeded_permutation(world, call) -> None:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     natural = _natural(list(world.stats))
     perm = for_step("function.gsea", golden_seed()).permutation(len(natural))
@@ -155,7 +155,7 @@ def test_g1_sorted_scores_equal_the_golden_sorted_scores(world, call) -> None:
 
 def _skip_median(monkeypatch: pytest.MonkeyPatch) -> None:
     """Example 9's fault: ``tu_ranking`` returns the TU means without subtracting the median."""
-    import giap.function.gsea as gsea
+    import gippa.function.gsea as gsea
 
     real = gsea.tu_ranking
 
@@ -191,7 +191,7 @@ def test_example9_uncentred_scores_fail_g1(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_g1_write_call_round_trips_the_scores(call) -> None:
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     with tempfile.TemporaryDirectory() as d:
         write_call(call, Path(d))
@@ -227,7 +227,7 @@ def _leading_edges_in_fgsea_order(df) -> None:
 
 
 def _q_is_bh_of_golden_p(df) -> None:
-    from giap.stats.multitest import bh
+    from gippa.stats.multitest import bh
 
     gold = golden_fgsea()
     want = bh(np.array([num(gold[t]["pval"]) for t in df["term"]], dtype=np.float64))
@@ -268,7 +268,7 @@ def test_g2_written_table_validates(tmp_path: Path) -> None:
     """The schema's ``collection`` is an enum, so this table uses ``kegg`` (not ``golden``)."""
     from helpers.fgsea_switch_data import validate_gsea
 
-    from giap.io.function_tables import write_enrichment_gsea_tsv
+    from gippa.io.function_tables import write_enrichment_gsea_tsv
 
     df = run_gsea(golden_world("kegg"), GoldenReplayEngine(), golden_seed())
     assert len(df) == N_TESTED
@@ -328,7 +328,7 @@ def test_log10p_rule_bounds() -> None:
 def _oracles(
     world, call
 ) -> dict[str, tuple[tuple[float, frozenset[str]], tuple[float, frozenset[str]]]]:
-    """Per sent set: (oracle on GIAP's sent order, oracle on golden file order)."""
+    """Per sent set: (oracle on GIPPA's sent order, oracle on golden file order)."""
     tus, scores = list(world.stats), list(world.stats.values())
     return {
         term: (oracle_es(call.tu_ids, call.scores, members), oracle_es(tus, scores, members))
@@ -337,7 +337,7 @@ def _oracles(
 
 
 def _tie_insensitive(oracles) -> set[str]:
-    """Sets whose oracle ES agrees under GIAP's and golden order at fgsea_es_abs_tol (§1.2)."""
+    """Sets whose oracle ES agrees under GIPPA's and golden order at fgsea_es_abs_tol (§1.2)."""
     tol = golden_r_tol()["fgsea_es_abs_tol"]
     return {t for t, ((es, _), (es_g, _)) in oracles.items() if abs(es - es_g) <= tol}
 
@@ -351,7 +351,7 @@ def _edge_tie_insensitive(oracles) -> set[str]:
 
 
 def test_a5_gsea_vacuity_floor(world, call) -> None:
-    """A5: >= 5 golden sets with p_R < 1e-10 and >= 1 of them tie-insensitive under GIAP's
+    """A5: >= 5 golden sets with p_R < 1e-10 and >= 1 of them tie-insensitive under GIPPA's
     order (computable without R: the oracle on the captured call)."""
     gold = golden_fgsea()
     deep = {t for t, g in gold.items() if num(g["pval"]) < 1e-10}
@@ -400,21 +400,21 @@ def test_gsea_wiring_report_records_g1_and_g2(world, call, replayed) -> None:
 
 PREFIX = real_prefix()
 NO_R = (
-    "the giap-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
+    "the gippa-fgsea env is not built (sbatch scripts/slurm/build_envs.sbatch fgsea); "
     "run on Slurm with scripts/slurm/test_branch.sbatch -m requires_r"
 )
 
 
 def _live(tmp_path: Path):
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    return r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    return r_fgsea_engine(resolve_launcher({"GIPPA_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
 
 
 def _capture_results(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """The raw ``results.tsv`` text of every live call, before the wrapper parses and deletes
     it (G3a compares strings)."""
-    import giap.io.fgsea_r as fr
+    import gippa.io.fgsea_r as fr
 
     texts: list[str] = []
     real = fr.read_results
@@ -537,7 +537,7 @@ def test_example9_uncentred_scores_fail_the_g3b_floor(monkeypatch: pytest.Monkey
 
 
 def test_g3b_floor_holds_on_the_golden_call(world, call) -> None:
-    """Control: on GIAP's real call (its own seed and tie order) the floor holds."""
+    """Control: on GIPPA's real call (its own seed and tie order) the floor holds."""
     oracles = _oracles(world, call)
     assert _g3b_floor_failures(_tie_insensitive(oracles), _edge_tie_insensitive(oracles)) == []
 
@@ -633,8 +633,8 @@ def _g3b(world, call, df) -> tuple[list[str], dict[str, object]]:
 @pytest.mark.slow
 @pytest.mark.requires_r
 @pytest.mark.skipif(PREFIX is None, reason=NO_R)
-def test_g3b_giap_own_run(world, tmp_path: Path) -> None:
-    """Examples 7-8, GIAP's own seed and tie order. Gated: the floor (>= ceil(119/2) tie- and
+def test_g3b_gippa_own_run(world, tmp_path: Path) -> None:
+    """Examples 7-8, GIPPA's own seed and tie order. Gated: the floor (>= ceil(119/2) tie- and
     edge-tie-insensitive sets, >= 1 tie-insensitive set with golden p < 1e-10); live ES equals
     the oracle on the sent ranking (all 119 sets) and its leading edge as a set; on
     tie-insensitive sets live ES equals golden at fgsea_es_abs_tol; on edge-tie-insensitive sets

@@ -1,4 +1,4 @@
-"""Exit codes of the console entry point ``giap.cli.main`` (GIAP_SPEC.md §5.1).
+"""Exit codes of the console entry point ``gippa.cli.main`` (GIPPA_SPEC.md §5.1).
 
 §5.1 reserves exit code 2 for environment errors, so click usage errors (missing file, unknown
 option, bad choice) must surface as 1 (INVALID_INPUT) through ``main``. Every subcommand also
@@ -11,14 +11,14 @@ from pathlib import Path
 
 import pytest
 
-import giap
-from giap.exitcodes import ExitCode
+import gippa
+from gippa.exitcodes import ExitCode
 
 SUBCOMMANDS = ["setup", "preflight", "run", "makedb", "convert", "compare", "report"]
 
 
 def _exit_code(argv: list[str]) -> int:
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as info:
         main(argv)
@@ -79,7 +79,7 @@ def test_version_option_on_every_subcommand(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert _exit_code([command, "--version"]) == 0
-    assert giap.__version__ in capsys.readouterr().out
+    assert gippa.__version__ in capsys.readouterr().out
 
 
 def test_modules_with_spaces_reach_the_runner(
@@ -106,7 +106,7 @@ def test_preflight_is_not_a_stub(
 ) -> None:
     """M1-12: preflight runs its rules; warnings alone exit 0, ``--strict`` turns them into 3."""
     (tmp_path / "db_empty").mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(tmp_path / "db_empty"))
     prot = tmp_path / "p.faa"
     prot.write_text(">P1\nMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA\n")
     argv = ["preflight", "--genome", str(genome), "--proteins", str(prot)]

@@ -7,7 +7,7 @@ estimate ≈ 90 code lines + ≈ 60 test lines + ≈ 80 prose lines · not `stat
 
 ## Spec sections implemented
 
-- Backlog (Khoa, 2026-10-24): "running GIAP on macOS is untested. The Python package passes on
+- Backlog (Khoa, 2026-10-24): "running GIPPA on macOS is untested. The Python package passes on
   macOS CI; the full pipeline would need `-profile docker`, which spec §3 keeps but doesn't test.
   Candidate for M11: a Docker-profile test run, and documenting the platforms."
 - §3 container row: "The `docker` profile is kept for users elsewhere but is not tested here"
@@ -19,7 +19,7 @@ estimate ≈ 90 code lines + ≈ 60 test lines + ≈ 80 prose lines · not `stat
 1. **`docs/user-guide/platforms.md`** (in the nav under User guide): a support matrix, each cell one of
    `tested` (with where: CI job or FarmShare suite), `smoke-tested`, `untested`:
 
-   | Platform | Python package (`giap preflight`, `convert`, `report`, `compare`) | Full pipeline |
+   | Platform | Python package (`gippa preflight`, `convert`, `report`, `compare`) | Full pipeline |
    |---|---|---|
    | Linux x86-64 + Apptainer (FarmShare) | tested (CI ubuntu; nightly) | tested (`-profile farmshare,apptainer`; nightly, weekly) |
    | Linux x86-64 + conda | tested (CI) | tested for the conda-only tools (nightly) |
@@ -42,7 +42,7 @@ estimate ≈ 90 code lines + ≈ 60 test lines + ≈ 80 prose lines · not `stat
 | # | Input | Expected |
 |---|---|---|
 | 1 | PR touching `workflow/conf/containers.config` | `docker-smoke` runs; pulls by digest; both processes succeed; ≤ 10 min |
-| 2 | PR touching only `src/giap/stats/` | `docker-smoke` skipped (paths filter) |
+| 2 | PR touching only `src/gippa/stats/` | `docker-smoke` skipped (paths filter) |
 | 3 | a digest in `containers.config` replaced by a non-existent one (test fixture branch) | the job fails at pull with the image name in the log |
 | 4 | `docs/user-guide/platforms.md` | every `tested` cell names a CI job or a Slurm script that exists (test) |
 

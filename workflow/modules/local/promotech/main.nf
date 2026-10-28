@@ -1,4 +1,4 @@
-// Promotech RF-HOT on one chunk of 40-nt windows (GIAP_SPEC.md §7.1.1, §7.1.4; M2-13).
+// Promotech RF-HOT on one chunk of 40-nt windows (GIPPA_SPEC.md §7.1.1, §7.1.4; M2-13).
 process PROMOTECH {
     tag "${meta_id}"
     label 'process_medium'
@@ -6,7 +6,7 @@ process PROMOTECH {
 
     input:
     tuple val(meta_id), path(chunk)   // meta_id = promotech_NNN for windows_NNN.fa
-    val(db_dir)                       // RF-HOT.model lives in db_dir/promotech (giap setup)
+    val(db_dir)                       // RF-HOT.model lives in db_dir/promotech (gippa setup)
 
     output:
     path "${meta_id}", emit: dir
@@ -23,7 +23,7 @@ process PROMOTECH {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        promotech: \$(cat \$PROMOTECH_HOME/GIAP_COMMIT)
+        promotech: \$(cat \$PROMOTECH_HOME/GIPPA_COMMIT)
     END_VERSIONS
     """
 

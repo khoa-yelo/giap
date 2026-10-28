@@ -1,4 +1,4 @@
-"""Hypothesis round trip for GFF3 write -> read (issue M1-05; GIAP_SPEC.md §6.5, §9.5)."""
+"""Hypothesis round trip for GFF3 write -> read (issue M1-05; GIPPA_SPEC.md §6.5, §9.5)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.gff3 import GffFeature, read_gff3, write_gff3
-from giap.model import Interval, Replicon, interval_sort_key
+from gippa.io.gff3 import GffFeature, read_gff3, write_gff3
+from gippa.model import Interval, Replicon, interval_sort_key
 
 FAST = settings(max_examples=150, deadline=None)
 
@@ -47,7 +47,7 @@ def feature(draw: st.DrawFn, reps: list[Replicon], n: int) -> GffFeature:
     phase_st = st.integers(0, 2) if ftype == "CDS" else st.one_of(st.none(), st.integers(0, 2))
     return GffFeature(
         Interval(rep.id, start, end, draw(st.sampled_from(["+", "-", "."]))),
-        draw(st.sampled_from(["giap", "Prodigal", "Bakta"])),
+        draw(st.sampled_from(["gippa", "Prodigal", "Bakta"])),
         ftype,
         score=draw(SCORE),
         phase=draw(phase_st),

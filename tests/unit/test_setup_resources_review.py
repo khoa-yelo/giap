@@ -1,7 +1,7 @@
 """M2-09 lead decisions after code review (PR #67): items 1, 4, 5 and 6.
 
-docs/specs/M2-09-giap-setup-resources.md, "Lead decisions after code review". Every test runs
-under ``setup_guard``: no network, no tool, no real $GIAP_DB_DIR.
+docs/specs/M2-09-gippa-setup-resources.md, "Lead decisions after code review". Every test runs
+under ``setup_guard``: no network, no tool, no real $GIPPA_DB_DIR.
 
 Ambiguities resolved here:
 - (1) ``--check`` with antiSMASH: the item passes when ``db_manifest.json`` holds an ``ok`` record
@@ -9,9 +9,9 @@ Ambiguities resolved here:
   Without such a record (and without an installed directory) ``--check`` still fails: it verifies
   what setup recorded. ``--check`` never downloads.
 - (4) The cap on a body without Content-Length (close-delimited or chunked) is
-  ``item.size_gib * giap.setupdb.run.GIB`` bytes, or ``1 * GIB`` when ``size_gib`` is 0; a direct
+  ``item.size_gib * gippa.setupdb.run.GIB`` bytes, or ``1 * GIB`` when ``size_gib`` is 0; a direct
   ``HttpsFetcher().fetch(url, dest)`` for a URL that is no item uses 1 GiB. Tests shrink
-  ``giap.setupdb.run.GIB`` so the cap is a few kB. Exceeding it is a ``SourceError`` naming the
+  ``gippa.setupdb.run.GIB`` so the cap is a few kB. Exceeding it is a ``SourceError`` naming the
   host, and the partial file is removed (install leaves the item ``absent``).
 - (5) An unsafe ``path`` in ``db_sources.yaml`` makes ``_load_sources`` raise ``ValueError`` that
   names the offending path.
@@ -50,35 +50,35 @@ class _Usage(NamedTuple):
 
 @pytest.fixture(autouse=True)
 def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Plenty of disk, inside Slurm, every GIAP root (and $GIAP_DB_DIR) in ``tmp_path``."""
+    """Plenty of disk, inside Slurm, every GIPPA root (and $GIPPA_DB_DIR) in ``tmp_path``."""
     free = 10_000 * REAL_GIB
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: _Usage(free, 0, free))
     monkeypatch.setenv("SLURM_JOB_ID", "123")
-    roots = {"GIAP_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
-             "NXF_APPTAINER_CACHEDIR": "cache", "GIAP_DB_DIR": "not-the-real-db"}  # fmt: skip
+    roots = {"GIPPA_ROOT": "root", "MAMBA_ROOT_PREFIX": "mamba",
+             "NXF_APPTAINER_CACHEDIR": "cache", "GIPPA_DB_DIR": "not-the-real-db"}  # fmt: skip
     for var, sub in roots.items():
         monkeypatch.setenv(var, str(tmp_path / "_env" / sub))
-    monkeypatch.setenv("GIAP_REPO", str(REPO))
+    monkeypatch.setenv("GIPPA_REPO", str(REPO))
 
 
 def sources() -> Any:
-    from giap.setupdb import SOURCES
+    from gippa.setupdb import SOURCES
 
     return SOURCES
 
 
 def repin(monkeypatch: pytest.MonkeyPatch, name: str, **fields: Any) -> Any:
-    """Replace ``SOURCES[name]`` in every ``giap.setupdb`` module that holds it."""
+    """Replace ``SOURCES[name]`` in every ``gippa.setupdb`` module that holds it."""
     item = dataclasses.replace(sources()[name], **fields)
     patched = {**sources(), name: item}
     for mod_name, mod in list(sys.modules.items()):
-        if mod_name.startswith("giap.setupdb") and hasattr(mod, "SOURCES"):
+        if mod_name.startswith("gippa.setupdb") and hasattr(mod, "SOURCES"):
             monkeypatch.setattr(mod, "SOURCES", patched)
     return item
 
 
 def opts(db: Path, **kw: Any) -> Any:
-    from giap.setupdb import SetupOptions
+    from gippa.setupdb import SetupOptions
 
     base: dict[str, Any] = {"db_dir": db, "bakta": "skip", "genomad": False, "antismash": False,
                             "promotech_models": False, "check": False}  # fmt: skip
@@ -86,7 +86,7 @@ def opts(db: Path, **kw: Any) -> Any:
 
 
 def setup(db: Path, fetcher: Any = None, runner: Any = None, **kw: Any) -> int:
-    from giap.setupdb import run_setup
+    from gippa.setupdb import run_setup
 
     return int(run_setup(opts(db, **kw), runner or NoRunner(), fetcher or NoFetcher()))
 
@@ -107,12 +107,12 @@ class PrereqRunner:
         self.calls: list[list[str]] = []
 
     def run(self, tool: str, argv: Sequence[str]) -> int:
-        from giap.setupdb import ToolUnavailable
+        from gippa.setupdb import ToolUnavailable
 
         self.calls.append(list(argv))
         assert tool == "antismash", tool
         if self.unavailable:
-            raise ToolUnavailable("no giap-antismash environment and no pinned antismash image")
+            raise ToolUnavailable("no gippa-antismash environment and no pinned antismash image")
         if "--check-prereqs" in argv:
             return self.prereqs
         raise AssertionError(f"no download expected: {list(argv)}")
@@ -123,7 +123,7 @@ class PrereqRunner:
 
 def install_from_image(db: Path) -> None:
     assert setup(db, runner=PrereqRunner(0), antismash=True) == 0
-    from giap.setupdb import read_records
+    from gippa.setupdb import read_records
 
     rec = read_records(db)["antismash"]
     assert (rec.status, rec.url) == ("ok", "image"), rec
@@ -166,7 +166,7 @@ def test_check_image_does_not_rewrite_or_download(tmp_path: Path) -> None:
 def test_rerun_after_image_install_stays_image(tmp_path: Path) -> None:
     install_from_image(tmp_path)
     assert setup(tmp_path, runner=PrereqRunner(0), antismash=True) == 0
-    from giap.setupdb import read_records
+    from gippa.setupdb import read_records
 
     assert read_records(tmp_path)["antismash"].url == "image"
 
@@ -232,7 +232,7 @@ class NoLengthNet:
 def nolength(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[NoLengthNet]:
-    import giap.setupdb.run as run_mod
+    import gippa.setupdb.run as run_mod
 
     request.getfixturevalue("real_https_fetch")
     fake = NoLengthNet(request.param)
@@ -249,7 +249,7 @@ def ko_body(lines: int) -> bytes:
 def test_unbounded_body_over_one_gib_default_is_a_source_error(
     nolength: NoLengthNet, tmp_path: Path
 ) -> None:
-    from giap.setupdb import HttpsFetcher, SourceError
+    from gippa.setupdb import HttpsFetcher, SourceError
 
     nolength.routes[("example.org", "/big")] = b"x" * (3 * SMALL_GIB)
     dest = tmp_path / "f"
@@ -262,7 +262,7 @@ def test_unbounded_body_over_one_gib_default_is_a_source_error(
 def test_body_without_length_under_the_cap_is_accepted(
     nolength: NoLengthNet, tmp_path: Path
 ) -> None:
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     body = ko_body(50)  # 1200 bytes < 1 "GiB" (4096)
     nolength.routes[("rest.kegg.jp", KO_PATH)] = body
@@ -273,7 +273,7 @@ def test_body_without_length_under_the_cap_is_accepted(
 def test_install_stops_at_default_cap_when_size_gib_unset(
     nolength: NoLengthNet, tmp_path: Path
 ) -> None:
-    from giap.setupdb import HttpsFetcher, install
+    from gippa.setupdb import HttpsFetcher, install
 
     item = sources()["kegg_ko_pathway"]
     assert item.size_gib == 0
@@ -286,7 +286,7 @@ def test_install_stops_at_default_cap_when_size_gib_unset(
 def test_install_cap_follows_item_size_gib(
     nolength: NoLengthNet, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.setupdb import HttpsFetcher, install
+    from gippa.setupdb import HttpsFetcher, install
 
     body = ko_body(300)  # 7200 bytes
     nolength.routes[("rest.kegg.jp", KO_PATH)] = body
@@ -304,7 +304,7 @@ def test_install_cap_follows_item_size_gib(
 
 
 def test_run_setup_with_unbounded_kegg_body_exits_2(nolength: NoLengthNet, tmp_path: Path) -> None:
-    from giap.setupdb import HttpsFetcher
+    from gippa.setupdb import HttpsFetcher
 
     nolength.routes[("rest.kegg.jp", KO_PATH)] = ko_body(300)
     nolength.routes[("rest.kegg.jp", "/list/pathway")] = b"map00010\tGlycolysis\n"
@@ -338,7 +338,7 @@ def _yaml(path: str) -> str:
     "path", ["../outside", "/etc/passwd", "go/../../escape", "a/../../b", "..", ""]
 )
 def test_load_sources_rejects_unsafe_path(path: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    import giap.setupdb.items as items_mod
+    import gippa.setupdb.items as items_mod
 
     monkeypatch.setattr(items_mod, "files", lambda _pkg: _FakeRes(_yaml(path)))
     with pytest.raises(ValueError) as exc:
@@ -349,7 +349,7 @@ def test_load_sources_rejects_unsafe_path(path: str, monkeypatch: pytest.MonkeyP
 
 @pytest.mark.parametrize("path", ["go/go-basic.obo", "bakta/db-light", "a/b/c.tsv"])
 def test_load_sources_accepts_safe_path(path: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    import giap.setupdb.items as items_mod
+    import gippa.setupdb.items as items_mod
 
     monkeypatch.setattr(items_mod, "files", lambda _pkg: _FakeRes(_yaml(path)))
     assert items_mod._load_sources()["bad_item"].path == path
@@ -380,7 +380,7 @@ def _mode(p: Path) -> int:
 
 
 def test_write_manifest_is_0644(tmp_path: Path, umask: int) -> None:
-    from giap.setupdb import DbRecord, write_manifest
+    from gippa.setupdb import DbRecord, write_manifest
 
     rec = DbRecord("x", "1", "https://example.org/x", "", 0, "", "x", "absent", "")
     write_manifest(tmp_path, [rec])

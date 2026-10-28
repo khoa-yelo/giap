@@ -8,7 +8,7 @@
 The per-commit fast suite took 1,956 s on 16 CPUs (Slurm job 1879345, barley-01, no coverage). One
 test, `tests/calibration/test_gene_fdr_real_mapping.py::test_gene_fdr_one_replicate_through_real_mapping`,
 took 1,532 s and was the suite's critical path. Profiling (cProfile; py-spy and scalene are not
-installed in the shared venv) showed that `giap run --executor local` spent most of its time in
+installed in the shared venv) showed that `gippa run --executor local` spent most of its time in
 the `determinants` step: on the 500-kb replicate, `cross_validate` 682 s, `null_p` (1,000
 permutations) about 1,000 s, `univariate` 44 s. On sim50, determinants took 60 s of an 84 s run.
 

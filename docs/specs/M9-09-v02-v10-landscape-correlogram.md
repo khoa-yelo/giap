@@ -14,7 +14,7 @@ the display analogue of the islands detrend
   "2.5–97.5 % envelopes for V10"), §7.3.5(d) (islands, `detrend_span_frac`), ADR-0020 (raw `value`,
   `effect` = statistic − null mean, `ci_unestimated`, the envelope `null_lo`/`null_hi` "is reported
   for the V10 figure"; residual join count), ADR-0021 Amendment 1 (no `uncalibrated` flag), M5-01
-  (`giap.stats.smooth.loess_detrend`).
+  (`gippa.stats.smooth.loess_detrend`).
 
 ## V2 (one panel row per replicon with ≥ 1 gene; double width)
 
@@ -95,7 +95,7 @@ first contig in FASTA order with a finite row; else "Autocorrelation not estimab
 - [ ] `tests/unit/viz/test_v02_landscape.py`: examples 1–3; origin-crossing island; imputed values
   never drawn; trend equals the engine's fit to 1e-12.
 - [ ] `tests/unit/viz/test_v10_correlogram.py`: examples 4–6; envelopes come from the table only
-  (no null recomputed: the test patches `giap.stats.autocorr` to raise if called).
+  (no null recomputed: the test patches `gippa.stats.autocorr` to raise if called).
 - [ ] Statistician note in the PR: the V2 trend is gene-level on measured detected genes; the
   islands detrend is on TU scores; the plot states "trend (LOESS, span `<frac>`)" in the legend and
   makes no claim from it.

@@ -1,6 +1,6 @@
 # Plots and report
 
-GIAP 1.0 builds 16 plots: V1–V3, V5–V8 and V10–V18. Each plot is written to `plots/` as
+GIPPA 1.0 builds 16 plots: V1–V3, V5–V8 and V10–V18. Each plot is written to `plots/` as
 `Vnn_<name>.svg`, `.png` and `.pdf`. The exact data drawn is in `plots/data/Vnn_<name>.tsv`, with
 coordinates 1-based closed. Plot titles state the finding, and they are generated from the tables.
 The palettes are colourblind-safe, and a category keeps one colour across all plots.
@@ -49,8 +49,8 @@ Notes on particular plots:
   histogram does not certify a method that ships flagged uncalibrated (see
   [Interpreting results](interpreting-results.md#methods-shipped-flagged-uncalibrated)).
 - **V14** belongs to the `function` module, so it is skipped when that module is off.
-- **V16** is written only by `giap compare` (see [Comparing runs](compare.md)). Every other plot
-  is written by `giap run` and `giap report`.
+- **V16** is written only by `gippa compare` (see [Comparing runs](compare.md)). Every other plot
+  is written by `gippa run` and `gippa report`.
 
 A plot whose input is missing is skipped with a reason. The reasons are `input_absent:<table>`,
 `module_off:<module>` and `layer_missing:<layer>`. When there is nothing to draw, the plot shows an
@@ -60,7 +60,7 @@ Some plots need more data than the plot TSV holds. These extra tables are in `pl
 `replicon_landmarks.tsv`, `gc_skew.tsv`, `variant_windows.tsv`, `gsea_running.tsv`,
 `determinants_shap.tsv`, `determinants_pd.tsv`, `null_regions.tsv`, `null_regions_grid.tsv`,
 `null_islands.tsv` and `null_determinants.tsv`. Their schemas are in
-`src/giap/schemas/plot_support/`, and all but `null_regions_grid.tsv` are described in the
+`src/gippa/schemas/plot_support/`, and all but `null_regions_grid.tsv` are described in the
 [table reference](../reference/tables.md).
 
 Formats and resolution come from `report.formats` (default `svg`, `png`, `pdf`) and `report.dpi`
@@ -96,19 +96,19 @@ V17 and V18. The others are static SVG.
 
 ## Rebuilding plots and the report
 
-`giap report` rebuilds `plots/` and `report/` from the tables of an existing run, without
+`gippa report` rebuilds `plots/` and `report/` from the tables of an existing run, without
 recomputing any statistics. Every option is listed in the
-[CLI reference](../reference/cli.md#giap-report).
+[CLI reference](../reference/cli.md#gippa-report).
 
 ```bash
-giap report out                       # all plots and the report
-giap report out --plots V02,V07       # only these plots, then the report
-giap report out --no-interactive      # a static report (no Plotly)
-giap report out --strict              # exit 3 if the report exceeds its size budget
+gippa report out                       # all plots and the report
+gippa report out --plots V02,V07       # only these plots, then the report
+gippa report out --no-interactive      # a static report (no Plotly)
+gippa report out --strict              # exit 3 if the report exceeds its size budget
 ```
 
-By default, `giap report` reads the run's own `resolved_config.yaml`, so thresholds, formats and
+By default, `gippa report` reads the run's own `resolved_config.yaml`, so thresholds, formats and
 dpi match the run. `--config` or `--set` override them, for example
-`--set report.formats=[svg]`. Running `giap report` twice gives identical `plots/data/*.tsv`.
+`--set report.formats=[svg]`. Running `gippa report` twice gives identical `plots/data/*.tsv`.
 
 The report's size budget is 25 MB. Beyond it, `--strict` exits with code 3.

@@ -22,34 +22,34 @@ from hypothesis import strategies as st
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "release" / "check_dist.py"
-_V = re.search(r'__version__\s*=\s*"([^"]+)"', (REPO / "src/giap/__init__.py").read_text())
+_V = re.search(r'__version__\s*=\s*"([^"]+)"', (REPO / "src/gippa/__init__.py").read_text())
 assert _V is not None
-V = _V.group(1)  # giap.__version__ of the checkout (the default --version)
+V = _V.group(1)  # gippa.__version__ of the checkout (the default --version)
 MB = 1024 * 1024
 
 ENVS = sorted(p.name for p in (REPO / "workflow/envs").glob("*.yml"))
 CONFS = sorted(p.name for p in (REPO / "workflow/conf").glob("*.config"))
 
 WHEEL_REQUIRED = [
-    "giap/__init__.py",
-    "giap/cli.py",
-    "giap/py.typed",
-    "giap/config/defaults.yaml",
-    "giap/schemas/datapackage.json",
-    "giap/data/calibration.yaml",
-    "giap/data/db_sources.yaml",
-    "giap/workflow/main.nf",
-    "giap/workflow/nextflow.config",
-    *(f"giap/workflow/envs/{n}" for n in ENVS),
-    *(f"giap/workflow/conf/{n}" for n in CONFS),
+    "gippa/__init__.py",
+    "gippa/cli.py",
+    "gippa/py.typed",
+    "gippa/config/defaults.yaml",
+    "gippa/schemas/datapackage.json",
+    "gippa/data/calibration.yaml",
+    "gippa/data/db_sources.yaml",
+    "gippa/workflow/main.nf",
+    "gippa/workflow/nextflow.config",
+    *(f"gippa/workflow/envs/{n}" for n in ENVS),
+    *(f"gippa/workflow/conf/{n}" for n in CONFS),
 ]
 # allowed look-alikes: modules/local/ is not top-level local/; the two uniop/ dirs are exempt
 WHEEL_EXTRA = [
-    "giap/workflow/modules/local/bakta/main.nf",
-    "giap/workflow/modules/local/uniop/main.nf",
-    "giap/workflow/containers/uniop/Dockerfile",
-    "giap/workflow/bin/giap_fgsea.R",
-    "giap/workflow/assets/ps/ps",
+    "gippa/workflow/modules/local/bakta/main.nf",
+    "gippa/workflow/modules/local/uniop/main.nf",
+    "gippa/workflow/containers/uniop/Dockerfile",
+    "gippa/workflow/bin/gippa_fgsea.R",
+    "gippa/workflow/assets/ps/ps",
 ]
 SDIST_REQUIRED = [
     "pyproject.toml",
@@ -58,28 +58,28 @@ SDIST_REQUIRED = [
     "NOTICE.md",
     "CHANGELOG.md",
     "CITATION.cff",
-    "src/giap/__init__.py",
+    "src/gippa/__init__.py",
     "workflow/main.nf",
 ]
 SDIST_EXTRA = [
-    "src/giap/cli.py",
+    "src/gippa/cli.py",
     "workflow/nextflow.config",
     "workflow/modules/local/uniop/main.nf",
     "workflow/containers/uniop/Dockerfile",
-    "workflow/bin/giap_fgsea.R",
+    "workflow/bin/gippa_fgsea.R",
 ]
 
 
 def _whl_name(v: str = V) -> str:
-    return f"giap-{v}-py3-none-any.whl"
+    return f"gippa-{v}-py3-none-any.whl"
 
 
 def _sdist_name(v: str = V) -> str:
-    return f"giap-{v}.tar.gz"
+    return f"gippa-{v}.tar.gz"
 
 
 def _metadata(v: str, license_line: str) -> bytes:
-    return f"Metadata-Version: 2.4\nName: giap\nVersion: {v}\n{license_line}\n".encode()
+    return f"Metadata-Version: 2.4\nName: gippa\nVersion: {v}\n{license_line}\n".encode()
 
 
 def _wheel(
@@ -91,11 +91,11 @@ def _wheel(
     drop: frozenset[str] = frozenset(),
     symlinks: dict[str, str] | None = None,
     license_line: str = "License-Expression: MIT",
-    entry_points: str = "[console_scripts]\ngiap = giap.cli:main\n",
+    entry_points: str = "[console_scripts]\ngippa = gippa.cli:main\n",
     license_file: bool = True,
 ) -> Path:
     path = dist / _whl_name(name_v)
-    di = f"giap-{meta_v}.dist-info"
+    di = f"gippa-{meta_v}.dist-info"
     files: dict[str, bytes] = {p: b"x\n" for p in WHEEL_REQUIRED + WHEEL_EXTRA}
     files[f"{di}/METADATA"] = _metadata(meta_v, license_line)
     files[f"{di}/WHEEL"] = (
@@ -130,9 +130,9 @@ def _sdist(
     drop: frozenset[str] = frozenset(),
     symlinks: dict[str, str] | None = None,
 ) -> Path:
-    """``add`` keys are full archive paths (``giap-V/...``); ``drop`` keys are root-relative."""
+    """``add`` keys are full archive paths (``gippa-V/...``); ``drop`` keys are root-relative."""
     path = dist / _sdist_name(name_v)
-    root = f"giap-{name_v}"
+    root = f"gippa-{name_v}"
     files: dict[str, bytes] = {
         f"{root}/{p}": b"x\n" for p in SDIST_REQUIRED + SDIST_EXTRA if p not in drop
     }
@@ -209,16 +209,16 @@ def test_license_header_alternative_accepted(dist: Path) -> None:
 
 
 def test_example4_file_over_5mb(dist: Path) -> None:
-    _wheel(dist, add={"giap/data/huge.bin": b"\0" * (6 * MB)})
+    _wheel(dist, add={"gippa/data/huge.bin": b"\0" * (6 * MB)})
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 1, lines
-    assert f"FAIL {_whl_name()}: file > 5 MB: giap/data/huge.bin" in lines
+    assert f"FAIL {_whl_name()}: file > 5 MB: gippa/data/huge.bin" in lines
     assert len(_fails(lines)) == 1, lines
 
 
 def test_file_under_5mb_is_fine(dist: Path) -> None:
-    _wheel(dist, add={"giap/data/big.bin": b"\0" * (4 * 1000 * 1000)})
+    _wheel(dist, add={"gippa/data/big.bin": b"\0" * (4 * 1000 * 1000)})
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 0, lines
@@ -226,10 +226,10 @@ def test_file_under_5mb_is_fine(dist: Path) -> None:
 
 def test_example5_sdist_forbidden_tests_path(dist: Path) -> None:
     _wheel(dist)
-    _sdist(dist, add={f"giap-{V}/tests/data/x.tsv.gz": b"x"})
+    _sdist(dist, add={f"gippa-{V}/tests/data/x.tsv.gz": b"x"})
     code, lines = _run(dist)
     assert code == 1, lines
-    assert f"FAIL {_sdist_name()}: forbidden path: giap-{V}/tests/data/x.tsv.gz" in lines
+    assert f"FAIL {_sdist_name()}: forbidden path: gippa-{V}/tests/data/x.tsv.gz" in lines
     assert len(_fails(lines)) == 1, lines
 
 
@@ -266,7 +266,7 @@ def test_default_version_is_checkout_version(dist: Path) -> None:
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 1, lines
-    assert [f for f in _fails(lines) if f.startswith("FAIL giap-7.7.7-py3-none-any.whl: version")]
+    assert [f for f in _fails(lines) if f.startswith("FAIL gippa-7.7.7-py3-none-any.whl: version")]
     assert not [f for f in _fails(lines) if f.startswith(f"FAIL {_sdist_name()}")], lines
 
 
@@ -284,14 +284,14 @@ def test_metadata_version_disagreeing_with_name_fails(dist: Path) -> None:
 @pytest.mark.parametrize(
     "missing",
     [
-        "giap/py.typed",
-        "giap/cli.py",
-        "giap/config/defaults.yaml",
-        "giap/data/db_sources.yaml",
-        "giap/workflow/main.nf",
-        "giap/workflow/nextflow.config",
-        "giap/workflow/envs/bakta.yml",
-        "giap/workflow/conf/test.config",
+        "gippa/py.typed",
+        "gippa/cli.py",
+        "gippa/config/defaults.yaml",
+        "gippa/data/db_sources.yaml",
+        "gippa/workflow/main.nf",
+        "gippa/workflow/nextflow.config",
+        "gippa/workflow/envs/bakta.yml",
+        "gippa/workflow/conf/test.config",
     ],
 )
 def test_wheel_missing_required_file(dist: Path, missing: str) -> None:
@@ -309,7 +309,7 @@ def test_every_checkout_env_and_conf_is_required() -> None:
 
 
 def test_wheel_without_console_script_fails(dist: Path) -> None:
-    _wheel(dist, entry_points="[console_scripts]\nother = giap.cli:main\n")
+    _wheel(dist, entry_points="[console_scripts]\nother = gippa.cli:main\n")
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 1, lines
@@ -358,22 +358,22 @@ def test_sdist_without_src_or_workflow_fails(dist: Path, tree: str) -> None:
 
 # --- forbidden content ------------------------------------------------------------------------
 
-R = f"giap-{V}"
+R = f"gippa-{V}"
 FORBIDDEN_WHEEL = [
     "local/notes.txt",
     "tests/test_x.py",
     "docs/index.md",
-    "giap/workflow/tests/main.nf.test",
-    "giap/data/model.sif",
-    "giap/data/run.raw",
-    "giap/data/run.mzML",
-    "giap/data/table.parquet",
-    "giap/cli.pyc",
-    "giap/__pycache__/cli.cpython-312.pyc",
-    "giap/data/RegulonDB_network.tsv",
-    "giap/data/x_regulondb.txt",
-    "giap/data/uniop/op.py",
-    "giap/workflow/uniop/run.py",
+    "gippa/workflow/tests/main.nf.test",
+    "gippa/data/model.sif",
+    "gippa/data/run.raw",
+    "gippa/data/run.mzML",
+    "gippa/data/table.parquet",
+    "gippa/cli.pyc",
+    "gippa/__pycache__/cli.cpython-312.pyc",
+    "gippa/data/RegulonDB_network.tsv",
+    "gippa/data/x_regulondb.txt",
+    "gippa/data/uniop/op.py",
+    "gippa/workflow/uniop/run.py",
 ]
 FORBIDDEN_SDIST = [
     f"{R}/local/notes.txt",
@@ -385,8 +385,8 @@ FORBIDDEN_SDIST = [
     f"{R}/benchmarks/baseline.json",
     f"{R}/workflow/tests/main.nf.test",
     f"{R}/workflow/assets/run.d",
-    f"{R}/src/giap/data/regulondb.tsv",
-    f"{R}/src/giap/uniop/op.py",
+    f"{R}/src/gippa/data/regulondb.tsv",
+    f"{R}/src/gippa/uniop/op.py",
 ]
 
 
@@ -413,11 +413,11 @@ def test_sdist_forbidden(dist: Path, path: str) -> None:
 
 
 def test_symlink_in_wheel_rejected(dist: Path) -> None:
-    _wheel(dist, symlinks={"giap/workflow/link.nf": "main.nf"})
+    _wheel(dist, symlinks={"gippa/workflow/link.nf": "main.nf"})
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 1, lines
-    assert f"FAIL {_whl_name()}: symlink: giap/workflow/link.nf" in lines
+    assert f"FAIL {_whl_name()}: symlink: gippa/workflow/link.nf" in lines
 
 
 def test_symlink_in_sdist_rejected(dist: Path) -> None:
@@ -429,13 +429,13 @@ def test_symlink_in_sdist_rejected(dist: Path) -> None:
 
 
 def test_all_violations_reported_not_the_first(dist: Path) -> None:
-    _wheel(dist, add={"giap/data/huge.bin": b"\0" * (6 * MB), "giap/data/model.sif": b"x"})
+    _wheel(dist, add={"gippa/data/huge.bin": b"\0" * (6 * MB), "gippa/data/model.sif": b"x"})
     _sdist(dist)
     code, lines = _run(dist)
     assert code == 1, lines
     fails = _fails(lines)
     assert len(fails) == 2, lines
-    assert {f.rsplit(": ", 1)[-1] for f in fails} == {"giap/data/huge.bin", "giap/data/model.sif"}
+    assert {f.rsplit(": ", 1)[-1] for f in fails} == {"gippa/data/huge.bin", "gippa/data/model.sif"}
 
 
 # --- property: the flagged set is exactly the injected set ------------------------------------
@@ -470,7 +470,7 @@ def test_property_every_violation_reported_once_per_path(
 def test_5mb_limit_is_strictly_greater_than_5_mib(dist: Path, size: int, ok: bool) -> None:
     """The R11 limit is 5 MiB (``MB`` here is 2**20): exactly 5 MiB passes (``>``, not ``>=``), and
     5,000,001 bytes (over a decimal 5 MB) passes too."""
-    _wheel(dist, add={"giap/data/edge.bin": b"\0" * size})
+    _wheel(dist, add={"gippa/data/edge.bin": b"\0" * size})
     _sdist(dist)
     code, lines = _run(dist)
     assert (code == 0) is ok, lines
@@ -481,8 +481,8 @@ def test_hardlink_in_sdist_rejected(dist: Path) -> None:
     with tarfile.open(sdist, "r:gz") as tf:
         members = [(m, tf.extractfile(m).read() if m.isfile() else None)  # type: ignore[union-attr]
                    for m in tf.getmembers()]  # fmt: skip
-    link = tarfile.TarInfo(f"giap-{V}/src/giap/hard.py")
-    link.type, link.linkname = tarfile.LNKTYPE, f"giap-{V}/README.md"
+    link = tarfile.TarInfo(f"gippa-{V}/src/gippa/hard.py")
+    link.type, link.linkname = tarfile.LNKTYPE, f"gippa-{V}/README.md"
     with tarfile.open(sdist, "w:gz") as tf:
         for m, data in members:
             tf.addfile(m, io.BytesIO(data) if data is not None else None)
@@ -490,11 +490,11 @@ def test_hardlink_in_sdist_rejected(dist: Path) -> None:
     _wheel(dist)
     code, lines = _run(dist)
     assert code == 1, lines
-    assert f"FAIL {_sdist_name()}: symlink: giap-{V}/src/giap/hard.py" in lines, lines
+    assert f"FAIL {_sdist_name()}: symlink: gippa-{V}/src/gippa/hard.py" in lines, lines
 
 
 def test_metadata_with_two_version_headers_fails(dist: Path) -> None:
-    di = f"giap-{V}.dist-info"
+    di = f"gippa-{V}.dist-info"
     meta = _metadata(V, "License-Expression: MIT") + f"Version: {V}\n".encode()
     _wheel(dist, add={f"{di}/METADATA": meta})
     _sdist(dist)

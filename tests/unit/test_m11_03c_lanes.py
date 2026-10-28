@@ -83,7 +83,7 @@ ATTACK5 = ("tests/calibration/attacks/test_attack5_reversed_stretches.py::"
 @pytest.fixture(scope="module")
 def mod() -> ModuleType:
     assert SCRIPT.is_file(), f"{SCRIPT} does not exist (M11-03c PR 1a)"
-    spec = importlib.util.spec_from_file_location("giap_calibration_lanes_1b", SCRIPT)
+    spec = importlib.util.spec_from_file_location("gippa_calibration_lanes_1b", SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -732,7 +732,7 @@ PROBE_LOG = """start 1792998930
 
 def test_durations_from_probe_log_uses_the_previous_stamp(mod: ModuleType, tmp_path: Path) -> None:
     """Review B1: a line's stamp is the next event's time; the true durations are 1/6/2/3 s."""
-    log = tmp_path / "giap-probe-03c-x.1.out"
+    log = tmp_path / "gippa-probe-03c-x.1.out"
     log.write_text(PROBE_LOG)
     f = "tests/calibration/test_s.py::test_s"
     assert mod.durations_from_probe_log(log) == {f"{f}[1]": 1.0, f"{f}[6]": 6.0, f"{f}[2]": 2.0,
@@ -745,7 +745,7 @@ def test_durations_from_probe_log_uses_the_previous_stamp(mod: ModuleType, tmp_p
 
 
 def test_durations_cli_probe_log(mod: ModuleType, tmp_path: Path) -> None:
-    log = tmp_path / "giap-probe-03c-x.1.out"
+    log = tmp_path / "gippa-probe-03c-x.1.out"
     log.write_text(PROBE_LOG)
     out = tmp_path / "d.tsv"
     res = _cli("durations", "--source", "probe-1", "--probe-log", "--out", str(out), str(log))

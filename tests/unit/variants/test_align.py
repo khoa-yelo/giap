@@ -1,5 +1,5 @@
 """M7-01 residue alignment of every accepted placement (docs/specs/M7-01-residue-alignment.md;
-GIAP_SPEC.md §7.5.2 step 1, §7.2.4, §7.2.1, §6.5).
+GIPPA_SPEC.md §7.5.2 step 1, §7.2.4, §7.2.1, §6.5).
 
 Examples 1-10 and every degenerate row of the spec, on hand-built genomes: contig ``c1``,
 circular, 1,000 nt, a fixed random background with the coding sequence of each example written
@@ -41,9 +41,9 @@ from helpers.align_oracle import (
 )
 from helpers.fs_genomes import background, codons_for, join_split
 
-from giap.mapping.hits import hits_frame
-from giap.mapping.outputs import PEPTIDE_HITS_COLUMNS
-from giap.model import Replicon
+from gippa.mapping.hits import hits_frame
+from gippa.mapping.outputs import PEPTIDE_HITS_COLUMNS
+from gippa.model import Replicon
 
 L = 1000
 REP = Replicon("c1", L, "circular")
@@ -53,7 +53,7 @@ BG = background(L, seed=7)
 
 def align() -> ModuleType:
     """The module under test (imported per test, so each test fails on its own)."""
-    return importlib.import_module("giap.variants.align")
+    return importlib.import_module("gippa.variants.align")
 
 
 def nt(protein: str) -> str:
@@ -417,7 +417,7 @@ def ph_row(peptide: str, start: int, end: int, strand: str, route: str, n_diff: 
 
 def ht_row(peptide: str, start: int, end: int, strand: str, blocks: str | None,
            search: str = "target", n_diff: int = 1) -> dict[str, Any]:  # fmt: skip
-    """One ``hits_tolerant.parquet`` row (``giap.mapping.hits.HIT_COLUMNS``)."""
+    """One ``hits_tolerant.parquet`` row (``gippa.mapping.hits.HIT_COLUMNS``)."""
     return {
         "peptide": peptide, "query": peptide.replace("I", "L"), "search": search,
         "decoy_type": None if search == "target" else "reverse", "contig": "c1", "frame_id": 0,
@@ -542,7 +542,7 @@ def test_results_are_frozen_value_objects() -> None:
 
 
 def test_oracle_agrees_with_the_hand_worked_examples() -> None:
-    """Guards the test oracle itself (no ``giap.variants`` needed)."""
+    """Guards the test oracle itself (no ``gippa.variants`` needed)."""
     seq = genome((300, "AGSNEFKLLR", "+"))
     assert locus_aa(seq, 300, 330, "+") == "AGSNEFKLLR"
     ops = expected_ops("AGSDEFKLLR", seq, 300, 330, "+")

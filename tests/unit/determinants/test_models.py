@@ -1,5 +1,5 @@
 """M8-08 determinants models: examples 1-8 and every degenerate row of
-docs/specs/M8-08-determinants-models.md (GIAP_SPEC.md §7.8.2 steps 1-3 and 5, §8.2, §9.3).
+docs/specs/M8-08-determinants-models.md (GIPPA_SPEC.md §7.8.2 steps 1-3 and 5, §8.2, §9.3).
 
 Builders and the contract choices the spec leaves open are in
 ``tests/helpers/determinants_models_data.py``. Behavioural CV tests use a fast config (2 repeats,
@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import determinants_models_data as d
 from determinants_models_data import finite, flags_of, is_na, mod, one, rows
 
-from giap.rng import for_step
+from gippa.rng import for_step
 
 SEED = 20261014
 
@@ -201,7 +201,7 @@ def test_univariate_one_hot_columns_get_rows() -> None:
 
 def test_univariate_uses_the_tu_block_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
     """CIs are TU-block bootstrap percentile CIs with B = the argument (§8.2 resample TUs)."""
-    import giap.stats.bootstrap as boot
+    import gippa.stats.bootstrap as boot
 
     real = boot.tu_block_bootstrap
     calls: list[dict[str, Any]] = []

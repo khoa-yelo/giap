@@ -1,4 +1,4 @@
-"""Properties of giapsim's de novo error model (issue M3-20; GIAP_SPEC.md §11.3, §7.2.4).
+"""Properties of gippasim's de novo error model (issue M3-20; GIPPA_SPEC.md §11.3, §7.2.4).
 
 Spec acceptance criterion: every error type, applied to a peptide, changes the sequence (beyond
 I/L) and keeps it within 7-40 aa; ``block``/``near_block`` errors change the monoisotopic mass by
@@ -21,7 +21,7 @@ from helpers.denovo_oracle import AA20, ERROR_TYPES, explains, il, mass
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-import giapsim
+import gippasim
 
 #: Contains a site for every error type in both length directions (N/GG, W/AD, R, A/N/G).
 MOTIF = "NGGWRAD"
@@ -51,7 +51,7 @@ def check(pep: str, out: str, et: str) -> None:
 @settings(max_examples=300, deadline=None)
 @given(pep=with_sites(), et=st.sampled_from(ERROR_TYPES), seed=st.integers(0, 2**32 - 1))
 def test_every_error_type_changes_peptide_within_bounds(pep: str, et: str, seed: int) -> None:
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     check(pep, apply_error(pep, et, np.random.default_rng(seed)), et)
 
@@ -59,7 +59,7 @@ def test_every_error_type_changes_peptide_within_bounds(pep: str, et: str, seed:
 @settings(max_examples=300, deadline=None)
 @given(pep=peptides, et=st.sampled_from(ERROR_TYPES), seed=st.integers(0, 2**32 - 1))
 def test_any_peptide_error_valid_or_rejected(pep: str, et: str, seed: int) -> None:
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     try:
         out = apply_error(pep, et, np.random.default_rng(seed))
@@ -73,7 +73,7 @@ def test_any_peptide_error_valid_or_rejected(pep: str, et: str, seed: int) -> No
 @settings(max_examples=200, deadline=None)
 @given(pep=with_sites(), et=st.sampled_from(ERROR_TYPES), seed=st.integers(0, 2**32 - 1))
 def test_apply_error_deterministic(pep: str, et: str, seed: int) -> None:
-    from giapsim.denovo import apply_error
+    from gippasim.denovo import apply_error
 
     a = apply_error(pep, et, np.random.default_rng(seed))
     b = apply_error(pep, et, np.random.default_rng(seed))
@@ -83,7 +83,7 @@ def test_apply_error_deterministic(pep: str, et: str, seed: int) -> None:
 @settings(max_examples=300, deadline=None)
 @given(pep=peptides, seed=st.integers(0, 2**32 - 1))
 def test_redraw_il_only_touches_il(pep: str, seed: int) -> None:
-    from giapsim.denovo import redraw_il
+    from gippasim.denovo import redraw_il
 
     out = redraw_il(pep, np.random.default_rng(seed))
     assert len(out) == len(pep) and il(out) == il(pep)
@@ -105,17 +105,17 @@ def _rows(path: Path) -> list[dict[str, str]]:
 def test_simulated_truth_agrees_with_oracle(seed: int, weights: list[float], w_sub: float) -> None:
     # substitution (always applicable) keeps a positive weight, so fallbacks stay in-weight
     weights = [w_sub, *weights]
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
-    cfg = giapsim.SimConfig(
+    cfg = gippasim.SimConfig(
         genome_length=30_000,
         proteomics=ProteomicsConfig(pi_wrong=0.05, n_runs=1),
         denovo=DenovoConfig(error_weights=dict(zip(ERROR_TYPES, weights, strict=True))),
     )
     with tempfile.TemporaryDirectory() as d:
         out = Path(d)
-        giapsim.simulate(cfg, seed, out)
+        gippasim.simulate(cfg, seed, out)
         truth = _rows(out / "truth" / "denovo.tsv")
         denovo = _rows(out / "peptides_denovo.tsv")
     assert len(truth) == len(denovo) > 0

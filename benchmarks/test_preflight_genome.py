@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from giap.preflight.genome import LIST_CAP, genome_checks, summarize_genome
+from gippa.preflight.genome import LIST_CAP, genome_checks, summarize_genome
 
 from ._unit_helpers import load_test_module, timed
 

@@ -1,5 +1,5 @@
 """M8 gate, half 2: the ``determinants`` null at level and recovery (docs/specs/M8-15-calibration-
-gate.md § Suites and criteria, Behaviour 2, examples 5-6, lead decisions 1-2; GIAP_SPEC.md
+gate.md § Suites and criteria, Behaviour 2, examples 5-6, lead decisions 1-2; GIPPA_SPEC.md
 §7.8.3, §8.4 row "Determinants null", §11.3; M8-14 scenarios; ADR-0015, ADR-0034).
 
 **Null (gate).** ``determinants_null(400)`` fast / ``(1500)`` full: the response is the TU effect
@@ -28,7 +28,7 @@ flag (ADR-0034): the AR(1) TU-level and ``replichore_position`` attacks of
 LightGBM ``cv_r2_mean`` against the recorded truth (band +-0.1, example 6), and the SHAP dominant
 block of the top-decile genes (``attribution_table``) against the planted truth (>= 70 %, example
 6): (a) the per-gene truth of ``truth/determinants_genes.tsv`` (largest |z beta|), (b) the signed
-argmax of z beta (GIAP's rule takes the largest **positive** SHAP sum; M8-14 backlog "signed-argmax
+argmax of z beta (GIPPA's rule takes the largest **positive** SHAP sum; M8-14 backlog "signed-argmax
 comparison"), (c) the block of the largest beta. All recorded in
 ``function_gate_diagnostics.jsonl`` with a warning outside the band; nothing gated.
 
@@ -51,7 +51,7 @@ import pytest
 from _gate import calibrate_levels
 from helpers import function_gate_chain as F
 
-from giap.config.model import DeterminantsConfig, LightgbmConfig
+from gippa.config.model import DeterminantsConfig, LightgbmConfig
 
 SUITE = "determinants"
 MODELS = ("lightgbm", "elastic_net")
@@ -73,13 +73,13 @@ MODES = [
 
 
 def _fs() -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs
 
 
 def _sc() -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc
 
@@ -115,8 +115,8 @@ def model_inputs(w: Any) -> tuple[pd.DataFrame, np.ndarray, list[str], list[str]
 
 
 def _null_p(i: int, model: str, full: bool) -> float:
-    from giap.determinants import models as m
-    from giap.determinants import null as nl
+    from gippa.determinants import models as m
+    from gippa.determinants import null as nl
 
     stream = f"{SUITE}.m815.null.sim{'.full' if full else ''}"
     rng = C.replicate_rng(stream, i)
@@ -161,8 +161,8 @@ def test_determinants_null_level_per_model(full: bool, model: str) -> None:
 
 
 def _recovery(i: int, coefs: dict[str, float], r2: float) -> dict[str, Any]:
-    from giap.determinants import attribution as at
-    from giap.determinants import models as m
+    from gippa.determinants import attribution as at
+    from gippa.determinants import models as m
 
     fs = _fs()
     rng = C.replicate_rng(f"{SUITE}.m815.recovery.r2_{r2:g}", i)

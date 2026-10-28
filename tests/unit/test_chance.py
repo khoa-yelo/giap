@@ -1,11 +1,11 @@
-"""Chance-hit model E(L, m) and the ranking score E_i (issue M3-09; GIAP_SPEC.md §7.2.5, G3,
+"""Chance-hit model E(L, m) and the ranking score E_i (issue M3-09; GIPPA_SPEC.md §7.2.5, G3,
 Appendix B.2).
 
 E(L, m) = N * sum_{j<=m} C(L, j) (1 - s)^j s^(L - j), s = sum f_a^2, N = six-frame positions.
 E_i = N * P(<= m mismatches) with per-position match probability f_{a_i} (Poisson-binomial).
 
 Conventions pinned here:
-- ``ResidueFreqs.f`` is indexed by residue code (``giap.mapping.sixframe.ALPHABET[:19]``, I -> L);
+- ``ResidueFreqs.f`` is indexed by residue code (``gippa.mapping.sixframe.ALPHABET[:19]``, I -> L);
   it sums to 1 over residues and excludes ``*`` and ``X``.
 - ``n_positions`` = sum of ``len(frame.aa)`` over the target frames (stops and X included, as the
   spec states), with circular-extension positions excluded.
@@ -22,14 +22,14 @@ import math
 import numpy as np
 import pytest
 
-from giap.mapping.chance import (
+from gippa.mapping.chance import (
     ResidueFreqs,
     expected_hits,
     expected_hits_uniform,
     residue_freqs,
 )
-from giap.mapping.sixframe import ALPHABET, Frame, SixFrameIndex, build_sixframe, encode_target
-from giap.model.coords import Replicon
+from gippa.mapping.sixframe import ALPHABET, Frame, SixFrameIndex, build_sixframe, encode_target
+from gippa.model.coords import Replicon
 
 S = 0.069
 N7 = 1e7

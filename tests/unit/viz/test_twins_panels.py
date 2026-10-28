@@ -1,5 +1,5 @@
 """Plotly twins of V2, V6, V8, V10, V11, V17 and V18 (M9-15 behaviour 2-4, example 3, lead
-decision 1: V2's data TSV gains ``product``; GIAP_SPEC.md §10.2). Each twin's trace values are
+decision 1: V2's data TSV gains ``product``; GIPPA_SPEC.md §10.2). Each twin's trace values are
 checked against the data TSV columns it was built from, and its axis titles against the static
 plot's. V5, V7, the template and the examples 1, 2, 4 are in ``test_twins.py``.
 
@@ -109,7 +109,7 @@ def test_v2_trend_is_a_line_through_the_trend_rows() -> None:
 
 
 def test_v2_rug_is_a_marker_row_in_status_colours() -> None:
-    from giap.viz.style import STATUS_COLOUR
+    from gippa.viz.style import STATUS_COLOUR
 
     data = tw.v02()
     s = tw.spec("V02", data)
@@ -132,7 +132,7 @@ def test_v2_rug_is_a_marker_row_in_status_colours() -> None:
 
 
 def test_v2_islands_are_shapes_in_island_colours() -> None:
-    from giap.viz.style import ISLAND
+    from gippa.viz.style import ISLAND
 
     data = tw.v02()
     s = tw.spec("V02", data)
@@ -184,9 +184,9 @@ def test_v2_data_tsv_gains_product_from_genes_tsv(tmp_path: Path) -> None:
     the twin built from that TSV shows it."""
     from helpers.viz_landscape import gene, landscape_out, plot_spec
 
-    from giap.config import resolve_config
-    from giap.io.run_view import RunView
-    from giap.viz import style
+    from gippa.config import resolve_config
+    from gippa.io.run_view import RunView
+    from gippa.viz import style
 
     style.apply()
     genes = []
@@ -290,7 +290,7 @@ def test_v8_violin_above_50_strips_otherwise_values_equal_tsv() -> None:
 
 
 def test_v8_category_order_and_colours_follow_the_tsv() -> None:
-    from giap.viz.style import cog_colour
+    from gippa.viz.style import cog_colour
 
     data = tw.v08()
     s = tw.spec("V08", data)

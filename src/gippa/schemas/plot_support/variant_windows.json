@@ -1,0 +1,13 @@
+{
+  "name": "variant_windows",
+  "description": "Plot support table (ADR-0043): the reference protein around each V12 top ALT site (GIPPA_SPEC.md §10.2 V12; M9-18). Not a result table.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "variant_id", "type": "string", "description": "variants.tsv variant_id of a panel (b) site", "constraints": {"required": true, "unique": true}},
+    {"name": "gene", "type": "string", "description": "Gene (locus_tag) carrying the site", "constraints": {"required": true}},
+    {"name": "aa_pos", "type": "integer", "description": "1-based protein position of the site", "constraints": {"required": true, "minimum": 1}},
+    {"name": "window_start_aa", "type": "integer", "description": "1-based protein position of the first residue of ref_window; NA when the protein is unknown", "constraints": {"minimum": 1}},
+    {"name": "ref_window", "type": "string", "description": "The gene's protein (transcription order) from aa_pos - 10 to aa_pos + 10, clipped to the protein; NA when the protein is unknown"}
+  ]
+}

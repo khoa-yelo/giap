@@ -10,7 +10,7 @@ genes on it"), prophage members carry a C8 ``subset`` from §7.1.7 (integrase, r
 structural, lysis, cargo). Region IDs are ``<type>_<n>`` (§6.5), so a region's type is readable
 from the ``region_ids`` of a gene.
 
-Oracles implement the lead decisions of the spec (2026-10-20) independently of ``giap.context``:
+Oracles implement the lead decisions of the spec (2026-10-20) independently of ``gippa.context``:
 
 * ``reference_contigs`` (decision 3): ``kind = chromosome`` replicons; if none, every replicon that
   is neither ``kind = plasmid`` nor a contig of a plasmid region (flag ``no_reference_replicon``).
@@ -228,15 +228,15 @@ Contig = rd.Contig
 
 
 def module() -> Any:
-    """``giap.context.regions_table`` (imported lazily: the tests must fail, not error at
+    """``gippa.context.regions_table`` (imported lazily: the tests must fail, not error at
     collection, while it is absent)."""
-    from giap.context import regions_table as T
+    from gippa.context import regions_table as T
 
     return T
 
 
 def rng(seed: int = 1) -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step("context_stats", seed)
 
@@ -249,7 +249,7 @@ def plasmid_rows(g: Genome, depth: pd.DataFrame | None = None, cfg: Any = None,
 
 def tests(g: Genome, seed: int = 1) -> pd.DataFrame:
     """M4-17 ``test_all_regions`` (merged) on the fixture."""
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return R.test_all_regions(g.genes, g.regions, g.region_genes, g.replicons,
                               rd.config(bootstrap=50), rng(seed))  # fmt: skip
@@ -329,7 +329,7 @@ def mixed_genome() -> Genome:
     return genome(contigs, mem, plasmids=["p1"], subsets=sub)
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 
 
 def schema() -> dict[str, Any]:

@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from test_island_power import power_module
 
-import giapsim.layout as la
+import gippasim.layout as la
 
 
 def _no_scan(m: Any, monkeypatch: pytest.MonkeyPatch) -> None:

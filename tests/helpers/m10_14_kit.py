@@ -1,6 +1,6 @@
 """Fixtures for the M10-14 tests (docs/specs/M10-14-pilot-reproducibility.md).
 
-Nothing here reaches Slurm, the network, the real ``$GIAP_ROOT`` or any DIA-NN output:
+Nothing here reaches Slurm, the network, the real ``$GIPPA_ROOT`` or any DIA-NN output:
 
 * ``synthetic_repo`` builds a small checkout in ``tmp_path``: three ``scripts/slurm/*.sbatch``
   with known ``#SBATCH`` headers, a copy of the committed Nissle genome (so example 4's hash
@@ -10,14 +10,14 @@ Nothing here reaches Slurm, the network, the real ``$GIAP_ROOT`` or any DIA-NN o
   format"; the default text passes every static check against ``synthetic_repo``;
 * ``cleanup_sandbox`` builds on ``helpers.slurm_sandbox.make_sandbox`` (a throw-away checkout of
   ``scripts/`` and ``ci/`` plus ``validation/``, fake Slurm tools first on a minimal ``PATH``) and
-  lays out a fake ``$GIAP_ROOT`` with every target class of the clean-up plan, the freeze
+  lays out a fake ``$GIPPA_ROOT`` with every target class of the clean-up plan, the freeze
   evidence, and fakes for ``squeue``, ``nextflow`` and ``rm`` (bash 3.2 or Python).
 
 Conventions settled by the test author (the spec leaves them open):
 
 * ``reproduce_check.py`` is imported by path (``load_reproduce_check``) and run as
   ``python -I validation/pilot/reproduce_check.py static RUNBOOK [--repo DIR]`` and
-  ``… verify RUNBOOK --out J [--repo DIR]``, with ``$GIAP_ROOT`` from the environment; ``--repo``
+  ``… verify RUNBOOK --out J [--repo DIR]``, with ``$GIPPA_ROOT`` from the environment; ``--repo``
   defaults to the checkout holding the script. Exit 0 when there is no failure, 1 otherwise.
 * ``parse(text)`` returns an object with ``status``, ``freeze_commit``, ``a3_branch`` (strings),
   ``inputs``, ``evidence``, ``outputs`` (lists of ``dict[str, str]`` keyed by the column names),
@@ -31,7 +31,7 @@ Conventions settled by the test author (the spec leaves them open):
 * ``verify`` returns ``{"failures": [...], "inputs": {id: {"status": ...}, ...}, ...}``.
 * ``a3_branch=pending`` needs no ``active`` subsection and does not consult the verdict.
 * ``pilot_cleanup.sbatch`` reads the freeze commit F from the runbook header, the runbook being
-  ``$RUNBOOK`` (default ``$GIAP_REPO/validation/pilot/reproduce.md``), and the compare evidence
+  ``$RUNBOOK`` (default ``$GIPPA_REPO/validation/pilot/reproduce.md``), and the compare evidence
   is a JSON under ``$R/evidence/`` like the arms'.
 """
 
@@ -84,7 +84,7 @@ def load_reproduce_check() -> ModuleType:
     assert REPRODUCE_CHECK.is_file(), (
         f"{REPRODUCE_CHECK.relative_to(REPO)} does not exist (M10-14 deliverable 2)"
     )
-    spec = importlib.util.spec_from_file_location("giap_pilot_reproduce_check", REPRODUCE_CHECK)
+    spec = importlib.util.spec_from_file_location("gippa_pilot_reproduce_check", REPRODUCE_CHECK)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod  # dataclasses need the module registered
@@ -116,14 +116,14 @@ _HEADER = """#!/bin/bash
 #SBATCH --time={time}
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 set -euo pipefail
-source "${{GIAP_REPO:-/home/classes/bios/270/khoa/giap}}/scripts/farmshare_env.sh"
+source "${{GIPPA_REPO:-/home/classes/bios/270/khoa/giap}}/scripts/farmshare_env.sh"
 echo stand-in
 """
 
 SCRIPTS = {
-    "diann_pilot.sbatch": dict(name="giap-diann", cpus=16, mem="64000M", time="24:00:00"),
-    "diann_convert.sbatch": dict(name="giap-diann-convert", cpus=2, mem="8G", time="00:30:00"),
-    "giap_run.sbatch": dict(name="giap-run", cpus=2, mem="8G", time="2-00:00:00"),
+    "diann_pilot.sbatch": dict(name="gippa-diann", cpus=16, mem="64000M", time="24:00:00"),
+    "diann_convert.sbatch": dict(name="gippa-diann-convert", cpus=2, mem="8G", time="00:30:00"),
+    "gippa_run.sbatch": dict(name="gippa-run", cpus=2, mem="8G", time="2-00:00:00"),
 }
 
 
@@ -157,14 +157,14 @@ def set_verdict(repo: Path, verdict: str) -> None:
 # ------------------------------------------------------------------ the runbook renderer
 
 INPUT_GENOME = f"| genome | {GENOME_REL} | {GENOME_SHA} | {MANIFEST_REL} |"
-INPUT_IMAGE = f"| diann_image | $GIAP_ROOT/images/diann_2.3.1.sif | {DIANN_SHA} | {PIN_REL} |"
+INPUT_IMAGE = f"| diann_image | $GIPPA_ROOT/images/diann_2.3.1.sif | {DIANN_SHA} | {PIN_REL} |"
 
 STEP_S0 = """### S0 checkout (M10-14)
 
 Job: none (session)
 
 ```bash
-git -C "$GIAP_REPO" rev-parse HEAD
+git -C "$GIPPA_REPO" rev-parse HEAD
 ```
 
 Reads: -
@@ -173,39 +173,39 @@ Writes: -
 
 STEP_S5 = """### S5 searches (M10-02)
 
-Job: script=scripts/slurm/diann_pilot.sbatch name=giap-diann-A1 partition=normal qos=normal \
+Job: script=scripts/slurm/diann_pilot.sbatch name=gippa-diann-A1 partition=normal qos=normal \
 cpus=16 gpus=0 mem={mem} time=24:00:00 constraint=- array=-
 
 ```bash
-sbatch -J {jname} {extra}"$GIAP_REPO/{script}" A1
+sbatch -J {jname} {extra}"$GIPPA_REPO/{script}" A1
 ```
 
 Reads: genome, diann_image
-Writes: $GIAP_ROOT/pilot/A1/
+Writes: $GIPPA_ROOT/pilot/A1/
 """
 
 # Spec example 1, verbatim.
 STEP_S7 = """### S7 conversion (M10-03)
 
-Job: script=scripts/slurm/diann_convert.sbatch name=giap-diann-convert-A1 partition=normal \
+Job: script=scripts/slurm/diann_convert.sbatch name=gippa-diann-convert-A1 partition=normal \
 qos=normal cpus=2 gpus=0 mem=8G time=00:30:00 constraint=- array=-
 
 ```bash
-sbatch -J giap-diann-convert-A1 "$GIAP_REPO/scripts/slurm/diann_convert.sbatch" A1
+sbatch -J gippa-diann-convert-A1 "$GIPPA_REPO/scripts/slurm/diann_convert.sbatch" A1
 ```
 
 Reads: genome
-Writes: $GIAP_ROOT/pilot/inputs/a1.tsv.gz
+Writes: $GIPPA_ROOT/pilot/inputs/a1.tsv.gz
 """
 
 STEP_S8 = """### S8 freeze A2 (M10-14)
 
-Job: script=scripts/slurm/giap_run.sbatch name=giap-run-freeze-a2 partition=normal qos=normal \
+Job: script=scripts/slurm/gippa_run.sbatch name=gippa-run-freeze-a2 partition=normal qos=normal \
 cpus=2 gpus=0 mem=8G time=2-00:00:00 constraint=- array=- children=nextflow:normalx14cpu
 
 ```bash
-G=$GIAP_REPO/tests/data/genomes/nissle1917.fna.gz
-sbatch -J giap-run-freeze-a2 scripts/slurm/giap_run.sbatch --genome $G --outdir $R/out_a2
+G=$GIPPA_REPO/tests/data/genomes/nissle1917.fna.gz
+sbatch -J gippa-run-freeze-a2 scripts/slurm/gippa_run.sbatch --genome $G --outdir $R/out_a2
 ```
 
 Reads: genome
@@ -288,7 +288,7 @@ def runbook(
 def s5(
     *,
     mem: str = "64000M",
-    jname: str = "giap-diann-A1",
+    jname: str = "gippa-diann-A1",
     extra: str = "",
     script: str = "scripts/slurm/diann_pilot.sbatch",
 ) -> str:
@@ -328,7 +328,7 @@ pat = re.compile(r"%\.?\d*([iAjTtu])")
 if header:
     print(pat.sub(lambda m: heads[m.group(1)], fmt))
 for job in jobs:
-    job = dict(job, user=os.environ.get("USER", "giap"))
+    job = dict(job, user=os.environ.get("USER", "gippa"))
     print(pat.sub(lambda m: str(job[keys[m.group(1)]]), fmt))
 """
 
@@ -340,9 +340,9 @@ with open(os.path.join(os.environ["FAKE_SLURM_DIR"], "nextflow.jsonl"), "a") as 
 """
 
 # bash 3.2: no arrays beyond "$@", no [[ =~ ]] needed. Records, for every argument under the
-# sandbox $GIAP_ROOT, whether DELETED.tsv already named it when rm was called; then runs rm.
+# sandbox $GIPPA_ROOT, whether DELETED.tsv already named it when rm was called; then runs rm.
 _RM = r"""#!/bin/bash
-ledger="$GIAP_ROOT/pilot/cleanup/DELETED.tsv"
+ledger="$GIPPA_ROOT/pilot/cleanup/DELETED.tsv"
 for a in "$@"; do
   case "$a" in
     "$FAKE_ROOT"/*)
@@ -392,7 +392,7 @@ class CleanupSandbox:
         return [tuple(ln.split("\t", 1)) for ln in p.read_text().splitlines()]  # type: ignore[misc]
 
     def snapshot(self) -> dict[str, str]:
-        """sha256 of each regular file under $GIAP_ROOT and the outside tree (cleanup/ skipped)."""
+        """sha256 of each regular file under $GIPPA_ROOT and the outside tree (cleanup/ skipped)."""
         out: dict[str, str] = {}
         for base in (self.root, self.outside):
             for dirpath, _dirnames, filenames in os.walk(base):
@@ -434,11 +434,11 @@ def _w(path: Path, text: str) -> Path:
 
 
 def _run_dir(base: Path, *, nextflow: bool = True) -> tuple[Path, list[Path], list[Path]]:
-    """A GIAP outdir: (.nextflow, work/ to delete, tables/logs/manifest/report to keep)."""
+    """A GIPPA outdir: (.nextflow, work/ to delete, tables/logs/manifest/report to keep)."""
     keep = [
         _w(base / "tables" / "proteins.tsv", "locus_tag\tclass\nX_0001\tdetected\n"),
         _w(base / "mapping" / "peptides.tsv", "peptide\nAAAK\n"),
-        _w(base / "logs" / "giap.log", "ok\n"),
+        _w(base / "logs" / "gippa.log", "ok\n"),
         _w(base / "run_manifest.json", json.dumps({"git_commit": F, "git_dirty": False})),
         _w(base / "report" / "report.html", "<html></html>\n"),
         _w(base / ".nextflow.log", "nextflow log\n"),
@@ -494,9 +494,9 @@ def cleanup_sandbox(tmp: Path) -> CleanupSandbox:
     outside.mkdir()
     sb.env.update(
         {
-            "GIAP_PYTHON": py,
+            "GIPPA_PYTHON": py,
             "SLURM_JOB_ID": "4242",
-            "SLURM_JOB_NAME": "giap-pilot-cleanup",
+            "SLURM_JOB_NAME": "gippa-pilot-cleanup",
             "FAKE_ROOT": str(root),
             "TMPDIR": str(tmp / "tmpdir"),
         }
@@ -662,7 +662,7 @@ def check_house_rules(path: Path, *, name: str, cpus: int, mem_gb: int, minutes:
     assert re.search(r"^set -euo pipefail$", code, re.M), "no `set -euo pipefail`"
     assert not re.search(r"\buv\s+(run|sync)\b|\bpip3?\s+install\b|-m pip\b", code), "uv/pip"
     into_repo = re.compile(
-        r"(>>?|\btee\b|\bcp\b.*|\bmv\b.*|--out(dir)?[= ]|mkdir -p)\s*\"?\$\{?GIAP_REPO\b"
+        r"(>>?|\btee\b|\bcp\b.*|\bmv\b.*|--out(dir)?[= ]|mkdir -p)\s*\"?\$\{?GIPPA_REPO\b"
     )
     bad = [ln for ln in code.splitlines() if into_repo.search(ln)]
-    assert not bad, f"writes under $GIAP_REPO: {bad}"
+    assert not bad, f"writes under $GIPPA_REPO: {bad}"

@@ -1,14 +1,14 @@
-"""``giap run --executor local`` stages the five function resources (M8-06 item 7, 06b).
+"""``gippa run --executor local`` stages the five function resources (M8-06 item 7, 06b).
 
 docs/specs/M8-06-function-step-and-run.md, item 7 "Resource staging": ``cli._local_roots`` stages
-each of ``giap.setupdb.installed.FUNCTION_RESOURCES`` that ``installed.resource`` resolves, under
+each of ``gippa.setupdb.installed.FUNCTION_RESOURCES`` that ``installed.resource`` resolves, under
 its setup item name, and only when ``"function" in cfg.modules`` (``--modules core`` copies no
 32 MB OBO). The ``resource()`` rule (M4-15 decision 5): the setup manifest lists the item *and*
 the file exists. The COG 2020 definition table (``cog2020_def``, M4-15) is staged as before,
 whatever the modules.
 
 The database is the synthetic one of ``tests/helpers/function_db.py`` (never the real
-``$GIAP_DB_DIR``), with the manifest rewritten in the per-name form of
+``$GIPPA_DB_DIR``), with the manifest rewritten in the per-name form of
 ``helpers.mapping_steps.write_test_db``, so preflight's run-mode environment check passes (every
 requirement listed) while the function items are listed only as each test says. Preflight runs
 for real on a 6-kb random genome with three proteins.
@@ -72,8 +72,8 @@ def evidence(tmp_path: Path) -> tuple[Path, Path]:
 
 @pytest.fixture(autouse=True)
 def _no_real_db(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``$GIAP_DB_DIR`` never points at the real databases."""
-    monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    """``$GIPPA_DB_DIR`` never points at the real databases."""
+    monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
 
 
 def _roots(
@@ -86,9 +86,9 @@ def _roots(
     env_db: Path | None = None,
     db_option: bool = True,
 ) -> dict[str, Path]:
-    """``_local_roots`` with ``--db-dir db`` (or none) and ``$GIAP_DB_DIR`` = ``env_db or db``."""
-    from giap.cli import _local_roots
-    from giap.config import GiapConfig
+    """``_local_roots`` with ``--db-dir db`` (or none) and ``$GIPPA_DB_DIR`` = ``env_db or db``."""
+    from gippa.cli import _local_roots
+    from gippa.config import GippaConfig
 
     inputs: dict[str, Path | None] = {"proteins": prot, "peptides": None, "abundance": None,
                                       "annotation": None, "reference_peptides": None,
@@ -96,8 +96,8 @@ def _roots(
     with pytest.MonkeyPatch.context() as mp:
         env = env_db or db
         if env is not None:
-            mp.setenv("GIAP_DB_DIR", str(env))
-        return _local_roots(GiapConfig(modules=modules), out, genome, inputs)
+            mp.setenv("GIPPA_DB_DIR", str(env))
+        return _local_roots(GippaConfig(modules=modules), out, genome, inputs)
 
 
 def _same(a: Path, b: Path) -> bool:
@@ -115,7 +115,7 @@ def test_function_on_stages_the_five_resources_under_their_item_names(
     assert _same(roots["cog2020_def"], db.root / PATHS["cog2020_def"])
 
 
-def test_function_on_reads_giap_db_dir_when_no_db_dir_option(
+def test_function_on_reads_gippa_db_dir_when_no_db_dir_option(
     tmp_path: Path, evidence: tuple[Path, Path]
 ) -> None:
     db = _db(tmp_path / "db")

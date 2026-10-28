@@ -30,15 +30,15 @@ from helpers.function_step_data import (
     write_tu_folds,
 )
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 
 @pytest.fixture(autouse=True, scope="module")
 def _simple_gsea_engine() -> Iterator[None]:
     """The step runs on ``fgsea_simple``, never R: unit tests use fakes (ADR-0038 §4, M8-17b 10).
     Module scope, so module-scoped fixtures that run the step see it too."""
-    import giap.steps.function as fn
-    from giap.function.gsea import SIMPLE_ENGINE
+    import gippa.steps.function as fn
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(fn, "_LazyRFgsea", lambda log: SIMPLE_ENGINE)
@@ -54,15 +54,15 @@ COLL_EVENT = "function.collections"
 N_RING = 40  # ranked TUs on the ring; the term's two TUs are TU_1 and TU_40
 
 
-def _cfg(**function: Any) -> GiapConfig:
+def _cfg(**function: Any) -> GippaConfig:
     raw: dict[str, Any] = {"seed": 7, "stats": {"bootstrap": 100},
                            "function": {"gsea": {"n_perm_simple": 200}, **function}}  # fmt: skip
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
-def _run_step(inputs: Mapping[str, Path], out: Path, cfg: GiapConfig) -> dict[str, Path]:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+def _run_step(inputs: Mapping[str, Path], out: Path, cfg: GippaConfig) -> dict[str, Path]:
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outputs = {k: out / "tables" / v for k, v in OUTPUTS.items()}
@@ -183,7 +183,7 @@ def test_no_eligible_gene_events_are_strict_json_with_null_coverage(
 ) -> None:
     """§6.7: every events.jsonl line is RFC 8259 JSON; the undefined coverage (0 eligible genes)
     of the installed COG collection is ``null``."""
-    from giap.io.events import EventsHandler
+    from gippa.io.events import EventsHandler
 
     genes = toy4(partial=[True] * 4) if case == "all_partial" else toy4().iloc[0:0]
     ins = {
@@ -193,7 +193,7 @@ def test_no_eligible_gene_events_are_strict_json_with_null_coverage(
     } | toy_db.inputs(["cog2020_fun"])
     logs = tmp_path / "logs"
     handler = EventsHandler(logs)
-    steps_log = logging.getLogger("giap.steps")
+    steps_log = logging.getLogger("gippa.steps")
     old = steps_log.level
     steps_log.addHandler(handler)
     steps_log.setLevel(logging.INFO)

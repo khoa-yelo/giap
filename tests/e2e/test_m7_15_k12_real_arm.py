@@ -1,11 +1,11 @@
 """The M7-15 real-tool arm, checked on its recorded run (docs/specs/M7-15-integration-hardening.md
 item 4, example 5; lead decision 2, 2026-10-22: K-12 with the in-silico TE8 peptides, Slurm only).
 
-The run itself is one ``sbatch scripts/slurm/giap_run.sbatch`` (``-profile farmshare,apptainer``;
+The run itself is one ``sbatch scripts/slurm/gippa_run.sbatch`` (``-profile farmshare,apptainer``;
 Promotech and OSTIR from their conda envs, ADR-0008) on ``tests/data/genomes/k12_mg1655.fna.gz``
 with the TE8 in-silico tryptic peptide set and ``--genome-relation related``; its job ID goes to
 PROGRESS.md. This test never starts it: it reads the finished output directory named by
-``$GIAP_M7_15_K12_OUT`` (skipped when unset) and checks example 5:
+``$GIPPA_M7_15_K12_OUT`` (skipped when unset) and checks example 5:
 
 * the run completed (``run_manifest.json``, the profile and ``related`` on its command line);
 * the second round ran on real candidates: PROMOTECH_NOVEL and OSTIR_NOVEL tasks ``COMPLETED`` in
@@ -31,7 +31,7 @@ import m7_chain as m7
 pytestmark = [pytest.mark.e2e, pytest.mark.slow]
 
 REPO = Path(__file__).resolve().parents[2]
-ENV = "GIAP_M7_15_K12_OUT"
+ENV = "GIPPA_M7_15_K12_OUT"
 BASELINE_KEY = "novel_second_round_k12"
 
 
@@ -81,6 +81,6 @@ def test_example_5_runtimes_recorded_for_this_run(out: Path) -> None:
     entry = base.get(BASELINE_KEY)
     assert entry, f"benchmarks/baseline.json has no {BASELINE_KEY}"
     man = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-    job = os.environ.get("GIAP_M7_15_K12_JOB") or str(man.get("slurm_job_id", ""))
+    job = os.environ.get("GIPPA_M7_15_K12_JOB") or str(man.get("slurm_job_id", ""))
     if job:
         assert str(entry["slurm_job"]) == job, (entry["slurm_job"], job)

@@ -1,9 +1,9 @@
-"""Realised placement FDR on giapsim genomes, exact route (issue M3-10; GIAP_SPEC.md §7.2.5, §8.4
+"""Realised placement FDR on gippasim genomes, exact route (issue M3-10; GIPPA_SPEC.md §7.2.5, §8.4
 "Placement FDR" row, fast tier: 100 kb).
 
 Per replicate i (R = ``replicates_fast.placement``; genome seed drawn from ``replicate_rng`` of
 stream ``placement.genome_exact``, so ``_criteria.calibrate`` gates it with ADR-0015 two-block
-confirmation and sharding): a 100-kb giapsim genome (M3-18 simulator); correct peptides are the
+confirmation and sharding): a 100-kb gippasim genome (M3-18 simulator); correct peptides are the
 tryptic peptides (7-20 aa) of its
 annotated genes; wrong peptides are i.i.d. 7- and 8-mers drawn from the genome's six-frame residue
 frequencies (``residue_freqs``), minus any that equal a correct peptide. All are database input
@@ -27,17 +27,17 @@ import pandas as pd
 import pytest
 from _gate import calibrate_levels
 
-from giap.config import GiapConfig
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.chance import residue_freqs
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.placement_fdr import best_costs, placement
-from giap.mapping.sixframe import ALPHABET, build_sixframe
-from giap.model import Replicon
-from giap.model.genes import gene_model_from_bakta_json
-from giap.rng import for_step
-from giapsim.simulate import SimConfig, simulate
+from gippa.config import GippaConfig
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.chance import residue_freqs
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.placement_fdr import best_costs, placement
+from gippa.mapping.sixframe import ALPHABET, build_sixframe
+from gippa.model import Replicon
+from gippa.model.genes import gene_model_from_bakta_json
+from gippa.rng import for_step
+from gippasim.simulate import SimConfig, simulate
 
 pytestmark = pytest.mark.calibration
 
@@ -81,12 +81,12 @@ def _replicate(seed: int, outdir: Path) -> tuple[pd.DataFrame, set[str], int]:
         }
     )
     costs = best_costs(hits, peptides, freqs)
-    per, _ = placement(costs, GiapConfig())
+    per, _ = placement(costs, GippaConfig())
     n_wrong_target = int(hits[(hits["search"] == "target")]["peptide"].isin(wrong).sum())
     return per, wrong, n_wrong_target
 
 
-def test_realised_placement_fdr_on_giapsim(tmp_path: Path) -> None:
+def test_realised_placement_fdr_on_gippasim(tmp_path: Path) -> None:
     levels = C.load_tolerances().levels
     side: list[tuple[int, int]] = []  # (wrong target hits, accepted at loosest q), replicates run
 

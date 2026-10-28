@@ -1,4 +1,4 @@
-# M6-08: The `operons` step, its three tables, and wiring them into `giap run`
+# M6-08: The `operons` step, its three tables, and wiring them into `gippa run`
 
 Milestone M6 · track T (tables and integration) · **pass 1 — this is the integration milestone** ·
 depends on: M6-04, M6-05, M6-06, M6-07 (and merged MVP-01 wiring) · estimate ≈ 320 code lines
@@ -6,7 +6,7 @@ depends on: M6-04, M6-05, M6-06, M6-07 (and merged MVP-01 wiring) · estimate �
 
 ## The gap this closes
 
-M4 and M5 built tables that `giap run` reaches only because MVP-01 wired them. Module 4 would
+M4 and M5 built tables that `gippa run` reaches only because MVP-01 wired them. Module 4 would
 repeat the project's recurring failure if its three tables lived in Python only. This issue
 registers the step, writes the tables, adds the `OPERONS` subworkflow, calls it from `main.nf`, and
 proves it with a real Slurm run — before any of M6's hardening work starts.
@@ -22,7 +22,7 @@ proves it with a real Slurm run — before any of M6's hardening work starts.
 
 ## Public interface
 
-`src/giap/steps/operons.py` (extends the merged module)
+`src/gippa/steps/operons.py` (extends the merged module)
 ```python
 @step("operons",
       inputs=["gene_table", "genes", "replicons", "tus", "pairs_raw", "features"],
@@ -39,16 +39,16 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
    used only by M6-02 in pass 2; in pass 1 the step logs `no_detection_limit_model` and proceeds.
 2. **Order.** pair frame (M6-04) → discordance (M6-05) → missed operons (M6-06) → flags and the TU
    table (M6-07) → three writers.
-3. **Writers** in `src/giap/io/operon_tables.py`: 1-based closed coordinates, `NA` for missing,
+3. **Writers** in `src/gippa/io/operon_tables.py`: 1-based closed coordinates, `NA` for missing,
    `;`-joined flags and list columns, booleans as `true`/`false`, the §6.5 sort order. Coordinates
    are converted **only here** (the §6.5 rule).
-4. **Schemas.** Three Frictionless resources in `src/giap/schemas/`, with the `flag` enum of M6-07,
+4. **Schemas.** Three Frictionless resources in `src/gippa/schemas/`, with the `flag` enum of M6-07,
    the `class` and `test` enums of §9.3, and `coordinates: 1-based-closed`. The new Operons flag
    values of index decision 7 are added to the flag vocabulary resource.
 5. **Module skip.** No abundance input → the step still runs and writes `pairs.tsv` (classes,
    distances, evidence) with every test `none`; `operon_flags.tsv` is header-only. Nothing in the
    pipeline fails for lack of quantitation.
-6. **Nextflow.** `workflow/subworkflows/local/operons.nf` in the CONTEXT style (`GIAP_STEP`,
+6. **Nextflow.** `workflow/subworkflows/local/operons.nf` in the CONTEXT style (`GIPPA_STEP`,
    `stepIn`, `kv`, `pick`), called from `main.nf` after `GENETABLE` and beside `CONTEXT`. It needs
    three channels `annotate.nf` does not emit today — `promoter_windows`, `terminators`,
    `tx_rates` — so `annotate.nf` gains `emit: layers_for_pairs` (decision 6). Each is optional, in
@@ -57,7 +57,7 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
    backlog item "which keys are user-facing, which stay in `work/` — with the M6 writers": the rule
    is written into the subworkflow and into `docs/specs/M6-08` so later milestones copy it.
 8. **Small refactor named in scope:** `_genes`, `_path` and `_replicons` move out of
-   `giap.steps.operons` into a public shared module (the standing M2-16 backlog item), because this
+   `gippa.steps.operons` into a public shared module (the standing M2-16 backlog item), because this
    step and M6-02 both import them.
 
 ## Degenerate cases
@@ -75,14 +75,14 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | `giap run --executor local` on the sim100k fixture with all layers | three files under `tables/`; `pairs.tsv` has one row per adjacent pair plus the SW rows; every test column `NA`/`none`; exit 0 |
+| 1 | `gippa run --executor local` on the sim100k fixture with all layers | three files under `tables/`; `pairs.tsv` has one row per adjacent pair plus the SW rows; every test column `NA`/`none`; exit 0 |
 | 2 | the same through Nextflow (`-profile test`) | byte-identical tables (the §6.4 executor-equality test) |
 | 3 | run without `--abundance` | `pairs.tsv` written, `operon_flags.tsv` header-only, no error |
 | 4 | run with `annotation.precomputed.terminators` unset and no TerminatorNet | `terminator_between` NA everywhere, run flag `layer_missing:terminators` |
 | 5 | the 50-kb golden fixture | `pairs.tsv` matches the committed golden file byte for byte |
 | 6 | `frictionless validate` on the three resources | valid |
 | 7 | nf-test stub run of `OPERONS` | the three output keys are emitted and named as in §9.1 |
-| 8 | `sbatch scripts/slurm/giap_run.sbatch` on sim100k, real tools | completes; the three tables exist and are non-empty (`operon_flags.tsv` may be header-only) |
+| 8 | `sbatch scripts/slurm/gippa_run.sbatch` on sim100k, real tools | completes; the three tables exist and are non-empty (`operon_flags.tsv` may be header-only) |
 
 ## Acceptance criteria
 
@@ -96,7 +96,7 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
   informative.
 - [ ] Schema: `frictionless validate` passes; the `flag`, `class` and `test` enums are exactly the
   §9.3 ones; `schemas/datapackage.json` lists three new resources.
-- [ ] **Evidence that counts (the MVP rule):** one real `sbatch scripts/slurm/giap_run.sbatch` on
+- [ ] **Evidence that counts (the MVP rule):** one real `sbatch scripts/slurm/gippa_run.sbatch` on
   sim100k that reaches the end and writes the three tables; the job ID in PROGRESS.md.
 - [ ] Runtime recorded in `benchmarks/baseline.json` for a 4,500-gene genome.
 

@@ -1,4 +1,4 @@
-"""Step registry, topological order and ``run_step`` (M2-02; GIAP_SPEC.md §6.2, §6.6)."""
+"""Step registry, topological order and ``run_step`` (M2-02; GIPPA_SPEC.md §6.2, §6.6)."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig, resolve_config
-from giap.rng import for_step
+from gippa.config import GippaConfig, resolve_config
+from gippa.rng import for_step
 
 
 @contextmanager
 def fresh_registry() -> Iterator[ModuleType]:
     """An empty registry for use inside Hypothesis examples (same as the ``registry`` fixture)."""
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(reg, "_REGISTRY", {})
@@ -275,7 +275,7 @@ def _register_bakta_like(reg: ModuleType, with_producer: bool) -> None:
 def test_external_optional_input_plans_with_and_without_producer(
     with_producer: bool, tmp_path: Path
 ) -> None:
-    from giap.runner.local import LayerMissing, plan_local
+    from gippa.runner.local import LayerMissing, plan_local
 
     with fresh_registry() as reg:
         _register_bakta_like(reg, with_producer)
@@ -287,7 +287,7 @@ def test_external_optional_input_plans_with_and_without_producer(
         expected = [*(["make_regions"] if with_producer else []), "bakta", "parse"]
         assert reg.topo_order(names) == expected
         with pytest.raises(LayerMissing):
-            plan_local(GiapConfig(), ["parse"])
+            plan_local(GippaConfig(), ["parse"])
         layer = tmp_path / "bakta.json"
         layer.write_text("{}")
         cfg = resolve_config(None, [f"annotation.precomputed.bakta_json={layer}"])
@@ -298,12 +298,12 @@ def test_external_optional_input_plans_with_and_without_producer(
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
-    return GiapConfig(seed=7)
+def cfg() -> GippaConfig:
+    return GippaConfig(seed=7)
 
 
 def test_run_step_copies_and_creates_output_dirs(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.step("toy", inputs=["a"], outputs=["b"])(_copy)
     src = tmp_path / "in.txt"
@@ -313,7 +313,7 @@ def test_run_step_copies_and_creates_output_dirs(
     assert out.read_text() == "hello\n"
 
 
-def test_run_step_context_fields(registry: ModuleType, cfg: GiapConfig, tmp_path: Path) -> None:
+def test_run_step_context_fields(registry: ModuleType, cfg: GippaConfig, tmp_path: Path) -> None:
     seen: dict[str, Any] = {}
 
     def toy(ctx: Any) -> None:
@@ -337,7 +337,7 @@ def test_run_step_context_fields(registry: ModuleType, cfg: GiapConfig, tmp_path
 
 
 def test_run_step_optional_input_absent(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     seen: dict[str, Any] = {}
 
@@ -353,7 +353,7 @@ def test_run_step_optional_input_absent(
 
 
 def test_run_step_directory_input_allowed(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     def toy(ctx: Any) -> None:
         names = sorted(p.name for p in ctx.inputs["genomad/"].iterdir())
@@ -367,13 +367,13 @@ def test_run_step_directory_input_allowed(
     assert (tmp_path / "out.txt").read_text() == "x.tsv"
 
 
-def test_run_step_unknown_name_is_wiring_error(registry: ModuleType, cfg: GiapConfig) -> None:
+def test_run_step_unknown_name_is_wiring_error(registry: ModuleType, cfg: GippaConfig) -> None:
     with pytest.raises(registry.WiringError, match="nope"):
         registry.run_step("nope", cfg, {}, {})
 
 
 def test_run_step_undeclared_input_key_is_wiring_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.step("toy", inputs=["a"], outputs=["b"])(_copy)
     src = tmp_path / "in.txt"
@@ -384,7 +384,7 @@ def test_run_step_undeclared_input_key_is_wiring_error(
 
 
 def test_run_step_undeclared_output_key_is_wiring_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.step("toy", inputs=["a"], outputs=["b"])(_copy)
     src = tmp_path / "in.txt"
@@ -395,7 +395,7 @@ def test_run_step_undeclared_output_key_is_wiring_error(
 
 
 def test_run_step_missing_required_input_is_wiring_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.step("toy", inputs=["a"], outputs=["b"])(_copy)
     with pytest.raises(registry.WiringError) as info:
@@ -404,7 +404,7 @@ def test_run_step_missing_required_input_is_wiring_error(
 
 
 def test_run_step_nonexistent_input_path_is_wiring_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.step("toy", inputs=["a"], outputs=["b"])(_copy)
     with pytest.raises(registry.WiringError, match="toy"):
@@ -412,7 +412,7 @@ def test_run_step_nonexistent_input_path_is_wiring_error(
 
 
 def test_run_step_wraps_exception_in_step_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     def toy(ctx: Any) -> None:
         raise RuntimeError("boom")
@@ -428,7 +428,7 @@ def test_run_step_wraps_exception_in_step_error(
 
 
 def test_run_step_missing_declared_output_is_wiring_error(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     def toy(ctx: Any) -> None:
         ctx.outputs["b"].write_text("x")  # forgets "c"
@@ -440,7 +440,7 @@ def test_run_step_missing_declared_output_is_wiring_error(
 
 
 def test_run_step_ext_step_has_no_function(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     registry.external("tool", inputs=[], outputs=["b"])
     with pytest.raises(registry.WiringError, match="tool"):
@@ -451,7 +451,7 @@ def test_run_step_ext_step_has_no_function(
 
 
 def test_run_step_outputs_byte_identical(
-    registry: ModuleType, cfg: GiapConfig, tmp_path: Path
+    registry: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     def toy(ctx: Any) -> None:
         data = ctx.inputs["a"].read_bytes()
@@ -464,5 +464,5 @@ def test_run_step_outputs_byte_identical(
     registry.run_step("toy", cfg, {"a": src}, {"b": tmp_path / "r1" / "b"})
     registry.run_step("toy", cfg, {"a": src}, {"b": tmp_path / "r2" / "b"})
     assert (tmp_path / "r1" / "b").read_bytes() == (tmp_path / "r2" / "b").read_bytes()
-    registry.run_step("toy", GiapConfig(seed=8), {"a": src}, {"b": tmp_path / "r3" / "b"})
+    registry.run_step("toy", GippaConfig(seed=8), {"a": src}, {"b": tmp_path / "r3" / "b"})
     assert (tmp_path / "r3" / "b").read_bytes() != (tmp_path / "r1" / "b").read_bytes()

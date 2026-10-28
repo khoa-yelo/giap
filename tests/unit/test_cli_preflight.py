@@ -1,9 +1,9 @@
-"""``giap preflight`` end to end through click (issue M1-12; GIAP_SPEC.md §5.1, §5.3, §6.2,
+"""``gippa preflight`` end to end through click (issue M1-12; GIPPA_SPEC.md §5.1, §5.3, §6.2,
 §7.0 Outputs and Tests, §7.1.2; ADR-0005 item 3).
 
-Inputs are tiny files in ``tmp_path`` (genomes from ``giapsim`` or random ACGT). ``GIAP_DB_DIR``
-and ``GIAP_REPO`` point at empty directories, so ``db_manifest.json`` is missing: under
-``giap preflight`` that is info, never an environment error (M1-11 question 1), and the exit codes
+Inputs are tiny files in ``tmp_path`` (genomes from ``gippasim`` or random ACGT). ``GIPPA_DB_DIR``
+and ``GIPPA_REPO`` point at empty directories, so ``db_manifest.json`` is missing: under
+``gippa preflight`` that is info, never an environment error (M1-11 question 1), and the exit codes
 below come from the input rules only. §1.1 makes evidence mandatory
 (``inputs.evidence_present``), so the spec's genome-only examples 1-3 add a tiny valid
 ``--proteins`` file to reach their stated exit code.
@@ -23,13 +23,13 @@ import pandas as pd
 import pytest
 from click.testing import CliRunner, Result
 
-from giap.exitcodes import ExitCode
-from giap.io.fasta import read_genome_fasta
-from giap.io.protein_fasta import read_protein_fasta
-from giapsim import SimConfig, simulate
+from gippa.exitcodes import ExitCode
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.protein_fasta import read_protein_fasta
+from gippasim import SimConfig, simulate
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 LOW = ["--set", "preflight.min_n50_warn=1", "--set", "preflight.min_largest_contig_warn=1"]
 WORK_FILES = (
     "genome.norm.fa",
@@ -50,9 +50,9 @@ def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db.mkdir()
     repo = tmp_path / "repo_empty"
     repo.mkdir()
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
-    monkeypatch.setenv("GIAP_REPO", str(repo))
-    monkeypatch.setenv("GIAP_ROOT", str(repo))  # never the real $GIAP_ROOT (decision 4c)
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_REPO", str(repo))
+    monkeypatch.setenv("GIPPA_ROOT", str(repo))  # never the real $GIPPA_ROOT (decision 4c)
 
 
 def random_acgt(n: int, seed: int = 0) -> str:
@@ -84,7 +84,7 @@ def peptides(tmp_path: Path) -> Path:
 
 
 def invoke(*args: str | Path) -> Result:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, ["preflight", *(str(a) for a in args)])
 
@@ -307,7 +307,7 @@ def test_stdout_is_the_markdown_summary(tmp_path: Path) -> None:
     )
     assert_code(r, ExitCode.SUCCESS)
     md = (out / "preflight" / "preflight.md").read_text(encoding="utf-8")
-    assert md.startswith("# GIAP preflight")
+    assert md.startswith("# GIPPA preflight")
     assert md.strip() in r.stdout
     assert "0 errors, 1 warning" in md  # genome.contiguity only
 
@@ -439,7 +439,7 @@ def test_unreadable_db_manifest_is_environment_error_exit_2(
     db = tmp_path / "db_bad"
     db.mkdir()
     write(db / "db_manifest.json", "{not json")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     out = tmp_path / "out"
     r = invoke(
         "--genome", genome_120kb(tmp_path), "--proteins", proteins(tmp_path), *LOW, "--outdir", out
@@ -457,7 +457,7 @@ def test_input_error_wins_over_environment_error(
     db = tmp_path / "db_bad"
     db.mkdir()
     write(db / "db_manifest.json", "{not json")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     g = write(tmp_path / "g.fa", ">c\nACGU\n")
     r = invoke("--genome", g, "--proteins", proteins(tmp_path), "--strict")
     assert_code(r, ExitCode.INVALID_INPUT)
@@ -479,8 +479,8 @@ def test_missing_db_manifest_is_info_under_preflight(tmp_path: Path) -> None:
 def test_exception_inside_a_rule_exits_5_with_report_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import giap.preflight.genome as genome_mod
-    from giap.cli import REPORT_MESSAGE, main
+    import gippa.preflight.genome as genome_mod
+    from gippa.cli import REPORT_MESSAGE, main
 
     def boom(lengths: object) -> int:
         raise RuntimeError("rule bug")
@@ -494,7 +494,7 @@ def test_exception_inside_a_rule_exits_5_with_report_message(
 
 
 def test_preflight_options_match_spec() -> None:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     names = {p.name for p in cli.commands["preflight"].params}
     assert {

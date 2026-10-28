@@ -1,10 +1,10 @@
 # M10-12: the standard-run benchmark (`scripts/slurm/benchmark_standard.sbatch`)
 
-Milestone M10 · **pass 2** · depends on: M10-04 (a real `giap run` on a 5-Mb genome has finished
-end to end on FarmShare; soft: the MVP-04 K-12 inputs under `$GIAP_ROOT/mvp04/20261023/`) ·
+Milestone M10 · **pass 2** · depends on: M10-04 (a real `gippa run` on a 5-Mb genome has finished
+end to end on FarmShare; soft: the MVP-04 K-12 inputs under `$GIPPA_ROOT/mvp04/20261023/`) ·
 estimate ≈ 230 code lines + ≈ 260 test lines · not `stats` (a median and a range; no inference) ·
 roles: implementer (`scripts/slurm/benchmark_standard.sbatch`, `scripts/dev/benchmark_summary.py`,
-the `SIM5M` giapsim scenario), test-author (`tests/unit/test_m10_12_*.py`), performance (runs it and
+the `SIM5M` gippasim scenario), test-author (`tests/unit/test_m10_12_*.py`), performance (runs it and
 writes ADR-M10-D), docs (the user-guide runtime table) · Khoa: none (the numbers are reported, not
 gated; §14.8 has no item for them).
 
@@ -24,7 +24,7 @@ gated; §14.8 has no item for them).
   5-Mb simulated genome and K-12"; "each accepted improvement updates `benchmarks/baseline.json`
   through an ADR with before-and-after numbers". This issue writes the **first** entry M10-13
   improves on.
-- R14 (≤ 128 CPUs, ≤ 20 queued or running jobs, names `giap-*`, look only at GIAP's own jobs),
+- R14 (≤ 128 CPUs, ≤ 20 queued or running jobs, names `gippa-*`, look only at GIPPA's own jobs),
   R3 (no tolerance is tuned on these numbers), R9 (3 attempts), R11 (nothing large committed).
 - Index lead decision 1, L7 and L8: "the standard and core benchmark variants on wheat"; "runtimes
   go into baseline.json, the guide, PROGRESS and ADR-M10-D".
@@ -33,16 +33,16 @@ gated; §14.8 has no item for them).
 
 | Piece | State | Used for |
 |---|---|---|
-| `scripts/slurm/weekly.sbatch` | 16 CPU, `--mem=60G`, `farmshare_local,apptainer` (the `farmshare` Slurm-executor profile is refused with exit 2, decisions 12, 22), a detached worktree per ref under `$GIAP_ROOT/ci/` with `flock`, a fresh node-local `NUMBA_CACHE_DIR` per task, `PYTHONPATH=$PWD/src:$PWD/tests/sim`, `scripts/measure_runtimes.py` on each trace | the model for checkout, profile guard and traps; no code is shared (copy the pattern) |
+| `scripts/slurm/weekly.sbatch` | 16 CPU, `--mem=60G`, `farmshare_local,apptainer` (the `farmshare` Slurm-executor profile is refused with exit 2, decisions 12, 22), a detached worktree per ref under `$GIPPA_ROOT/ci/` with `flock`, a fresh node-local `NUMBA_CACHE_DIR` per task, `PYTHONPATH=$PWD/src:$PWD/tests/sim`, `scripts/measure_runtimes.py` on each trace | the model for checkout, profile guard and traps; no code is shared (copy the pattern) |
 | `workflow/conf/farmshare_local.config` | local executor; `executor.cpus = SLURM_CPUS_PER_TASK`, `executor.memory = SLURM_MEM_PER_NODE − 2048 MB`; `resourceLimits` = min(allocation, `--threads`/`--memory`) | **the profile of the benchmark**: every task inside the one 16-CPU allocation |
 | `workflow/conf/farmshare.config` | Slurm executor, `queueSize = 8`, per-task CPUs ≤ min(16, `--threads`) | refused here: with it, `--threads 16` caps each task, not the run (8 × 16 = 128 CPUs on other nodes) |
-| `giap run` | `--threads`, `--memory` (default `64.GB`), `--modules`, `--annotation`, `--profile`, `--seed`, `--resume` (off by default), `-work-dir OUT/work`, `-with-trace OUT/logs/trace.tsv` | the measured command |
+| `gippa run` | `--threads`, `--memory` (default `64.GB`), `--modules`, `--annotation`, `--profile`, `--seed`, `--resume` (off by default), `-work-dir OUT/work`, `-with-trace OUT/logs/trace.tsv` | the measured command |
 | `cli._bakta_json` | `--annotation` is a Bakta JSON only when its suffix is `.json`. **A `.json.gz` is taken for GFF3/GenBank and Bakta runs live** (M10-04 Q3; backlog chore "accept `.json.gz`") | the core variant decompresses the JSON first and asserts that no Bakta task ran |
 | `run_manifest.json` | `git_commit`, `git_dirty`, `resume`, `profile`, `started_at`, `finished_at`, `exit_code`, `steps[]` with `status` (`completed`/`cached`/`failed`), `wall_time_s`, `peak_rss_bytes` | commit, resume and cache checks; per-step numbers |
 | `scripts/measure_runtimes.py` | trace → markdown rows `step \| genome \| wall \| peak RSS \| node class (job)`; `CACHED`/`FAILED` left out | the per-step rows for PROGRESS, unchanged |
 | `benchmarks/baseline.json` | 31 top-level entries of micro-benchmarks; `annotation_steps` is keyed by node class (`wheat`), each entry with `median_s`, `node`, `cpu`, `slurm_job`, `commit`, `date`, `rounds`. Not a protected file | gets a new top-level key `standard_run` in the same per-class shape |
-| Inputs on disk | `tests/data/genomes/k12_mg1655.fna.gz` (U00096.3, `[topology=circular]`, committed); `tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz` (committed); `$GIAP_ROOT/mvp04/20261023/{peptides.tsv,config.yaml}` (giapsim real-genome peptides at `K12_EVIDENCE_SEED`, written by `mvp04_inputs.sbatch`); Bakta full DB 6.0, geNOMAD, Promotech, antiSMASH image, GO/KEGG/COG, contaminants under `$GIAP_DB_DIR` | inputs |
-| giapsim | `simulate(SimConfig, seed)` writes `genome.fasta`, `bakta_like.json` (Bakta-shaped when a v2 option is on), `peptides.tsv` with `proteomics`; a 5-Mb genome in < 30 s (`benchmarks/test_giapsim.py`). **No named 5-Mb scenario exists** | `SIM5M` (new, below) |
+| Inputs on disk | `tests/data/genomes/k12_mg1655.fna.gz` (U00096.3, `[topology=circular]`, committed); `tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz` (committed); `$GIPPA_ROOT/mvp04/20261023/{peptides.tsv,config.yaml}` (gippasim real-genome peptides at `K12_EVIDENCE_SEED`, written by `mvp04_inputs.sbatch`); Bakta full DB 6.0, geNOMAD, Promotech, antiSMASH image, GO/KEGG/COG, contaminants under `$GIPPA_DB_DIR` | inputs |
+| gippasim | `simulate(SimConfig, seed)` writes `genome.fasta`, `bakta_like.json` (Bakta-shaped when a v2 option is on), `peptides.tsv` with `proteomics`; a 5-Mb genome in < 30 s (`benchmarks/test_gippasim.py`). **No named 5-Mb scenario exists** | `SIM5M` (new, below) |
 | User guide | **does not exist**: no MkDocs site yet (M11), no runtime table anywhere under `docs/` | question L9 |
 | Measured so far | Bakta full DB on K-12: 9.9 min, 20.6 GB (barley-01, 1849096); TerminatorNet on K-12: 60 min at `-n 17` (wheat-04, 1847778), ~3 h at 6 threads (M7-15); weekly annotate run with live Bakta: 2 h 08 min (wheat-05, 1852010) | the §13.2 range (16–55 min) is probably too low for the standard variant; this issue reports what it measures |
 
@@ -66,7 +66,7 @@ gated; §14.8 has no item for them).
    ignore their thread flag, to the 16 allocated CPUs. So the profile is load-bearing: only
    `farmshare_local,apptainer` measures "a run on 16 threads".
 4. **Memory inside the allocation.** The cgroup holds the Nextflow JVM (`NXF_OPTS=-Xms512m -Xmx4g`,
-   so up to ~5 GB resident), the `giap` Python head and the tasks. `farmshare_local` sets the task
+   so up to ~5 GB resident), the `gippa` Python head and the tasks. `farmshare_local` sets the task
    pool to 64,000 − 2,048 = 61,952 MB, which leaves too little for the JVM. The run therefore passes
    **`--memory 56.GB`** (57,344 MB of tasks + ~5 GB JVM + head < 64,000 MB), as `weekly.sbatch` does
    (question L2).
@@ -86,10 +86,10 @@ repeats = 12 runs**, all on one node class.
 
 | Genome key | Genome | Peptides | Bakta JSON (core variant) |
 |---|---|---|---|
-| `k12` | `tests/data/genomes/k12_mg1655.fna.gz` (4.64 Mb, one circular replicon) | `$GIAP_ROOT/mvp04/20261023/peptides.tsv` with its `config.yaml` (as MVP-04) | the committed `k12_mg1655.json.gz`, decompressed into the run's input directory |
-| `sim5m` | giapsim `SIM5M` at `SIM5M_SEED`, written by the job (below) | the scenario's `peptides.tsv` | the scenario's `bakta_like.json` |
+| `k12` | `tests/data/genomes/k12_mg1655.fna.gz` (4.64 Mb, one circular replicon) | `$GIPPA_ROOT/mvp04/20261023/peptides.tsv` with its `config.yaml` (as MVP-04) | the committed `k12_mg1655.json.gz`, decompressed into the run's input directory |
+| `sim5m` | gippasim `SIM5M` at `SIM5M_SEED`, written by the job (below) | the scenario's `peptides.tsv` | the scenario's `bakta_like.json` |
 
-`SIM5M` (new in `tests/sim/giapsim/simulate.py`, next to `SIM100K`): `SIM100K`'s options with
+`SIM5M` (new in `tests/sim/gippasim/simulate.py`, next to `SIM100K`): `SIM100K`'s options with
 `genome_length=5_000_000`, `n_plasmids=1`, `plasmid_length=(80_000, 80_000)`,
 `n_rrna_operons=7`, `n_trna=86`, `prophage_bp=60_000`, `bgc_bp=40_000`, `n_pseudogenes=40`,
 `n_sorfs=30`, `write_precomputed=False` (the real tools must run), `proteomics=ProteomicsConfig()`;
@@ -110,8 +110,8 @@ derived, question L7.)
 ```text
 srun --ntasks=1 --cpus-per-task=16 --mem=64000M --export=ALL \
   timeout --signal=TERM --kill-after=5m "$BENCH_RUN_TIMEOUT" \
-  giap run --genome G --peptides P [--config C] [--annotation J --modules core] \
-    [--set annotation.bakta.db=full] --db-dir "$GIAP_DB_DIR" --threads 16 --memory 56.GB \
+  gippa run --genome G --peptides P [--config C] [--annotation J --modules core] \
+    [--set annotation.bakta.db=full] --db-dir "$GIPPA_DB_DIR" --threads 16 --memory 56.GB \
     --profile farmshare_local,apptainer --seed 20261014 --outdir RUN_DIR/out
 ```
 
@@ -146,30 +146,30 @@ busy hour does not always favour the same cell:
 | 1 | k12/core, sim5m/standard, sim5m/core, k12/standard |
 | 2 | sim5m/standard, sim5m/core, k12/standard, k12/core |
 
-Job header: `--job-name=giap-bench`, `--partition=normal`, `--qos=normal`, `--cpus-per-task=16`,
+Job header: `--job-name=gippa-bench`, `--partition=normal`, `--qos=normal`, `--cpus-per-task=16`,
 `--mem=64000M`, `--constraint=CPU_SKU:6148`, `--time=22:00:00` (4 runs × the 5 h
 `BENCH_RUN_TIMEOUT` + 2 h set-up), `--output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out`
-(an absolute path, as in the other giap sbatch scripts: `#SBATCH` lines expand no variables). R14 cost: 16 CPUs and
+(an absolute path, as in the other gippa sbatch scripts: `#SBATCH` lines expand no variables). R14 cost: 16 CPUs and
 at most 3 queued or running jobs (the pending tasks count toward the 20-job cap). The three repeats
 land on whichever wheat nodes are free, so node-to-node variation inside the class is part of the
 spread, which is what a user sees.
 
 **Not exclusive** (question L4). `--exclusive` would allocate a whole wheat node (80 CPUs, 62 % of
 the R14 cap), wait for an idle wheat node (none was idle on 2026-10-23) and measure conditions no
-user has. Instead the isolation is guaranteed for GIAP's own work and **recorded** for the rest:
+user has. Instead the isolation is guaranteed for GIPPA's own work and **recorded** for the rest:
 
-- **Before submission (lead's procedure, in the runbook):** no other `giap-*` job with ≥ 8 CPUs, and
-  no `giap-*` Nextflow task jobs, are running or pending; PROGRESS › In progress gets a
-  "benchmark window" line with the array ID; no heavy GIAP job is submitted until the array ends.
-  The usual R14 sum (running + pending `giap-*` CPUs + 16 ≤ 128) applies.
+- **Before submission (lead's procedure, in the runbook):** no other `gippa-*` job with ≥ 8 CPUs, and
+  no `gippa-*` Nextflow task jobs, are running or pending; PROGRESS › In progress gets a
+  "benchmark window" line with the array ID; no heavy GIPPA job is submitted until the array ends.
+  The usual R14 sum (running + pending `gippa-*` CPUs + 16 ≤ 128) applies.
 - **During each run:** a background sampler writes, at the run's start, every 5 min and at its end,
   one row to `RUN_DIR/cotenancy.tsv`: time, the node's aggregate `CPUAlloc`, `CPULoad`, `AllocMem`
   (from `scontrol show node $SLURMD_NODENAME`; node totals only, no other user's job is looked
-  at, R14), and this user's other running `giap-*` jobs (`squeue -u $USER -t R -h -o
+  at, R14), and this user's other running `gippa-*` jobs (`squeue -u $USER -t R -h -o
   '%A|%j|%C|%N'`, the benchmark's own job excluded).
-- **Validity:** another `giap-*` job on **the same node** at any sample makes the run invalid
-  (`same_node_giap:<jobid>`); one on another node with ≥ 8 CPUs adds `contended_other_nodes`
-  (valid; NFS is shared). Non-GIAP load is reported (median and max `CPUAlloc` of the node) and
+- **Validity:** another `gippa-*` job on **the same node** at any sample makes the run invalid
+  (`same_node_gippa:<jobid>`); one on another node with ≥ 8 CPUs adds `contended_other_nodes`
+  (valid; NFS is shared). Non-GIPPA load is reported (median and max `CPUAlloc` of the node) and
   never invalidates.
 
 **Nothing resumes, nothing is warm by accident.**
@@ -194,7 +194,7 @@ non-OOM 124 or 137 is a timeout) → `timeout` → `invalid` (any reason below) 
 steps with `status = cached`), `manifest_resume`, `commit_mismatch` (manifest `git_commit` ≠ `BENCH_COMMIT` or
 `git_dirty` true), `host_mismatch` (a trace `hostname` ≠ the job's node: a task left the
 allocation), `node_class:<sku>` (the node's features lack `CPU_SKU:6148`, only possible under an
-override), `bakta_ran_in_core` (a `BAKTA` process in a core run's trace), `same_node_giap:<id>`,
+override), `bakta_ran_in_core` (a `BAKTA` process in a core run's trace), `same_node_gippa:<id>`,
 `image_or_env_created`, `alloc_cpus:<n>` (`sacct` AllocCPUS of the step ≠ 16). A run with Nextflow
 task retries (the memory × 2 retry) is valid; `n_retried` is reported.
 
@@ -211,17 +211,17 @@ from the §3.8 header and `weekly.sbatch`'s traps):
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BENCH_COMMIT` | **required** | full 40-hex SHA reachable from `origin`; checked out detached in `$GIAP_ROOT/ci/bench-<sha7>` under `flock`. Unset, short or unknown → exit 2. All three tasks use the same value, so `origin/main` moving between tasks changes nothing |
+| `BENCH_COMMIT` | **required** | full 40-hex SHA reachable from `origin`; checked out detached in `$GIPPA_ROOT/ci/bench-<sha7>` under `flock`. Unset, short or unknown → exit 2. All three tasks use the same value, so `origin/main` moving between tasks changes nothing |
 | `BENCH_ID` | `<YYYY-MM-DD of submission>_<sha7>` | the benchmark directory name; the lead exports it so the 3 tasks share it |
-| `BENCH_DIR` | `$GIAP_ROOT/bench` | root of all runs |
+| `BENCH_DIR` | `$GIPPA_ROOT/bench` | root of all runs |
 | `BENCH_GENOMES`, `BENCH_VARIANTS` | `k12 sim5m`, `standard core` | subsets; an empty or unknown value → exit 2 |
 | `BENCH_ONLY`, `BENCH_ATTEMPT` | unset, unset | one cell, for a replacement |
 | `BENCH_RUN_TIMEOUT` | `5h` | per-run `timeout` |
 | `BENCH_PROFILE` | `farmshare_local,apptainer` | any list containing `farmshare` → exit 2 (R14, weekly decisions 12, 22) |
-| `BENCH_DRY_RUN` | unset | `1`: the preconditions and the planned `srun … giap run …` lines are printed, nothing runs (the CI tests use it) |
+| `BENCH_DRY_RUN` | unset | `1`: the preconditions and the planned `srun … gippa run …` lines are printed, nothing runs (the CI tests use it) |
 
 Preconditions before any run (exit 2, nothing written but the log): the profile guard;
-`BENCH_COMMIT`; `giap setup --check --db-dir $GIAP_DB_DIR` for Bakta full, geNOMAD, Promotech,
+`BENCH_COMMIT`; `gippa setup --check --db-dir $GIPPA_DB_DIR` for Bakta full, geNOMAD, Promotech,
 antiSMASH, GO, KEGG, COG, contaminants; the K-12 inputs (the peptides and `config.yaml` exist; the
 genome and JSON sha256 values equal the committed files'); a `RUN_DIR` that already exists.
 
@@ -232,13 +232,13 @@ unfinished run as `timeout`).
 Per run, `RUN_DIR/bench_run.json` (sorted keys, 2-space indent, final newline):
 
 ```text
-{schema: "giap-bench-run/1", bench_id, commit, genome, variant, repeat, attempt, order_index,
+{schema: "gippa-bench-run/1", bench_id, commit, genome, variant, repeat, attempt, order_index,
  job_id, array_task, step_id, node, cpu_sku, argv[], inputs: {name: {path, sha256}},
  sacct: {elapsed_s, max_rss_bytes, total_cpu_s, alloc_cpus, state},
  script_wall_s, wall_s, exit_code, status, invalid_reasons[], warnings[],
  trace: {n_tasks, n_cached, n_failed, n_retried, hosts[], task_peak_rss_max_bytes, failed_processes[]},
  steps: {<step>: {realtime_s, peak_rss_bytes, order}},
- cotenancy: {samples, node_cpualloc_median, node_cpualloc_max, giap_other: [{job, name, cpus, node}]}}
+ cotenancy: {samples, node_cpualloc_median, node_cpualloc_max, gippa_other: [{job, name, cpus, node}]}}
 ```
 
 plus `RUN_DIR/runtimes.md` (`measure_runtimes.py` on the trace, unchanged) and `cotenancy.tsv`.
@@ -273,11 +273,11 @@ readable; 2 on an unreadable or schema-invalid `bench_run.json`.
 
 | Destination | What | Who |
 |---|---|---|
-| `$GIAP_ROOT/bench/<bench_id>/` | runs, `summary.json`, `summary.md` (never committed) | the job, the summary script |
+| `$GIPPA_ROOT/bench/<bench_id>/` | runs, `summary.json`, `summary.md` (never committed) | the job, the summary script |
 | `benchmarks/baseline.json` › `standard_run` | the 4 cell entries | performance role, in the evidence PR |
 | ADR-M10-D "Benchmark definition and first baseline" (next free number at merge) | this definition, the 4 medians against §13.2, the noise sources, the decision that §13.2's numbers are estimates superseded by the table | performance role |
 | user-guide runtime table (question L9) | the `k12` rows: variant, median h:mm, range of the 3 runs, peak memory GiB, node class, date, commit | docs role |
-| PROGRESS › Measured numbers | one row per cell (`step = giap run <variant>`), and the per-step rows of the median repeat of each `k12` cell | lead |
+| PROGRESS › Measured numbers | one row per cell (`step = gippa run <variant>`), and the per-step rows of the median repeat of each `k12` cell | lead |
 | M10-05's checklist | bullet 4 becomes `pass` when the 4 entries exist and ADR-M10-D is accepted | (M10-15 reads it) |
 
 ## Examples
@@ -292,7 +292,7 @@ Numbers are hand-made, not measurements.
 | 4 | k12/core repeats 1,500, 1,520, 1,800 | `median_s` 1,520; `spread` 300 / 1,520 = 0.1974, `noisy` true; ratio 1,520 / 1,500 = 1.013; `within_estimate_range` null (no range for core); entry written with `noisy: true` and the summary prints "noisy (spread 19.7 % > 15 %)" |
 | 5 | sim5m/core: r1 `ok` 1,490 s; r2 exit 4 (`failed`, trace FAILED row in `OPERONS`); r3 `ok` 1,510 s | cell `incomplete`, `median_s` null, `mean_of_valid_s` 1,500 labelled "2 of 3 repeats", no baseline entry; the summary names r2's failing step. After a replacement `r2.b` `ok` 1,505 s: `complete`, median 1,505, `superseded: ["r2"]` |
 | 6 | a run whose trace has 3 `CACHED` rows (an `OUT/work` was reused) | `status: invalid`, `invalid_reasons: ["cached_tasks:3"]`; excluded from the median |
-| 7 | cotenancy samples: (a) `giap-run-pilot-a1` (2 CPUs) on the same node at minute 15; (b) `giap-diann-a2` with 16 CPUs on wheat-07 while the run is on wheat-05; (c) node `CPUAlloc` 64–78 of 80 from other users | (a) `invalid`, `same_node_giap:<jobid>`; (b) `ok`, `contended_other_nodes`; (c) `ok`, `node_cpualloc_median`/`max` reported, no flag |
+| 7 | cotenancy samples: (a) `gippa-run-pilot-a1` (2 CPUs) on the same node at minute 15; (b) `gippa-diann-a2` with 16 CPUs on wheat-07 while the run is on wheat-05; (c) node `CPUAlloc` 64–78 of 80 from other users | (a) `invalid`, `same_node_gippa:<jobid>`; (b) `ok`, `contended_other_nodes`; (c) `ok`, `node_cpualloc_median`/`max` reported, no flag |
 | 8 | k12/core trace contains `ANNOTATE:BAKTA (k12)` (the `.json.gz` was passed by mistake, so `cli._bakta_json` sent it down the GFF/GenBank path) | `invalid`, `bakta_ran_in_core` |
 | 9 | `BENCH_PROFILE=farmshare,apptainer`; separately `BENCH_COMMIT` unset; separately `r1/k12_standard` already exists | each exits 2 before any `srun`, with a one-line reason; no `bench_run.json` is written |
 | 10 | Per-step medians: `bakta` realtime 600, 590, 610 s and peak RSS 20.1, 20.6, 20.4 GiB over the three k12/standard repeats | `steps.bakta.median_s` 600, `peak_rss_max_bytes` = 20.6 GiB; so "standard with a recorded JSON" ≈ 3,912 − 600 s can be stated in ADR-M10-D as an approximation, not a measurement |
@@ -301,7 +301,7 @@ Numbers are hand-made, not measurements.
 
 - **Failed run.** Kept with its exit code, `sacct` state and the trace's FAILED process; the job
   goes on to the next cell; the cell is `incomplete` until a replacement is valid (example 5).
-  `giap` failing before Nextflow starts gives `trace.n_tasks = 0` and `steps = {}`, still a
+  `gippa` failing before Nextflow starts gives `trace.n_tasks = 0` and `steps = {}`, still a
   `bench_run.json`. A cgroup out-of-memory kill of the step (`sacct` state `OUT_OF_MEMORY`) is
   `failed` with that state; it is a finding about `--memory 56.GB` (question L2), never retried with
   more memory inside the benchmark.
@@ -325,7 +325,7 @@ Numbers are hand-made, not measurements.
   worktree, is `commit_mismatch`.
 - **Input drift.** The summary compares `inputs.*.sha256` across the 3 repeats of a cell; a
   difference (for example `SIM5M` generation not deterministic) makes the cell `incomplete` with
-  `inputs_differ`, and is a giapsim bug.
+  `inputs_differ`, and is a gippasim bug.
 - **Empty input.** `BENCH_GENOMES` or `BENCH_VARIANTS` empty or unknown → exit 2. A benchmark
   directory with no `bench_run.json` → `summary.json` with every cell `no_data`, no baseline write.
 - **Ties.** The median of 3 is the middle value, ties included (`[1500, 1500, 1800]` → 1,500,
@@ -333,7 +333,7 @@ Numbers are hand-made, not measurements.
   `standard`, `core`; steps in first-start order of the median repeat's trace). Between attempts
   of one repeat the latest valid attempt wins (letter order `a` < `b` < `c`).
 - **Circular and linear contigs.** Both genomes are circular (`[topology=circular]` on K-12;
-  giapsim's chromosome and plasmid circular); no linear contig is benchmarked. The topology does
+  gippasim's chromosome and plasmid circular); no linear contig is benchmarked. The topology does
   not change what is timed; the inputs' sha256 values pin it. A linear-contig runtime is not
   claimed anywhere.
 - **Minus strand.** Not applicable: the benchmark measures time and memory, not coordinates; no
@@ -346,10 +346,10 @@ Numbers are hand-made, not measurements.
 
 ## Acceptance criteria
 
-On CI (nothing submitted; stubs for `srun`, `sacct`, `squeue`, `scontrol`, `giap`, `timeout` on
+On CI (nothing submitted; stubs for `srun`, `sacct`, `squeue`, `scontrol`, `gippa`, `timeout` on
 `PATH` in `tmp_path`):
 
-1. Static: `bash -n` passes; the header has `--job-name=giap-bench`, `--cpus-per-task=16`,
+1. Static: `bash -n` passes; the header has `--job-name=gippa-bench`, `--cpus-per-task=16`,
    `--mem=64000M` (and `mem / cpus ≤ 4000`), `--constraint=CPU_SKU:6148`, `--array=0-2%1`,
    `--partition=normal`, `--qos=normal`, a `--time` ≥ 4 × `BENCH_RUN_TIMEOUT`; the string
    `--resume` (and `-resume`) does not occur; the profile default is `farmshare_local,apptainer`.
@@ -358,13 +358,13 @@ On CI (nothing submitted; stubs for `srun`, `sacct`, `squeue`, `scontrol`, `giap
    decompressed `.json`, never `.json.gz`.
 3. Preconditions (example 9) exit 2 with nothing written: profile containing `farmshare`; unset or
    short `BENCH_COMMIT`; existing `RUN_DIR`; empty or unknown genome/variant; missing K-12
-   peptides; K-12 genome or JSON sha256 ≠ the committed file's; a failing `giap setup --check` stub.
-4. Stubbed full run: with `giap` stubbed to write a minimal manifest and trace, the task writes 4
+   peptides; K-12 genome or JSON sha256 ≠ the committed file's; a failing `gippa setup --check` stub.
+4. Stubbed full run: with `gippa` stubbed to write a minimal manifest and trace, the task writes 4
    `bench_run.json` files that validate against the documented keys, with `wall_s` from the `sacct`
    stub, `status: ok`, exit 0; a second task in another `BENCH_DIR` gives identical files except
    for times and IDs.
 5. Validity rules: each of `cached_tasks`, `manifest_resume`, `commit_mismatch`, `host_mismatch`,
-   `bakta_ran_in_core`, `same_node_giap`, `image_or_env_created`, `alloc_cpus` is produced by a
+   `bakta_ran_in_core`, `same_node_gippa`, `image_or_env_created`, `alloc_cpus` is produced by a
    stub built for it (examples 6–8) and makes the task exit 1 while the other runs still run;
    `contended_other_nodes` and node load do not invalidate; precedence `failed` > `timeout` >
    `invalid` > `ok` holds on a run with two causes.
@@ -390,7 +390,7 @@ On FarmShare (evidence; PR description, ADR-M10-D and PROGRESS, not CI):
     which is a finding handed to M10-13, not a failure of this issue); the user-guide table and
     PROGRESS › Measured numbers carry the same numbers as `summary.md` (a test compares the
     committed table rows with the baseline entries).
-11. Disk: after the benchmark, no `RUN_DIR/out/work` remains; `$GIAP_ROOT/bench/<bench_id>` is
+11. Disk: after the benchmark, no `RUN_DIR/out/work` remains; `$GIPPA_ROOT/bench/<bench_id>` is
     reported in PROGRESS with its size.
 
 ## Test plan
@@ -428,13 +428,13 @@ time.
 | L1 | "64 GB" with 16 CPUs: `--mem=64000M` (exactly `MaxMemPerCPU` × 16; 62.5 GiB = 67.1 GB SI) or `--mem=64G` (Slurm then allocates 18 CPUs, so the benchmark would no longer be "16 threads")? | `--mem=64000M`; ADR-M10-D states the reading |
 | L2 | The task pool inside the allocation: `--memory 56.GB` (room for the 4-GB-heap JVM and the head), or the profile's 61,952 MB (risk of a cgroup OOM of the JVM)? | `56.GB`, as `weekly.sbatch`; an `OUT_OF_MEMORY` run is a finding, not a retry with more |
 | L3 | Concurrency: one repeat at a time (`%1`, 12–36 h, 16 CPUs) or 3 repeats in parallel (`%3`, 48 CPUs, the index's budget, but two repeats can share a node and its memory bandwidth)? The index row planned 6 jobs; this spec has 3 jobs of 4 runs each | `%1`, 3 jobs |
-| L4 | `--exclusive` (a whole 80-CPU wheat node, 62 % of the R14 cap, long waits) for a cleaner number, or shared nodes with co-tenancy recorded and same-node GIAP jobs invalidating a run? | shared, recorded |
+| L4 | `--exclusive` (a whole 80-CPU wheat node, 62 % of the R14 cap, long waits) for a cleaner number, or shared nodes with co-tenancy recorded and same-node GIPPA jobs invalidating a run? | shared, recorded |
 | L5 | A noisy cell (spread > 0.15): enter it in `baseline.json` with `noisy: true`, or re-run the cell's 3 repeats first? | enter it flagged; the lead may order one re-run of the cell (≤ R9) |
 | L6 | Numba cold for every run (a user's first run) or warm (repeat runs)? | cold; the numba compile share is visible in the per-step times |
 | L7 | Index L7 makes the variants differ in modules **and** Bakta. §13.2's "core modules alone" reads as "same input, fewer modules". Add a third variant `standard_json` (all modules, recorded JSON), or derive it from the Bakta step median (example 10)? | derive it, labelled an approximation; no third variant (+50 % wall time) |
 | L8 | `sim5m/standard` runs live Bakta on simulated sequence, which few DB hits make unrepresentative. Keep it (the speed loop's §14.4 genome), or run only `sim5m/core`? | keep it, labelled "speed-loop baseline, not a user number"; the user guide shows only the `k12` rows |
 | L9 | There is no user guide yet (MkDocs is M11). Create `docs/user-guide/runtimes.md` now with the table (docs role), for M11 to link into the site? | yes; the page holds only the table, the node class and the ADR link |
-| L10 | Work directories on NFS (`$GIAP_ROOT/bench`, as a user runs) or on node-local `/tmp` (less NFS noise, but not what users do)? | NFS; ADR-M10-D names NFS as a noise source |
+| L10 | Work directories on NFS (`$GIPPA_ROOT/bench`, as a user runs) or on node-local `/tmp` (less NFS noise, but not what users do)? | NFS; ADR-M10-D names NFS as a noise source |
 | L11 | §12's nightly benchmarks use a median of 5 with a 15 % slowdown fail; §15.2 says median of 3 for this one. Should the nightly ever re-run the standard benchmark against `standard_run`? | no: median of 3, run on demand by the speed loop (M10-13) and before release; the nightly is unchanged |
 | L12 | `BENCH_COMMIT`: the main HEAD at submission, after M10-04's fixes have merged, and the report-freeze runs (M10-14) on the same or a later commit? | main HEAD at submission; ADR-M10-D names it; a re-benchmark is the speed loop's |
 

@@ -19,10 +19,10 @@ from helpers.gsea_data import Gene, as_list, frame, gene_sets
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
-from giap.stats.fgsea import SimpleResult
-from giap.stats.multitest import bh
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
+from gippa.stats.fgsea import SimpleResult
+from gippa.stats.multitest import bh
 
 SETTINGS = settings(max_examples=25, deadline=None, suppress_health_check=list(HealthCheck))
 ALPHA = 0.05
@@ -30,7 +30,7 @@ N_PERM = 60
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 
@@ -235,7 +235,7 @@ def test_redundant_iff_bh_with_the_retest_p_substituted_exceeds_alpha(
     """C = 12 TUs, P = C + 15 TUs (re-test size 15), nulls of sizes 40, 41, ...: the parent is
     re-tested only when both are significant, and is redundant exactly when the BH q of its
     collection's main p-vector with P's p replaced by the re-test p exceeds alpha."""
-    import giap.stats.fgsea as fg
+    import gippa.stats.fgsea as fg
 
     mod = _g()  # import gsea before patching fg, or its import binds the fake
     n = 400

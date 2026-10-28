@@ -158,7 +158,7 @@ def test_entrapment_json_layout(computed: tuple[Inputs, Path, dict[str, Any]]) -
     raw = (out / "entrapment.json").read_text(encoding="utf-8")
     assert raw.endswith("\n")
     assert raw == json.dumps(doc, sort_keys=True, indent=2) + "\n"
-    assert doc["schema"] == "giap-pilot-entrapment/1"
+    assert doc["schema"] == "gippa-pilot-entrapment/1"
     assert re.fullmatch(r"[0-9a-f]{40}", str(doc["spec"])), doc["spec"]
     for key in ("inputs", "settings", "universe", "peptide", "precursor", "per_run",
                 "cross_checks", "caveats", "warnings"):  # fmt: skip
@@ -487,7 +487,7 @@ def test_b1_exact_route_on_unclassified_discoveries_is_not_a_disagreement(tmp_pa
 
 def test_s3_strain_db_present_peptide_with_an_a1_exact_row_exits_1(tmp_path: Path) -> None:
     """Example 9's MTEKLLAGGPR is present here only by the ``strain_db`` clause (the genome reads
-    VTEK...). GIAP's exact route is six-frame only, so an A1 ``route = exact`` row for it means
+    VTEK...). GIPPA's exact route is six-frame only, so an A1 ``route = exact`` row for it means
     the two six-frame matchers disagree: exit 1, nothing written."""
     p4 = "MTEKLLAGGPR"
     rows = [*EXAMPLE2_ROWS, row("WT_1", p4, 2, 0.003)]
@@ -660,7 +660,7 @@ def test_s1_docstring_lists_exit_4() -> None:
 def _prov(path: Path, records: list[tuple[str, str]]) -> Path:
     """M10-02's layout: ``inputs.fasta = [{path, sha256, size, mode}]``; the paths are the
     search's (another directory than the inputs here), so only the basename can match."""
-    recs = [{"path": f"/scratch/giap/db/{name}", "sha256": sha, "size": 1, "mode": "0644"}
+    recs = [{"path": f"/scratch/gippa/db/{name}", "sha256": sha, "size": 1, "mode": "0644"}
             for name, sha in records]  # fmt: skip
     path.write_text(json.dumps({"inputs": {"fasta": recs}}), encoding="utf-8")
     return path
@@ -742,8 +742,8 @@ def test_s7_diann_cmd_met_excision_or_no_unimod4_exits_2(
 
 
 def test_b2_out_under_an_ignored_directory_of_the_checkout_is_accepted(inp: Inputs) -> None:
-    """``farmshare_env.sh`` puts ``GIAP_ROOT`` at ``$GIAP_REPO/local`` (git-ignored), so the
-    sbatch default ``$GIAP_ROOT/pilot/metrics`` lies inside the checkout; it must not exit 2
+    """``farmshare_env.sh`` puts ``GIPPA_ROOT`` at ``$GIPPA_REPO/local`` (git-ignored), so the
+    sbatch default ``$GIPPA_ROOT/pilot/metrics`` lies inside the checkout; it must not exit 2
     (precedent: ``diann_convert.sbatch``'s ``git check-ignore``)."""
     base = REPO / "local"
     made_base = not base.exists()

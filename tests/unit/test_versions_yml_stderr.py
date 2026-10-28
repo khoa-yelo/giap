@@ -109,7 +109,7 @@ def _run_heredoc(tmp_path: Path, module: str, process: str) -> Path:
 
 @pytest.mark.parametrize("module", sorted(TOOLS))
 def test_versions_yml_parses_with_a_stderr_warning(tmp_path: Path, module: str) -> None:
-    process = f"GIAP:ANNOTATE:{module.upper()}"
+    process = f"GIPPA:ANNOTATE:{module.upper()}"
     work = _run_heredoc(tmp_path, module, process)
     text = (work / "versions.yml").read_text(encoding="utf-8")
     assert "Matplotlib" not in text, text
@@ -118,9 +118,9 @@ def test_versions_yml_parses_with_a_stderr_warning(tmp_path: Path, module: str) 
 
 
 def test_antismash_reaches_tool_reports(tmp_path: Path) -> None:
-    from giap.io import manifest_sources
+    from gippa.io import manifest_sources
 
-    work = _run_heredoc(tmp_path, "antismash", "GIAP:ANNOTATE:ANTISMASH")
-    row = trace_row("GIAP:ANNOTATE:ANTISMASH (genome)", workdir=str(work), container="-")
+    work = _run_heredoc(tmp_path, "antismash", "GIPPA:ANNOTATE:ANTISMASH")
+    row = trace_row("GIPPA:ANNOTATE:ANTISMASH (genome)", workdir=str(work), container="-")
     reps = manifest_sources.tool_reports([row], tmp_path / "work", tmp_path / "locks")
     assert [(r["name"], r["version"]) for r in reps] == [("antismash", "8.0.4")]

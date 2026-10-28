@@ -41,7 +41,7 @@ def _section(cfg: Any, title: str) -> Any:
 
 
 def test_site_basics(cfg: Any) -> None:
-    assert cfg["site_name"] == "GIAP"
+    assert cfg["site_name"] == "GIPPA"
     assert Path(cfg["docs_dir"]).resolve() == DOCS.resolve()
     assert cfg["theme"].name == "material"
     assert cfg["theme"]["font"] is False  # no Google Fonts request

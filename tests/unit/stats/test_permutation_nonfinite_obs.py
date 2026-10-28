@@ -1,6 +1,6 @@
 """``perm_p`` with a non-finite observed statistic (M5-03 lead decision 17, PR #118 review B1/N1).
 
-Before the fix ``giap.stats.permutation._tol`` raised ``TypeError`` for a non-finite scale, so
+Before the fix ``gippa.stats.permutation._tol`` raised ``TypeError`` for a non-finite scale, so
 ``perm_p(+-inf, ...)`` raised for the one-sided alternatives. Pinned semantics (the existing rule
 "values within the tie tolerance count as exceedances" with infinities compared exactly):
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.stats.permutation import perm_p
+from gippa.stats.permutation import perm_p
 
 NAN = float("nan")
 INF = float("inf")

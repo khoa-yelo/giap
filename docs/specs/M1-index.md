@@ -1,9 +1,9 @@
 # M1 "Inputs and preflight": issue index
 
-Spec: GIAP_SPEC.md §13 row M1. Deliverables: `io/` readers and writers (FASTA, GFF3, BED, proBed,
-VCF, TSV); generic peptide table; `giap convert` (generic, DIA-NN from its documentation); every
+Spec: GIPPA_SPEC.md §13 row M1. Deliverables: `io/` readers and writers (FASTA, GFF3, BED, proBed,
+VCF, TSV); generic peptide table; `gippa convert` (generic, DIA-NN from its documentation); every
 preflight rule. **Gate:** every preflight rule unit-tested (`T-PRE-01 … T-PRE-25`, one pass and one
-fail test each); `preflight.json` validated against `src/giap/schemas/preflight.schema.json`.
+fail test each); `preflight.json` validated against `src/gippa/schemas/preflight.schema.json`.
 
 One issue = one PR, ≤ ~400 changed lines excluding fixtures (AGENTS.md; `ci/gates.yaml` warns at 400,
 fails at 800). Estimates include tests.
@@ -16,12 +16,12 @@ fails at 800). Estimates include tests.
 | 4 | [M1-04](M1-04-tsv-bed-probed.md) | TSV conventions (`%.6g`, `NA`, `true/false`, reproducible `.gz`), `read_tsv`, BED and proBed writers | 01 | 360 |
 | 5 | [M1-05](M1-05-gff3-vcf.md) | GFF3 writer + minimal reader (round trip, `Is_circular`), VCF 4.3 writer (Appendix B.7) | 01, 04 | 380 |
 | 6 | [M1-06](M1-06-peptide-table.md) | generic peptide table: typed read, validation `Issue`s, aggregation, `peptide_runs` | 04 | 380 |
-| 7 | [M1-07](M1-07-convert-generic-diann.md) | modification stripping; `giap convert --from generic\|diann`; `pending_sample` contract test | 04, 06 | 390 |
+| 7 | [M1-07](M1-07-convert-generic-diann.md) | modification stripping; `gippa convert --from generic\|diann`; `pending_sample` contract test | 04, 06 | 390 |
 | 8 | [M1-08](M1-08-abundance-table.md) | abundance table: shape, numeric parsing, scale detection, missing counts | 04, 06 | 220 |
 | 9 | [M1-09](M1-09-preflight-genome.md) | `Check` model; genome rules T-PRE-01…10; topology; replicon classification | 01, 02 | 400 |
 | 10 | [M1-10](M1-10-preflight-evidence-rules.md) | inputs, proteins, peptides, abundance, evidence-tier rules T-PRE-11…22 | 03, 06, 08, 09 | 400 |
 | 11 | [M1-11](M1-11-preflight-env-report.md) | environment rules T-PRE-23/24; `preflight.schema.json` (T-PRE-25); `preflight.json`/`.md` writers | 09, 10 | 360 |
-| 12 | [M1-12](M1-12-preflight-cli.md) | `run_preflight`, normalised work files, `replicons.tsv`, `giap preflight` CLI, exit codes 0/1/2/3 | 02–11 | 360 |
+| 12 | [M1-12](M1-12-preflight-cli.md) | `run_preflight`, normalised work files, `replicons.tsv`, `gippa preflight` CLI, exit codes 0/1/2/3 | 02–11 | 360 |
 
 Total ≈ 3,900 lines. Parallelisable after M1-01: {02 → 03}, {04 → 05}, {04 → 06 → 07, 08};
 09 needs only 01–02, so it can start alongside 04–08.
@@ -41,8 +41,8 @@ Total ≈ 3,900 lines. Parallelisable after M1-01: {02 → 03}, {04 → 05}, {04
 ## Decisions taken in these specs (for the lead to confirm)
 
 - GFF3 **reader** is in M1 (minimal; needed for the §9.5 round trip and reused by M2).
-- A shared `Issue` type (`src/giap/io/issues.py`) is produced by io validators; preflight rules turn
-  issues into `Check`s, so `giap convert --from generic` and preflight share one validator.
+- A shared `Issue` type (`src/gippa/io/issues.py`) is produced by io validators; preflight rules turn
+  issues into `Check`s, so `gippa convert --from generic` and preflight share one validator.
 - `preflight.json` lists every evaluated rule, including passing ones (`level: "ok"`).
 - Coordinates in `preflight.json` are 1-based closed (human-facing, like TSV).
 - `pending_sample` is a new pytest marker registered in `pyproject.toml` (not a protected file).

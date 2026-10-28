@@ -1,4 +1,4 @@
-"""Hypothesis properties of giapsim's oriC, replichore truth and ori-ter gradient (issue M5-04).
+"""Hypothesis properties of gippasim's oriC, replichore truth and ori-ter gradient (issue M5-04).
 
 For any chromosome (100-400 genes, optional plasmid / linear contig, origin crossing on or off),
 ``oric_frac`` in [0, 1) and seed: one 232-bp ``oric`` row on chr1, centred in the nearest chr1 gap
@@ -38,7 +38,7 @@ def layout_kw(draw: st.DrawFn) -> dict[str, Any]:
 
 
 def _layout(kw: dict[str, Any], seed: int) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 
@@ -92,7 +92,7 @@ def test_place_oric_start_inside_the_replicon(
     ``0 <= start < length``, inside one chr1 gap and overlapping no gene."""
     import pytest
 
-    from giapsim.layout import _place_oric
+    from gippasim.layout import _place_oric
 
     length, genes = ring
     if len(genes) < 2:
@@ -123,7 +123,7 @@ def circles(draw: st.DrawFn) -> Circle:
 @SETTINGS
 @given(c=circles())
 def test_replichore_truth_formula(c: Circle) -> None:
-    from giapsim.expression import ExpressionConfig, simulate_expression
+    from gippasim.expression import ExpressionConfig, simulate_expression
 
     length, oric, genes, cross = c
     if cross:
@@ -149,7 +149,7 @@ def test_replichore_truth_formula(c: Circle) -> None:
 def test_gradient_paired_difference(
     seed: int, frac: float, oriter: float, shape: str, rho: float
 ) -> None:
-    from giapsim.expression import ExpressionConfig, simulate_expression
+    from gippasim.expression import ExpressionConfig, simulate_expression
 
     lay = _layout({"n_genes_chromosome": 150, "plasmids": (10,), "oric_frac": frac}, seed)
     a = simulate_expression(lay, ExpressionConfig(ar1_rho=rho), np.random.default_rng(seed))

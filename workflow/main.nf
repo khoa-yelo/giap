@@ -1,14 +1,14 @@
-// GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
-// written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
+// GIPPA entry workflow (GIPPA_SPEC.md §6.3). Parameters come only from OUT/work/params.json
+// written by `gippa run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
 // (M3-17), VARIANTS (M7-04), GENETABLE (M4-15), CONTEXT (M4-18, M4-19), beside CONTEXT, OPERONS
 // (M6-08), NOVEL (M7-08) and DETERMINANTS (M8-10, after CONTEXT: it takes the gene context) when
 // params.inputs.peptides (peptides.norm.parquet) is given, and FUNCTION (M8-06) when 'function' is
-// in params.modules; without inputs it runs one GIAP_STEP smoke task (skeleton check, M2-06).
+// in params.modules; without inputs it runs one GIPPA_STEP smoke task (skeleton check, M2-06).
 // SENSITIVITY_RERUNS (M8-16) runs after DETERMINANTS and FUNCTION.
 // GENETABLE, CONTEXT, OPERONS and DETERMINANTS skip themselves when an input they require is absent
 // (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02). REPORT runs
 // last on every published [key, path] pair (M9-02).
-include { GIAP_STEP } from './modules/local/giap_step/main'
+include { GIPPA_STEP } from './modules/local/gippa_step/main'
 include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
@@ -25,12 +25,12 @@ include { FUNCTION } from './subworkflows/local/function'
 def opt(path) { path ? channel.value(file(path, checkIfExists: true)) : channel.empty() }
 
 // <db_dir>/<relative path> when the db_dir setup manifest lists `name` and the file is there,
-// else null (giap.setupdb.installed / giap.runner.local, which resolve the same two items).
-// Manifest shapes as giap.preflight.environment.read_manifest: the `giap setup` form
+// else null (gippa.setupdb.installed / gippa.runner.local, which resolve the same two items).
+// Manifest shapes as gippa.preflight.environment.read_manifest: the `gippa setup` form
 // {"schema_version", "items": [{"name", ..., "status"}]} (only `ok` items count) or the
 // provisional {"<name>": ...} map (M3-17 lead decision 18).
 def installed(String name, String relative) {
-    def db = params.db_dir ?: System.getenv('GIAP_DB_DIR')
+    def db = params.db_dir ?: System.getenv('GIPPA_DB_DIR')
     def manifest = db ? file("${db}/db_manifest.json") : null
     if (manifest == null || !manifest.exists()) return null
     def path = file("${db}/${relative}")
@@ -42,19 +42,19 @@ def installed(String name, String relative) {
     return listed && path.exists() ? path : null
 }
 
-// params.inputs.contaminants, else the installed M3-15 library (giap.runner.local.contaminant_library).
+// params.inputs.contaminants, else the installed M3-15 library (gippa.runner.local.contaminant_library).
 def contaminantLibrary(inputs) {
     return inputs.contaminants ?: installed('contaminants', 'contaminants/contaminants.fasta')
 }
 
 // The raw NCBI COG 2020 table for gene_table's cog_category (M4-15 decision 5; the path is
-// db_sources.yaml cog2020_def.path, as giap.setupdb.installed.cog_table resolves it).
+// db_sources.yaml cog2020_def.path, as gippa.setupdb.installed.cog_table resolves it).
 def cogTable() { installed('cog2020_def', 'cog/cog-20.def.tab') }
 
 // [key, path] pairs of a step's outputs channel ([step, path | list]): every path, under `key`.
 def outs(String key, ch) { ch.flatMap { s, fs -> (fs instanceof List ? fs : [fs]).collect { f -> [key, f] } } }
 // The installed function resources (M8-06 item 7) as a [setup item name, path] channel; the names
-// are giap.setupdb.installed.FUNCTION_RESOURCES and the paths db_sources.yaml's.
+// are gippa.setupdb.installed.FUNCTION_RESOURCES and the paths db_sources.yaml's.
 def functionResources() {
     def found = [go_basic: installed('go_basic', 'go/go-basic.obo'),
                  goslim_generic: installed('goslim_generic', 'go/goslim_generic.obo'),
@@ -145,6 +145,6 @@ workflow {
     } else {
         def keys = inputs.keySet().sort()
         def files = keys.collect { k -> file(inputs[k], checkIfExists: true) }
-        GIAP_STEP(channel.of(['smoke', files, '']), keys, ['marker=smoke.done'])
+        GIPPA_STEP(channel.of(['smoke', files, '']), keys, ['marker=smoke.done'])
     }
 }

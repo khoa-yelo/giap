@@ -28,14 +28,14 @@ from hypothesis import strategies as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 from contaminant_oracle import blast_line
 
-from giap.io.protein_fasta import LetterCounts, ProteinRecord
-from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+from gippa.io.protein_fasta import LetterCounts, ProteinRecord
+from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
 
 PREFIXES = ["Cont_", "CON__", "CONT_", "cRAP"]
 
 
 def _c() -> ModuleType:
-    return importlib.import_module("giap.mapping.contaminants")
+    return importlib.import_module("gippa.mapping.contaminants")
 
 
 def _peptides(rows: list[tuple[str, list[str], bool, float]]) -> pd.DataFrame:
@@ -121,7 +121,7 @@ def _write_blast(tmp_path: Path, lines: list[str]) -> Path:
 
 
 def test_q_value_max_keyword_defaults_to_config() -> None:
-    from giap.config.model import InputConfig
+    from gippa.config.model import InputConfig
 
     param = inspect.signature(_c().unmapped_table).parameters["q_value_max"]
     assert param.kind is inspect.Parameter.KEYWORD_ONLY

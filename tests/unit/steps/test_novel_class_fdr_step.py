@@ -4,9 +4,9 @@ criterion 2): the new optional inputs (``peptides``, ``features``, ``hits_exact`
 through the step (pinned by M7-11 decision 10), examples 5, 6, 10 and 12, the three events and
 two WARNINGs with exact ``data``, the missing-input degenerate rows, the side-table columns,
 dtypes and row order, ``placement_costs`` from ``placement``, and the published side table of a
-``giap run``.
+``gippa run``.
 
-Inputs: one giapsim SIM100K local run (``helpers.novel_steps_fixture``; database peptides with
+Inputs: one gippasim SIM100K local run (``helpers.novel_steps_fixture``; database peptides with
 ``rev_<locus_tag>`` decoys, nine candidate ORFs). The step is rerun on its work files with
 hand-built ``peptides`` / hit tables / ``placement_costs``: the candidate ORFs' own peptides as
 makedb-tagged target rows (entry = the six-frame ORF with the same ``(contig, strand, stop)``,
@@ -39,7 +39,7 @@ from helpers import novel_steps_fixture as nf
 from helpers.class_call_fixture import COST_COLUMNS, costs_frame, decoy_hits, target_hits
 from helpers.novel_fdr_fixture import db_id, pep_row, peptides_frame
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 NEW_INPUTS = ("peptides", "features", "hits_exact", "hits_tolerant", "placement_costs")
 # M7-17: denovo_only_unsupported last, bool; null without peptides
@@ -65,24 +65,24 @@ def run1(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Path, Path]:
     sim = nf.simulate(root / "sim")
     out = root / "OUT"
     with nf.db_env(root):
-        code, log = nf.run_giap(sim, out)
+        code, log = nf.run_gippa(sim, out)
     assert code == 0, log
     return sim, out, out / "work"
 
 
 @pytest.fixture(scope="module")
 def cfg1(run1: tuple[Any, Path, Path]) -> Any:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     return resolve_config(Path(run1[0].config_yaml), [f"seed={nf.SEED}"])
 
 
 @pytest.fixture(scope="module")
 def world(run1: tuple[Any, Path, Path]) -> dict[str, Any]:
-    from giap.io.fasta import read_genome_fasta
-    from giap.makedb.build import _nterm_entries
-    from giap.steps.mapping import read_gene_model
-    from giap.steps.novel import read_candidates
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.makedb.build import _nterm_entries
+    from gippa.steps.mapping import read_gene_model
+    from gippa.steps.novel import read_candidates
 
     _, _, work = run1
     orfs, _ = read_candidates(work / "novel_candidates")
@@ -128,7 +128,7 @@ class _Rec(logging.Handler):
 
 def _run(name: str, cfg: Any, ins: Mapping[str, Any], out: Path) -> tuple[dict, list]:
     rec = _Rec()
-    log = logging.getLogger("giap.steps")
+    log = logging.getLogger("gippa.steps")
     old = log.level
     log.addHandler(rec)
     log.setLevel(logging.DEBUG)
@@ -206,8 +206,8 @@ def _nan_or_none(v: Any) -> bool:
 
 
 def test_registration_adds_optional_inputs_and_the_side_table() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("novel_orfs")
@@ -304,8 +304,8 @@ def test_no_candidate_orf_empty_side_table_and_makedb_warning(
 ) -> None:
     from helpers.novel_outputs_fixture import NOVEL_ORFS_COLUMNS
 
-    from giap.io.parquet import write_parquet_deterministic
-    from giap.steps.novel import _CAND_COLS
+    from gippa.io.parquet import write_parquet_deterministic
+    from gippa.steps.novel import _CAND_COLS
 
     _, _, work = run1
     empty = tmp_path / "novel_candidates.parquet"
@@ -349,7 +349,7 @@ def _makedb_peptides(w: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]:
         rows.append(pep_row(f"DECY{o.stop}K", ["rev_" + _entry(o)], 900, is_decoy=True))
     n0, n1 = w["nts"][:2]
     targets(n0, w["nterm"][n0.overlapping_gene])
-    targets(n1, f"GIAPORF_nterm_extension_{n1.contig}_1_99_p")
+    targets(n1, f"GIPPAORF_nterm_extension_{n1.contig}_1_99_p")
     done = {o.orf_id for o in [*cds, ig, a0, a1, n0, n1]}
     for o in w["orfs"]:
         if o.orf_id not in done:
@@ -644,7 +644,7 @@ def test_denovo_peptides_without_target_e_are_no_target_hit(
 def test_nan_e_decoy_fails_the_step(
     run1: tuple[Any, Path, Path], cfg1: Any, world: dict[str, Any], tmp_path: Path
 ) -> None:
-    from giap.steps.registry import StepError
+    from gippa.steps.registry import StepError
 
     a0 = world["by_cls"]["antisense"][0]
     p0 = a0.peptides[0]
@@ -685,10 +685,10 @@ def test_placement_writes_its_best_costs(
         assert costs[col].dtype == "float64", col
 
 
-# ---------------------------------------------------------------- the giap run
+# ---------------------------------------------------------------- the gippa run
 
 
-def test_giap_run_publishes_the_side_table_and_the_makedb_warning(
+def test_gippa_run_publishes_the_side_table_and_the_makedb_warning(
     run1: tuple[Any, Path, Path],
 ) -> None:
     import json
@@ -719,7 +719,7 @@ def test_giap_run_publishes_the_side_table_and_the_makedb_warning(
 # B2: picked ``n_targets`` = won + lost_pick (mutant M8). ``orf_regimes`` and
 # ``picked_class_fdr`` look an ORF's peptides up in the same target rows, so a picked-regime ORF
 # always has a target score through the step; the test forces one ORF without target rows into
-# the picked regime (``giap.novel.fdr.orf_regimes`` wrapped), with its makedb entry kept in the
+# the picked regime (``gippa.novel.fdr.orf_regimes`` wrapped), with its makedb entry kept in the
 # run by an unrelated target peptide on the same ID.
 
 
@@ -745,7 +745,7 @@ def _mismatch_peptides(w: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]
 def test_b1_picked_n_called_counts_calls_under_the_entry_class(
     run1: tuple[Any, Path, Path], world: dict[str, Any], tmp_path: Path
 ) -> None:
-    from giap.config import resolve_config
+    from gippa.config import resolve_config
 
     sim, _, work = run1
     cfg = resolve_config(Path(sim.config_yaml), [f"seed={nf.SEED}", "stats.alpha.novel_orfs=0.75"])
@@ -796,7 +796,7 @@ def test_b2_picked_n_targets_excludes_no_target_score(
     run1: tuple[Any, Path, Path], cfg1: Any, world: dict[str, Any], tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # fmt: skip
-    from giap.novel import fdr as F
+    from gippa.novel import fdr as F
 
     _, _, work = run1
     peps, role = _makedb_peptides(world)

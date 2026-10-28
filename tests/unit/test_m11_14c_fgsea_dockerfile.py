@@ -1,7 +1,7 @@
-"""M11-14c: the fgsea image with ``giap_fgsea.R`` baked in (static), the NOTICE line, and R5.
+"""M11-14c: the fgsea image with ``gippa_fgsea.R`` baked in (static), the NOTICE line, and R5.
 
 Spec docs/specs/M11-14-container-install.md item 1 ("fgsea (14c)"), item 2 (key inputs; "fgsea
-adds ``workflow/bin/giap_fgsea.R``"; 14b's locked, checked builds), AC 7 (the script is a key
+adds ``workflow/bin/gippa_fgsea.R``"; 14b's locked, checked builds), AC 7 (the script is a key
 input of ``fgsea``); ADR-0060 §1; R5 (R is GPL-2 and fgsea MIT: they run only as a separate
 process, never imported). Static: the Dockerfile, locks, NOTICE.md and ``src/`` are only read.
 
@@ -12,7 +12,7 @@ Readings chosen where the spec leaves room (consistent with 14b's
   install|create -f <its COPY destination>`` and never solves ``fgsea.yml``; it fetches no URL
   (no ``ADD http…``; any URL ``ADD`` would need ``--checksum=sha256:<64 hex>`` anyway) and installs
   no R package at build time (no ``install.packages``/``BiocManager``).
-* ``workflow/bin/giap_fgsea.R`` is copied to exactly ``/opt/<pkg>/giap_fgsea.R`` (``<pkg>`` =
+* ``workflow/bin/gippa_fgsea.R`` is copied to exactly ``/opt/<pkg>/gippa_fgsea.R`` (``<pkg>`` =
   ``[project] name`` of pyproject.toml), the path the image argv names.
 * Every ``FROM`` is pinned by digest. ``ENV PATH`` puts ``/opt/conda/bin`` (the micromamba root
   prefix) first, because ``apptainer exec`` does not run the image entrypoint that would activate
@@ -36,9 +36,9 @@ REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 DOCKERFILE = REPO / "workflow" / "containers" / "fgsea" / "Dockerfile"
 LOCK = "workflow/envs/locks/fgsea.explicit.txt"
-SCRIPT = "workflow/bin/giap_fgsea.R"
-BAKED = f"/opt/{PKG}/giap_fgsea.R"
-FGSEA_R = REPO / "src" / "giap" / "io" / "fgsea_r.py"
+SCRIPT = "workflow/bin/gippa_fgsea.R"
+BAKED = f"/opt/{PKG}/gippa_fgsea.R"
+FGSEA_R = REPO / "src" / "gippa" / "io" / "fgsea_r.py"
 
 
 # ---------------------------------------------------------------- helpers (as in 14b)
@@ -162,7 +162,7 @@ def test_no_pip_lock_is_needed() -> None:
 
 
 def test_the_lock_carries_the_registry_pins() -> None:
-    from giap.annotate.tools import TOOLS
+    from gippa.annotate.tools import TOOLS
 
     text = (REPO / LOCK).read_text(encoding="utf-8")
     assert f"/bioconductor-fgsea-{TOOLS['fgsea'].version}-" in text
@@ -174,7 +174,7 @@ def test_the_lock_carries_the_registry_pins() -> None:
 
 
 def test_dockerfile_and_script_are_key_inputs() -> None:
-    from giap.io.image_key import key_inputs
+    from gippa.io.image_key import key_inputs
 
     got = key_inputs("fgsea", REPO)
     for rel in ("workflow/containers/fgsea/Dockerfile", SCRIPT, LOCK, "workflow/envs/fgsea.yml"):
@@ -182,7 +182,7 @@ def test_dockerfile_and_script_are_key_inputs() -> None:
 
 
 def test_every_copy_source_is_a_key_input() -> None:
-    from giap.io.image_key import uncovered_copy_sources
+    from gippa.io.image_key import uncovered_copy_sources
 
     _text()
     assert uncovered_copy_sources("fgsea", REPO) == []
@@ -190,7 +190,7 @@ def test_every_copy_source_is_a_key_input() -> None:
 
 def test_script_is_executable_and_keyed_as_such() -> None:
     """``COPY`` keeps the exec bit, so the key records 100755 for the script."""
-    from giap.io.image_key import key_text
+    from gippa.io.image_key import key_text
 
     _text()
     line = next(ln for ln in key_text("fgsea", REPO).splitlines() if ln.startswith(SCRIPT + "\t"))
@@ -221,9 +221,9 @@ def _imports(path: Path) -> set[str]:
     return names
 
 
-def test_fgsea_r_imports_only_the_stdlib_and_giap() -> None:
+def test_fgsea_r_imports_only_the_stdlib_and_gippa() -> None:
     """The image path shells out to ``docker``/``apptainer``: no SDK, no R bridge."""
-    extra = {n for n in _imports(FGSEA_R) if n != "giap" and n not in sys.stdlib_module_names}
+    extra = {n for n in _imports(FGSEA_R) if n != "gippa" and n not in sys.stdlib_module_names}
     assert extra == set(), extra
     assert {"subprocess"} <= _imports(FGSEA_R)
 
@@ -240,5 +240,5 @@ def test_check_imports_still_passes_on_src() -> None:
 
 @pytest.mark.parametrize("name", ["docker", "rpy2", "spython"])
 def test_no_runtime_sdk_anywhere_in_src(name: str) -> None:
-    for path in (REPO / "src" / "giap").rglob("*.py"):
+    for path in (REPO / "src" / "gippa").rglob("*.py"):
         assert name not in _imports(path), f"{path} imports {name}"

@@ -1,4 +1,4 @@
-"""Hypothesis properties for the protein FASTA reader (issue M1-03; GIAP_SPEC.md §5.3)."""
+"""Hypothesis properties for the protein FASTA reader (issue M1-03; GIPPA_SPEC.md §5.3)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.protein_fasta import (
+from gippa.io.protein_fasta import (
     STANDARD_AA,
     read_protein_fasta,
     resolve_protein_id,

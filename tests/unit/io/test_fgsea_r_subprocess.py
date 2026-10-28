@@ -1,7 +1,7 @@
-"""T3: ``giap.io.fgsea_r`` launcher and subprocess behaviour, no R (M8-17a §3, §4; A4).
+"""T3: ``gippa.io.fgsea_r`` launcher and subprocess behaviour, no R (M8-17a §3, §4; A4).
 
 A fake R front end sits in ``<prefix>/bin`` (``helpers.fgsea_r_data.fake_prefix``); the wrapper
-starts the real ``workflow/bin/giap_fgsea.R``, whose ``env -S`` shebang finds the fake first on the
+starts the real ``workflow/bin/gippa_fgsea.R``, whose ``env -S`` shebang finds the fake first on the
 child ``PATH``. Covered:
 
 - the CLI contract: argv (``--vanilla``, the absolute script path, exactly the nine spec options
@@ -13,7 +13,7 @@ child ``PATH``. Covered:
   lines; timeout → error, no process left behind; missing env → ``FgseaEngineUnavailable``;
   wrong fgsea version, missing or malformed output → ``FgseaEngineError``;
 - the temporary directory is removed on success and on every failure;
-- launcher resolution (lead decision 9: conda-only, ``GIAP_FGSEA_IMAGE`` is not a launcher).
+- launcher resolution (lead decision 9: conda-only, ``GIPPA_FGSEA_IMAGE`` is not a launcher).
 """
 
 from __future__ import annotations
@@ -44,8 +44,8 @@ SPEC_OPTIONS = {
 
 
 def _call(seed: int = 424242, scores: list[float] | None = None):
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     ids = tuple(f"TU_{i}" for i in (5, 2, 7, 1, 4, 6, 3, 8))
     return EngineCall(
@@ -68,9 +68,9 @@ def work(tmp_path: Path) -> Path:
 
 
 def _engine(prefix: Path, work: Path, timeout_s: float = 60):
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
-    launcher = resolve_launcher({"GIAP_FGSEA_PREFIX": str(prefix)})
+    launcher = resolve_launcher({"GIPPA_FGSEA_PREFIX": str(prefix)})
     return r_fgsea_engine(launcher, timeout_s=timeout_s, tmp_root=work)
 
 
@@ -91,7 +91,7 @@ def test_success_parses_rows_and_removes_tmp(tmp_path: Path, work: Path) -> None
 
 
 def test_cli_contract(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import write_call
+    from gippa.io.fgsea_r import write_call
 
     prefix = fake_prefix(tmp_path / "env")
     call = _call(seed=1999999999)
@@ -120,8 +120,8 @@ def test_cli_contract(tmp_path: Path, work: Path) -> None:
 
 
 def test_cli_passes_config_values(tmp_path: Path, work: Path) -> None:
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall
 
     prefix = fake_prefix(tmp_path / "env")
     base = _call()
@@ -168,7 +168,7 @@ def test_non_finite_score_never_starts_r(tmp_path: Path, work: Path) -> None:
 
 
 def test_exit_1_carries_code_jobs_and_stderr_tail(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     lines = [f"line{i:02d}" for i in range(1, 26)] + ["Error in fgseaMultilevel(...) : boom"]
     prefix = fake_prefix(
@@ -185,7 +185,7 @@ def test_exit_1_carries_code_jobs_and_stderr_tail(tmp_path: Path, work: Path) ->
 
 @pytest.mark.parametrize("code", [2, 3])
 def test_usage_and_input_exit_codes_fail(tmp_path: Path, work: Path, code: int) -> None:
-    from giap.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
+    from gippa.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
 
     prefix = fake_prefix(tmp_path / "env", {"mode": "fail", "code": code, "stderr": "bad\n"})
     with pytest.raises(FgseaEngineError, match=rf"exit {code}") as info:
@@ -203,7 +203,7 @@ def _alive(pid: int) -> bool:
 
 
 def test_timeout_kills_process_group(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"mode": "sleep", "seconds": 20})
     t0 = time.monotonic()
@@ -220,7 +220,7 @@ def test_timeout_kills_process_group(tmp_path: Path, work: Path) -> None:
 
 @pytest.mark.parametrize("version", ["1.38.0", "1.36.1"])
 def test_wrong_fgsea_version(tmp_path: Path, work: Path, version: str) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"fgsea": version})
     with pytest.raises(FgseaEngineError, match=version.replace(".", r"\.")):
@@ -229,7 +229,7 @@ def test_wrong_fgsea_version(tmp_path: Path, work: Path, version: str) -> None:
 
 
 def test_missing_output(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"mode": "no_output"})
     with pytest.raises(FgseaEngineError):
@@ -238,7 +238,7 @@ def test_missing_output(tmp_path: Path, work: Path) -> None:
 
 
 def test_size_mismatch(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"size_offset": 1})
     with pytest.raises(FgseaEngineError):
@@ -247,7 +247,7 @@ def test_size_mismatch(tmp_path: Path, work: Path) -> None:
 
 
 def test_malformed_results(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"results": "pathway\tpval\nC1\t0.1\n"})
     with pytest.raises(FgseaEngineError):
@@ -257,7 +257,7 @@ def test_malformed_results(tmp_path: Path, work: Path) -> None:
 
 def test_never_retries(tmp_path: Path, work: Path) -> None:
     """Lead decision 5: a failed R call is not retried; the R front end starts exactly once."""
-    from giap.io.fgsea_r import FgseaEngineError
+    from gippa.io.fgsea_r import FgseaEngineError
 
     prefix = fake_prefix(tmp_path / "env", {"mode": "fail", "code": 1, "stderr": "x\n"})
     with pytest.raises(FgseaEngineError):
@@ -276,8 +276,8 @@ def test_each_call_gets_a_fresh_directory(tmp_path: Path, work: Path) -> None:
 
 
 def test_error_classes() -> None:
-    from giap.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
-    from giap.steps.registry import StepError
+    from gippa.io.fgsea_r import FgseaEngineError, FgseaEngineUnavailable
+    from gippa.steps.registry import StepError
 
     assert issubclass(FgseaEngineUnavailable, FgseaEngineError)
     assert issubclass(FgseaEngineError, StepError)  # step exit code 4 (spec §4)
@@ -290,10 +290,10 @@ def test_error_classes() -> None:
 
 
 def _built_root(root: Path, marker: str | None) -> Path:
-    env = root / "micromamba" / "envs" / "giap-fgsea"
+    env = root / "micromamba" / "envs" / "gippa-fgsea"
     fake_prefix(env)
     if marker is not None:
-        (env / ".giap-built").write_text(marker + "\n", encoding="utf-8")
+        (env / ".gippa-built").write_text(marker + "\n", encoding="utf-8")
     return env
 
 
@@ -302,84 +302,84 @@ def _yml_sha() -> str:
 
 
 def test_launcher_prefix_wins(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import resolve_launcher
+    from gippa.io.fgsea_r import resolve_launcher
 
     prefix = fake_prefix(tmp_path / "explicit")
     _built_root(tmp_path / "root", _yml_sha())
     launcher = resolve_launcher(
-        {"GIAP_FGSEA_PREFIX": str(prefix), "GIAP_ROOT": str(tmp_path / "root")}
+        {"GIPPA_FGSEA_PREFIX": str(prefix), "GIPPA_ROOT": str(tmp_path / "root")}
     )
     assert launcher.kind == "prefix"
     assert Path(launcher.path) == prefix
 
 
-def test_launcher_built_env_under_giap_root(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import resolve_launcher
+def test_launcher_built_env_under_gippa_root(tmp_path: Path) -> None:
+    from gippa.io.fgsea_r import resolve_launcher
 
     env = _built_root(tmp_path / "root", _yml_sha())
-    launcher = resolve_launcher({"GIAP_ROOT": str(tmp_path / "root")})
+    launcher = resolve_launcher({"GIPPA_ROOT": str(tmp_path / "root")})
     assert launcher.kind == "prefix"
     assert Path(launcher.path) == env
 
 
 def test_launcher_built_env_runs(tmp_path: Path, work: Path) -> None:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     env = _built_root(tmp_path / "root", _yml_sha())
-    engine = r_fgsea_engine(resolve_launcher({"GIAP_ROOT": str(tmp_path / "root")}), tmp_root=work)
+    engine = r_fgsea_engine(resolve_launcher({"GIPPA_ROOT": str(tmp_path / "root")}), tmp_root=work)
     assert set(engine(_call())) == {"main:cog", "main:kegg"}
     assert fake_log(env)["env"]["PATH"].startswith(str(env / "bin"))
 
 
 @pytest.mark.parametrize("marker", [None, "0" * 64, ""])
 def test_launcher_unbuilt_env_is_unavailable(tmp_path: Path, marker: str | None) -> None:
-    from giap.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
+    from gippa.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
 
     _built_root(tmp_path / "root", marker)
     with pytest.raises(FgseaEngineUnavailable) as info:
-        resolve_launcher({"GIAP_ROOT": str(tmp_path / "root")})
+        resolve_launcher({"GIPPA_ROOT": str(tmp_path / "root")})
     msg = str(info.value)
-    assert "giap-fgsea" in msg
+    assert "gippa-fgsea" in msg
     assert "sbatch scripts/slurm/build_envs.sbatch fgsea" in msg
 
 
 def test_launcher_nothing_set_is_unavailable(tmp_path: Path) -> None:
-    from giap.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
+    from gippa.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
 
     with pytest.raises(FgseaEngineUnavailable):
-        resolve_launcher({"GIAP_ROOT": str(tmp_path / "empty")})
+        resolve_launcher({"GIPPA_ROOT": str(tmp_path / "empty")})
 
 
 def test_image_variable_is_not_a_launcher(tmp_path: Path) -> None:
     """Lead decision 9: conda-only; an image path never makes the engine available."""
-    from giap.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
+    from gippa.io.fgsea_r import FgseaEngineUnavailable, resolve_launcher
 
     img = tmp_path / "fgsea.img"
     img.write_bytes(b"\0")
     with pytest.raises(FgseaEngineUnavailable):
-        resolve_launcher({"GIAP_FGSEA_IMAGE": str(img), "GIAP_ROOT": str(tmp_path / "empty")})
+        resolve_launcher({"GIPPA_FGSEA_IMAGE": str(img), "GIPPA_ROOT": str(tmp_path / "empty")})
     prefix = fake_prefix(tmp_path / "env")
-    launcher = resolve_launcher({"GIAP_FGSEA_IMAGE": str(img), "GIAP_FGSEA_PREFIX": str(prefix)})
+    launcher = resolve_launcher({"GIPPA_FGSEA_IMAGE": str(img), "GIPPA_FGSEA_PREFIX": str(prefix)})
     assert launcher.kind == "prefix" and Path(launcher.path) == prefix
 
 
 def test_missing_prefix_is_unavailable(tmp_path: Path, work: Path) -> None:
-    """A ``GIAP_FGSEA_PREFIX`` pointing nowhere: unavailable at resolution or at the call."""
-    from giap.io.fgsea_r import FgseaEngineUnavailable, r_fgsea_engine, resolve_launcher
+    """A ``GIPPA_FGSEA_PREFIX`` pointing nowhere: unavailable at resolution or at the call."""
+    from gippa.io.fgsea_r import FgseaEngineUnavailable, r_fgsea_engine, resolve_launcher
 
     with pytest.raises(FgseaEngineUnavailable):
-        launcher = resolve_launcher({"GIAP_FGSEA_PREFIX": str(tmp_path / "nowhere")})
+        launcher = resolve_launcher({"GIPPA_FGSEA_PREFIX": str(tmp_path / "nowhere")})
         r_fgsea_engine(launcher, tmp_root=work)(_call())
     assert list(work.iterdir()) == []
 
 
 def test_prefix_without_r_fails(tmp_path: Path, work: Path) -> None:
     """An existing prefix with no R front end: the call fails, never silently succeeds."""
-    from giap.io.fgsea_r import FgseaEngineError, r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import FgseaEngineError, r_fgsea_engine, resolve_launcher
 
     empty = tmp_path / "empty_env"
     (empty / "bin").mkdir(parents=True)
     with pytest.raises(FgseaEngineError):
-        launcher = resolve_launcher({"GIAP_FGSEA_PREFIX": str(empty)})
+        launcher = resolve_launcher({"GIPPA_FGSEA_PREFIX": str(empty)})
         r_fgsea_engine(launcher, tmp_root=work)(_call())
     assert list(work.iterdir()) == []

@@ -4,7 +4,7 @@
     {
       "name": "amrfinderplus",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/amrfinderplus",
+      "url": "https://example.invalid/gippa-test/amrfinderplus",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -15,7 +15,7 @@
     {
       "name": "antismash",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/antismash",
+      "url": "https://example.invalid/gippa-test/antismash",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -26,7 +26,7 @@
     {
       "name": "bakta_full",
       "version": "6.1",
-      "url": "https://example.invalid/giap-test/bakta_full",
+      "url": "https://example.invalid/gippa-test/bakta_full",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -37,7 +37,7 @@
     {
       "name": "bakta_light",
       "version": "6.1",
-      "url": "https://example.invalid/giap-test/bakta_light",
+      "url": "https://example.invalid/gippa-test/bakta_light",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -48,7 +48,7 @@
     {
       "name": "cog2020_def",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/cog2020_def",
+      "url": "https://example.invalid/gippa-test/cog2020_def",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -59,7 +59,7 @@
     {
       "name": "cog2020_fun",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/cog2020_fun",
+      "url": "https://example.invalid/gippa-test/cog2020_fun",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -70,7 +70,7 @@
     {
       "name": "contaminants",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/contaminants",
+      "url": "https://example.invalid/gippa-test/contaminants",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -81,7 +81,7 @@
     {
       "name": "genomad",
       "version": "1.9.7",
-      "url": "https://example.invalid/giap-test/genomad",
+      "url": "https://example.invalid/gippa-test/genomad",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -92,7 +92,7 @@
     {
       "name": "go_basic",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/go_basic",
+      "url": "https://example.invalid/gippa-test/go_basic",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -103,7 +103,7 @@
     {
       "name": "goslim_generic",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/goslim_generic",
+      "url": "https://example.invalid/gippa-test/goslim_generic",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -114,7 +114,7 @@
     {
       "name": "kegg_ko_pathway",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/kegg_ko_pathway",
+      "url": "https://example.invalid/gippa-test/kegg_ko_pathway",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -125,7 +125,7 @@
     {
       "name": "kegg_pathway_names",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/kegg_pathway_names",
+      "url": "https://example.invalid/gippa-test/kegg_pathway_names",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",
@@ -136,7 +136,7 @@
     {
       "name": "promotech_models",
       "version": "0.0-fake",
-      "url": "https://example.invalid/giap-test/promotech_models",
+      "url": "https://example.invalid/gippa-test/promotech_models",
       "checksum": "",
       "size_bytes": 1,
       "retrieved": "2000-01-01",

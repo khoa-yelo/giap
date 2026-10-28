@@ -1,4 +1,4 @@
-"""Hypothesis properties for operon pairs and TUs (issue M2-12; GIAP_SPEC.md §7.1.3).
+"""Hypothesis properties for operon pairs and TUs (issue M2-12; GIPPA_SPEC.md §7.1.3).
 
 Acceptance criteria: TUs partition the genes; every TU is single-strand; consecutive genes in a TU
 have p ≥ threshold. Plus: TUs are maximal runs, numbering and gene order are canonical, results do
@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.operons import (
+from gippa.annotate.operons import (
     adjacent_pairs,
     build_pairs,
     build_tus,
@@ -25,9 +25,9 @@ from giap.annotate.operons import (
     intergenic_distance,
     tu_upstream,
 )
-from giap.annotate.uniop_adapter import PairProb
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 FLAG = "operon_source_distance_model"
 

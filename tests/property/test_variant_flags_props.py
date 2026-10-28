@@ -23,10 +23,10 @@ from helpers.pileup_oracle import G1, G2, SEQ, GeneSpec, L, codon_aa, codon_nt
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import GiapConfig
-from giap.model import Replicon
-from giap.model.coords import Interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import GippaConfig
+from gippa.model import Replicon
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene, GeneModel
 
 ORDER = (
     "mass_equivalent", "snv", "multi_nt", "strain_difference", "database_derived",
@@ -40,7 +40,7 @@ SOURCES = st.tuples(st.sampled_from(["denovo", "database"]), st.sampled_from(["s
 
 
 def fl() -> ModuleType:
-    return importlib.import_module("giap.variants.flags")
+    return importlib.import_module("gippa.variants.flags")
 
 
 def _gene(g: GeneSpec, sc: str) -> Gene:
@@ -51,8 +51,8 @@ def _gene(g: GeneSpec, sc: str) -> Gene:
 GM = GeneModel({"c1": REP}, (_gene(G1, "GTG"), _gene(G2, "ATG")), ())
 
 
-def _cfg(relation: str, tol: float = 0.05, k: int = 2) -> GiapConfig:
-    return GiapConfig.model_validate({
+def _cfg(relation: str, tol: float = 0.05, k: int = 2) -> GippaConfig:
+    return GippaConfig.model_validate({
         "genome_relation": relation,
         "variants": {"mass_equivalent_tol_da": tol, "high_min_peptides": k},
     })  # fmt: skip
@@ -157,11 +157,11 @@ def hits(draw: st.DrawFn) -> tuple[pd.DataFrame, pd.DataFrame]:
     return ph, peps
 
 
-def _unflagged(ph: pd.DataFrame, peps: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
-    from giap.steps.variants import support_of
-    from giap.variants.align import align_hits
-    from giap.variants.pileup import eligible, pileup, sites
-    from giap.variants.vcf_records import vcf_records
+def _unflagged(ph: pd.DataFrame, peps: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame:
+    from gippa.steps.variants import support_of
+    from gippa.variants.align import align_hits
+    from gippa.variants.pileup import eligible, pileup, sites
+    from gippa.variants.vcf_records import vcf_records
 
     support = support_of(ph, peps, {g.locus_tag for g in GM.genes})
     aligns = align_hits(ph, None, GENOME, GM.replicons)
@@ -184,7 +184,7 @@ CORE = ["variant_id", "contig", "codon_start", "strand", "alt_aa", "alt_type", "
 def test_flags_never_change_call_confidence_or_counts(
     data: tuple[pd.DataFrame, pd.DataFrame], relation: str, k: int, tol: float
 ) -> None:
-    from giap.steps.variants import run_variants
+    from gippa.steps.variants import run_variants
 
     ph, peps = data
     cfg = _cfg(relation, tol, k)

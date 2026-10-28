@@ -21,16 +21,16 @@ import pandas as pd
 import pytest
 from helpers.nonstandard_genome import P, linear, with_x
 
-from giap.config import GiapConfig
-from giap.steps.variants import run_variants
+from gippa.config import GippaConfig
+from gippa.steps.variants import run_variants
 
 LIN = linear()
 GENOME = LIN.genome()
 EVENT = "variants.nonstandard_residues"
 
 
-def _cfg(relation: str = "same") -> GiapConfig:
-    return GiapConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
+def _cfg(relation: str = "same") -> GippaConfig:
+    return GippaConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
 
 
 def _hit(pep: str, diff_types: str | None) -> dict[str, Any]:
@@ -135,11 +135,11 @@ def test_ex9_swap_and_x() -> None:
 
 
 def _step(tmp: Path, rows: list[tuple[str, str | None]], monkeypatch: pytest.MonkeyPatch) -> Any:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
-    import giap.steps.variants as sv
+    import gippa.steps.variants as sv
 
     hits, peptides = _frames(rows)
     monkeypatch.setattr(sv, "_peptide_hits", lambda _p: hits.copy())
@@ -166,7 +166,7 @@ def _step(tmp: Path, rows: list[tuple[str, str | None]], monkeypatch: pytest.Mon
             records.append(record)
 
     h = _Rec(level=logging.DEBUG)
-    log = logging.getLogger("giap.steps.variants")
+    log = logging.getLogger("gippa.steps.variants")
     old = log.level
     log.addHandler(h)
     log.setLevel(logging.DEBUG)
@@ -203,7 +203,7 @@ def test_step_emits_one_info_event_when_a_site_is_skipped(
 def test_step_emits_no_event_on_all_standard_input(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import giap.steps.variants as sv
+    import gippa.steps.variants as sv
 
     assert sv.NONSTANDARD_EVENT == EVENT
     assert _events(_step(tmp_path, [(P, None), ("AKDREFGHILWD", SUB)], monkeypatch)) == []

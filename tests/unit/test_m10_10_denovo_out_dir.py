@@ -1,13 +1,13 @@
 """``denovo_pilot.sbatch cascadia`` with ``A3_OUT_DIR`` (M10-10a criterion 4, deliverable 1).
 
 Spec: docs/specs/M10-10-a3-run.md, deliverable 1 and "Submission": ``A3_RUN=WT_k
-A3_OUT_DIR=$GIAP_ROOT/pilot/A3 denovo_pilot.sbatch cascadia`` writes under
-``$A3_OUT_DIR/<RUN>/<RUN>``; unset, M10-08's ``$GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>`` holds,
+A3_OUT_DIR=$GIPPA_ROOT/pilot/A3 denovo_pilot.sbatch cascadia`` writes under
+``$A3_OUT_DIR/<RUN>/<RUN>``; unset, M10-08's ``$GIPPA_ROOT/pilot/A3_cascadia/<RUN>/<RUN>`` holds,
 and M10-08's WT_1 smoke output is never touched by an M10-10 run.
 
 The Cascadia branch itself (``A3_RUN``, the asset sha256 checks, ``cascadia_offline.py … -o …``) is
 M10-08b's deliverable 8; these tests drive it in the M10-08 ``a3_sandbox`` with ``micromamba``,
-``nvidia-smi`` and a stub ``giap-cascadia`` env (stub ``cascadia``, ``torch.cuda.is_available()``
+``nvidia-smi`` and a stub ``gippa-cascadia`` env (stub ``cascadia``, ``torch.cuda.is_available()``
 true) and read the ``-o`` argument from the fake ``micromamba``'s call log. No GPU, no Cascadia.
 """
 
@@ -87,8 +87,8 @@ def _sandbox(tmp: Path) -> A3Sandbox:
                 "licence": "Apache-2.0", "path": rel, "retrieved": "2026-10-24"}  # fmt: skip
 
     box.write_assets([
-        row("cascadia_weights", ckpt, "$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt"),
-        row("unimod_table", unimod, "$GIAP_DB_DIR/cascadia/unimod_tables.xml"),
+        row("cascadia_weights", ckpt, "$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt"),
+        row("unimod_table", unimod, "$GIPPA_DB_DIR/cascadia/unimod_tables.xml"),
     ])  # fmt: skip
     box.extra_env.update({"STUB_LOG": str(tmp / "stub_cascadia.json"), "A3_RUN": "WT_1"})
     return box

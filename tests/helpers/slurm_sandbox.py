@@ -1,16 +1,16 @@
-"""Fake Slurm / GitHub executables and a sandbox GIAP checkout for the M2-21 shell-script tests.
+"""Fake Slurm / GitHub executables and a sandbox GIPPA checkout for the M2-21 shell-script tests.
 
-Nothing here reaches Slurm, GitHub, the network, the real ``$GIAP_ROOT`` or the real repository:
+Nothing here reaches Slurm, GitHub, the network, the real ``$GIPPA_ROOT`` or the real repository:
 
 * ``Sandbox.repo`` is a fresh git repository holding a copy of this checkout's ``scripts/`` and
   ``ci/`` (``scripts/farmshare_env.sh`` replaced by a stub that only exports sandbox paths), with
   a bare ``origin`` next to it, so ``git fetch origin`` / ``worktree add origin/main`` stay local.
 * ``Sandbox.bin`` is first on a minimal ``PATH`` (``bin:/usr/bin:/bin``) and holds fakes for
-  ``sbatch squeue scontrol scancel srun sacct gh hostname nf-test giap nextflow`` and a ``python``
+  ``sbatch squeue scontrol scancel srun sacct gh hostname nf-test gippa nextflow`` and a ``python``
   wrapper that fakes ``python -m pytest`` and runs everything else with the real interpreter.
   Every fake logs its argv (JSON lines under ``Sandbox.state``).
-* The scripts are run only after ``assert_honours_giap_repo`` found no hard-coded path into the
-  real repository outside ``${GIAP_REPO:-…}`` defaults and ``--output``/``--error`` arguments.
+* The scripts are run only after ``assert_honours_gippa_repo`` found no hard-coded path into the
+  real repository outside ``${GIPPA_REPO:-…}`` defaults and ``--output``/``--error`` arguments.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ counter = os.path.join(state, "next_id")
 n = int(open(counter).read()) if os.path.exists(counter) else 4242
 calls = sum(1 for _ in open(log)) if os.path.exists(log) else 0
 env = {k: v for k, v in os.environ.items()
-       if k.startswith(("NIGHTLY_", "WEEKLY_", "GIAP_")) or k == "MODE"}
+       if k.startswith(("NIGHTLY_", "WEEKLY_", "GIPPA_")) or k == "MODE"}
 script = None
 for a in sys.argv[1:]:
     if not a.startswith("-") and os.path.isfile(a):
@@ -132,12 +132,12 @@ elif argv[:2] == ["issue", "create"]:
         print("gh: fake failure", file=sys.stderr); sys.exit(1)
     title = argv[argv.index("--title") + 1] if "--title" in argv else ""
     st["issues"].append({"number": st["next"], "title": title})
-    print(f"https://github.invalid/khoa-yelo/giap/issues/{st['next']}")
+    print(f"https://github.invalid/khoa-yelo/gippa/issues/{st['next']}")
     st["next"] += 1
 elif argv[:2] == ["issue", "comment"]:
     if fail == "comment":
         print("gh: fake failure", file=sys.stderr); sys.exit(1)
-    print(f"https://github.invalid/khoa-yelo/giap/issues/{argv[2]}#issuecomment-1")
+    print(f"https://github.invalid/khoa-yelo/gippa/issues/{argv[2]}#issuecomment-1")
 json.dump(st, open(spath, "w"))
 """
 
@@ -192,10 +192,11 @@ exec {python} "$@"
 """
 
 _ENV_STUB = """# Sandbox stand-in for scripts/farmshare_env.sh (tests/helpers/slurm_sandbox.py).
-: "${GIAP_ROOT:?sandbox GIAP_ROOT}"
-export GIAP_REPO GIAP_ROOT
-export UV_PROJECT_ENVIRONMENT="$GIAP_ROOT/venv"
-export GIAP_DB_DIR="$GIAP_ROOT/db" GIAP_DATA_DIR="$GIAP_ROOT/data" GIAP_LOG_DIR="$GIAP_ROOT/logs"
+: "${GIPPA_ROOT:?sandbox GIPPA_ROOT}"
+export GIPPA_REPO GIPPA_ROOT
+export UV_PROJECT_ENVIRONMENT="$GIPPA_ROOT/venv"
+export GIPPA_DB_DIR="$GIPPA_ROOT/db" GIPPA_DATA_DIR="$GIPPA_ROOT/data"
+export GIPPA_LOG_DIR="$GIPPA_ROOT/logs"
 """
 
 
@@ -209,14 +210,14 @@ def write_exe(path: Path, text: str) -> Path:
     return path
 
 
-def assert_honours_giap_repo(text: str, what: str) -> None:
+def assert_honours_gippa_repo(text: str, what: str) -> None:
     """Refuse to run a script that would touch the real repository from the sandbox."""
-    t = re.sub(r"\$\{GIAP_REPO:-[^}]*\}", "", text)
+    t = re.sub(r"\$\{GIPPA_REPO:-[^}]*\}", "", text)
     t = re.sub(r"--(output|error)[= ]\S+", "", t)
     bad = [ln for ln in t.splitlines()
            if REAL_REPO in ln and not ln.lstrip().startswith("#")]  # fmt: skip
     assert not bad, (
-        f"{what}: hard-coded path into the real repository (use ${{GIAP_REPO:-…}}): {bad}"
+        f"{what}: hard-coded path into the real repository (use ${{GIPPA_REPO:-…}}): {bad}"
     )
     assert not re.search(r"/usr/bin/(sbatch|sacct|squeue|scontrol|scancel|scrontab)\b", t), what
 
@@ -311,16 +312,16 @@ def make_sandbox(tmp: Path) -> Sandbox:
     write_exe(bindir / "python", _PYTHON.replace("{python}", py))
     write_exe(bindir / "python3", _PYTHON.replace("{python}", py))
     write_exe(bindir / "squeue", _SQUEUE)
-    for name in ("scontrol", "scancel", "srun", "scrontab", "nf-test", "giap",
+    for name in ("scontrol", "scancel", "srun", "scrontab", "nf-test", "gippa",
                  "nextflow", "module"):  # fmt: skip
         write_exe(bindir / name, _LOGGER)
     env = {
         "PATH": f"{bindir}:/usr/bin:/bin",
         "HOME": str(home),
         "LANG": "C.UTF-8",
-        "USER": os.environ.get("USER", "giap"),
-        "GIAP_REPO": str(repo),
-        "GIAP_ROOT": str(root),
+        "USER": os.environ.get("USER", "gippa"),
+        "GIPPA_REPO": str(repo),
+        "GIPPA_ROOT": str(root),
         "FAKE_SLURM_DIR": str(state),
         "GIT_AUTHOR_NAME": "sandbox",
         "GIT_AUTHOR_EMAIL": "sandbox@example.invalid",

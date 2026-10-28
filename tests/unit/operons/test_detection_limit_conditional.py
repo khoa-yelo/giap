@@ -24,15 +24,15 @@ import pandas as pd
 import pytest
 from helpers import detection_limit_data as D
 
-from giap.config import GiapConfig
-from giap.rng import for_step
+from gippa.config import GippaConfig
+from gippa.rng import for_step
 
 SEED = 20261021
 BETA = {"intercept": -10.0, "abundance_log2": 0.5, "length": -0.03, "gravy": 0.8}
 
 
 def _dl() -> Any:
-    from giap.operons import detection_limit
+    from gippa.operons import detection_limit
 
     return detection_limit
 
@@ -80,7 +80,7 @@ def test_replicate_two_runs_not_usable_no_fit() -> None:
     training set has S = 1 of 2 for every gene: slope not identified)."""
     genes, hits, runs, seen = _replicate_world(1500, 2, seed=31)
     assert ((seen.sum(1) == 1).sum()) > 200  # plenty of 'mixed' genes: data are not the reason
-    m = _dl().fit_replicate_model(genes, runs, GiapConfig(**_NO_COV), _rng(), peptide_hits=hits)
+    m = _dl().fit_replicate_model(genes, runs, GippaConfig(**_NO_COV), _rng(), peptide_hits=hits)
     assert m.kind == "replicate"
     assert m.usable is False
     assert m.reason == "replicate_two_runs"
@@ -100,7 +100,7 @@ def test_replicate_two_runs_with_default_covariates_same_reason() -> None:
         pi=rng.normal(7.0, 1.5, len(genes)),
         tm_segments=rng.integers(0, 3, len(genes)),
     )
-    m = _dl().fit_replicate_model(genes, runs, GiapConfig(), _rng(), peptide_hits=hits)
+    m = _dl().fit_replicate_model(genes, runs, GippaConfig(), _rng(), peptide_hits=hits)
     assert m.usable is False and m.reason == "replicate_two_runs" and m.n_fit == 0
 
 
@@ -114,7 +114,7 @@ def test_dispatcher_two_runs_replicate_reason_recorded() -> None:
         if o
         for r in range(2)
     ]
-    fit = _dl().fit_detection_limit(s.genes, s.hits, D.runs_frame(rows), GiapConfig(), _rng())
+    fit = _dl().fit_detection_limit(s.genes, s.hits, D.runs_frame(rows), GippaConfig(), _rng())
     assert fit.model.kind == "peptide"
     assert fit.replicate is None or (
         fit.replicate.usable is False and fit.replicate.reason == "replicate_two_runs"
@@ -130,7 +130,7 @@ def test_replicate_truncated_binomial_recovers_slope(n_runs: int) -> None:
     the truth 0.5 (oracle SE ~0.03 at R = 3). Teeth: the plain logistic gives 0.149 (R = 3) and
     0.245 (R = 4), both outside."""
     genes, hits, runs, seen = _replicate_world(4000, n_runs, seed=34 + n_runs)
-    m = _dl().fit_replicate_model(genes, runs, GiapConfig(**_NO_COV), _rng(), peptide_hits=hits)
+    m = _dl().fit_replicate_model(genes, runs, GippaConfig(**_NO_COV), _rng(), peptide_hits=hits)
     s = seen.sum(1)
     assert m.usable is True and m.kind == "replicate"
     assert m.n_fit == int(((s > 0) & (s < n_runs)).sum()) * n_runs
@@ -167,7 +167,7 @@ def test_peptide_conditional_fit_recovers_abundance_and_citl() -> None:
         for_step("test.dl_citl.score", 0), 4000, BETA, n_peps=(5, 20), tu_size=1
     )
     dl = _dl()
-    m = dl.fit_peptide_model(train.genes, train.hits, GiapConfig(seed=SEED), _rng())
+    m = dl.fit_peptide_model(train.genes, train.hits, GippaConfig(seed=SEED), _rng())
     assert m.usable is True
     assert m.coef["abundance_log2"] == pytest.approx(0.5, rel=0.10)
     p = np.array(
@@ -184,7 +184,7 @@ def test_peptide_conditional_fit_recovers_abundance_small() -> None:
     """Fast version, 1,500 training genes: beta_a within 0.08 of 0.5 (oracle SD ~0.013;
     plain fit ~0.35)."""
     train = D.simulate_peptides(for_step("test.dl_citl.train", 2), 1500, BETA, n_peps=(5, 20))
-    m = _dl().fit_peptide_model(train.genes, train.hits, GiapConfig(seed=SEED), _rng())
+    m = _dl().fit_peptide_model(train.genes, train.hits, GippaConfig(seed=SEED), _rng())
     assert m.usable is True
     assert m.coef["abundance_log2"] == pytest.approx(0.5, abs=0.08)
 
@@ -211,6 +211,6 @@ def test_separated_peptide_model_not_usable(rule: str) -> None:
     """Lead decision 5: unpenalised fit; separation -> usable False (never a divergent iterate)."""
     genes, hits = _separated(rule)
     assert genes.detected.sum() >= 50
-    m = _dl().fit_peptide_model(genes, hits, GiapConfig(seed=SEED), _rng())
+    m = _dl().fit_peptide_model(genes, hits, GippaConfig(seed=SEED), _rng())
     assert m.usable is False
     assert math.isnan(_dl().p_detect(m, 15.0, list(D.TOY_PEPS)))

@@ -38,8 +38,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.viz import base, style
-from giap.viz.base import Instance
+from gippa.viz import base, style
+from gippa.viz.base import Instance
 
 MAX_ELEMENTS = 20_000
 #: SVG elements that put ink on the page (matplotlib writes markers as one <use> each)
@@ -53,7 +53,7 @@ def _style() -> None:
 
 def _plot(genes: dict[str, pd.DataFrame], abundance: pd.DataFrame | None = None,
           B: int = 20) -> Instance:  # fmt: skip
-    from giap.viz.compare import compare_plot
+    from gippa.viz.compare import compare_plot
 
     d, a = vc.inputs(genes, B=B)
     return compare_plot(d, abundance if abundance is not None else a, genes)
@@ -179,7 +179,7 @@ def twelve() -> Instance:
     genes = vc.many_intersections(40, 12)
     d, a = vc.inputs(genes, B=5)
     # one pair too few shared (ρ NA) and one negative ρ, the two widest cell texts
-    from giap.viz.compare import compare_plot
+    from gippa.viz.compare import compare_plot
 
     a = vc.set_rho(a, "R01", "R02", None, None, None, flags="too_few_shared")
     a = vc.set_rho(a, "R03", "R04", -0.25, -0.61, -0.013)

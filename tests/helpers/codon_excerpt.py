@@ -11,7 +11,7 @@ without the 4.6 Mb genome; gene nucleotide sequences are the recorded ones.
 
 Regenerate (only when the recording changes)::
 
-    REC=$GIAP_ROOT/recordings/bakta_full/k12_mg1655/bakta/k12_mg1655.json
+    REC=$GIPPA_ROOT/recordings/bakta_full/k12_mg1655/bakta/k12_mg1655.json
     python -P tests/helpers/codon_excerpt.py $REC tests/data/codon_k12_excerpt.json.gz
 """
 
@@ -32,8 +32,8 @@ CONTIG = "k12x"
 def build_excerpt(bakta_json: Path) -> dict[str, Any]:
     """Recorded Bakta JSON → excerpt dict (genes in genome order, tRNA anticodons)."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.bakta_layers import is_ribosomal_protein
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta_layers import is_ribosomal_protein
 
     ann = parse_bakta_json(bakta_json)
     keep = []

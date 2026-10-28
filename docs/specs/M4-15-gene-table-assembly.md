@@ -13,14 +13,14 @@ Milestone M4 · track T (assembly) · depends on: M4-06, M4-10, M4-11, M4-12, M4
   vocabulary. ADR-0006 encoding.
 - §9.4 gene flags (all scopes "Gene"); "extend only through the schema".
 - §9.5: "`schemas/datapackage.json` is a Frictionless Data Package with one resource per table … The
-  descriptors live in `src/giap/schemas/`".
+  descriptors live in `src/gippa/schemas/`".
 - §6.2 steps `gene_table` ("genes, layers, loci, abundance → `genes_pre.parquet`") and
   `detectability` ("gene table → `p_detect` (cross-fitted)"); §6.5 sort order and partial genes;
-  §6.6 seeds (`giap.rng.for_step`); §1.2 rule 6 "Say 'detected', never 'expressed'".
+  §6.6 seeds (`gippa.rng.for_step`); §1.2 rule 6 "Say 'detected', never 'expressed'".
 
 ## Public interface
 
-`src/giap/genetable/assemble.py` (pure)
+`src/gippa/genetable/assemble.py` (pure)
 ```python
 GENES_COLUMNS: tuple[str, ...]        # exact §9.3 order (identity … flags)
 GENE_FLAGS: tuple[str, ...]           # §9.4 Gene scope, vocabulary order
@@ -30,13 +30,13 @@ def function_columns(xrefs: pd.DataFrame, cog_def: pd.DataFrame | None) -> pd.Da
 def assemble_genes(inputs: M4Inputs, cov, evidence, detection, detectability, abundance) -> pd.DataFrame: ...
 def gene_flags(row_parts: Mapping[str, Sequence[str]]) -> list[str]: ...   # union, vocabulary order
 ```
-`src/giap/io/genes_tsv.py`: `write_genes_tsv(path, df)` (0-based → 1-based: `start + 1`, `end`
+`src/gippa/io/genes_tsv.py`: `write_genes_tsv(path, df)` (0-based → 1-based: `start + 1`, `end`
 unchanged; lists `;`-joined; via M1-04 `write_tsv`) and `read_genes_tsv(path)` (inverse, for
 downstream modules and tests).
-`src/giap/schemas/tables/genes.json`: Frictionless resource (name, type, unit, description,
+`src/gippa/schemas/tables/genes.json`: Frictionless resource (name, type, unit, description,
 enum constraints, `coordinates: "1-based-closed"`), `flags` items constrained to `GENE_FLAGS`.
-`src/giap/steps/gene_table.py`: `run_gene_table(work_dir, cfg) -> Path` writes
-`work/genetable/genes_pre.parquet` (everything but `p_detect`); `src/giap/steps/detectability.py`:
+`src/gippa/steps/gene_table.py`: `run_gene_table(work_dir, cfg) -> Path` writes
+`work/genetable/genes_pre.parquet` (everything but `p_detect`); `src/gippa/steps/detectability.py`:
 `run_detectability(work_dir, cfg) -> Path` adds `p_detect` → `work/genetable/genes.parquet`, writes
 diagnostics rows to `work/genetable/detection_summary_parts/detectability.parquet`. Both stop
 (exit code 1 path via the step runner) on any contract `error` issue.
@@ -92,20 +92,20 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
 1. Step registration: M2-02 specifies the registry (`@step(name, inputs=…, outputs=…)`).
    **Proposed default:** register `gene_table` and `detectability` with it if M2-02 has merged;
    otherwise ship plain `run_*` functions and register them in M4-20.
-2. Schema layout: one resource file per table under `src/giap/schemas/tables/` (as M3-16 does),
+2. Schema layout: one resource file per table under `src/gippa/schemas/tables/` (as M3-16 does),
    assembled into `datapackage.json` by `finalize` later? **Proposed default:** yes.
-3. `cog_category` needs the COG 2020 table from `giap setup --cog` (M2-09). **Proposed default:**
+3. `cog_category` needs the COG 2020 table from `gippa setup --cog` (M2-09). **Proposed default:**
    read it when installed, else `NA` with run flag `layer_missing:cog`.
 
 ## Lead decisions (2026-10-20)
 1. M2-02's `@step` registry has merged: register `gene_table` and `detectability` with it now (not in
    M4-20), and regenerate `workflow/tests/data/annotate/step_registry.json` if the registry snapshot
    test requires it.
-2. Yes: one resource file per table under `src/giap/schemas/tables/` (as M3-16); `finalize` assembles
+2. Yes: one resource file per table under `src/gippa/schemas/tables/` (as M3-16); `finalize` assembles
    `datapackage.json` later.
-3. Yes: read the COG 2020 table when `giap setup --cog` installed it (manifest entry `cog2020_def`/
+3. Yes: read the COG 2020 table when `gippa setup --cog` installed it (manifest entry `cog2020_def`/
    `cog2020_fun`); otherwise `cog_category = NA` and run flag `layer_missing:cog`. Tests use a tiny
-   fixture COG table, never the real `$GIAP_DB_DIR`.
+   fixture COG table, never the real `$GIPPA_DB_DIR`.
 
 ## Lead decisions after the test-author's report (2026-10-20)
 4. `gc_local_dev`: copied from C6 / M2-20 layers when the column is present, NA only when absent
@@ -115,9 +115,9 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
    `cog-20.def.tab`, like `contaminants` reaches `loci`). The workflow resolves that path from the setup
    manifest; this refines decision 3.
 6. A contract error raises `StepError` (runner exit code 4), not exit 1.
-7. giapsim writes `annotation_source = "bakta_full"` so simulated outputs validate against the §9.3 enum
-   (giapsim is tooling: the implementer changes it); the integration test's rewrite can then go.
-8. Work-dir layout: `run_gene_table` reads the real `giap run` layout (TSVs under `mapping/`, C14 under
+7. gippasim writes `annotation_source = "bakta_full"` so simulated outputs validate against the §9.3 enum
+   (gippasim is tooling: the implementer changes it); the integration test's rewrite can then go.
+8. Work-dir layout: `run_gene_table` reads the real `gippa run` layout (TSVs under `mapping/`, C14 under
    `annotation/`) through the existing M4 input loader; the flat `default_paths` layout stays accepted
    for unit fixtures.
 9. Several COG IDs on one gene: `cog_id` = the lexicographically smallest, `cog_category` from that ID;
@@ -132,7 +132,7 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
     stay null (never the text `"nan"`). Tests: a parquet round trip, and
     `pq.read_table(genetable/genes.parquet).column(c).null_count` equals the number of missing values for
     string columns (`island_id`, `replichore`, `cog_id`, `cog_category`).
-12. Tests for COG resolution through the setup manifest: a tmp `$GIAP_DB_DIR` with `db_manifest.json` and a
+12. Tests for COG resolution through the setup manifest: a tmp `$GIPPA_DB_DIR` with `db_manifest.json` and a
     fixture `cog/cog-20.def.tab` → categories set; file present but no manifest entry → NA + warning.
 13. `read_cog_def` falls back to latin-1 (the NCBI file has cp1252 bytes, e.g. 0x92); test with such a
     fixture byte.
@@ -140,7 +140,7 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
     `abundance_imputed` become False (kill `fillna(True)`).
 15. `--executor local` stages `cog2020_def` (like `contaminants`) and passes `abundance` / `preflight`
     when the run produced them, so `cog_category` is set under the local executor too.
-16. Rename the schema to `src/giap/schemas/tables/genes.schema.json` (the `<table>.schema.json`
+16. Rename the schema to `src/gippa/schemas/tables/genes.schema.json` (the `<table>.schema.json`
     convention). Per-field `unit` (§9.5) is a project-wide backlog item.
 17. The COG path comes from `db_sources.yaml` (`cog2020_def.path`), not a hard-coded constant.
 18. Downstream: the stricter loader (parquet/TSV by table name) means M4-18/M4-20 supply C7/C8 as parquet.
@@ -156,5 +156,5 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
     issue is logged and the abundance columns are filled; (c) a `stage_roots` test for the directory case.
 21. `stage_roots`' copy-into-directory branch applies to the `preflight` key only (other keys still fail
     loudly on a directory) until the backlog namespace item lands.
-22. `cog_table` moves out of `giap.runner.local` into `giap.setupdb` (or io), using a public accessor
+22. `cog_table` moves out of `gippa.runner.local` into `gippa.setupdb` (or io), using a public accessor
     instead of `setupdb.items._load_sources`; steps do not import the executor.

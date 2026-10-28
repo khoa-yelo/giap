@@ -8,9 +8,9 @@ Frictionless schema where one exists on main; ``determinants_model.tsv`` (M8-10,
 main) is written with the column list of its branch schema (``DET_MODEL_COLUMNS``).
 
 Interface pinned by these helpers (M9-16 test author, beyond the spec text):
-- the report reads ``OUT/run_manifest.json`` (MVP-03a, ``giap.manifest``) when present;
+- the report reads ``OUT/run_manifest.json`` (MVP-03a, ``gippa.manifest``) when present;
 - KEGG database entries of the manifest are those whose ``name`` starts with ``kegg``
-  (``kegg_ko_pathway``, ``kegg_pathway_names`` in ``giap/data/db_sources.yaml``); the GO release is
+  (``kegg_ko_pathway``, ``kegg_pathway_names`` in ``gippa/data/db_sources.yaml``); the GO release is
   the ``version`` of ``go_basic``;
 - run flags come from step events (``logs/steps/<step>.events.jsonl``, ``data.flag(s)``), as
   ``RunView.run_flags`` reads them.
@@ -26,7 +26,7 @@ from typing import Any
 
 import pandas as pd
 
-from giap.io.tsv import write_tsv
+from gippa.io.tsv import write_tsv
 from helpers.report_fixtures import Page, cfg, parse
 from helpers.viz_out_tree import gene_row, write_events, write_schema_table
 
@@ -35,7 +35,7 @@ DET_MODEL_COLUMNS = (
     "model", "feature_or_block", "metric", "value", "ci_low", "ci_high", "n", "n_perm", "flags",
 )  # fmt: skip
 
-#: §7.8.2 "Caveats (printed in the report)", verbatim (``giap.determinants.CAVEATS`` on #178)
+#: §7.8.2 "Caveats (printed in the report)", verbatim (``gippa.determinants.CAVEATS`` on #178)
 DETERMINANTS_CAVEATS = (
     "In a synthetic GFP library, mRNA folding near the RBS explained over half the variance; "
     "native genes add regulation and turnover, so expect a lower R².",
@@ -78,8 +78,8 @@ def page(out: Path, *overrides: str) -> Page:
 
 
 def html(out: Path, *overrides: str) -> str:
-    from giap.io.run_view import RunView
-    from giap.report.build import build_report
+    from gippa.io.run_view import RunView
+    from gippa.report.build import build_report
 
     return build_report(RunView.from_outdir(out), {}, {}, cfg(*overrides))
 
@@ -214,8 +214,8 @@ def write_gsea(out: Path, flags: Sequence[str | None]) -> None:
 
 
 def write_diagnostics(out: Path, rows: Sequence[Mapping[str, Any]]) -> Path:
-    """``context/island_diagnostics.parquet`` in the ``giap.context.diagnostics`` shape."""
-    from giap.context.diagnostics import DIAGNOSTICS_COLUMNS
+    """``context/island_diagnostics.parquet`` in the ``gippa.context.diagnostics`` shape."""
+    from gippa.context.diagnostics import DIAGNOSTICS_COLUMNS
 
     frame = pd.DataFrame(
         {
@@ -252,7 +252,7 @@ def write_flags(out: Path, step: str, flags: Sequence[str]) -> None:
 
 
 def write_missed_event(out: Path, pi0: float = 0.5) -> None:
-    """``operons.missed_operons`` as ``giap.steps.operons`` logs it: three distance bins, the
+    """``operons.missed_operons`` as ``gippa.steps.operons`` logs it: three distance bins, the
     outer bounds ``-Infinity`` / ``Infinity`` (strict JSON cannot hold them; Python's can)."""
     bins = [
         ("-Infinity", "0.0", 3, 1, 2),
@@ -274,11 +274,11 @@ def write_missed_event(out: Path, pi0: float = 0.5) -> None:
 def manifest(**over: Any) -> dict[str, Any]:
     """A schema-valid ``run_manifest.json`` (``helpers.manifest_data.build``) with a commit, tools,
     databases (KEGG retrieval date, GO release), seed ``SEED`` and relative-path inputs."""
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
     from helpers.manifest_data import build
 
-    m = build(cfg=GiapConfig(seed=SEED), git_commit=COMMIT, git_dirty=False,
-              command_line=["giap", "run", "--genome", "genome.fa", "--peptides",
+    m = build(cfg=GippaConfig(seed=SEED), git_commit=COMMIT, git_dirty=False,
+              command_line=["gippa", "run", "--genome", "genome.fa", "--peptides",
                             "peptides.tsv", "--seed", str(SEED)])  # fmt: skip
     m["inputs"] = [dict(r) for r in MANIFEST_INPUTS]
     m["tools"] = [dict(t) for t in TOOLS]
@@ -288,7 +288,7 @@ def manifest(**over: Any) -> dict[str, Any]:
 
 
 def write_manifest(out: Path, doc: Mapping[str, Any] | None = None) -> Path:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     path = out / "run_manifest.json"
     path.write_text(canonical_json(doc if doc is not None else manifest()), encoding="utf-8")

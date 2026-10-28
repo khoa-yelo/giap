@@ -1,7 +1,7 @@
 # M10-08: A3 feasibility: Cascadia 0.0.7 on the diaPASEF pilot runs
 
 Milestone M10 · **pass 2** (may run alongside pass 1: it shares no code) · depends on: M10-01
-(merged: the three `.d` runs under `$GIAP_DATA_DIR/pxd078459/`, `validation/pilot/inputs/acquisition.json`
+(merged: the three `.d` runs under `$GIPPA_DATA_DIR/pxd078459/`, `validation/pilot/inputs/acquisition.json`
 with `dataset_mode = diaPASEF`) · estimate ≈ 455 code lines + ≈ 450 test lines, proposed as two
 PRs (08a ≈ 270, 08b ≈ 185; question Q1) · not `stats` (one Wilson interval, reported only) ·
 roles: implementer (env files, registry, `scripts/`), validation (`validation/pilot/`),
@@ -31,8 +31,8 @@ decisions no longer fit what the official sources say: Q1 (cut-off), Q5 (route o
   source needs an ADR and Khoa).
 - §5.4 row "Cascadia 0.0.x | its result file (mzTab-like)". The real format is the `.ssl` table
   (below). This issue records the format; the converter is M10-09.
-- §7.2.1–7.2.2: the genome check reuses `giap.mapping.sixframe.build_sixframe`,
-  `giap.mapping.decoys.build_decoys` and `giap.mapping.exact.match_exact`, unchanged.
+- §7.2.1–7.2.2: the genome check reuses `gippa.mapping.sixframe.build_sixframe`,
+  `gippa.mapping.decoys.build_decoys` and `gippa.mapping.exact.match_exact`, unchanged.
 - Khoa, 2026-10-24: a Bruker-licensed conversion route is allowed "as long as it's free and
   legal".
 
@@ -65,7 +65,7 @@ decisions no longer fit what the official sources say: Q1 (cut-off), Q5 (route o
 
 | Fact | Evidence | Consequence |
 |---|---|---|
-| Licence **Apache-2.0** | `LICENSE` in the 0.0.7 sdist; PyPI classifier; GitHub licence API | free; may be used and redistributed. GIAP does not redistribute it |
+| Licence **Apache-2.0** | `LICENSE` in the 0.0.7 sdist; PyPI classifier; GitHub licence API | free; may be used and redistributed. GIPPA does not redistribute it |
 | Source: **PyPI only**. No git tag and no GitHub release; `pyproject.toml` on `main` still says 0.0.5 | S1 tags `[]`, releases `[]`; S2 releases 0.0.1–0.0.7 (0.0.7 uploaded 2025-02-14; wheel sha256 `50b52043…f092a3`, sdist `6e9fcc50…ab347`) | pin `cascadia==0.0.7` with the wheel's sha256 in the pip lock. PyPI `project_urls.Homepage` = `https://github.com/Noble-Lab/cascadia` (the provenance check of the earlier draft is done) |
 | Requires `torch>=2.0,<2.1`, `lightning>=2.0,<2.1`, `pytorch-lightning>=1.9,<2.0`, `numpy<2.0`, `pyteomics>=4.6`, `lxml>=4.9.1`, `sqlalchemy>=2.0`, `rdkit`, `numba`, … | PyPI `requires_dist` of 0.0.7 | Python 3.10 (S3) with PyTorch 2.0.x and CUDA 11.8 (Ada / L40S is sm_89, which CUDA 11.8 supports). Unmerged PR #18 says the `lightning` + `pytorch-lightning` pair breaks fresh pip installs: risk table |
 | **Input: mzML only** (`pyteomics.mzml.read`). No `.d` reader | `augment.py`; S3 `file_formats.md`: "Cascadia takes as input spectra in mzML format … converted … using msConvert … peakPicking filter at both the MS1 and MS2 levels using the vendor algorithm" | option B0 (native `.d`) does not exist: a conversion route is required |
@@ -73,7 +73,7 @@ decisions no longer fit what the official sources say: Q1 (cut-off), Q5 (route o
 | CLI: `cascadia sequence SPECTRUM_FILE MODEL [-o OUTPREFIX] [-t 0.8] [-b 32] [-w 2] [-c 4] [-p mskb]`; **one** spectrum file, model positional | `cascadia.py` `sequence()` argparse (S3 `usage.md` shows `-m MODEL` and a `-f` flag that 0.0.7 does not have; the code wins) | the current `denovo_pilot.sbatch` call (`--model … --num_workers … --output … RUN…`) **fails** in argparse. One call per run |
 | Writes a scratch directory `cascadia_<mm-dd-HH:MM:SS>/` in the **current directory**, with a text `temp.asf` and an `index.hdf5` | `sequence()` | `cd` into a per-run directory on the node's `$TMPDIR` (§3.1 local SSD) before the call |
 | DataLoader `num_workers=4`, hard-coded | `sequence()` | `--cpus-per-task=8` is enough |
-| **Score cut-off: `-t/--score_threshold`, default 0.8**. A row is written only when `exp(log-confidence) > threshold` (**strict**) | `utils.write_results` | this is "Cascadia's own score cut-off" in L6. It is a CLI default, not something GIAP picks |
+| **Score cut-off: `-t/--score_threshold`, default 0.8**. A row is written only when `exp(log-confidence) > threshold` (**strict**) | `utils.write_results` | this is "Cascadia's own score cut-off" in L6. It is a CLI default, not something GIPPA picks |
 | Output `<OUTPREFIX>.ssl`, tab-separated, columns `file, scan, charge, sequence, score-type, score, retention-time, start-time, end-time`; `score-type` = `UNKNOWN`; `scan` = the prediction's index, not a scan number | `utils.write_results`; S3 | the format M10-09 maps. One row per augmented spectrum × charge; no rank column |
 | Sequences come out **I → L folded** (`replace_isoleucine_with_leucine=True`), with modifications as mass shifts (`M[+15.99]`; an N-terminal shift as `[+42.01]-…`) | tokenizer call; `convert_mods_to_shifts` | stripping rule below. I ≡ L already holds |
 | Retention-time unit decided by a heuristic: minutes when the largest RT > 500, else seconds | `write_results` | **these runs are 539.9 s long** (`acquisition.json`), close to that limit. M10-09 must not assume a unit. The evaluator ignores RT |
@@ -144,8 +144,8 @@ S14 is login-gated, says (quoted):
 |---|---|---|
 | Free of charge? | **Yes.** TIMSCONVERT and pyTDFSDK are Apache-2.0 (S12, S13); TDF-SDK: "delivers the software for free" (§6.1) | **Yes.** S10: "In general, ProteoWizard is free for both commercial and non-commercial use, but you may not charge a fee for use of ProteoWizard (with vendor support enabled)". The core is Apache-2.0 plus an addendum binding the user to every vendor library's terms (S8 `core_license.html`) |
 | Licences we must accept | **One**: Bruker's TDF-SDK agreement. pyTDFSDK conveys the library ("certain individual Software Libraries might be conveyed to you by others") and carries the required notice: "Included software components: Copyright © 2022 by Bruker Daltonics GmbH & Co. KG" (S12, S13) | **Seven**: "as the image name implies, you must agree to the vendor licenses to use this image" (S10). That is Bruker (CompassXtract: "non-commercial usage", "beta"; Baf2Sql; TDF-SDK), Agilent, Sciex, Waters (each non-commercial only), Thermo (no commercial exploitation without consent) and Shimadzu (S9) |
-| May we use it on FarmShare? | **Yes**, under §2.1 "any of your computing devices", reading the Stanford allocation GIAP runs under as such (question Q7). Academic research is allowed (any non-commercial or commercial use). §1's disclaimer fits an exploratory arm: A3 is never a basis for business or medical decisions | **Yes**, for academic non-commercial use under all seven EULAs, by the same reading. It runs under Wine inside Apptainer (risk) |
-| Redistribution limits | We may not redistribute the SDK (§3.2), and §5.2 bars any combined distribution with GPL software. **GIAP redistributes nothing**: the env is built on FarmShare from the upstream sources, and nothing from it is committed (R11) | No redistribution of the image or of any vendor library (Thermo §3.3: end users are bound by an agreement "that prohibits them from redistributing this Software to others"; Waters: "You may not distribute, assign, rent, sublicense, “timeshare,” or transfer"). GIAP keeps the image under `$GIAP_ROOT/images/` and never commits it |
+| May we use it on FarmShare? | **Yes**, under §2.1 "any of your computing devices", reading the Stanford allocation GIPPA runs under as such (question Q7). Academic research is allowed (any non-commercial or commercial use). §1's disclaimer fits an exploratory arm: A3 is never a basis for business or medical decisions | **Yes**, for academic non-commercial use under all seven EULAs, by the same reading. It runs under Wine inside Apptainer (risk) |
+| Redistribution limits | We may not redistribute the SDK (§3.2), and §5.2 bars any combined distribution with GPL software. **GIPPA redistributes nothing**: the env is built on FarmShare from the upstream sources, and nothing from it is committed (R11) | No redistribution of the image or of any vendor library (Thermo §3.3: end users are bound by an agreement "that prohibits them from redistributing this Software to others"; Waters: "You may not distribute, assign, rent, sublicense, “timeshare,” or transfer"). GIPPA keeps the image under `$GIPPA_ROOT/images/` and never commits it |
 | Within Khoa's 2026-10-24 permission ("Bruker-licensed … free and legal")? | **Yes, exactly**: the only proprietary component is Bruker's | **Goes beyond it**: it also accepts six licences from other vendors, for libraries this pilot never loads |
 | Source (§3.2, R6) | GitHub: release tag `v2.0.0` (commit `3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b`), which pins pyTDFSDK at commit `4808da81d3e37f82da96f392dbb446c3733edacb` (one commit behind tag `v0.4.1`). Not on PyPI or bioconda (both 404). A pinned GitHub commit has a precedent in UniOP (§17 "clone fails at the pinned commit"); ADR-M10-B records it | Docker Hub, by digest `sha256:34ed787cd4c3182c2d81adcbf7514031e594609ca460abc5d3d114dc2334dae8` (1.89 GB compressed, 2026-10-09). The cleanest §3.2 source |
 | diaPASEF output fits Cascadia? | **Yes, in its code**: `parse.py` handles `ScanMode 9, MsMsType 9` frames and writes one spectrum per `DiaFrameMsMsWindows` row, with `isolation window target / lower / upper` (S12, S13); `--exclude_mobility` sums the window's scans into one centroided spectrum | **Yes, in its code**: with `--combineIonMobilitySpectra`, plain diaPASEF gives one combined spectrum per frame and window (`TdfData.cs` `BuildSpectrumIndex`; the whole-frame mode is only for diagonal PASEF or when requested) (S11). It is the route Cascadia's docs name |
@@ -168,8 +168,8 @@ changes), rule **E1 fires**:
 - PROGRESS › Blocked gets a row;
 - A3 moves to M10-11a.
 
-GIAP never falls back to an unofficial converter or a GIAP-written TDF decoder (option B3,
-AlphaTims plus a GIAP mzML writer, stays rejected: R1 scope, and AlphaTims ships Bruker's library
+GIPPA never falls back to an unofficial converter or a GIPPA-written TDF decoder (option B3,
+AlphaTims plus a GIPPA mzML writer, stays rejected: R1 scope, and AlphaTims ships Bruker's library
 too).
 
 ### The other A3 artefacts
@@ -187,48 +187,48 @@ too).
 |---|---|---|---|---|
 | 1 | `workflow/envs/cascadia.yml` + `locks/cascadia.{explicit,pip}.txt` | 08a | implementer | conda-forge only (`--override-channels`): `python=3.10`, `pytorch=2.0.*` CUDA 11.8 build, `numpy<2`, `pyteomics>=4.6,<5`, `psims=1.4.0`, `lxml`, `rdkit`, `numba`, `h5py`, `sqlalchemy>=2`. `pip:` block: `cascadia==0.0.7`. Header: source (PyPI 0.0.7, homepage `github.com/Noble-Lab/cascadia`), licence Apache-2.0, wheel sha256, date. Locks written by `build_envs.sh` |
 | 2 | `workflow/envs/timsconvert.yml` + locks | 08a | implementer | conda-forge `python=3.11`, `pip`; `pip:` `timsconvert @ git+https://github.com/gtluu/timsconvert@3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b` (its `requirements.txt` pins pyTDFSDK at `4808da81…`). Header: route B2, the TDF-SDK licence, ADR-M10-B, "never redistribute" |
-| 3 | `PILOT_TOOLS` in `giap.annotate.tools` (`cascadia`, `timsconvert`) and its lookup in `build_envs.sh` `registry()` | 08a | implementer | earlier lead decision 1 (Q4): **not** in `TOOLS`, so `required_tools`, `build_envs.sh all` and a run's tool versions never see them |
-| 4 | `scripts/pilot/cascadia_offline.py` | 08a | implementer | runs **inside** `giap-cascadia` (`micromamba run -n giap-cascadia python -I scripts/pilot/cascadia_offline.py UNIMOD_XML sequence …`). It (a) refuses a `UNIMOD_XML` that is not an existing local file; (b) sets `pyteomics.mass.unimod._unimod_xml_download_url` to its absolute path; (c) hands the rest of `argv` to `cascadia.cascadia.main()`. Imports Cascadia only here, never from `src/` or `validation/` (R5 spirit; Cascadia is Apache-2.0) |
-| 5 | `validation/pilot/a3_assets.tsv` | 08a, filled by the fetch | validation | one row per external A3 artefact: `asset` (`cascadia_weights`, `unimod_table`, `timsconvert`, `pytdfsdk`, `pwiz_image` if B1), `version`, `url` (official), `sha256`, `bytes`, `licence`, `path` (under `$GIAP_ROOT`), `retrieved` (UTC date). No binary is committed |
-| 6 | `scripts/slurm/fetch_a3_assets.sbatch [--resolve]` | 08a | implementer | the **only** A3 script that reaches the network. Weights: HTTPS from the S7 file ID (`drive.usercontent.google.com/download?id=…&export=download&confirm=t`) **only once ADR-M10-B is accepted**, otherwise exit 2 "weights host not in §3.2: ADR-M10-B". It writes `$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt` (mode 0444; original name kept in deliverable 5). Unimod: gunzips psims' vendored file from the built env to `$GIAP_DB_DIR/cascadia/unimod_tables.xml` (0444), with no network. B1 only: `apptainer pull` by digest. `--resolve` prints the sha256 and bytes to commit into deliverable 5; later fetches must match |
-| 7 | `scripts/slurm/mzml_pilot.sbatch RUN` | 08a | implementer | `.d → mzML` for **one** run. `MZML_ROUTE=timsconvert` (default) or `pwiz` (B1). Writes `$GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML`, then runs deliverable 9's `mzml-check` |
-| 8 | `scripts/slurm/denovo_pilot.sbatch` (changed) | 08b | implementer | Cascadia branch: `RUN=WT_1` (argument or env; default all three in sequence). Input `$GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML`. Checks the weights' and Unimod table's sha256 against deliverable 5 (exit 2 on a mismatch), then `cd "$TMPDIR/<RUN>"` and runs `cascadia_offline.py UNIMOD sequence <mzML> <ckpt> -o $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN> -b 32` (threshold left at its default 0.8, recorded). It logs `cascadia --help` first, plus `nvidia-smi` and `python -c 'import torch; print(torch.cuda.is_available())'` (exit 1 when false). The Casanovo branch stays unchanged. **Every M3-24 assertion still holds** (no `curl`/`wget`/`git clone` in its code, `gpu:1`, `giap-denovo`, the fallback text) |
-| 9 | `validation/pilot/a3_feasibility.py` | 08b (`mzml-check` in 08a) | validation | three subcommands: `mzml-check`, `evaluate`, `early-fail` (interfaces below). Imports GIAP (`giap.mapping`, `giap.annotate.bakta`, `giap.rng`, `giap.config`, `giap.stats.cutoffs.wilson_ci`). Reads the `.ssl` with the stdlib `csv` module; never imports Cascadia |
+| 3 | `PILOT_TOOLS` in `gippa.annotate.tools` (`cascadia`, `timsconvert`) and its lookup in `build_envs.sh` `registry()` | 08a | implementer | earlier lead decision 1 (Q4): **not** in `TOOLS`, so `required_tools`, `build_envs.sh all` and a run's tool versions never see them |
+| 4 | `scripts/pilot/cascadia_offline.py` | 08a | implementer | runs **inside** `gippa-cascadia` (`micromamba run -n gippa-cascadia python -I scripts/pilot/cascadia_offline.py UNIMOD_XML sequence …`). It (a) refuses a `UNIMOD_XML` that is not an existing local file; (b) sets `pyteomics.mass.unimod._unimod_xml_download_url` to its absolute path; (c) hands the rest of `argv` to `cascadia.cascadia.main()`. Imports Cascadia only here, never from `src/` or `validation/` (R5 spirit; Cascadia is Apache-2.0) |
+| 5 | `validation/pilot/a3_assets.tsv` | 08a, filled by the fetch | validation | one row per external A3 artefact: `asset` (`cascadia_weights`, `unimod_table`, `timsconvert`, `pytdfsdk`, `pwiz_image` if B1), `version`, `url` (official), `sha256`, `bytes`, `licence`, `path` (under `$GIPPA_ROOT`), `retrieved` (UTC date). No binary is committed |
+| 6 | `scripts/slurm/fetch_a3_assets.sbatch [--resolve]` | 08a | implementer | the **only** A3 script that reaches the network. Weights: HTTPS from the S7 file ID (`drive.usercontent.google.com/download?id=…&export=download&confirm=t`) **only once ADR-M10-B is accepted**, otherwise exit 2 "weights host not in §3.2: ADR-M10-B". It writes `$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt` (mode 0444; original name kept in deliverable 5). Unimod: gunzips psims' vendored file from the built env to `$GIPPA_DB_DIR/cascadia/unimod_tables.xml` (0444), with no network. B1 only: `apptainer pull` by digest. `--resolve` prints the sha256 and bytes to commit into deliverable 5; later fetches must match |
+| 7 | `scripts/slurm/mzml_pilot.sbatch RUN` | 08a | implementer | `.d → mzML` for **one** run. `MZML_ROUTE=timsconvert` (default) or `pwiz` (B1). Writes `$GIPPA_DATA_DIR/pxd078459/mzml/<RUN>.mzML`, then runs deliverable 9's `mzml-check` |
+| 8 | `scripts/slurm/denovo_pilot.sbatch` (changed) | 08b | implementer | Cascadia branch: `RUN=WT_1` (argument or env; default all three in sequence). Input `$GIPPA_DATA_DIR/pxd078459/mzml/<RUN>.mzML`. Checks the weights' and Unimod table's sha256 against deliverable 5 (exit 2 on a mismatch), then `cd "$TMPDIR/<RUN>"` and runs `cascadia_offline.py UNIMOD sequence <mzML> <ckpt> -o $GIPPA_ROOT/pilot/A3_cascadia/<RUN>/<RUN> -b 32` (threshold left at its default 0.8, recorded). It logs `cascadia --help` first, plus `nvidia-smi` and `python -c 'import torch; print(torch.cuda.is_available())'` (exit 1 when false). The Casanovo branch stays unchanged. **Every M3-24 assertion still holds** (no `curl`/`wget`/`git clone` in its code, `gpu:1`, `gippa-denovo`, the fallback text) |
+| 9 | `validation/pilot/a3_feasibility.py` | 08b (`mzml-check` in 08a) | validation | three subcommands: `mzml-check`, `evaluate`, `early-fail` (interfaces below). Imports GIPPA (`gippa.mapping`, `gippa.annotate.bakta`, `gippa.rng`, `gippa.config`, `gippa.stats.cutoffs.wilson_ci`). Reads the `.ssl` with the stdlib `csv` module; never imports Cascadia |
 | 10 | `validation/pilot/metrics/a3_feasibility.json` | 08b | validation | the committed verdict: **aggregates only** (fields below) |
 | 11 | `docs/adr/ADR-NNNN-a3-external-artefacts.md` (ADR-M10-B) | 08a | lead (drafted here) | Status: proposed · Needs Khoa: yes. Decides (1) route B2, then B1, then E1; (2) Khoa accepts the TDF-SDK agreement (and the seven B1 EULAs only if B1 is used); (3) `drive.google.com` as the source of the Cascadia weights; (4) the Unimod table from psims. The number is the next free one at merge (0051–0053 are taken on open branches) |
 | 12 | `validation/pilot/README.md` "A3 de novo" section | 08b | validation | versions, licences (this spec's table), assets, the route, the commands, job IDs, sizes, wall times, the verdict |
-| 13 | `tests/data/recorded/cascadia/0.0.7/PROVENANCE.md` (pass only) | 08b | validation | Cascadia version, the env lock's sha256, the weights' sha256, the route and its commit or digest, job IDs, the input `.d` archive sha256 (from `pxd078459_files.tsv`), the `.ssl` header **as defined in the Cascadia source** (not read from data). The sample (the `.ssl` header plus the **first 1,000 data rows in file order**, M10-index decision 6; not the evaluator's top 1,000) goes to `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` and is **never committed** (Khoa, 2026-10-23, via M10-02 decision 4) |
+| 13 | `tests/data/recorded/cascadia/0.0.7/PROVENANCE.md` (pass only) | 08b | validation | Cascadia version, the env lock's sha256, the weights' sha256, the route and its commit or digest, job IDs, the input `.d` archive sha256 (from `pxd078459_files.tsv`), the `.ssl` header **as defined in the Cascadia source** (not read from data). The sample (the `.ssl` header plus the **first 1,000 data rows in file order**, M10-index decision 6; not the evaluator's top 1,000) goes to `$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` and is **never committed** (Khoa, 2026-10-23, via M10-02 decision 4) |
 
 Nothing else is committed: no weights, image, mzML, `.ssl`, top-1,000 list, per-peptide table, or
 Unimod copy.
 
-### Paths under `$GIAP_ROOT` (never committed)
+### Paths under `$GIPPA_ROOT` (never committed)
 
 | Item | Path | Expected size |
 |---|---|---|
-| Envs | `$MAMBA_ROOT_PREFIX/envs/giap-{cascadia,timsconvert}` | 5–8 GB (PyTorch + CUDA); 1–2 GB (PySide6 is pulled in by TIMSCONVERT). `micromamba clean -a` afterwards |
-| Weights | `$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt` (0444) | unknown; ≈ 0.2–1.5 GB (a 512-dimension, 9-layer encoder–decoder) |
-| Unimod table | `$GIAP_DB_DIR/cascadia/unimod_tables.xml` (0444) | ≈ 3 MB |
-| mzML | `$GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzML` | measure; ≈ 1–4 GB (1.0 GB archive, centroided, zlib) |
+| Envs | `$MAMBA_ROOT_PREFIX/envs/gippa-{cascadia,timsconvert}` | 5–8 GB (PyTorch + CUDA); 1–2 GB (PySide6 is pulled in by TIMSCONVERT). `micromamba clean -a` afterwards |
+| Weights | `$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt` (0444) | unknown; ≈ 0.2–1.5 GB (a 512-dimension, 9-layer encoder–decoder) |
+| Unimod table | `$GIPPA_DB_DIR/cascadia/unimod_tables.xml` (0444) | ≈ 3 MB |
+| mzML | `$GIPPA_DATA_DIR/pxd078459/mzml/WT_1.mzML` | measure; ≈ 1–4 GB (1.0 GB archive, centroided, zlib) |
 | Cascadia scratch | `$TMPDIR/WT_1/cascadia_*/` on the node's SSD (`temp.asf` text, `index.hdf5`), deleted by Cascadia and by the job trap | ≈ 2–5 GB, transient |
-| Result | `$GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl` | small |
-| Evaluator detail | `$GIAP_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv` | < 1 MB |
-| Recorded sample | `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` | < 100 kB |
+| Result | `$GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl` | small |
+| Evaluator detail | `$GIPPA_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv` | < 1 MB |
+| Recorded sample | `$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` | < 100 kB |
 
 ## Commands (B2, the route chosen)
 
 ```bash
 # conversion (in mzml_pilot.sbatch; one run, one input, so TIMSCONVERT's Pool(cpu_count()-1) maps one job)
-micromamba run -n giap-timsconvert timsconvert --input "$GIAP_DATA_DIR/pxd078459/WT_1.d" \
-  --outdir "$GIAP_DATA_DIR/pxd078459/mzml" --mode centroid --compression zlib --exclude_mobility
+micromamba run -n gippa-timsconvert timsconvert --input "$GIPPA_DATA_DIR/pxd078459/WT_1.d" \
+  --outdir "$GIPPA_DATA_DIR/pxd078459/mzml" --mode centroid --compression zlib --exclude_mobility
 # Cascadia (in denovo_pilot.sbatch)
 mkdir -p "$TMPDIR/WT_1" && cd "$TMPDIR/WT_1"
-micromamba run -n giap-cascadia python -I "$GIAP_REPO/scripts/pilot/cascadia_offline.py" \
-  "$GIAP_DB_DIR/cascadia/unimod_tables.xml" sequence "$GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzML" \
-  "$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt" -o "$GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1" -b 32
+micromamba run -n gippa-cascadia python -I "$GIPPA_REPO/scripts/pilot/cascadia_offline.py" \
+  "$GIPPA_DB_DIR/cascadia/unimod_tables.xml" sequence "$GIPPA_DATA_DIR/pxd078459/mzml/WT_1.mzML" \
+  "$GIPPA_DB_DIR/cascadia/cascadia_0.0.7.ckpt" -o "$GIPPA_ROOT/pilot/A3_cascadia/WT_1/WT_1" -b 32
 ```
 
-B1 (only if Q2 allows it): `apptainer exec --cleanenv --writable-tmpfs -B "$GIAP_DATA_DIR" "$PWIZ_SIF"
+B1 (only if Q2 allows it): `apptainer exec --cleanenv --writable-tmpfs -B "$GIPPA_DATA_DIR" "$PWIZ_SIF"
 wine msconvert WT_1.d --mzML --zlib --64 --combineIonMobilitySpectra --filter "peakPicking vendor
 msLevel=1-" -o … --outfile WT_1.mzML`. This follows Cascadia's documented advice: vendor peak
 picking at MS1 and MS2, otherwise defaults.
@@ -282,13 +282,13 @@ Otherwise it passes, and M10-09/M10-10 go ahead. A fail (or E1–E3) opens M10-1
    as-written form in file order.
 6. `n_pass` = the number of distinct entries. (a) holds when `n_pass < 500`.
 
-### Computing (b) with the existing GIAP code
+### Computing (b) with the existing GIPPA code
 
 7. **Top:** sort by score descending, then folded sequence ascending; take the first
    `n_top = min(1000, n_pass)`.
 8. **Genome:** `tests/data/genomes/nissle1917.fna.gz` and the recorded full-DB Bakta JSON, loaded
    as `validation/proxies/te_proxies.py` loads them. The contig IDs, lengths and **circular**
-   topologies are those `giap run` uses. All four records are searched, CP171243.1 included
+   topologies are those `gippa run` uses. All four records are searched, CP171243.1 included
    (earlier lead decision 3), and matches are reported per replicon. The FASTA's sha256 is
    recorded.
 9. **Index:** `build_sixframe(genome, replicons)` with the default `WRAP_NT` (origin-spanning
@@ -367,7 +367,7 @@ augmented spectra. The documented demo does 3,868 in about 1 minute on a GPU, so
 | 5 verdict | `a3_feasibility.py evaluate …` in a `dev` job | normal / dev | 2 | 0 | 8 GB | 30 min (< 5 min) | 4 |
 
 - Peak use is 8 CPUs and **1 GPU** (R14: ≤ 4). GRES is `gpu:1`, since the partition has no type
-  names. Before each `sbatch`, the lead sums all running and pending `giap-*` CPUs (≤ 128).
+  names. Before each `sbatch`, the lead sums all running and pending `gippa-*` CPUs (≤ 128).
 - A TIMEOUT at step 4 gets one resubmission at `--time=24:00:00`; after that, R9.
 - 64 GB because Cascadia keeps every augmented spectrum of a part in memory: issue #15 was a
   host-memory kill on the demo.
@@ -430,7 +430,7 @@ Examples 7–9 and 11 use synthetic files built at test time, not Nissle or real
 - **A diaPASEF variant** (synchro, slice or midia-PASEF): `acquisition.json` says plain diaPASEF
   for all three runs, so this does not arise. If a re-download says otherwise, stop with a lead
   question.
-- **Disk:** `mzml_pilot.sbatch` checks that free space under `$GIAP_DATA_DIR` is ≥ 4 × the `.d`
+- **Disk:** `mzml_pilot.sbatch` checks that free space under `$GIPPA_DATA_DIR` is ≥ 4 × the `.d`
   size before converting (exit 2 otherwise).
 
 ## Acceptance criteria
@@ -460,10 +460,10 @@ only (under `tests/data/pilot/a3/`, a few kB).
    - it requests only the URLs in `a3_assets.tsv`, only over `https://`, with no TLS-off flag;
    - while ADR-M10-B is unaccepted (`A3_WEIGHTS_HOST_OK` unset), it exits 2 before any request;
    - a sha256 mismatch exits 1 and leaves no file at the final path;
-   - final files are mode 0444 under `$GIAP_DB_DIR`.
+   - final files are mode 0444 under `$GIPPA_DB_DIR`.
 8. `mzml_pilot.sbatch` with a stubbed `micromamba`:
    - the default route calls `timsconvert` with `--mode centroid --compression zlib
-     --exclude_mobility` and one `--input`, and writes only under `$GIAP_DATA_DIR/pxd078459/mzml/`;
+     --exclude_mobility` and one `--input`, and writes only under `$GIPPA_DATA_DIR/pxd078459/mzml/`;
    - `MZML_ROUTE=pwiz` calls `wine msconvert` with `--combineIonMobilitySpectra` and the
      `peakPicking vendor` filter;
    - too little disk (stubbed `df`) exits 2.
@@ -496,7 +496,7 @@ Evidence on FarmShare (in the PR description and PROGRESS, not CI):
     sources.
 16. WT_1's `mzml_check.json` passes (or the E2 path is documented). The smoke job's ID, wall
     time, MaxRSS, GPU and node are in PROGRESS. `a3_feasibility.json` holds the verdict.
-    - On a pass: `PROVENANCE.md` is committed and the 1,000-row sample sits under `$GIAP_ROOT`.
+    - On a pass: `PROVENANCE.md` is committed and the 1,000-row sample sits under `$GIPPA_ROOT`.
     - On a fail: the lead opens M10-11a.
 
 ## Test plan (stubs only)
@@ -517,7 +517,7 @@ Evidence on FarmShare (in the PR description and PROGRESS, not CI):
   directory, run with `python -I` and an explicit `PYTHONPATH`.
 - `tests/unit/test_m10_08_registry.py`: the `PILOT_TOOLS` entries and the `build_envs.sh` lookup.
 - Not in CI: the conversion, the GPU run and the real verdict. They are evidence only, and no
-  `needs_gpu` test is added. The real-row contract test is M10-09's: it reads `$GIAP_ROOT` and
+  `needs_gpu` test is added. The real-row contract test is M10-09's: it reads `$GIPPA_ROOT` and
   skips on CI.
 
 ## Risks
@@ -565,10 +565,10 @@ Wall time:
 | Q1 | ≈ 455 code lines is over the ~400-line PR cap. Split into 08a (envs, registry, launcher, fetch, conversion, mzML check, ADR draft) and 08b (evaluator, `denovo_pilot` changes, smoke run, verdict)? This reverses the earlier "one PR" (Q7) | split; 08a needs no Khoa answer to merge |
 | Q2 | Route order: B2 (TIMSCONVERT, one Bruker licence) first, then B1 (ProteoWizard image, seven vendor licences). This **reverses** the 2026-10-23 lead decision "B1, then B2", which came before Khoa's 2026-10-24 permission and before the licences were read. Is B1 allowed at all without asking Khoa about the six non-Bruker EULAs? | B2 first. B1 only after Khoa also accepts the six non-Bruker EULAs (asked in the same batch, so B1 is ready if B2 fails) |
 | Q3 | Earlier Q1 ("cut-off if none is documented") is settled by the code: 0.8, strict, CLI default. Confirm that L6's "Cascadia's own score cut-off" is the 0.8 default and not a tuned value | 0.8, `cli_default`; never tuned on pilot data (R3) |
-| Q4 | Earlier Q6 committed the 1,000-row sample on a pass. Khoa's 2026-10-23 rule (M10-02 decision 4) keeps samples on FarmShare. Apply it to Cascadia, committing only `PROVENANCE.md` (with the `.ssl` header taken from the tool's source code, not from data) and no `schema.tsv`? | yes; the sample goes to `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/` |
+| Q4 | Earlier Q6 committed the 1,000-row sample on a pass. Khoa's 2026-10-23 rule (M10-02 decision 4) keeps samples on FarmShare. Apply it to Cascadia, committing only `PROVENANCE.md` (with the `.ssl` header taken from the tool's source code, not from data) and no `schema.tsv`? | yes; the sample goes to `$GIPPA_ROOT/pilot/recorded/cascadia/0.0.7/` |
 | Q5 | Earlier Q10 (a 10-minute slice first) is moot: the whole run is 9 minutes. Run the full WT_1 as the only smoke job? | yes |
 | Q6 | E3 `tool_incompatible`: Cascadia crashes on a valid mzML for a data reason after R9. Count that as "fails on timsTOF" (go to M10-11), or escalate to Khoa? | count it as a fail, with the lead confirming the diagnosis in PROGRESS; Khoa is told in the next batch |
-| Q7 | The TDF-SDK grants use "on any of your computing devices". GIAP reads FarmShare (a Stanford cluster we hold an allocation on) as such. Should ADR-M10-B state this reading for Khoa to confirm? | yes, stated in the ADR; Khoa's acceptance covers it |
+| Q7 | The TDF-SDK grants use "on any of your computing devices". GIPPA reads FarmShare (a Stanford cluster we hold an allocation on) as such. Should ADR-M10-B state this reading for Khoa to confirm? | yes, stated in the ADR; Khoa's acceptance covers it |
 | Q8 | The weights host (Google Drive) is not in §3.2. One alternative stays inside §3.2: `quay.io/protio/cascadia:0.0.7@sha256:a0227b5ed831bf541e9d5b9e4f9cf57f36dc856c92b87e9311a7b9a319b163db` (6.1 GB), built by paper co-author M. Riffle for the nf-skyline-dia-ms workflow that the paper names. It bakes in `/usr/local/bin/cascadia.ckpt`, but the Dockerfile does not say where the checkpoint came from, so R6 may count it as a re-hosted copy. Use it only as a sha256 cross-check after the Drive download? | Drive via ADR-M10-B (the docs' link); the image is not used. A cross-check only if the lead asks |
 | Q9 | Unimod table: use the copy vendored in psims 1.4.0 (conda-forge, §3.2), or download `https://www.unimod.org/xml/unimod_tables.xml` (official, but not in §3.2, so an ADR row)? | the psims copy |
 | Q10 | Pin `pyteomics` below 5 (`4.7.5`) in the Cascadia env to match the 0.0.7 era, or let the solver pick? | pin `4.7.5`; recorded in the env header |
@@ -607,7 +607,7 @@ These supersede the earlier text where they differ:
 Lead decisions for 08b; they supersede the earlier text where they differ:
 - **CLI:** `evaluate <RUN.ssl> --run <RUN> --out <J> [--genome] [--bakta-json] [--contaminants]
   [--cutoff]`. `--genome` and `--bakta-json` default to the Nissle files of step 8,
-  `--contaminants` to `$GIAP_DB_DIR/contaminants/contaminants.fasta`. Exit codes: 0 pass, 3 fail
+  `--contaminants` to `$GIPPA_DB_DIR/contaminants/contaminants.fasta`. Exit codes: 0 pass, 3 fail
   on timsTOF, 2 precondition, 1 bad input. M10-10's `cascadia_convert.sbatch` already calls this
   interface. `early-fail` takes `--run` optionally (default `WT_1`).
 - **Stripping (step 2):** after deleting the groups, signed masses and `-`, uppercase first, then
@@ -622,10 +622,10 @@ Lead decisions for 08b; they supersede the earlier text where they differ:
   options (`--weights-sha256`, `--route`, `--route-version`, `--mzml-sha256`, `--mzml-check J`,
   `--job-id` repeatable, `--date`, default today UTC), and are filled in by the validation run.
   The unit tests check only the keys. `--detail TSV` writes the per-peptide top list (under
-  `$GIAP_ROOT` only, never committed).
+  `$GIPPA_ROOT` only, never committed).
 - **Unimod URL:** `denovo_pilot.sbatch` tees each Cascadia call into
-  `$GIAP_ROOT/pilot/A3_cascadia/<RUN>/cascadia.log` and exits 1 when that log shows a `unimod.org`
-  URL. The Cascadia input directory is `MZML_DIR` (default `$GIAP_DATA_DIR/pxd078459/mzml`); the
+  `$GIPPA_ROOT/pilot/A3_cascadia/<RUN>/cascadia.log` and exits 1 when that log shows a `unimod.org`
+  URL. The Cascadia input directory is `MZML_DIR` (default `$GIPPA_DATA_DIR/pxd078459/mzml`); the
   run list is `$RUN`, else the second argument, else `WT_1 WT_2 WT_3`.
 - **Env build:** building `cascadia` on a CPU node needs `CONDA_OVERRIDE_CUDA=11.8` (the README's
   A3 section).
@@ -637,7 +637,7 @@ These supersede the earlier text where they differ:
   partition has MaxMemPerCPU 4000M, so `--mem=64G` on 8 CPUs was silently raised to 17 CPUs; the
   CPUs asked for are now the CPUs held (R14 accounting).
 - **S2, scratch:** the job makes one per-job directory
-  `SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/giap-a3.XXXXXX")"` and runs each Cascadia call in
+  `SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/gippa-a3.XXXXXX")"` and runs each Cascadia call in
   `$SCRATCH_ROOT/<RUN>`; an EXIT trap removes `$SCRATCH_ROOT`. It never creates or removes
   `$TMPDIR/<RUN>` (deliverable 8, the scratch row and the command block above read accordingly).
   The scratch is still under `$TMPDIR`. The log's `unimod.org` check runs before the exit-code
@@ -652,7 +652,7 @@ These supersede the earlier text where they differ:
   `--detail` path inside the checkout that is not git-ignored.
 
 ### Lead decision: the CPU route (2026-10-25, #334 review item 6)
-GIAP_SPEC.md §15.1 puts A3 on the `gpu` partition. At Khoa's request (2026-10-24) the three WT runs
+GIPPA_SPEC.md §15.1 puts A3 on the `gpu` partition. At Khoa's request (2026-10-24) the three WT runs
 were predicted on CPU instead, as a Slurm array (`cascadia_array.sbatch`, ≤ 3 h per task, R14), in
 two forms:
 - **Fixed blocks** (`predict`, used for the first jobs). Task 1889429_0 finished at 2:58:39 of a 3:00

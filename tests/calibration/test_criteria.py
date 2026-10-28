@@ -1,6 +1,6 @@
 """Unit tests of the calibration harness ``tests/calibration/_criteria.py`` (issue M4-05).
 
-GIAP_SPEC.md §8.4 criteria, with k = ``se_multiplier`` and R the number of independent replicates:
+GIPPA_SPEC.md §8.4 criteria, with k = ``se_multiplier`` and R the number of independent replicates:
 
 - level:   rate of p <= alpha  <=  alpha + k * sqrt(alpha (1 - alpha) / R)
 - uniform: KS p-value against U(0, 1)  >  ``ks_min_p`` (continuous p only; > 5 % ties refused)
@@ -8,13 +8,13 @@ GIAP_SPEC.md §8.4 criteria, with k = ``se_multiplier`` and R the number of inde
 - FWER:    share of replicates with >= 1 false discovery <= alpha + k * sqrt(alpha (1 - alpha) / R)
 
 Seeds: ``suite_seed(suite, rep)`` = ``SeedSequence([calibration_base, crc32(suite), rep])`` drawn
-as one uint64 (the ``giap.rng.for_step`` key [seed, crc32(name)] extended by the replicate index);
+as one uint64 (the ``gippa.rng.for_step`` key [seed, crc32(name)] extended by the replicate index);
 replicate ``rep`` uses ``default_rng(suite_seed(suite, rep))`` so any shard reproduces it alone.
 
 Nightly job array (§8.4, §12 ``scripts/slurm/nightly.sbatch``): one suite per task, task i = the
 i-th key of ``replicates_full`` in file order; ``--shard K/N`` splits a suite's replicates into N
 contiguous blocks. Results are JSON lines in ``local/logs/calibration/<suite>.jsonl``
-(``GIAP_CALIBRATION_LOG_DIR`` overrides the directory).
+(``GIPPA_CALIBRATION_LOG_DIR`` overrides the directory).
 
 Unmarked tests run on every commit; the operating-characteristic tests at the end are marked
 ``calibration``.
@@ -446,14 +446,14 @@ def test_log_result_appends_jsonl(tmp_path: Path) -> None:
 
 
 def test_log_dir_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GIAP_CALIBRATION_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("GIPPA_CALIBRATION_LOG_DIR", str(tmp_path / "logs"))
     path = C.log_result("gene_fdr", "fdr", 0.05, C.check_fdr([0.0] * 50, 0.05), 1, 0.1)
     assert path == tmp_path / "logs" / "gene_fdr.jsonl"
     assert path.exists()
 
 
 def test_default_log_dir_is_local_logs_calibration(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GIAP_CALIBRATION_LOG_DIR", raising=False)
+    monkeypatch.delenv("GIPPA_CALIBRATION_LOG_DIR", raising=False)
     d = C.log_dir()
     assert d.parts[-3:] == ("local", "logs", "calibration")
 

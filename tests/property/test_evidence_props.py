@@ -45,15 +45,15 @@ ASSIGN = {"cds_inframe", "sorf", "nterm_extension", "cterm_extension", "pseudoge
 
 
 def _ev() -> Any:
-    from giap.genetable import evidence
+    from gippa.genetable import evidence
 
     return evidence
 
 
 def _cfg(q: float, relation: str) -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(genome_relation=relation, input={"q_value_max": q})
+    return GippaConfig(genome_relation=relation, input={"q_value_max": q})
 
 
 @st.composite

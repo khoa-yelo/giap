@@ -1,5 +1,5 @@
 """Level of the conditional Poisson-binomial tails on ``tilt_pair`` with complements (issue M8-04b;
-docs/specs/M8-04 lead decision 12, ADR-0035 decision 3; GIAP_SPEC.md §8.4 level criterion).
+docs/specs/M8-04 lead decision 12, ADR-0035 decision 3; GIPPA_SPEC.md §8.4 level criterion).
 
 Replaces ``test_cpb_calibration.py`` (M8-04a), which tilts with ``tilt`` and drops the
 complements. Same claim, generator and teeth, plus the decision-12 tilt-stress arm:
@@ -35,7 +35,7 @@ import pytest
 from _gate import calibrate_levels
 from scipy.special import expit
 
-from giap.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
+from gippa.stats.poisson_binomial import conditional_poisson_binomial, tilt_pair
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("ora")]
 

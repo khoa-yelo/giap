@@ -1,6 +1,6 @@
-"""giapsim evidence: peptides, identification errors, decoys and placed hits (issue M4-09).
+"""gippasim evidence: peptides, identification errors, decoys and placed hits (issue M4-09).
 
-Examples 1-10, edge cases and acceptance criteria of docs/specs/M4-09-sim-evidence.md (GIAP_SPEC.md
+Examples 1-10, edge cases and acceptance criteria of docs/specs/M4-09-sim-evidence.md (GIPPA_SPEC.md
 §11.3, §8.4, §8.7, §7.2.6, §7.3.2), checked against tests/helpers/sim_evidence_oracle.py
 (written from the spec, not from the simulator). Lives in tests/unit (tests/sim is implementer
 tooling); the
@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import sim_evidence_oracle as eo
 
 REPO = Path(__file__).resolve().parents[2]
-GIAPSIM = REPO / "tests" / "sim" / "giapsim"
+GIPPASIM = REPO / "tests" / "sim" / "gippasim"
 DEFAULT_EMIT = frozenset({"q_value", "pep", "is_decoy", "intensity", "protein_ids"})
 SCORED = DEFAULT_EMIT | {"score"}
 TRUTH_COLUMNS = ("peptide", "is_false", "gene_true", "decoy_gene")
@@ -63,7 +63,7 @@ LAYOUT_SHA256 = {
     "genes.parquet": "e0d4341901746a7444965ebe8070a3c382d5edc6f864bff8597bd8e697b65e65",
     "layers.parquet": "c7ae231f33b641c11a6b7b03ce95c36e5daf5c6b7fd5c1a46456d31e6d6c5ba5",
     "region_genes.parquet": "1197b721b0b595beaf182adb375dfbf0707c5cf8085b5d4598106988f1215fd7",
-    "regions.parquet": "54ca39d8465b7720f4417364363d63ce4c6aa92cd893cad24c2f311c825f2ca5",
+    "regions.parquet": "372cebd51acc2a81a72dd80fae4d7ad2321e342e681300036d8916393e0d5712",
     "replicons.parquet": "baa9f94adf047f02a746031e33777abc727b0eea9e650454e0b7a868562bd85e",
     "tus.parquet": "c564de32b5fac4d9d1dc6a9ff5f885065ccdec0c2d7547b7ce48561f0e1ca825",
     "xrefs.parquet": "0fd3d2531b4d94b2dc6370de0378ecb870858dc2f6b091c37854771e474f592e",
@@ -84,19 +84,19 @@ M0_PROTEOMICS_SHA256 = {
 
 
 def _ev_mod() -> ModuleType:
-    import giapsim.evidence
+    import gippasim.evidence
 
-    return giapsim.evidence
+    return gippasim.evidence
 
 
 def layout(seed: int = 1, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 
 
 def express(lay: Any, seed: int = 1, **kw: Any) -> Any:
-    from giapsim.expression import ExpressionConfig, simulate_expression
+    from gippasim.expression import ExpressionConfig, simulate_expression
 
     return simulate_expression(lay, ExpressionConfig(**kw), np.random.default_rng(seed))
 
@@ -111,7 +111,7 @@ def evidence(lay: Any, expr: Any, seed: int = 1, **kw: Any) -> Any:
 
 
 def write(ev: Any, lay: Any, work: Path) -> Path:
-    from giapsim.contract_tables import write_contract_tables
+    from gippasim.contract_tables import write_contract_tables
 
     write_contract_tables(lay, work)
     _ev_mod().write_evidence_tables(ev, work)
@@ -188,7 +188,7 @@ def test_evidence_frames_and_columns(ev1: Any, lay1: Any) -> None:
 
 
 def test_contract_tables_validate_c9_c11_c12(ev1: Any) -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     assert eo.errors(validate_table("peptides", ev1.peptides)) == []
     assert eo.errors(validate_table("peptide_hits", ev1.peptide_hits)) == []
@@ -198,7 +198,7 @@ def test_contract_tables_validate_c9_c11_c12(ev1: Any) -> None:
 
 def test_written_tables_load_without_errors(work1: Path, lay1: Any, ev1: Any) -> None:
     """``load_m4_inputs`` on C1-C8 (M4-07) + C9-C13 (this issue): no error, no cross-table issue."""
-    from giap.genetable.contract import validate_inputs
+    from gippa.genetable.contract import validate_inputs
 
     inputs, issues = eo.load(work1)
     assert eo.errors(issues) == []
@@ -210,7 +210,7 @@ def test_written_tables_load_without_errors(work1: Path, lay1: Any, ev1: Any) ->
 
 
 def test_written_c11_is_one_based_and_internal_frame_zero_based(work1: Path, ev1: Any) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     inputs, _ = eo.load(work1)
     a = ev1.peptide_hits.sort_values(["peptide", "gene", "start"]).reset_index(drop=True)
@@ -319,7 +319,7 @@ def test_decoys_never_placed_and_unplaceable_absent(ev1: Any) -> None:
 
 
 def test_example1_drives_decoy_picked(work1: Path) -> None:
-    from giap.preflight.evidence import candidate_tier
+    from gippa.preflight.evidence import candidate_tier
 
     inputs, _ = eo.load(work1)
     assert candidate_tier(inputs.peptides, has_proteins=False) == "decoy_picked"
@@ -453,7 +453,7 @@ def test_mixture_knob_honoured(lay1: Any, ex1: Any) -> None:
 
 
 def test_example5_q_only(lay1: Any, ex1: Any, tmp_path: Path) -> None:
-    from giap.preflight.evidence import candidate_tier
+    from gippa.preflight.evidence import candidate_tier
 
     ev = evidence(lay1, ex1, 1, emit=frozenset({"q_value"}))
     p = ev.peptides
@@ -475,7 +475,7 @@ def test_emit_only_masks(ev1: Any, lay1: Any, ex1: Any) -> None:
 
 
 def test_example6_sequences_only(lay1: Any, ex1: Any, tmp_path: Path) -> None:
-    from giap.preflight.evidence import candidate_tier
+    from gippa.preflight.evidence import candidate_tier
 
     ev = evidence(lay1, ex1, 1, emit=frozenset())
     p = ev.peptides
@@ -522,7 +522,7 @@ def test_more_abundant_genes_yield_more_peptides(ev1: Any, ex1: Any, lay1: Any) 
 
 
 def test_example7_proteins_only(lay1: Any, ex1: Any, tmp_path: Path) -> None:
-    from giap.preflight.evidence import candidate_tier
+    from gippa.preflight.evidence import candidate_tier
 
     ev = evidence(lay1, ex1, 1, proteins_only=True)
     assert len(ev.peptides) == 0 and len(ev.peptide_hits) == 0
@@ -705,7 +705,7 @@ def test_no_abundance_file_when_none(work1: Path) -> None:
 
 
 def test_edge_undigestible_detected_gene_forced_absent(tmp_path: Path) -> None:
-    from giapsim.expression import Expression
+    from gippasim.expression import Expression
 
     lay = layout(7, n_genes_chromosome=300, frac_sorf=0.6)
     ex = express(lay, 7)
@@ -764,7 +764,7 @@ def test_edge_foreign_protein_ids(lay1: Any, ex1: Any, tmp_path: Path) -> None:
 
 
 def test_unplaceable_false_targets(lay1: Any, ex1: Any, tmp_path: Path) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     ev = evidence(lay1, ex1, 1, pi_wrong=0.05, false_source="unplaceable")
     bad = eo.false_set(ev.truth) & set(eo.targets(ev.peptides)["peptide"])
@@ -795,7 +795,7 @@ def test_invalid_config_rejected(lay1: Any, ex1: Any) -> None:
 def test_earlier_outputs_unchanged(tmp_path: Path) -> None:
     """M4-07 tables and M4-08 frames are the same before and after an evidence run (one run);
     pinned digests only on Linux (Parquet bytes differ across platforms)."""
-    from giapsim.contract_tables import write_contract_tables
+    from gippasim.contract_tables import write_contract_tables
 
     lay = layout(1)
     write_contract_tables(lay, tmp_path / "before")
@@ -817,11 +817,11 @@ def test_earlier_outputs_unchanged(tmp_path: Path) -> None:
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="digests pinned on Linux")
 def test_m0_proteomics_outputs_unchanged(tmp_path: Path) -> None:
     """A shared score helper (lead Q3) must leave the M3-19 proteomics output byte-identical."""
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     _ev_mod()
-    giapsim.simulate(giapsim.SimConfig(proteomics=ProteomicsConfig()), 1, tmp_path)
+    gippasim.simulate(gippasim.SimConfig(proteomics=ProteomicsConfig()), 1, tmp_path)
     for rel, digest in M0_PROTEOMICS_SHA256.items():
         assert hashlib.sha256((tmp_path / rel).read_bytes()).hexdigest() == digest, rel
 
@@ -842,13 +842,13 @@ def test_speed_4500_genes_loose_guard() -> None:
     assert best < 30.0, best
 
 
-def test_evidence_module_imports_nothing_from_giap() -> None:
-    src = (GIAPSIM / "evidence.py").read_text()
-    assert not re.search(r"^\s*(?:from\s+giap(?:\.\w+)*\s+import|import\s+giap(?:\.|\s|,|$))",
+def test_evidence_module_imports_nothing_from_gippa() -> None:
+    src = (GIPPASIM / "evidence.py").read_text()
+    assert not re.search(r"^\s*(?:from\s+gippa(?:\.\w+)*\s+import|import\s+gippa(?:\.|\s|,|$))",
                          src, re.M)  # fmt: skip
     code = (
-        "import sys, giapsim.evidence as e; "
-        "bad = [m for m in sys.modules if m == 'giap' or m.startswith('giap.')]; "
+        "import sys, gippasim.evidence as e; "
+        "bad = [m for m in sys.modules if m == 'gippa' or m.startswith('gippa.')]; "
         "print(bad); sys.exit(1 if bad else 0)"
     )
     env = {"PYTHONPATH": str(REPO / "tests" / "sim"), "PATH": "/usr/bin:/bin"}

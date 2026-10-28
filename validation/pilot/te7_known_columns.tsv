@@ -1,6 +1,6 @@
-# LAPACK/BLAS-dependent float columns of GIAP's own tables (docs/specs/M10-06-te-real-and-te7.md, TE7
+# LAPACK/BLAS-dependent float columns of GIPPA's own tables (docs/specs/M10-06-te-real-and-te7.md, TE7
 # "numeric_only" sub-class known_lapack). Column names only, no values.
-# regions_stats.tsv: M4-20 decision 9 (np.linalg.lstsq in giap.context.regions.residualise); its
+# regions_stats.tsv: M4-20 decision 9 (np.linalg.lstsq in gippa.context.regions.residualise); its
 # p-values stay byte-identical (decision 9), so p_value is not listed.
 # autocorrelation.tsv: M5-11 decisions 44 and 47 (the join_count_bb null from the BLAS-dependent
 # detectability fit; decision 47's drifting value sits in null_mean), decision 46 (the drifting

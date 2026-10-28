@@ -1,5 +1,5 @@
 """Terminators: TerminatorNet, TransTermHP, cross-check, BacTermFinder, ``terminator_between``
-(M2-15; GIAP_SPEC.md §7.1.1 TerminatorNet/TransTermHP/BacTermFinder rows and gotchas, §7.1.5, G12).
+(M2-15; GIPPA_SPEC.md §7.1.1 TerminatorNet/TransTermHP/BacTermFinder rows and gotchas, §7.1.5, G12).
 
 Examples 1-10 and the edge cases of docs/specs/M2-15-terminators.md, plus the real formats of the
 recordings copied to ``tests/data/recorded/terminators/`` (see PROVENANCE.md there).
@@ -28,9 +28,9 @@ from pathlib import Path
 
 import pytest
 
-import giapsim
-from giap.annotate.terminatornet_cmd import terminatornet_command
-from giap.annotate.terminators import (
+import gippasim
+from gippa.annotate.terminatornet_cmd import terminatornet_command
+from gippa.annotate.terminators import (
     Terminator,
     crosscheck,
     parse_terminatornet,
@@ -40,11 +40,11 @@ from giap.annotate.terminators import (
     terminators_bed,
     write_transterm_coords,
 )
-from giap.annotate.transtermhp_cmd import transterm_command
-from giap.io.bed import BedRecord, bed_lines
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.transtermhp_cmd import transterm_command
+from gippa.io.bed import BedRecord, bed_lines
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded" / "terminators"
 TN_SIM = DATA / "terminatornet" / "sim100k" / "terminatornet.tsv"
@@ -234,8 +234,8 @@ def test_recorded_sim100k_terminatornet_parses_with_forward_coordinates() -> Non
 
 @pytest.fixture(scope="module")
 def sim_genome(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
-    """The recorded sim100k runs used giapsim SIM100K's genome (same sequences, checked)."""
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("s"))
+    """The recorded sim100k runs used gippasim SIM100K's genome (same sequences, checked)."""
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("s"))
     return {r.id: r.sequence.upper() for r in read_genome_fasta(res.genome_fasta)}
 
 

@@ -1,6 +1,6 @@
 """M8-05: abundance GSEA with a TU-collapsed ranking (docs/specs/M8-05-gsea-tu-collapsed.md).
 
-Examples 1-8, every degenerate row and the column contract of ``giap.function.gsea``:
+Examples 1-8, every degenerate row and the column contract of ``gippa.function.gsea``:
 ``tu_ranking(genes) -> TuRanking``, ``tu_sets(rank, coll) -> {term: frozenset[TU]}`` and
 ``gsea_table(genes, colls, size, cfg, alpha, rng) -> DataFrame``.
 
@@ -40,17 +40,17 @@ from helpers.gsea_data import (
     singleton_frame,
 )
 
-from giap.config.model import GseaConfig
-from giap.rng import for_step
-from giap.stats.fgsea import SimpleResult, gsea_es, prepare
-from giap.stats.multitest import bh
+from gippa.config.model import GseaConfig
+from gippa.rng import for_step
+from gippa.stats.fgsea import SimpleResult, gsea_es, prepare
+from gippa.stats.multitest import bh
 
 STREAM = "function.gsea"
 ALPHA = 0.05
 
 
 def _g() -> Any:
-    from giap.function import gsea
+    from gippa.function import gsea
 
     return gsea
 
@@ -339,7 +339,7 @@ def test_example_7_an_operon_packed_set_is_one_tu_and_dropped() -> None:
     assert _g().tu_sets(_g().tu_ranking(genes), gene_sets("cog", {"packed": packed}))[
         "packed"
     ] == frozenset({"TU_201"})
-    # the gene-level ranking would test the packed set at 30 genes (why GIAP ranks TUs)
+    # the gene-level ranking would test the packed set at 30 genes (why GIPPA ranks TUs)
     vals = genes["abundance_log2"].to_numpy(float)
     gene_prep = prepare(
         vals - np.median(vals), list(genes["locus_tag"]), {"packed": packed}, 10, 500
@@ -554,7 +554,7 @@ class FakeEngine:
 @pytest.fixture
 def fake(monkeypatch: pytest.MonkeyPatch) -> Callable[..., FakeEngine]:
     def install(p_by_size: Mapping[int, float], **kw: Any) -> FakeEngine:
-        import giap.stats.fgsea as fg
+        import gippa.stats.fgsea as fg
 
         mod = _g()  # import gsea before patching fg, or its import binds the fake
         eng = FakeEngine(p_by_size, **kw)

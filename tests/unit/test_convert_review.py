@@ -1,4 +1,4 @@
-"""Lead decisions from the M1-07 code review (GIAP_SPEC.md §5.3, §5.4).
+"""Lead decisions from the M1-07 code review (GIPPA_SPEC.md §5.3, §5.4).
 
 1. Stripping removes ()/[]/{}/<> groups repeatedly, so nested groups go too.
 2. Flanking residues (``K.PEPTIDE.R``) are removed before stripping.
@@ -23,14 +23,14 @@ import pyarrow.parquet as pq
 import pytest
 from click.testing import CliRunner
 
-from giap.cli import cli
-from giap.config.model import InputConfig
-from giap.exitcodes import ExitCode
-from giap.io.converters.base import ConvertResult
-from giap.io.converters.diann import convert_diann
-from giap.io.converters.generic import convert_generic
-from giap.io.converters.strip import strip_modifications
-from giap.io.issues import Issue
+from gippa.cli import cli
+from gippa.config.model import InputConfig
+from gippa.exitcodes import ExitCode
+from gippa.io.converters.base import ConvertResult
+from gippa.io.converters.diann import convert_diann
+from gippa.io.converters.generic import convert_generic
+from gippa.io.converters.strip import strip_modifications
+from gippa.io.issues import Issue
 
 ROW: dict[str, object] = {
     "Run": "r1",

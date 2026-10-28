@@ -4,7 +4,7 @@
   (``tests/data/recorded/fgsea/1.36.2/<input>/``) from its ``stats.tsv``, ``jobs.tsv``,
   ``sets.tsv`` and the ``--seed`` of ``command.txt``.
 - :func:`fake_prefix` lays out a fake micromamba prefix whose ``bin/`` holds a fake R front end.
-  The wrapper starts ``workflow/bin/giap_fgsea.R`` whose shebang (``/usr/bin/env -S <R front end>
+  The wrapper starts ``workflow/bin/gippa_fgsea.R`` whose shebang (``/usr/bin/env -S <R front end>
   --vanilla``) finds that fake first on the child ``PATH``; the fake is a small Python program
   driven by a JSON behaviour file. It logs its argv, cwd, environment and the input files it saw
   to ``<prefix>/log.json``. CI never runs R.
@@ -25,7 +25,7 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 RECORDED = REPO / "tests" / "data" / "recorded" / "fgsea" / "1.36.2"
-SCRIPT = REPO / "workflow" / "bin" / "giap_fgsea.R"
+SCRIPT = REPO / "workflow" / "bin" / "gippa_fgsea.R"
 GOLDEN = REPO / "tests" / "data" / "golden" / "r"
 RESULTS_HEADER = "job_id\tpathway\tsize\tES\tNES\tpval\tlog2err\tleadingEdge"
 # R's script front end, spelled in pieces only so that grep-based audits of the tree stay simple.
@@ -40,8 +40,8 @@ def _rows(path: Path) -> list[list[str]]:
 
 def load_call(d: Path) -> Any:
     """The ``EngineCall`` whose ``write_call`` produced the recorded inputs in ``d``."""
-    from giap.config.model import GseaConfig
-    from giap.function.gsea import EngineCall, GseaJob
+    from gippa.config.model import GseaConfig
+    from gippa.function.gsea import EngineCall, GseaJob
 
     stats = _rows(d / "stats.tsv")
     sets: dict[str, dict[str, list[str]]] = {}
@@ -69,7 +69,7 @@ def load_call(d: Path) -> Any:
 
 
 _FAKE = r'''#!{python} -I
-"""Fake R front end for giap_fgsea.R (tests only)."""
+"""Fake R front end for gippa_fgsea.R (tests only)."""
 import json, os, subprocess, sys, time
 from pathlib import Path
 
@@ -156,12 +156,12 @@ def options(argv: list[str]) -> dict[str, str]:
 
 
 def real_prefix() -> Path | None:
-    """The built ``giap-fgsea`` env (``$GIAP_FGSEA_PREFIX``, else ``$GIAP_ROOT``'s), or None."""
-    env = os.environ.get("GIAP_FGSEA_PREFIX")
+    """The built ``gippa-fgsea`` env (``$GIPPA_FGSEA_PREFIX``, else ``$GIPPA_ROOT``'s), or None."""
+    env = os.environ.get("GIPPA_FGSEA_PREFIX")
     candidates = [Path(env)] if env else []
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if root:
-        candidates.append(Path(root) / "micromamba" / "envs" / "giap-fgsea")
+        candidates.append(Path(root) / "micromamba" / "envs" / "gippa-fgsea")
     for c in candidates:
         if (c / "bin" / R_FRONT_END).is_file():
             return c

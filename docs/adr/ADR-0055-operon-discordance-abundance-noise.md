@@ -57,8 +57,8 @@ discordance claim is not met** until this ADR is decided.
   misspecified shape (a step or a curve) has to be added as attack D-1b before the gate is
   claimed.
 - **Effort:** about 60 lines of implementation:
-  - a `fit_student_t_scaled(delta, z)` in `giap.stats.tdist`;
-  - wiring in `giap.operons.discordance`, plus `effect` in σ̂_i units, optional;
+  - a `fit_student_t_scaled(delta, z)` in `gippa.stats.tdist`;
+  - wiring in `gippa.operons.discordance`, plus `effect` in σ̂_i units, optional;
   - the methods note, about 40 lines;
   - about 150 test lines (unit tests, the γ = 0 reduction, D-1 and D-1b).
 
@@ -103,7 +103,7 @@ Pending Khoa.
 - Until the decision: the M6 gate (simulation half) is **not met for discordance**. The
   missed-operon half and §7.4.7 criteria 1–3 on the gate null pass (docs/methods/operons.md,
   "The M6 gate, simulation half").
-- With (a): an implementer issue on `giap.stats.tdist` and `giap.operons.discordance`. The D-1
+- With (a): an implementer issue on `gippa.stats.tdist` and `gippa.operons.discordance`. The D-1
   xfails become plain gated tests (an XPASS of a strict xfail fails the run, which forces the
   swap), and D-1b is added. M6-05H's P(miss) takes its ratio sample from the scaled fit:
   standardised residuals mapped back at the partner's z.

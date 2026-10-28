@@ -1,11 +1,11 @@
 """MVP-03a ``VOLATILE``, ``stable_view``, the provenance core and ``provenance_digest``
-(docs/specs/MVP-03-manifest-finalize.md D-C "Volatile" column, D-D, lead decision 6; GIAP_SPEC.md
+(docs/specs/MVP-03-manifest-finalize.md D-C "Volatile" column, D-D, lead decision 6; GIPPA_SPEC.md
 §6.4, §6.7).
 
 Interface assumed (test-author names; the spec names ``VOLATILE``, ``stable_view`` and
 ``provenance_digest``):
 
-* ``giap.manifest.VOLATILE: tuple[str, ...]`` holds RFC 6901 JSON pointers; ``*`` matches every
+* ``gippa.manifest.VOLATILE: tuple[str, ...]`` holds RFC 6901 JSON pointers; ``*`` matches every
   array index or object key at that level. Exactly the D-C "Volatile" rows: ``/command_line``,
   ``/executor``, ``/profile``, ``/resume``, ``/outdir``, ``/started_at``, ``/finished_at``,
   ``/failed_log``, ``/steps``, ``/inputs/*/path``, ``/config/annotation/precomputed/*``.
@@ -14,7 +14,7 @@ Interface assumed (test-author names; the spec names ``VOLATILE``, ``stable_view
   its file name (D-D "with the same path normalisation"); both readings are accepted.
 * ``canonical_json(obj) -> str`` = ``json.dumps(obj, sort_keys=True, indent=2,
   ensure_ascii=False, allow_nan=False) + "\\n"`` (D-C "Canonical JSON").
-* ``provenance_core(manifest) -> dict`` = ``schema_version``, ``giap_version``, ``git_commit``,
+* ``provenance_core(manifest) -> dict`` = ``schema_version``, ``gippa_version``, ``git_commit``,
   ``git_dirty``, ``publication``, ``config`` (each non-null ``annotation.precomputed.*`` value
   replaced by its file name), ``inputs`` (each row without ``path``), ``databases`` and
   ``seeds: {"master": ...}``.
@@ -33,23 +33,23 @@ from typing import Any
 import pytest
 from helpers.manifest_data import SHA_LAYER, build, trace_row
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 WANT_VOLATILE = {
     "/command_line", "/executor", "/profile", "/resume", "/outdir", "/started_at",
     "/finished_at", "/failed_log", "/steps", "/inputs/*/path",
     "/config/annotation/precomputed/*",
 }  # fmt: skip
-CORE_KEYS = {"schema_version", "giap_version", "git_commit", "git_dirty", "publication", "config",
+CORE_KEYS = {"schema_version", "gippa_version", "git_commit", "git_dirty", "publication", "config",
              "inputs", "databases", "seeds"}  # fmt: skip
 
 
-def _cfg_with(where: str = "/data/in", **top: Any) -> GiapConfig:
+def _cfg_with(where: str = "/data/in", **top: Any) -> GippaConfig:
     pre = {"bakta_json": f"{where}/bakta.json", "terminators": f"{where}/term.tsv"}
-    return GiapConfig.model_validate({"seed": 7, **top, "annotation": {"precomputed": pre}})
+    return GippaConfig.model_validate({"seed": 7, **top, "annotation": {"precomputed": pre}})
 
 
-def _cfg() -> GiapConfig:
+def _cfg() -> GippaConfig:
     return _cfg_with()
 
 
@@ -100,7 +100,7 @@ def _without_precomputed(view: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_volatile_is_exactly_the_spec_list() -> None:
-    from giap.manifest import VOLATILE
+    from gippa.manifest import VOLATILE
 
     assert isinstance(VOLATILE, tuple)
     assert len(VOLATILE) == len(set(VOLATILE)), "duplicate pointer"
@@ -108,7 +108,7 @@ def test_volatile_is_exactly_the_spec_list() -> None:
 
 
 def test_every_volatile_pointer_names_a_manifest_field() -> None:
-    from giap.manifest import VOLATILE
+    from gippa.manifest import VOLATILE
 
     m = _manifest()
     for ptr in VOLATILE:
@@ -119,7 +119,7 @@ def test_every_volatile_pointer_names_a_manifest_field() -> None:
 
 
 def test_stable_view_removes_the_volatile_fields() -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     m = _manifest()
     view = stable_view(m)
@@ -131,7 +131,7 @@ def test_stable_view_removes_the_volatile_fields() -> None:
 
 
 def test_stable_view_removes_exactly_volatile() -> None:
-    from giap.manifest import VOLATILE, stable_view
+    from gippa.manifest import VOLATILE, stable_view
 
     m = _manifest()
     view = stable_view(m)
@@ -140,7 +140,7 @@ def test_stable_view_removes_exactly_volatile() -> None:
 
 
 def test_stable_view_precomputed_paths_removed_or_reduced_to_names() -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     view = stable_view(_manifest())
     pre = view["config"]["annotation"].get("precomputed", {})
@@ -150,7 +150,7 @@ def test_stable_view_precomputed_paths_removed_or_reduced_to_names() -> None:
 
 
 def test_stable_view_does_not_mutate() -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     m = _manifest()
     before = json.dumps(m, sort_keys=True)
@@ -159,25 +159,25 @@ def test_stable_view_does_not_mutate() -> None:
 
 
 def test_stable_view_equal_across_volatile_differences() -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     a = _manifest()
     b = _manifest(executor="nextflow", profile="farmshare_local", resume=True,
-                  outdir="/elsewhere/OUT", command_line=["giap", "run", "-x"],
+                  outdir="/elsewhere/OUT", command_line=["gippa", "run", "-x"],
                   started_at="2027-01-01T00:00:00+00:00",
                   finished_at="2027-01-01T01:00:00+00:00",
                   input_paths={"genome": "/x/genome.fa", "peptides": "/x/peptides.tsv"},
                   cfg=_cfg_with(where="/other"),
                   extra_inputs=[{"role": "precomputed:bakta_json", "file": "bakta.json",
                                  "path": "/other/bakta.json", "sha256": SHA_LAYER, "size": 9}],
-                  trace=[trace_row("X:GIAP_STEP (detectability)", realtime="3s"),
-                         trace_row("X:GIAP_STEP (gene_table)", realtime="4s")],
+                  trace=[trace_row("X:GIPPA_STEP (detectability)", realtime="3s"),
+                         trace_row("X:GIPPA_STEP (gene_table)", realtime="4s")],
                   local_steps=())  # fmt: skip
     assert stable_view(a) == stable_view(b)
 
 
 def test_stable_view_differs_on_a_stable_field() -> None:
-    from giap.manifest import stable_view
+    from gippa.manifest import stable_view
 
     a = _manifest()
     b = _manifest(cfg=_cfg_with(seed=8))
@@ -185,7 +185,7 @@ def test_stable_view_differs_on_a_stable_field() -> None:
 
 
 def test_stable_view_accepts_a_custom_list() -> None:
-    from giap.manifest import VOLATILE, stable_view
+    from gippa.manifest import VOLATILE, stable_view
 
     m = _manifest()
     fewer = [p for p in VOLATILE if p != "/executor"]
@@ -197,7 +197,7 @@ def test_stable_view_accepts_a_custom_list() -> None:
 
 
 def test_canonical_json_form() -> None:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     obj = {"b": [1, {"z": "é", "a": None}], "a": True}
     text = canonical_json(obj)
@@ -208,14 +208,14 @@ def test_canonical_json_form() -> None:
 
 @pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
 def test_canonical_json_rejects_non_finite(bad: float) -> None:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     with pytest.raises(ValueError):
         canonical_json({"x": bad})
 
 
 def test_round_trip_of_a_built_manifest() -> None:
-    from giap.manifest import canonical_json
+    from gippa.manifest import canonical_json
 
     m = _manifest()
     text = canonical_json(m)
@@ -227,7 +227,7 @@ def test_round_trip_of_a_built_manifest() -> None:
 
 
 def test_provenance_core_fields() -> None:
-    from giap.manifest import provenance_core
+    from gippa.manifest import provenance_core
 
     m = _manifest()
     core = provenance_core(m)
@@ -241,12 +241,12 @@ def test_provenance_core_fields() -> None:
     assert pre["terminators"] == "term.tsv"
     assert pre["promoters"] is None
     assert core["databases"] == m["databases"]
-    for key in ("schema_version", "giap_version", "git_commit", "git_dirty", "publication"):
+    for key in ("schema_version", "gippa_version", "git_commit", "git_dirty", "publication"):
         assert core[key] == m[key], key
 
 
 def test_provenance_core_does_not_mutate() -> None:
-    from giap.manifest import provenance_core
+    from gippa.manifest import provenance_core
 
     m = _manifest()
     before = json.dumps(m, sort_keys=True)
@@ -255,7 +255,7 @@ def test_provenance_core_does_not_mutate() -> None:
 
 
 def test_digest_is_sha256_of_canonical_core() -> None:
-    from giap.manifest import canonical_json, provenance_core, provenance_digest
+    from gippa.manifest import canonical_json, provenance_core, provenance_digest
 
     core = provenance_core(_manifest())
     want = hashlib.sha256(canonical_json(core).encode("utf-8")).hexdigest()
@@ -263,7 +263,7 @@ def test_digest_is_sha256_of_canonical_core() -> None:
 
 
 def test_digest_stable_under_key_order() -> None:
-    from giap.manifest import provenance_core, provenance_digest
+    from gippa.manifest import provenance_core, provenance_digest
 
     core = provenance_core(_manifest())
 
@@ -278,7 +278,7 @@ def test_digest_stable_under_key_order() -> None:
 
 
 def test_digest_changes_with_one_input_sha256() -> None:
-    from giap.manifest import provenance_core, provenance_digest
+    from gippa.manifest import provenance_core, provenance_digest
 
     core = provenance_core(_manifest())
     other = copy.deepcopy(core)
@@ -290,7 +290,7 @@ def test_digest_changes_with_one_input_sha256() -> None:
 def test_digest_ignores_tools_steps_flags_and_volatile() -> None:
     a = _manifest()
     b = _manifest(executor="nextflow", local_steps=(), outdir="/elsewhere",
-                  trace=[{"name": "X:GIAP_STEP (detectability)", "status": "COMPLETED",
+                  trace=[{"name": "X:GIPPA_STEP (detectability)", "status": "COMPLETED",
                           "attempt": "1", "realtime": "9s", "%cpu": "-", "peak_rss": "-"}],
                   events=[{"ts": "t", "step": "gene_table", "level": "WARNING",
                            "event": "gene_table.layer_missing",

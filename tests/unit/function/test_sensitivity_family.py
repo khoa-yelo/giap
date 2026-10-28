@@ -1,5 +1,5 @@
 """M8-16 item 1: the ``enriched_categories`` sensitivity family (docs/specs/M8-16-sensitivity-
-function-determinants.md, examples 1, 2 and 4, degenerate rows, lead decision 1; GIAP_SPEC.md §8.6
+function-determinants.md, examples 1, 2 and 4, degenerate rows, lead decision 1; GIPPA_SPEC.md §8.6
 "enriched categories (q ≤ 0.05)", "Sensitivity reruns use B = 199").
 
 Interface assumed: ``tests/helpers/sensitivity_function_data.py`` (module docstring). GSEA runs
@@ -21,13 +21,13 @@ from hypothesis import strategies as st
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(f"sensitivity/{sf.EC}", sf.SEED)
 
@@ -43,7 +43,7 @@ def _variant(name: str) -> Any:
 
 
 def test_registered_in_families() -> None:
-    from giap.function.sensitivity import enriched_categories_family
+    from gippa.function.sensitivity import enriched_categories_family
 
     assert _S().FAMILIES[sf.EC] is enriched_categories_family
     assert {"regions", "islands", "operon_flags"} <= set(_S().FAMILIES)
@@ -167,7 +167,7 @@ def test_example_2_single_peptide_variant_reruns_ora_and_gsea() -> None:
 
 def test_example_4_same_seed_identical() -> None:
     """Example 4 with the M8-02 port: the same stream twice gives the same set (non-empty)."""
-    from giap.function.gsea import SIMPLE_ENGINE
+    from gippa.function.gsea import SIMPLE_ENGINE
 
     cfg = sf.base_config()
     genes, colls = sf.example1_genes(), sf.example1_collections()

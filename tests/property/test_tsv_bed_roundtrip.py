@@ -1,4 +1,4 @@
-"""Hypothesis properties for TSV, BED and proBed writers (issue M1-04; GIAP_SPEC.md §6.5, §6.6)."""
+"""Hypothesis properties for TSV, BED and proBed writers (issue M1-04; GIPPA_SPEC.md §6.5, §6.6)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.bed import BedRecord, bed_lines
-from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
-from giap.io.tsv import format_value, read_tsv, write_tsv
-from giap.model import Interval, Replicon
+from gippa.io.bed import BedRecord, bed_lines
+from gippa.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
+from gippa.io.tsv import format_value, read_tsv, write_tsv
+from gippa.model import Interval, Replicon
 
 FAST = settings(max_examples=150, deadline=None)
 

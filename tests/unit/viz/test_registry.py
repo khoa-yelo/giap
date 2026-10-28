@@ -1,8 +1,8 @@
 """The plot registry and its skip wrapper (M9-01 behaviour 6, examples 3, 4 and 8; index
 decision 4).
 
-Interface assumed beyond the spec text (the ``giap.steps.registry`` pattern):
-- ``giap.viz.base._REGISTRY`` is the module-level ``dict[str, PlotSpec]``; the ``plots`` fixture
+Interface assumed beyond the spec text (the ``gippa.steps.registry`` pattern):
+- ``gippa.viz.base._REGISTRY`` is the module-level ``dict[str, PlotSpec]``; the ``plots`` fixture
   swaps it for an empty dict so fake plots never collide with real ones.
 - ``@plot(...)`` returns the *wrapped* function (same ``PlotFn`` signature) that applies the skip
   checks before calling the plot; ``PlotSpec`` has the fields ``pid``, ``name``, ``needs``,
@@ -26,10 +26,10 @@ from helpers.viz_out_tree import (
     write_schema_table,
 )
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base
+from gippa.viz.base import Instance, Skip
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def plots(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -47,7 +47,7 @@ def _register(reg: ModuleType, pid: str, name: str = "fake", **kw: object) -> li
     calls: list[str] = []
 
     @reg.plot(pid, name, **kw)
-    def _fn(view: RunView, cfg: GiapConfig) -> list[Instance] | Skip:
+    def _fn(view: RunView, cfg: GippaConfig) -> list[Instance] | Skip:
         calls.append(pid)
         return []
 
@@ -127,12 +127,12 @@ def test_spec_records_its_declaration(plots: ModuleType) -> None:
 
 
 def test_example_8_layer_missing_skips_without_calling_the_plot(
-    plots: ModuleType, cfg: GiapConfig, tmp_path: Path
+    plots: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     calls: list[str] = []
 
     @plots.plot("V90", "fake", needs=[], layers=["genomad"])
-    def fake(view: RunView, cfg: GiapConfig) -> list[Instance] | Skip:
+    def fake(view: RunView, cfg: GippaConfig) -> list[Instance] | Skip:
         calls.append("called")
         return []
 
@@ -142,14 +142,14 @@ def test_example_8_layer_missing_skips_without_calling_the_plot(
     assert calls == []
 
 
-def test_module_off_skips(plots: ModuleType, cfg: GiapConfig, tmp_path: Path) -> None:
+def test_module_off_skips(plots: ModuleType, cfg: GippaConfig, tmp_path: Path) -> None:
     calls = _register(plots, "V90", module="mobile", needs=["islands"])
     view = RunView.from_outdir(_flags_out(tmp_path, modules=["core"], islands=True))
     assert plots.registered()["V90"].fn(view, cfg) == Skip("module_off:mobile")
     assert calls == []
 
 
-def test_input_absent_skips(plots: ModuleType, cfg: GiapConfig, tmp_path: Path) -> None:
+def test_input_absent_skips(plots: ModuleType, cfg: GippaConfig, tmp_path: Path) -> None:
     calls = _register(plots, "V90", needs=["islands"])
     view = RunView.from_outdir(_flags_out(tmp_path))
     result = plots.registered()["V90"].fn(view, cfg)
@@ -160,7 +160,7 @@ def test_input_absent_skips(plots: ModuleType, cfg: GiapConfig, tmp_path: Path) 
 
 
 def test_skip_order_module_then_layer_then_input(
-    plots: ModuleType, cfg: GiapConfig, tmp_path: Path
+    plots: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     all_three = _register(plots, "V90", module="mobile", layers=["genomad"], needs=["islands"])
     layer_and_input = _register(plots, "V91", layers=["kegg"], needs=["islands"])
@@ -172,7 +172,7 @@ def test_skip_order_module_then_layer_then_input(
 
 
 def test_core_is_never_off_and_present_inputs_run_the_plot(
-    plots: ModuleType, cfg: GiapConfig, tmp_path: Path
+    plots: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     calls = _register(plots, "V90", module="core", layers=["bakta"], needs=["islands"])
     view = RunView.from_outdir(_flags_out(tmp_path, modules=["core"], islands=True))
@@ -181,12 +181,12 @@ def test_core_is_never_off_and_present_inputs_run_the_plot(
 
 
 def test_absent_optional_input_does_not_skip(
-    plots: ModuleType, cfg: GiapConfig, tmp_path: Path
+    plots: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     seen: list[pd.DataFrame | None] = []
 
     @plots.plot("V90", "fake", needs=["islands"], optional=["genes_tsv"])
-    def fake(view: RunView, cfg: GiapConfig) -> list[Instance] | Skip:
+    def fake(view: RunView, cfg: GippaConfig) -> list[Instance] | Skip:
         seen.append(view.table("genes_tsv"))
         return []
 
@@ -196,10 +196,10 @@ def test_absent_optional_input_does_not_skip(
 
 
 def test_a_raising_plot_is_not_swallowed(
-    plots: ModuleType, cfg: GiapConfig, tmp_path: Path
+    plots: ModuleType, cfg: GippaConfig, tmp_path: Path
 ) -> None:
     @plots.plot("V90", "fake", needs=[])
-    def fake(view: RunView, cfg: GiapConfig) -> list[Instance] | Skip:
+    def fake(view: RunView, cfg: GippaConfig) -> list[Instance] | Skip:
         raise RuntimeError("boom")
 
     view = RunView.from_outdir(_flags_out(tmp_path))

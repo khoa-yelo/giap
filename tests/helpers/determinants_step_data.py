@@ -3,19 +3,19 @@
 Contract choices the test author made where the spec leaves them open (each one is reported to
 the lead):
 
-* **Interface.** ``giap.steps.determinants.determinants_step`` is registered as ``determinants``
+* **Interface.** ``gippa.steps.determinants.determinants_step`` is registered as ``determinants``
   (kind ``py``, module ``core``) with the spec's input / optional-input / output keys; the tests
-  call it through ``giap.steps.registry.run_step`` (what ``giap _step`` and the local executor
-  call). ``giap.determinants.CAVEATS`` is the three §7.8.2 caveats, verbatim, in order.
-* **Writers.** ``giap.io.determinants_tables`` has ``write_determinants_features``,
+  call it through ``gippa.steps.registry.run_step`` (what ``gippa _step`` and the local executor
+  call). ``gippa.determinants.CAVEATS`` is the three §7.8.2 caveats, verbatim, in order.
+* **Writers.** ``gippa.io.determinants_tables`` has ``write_determinants_features``,
   ``write_determinants_model`` and ``write_determinants_attribution`` (``(path, frame)``, like
-  ``write_sensitivity_tsv``); the schemas are ``src/giap/schemas/tables/
+  ``write_sensitivity_tsv``); the schemas are ``src/gippa/schemas/tables/
   determinants_{features,model,attribution}.schema.json`` (the ``<table>.schema.json``
   convention, M4-15 lead decision 16).
-* **Columns.** ``determinants_features.tsv``: ``giap.determinants.features.FEATURE_COLUMNS``;
-  ``determinants_model.tsv``: ``giap.determinants.models.TABLE_COLUMNS`` (§9.3 plus ``flags``,
+* **Columns.** ``determinants_features.tsv``: ``gippa.determinants.features.FEATURE_COLUMNS``;
+  ``determinants_model.tsv``: ``gippa.determinants.models.TABLE_COLUMNS`` (§9.3 plus ``flags``,
   index decision 12); ``determinants_attribution.tsv``:
-  ``giap.determinants.attribution.ATTRIBUTION_COLUMNS`` (§9.3).
+  ``gippa.determinants.attribution.ATTRIBUTION_COLUMNS`` (§9.3).
 * **B.** The null's B is ``determinants.permutations`` (the §5.2 key); ``--publication`` sets it
   to 10,000 (lead decision 3), as it already sets ``stats.permutations``. The univariate
   bootstrap B is ``stats.bootstrap``.
@@ -56,7 +56,7 @@ import determinants_features_data as fd
 import m4_chain as mc
 
 STEP = "determinants"
-MODULE = "giap.steps.determinants"
+MODULE = "gippa.steps.determinants"
 REQUIRED = ("gene_table", "genes", "tus", "layers", "replicons")
 OPTIONAL = ("regions", "region_genes", "gene_context")
 OUTPUTS = ("determinants_features", "determinants_model", "determinants_attribution")
@@ -94,7 +94,7 @@ RUN_FLAG = "layer_missing:abundance"
 
 
 def mod() -> ModuleType:
-    """``giap.steps.determinants`` (first, so a missing module fails before any fixture work)."""
+    """``gippa.steps.determinants`` (first, so a missing module fails before any fixture work)."""
     return importlib.import_module(MODULE)
 
 
@@ -149,8 +149,8 @@ def config(seed: int, *, B: int = 49, threads: int = 1, boot: int = 49, **det: A
 
 def run(cfg: Any, ins: Mapping[str, Path], out: Path) -> dict[str, Path]:
     """``run_step("determinants", ...)``; returns the output paths."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     outs = outputs(out)
@@ -182,7 +182,7 @@ def gene_table_variant(work: Path, dest: Path, *, keep_abundance: int | None) ->
 
 def expected_features(ins: Mapping[str, Path]) -> pd.DataFrame:
     """``feature_frame`` on the step's input files (the M8-07 function the step must call)."""
-    from giap.determinants.features import feature_frame
+    from gippa.determinants.features import feature_frame
 
     regions = None
     if "regions" in ins and "region_genes" in ins:
@@ -236,7 +236,7 @@ def sort_key(tbl: pd.DataFrame) -> list[tuple[int, int, str]]:
 
 def fmt(v: Any) -> str:
     """One cell as the M1-04 writer formats it."""
-    from giap.io.tsv import format_value
+    from gippa.io.tsv import format_value
 
     if isinstance(v, float) and math.isnan(v):
         return "NA"
@@ -246,10 +246,10 @@ def fmt(v: Any) -> str:
 
 
 def schema_dir() -> Path:
-    """``schemas/tables`` of the imported ``giap`` package."""
-    import giap
+    """``schemas/tables`` of the imported ``gippa`` package."""
+    import gippa
 
-    return Path(giap.__file__).resolve().parent / "schemas" / "tables"
+    return Path(gippa.__file__).resolve().parent / "schemas" / "tables"
 
 
 def descriptor(stem: str) -> dict[str, Any]:

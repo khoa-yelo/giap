@@ -12,9 +12,9 @@ from typing import Any
 
 import pandas as pd
 
-from giap.config import GiapConfig
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.config import GippaConfig
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 L = 10_000
 BASE = (
@@ -72,8 +72,8 @@ def gene_tbl(
     )
 
 
-def cfg(threshold: float = 0.5) -> GiapConfig:
-    return GiapConfig.model_validate(
+def cfg(threshold: float = 0.5) -> GippaConfig:
+    return GippaConfig.model_validate(
         {"seed": 1, "annotation": {"uniop": {"pair_threshold": threshold}}}
     )
 
@@ -93,7 +93,7 @@ def evidence(
     tx: pd.DataFrame | None = None,
     rna: pd.DataFrame | None = None,
 ) -> Any:
-    from giap.operons.pairs import Evidence
+    from gippa.operons.pairs import Evidence
 
     return Evidence(
         windows=windows,
@@ -111,7 +111,7 @@ def frame(
     tbl: pd.DataFrame | None = None,
     threshold: float = 0.5,
 ) -> pd.DataFrame:
-    from giap.operons.pairs import pair_frame
+    from gippa.operons.pairs import pair_frame
 
     return pair_frame(
         gene_tbl(genes) if tbl is None else tbl, list(genes), replicons, pairs_raw(probs),

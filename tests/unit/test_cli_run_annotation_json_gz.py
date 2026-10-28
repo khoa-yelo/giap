@@ -1,6 +1,6 @@
 # ruff: noqa: F811  (pytest fixtures imported from test_cli_run_wiring)
-"""``giap run --annotation bakta.json.gz`` is the precomputed Bakta layer, like ``bakta.json``
-(GIAP_SPEC.md §5.3 "Bakta JSON: used as is, and Bakta is not run"; backlog fix
+"""``gippa run --annotation bakta.json.gz`` is the precomputed Bakta layer, like ``bakta.json``
+(GIPPA_SPEC.md §5.3 "Bakta JSON: used as is, and Bakta is not run"; backlog fix
 fix/annotation-json-gz, lead decisions 1 and 3).
 
 Before the fix ``cli._bakta_json`` accepted only the ``.json`` suffix, so a gzipped Bakta JSON
@@ -11,12 +11,12 @@ ran live Bakta (its ``else`` branch). Lead decisions:
    precomputed path is used and Bakta does not run. The CLI may pass the ``.gz`` itself or a
    copy decompressed once into the run's work area (under ``--outdir``); either way the file
    named by ``annotation.precomputed.bakta_json`` must parse to the same annotation.
-2. Withdrawn by the lead: GFF3 and GenBank annotations stay accepted as GIAP_SPEC.md §5.1 says
+2. Withdrawn by the lead: GFF3 and GenBank annotations stay accepted as GIPPA_SPEC.md §5.1 says
    (their ``--regions`` wiring is a separate backlog item); only ``.json.gz`` changes here.
 3. ``run_manifest.json`` records the sha256 of the file as given (the compressed bytes).
 
 A fake ``nextflow`` records its argv; nothing real is launched and no network or real database
-is touched (``$GIAP_ROOT`` and ``$GIAP_DB_DIR`` are fakes from ``test_cli_run_wiring``).
+is touched (``$GIPPA_ROOT`` and ``$GIPPA_DB_DIR`` are fakes from ``test_cli_run_wiring``).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
-    _fake_giap_root,
+    _fake_gippa_root,
     _run,
     db,
     fake_nf,
@@ -40,8 +40,8 @@ from unit.test_cli_run_wiring import (  # noqa: F401  (fixtures)
     proteins,
 )
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.exitcodes import ExitCode
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.exitcodes import ExitCode
 
 FIXTURE = (
     Path(__file__).resolve().parents[1]
@@ -62,7 +62,7 @@ def _gzip_fixture(dest: Path) -> Path:
 
 def _params(out: Path) -> dict[str, object]:
     path = out / "work" / "params.json"
-    assert path.is_file(), "giap run wrote no params.json"
+    assert path.is_file(), "gippa run wrote no params.json"
     data = json.loads(path.read_text())
     assert isinstance(data, dict)
     return data
@@ -199,8 +199,8 @@ def test_local_roots_stage_a_json_gz_annotation_as_bakta_json(
 ) -> None:
     """``--executor local`` stages a ``.json.gz`` as ``bakta_json`` (before the fix it exited 1:
     "annotation.precomputed.bakta_json is required ... not a Bakta JSON")."""
-    from giap.cli import _local_roots
-    from giap.config import GiapConfig
+    from gippa.cli import _local_roots
+    from gippa.config import GippaConfig
 
     gz = _gzip_fixture(tmp_path / "in" / "bakta.json.gz")
     out = tmp_path / "OUT"
@@ -208,7 +208,7 @@ def test_local_roots_stage_a_json_gz_annotation_as_bakta_json(
                                       "annotation": gz, "reference_peptides": None,
                                       "db_dir": None}  # fmt: skip
     try:
-        roots = _local_roots(GiapConfig(), out, genome, inputs)
+        roots = _local_roots(GippaConfig(), out, genome, inputs)
     except SystemExit as exc:  # pragma: no cover - the pre-fix failure mode
         pytest.fail(f"_local_roots exited {exc.code} for --annotation {gz.name}")
     assert "bakta_json" in roots, sorted(roots)
@@ -226,7 +226,7 @@ def test_run_manifest_records_sha256_of_the_gz_as_given(
     _run(["--genome", str(genome), "--annotation", str(gz), "--outdir", str(out)], proteins)
     _assert_precomputed_from(gz, out, _precomputed_bakta(out))
     manifest = out / "run_manifest.json"
-    assert manifest.is_file(), "giap run wrote no run_manifest.json"
+    assert manifest.is_file(), "gippa run wrote no run_manifest.json"
     m = json.loads(manifest.read_text())
     by = {r["role"]: r for r in m["inputs"]}
     assert "annotation" in by, sorted(by)

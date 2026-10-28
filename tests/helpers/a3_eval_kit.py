@@ -4,7 +4,7 @@ Spec: docs/specs/M10-08-a3-feasibility.md (part 08b: ``a3_feasibility.py evaluat
 ``early-fail``, the verdict JSON, the failure rule L6, examples 1-10 and 12, the
 ``denovo_pilot.sbatch`` Cascadia branch). Builds on ``helpers.a3_kit`` (08a).
 
-Nothing here reaches the network, a GPU, Cascadia, the real Nissle genome or ``$GIAP_ROOT``. Every
+Nothing here reaches the network, a GPU, Cascadia, the real Nissle genome or ``$GIPPA_ROOT``. Every
 ``.ssl`` is written at test time (M10-09 guard: no ``.ssl`` is ever committed, not even a
 synthetic one). Genomes are a few kb of random DNA with planted peptide codings.
 
@@ -15,8 +15,8 @@ the report to the lead):
   (2026-10-24; M10-10's ``cascadia_convert.sbatch`` calls it so). Optional: ``--genome
   FNA[.gz] --bakta-json JSON --contaminants FASTA --cutoff X``. ``--genome`` and
   ``--bakta-json`` default to the Nissle files (spec step 8), ``--contaminants`` to
-  ``$GIAP_DB_DIR/contaminants/contaminants.fasta``. The tests pass all three except in the
-  two minimal-form tests (which point ``$GIAP_DB_DIR`` at ``tmp_path``). Other provenance
+  ``$GIPPA_DB_DIR/contaminants/contaminants.fasta``. The tests pass all three except in the
+  two minimal-form tests (which point ``$GIPPA_DB_DIR`` at ``tmp_path``). Other provenance
   options (route, weights, mzML check, job IDs) are the implementer's; the tests only require
   their keys in ``J``.
 * ``early-fail --reason R --evidence TEXT --out J`` (exactly the spec's interface).
@@ -182,7 +182,7 @@ class Genome:
 
     def as_inputs(self) -> tuple[dict[str, str], dict[str, Any]]:
         """``genome`` and ``replicons`` mappings for a direct ``build_sixframe`` call."""
-        from giap.model.coords import Replicon
+        from gippa.model.coords import Replicon
 
         genome = {c.id: c.seq for c in self.contigs}
         reps = {c.id: Replicon(c.id, len(c.seq), c.topology, c.kind) for c in self.contigs}  # type: ignore[arg-type]

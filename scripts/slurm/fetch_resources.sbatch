@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=giap-fetch-resources
+#SBATCH --job-name=gippa-fetch-resources
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=4
@@ -9,13 +9,13 @@
 # Prefetch of the §3.2 resources that later steps need (spec §3.2, §3.9; R6): geNOMAD DB v1.9, the
 # Promotech RF-HOT model, the K-12 MG1655 and Nissle 1917 genomes, the K-12 UniProt proteome and the
 # antiSMASH databases. Official sources only; every file is checksummed and logged in
-# $GIAP_DB_DIR/prefetch_manifest.tsv (source, file, checksum, how it was verified). `giap setup`
+# $GIPPA_DB_DIR/prefetch_manifest.tsv (source, file, checksum, how it was verified). `gippa setup`
 # (M2-08) later verifies and records them in db_manifest.json. Re-running skips finished items and
 # resumes partial downloads (aria2c control files). A failing item is logged and skipped (R6).
 set -uo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-cd "$GIAP_REPO"
-DB="$GIAP_DB_DIR"; DATA="${GIAP_DATA_DIR:-$GIAP_ROOT/data}"
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+cd "$GIPPA_REPO"
+DB="$GIPPA_DB_DIR"; DATA="${GIPPA_DATA_DIR:-$GIPPA_ROOT/data}"
 MAN="$DB/prefetch_manifest.tsv"
 mkdir -p "$DB" "$DATA"
 [ -f "$MAN" ] || printf 'item\tsource\tfile\tchecksum\tverified\tdate\n' > "$MAN"
@@ -75,7 +75,7 @@ if [ ! -f "$DATA/proteomes/UP000000625.fasta" ]; then
 fi
 
 # 5. antiSMASH databases (dl.secondarymetabolites.org) via the pinned image's own downloader
-IMG=$(ls "$GIAP_ROOT"/containers/antismash-standalone@sha256-*.img 2>/dev/null | head -1)
+IMG=$(ls "$GIPPA_ROOT"/containers/antismash-standalone@sha256-*.img 2>/dev/null | head -1)
 if [ -n "$IMG" ] && [ ! -f "$DB/antismash/.giap-complete" ]; then
   mkdir -p "$DB/antismash"
   if apptainer exec --bind "$DB/antismash" "$IMG" download-antismash-databases --database-dir "$DB/antismash" \

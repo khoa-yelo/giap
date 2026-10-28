@@ -1,4 +1,4 @@
-"""Full-DB Bakta fixtures with circular replicons (M2-10 G17; GIAP_SPEC.md §11.4, R11).
+"""Full-DB Bakta fixtures with circular replicons (M2-10 G17; GIPPA_SPEC.md §11.4, R11).
 
 G17: "`scripts/slurm/record_bakta_full.sbatch` (16 CPU, 64 GB) runs Bakta 1.12.2 with the full DB
 v6.0 on: K-12 MG1655 (GCA_000005845.2); Nissle 1917 (GCA_043228065.1); the 100-kb synthetic

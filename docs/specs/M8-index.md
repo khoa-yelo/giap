@@ -1,6 +1,6 @@
 # M8 "Function and determinants": issue index
 
-Spec: GIAP_SPEC.md §13 row M8. Deliverables: "Modules 7 and 8; fgsea port; Wallenius ORA; R golden
+Spec: GIPPA_SPEC.md §13 row M8. Deliverables: "Modules 7 and 8; fgsea port; Wallenius ORA; R golden
 data". **Gate:** "GSEA and ORA match fgsea and goseq on golden data; null p-values uniform", i.e.
 the §7.7.5 golden tolerances (`tolerances.yaml` `golden_r`: Wallenius relative difference ≤ 10⁻⁶,
 fgsea ES ≤ 10⁻⁹, NES ≤ 0.02, |log₁₀ p − log₁₀ p_R| ≤ 3 × combined `log2err` / log₂ 10) and the
@@ -15,7 +15,7 @@ caveats, §7.8.3 outputs and tests), §2.1 decisions 10 and 14, §2.4 G15, §3.2
 job"), §5.2 `function:` and `determinants:` keys, `stats.alpha.enrichment` / `.determinants`,
 `stats.bootstrap`, §6.2 steps `function` and `determinants` (and `sensitivity`), §6.3/§6.4, §6.5,
 §6.6 (LightGBM determinism, numba reduction order), §7.3 (eligible genes, `p_detect`, imputation),
-§7.9.1 (`giap setup --go --kegg --cog`), §8.1 rows "Category detection", "GSEA", "Determinant
+§7.9.1 (`gippa setup --go --kegg --cog`), §8.1 rows "Category detection", "GSEA", "Determinant
 model", §8.2, §8.3 (`wallenius_ora`, `fgsea_multilevel`, `tu_block_bootstrap`), §8.4 suites `ora`,
 `gsea`, `determinants`, §8.5 attacks 2 and 3, §8.6 families "enriched categories" and
 "determinants", §9.1–§9.5 (the six tables, flags `abundance_not_explained_by_sequence`,
@@ -40,14 +40,14 @@ ADR the spec owes — and splits it into two passes, as M6 and MVP-01 do:
   - *Function track* 01, 02, 03 → 04, 05 → **06** (`function` step wired). GSEA runs on the fgsea
     *simple* stage, labelled `method = fgsea_simple`, with its honest 1/(nPermSimple + 1) floor.
   - *Determinants track* 07 → 08 → 09 → **10** (`determinants` step wired, permutation null on).
-  - End state: `giap run` on sim100k writes all six M8 tables, both executors, byte-identical.
+  - End state: `gippa run` on sim100k writes all six M8 tables, both executors, byte-identical.
 - **Pass 2 (hardening and the gate):** 11 (fgsea multilevel; GSEA switches to
   `method = fgsea_multilevel`), 12 (the R environment and the golden data), 13 (**gate, half 1**:
   golden equivalence), 14 (simulator scenarios), 15 (**gate, half 2**: the three null suites and
   attacks 2 and 3), 16 (sensitivity families), and every per-issue "Hardening owed" section.
 
 Nothing is dropped; it is scheduled. Every issue that produces a table states how it reaches
-`giap run`: 06 for the three Module 7 tables, 10 for the three Module 8 tables, 16 for the
+`gippa run`: 06 for the three Module 7 tables, 10 for the three Module 8 tables, 16 for the
 sensitivity rows.
 
 ## How this design lands (one branch, three commits, docs only)
@@ -67,15 +67,15 @@ sensitivity rows.
 | 3 | [M8-03](M8-03-function-collections.md) | R | 1 | resources → collections: GO (propagated, BP/MF/CC), GO slim, KEGG pathways, COG letters, coverage | none | 300 | no |
 | 4 | [M8-04](M8-04-category-summary-ora.md) | R | 1 | `category_summary` (O − E, TU-bootstrap CI) and `enrichment_detection` (ORA, BH families, elim, `parent_group`) | 01, 03 | 300 | yes |
 | 5 | [M8-05](M8-05-gsea-tu-collapsed.md) | R | 1 | `enrichment_gsea`: TU collapse, set sizes in TUs, BH per collection, leading-edge genes, `redundant` | 02, 03 | 260 | yes |
-| 6 | [M8-06](M8-06-function-step-and-run.md) | T | 1 | the `function` step, three writers + schemas, `detectability`'s `tu_folds` output (ADR-0035), `function.nf`, `main.nf` (first `params.modules` switch), five setup-manifest roots, a real `giap run`; split 06a (step + tables) / 06b (both executors) | 03–05 (04b = #179) | 420 (≈ 125 JSON) | no |
+| 6 | [M8-06](M8-06-function-step-and-run.md) | T | 1 | the `function` step, three writers + schemas, `detectability`'s `tu_folds` output (ADR-0035), `function.nf`, `main.nf` (first `params.modules` switch), five setup-manifest roots, a real `gippa run`; split 06a (step + tables) / 06b (both executors) | 03–05 (04b = #179) | 420 (≈ 125 JSON) | no |
 | 7 | [M8-07](M8-07-determinants-features.md) | R | 1 | `determinants_features.tsv`: the five blocks, the Met rule, `dist_to_tu_start_bp`, region and context columns | none | 280 | no |
 | 8 | [M8-08](M8-08-determinants-models.md) | R | 1 | univariate ρ / AUROC with TU-bootstrap CIs; LightGBM + elastic net under repeated `GroupKFold(5)` by TU; drop-one-block ΔR² | 07 | 340 | yes |
 | 9 | [M8-09](M8-09-determinants-attribution-null.md) | R | 1 | SHAP block sums (`pred_contrib`), dominant block, residual flag; TU-size-preserving permutation null | 08 | 260 | yes |
-| 10 | [M8-10](M8-10-determinants-step-and-run.md) | T | 1 | the `determinants` step, three writers + schemas, `determinants.nf`, `main.nf`, a real `giap run` | 07–09 | 300 | no |
+| 10 | [M8-10](M8-10-determinants-step-and-run.md) | T | 1 | the `determinants` step, three writers + schemas, `determinants.nf`, `main.nf`, a real `gippa run` | 07–09 | 300 | no |
 | 11 | [M8-11](M8-11-stats-fgsea-multilevel.md) | S | 2 | `stats/`: fgsea port II — multilevel splitting (`sampleSize = 101`, `eps = 0`), multilevel `log2err` | 02 | 330 | yes |
 | 12, 12b | [M8-12](M8-12-golden-r-env.md), [M8-12b](M8-12b-golden-median-exact.md) | G | 2 | R env (conda-forge + bioconda pins), frozen golden inputs, `make_golden_r.R`, `golden_r.sbatch`, `golden-r.yml`, committed outputs | 02 (inputs only) | 220 | no |
 | 13 | [M8-13](M8-13-golden-equivalence.md) | C | 2 | **gate, half 1**: Wallenius vs goseq, ES / NES / p vs fgsea, on the committed golden data | 01, 12, 12b, 17 (#214) | 20 (+380 tests) | yes |
-| 14 | [M8-14](M8-14-sim-function-determinants.md) | F | 2 | giapsim: synthetic ontology + xrefs, ORA null and confounding attack, GSEA null and operon-packed attack, planted determinant effects, determinants null | none | 0 (+330 sim) | yes (light) |
+| 14 | [M8-14](M8-14-sim-function-determinants.md) | F | 2 | gippasim: synthetic ontology + xrefs, ORA null and confounding attack, GSEA null and operon-packed attack, planted determinant effects, determinants null | none | 0 (+330 sim) | yes (light) |
 | 15 | [M8-15](M8-15-calibration-gate.md) | C | 2 | **gate, half 2**: `ora`, `gsea`, `determinants` at level; attacks 2 and 3; planted-R² recovery recorded | 04, 05, 09, 11, 14 | 60 (+tests) | yes |
 | 16 | [M8-16](M8-16-sensitivity-function-determinants.md) | R | 2 | §8.6 families "enriched categories" and "determinants" (CV R², dominant-block `agreement`) | 06, 10 | 160 | yes (light) |
 
@@ -89,8 +89,8 @@ it has no code dependency beyond the frozen inputs.
 ```text
 Pass 1  function:      01 ─┐
                        03 ─┼─► 04 ─┐
-                       02 ─┴─► 05 ─┴─► 06 ─► (giap run writes the three Module 7 tables)
-        determinants:  07 ─► 08 ─► 09 ─► 10 ─► (giap run writes the three Module 8 tables)
+                       02 ─┴─► 05 ─┴─► 06 ─► (gippa run writes the three Module 7 tables)
+        determinants:  07 ─► 08 ─► 09 ─► 10 ─► (gippa run writes the three Module 8 tables)
 Pass 2  02 ─► 11 ─► 05 switches to multilevel (one call site)
         12 (env build + golden data; Slurm) ─► 13 (gate half 1)  ◄─ 01, 11
         14 ─► 15 (gate half 2)  ◄─ 04, 05, 09, 11
@@ -98,8 +98,8 @@ Pass 2  02 ─► 11 ─► 05 switches to multilevel (one call site)
 ```
 
 01, 02, 03 and 07 have no dependency and can start at once (four independent PRs); 12's environment
-build can be submitted in wave A as well, because building and freezing inputs needs no GIAP code
-beyond giapsim.
+build can be submitted in wave A as well, because building and freezing inputs needs no GIPPA code
+beyond gippasim.
 
 ## Waves
 
@@ -107,9 +107,9 @@ beyond giapsim.
 |---|---|---|
 | A (now) | 01, 02, 03, 07; start M8-12 with its env yml + `golden_r.sbatch` | four independent PRs; the env build is a Slurm job (≤ 4 CPUs) whose result the rest of M8-12 waits for |
 | B | 04, 05, 08 | 05 needs only 02's simple stage |
-| C | 06, 09 | 06 is the function integration milestone (a real `sbatch scripts/slurm/giap_run.sbatch`) |
+| C | 06, 09 | 06 is the function integration milestone (a real `sbatch scripts/slurm/gippa_run.sbatch`) |
 | D | 10 | the determinants integration milestone; same evidence rule |
-| E (hardening) | 11, 12, 14 in parallel; then 13, 15, 16 | 15 submits `calibration_full.sbatch` tasks `ora`, `gsea`, `determinants` (≤ 3 jobs, ≤ 48 CPUs; sum running `giap-*` CPUs first, R14) |
+| E (hardening) | 11, 12, 14 in parallel; then 13, 15, 16 | 15 submits `calibration_full.sbatch` tasks `ora`, `gsea`, `determinants` (≤ 3 jobs, ≤ 48 CPUs; sum running `gippa-*` CPUs first, R14) |
 
 ## What M8 consumes (checked against merged main, c4d8841)
 
@@ -121,12 +121,12 @@ beyond giapsim.
 | C6 | `layers.parquet` | M2-20 (merged) | `n_promoter_windows_tu` (= `n_promoters_tu_to_gene`), `spacing_dg`/`standby_dg` (not used), the layer columns the gene table already carries |
 | C7/C8 | `regions.parquet`, `region_genes.parquet` | M2-19 (merged) | `in_prophage`, `in_bgc` |
 | X | `context/gene_context.parquet` | M5-09 (merged, #138) | `replichore_position` (NA without an oriC call) |
-| R | `$GIAP_DB_DIR` items `go_basic`, `goslim_generic` (GO 2026-05-19, sha256-pinned), `kegg_ko_pathway`, `kegg_pathway_names` (retrieved 2026-10-15, ADR-0017), `cog2020_def`, `cog2020_fun` | M2-09 `giap setup` (merged; **all installed on FarmShare**, `db_manifest.json` status ok) | read through the setup manifest, as `cog_table()` already does (M4-15 decision 5) |
-| E | `giap.stats` | merged | `bh` (`multitest`), `tu_block_bootstrap`, `percentile_ci`, `perm_p`, `poisson_binomial_sf` (fallback only) |
+| R | `$GIPPA_DB_DIR` items `go_basic`, `goslim_generic` (GO 2026-05-19, sha256-pinned), `kegg_ko_pathway`, `kegg_pathway_names` (retrieved 2026-10-15, ADR-0017), `cog2020_def`, `cog2020_fun` | M2-09 `gippa setup` (merged; **all installed on FarmShare**, `db_manifest.json` status ok) | read through the setup manifest, as `cog_table()` already does (M4-15 decision 5) |
+| E | `gippa.stats` | merged | `bh` (`multitest`), `tu_block_bootstrap`, `percentile_ci`, `perm_p`, `poisson_binomial_sf` (fallback only) |
 | T | calibration harness | M4-05 (merged) | `calibrate`, `check_level`, `check_level_pooled`; `replicates_fast/full.{ora, gsea, determinants}` and `golden_r` already exist in `tolerances.yaml` (protected, **unchanged**) |
 | K | config | merged `FunctionConfig` (`go_slim`, `ora_size`, `gsea_size`, `gsea.{sample_size, eps, n_perm_simple}`), `DeterminantsConfig` (`outer_folds`, `repeats`, `permutations`, `lightgbm`, `elastic_net`), `stats.alpha.{enrichment, determinants}`, `stats.bootstrap`, `modules` (incl. `function`) | **no `defaults.yaml` change** (it is protected) |
 | D | dependencies | `pyproject.toml` (merged) | goatools (BSD-2), lightgbm (MIT), scikit-learn, scipy ≥ 1.18 (`nchypergeom_wallenius`), numba — all already runtime dependencies; no lock change |
-| W | `workflow/subworkflows/local/{annotate,genetable,context}.nf`, `GIAP_STEP`, `stepIn`/`kv`/`pick`, `installed()` in `main.nf`; `giap.runner.local` roots (`cli.py` stages `cog2020_def`) | MVP-01 (merged) | 06 and 10 copy the CONTEXT pattern; 06 adds five setup-manifest roots the way `cogTable()` does |
+| W | `workflow/subworkflows/local/{annotate,genetable,context}.nf`, `GIPPA_STEP`, `stepIn`/`kv`/`pick`, `installed()` in `main.nf`; `gippa.runner.local` roots (`cli.py` stages `cog2020_def`) | MVP-01 (merged) | 06 and 10 copy the CONTEXT pattern; 06 adds five setup-manifest roots the way `cogTable()` does |
 
 M6-01 (engine, landing) is **not** needed by M8. M6-08's `operons.nf` is not on main yet; M8's
 subworkflows do not depend on it, but 06 and 10 must merge `origin/main` before editing `main.nf`
@@ -134,10 +134,10 @@ if M6-08 lands first (one conflict hunk, expected).
 
 ## Licences, and how the R golden data is produced
 
-| Package | Version (bioconda / conda-forge, 2026-10-21) | Licence (official source) | Role in GIAP |
+| Package | Version (bioconda / conda-forge, 2026-10-21) | Licence (official source) | Role in GIPPA |
 |---|---|---|---|
 | fgsea | 1.36.2 (Bioconductor release is 1.38.0; bioconda lags) | **MIT + file LICENCE** (bioconductor.org/packages/fgsea; LICENCE: "2016-2019, Alexey Sergushichev") | **ported** to Python + numba from its source (G15). MIT permits this; the port carries fgsea's copyright and permission notice in the module header and in NOTICE.md. Never a runtime dependency |
-| goseq | 1.62.0 (Bioconductor release 1.64.0) | **LGPL (≥ 2)** | **not ported, not read.** GIAP's Wallenius ORA is written from the spec formula and the goseq paper (Young 2010) on top of scipy's `nchypergeom_wallenius` (BSD). goseq runs only in the golden environment |
+| goseq | 1.62.0 (Bioconductor release 1.64.0) | **LGPL (≥ 2)** | **not ported, not read.** GIPPA's Wallenius ORA is written from the spec formula and the goseq paper (Young 2010) on top of scipy's `nchypergeom_wallenius` (BSD). goseq runs only in the golden environment |
 | BiasedUrn (goseq's Wallenius) | 2.0.12 | **GPL-3** | never imported or copied; golden environment only |
 | r-base | 4.5.x (the r45 builds of both Bioconductor packages pin `r-base >=4.5,<4.6`) | GPL-2+ | golden environment only |
 
@@ -147,17 +147,17 @@ GPL/LGPL programs are not covered by those licences, so committing the golden ou
 `src/` file may `import` or shell out to R; `scripts/ci/check_imports.py` gains `rpy2` in its
 FORBIDDEN set (M8-12) so an accidental bridge fails CI.
 
-**Is the R environment available on FarmShare?** No. `local/micromamba/envs/` holds `giap-ostir`,
-`giap-promotech`, `giap-promoter_calculator`, `giap-terminatornet`, `giap-uniop` and `giap-wf`
+**Is the R environment available on FarmShare?** No. `local/micromamba/envs/` holds `gippa-ostir`,
+`gippa-promotech`, `gippa-promoter_calculator`, `gippa-terminatornet`, `gippa-uniop` and `gippa-wf`
 only. The Lmod module `r/4.5.2` exists, but it has no Bioconductor packages, and installing them
 from bioconductor.org or CRAN would use sources outside §3.2 (R6). §11.5 names the route:
-conda-forge and bioconda. M8-12 therefore adds `scripts/golden/golden_r.yml` (env `giap-golden-r`)
+conda-forge and bioconda. M8-12 therefore adds `scripts/golden/golden_r.yml` (env `gippa-golden-r`)
 and builds it in a Slurm job; the env is an estimated 1–2 GB (GO.db and geneLenDataBase are goseq
 dependencies), well inside the §3.9 budget. Exact procedure, pins and provenance: M8-12.
 
 ## KEGG
 
-`giap setup --kegg` (M2-09, merged) fetches `https://rest.kegg.jp/link/pathway/ko` and
+`gippa setup --kegg` (M2-09, merged) fetches `https://rest.kegg.jp/link/pathway/ko` and
 `/list/pathway` with no pinned checksum (ADR-0017: retrieval date + sha256 of the bytes recorded in
 `db_manifest.json`; both are installed on FarmShare, retrieved 2026-10-15, 49,071 KO→`path:map`
 links plus the same number of `path:ko` duplicates, 587 pathway names). KEGG's terms (rest.kegg.jp,
@@ -178,7 +178,7 @@ NOTICE.md:
 
 | Estimator | Does not exist when | Output |
 |---|---|---|
-| a collection | its resource is not installed (`giap setup --go/--kegg/--cog` not run) | no rows for it; run flag `layer_missing:go` / `layer_missing:kegg` / `layer_missing:cog` |
+| a collection | its resource is not installed (`gippa setup --go/--kegg/--cog` not run) | no rows for it; run flag `layer_missing:go` / `layer_missing:kegg` / `layer_missing:cog` |
 | Wallenius ω | the category is the whole universe, or Σ p_detect outside it is 0 | the category is not tested; row `flags` `unestimated` (index decision 12) |
 | ORA p | category size (full set) outside `function.ora_size` | not tested, no row; an elim-reduced set of an in-range term is still tested (M8-04 Q3) |
 | any GSEA row | no abundance input, or < 2 ranked TUs | `enrichment_gsea.tsv` header-only; run flag `layer_missing:abundance` or `too_few_ranked_tus` |
@@ -330,7 +330,7 @@ reduced, decision 23) is the only suite that needs sharding inside the R14 caps.
     under the `two_peptide` variant only (M8-16 Q1).
 26. **RNG streams:** `function.gsea` (fgsea), `function.bootstrap` (category CIs),
     `determinants.cv`, `determinants.null`, `determinants.bootstrap`, each from
-    `giap.rng.for_step`; the ORA and elim are deterministic.
+    `gippa.rng.for_step`; the ORA and elim are deterministic.
 
 ## Questions that need Khoa (not the lead)
 
@@ -344,7 +344,7 @@ reduced, decision 23) is the only suite that needs sharding inside the R14 caps.
 2. **ADR-B (median-centring the TU scores before fgsea)** is accepted by the lead. M8-05 writes it; Khoa is informed in the PR. The literal uncentred spec would raise the fgsea warning on every run.
 3. **Licences:**
    - fgsea is MIT: port it with attribution in each file header and in NOTICE.md.
-   - goseq (LGPL) and BiasedUrn (GPL-3) are never ported, read or imported. R runs only to produce golden numbers, in its own env (`giap-golden-r`, M8-12).
+   - goseq (LGPL) and BiasedUrn (GPL-3) are never ported, read or imported. R runs only to produce golden numbers, in its own env (`gippa-golden-r`, M8-12).
    - The guard against `rpy2` and `Rscript` lands with M8-12.
 4. **KEGG:** no KEGG file or KEGG-derived table is ever committed (KEGG academic terms; ADR-0017). Tests and golden data use synthetic sets.
 5. **The scipy Wallenius tail bug:** M8-01 sums the pmf directly. The `sf(k−1) == 0` case at 3.2e-14 is pinned as a regression test.

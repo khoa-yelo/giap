@@ -44,14 +44,14 @@ def inputs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     assert res.returncode == 0, res.stdout + res.stderr
     te_real = json.loads((te_out / "te_real.json").read_text(encoding="utf-8"))
     te7 = json.loads((te_out / "te7.json").read_text(encoding="utf-8"))
-    assert te7["giap"]["status"] == "pass"
+    assert te7["gippa"]["status"] == "pass"
     return {"pilot": p, "te_real": te_real, "te7": te7}
 
 
 def _files(inputs: dict[str, Any], tmp: Path, *, te7_fail: bool = False) -> tuple[Path, Path]:
     te7 = json.loads(json.dumps(inputs["te7"]))
     if te7_fail:
-        te7["giap"]["status"] = "fail"
+        te7["gippa"]["status"] = "fail"
     a, b = tmp / "te_real.json", tmp / "te7.json"
     a.write_text(json.dumps(inputs["te_real"], sort_keys=True, indent=2) + "\n", encoding="utf-8")
     b.write_text(json.dumps(te7, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -119,7 +119,7 @@ def test_template_pending_section_drops_te7() -> None:
     """M10-15 removed the draft's "Pending in pass 2" section; TE7 renders in its own."""
     text = TEMPLATE.read_text(encoding="utf-8")
     assert "pending in pass 2" not in text.lower()
-    assert "{{te7.giap.status}}" in text
+    assert "{{te7.gippa.status}}" in text
 
 
 def test_committed_te7_pieces_are_tracked() -> None:

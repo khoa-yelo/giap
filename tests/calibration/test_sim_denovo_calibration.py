@@ -1,4 +1,4 @@
-"""Calibration of giapsim's de novo error claims (issue M3-20; GIAP_SPEC.md §11.3, §8.4).
+"""Calibration of gippasim's de novo error claims (issue M3-20; GIPPA_SPEC.md §11.3, §8.4).
 
 Claims checked over ``N_SEEDS`` replicate 60-kb genomes (seeds ``seeds.calibration_base + r``,
 tests/calibration/tolerances.yaml):
@@ -28,7 +28,7 @@ import numpy as np
 import pytest
 from helpers.denovo_oracle import decile_bins
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calibration
 
@@ -44,15 +44,15 @@ def _rows(path: Path) -> list[dict[str, str]]:
 
 
 def _sim(d: Path, seed: int, **dkw: Any) -> dict[str, list[dict[str, str]]]:
-    from giapsim.denovo import DenovoConfig
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.denovo import DenovoConfig
+    from gippasim.proteomics import ProteomicsConfig
 
-    cfg = giapsim.SimConfig(
+    cfg = gippasim.SimConfig(
         genome_length=60_000,
         proteomics=ProteomicsConfig(pi_wrong=0.05),
         denovo=DenovoConfig(**dkw),
     )
-    giapsim.simulate(cfg, seed, d)
+    gippasim.simulate(cfg, seed, d)
     return {
         "denovo": _rows(d / "peptides_denovo.tsv"),
         "truth": _rows(d / "truth" / "denovo.tsv"),
@@ -125,7 +125,7 @@ def test_error_type_shares_follow_weights(
 def test_default_weights_site_dependent_share(
     tmp_path_factory: pytest.TempPathFactory, base: int
 ) -> None:
-    from giapsim.denovo import DEFAULT_ERROR_WEIGHTS
+    from gippasim.denovo import DEFAULT_ERROR_WEIGHTS
 
     site = ("block", "near_block", "modification")
     n = k = 0

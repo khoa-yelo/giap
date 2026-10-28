@@ -1,5 +1,5 @@
 """The R golden environment, its batch job, the R script and the manual workflow (M8-12 "What is
-added", "Degenerate cases"; GIAP_SPEC.md §3.2, §3.7, §3.8, §11.5, §12, R6, R14).
+added", "Degenerate cases"; GIPPA_SPEC.md §3.2, §3.7, §3.8, §11.5, §12, R6, R14).
 
 Files checked: ``scripts/golden/golden_r.yml``, ``scripts/golden/golden_r.explicit.txt`` (skips
 until the first Slurm solve commits it), ``scripts/golden/make_golden_r.R``,
@@ -58,7 +58,7 @@ def _deps() -> dict[str, str]:
 
 
 def test_env_name() -> None:
-    assert _env()["name"] == "giap-golden-r"
+    assert _env()["name"] == "gippa-golden-r"
 
 
 def test_env_channels_are_conda_forge_and_bioconda_only() -> None:
@@ -83,7 +83,7 @@ def test_env_lists_data_table() -> None:
 
 def test_lock_is_an_explicit_export_from_the_two_channels() -> None:
     if not LOCK.is_file():
-        pytest.skip("golden_r.explicit.txt is written by the first giap-golden-r Slurm solve")
+        pytest.skip("golden_r.explicit.txt is written by the first gippa-golden-r Slurm solve")
     lines = [ln for ln in LOCK.read_text().splitlines() if ln and not ln.startswith("#")]
     assert lines[0] == "@EXPLICIT"
     urls = lines[1:]
@@ -152,12 +152,12 @@ def test_r_script_writes_the_versions_file() -> None:
 # --- the Slurm job (§3.8, R14) -------------------------------------------------------------
 
 
-def test_sbatch_parses_and_has_a_giap_header() -> None:
+def test_sbatch_parses_and_has_a_gippa_header() -> None:
     text = _text(SBATCH)
     proc = subprocess.run(["bash", "-n", str(SBATCH)], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     assert text.splitlines()[0] == "#!/bin/bash"
-    assert re.search(r"^#SBATCH --job-name=giap-golden-r$", text, re.M)
+    assert re.search(r"^#SBATCH --job-name=gippa-golden-r$", text, re.M)
     assert re.search(r"^#SBATCH --output=\S*/local/logs/%x\.%j\.out$", text, re.M)
     cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
     assert cpus and int(cpus.group(1)) <= 4
@@ -170,7 +170,7 @@ def test_sbatch_builds_with_a_yml_marker_and_checks_versions() -> None:
     text = _text(SBATCH)
     assert "golden_r.yml" in text
     assert "micromamba" in text
-    assert ".giap-built" in text, "the build_envs.sh marker pattern"
+    assert ".gippa-built" in text, "the build_envs.sh marker pattern"
     assert "sha256" in text
     assert "packageVersion" in text, "the solved version must equal the pin"
     assert "golden_r.explicit.txt" in text, "the lock is exported"

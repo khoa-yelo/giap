@@ -1,4 +1,4 @@
-// antiSMASH 8.0.4 [bgc] on the Bakta GBFF, no gene finding (GIAP_SPEC.md §7.1.1; M2-18).
+// antiSMASH 8.0.4 [bgc] on the Bakta GBFF, no gene finding (GIPPA_SPEC.md §7.1.1; M2-18).
 process ANTISMASH {
     tag "${meta_id}"
     label 'process_high'

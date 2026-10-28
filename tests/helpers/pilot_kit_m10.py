@@ -9,7 +9,7 @@ it, so the M10-02 tests can run before and after the lead's amendment:
 * ``validation/pilot/inputs/acquisition.json`` (M10-01's shape: ``dataset_mode`` and one object
   per run with ``run``, ``mode`` and ``notes``) names ``wt_rep1``-``wt_rep3``, and every run gets
   an ``analysis.tdf_bin`` stand-in;
-* ``GIAP_PYTHON`` is ``sys.executable`` (it has pyarrow);
+* ``GIPPA_PYTHON`` is ``sys.executable`` (it has pyarrow);
 * ``DIANN_SIF_SHARED`` is a second stand-in with the same bytes, mode 0777 like Khoa's image;
 * the fake ``apptainer`` is replaced by an extended one (below), and ``cp`` is wrapped so the
   install tests can see which files were copied.
@@ -85,7 +85,7 @@ M10_SCRIPTS = {
     "diann_report": SLURM / "diann_report.sbatch",
 }
 DIANN_SIF_SHARED = DIANN_SIF  # Khoa's image; only diann_image.sbatch may read it
-COPY_REL = Path("images") / PIN_NAME  # under $GIAP_ROOT (index lead decision 2)
+COPY_REL = Path("images") / PIN_NAME  # under $GIPPA_ROOT (index lead decision 2)
 STAND_IN = b"stub sif\n"
 STAND_IN_SHA256 = hashlib.sha256(STAND_IN).hexdigest()
 RUNS = ("wt_rep1", "wt_rep2", "wt_rep3")
@@ -436,7 +436,7 @@ def m10_sandbox(tmp: Path, *, raws: int = 3, tdf_bin: bool = True) -> M10Sandbox
     m10.pin_file.write_text(f"{STAND_IN_SHA256}  {PIN_NAME}\n")
     write_json(m10.acquisition, acquisition_doc(RUNS[:raws] if raws else RUNS))
     m10.commit("M10-02 sandbox: pin and acquisition.json")
-    sb.env.update({"GIAP_PYTHON": py, "DIANN_SIF_SHARED": str(shared)})
+    sb.env.update({"GIPPA_PYTHON": py, "DIANN_SIF_SHARED": str(shared)})
     return m10
 
 
@@ -583,7 +583,7 @@ def load_diann_report_module():  # type: ignore[no-untyped-def]
     import importlib.util
 
     assert DIANN_REPORT.is_file(), f"{DIANN_REPORT.relative_to(REPO)} does not exist (M10-02)"
-    spec = importlib.util.spec_from_file_location("giap_pilot_diann_report", DIANN_REPORT)
+    spec = importlib.util.spec_from_file_location("gippa_pilot_diann_report", DIANN_REPORT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

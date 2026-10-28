@@ -3,7 +3,7 @@
 Run for real in the M2-21 sandbox (``tests/helpers/slurm_sandbox.py``), with this module's own
 ``python``/``git``/``nf-test`` wrappers in the sandbox ``bin/``. Pinned:
 
-1. Slow-node guard: at task start the script times ``python -c '…import giap…'``; when that takes
+1. Slow-node guard: at task start the script times ``python -c '…import gippa…'``; when that takes
    longer than ``NIGHTLY_SLOW_NODE_SECS`` (default 60) seconds the task resubmits itself
    (``sbatch --array=<task> --exclude=<previous exclusions>,<this host>``, the same commit and
    worktree, ``NIGHTLY_SLOW_HOPS`` + 1, ``NIGHTLY_EXCLUDE`` = the new list), extends the pending
@@ -16,8 +16,8 @@ Run for real in the M2-21 sandbox (``tests/helpers/slurm_sandbox.py``), with thi
    checkout; a worktree whose checkout still fails is removed (``git worktree remove --force``),
    pruned and re-added; ``checkout -f`` is skipped when HEAD already is the target commit and the
    tree is clean (stray edits to tracked files are reset).
-4. ``tests/conftest.py``'s capability probe timeout comes from ``GIAP_PROBE_TIMEOUT`` (default
-   30 s), and nightly.sbatch exports ``GIAP_PROBE_TIMEOUT`` (default ≥ 180 s, an outer value wins).
+4. ``tests/conftest.py``'s capability probe timeout comes from ``GIPPA_PROBE_TIMEOUT`` (default
+   30 s), and nightly.sbatch exports ``GIPPA_PROBE_TIMEOUT`` (default ≥ 180 s, an outer value wins).
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from helpers.slurm_sandbox import (
     _PYTHON,
     REPO,
     Sandbox,
-    assert_honours_giap_repo,
+    assert_honours_gippa_repo,
     export_pairs,
     make_sandbox,
     option,
@@ -53,15 +53,15 @@ JOB = "4242"
 HOST = "rye-03"
 
 # Inserted after the shebang of the sandbox python wrapper:
-# * `python -c '…import giap…'` (the slow-node probe) sleeps $FAKE_IMPORT_SLEEP s, logs, exits 0;
-# * `python -m pytest` logs GIAP_PROBE_TIMEOUT; FAKE_PYTEST=sleep marks its start and sleeps 60 s.
+# * `python -c '…import gippa…'` (the slow-node probe) sleeps $FAKE_IMPORT_SLEEP s, logs, exits 0;
+# * `python -m pytest` logs GIPPA_PROBE_TIMEOUT; FAKE_PYTEST=sleep marks its start and sleeps 60 s.
 _HOOK = r"""
-if [ "${1:-}" = "-c" ] && printf '%s' "${2:-}" | grep -Eq 'import giap([^a-zA-Z0-9_]|$)'; then
+if [ "${1:-}" = "-c" ] && printf '%s' "${2:-}" | grep -Eq 'import gippa([^a-zA-Z0-9_]|$)'; then
   printf 'import-probe\n' >> "$FAKE_SLURM_DIR/calls.log"
   sleep "${FAKE_IMPORT_SLEEP:-0}"; exit 0
 fi
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pytest" ]; then
-  printf 'pytest GIAP_PROBE_TIMEOUT=%s\n' "${GIAP_PROBE_TIMEOUT:-<unset>}" \
+  printf 'pytest GIPPA_PROBE_TIMEOUT=%s\n' "${GIPPA_PROBE_TIMEOUT:-<unset>}" \
     >> "$FAKE_SLURM_DIR/calls.log"
   if [ "${FAKE_PYTEST:-}" = sleep ]; then
     : > "$FAKE_SLURM_DIR/long_started"; sleep 60; echo "1 passed in 60.00s"; exit 0
@@ -84,7 +84,7 @@ echo "SUCCESS: Executed 1 tests"
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
     require_gnu_userland()
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     box = make_sandbox(tmp_path)
     head, _, rest = _PYTHON.replace("{python}", sys.executable).partition("\n")
     for name in ("python", "python3"):
@@ -103,7 +103,7 @@ def _env(task: int, job: str = JOB, **extra: str) -> dict[str, str]:
         "SLURM_JOB_ID": str(int(job) + 1000),
         "SLURM_ARRAY_TASK_COUNT": "4",
         "SLURM_CPUS_PER_TASK": "2",
-        "SLURM_JOB_NAME": "giap-nightly",
+        "SLURM_JOB_NAME": "gippa-nightly",
         "NIGHTLY_POST": "dry",
         "FAKE_HOSTNAME": HOST,
         **extra,
@@ -141,12 +141,12 @@ def _diag(res: subprocess.CompletedProcess[str], sb: Sandbox) -> str:
 @pytest.mark.parametrize("task", [0, 2])
 def test_slow_node_resubmits_with_exclude_and_writes_no_row(sb: Sandbox, task: int) -> None:
     sb.set_next_job_id(7001)
-    sb.set_squeue("giap-nightly-summary", [f"9100 nightly:{JOB}"])
+    sb.set_squeue("gippa-nightly-summary", [f"9100 nightly:{JOB}"])
     res = _nightly(sb, task, NIGHTLY_SLOW_NODE_SECS="1", FAKE_IMPORT_SLEEP="3",
                    NIGHTLY_EXCLUDE="oat-07")  # fmt: skip
     diag = _diag(res, sb)
     assert "import-probe" in sb.calls_log(), (
-        "the slow-node probe (python -c 'import giap') never ran" + diag
+        "the slow-node probe (python -c 'import gippa') never ran" + diag
     )
     subs = _self_resubmissions(sb)
     assert len(subs) == 1, f"expected one resubmission of nightly.sbatch, got {subs}" + diag
@@ -191,7 +191,7 @@ def test_slow_node_hops_are_counted(sb: Sandbox) -> None:
 
 def test_two_hops_both_extend_the_summary(sb: Sandbox) -> None:
     """scontrol replaces the dependency list: a second hop keeps the first one (#403 B1)."""
-    sb.set_squeue("giap-nightly-summary", [f"9100 nightly:{JOB}"])
+    sb.set_squeue("gippa-nightly-summary", [f"9100 nightly:{JOB}"])
     for task, jid in ((0, 7001), (2, 7002)):
         sb.set_next_job_id(jid)
         res = _nightly(sb, task, NIGHTLY_SLOW_NODE_SECS="1", FAKE_IMPORT_SLEEP="3")
@@ -407,10 +407,10 @@ def test_broken_worktree_is_removed_pruned_and_re_added(sb: Sandbox) -> None:
 
 def _load_conftest(monkeypatch: pytest.MonkeyPatch, value: str | None) -> ModuleType:
     if value is None:
-        monkeypatch.delenv("GIAP_PROBE_TIMEOUT", raising=False)
+        monkeypatch.delenv("GIPPA_PROBE_TIMEOUT", raising=False)
     else:
-        monkeypatch.setenv("GIAP_PROBE_TIMEOUT", value)
-    spec = importlib.util.spec_from_file_location("giap_conftest_probe_copy", CONFTEST)
+        monkeypatch.setenv("GIPPA_PROBE_TIMEOUT", value)
+    spec = importlib.util.spec_from_file_location("gippa_conftest_probe_copy", CONFTEST)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -422,8 +422,8 @@ def test_probe_timeout_honours_env(monkeypatch: pytest.MonkeyPatch) -> None:
     t0 = time.monotonic()
     ok = mod._ok(["sleep", "3"])
     took = time.monotonic() - t0
-    assert not ok, "a probe slower than GIAP_PROBE_TIMEOUT=0.5 still counts as available"
-    assert took < 2.5, f"the probe ran {took:.1f}s despite GIAP_PROBE_TIMEOUT=0.5"
+    assert not ok, "a probe slower than GIPPA_PROBE_TIMEOUT=0.5 still counts as available"
+    assert took < 2.5, f"the probe ran {took:.1f}s despite GIPPA_PROBE_TIMEOUT=0.5"
 
 
 @pytest.mark.parametrize("value", [None, "", "not-a-number", "120"])
@@ -431,18 +431,18 @@ def test_probe_timeout_default_and_bad_values(
     monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
     mod = _load_conftest(monkeypatch, value)
-    assert mod._ok(["sleep", "0.1"]), f"a fast probe fails with GIAP_PROBE_TIMEOUT={value!r}"
+    assert mod._ok(["sleep", "0.1"]), f"a fast probe fails with GIPPA_PROBE_TIMEOUT={value!r}"
 
 
 def test_probe_timeout_default_is_30_seconds() -> None:
     text = CONFTEST.read_text()
-    assert "GIAP_PROBE_TIMEOUT" in text, "tests/conftest.py does not read GIAP_PROBE_TIMEOUT"
-    assert re.search(r"GIAP_PROBE_TIMEOUT[^\n]*\b30\b", text), "the default is no longer 30 s"
+    assert "GIPPA_PROBE_TIMEOUT" in text, "tests/conftest.py does not read GIPPA_PROBE_TIMEOUT"
+    assert re.search(r"GIPPA_PROBE_TIMEOUT[^\n]*\b30\b", text), "the default is no longer 30 s"
 
 
 def _pytest_probe_timeouts(sb: Sandbox) -> list[str]:
     return [
-        m[1] for ln in sb.calls_log() if (m := re.fullmatch(r"pytest GIAP_PROBE_TIMEOUT=(.*)", ln))
+        m[1] for ln in sb.calls_log() if (m := re.fullmatch(r"pytest GIPPA_PROBE_TIMEOUT=(.*)", ln))
     ]
 
 
@@ -452,10 +452,10 @@ def test_nightly_exports_a_long_probe_timeout(sb: Sandbox, task: int) -> None:
     seen = _pytest_probe_timeouts(sb)
     assert seen, "pytest never ran" + _diag(res, sb)
     for v in seen:
-        assert re.fullmatch(r"[0-9]+(\.[0-9]+)?", v), f"GIAP_PROBE_TIMEOUT={v} for pytest"
-        assert float(v) >= 180, f"GIAP_PROBE_TIMEOUT={v} < 180 s"
+        assert re.fullmatch(r"[0-9]+(\.[0-9]+)?", v), f"GIPPA_PROBE_TIMEOUT={v} for pytest"
+        assert float(v) >= 180, f"GIPPA_PROBE_TIMEOUT={v} < 180 s"
 
 
 def test_nightly_keeps_an_outer_probe_timeout(sb: Sandbox) -> None:
-    res = _nightly(sb, 2, GIAP_PROBE_TIMEOUT="300")
+    res = _nightly(sb, 2, GIPPA_PROBE_TIMEOUT="300")
     assert _pytest_probe_timeouts(sb) == ["300"], _diag(res, sb)

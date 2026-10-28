@@ -2,7 +2,7 @@
 statistician review change 2). Suite ``placement`` (``replicates_fast.placement`` /
 ``replicates_full.placement``); existing key ``se_multiplier`` only, no new tolerance (R3).
 
-giapsim 1-Mb null genomes (no read-through planted) through ``run_chain`` (preflight and the
+gippasim 1-Mb null genomes (no read-through planted) through ``run_chain`` (preflight and the
 registered mapping steps), with the M3-19 database wrong-peptide arm (``reverse`` decoys,
 ``pi_wrong`` 0.05) and the M3-20 de novo arm (``shuffle`` decoys). Per replicate and decoy type:
 
@@ -44,7 +44,7 @@ LENGTH = 1_000_000
 
 
 def _counts(ch, kind: str) -> dict[str, float]:  # type: ignore[no-untyped-def]
-    from giap.mapping.sixframe import load_stop_cells
+    from gippa.mapping.sixframe import load_stop_cells
 
     cells = load_stop_cells(ch.avail["sixframe"])
     hits = best_cost_rows(hits_of(ch.avail))
@@ -62,13 +62,13 @@ def _counts(ch, kind: str) -> dict[str, float]:  # type: ignore[no-untyped-def]
 
 
 def _replicate(kind: str, seed: int, d: Path) -> dict[str, float]:
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     pro = ProteomicsConfig(search_db="other", pi_wrong=0.05)  # type: ignore[arg-type]
     if kind == "reverse":
         ch = run_chain("database", seed, d, length=LENGTH, proteomics=pro)
     else:
-        from giapsim.denovo import DenovoConfig
+        from gippasim.denovo import DenovoConfig
 
         ch = run_chain("denovo", seed, d, length=LENGTH, proteomics=pro, denovo=DenovoConfig())
     out = _counts(ch, kind)

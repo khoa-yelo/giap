@@ -31,10 +31,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giap.config.model import GiapConfig
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
-from giap.novel.candidates import Orf
+from gippa.config.model import GippaConfig
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
+from gippa.novel.candidates import Orf
 
 LENGTH = 200_000
 CONTIGS = ("c1", "c2", "c3", "c4")
@@ -48,7 +48,7 @@ NTERM_GENE_AT = 50_000  # b0002 on c1, + strand, [50000, 50300)
 
 
 def cc() -> Any:
-    import giap.novel.class_call as m  # fails (ModuleNotFoundError) until M7-11b lands
+    import gippa.novel.class_call as m  # fails (ModuleNotFoundError) until M7-11b lands
 
     return m
 
@@ -81,10 +81,10 @@ def nterm_world() -> tuple[dict[str, str], Gene]:
     return g, gene
 
 
-def config(alpha: float | None = None) -> GiapConfig:
+def config(alpha: float | None = None) -> GippaConfig:
     if alpha is None:
-        return GiapConfig()
-    return GiapConfig.model_validate({"stats": {"alpha": {"novel_orfs": alpha}}})
+        return GippaConfig()
+    return GippaConfig.model_validate({"stats": {"alpha": {"novel_orfs": alpha}}})
 
 
 def gene_table(n: int = 25) -> pd.DataFrame:
@@ -198,15 +198,15 @@ def assemble(
     *,
     gm: GeneModel,
     genome: Mapping[str, str],
-    cfg: GiapConfig | None = None,
+    cfg: GippaConfig | None = None,
     denovo: Any = None,
     tir: float = RBS_TIR,
     gt: pd.DataFrame | None = None,
 ) -> Assembled:
     """Step items 3-5 in memory (no terminators, no peptide intervals)."""
-    from giap.novel.candidates import minimal_call
-    from giap.novel.evidence import apply_evidence, class_rules
-    from giap.novel.outputs import orf_table
+    from gippa.novel.candidates import minimal_call
+    from gippa.novel.evidence import apply_evidence, class_rules
+    from gippa.novel.outputs import orf_table
 
     m = cc()
     cfg = cfg or config()

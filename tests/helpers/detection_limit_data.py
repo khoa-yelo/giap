@@ -8,7 +8,7 @@ Everything is built by hand so the oracles do not reuse the code under test:
   I and L are never used (no I/L-equivalence question in matching);
 - GRAVY is the Kyte-Doolittle mean computed here from a literal table (the scale M4-10 uses);
 - the Poisson-binomial oracle enumerates all 2^n outcomes (n <= 12);
-- C11 ``peptide_hits`` rows carry every contract column (``giap.genetable.contract.TABLES``).
+- C11 ``peptide_hits`` rows carry every contract column (``gippa.genetable.contract.TABLES``).
 """
 
 from __future__ import annotations

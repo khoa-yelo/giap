@@ -1,10 +1,10 @@
 """M7-11b class FDR wiring at the library level (docs/specs/M7-11b-class-fdr-wiring.md acceptance
-criterion 1): ``giap.novel.class_call`` (``class_fdr``, ``class_fdr_cell``, ``makedb_id_map``,
-``denovo_inputs``), ``giap.novel.fdr.denovo_class_fdr``, ``giap.makedb.build.nterm_entries`` and
-``giap.novel.evidence.class_rules`` + the rule-6 call in ``apply_evidence``.
+criterion 1): ``gippa.novel.class_call`` (``class_fdr``, ``class_fdr_cell``, ``makedb_id_map``,
+``denovo_inputs``), ``gippa.novel.fdr.denovo_class_fdr``, ``gippa.makedb.build.nterm_entries`` and
+``gippa.novel.evidence.class_rules`` + the rule-6 call in ``apply_evidence``.
 
 Examples 1-5 and 7-13 with their exact cells (``class_fdr`` strings, ``called``), and every
-degenerate row that is not a step row. GIAP_SPEC.md §7.6.4, §8.1, §9.3, §9.4; M7-11 decisions 5,
+degenerate row that is not a step row. GIPPA_SPEC.md §7.6.4, §8.1, §9.3, §9.4; M7-11 decisions 5,
 7-9, 11, 13, 14; lead decisions 2026-10-23 (the side-table bool ``class_mismatch`` is *not* a
 ``novel_orfs`` flag, decision 3).
 
@@ -47,7 +47,7 @@ from helpers.novel_fdr_fixture import (
     peptides_frame,
 )
 
-from giap.model.coords import Interval
+from gippa.model.coords import Interval
 
 GENOME = world_genome()
 GM = gene_model(GENOME)
@@ -216,7 +216,7 @@ def test_example_13_alpha_from_config() -> None:
 def test_example_4_lost_pick_is_one_and_not_called(decoy_rank: int) -> None:
     w = PickedWorld()
     entry = w.entry("cds_outframe", "c1", "+", start0=100, length=300)
-    assert entry == ("GIAPORF_cds_outframe_c1_101_400_p", 400)
+    assert entry == ("GIPPAORF_cds_outframe_c1_101_400_p", 400)
     x, did = w.target("cds_outframe", "c1", [2, 3, 4], entry=entry)
     assert x.stop == 400 and len(x.peptides) == 3
     w.decoy(did, decoy_rank)  # rank 2 = same q and score as the best target (decision 5)
@@ -332,7 +332,7 @@ def test_cterm_extension_untagged_and_never_called() -> None:
 def test_example_8_class_mismatch_competes_in_the_entry_class() -> None:
     w = PickedWorld()
     entry = w.entry("cds_outframe", "c1", "+", start0=100, length=300)
-    assert entry[0] == "GIAPORF_cds_outframe_c1_101_400_p"
+    assert entry[0] == "GIPPAORF_cds_outframe_c1_101_400_p"
     x, _ = w.target("intergenic", "c1", 1, entry=entry)  # reconstructed intergenic, 1 peptide
     y, _ = w.target("cds_outframe", "c2", [2, 3])
     others = [w.target("intergenic", "c3", 10 + i)[0].orf_id for i in range(150)]
@@ -354,7 +354,7 @@ def test_example_8_class_mismatch_competes_in_the_entry_class() -> None:
 
 def test_flag_order_has_no_class_mismatch() -> None:
     """Lead decision 3: no ``class_mismatch`` flag (pending Khoa); ``FLAG_ORDER`` unchanged."""
-    from giap.novel.outputs import FLAG_ORDER
+    from gippa.novel.outputs import FLAG_ORDER
 
     assert "class_mismatch" not in FLAG_ORDER
 
@@ -488,7 +488,7 @@ def test_denovo_inputs_keeps_only_denovo_peptides_and_attaches_e() -> None:
 
 
 def _example11(with_gene: bool) -> tuple[Assembled, str, str]:
-    from giap.makedb.build import _nterm_entries
+    from gippa.makedb.build import _nterm_entries
 
     genome, gene = nterm_world()
     gm = gene_model(genome, [gene] if with_gene else [])
@@ -496,7 +496,7 @@ def _example11(with_gene: bool) -> tuple[Assembled, str, str]:
     recs = [e for e in _nterm_entries(full, genome) if e.locus_tag == "b0002"]
     assert len(recs) == 1
     entry = recs[0].db_id
-    assert entry.startswith("GIAPORF_nterm_extension_c1_") and entry.endswith("_p")
+    assert entry.startswith("GIPPAORF_nterm_extension_c1_") and entry.endswith("_p")
     p = NTERM_GENE_AT
     o = orf_at(f"NOVEL_c1_{p - 56}_p", "nterm_extension", "c1", "+", p + 297,
                ["NTRMAAAK", "NTRMCCCK"], start=p - 57, overlapping_gene="b0002")  # fmt: skip
@@ -525,7 +525,7 @@ def test_example_11_gene_model_without_the_gene_is_no_makedb_pair() -> None:
 
 
 def test_nterm_entries_is_the_public_alias() -> None:
-    from giap.makedb.build import _nterm_entries, nterm_entries
+    from gippa.makedb.build import _nterm_entries, nterm_entries
 
     genome, gene = nterm_world()
     gm = gene_model(genome, [gene])
@@ -538,40 +538,40 @@ def test_nterm_entries_is_the_public_alias() -> None:
 def test_makedb_id_map_rows_from_tagged_ids() -> None:
     genome, gene = nterm_world()
     gm = gene_model(genome, [gene])
-    from giap.makedb.build import _nterm_entries
+    from gippa.makedb.build import _nterm_entries
 
     nterm = next(e.db_id for e in _nterm_entries(gm, genome))
-    stray = "GIAPORF_nterm_extension_c2_101_400_p"  # no nterm_entries record
+    stray = "GIPPAORF_nterm_extension_c2_101_400_p"  # no nterm_entries record
     rows = [
-        pep_row("PEPAAAAK", ["GIAPORF_cds_outframe_c1_101_400_p", "b0001"], 1, is_decoy=False),
-        pep_row("PEPCCCCK", ["GIAPORF_cds_outframe_c1_101_400_p"], 2, is_decoy=False),
+        pep_row("PEPAAAAK", ["GIPPAORF_cds_outframe_c1_101_400_p", "b0001"], 1, is_decoy=False),
+        pep_row("PEPCCCCK", ["GIPPAORF_cds_outframe_c1_101_400_p"], 2, is_decoy=False),
         pep_row("PEPDDDDK", [nterm, stray], 3, is_decoy=False),
-        pep_row("DECYAAAK", ["rev_GIAPORF_intergenic_c2_1001_1300_m", "rev_b0002"], 4,
+        pep_row("DECYAAAK", ["rev_GIPPAORF_intergenic_c2_1001_1300_m", "rev_b0002"], 4,
                 is_decoy=True),
-        pep_row("DECYCCCK", ["DECOY_GIAPORF_antisense_c3_7_306_p"], 5, is_decoy=True),
+        pep_row("DECYCCCK", ["DECOY_GIPPAORF_antisense_c3_7_306_p"], 5, is_decoy=True),
     ]  # fmt: skip
     peps = peptides_frame(rows)
     m = cc().makedb_id_map(peps, gm, genome, ["rev_", "DECOY_"])
     assert tuple(m.columns) == ID_MAP_COLUMNS
     got = {r["db_id"]: r for r in m.to_dict("records")}
     assert set(got) == {
-        "GIAPORF_cds_outframe_c1_101_400_p",
+        "GIPPAORF_cds_outframe_c1_101_400_p",
         nterm,
         stray,
-        "GIAPORF_intergenic_c2_1001_1300_m",
-        "GIAPORF_antisense_c3_7_306_p",
+        "GIPPAORF_intergenic_c2_1001_1300_m",
+        "GIPPAORF_antisense_c3_7_306_p",
     }
     assert len(m) == len(got)  # one row per distinct ID
     assert (m["kind"] == "orf").all()
-    r = got["GIAPORF_cds_outframe_c1_101_400_p"]
+    r = got["GIPPAORF_cds_outframe_c1_101_400_p"]
     assert (r["class"], r["contig"], int(r["start"]), int(r["end"]), r["strand"]) == (
         "cds_outframe", "c1", 101, 400, "+")  # fmt: skip
     assert pd.isna(r["locus_tag"])
-    r = got["GIAPORF_intergenic_c2_1001_1300_m"]
+    r = got["GIPPAORF_intergenic_c2_1001_1300_m"]
     assert (int(r["start"]), int(r["end"]), r["strand"]) == (1001, 1300, "-")
     assert got[nterm]["locus_tag"] == "b0002"
     assert pd.isna(got[stray]["locus_tag"])
-    for k in ("GIAPORF_intergenic_c2_1001_1300_m", "GIAPORF_antisense_c3_7_306_p"):
+    for k in ("GIPPAORF_intergenic_c2_1001_1300_m", "GIPPAORF_antisense_c3_7_306_p"):
         assert pd.isna(got[k]["locus_tag"])
 
 
@@ -675,7 +675,7 @@ def test_two_orfs_paired_to_one_entry_share_its_q() -> None:
 def test_origin_crossing_orf_pairs_modulo_the_replicon_length() -> None:
     w = PickedWorld()
     did = db_id("intergenic", "c1", LENGTH - 150, LENGTH + 150, "+")
-    assert did == f"GIAPORF_intergenic_c1_{LENGTH - 149}_{LENGTH + 150}_p"
+    assert did == f"GIPPAORF_intergenic_c1_{LENGTH - 149}_{LENGTH + 150}_p"
     x = orf_at(f"NOVEL_c1_{LENGTH - 149}_p", "intergenic", "c1", "+", 150, ["ORGNAAAK"],
                start=LENGTH - 150)  # fmt: skip
     w.pep_rows.append(pep_row("ORGNAAAK", [did], 1, is_decoy=False))
@@ -789,7 +789,7 @@ def test_rank_covers_called_orfs_only() -> None:
 def test_denovo_class_fdr_per_class_stats_and_q() -> None:
     from helpers.novel_fdr_fixture import hit_rows
 
-    from giap.novel import fdr
+    from gippa.novel import fdr
 
     t = hit_rows(["TGTAAAAK", "TGTCCCCK"], [Interval("c1", 100, 130, "+")] * 2, [1e-4, 1e-3],
                  search="target")  # fmt: skip

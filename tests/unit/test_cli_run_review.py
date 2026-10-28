@@ -1,4 +1,4 @@
-"""Code review of PR #78 (real ``giap run``, Slurm 1848591): lead decisions 3a-f.
+"""Code review of PR #78 (real ``gippa run``, Slurm 1848591): lead decisions 3a-f.
 
 docs/specs/M2-07-nextflow-tool-processes.md, "Lead decisions for the run-wiring follow-up", item 3:
 
@@ -26,10 +26,10 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
-from giap.preflight.environment import MANIFEST
+from gippa.exitcodes import ExitCode
+from gippa.preflight.environment import MANIFEST
 
 REPO = Path(__file__).resolve().parents[2]
 NF_CONFIG = REPO / "workflow" / "nextflow.config"
@@ -41,17 +41,17 @@ ALL_MODULES = ["core", "mobile", "bgc", "function"]
 
 
 @pytest.fixture(autouse=True)
-def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _fake_gippa_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     return root
 
 
 def _write_db(path: Path, manifest: bool = True) -> Path:
     path.mkdir(parents=True)
     if manifest:
-        write_setup_manifest(path)  # real `giap setup` format (decision 4c)
+        write_setup_manifest(path)  # real `gippa setup` format (decision 4c)
     return path
 
 
@@ -85,7 +85,7 @@ def proteins(tmp_path: Path) -> Path:
 @pytest.fixture
 def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = _write_db(tmp_path / "db_env")
-    monkeypatch.setenv("GIAP_DB_DIR", str(path))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(path))
     return path
 
 
@@ -107,7 +107,7 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _run(argv: list[str]) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = CliRunner().invoke(cli, ["run", *argv])
     out = result.output + (result.stderr if result.stderr_bytes is not None else "")
@@ -118,7 +118,7 @@ def _run(argv: list[str]) -> tuple[int, str]:
 
 def _main(argv: list[str]) -> int:
     """Through the console-script entry point (usage errors → exit 1, §5.1)."""
-    from giap.cli import main
+    from gippa.cli import main
 
     with pytest.raises(SystemExit) as exc:
         main(["run", *argv])
@@ -264,14 +264,14 @@ def test_d_good_input_without_nextflow_still_exits_2(
 
 
 def _spy_read_manifest(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    import giap.preflight.environment as env_mod
-    import giap.preflight.run as run_mod
+    import gippa.preflight.environment as env_mod
+    import gippa.preflight.run as run_mod
 
     real = env_mod.read_manifest
     calls: list[dict[str, Any]] = []
 
     def spy(db_dir: str | None) -> Any:
-        calls.append({"arg": db_dir, "env": os.environ.get("GIAP_DB_DIR")})
+        calls.append({"arg": db_dir, "env": os.environ.get("GIPPA_DB_DIR")})
         return real(db_dir)
 
     monkeypatch.setattr(env_mod, "read_manifest", spy)
@@ -292,21 +292,21 @@ def test_e_db_dir_reaches_preflight_without_touching_the_environment(
     env_db = tmp_path / "db_env_no_manifest"
     env_db.mkdir()
     if env_set:
-        monkeypatch.setenv("GIAP_DB_DIR", str(env_db))
+        monkeypatch.setenv("GIPPA_DB_DIR", str(env_db))
     else:
-        monkeypatch.delenv("GIAP_DB_DIR", raising=False)
-    before = os.environ.get("GIAP_DB_DIR")
+        monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
+    before = os.environ.get("GIPPA_DB_DIR")
     given = _write_db(tmp_path / "db_given")
     calls = _spy_read_manifest(monkeypatch)
     out = tmp_path / "OUT"
     argv = ["--genome", str(genome), "--proteins", str(proteins), "--outdir", str(out)]
     code, text = _run([*argv, "--db-dir", str(given)])
     assert code == ExitCode.SUCCESS, text
-    assert os.environ.get("GIAP_DB_DIR") == before
+    assert os.environ.get("GIPPA_DB_DIR") == before
     assert calls, "preflight never read the manifest"
     for call in calls:
         assert call["arg"] is not None and Path(call["arg"]).resolve() == given.resolve(), call
-        assert call["env"] == before, f"$GIAP_DB_DIR mutated during preflight: {call}"
+        assert call["env"] == before, f"$GIPPA_DB_DIR mutated during preflight: {call}"
 
 
 # ------------------------------------------------------ f. strict / missing manifest
@@ -332,7 +332,7 @@ def test_f_missing_manifest_exits_2_without_launch(
     genome: Path, proteins: Path, fake_nf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     nodb = _write_db(tmp_path / "db_empty", manifest=False)
-    monkeypatch.setenv("GIAP_DB_DIR", str(nodb))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(nodb))
     out = tmp_path / "OUT"
     argv = ["--genome", str(genome), "--proteins", str(proteins), "--outdir", str(out)]
     code, text = _run(argv)
@@ -344,7 +344,7 @@ def test_f_missing_manifest_exits_2_without_launch(
 def test_f_missing_manifest_in_given_db_dir_exits_2_without_launch(
     genome: Path, proteins: Path, db: Path, fake_nf: Path, tmp_path: Path
 ) -> None:
-    """``$GIAP_DB_DIR`` has a manifest but ``--db-dir`` (which wins) does not."""
+    """``$GIPPA_DB_DIR`` has a manifest but ``--db-dir`` (which wins) does not."""
     nodb = _write_db(tmp_path / "db_empty", manifest=False)
     out = tmp_path / "OUT"
     argv = ["--genome", str(genome), "--proteins", str(proteins), "--outdir", str(out)]

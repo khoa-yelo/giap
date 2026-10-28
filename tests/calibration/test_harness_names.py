@@ -1,7 +1,7 @@
 """Confirm-run harness detection (tests/calibration/conftest.py ``HARNESS_NAMES`` /
 ``reaches_harness``; review of #271, B1). Unmarked: runs on every commit.
 
-A confirm run (``GIAP_CALIBRATION_CONFIRM``) skips every calibration test that does not reach a
+A confirm run (``GIPPA_CALIBRATION_CONFIRM``) skips every calibration test that does not reach a
 harness entry point, so an entry point missing from ``HARNESS_NAMES`` silently drops block 2 of
 its checks and ``--merge`` ends in MERGE_ERROR. Every public ``calibrate*`` function of
 ``_criteria`` must be listed, and the M7-13b FDR-count tests must be found as harness tests.

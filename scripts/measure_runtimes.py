@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measured runtimes from a Nextflow ``trace.tsv`` (M2-21; GIAP_SPEC.md §3.8, §13 M2 gate).
+"""Measured runtimes from a Nextflow ``trace.tsv`` (M2-21; GIPPA_SPEC.md §3.8, §13 M2 gate).
 
 Usage: ``measure_runtimes.py TRACE.tsv [--sacct JOBID] [--genome NAME]``
 

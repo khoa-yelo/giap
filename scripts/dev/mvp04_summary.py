@@ -1,15 +1,15 @@
 """MVP-04 evidence-run summary (docs/specs/MVP-04-ecoli-evidence-run.md "The run", acceptance
 gates 1-16; lead decisions 11, 15, 19, 20 and 22).
 
-Reads only published GIAP outputs and the giapsim inputs (plus a second giapsim call with the same
-seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN as null):
+Reads only published GIPPA outputs and the gippasim inputs (plus a second gippasim call with the
+same seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN as null):
 ``{"gates": {"1": entry, ..., "16": entry}, "all_gates_ok", "outside_expected"}``. Each entry has
 ``value``, ``expected``, ``gate``, ``gate_ok``, ``in_expected`` and ``status`` (``pass``,
 ``outside_expected`` = gate met but value outside the expected range, reported; ``fail``) plus
 per-gate keys; the gate definitions are pinned in tests/unit/test_mvp04_summary_gates.py. Each
 ``gate<N>`` only reads files and never raises on a missing output (the gate then fails).
 Gate 13 (decision 20) gates the one planted high island; the three planted lows are exempt
-(structural cap) and reported with their ceiling from ``giap.context.islands``.
+(structural cap) and reported with their ceiling from ``gippa.context.islands``.
 
 Gate 7 (part 1, ``gate7()``):
 
@@ -20,7 +20,7 @@ Gate 7 (part 1, ``gate7()``):
   ``peptide_hits`` row (``gene`` = the gene) of a null peptide of the channel; a gene may count
   in several (decision 15): ``protein_null`` (truth ``origin = undetected_product``),
   ``nterm_extension_sixframe_null`` (``origin = sixframe_noncoding`` whose target rows in the
-  input carry a ``GIAPORF_nterm_extension_*`` entry), ``tolerant_sixframe_null`` (any other
+  input carry a ``GIPPAORF_nterm_extension_*`` entry), ``tolerant_sixframe_null`` (any other
   six-frame null whose hit on the gene has ``route = tolerant``), and ``other`` (none of these).
 
     python scripts/dev/mvp04_summary.py OUTDIR INPUTS [--inputs-again DIR]
@@ -41,11 +41,11 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from giap.context.islands import low_direction_ceiling
+from gippa.context.islands import low_direction_ceiling
 
 PROTEIN_NULL_ORIGIN = "undetected_product"  # MVP-04 lead decision 9
 SIXFRAME_NULL_ORIGIN = "sixframe_noncoding"
-NTERM_PREFIX = "GIAPORF_nterm_extension_"
+NTERM_PREFIX = "GIPPAORF_nterm_extension_"
 CHANNELS = ("protein_null", "nterm_extension_sixframe_null", "tolerant_sixframe_null", "other")
 SUMMARY_NAME = "evidence_summary.json"
 
@@ -108,7 +108,7 @@ def gate7_from_rows(
 
 
 def gate7(outdir: Path, inputs: Path) -> dict[str, Any]:
-    """Gate 7 of the run in ``outdir`` against the giapsim inputs in ``inputs``."""
+    """Gate 7 of the run in ``outdir`` against the gippasim inputs in ``inputs``."""
     outdir, inputs = Path(outdir), Path(inputs)
     return gate7_from_rows(
         _rows(outdir / "tables" / "genes.tsv"),
@@ -365,7 +365,7 @@ NOVEL_STARTS = frozenset({"GTG", "TTG", "CTG"})  # non-ATG starts reading M as i
 
 
 def _fold(s: str | None) -> str:
-    """I, L and J as one token (GIAP's folded I/L ALT residue is ``J``, M7-02 rule 5)."""
+    """I, L and J as one token (GIPPA's folded I/L ALT residue is ``J``, M7-02 rule 5)."""
     return (s or "").translate(_IL)
 
 
@@ -430,7 +430,7 @@ def gate11(outdir: Path, inputs: Path) -> dict[str, Any]:
     """Variants: ``high`` ALT rows against ``truth/alt_sites.tsv`` + ``novel_alt_sites.tsv``.
 
     Residues compare with I/L folded (ALT ``J`` = truth ``I`` or ``L``); initiator rows (ALT M
-    at a ``start_codon``-flagged or GTG/TTG/CTG novel-ORF start: giapsim leaves initiators out
+    at a ``start_codon``-flagged or GTG/TTG/CTG novel-ORF start: gippasim leaves initiators out
     of truth) leave the precision denominator (``n_initiator_m_excluded``); recall sites have
     >= 2 true peptides of ``truth/peptides.tsv`` of at least ``mapping.tolerant.min_len``
     (``resolved_config.yaml``; no config, no recall). ``value`` is every high row."""
@@ -667,7 +667,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("outdir", type=Path)
     ap.add_argument("inputs", type=Path)
     ap.add_argument("--inputs-again", type=Path, default=None,
-                    help="the second giapsim call with the same seed (gate 9)")  # fmt: skip
+                    help="the second gippasim call with the same seed (gate 9)")  # fmt: skip
     a = ap.parse_args(argv)
     res = _strict(summarise(a.outdir, a.inputs, a.inputs_again))
     path = a.outdir / SUMMARY_NAME

@@ -1,4 +1,4 @@
-"""Decoy translations and the ``sixframe_index`` work file (issue M3-03; GIAP_SPEC.md §7.2.1, §8.2,
+"""Decoy translations and the ``sixframe_index`` work file (issue M3-03; GIPPA_SPEC.md §7.2.1, §8.2,
 §8.5 attack 5, §6.2, §6.6).
 
 Conventions pinned here (from the issue text and the lead's defaults):
@@ -7,7 +7,7 @@ Conventions pinned here (from the issue text and the lead's defaults):
   residues are counted over the *non-X* residues of each stop-free segment, from its start.
 - ``reverse`` reverses the whole frame, so ``*`` positions are mirrored (``i -> n - 1 - i``).
 - ``build_decoys`` processes frames in index order, drawing from one generator; the step seeds it
-  with ``giap.rng.for_step("sixframe_index", config.seed)``.
+  with ``gippa.rng.for_step("sixframe_index", config.seed)``.
 - Decoy frames keep ``contig``/``strand``/``offset``/``ext_nt`` of their target frame (decoy hits
   are mapped back through ``mirror_aa`` to a target position, §7.6.4).
 """
@@ -20,9 +20,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import build_decoys, mirror_aa, reverse_frame, shuffle_frame
-from giap.mapping.sixframe import (
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import build_decoys, mirror_aa, reverse_frame, shuffle_frame
+from gippa.mapping.sixframe import (
     AMBIG,
     STOP,
     Frame,
@@ -33,8 +33,8 @@ from giap.mapping.sixframe import (
     load_index,
     save_index,
 )
-from giap.model import Replicon
-from giap.rng import for_step
+from gippa.model import Replicon
+from gippa.rng import for_step
 
 STEP = "sixframe_index"
 
@@ -334,9 +334,9 @@ def test_shuffle_is_uniform_over_window_permutations() -> None:
 
 
 def _sim_index(tmp_path: Path) -> SixFrameIndex:
-    import giapsim
+    import gippasim
 
-    res = giapsim.simulate(giapsim.SimConfig(genome_length=50_000), seed=1, outdir=tmp_path / "s")
+    res = gippasim.simulate(gippasim.SimConfig(genome_length=50_000), seed=1, outdir=tmp_path / "s")
     recs = read_genome_fasta(res.genome_fasta)
     genome = {r.id: r.sequence for r in recs}
     reps = {r.id: Replicon(r.id, len(r.sequence), "circular", "chromosome") for r in recs}

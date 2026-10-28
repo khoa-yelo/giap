@@ -1,4 +1,4 @@
-"""Real-data TE2-TE5 on the pilot arms; GIAP_SPEC.md §11.6, §15.6 bullet 5; spec
+"""Real-data TE2-TE5 on the pilot arms; GIPPA_SPEC.md §11.6, §15.6 bullet 5; spec
 docs/specs/M10-06-te-real-and-te7.md. TE7 (a second A2 run, byte for byte) lives in te7.py; its
 subcommand stays here.
 
@@ -6,7 +6,7 @@ Pure functions (frames and dicts in, dicts out) plus a thin CLI::
 
     python validation/pilot/te_real.py compute --a2 OUT_A2 --a1 OUT_A1 \\
         --peptides-a1 PEP_A1 --peptides-a2 PEP_A2 --contaminants CONTAM --out METRICS_DIR
-    python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIAP_REPO \\
+    python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIPPA_REPO \\
         [--diann-a DIANN_A --diann-b DIANN_B --peptides-a PEP_A2 --peptides-b CONV_B] \\
         --out METRICS_DIR
 
@@ -32,10 +32,10 @@ import pandas as pd
 from validation.pilot import metrics as pm
 from validation.proxies.te_proxies import TE2_EXEMPT, _flag_names, te2_result
 
-from giap.annotate import bakta_layers as bl
-from giap.config import GiapConfig
-from giap.io.protein_fasta import resolve_protein_id
-from giap.steps.mapping import select_queries
+from gippa.annotate import bakta_layers as bl
+from gippa.config import GippaConfig
+from gippa.io.protein_fasta import resolve_protein_id
+from gippa.steps.mapping import select_queries
 
 SPEC = "docs/specs/M10-06-te-real-and-te7.md"
 TE3_MIN = 0.90  # §11.6, inclusive (R3: fixed before the real data)
@@ -324,7 +324,7 @@ def te5_arm(
     peptide_hits: pd.DataFrame,
     unmapped: pd.DataFrame,
     families: Mapping[str, Collection[str]],
-    cfg: GiapConfig,
+    cfg: GippaConfig,
 ) -> dict[str, Any]:
     """TE5 on one arm: family peptides of **U** (accepted target rows) land in the bucket. The
     violating peptides ride along under ``_violations`` (popped before writing)."""
@@ -377,7 +377,7 @@ def _dump(doc: Any) -> str:
 def _write(
     out: Path, name: str, doc: Any, tsv: str, cols: list[str], rows: list[list[Any]]
 ) -> None:
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     out.mkdir(parents=True, exist_ok=True)
     (out / name).write_text(_dump(doc), encoding="utf-8")
@@ -405,7 +405,7 @@ def _pinned(man: Mapping[str, Any], fasta: Path) -> bool:
 
 def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[list[Any]]]:
     """te_real.json and the exception rows (reads only; raises on a precondition)."""
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.peptides import read_peptide_table
 
     _out_dir(a.out)
     contam = pm._need(a.contaminants)
@@ -425,7 +425,7 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[list[Any]]]:
     gpath, vpath = out2 / "tables" / "genes.tsv", out2 / "tables" / "variants.tsv"
     genes, dpath = pm._table(pm._need(gpath), "genes"), pm._run_table(out2, "detection_summary.tsv")
     variants = pm._table(vpath, "variants") if vpath.is_file() else None
-    doc: dict[str, Any] = {"schema": "giap-pilot-te-real/1", "spec": _spec_sha()}
+    doc: dict[str, Any] = {"schema": "gippa-pilot-te-real/1", "spec": _spec_sha()}
     doc["te2"] = te2(variants, genes, dpath and pm._table(dpath, "detection_summary"))
     doc["te3"], doc["te4"] = te3(genes), te4(genes)
     heads = [ln[1:] for ln in contam.read_text(encoding="utf-8").splitlines() if ln.startswith(">")]

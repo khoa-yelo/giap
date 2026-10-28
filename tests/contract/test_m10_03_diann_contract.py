@@ -1,28 +1,28 @@
-"""Contract test: DIA-NN 2.3.1 pilot reports through ``convert_diann`` (M10-03; GIAP_SPEC.md §5.4).
+"""Contract test: DIA-NN 2.3.1 pilot reports through ``convert_diann`` (M10-03; GIPPA_SPEC.md §5.4).
 
 Spec: docs/specs/M10-03-diann-convert.md, facts F1-F10, "The contract test", lead decisions 1-4.
 
 Data live on FarmShare only (Khoa, 2026-10-23: nothing derived from the DIA-NN reports is
 committed). The tests read
 
-* ``$GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/report.sample.parquet`` (M10-02's stratified
+* ``$GIPPA_ROOT/pilot/recorded/diann/2.3.1/<arm>/report.sample.parquet`` (M10-02's stratified
   sample, 900 targets + 100 decoys), and, for the ``slow`` ``full_report`` variant,
-  ``$GIAP_ROOT/pilot/<arm>/<arm>_report.parquet``;
-* the arm's search FASTAs: A1 ``$GIAP_DATA_DIR/proteomes/UP000000625.fasta``, A2 the committed
+  ``$GIPPA_ROOT/pilot/<arm>/<arm>_report.parquet``;
+* the arm's search FASTAs: A1 ``$GIPPA_DATA_DIR/proteomes/UP000000625.fasta``, A2 the committed
   ``validation/pilot/db_a2/strain_db.faa.gz``; both arms
-  ``$GIAP_DB_DIR/contaminants/contaminants.fasta``;
+  ``$GIPPA_DB_DIR/contaminants/contaminants.fasta``;
 * ``validation/pilot/inputs/acquisition.json`` (M10-01) for the run labels.
 
-They **skip, never fail**, when ``GIAP_ROOT`` is unset (CI) or a file is missing, and read no
+They **skip, never fail**, when ``GIPPA_ROOT`` is unset (CI) or a file is missing, and read no
 environment at import time. No byte-golden file is read or written. Recorded values (decoy rows
 without q, contaminant rows, target/decoy sequence collisions) are printed and attached with
 ``record_property``; run with ``-s`` or ``-rA`` to see them.
 
-The conversion job (step 7) sets ``GIAP_M10_03_REPORT`` (the report it converted) and
-``GIAP_M10_03_ARM`` and runs ``-k "full_report and <arm>"``: the ``full_report`` tests then check
+The conversion job (step 7) sets ``GIPPA_M10_03_REPORT`` (the report it converted) and
+``GIPPA_M10_03_ARM`` and runs ``-k "full_report and <arm>"``: the ``full_report`` tests then check
 that file (it must exist) as that arm, and skip the other arm (review B1). A data file may lie in
 the checkout only when it is git-ignored and untracked, e.g. under ``local/`` (the FarmShare
-default ``GIAP_ROOT=$GIAP_REPO/local``; review B2). Assertion messages print counts and row
+default ``GIPPA_ROOT=$GIPPA_REPO/local``; review B2). Assertion messages print counts and row
 positions only, never a peptide, protein or issue text from a report: criterion 10 pastes the
 output into the PR (review N5).
 """
@@ -50,7 +50,7 @@ SEARCH_DB = {"A1": "other", "A2": "same"}
 STRAIN_DB = REPO / "validation" / "pilot" / "db_a2" / "strain_db.faa.gz"
 ACQUISITION = REPO / "validation" / "pilot" / "inputs" / "acquisition.json"
 CONT = "Cont_"
-NO_ROOT = "GIAP_ROOT is not set: the DIA-NN samples live on FarmShare only (Khoa 2026-10-23)"
+NO_ROOT = "GIPPA_ROOT is not set: the DIA-NN samples live on FarmShare only (Khoa 2026-10-23)"
 FIRST_CHOICE = (
     "Stripped.Sequence",
     "Modified.Sequence",
@@ -70,7 +70,7 @@ FIRST_CHOICE = (
 
 
 def _root() -> Path:
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if not root:
         pytest.skip(NO_ROOT)
     return Path(root)
@@ -107,15 +107,15 @@ def sample_path(arm: str) -> Path:
 
 
 def full_report_path(arm: str) -> Path:
-    job_report, job_arm = (os.environ.get(k) for k in ("GIAP_M10_03_REPORT", "GIAP_M10_03_ARM"))
+    job_report, job_arm = (os.environ.get(k) for k in ("GIPPA_M10_03_REPORT", "GIPPA_M10_03_ARM"))
     if job_report:
         if job_arm not in SEARCH_DB:
-            pytest.fail("GIAP_M10_03_REPORT is set: GIAP_M10_03_ARM must be A1 or A2")
+            pytest.fail("GIPPA_M10_03_REPORT is set: GIPPA_M10_03_ARM must be A1 or A2")
         if arm != job_arm:
             pytest.skip(f"the conversion job checks {job_arm} only")
         p = Path(job_report)
         if not p.is_file():
-            pytest.fail(f"GIAP_M10_03_REPORT={p} is not a file")
+            pytest.fail(f"GIPPA_M10_03_REPORT={p} is not a file")
         return _outside_checkout(p)
     p = _root() / "pilot" / arm / f"{arm}_report.parquet"
     return _outside_checkout(_need(p, "M10-02 report job not run"))
@@ -123,17 +123,17 @@ def full_report_path(arm: str) -> Path:
 
 def fasta_paths(arm: str) -> list[Path]:
     _root()
-    env = {k: os.environ.get(k) for k in ("GIAP_DATA_DIR", "GIAP_DB_DIR")}
+    env = {k: os.environ.get(k) for k in ("GIPPA_DATA_DIR", "GIPPA_DB_DIR")}
     for k, v in env.items():
         if not v:
             pytest.skip(f"{k} is not set (source scripts/farmshare_env.sh)")
-    cont = Path(str(env["GIAP_DB_DIR"])) / "contaminants" / "contaminants.fasta"
+    cont = Path(str(env["GIPPA_DB_DIR"])) / "contaminants" / "contaminants.fasta"
     arm_db = (
-        Path(str(env["GIAP_DATA_DIR"])) / "proteomes" / "UP000000625.fasta"
+        Path(str(env["GIPPA_DATA_DIR"])) / "proteomes" / "UP000000625.fasta"
         if arm == "A1"
         else STRAIN_DB
     )
-    return [_need(arm_db, "search FASTA absent"), _need(cont, "giap setup --contaminants not run")]
+    return [_need(arm_db, "search FASTA absent"), _need(cont, "gippa setup --contaminants not run")]
 
 
 @cache
@@ -143,15 +143,15 @@ def _raw(path: Path) -> pd.DataFrame:
 
 @cache
 def _converted(path: Path, search_db: str) -> Any:
-    from giap.config.model import InputConfig
-    from giap.io.converters.diann import convert_diann
+    from gippa.config.model import InputConfig
+    from gippa.io.converters.diann import convert_diann
 
     return convert_diann([path], search_db=search_db, cfg=InputConfig())
 
 
 @cache
 def _fasta_ids(paths: tuple[Path, ...]) -> frozenset[str]:
-    from giap.io.protein_fasta import read_protein_fasta
+    from gippa.io.protein_fasta import read_protein_fasta
 
     return frozenset(m for p in paths for r in read_protein_fasta(p) for m in r.members)
 
@@ -212,7 +212,7 @@ def check_f6_runs(path: Path, arm: str) -> None:
 
 
 def check_f7_protein_ids(path: Path, arm: str) -> None:
-    from giap.io.protein_fasta import resolve_protein_id
+    from gippa.io.protein_fasta import resolve_protein_id
 
     ids = _fasta_ids(tuple(fasta_paths(arm)))
     res = _converted(path, SEARCH_DB[arm])
@@ -339,7 +339,7 @@ def test_f4_decoys(arm: str, record_property: Any) -> None:
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_f5_modifications(arm: str) -> None:
-    from giap.io.converters.strip import strip_modifications
+    from gippa.io.converters.strip import strip_modifications
 
     path = sample_path(arm)
     df = _converted(path, SEARCH_DB[arm]).peptides
@@ -423,7 +423,7 @@ def _cli(report: Path, out: Path, ab: Path, search_db: str) -> subprocess.Comple
     cmd = [
         sys.executable,
         "-c",
-        "from giap.cli import cli; cli()",
+        "from gippa.cli import cli; cli()",
         "convert",
         "--from",
         "diann",
@@ -440,8 +440,8 @@ def _cli(report: Path, out: Path, ab: Path, search_db: str) -> subprocess.Comple
 
 @pytest.mark.parametrize("arm", ARMS)
 def test_cli_is_deterministic_and_round_trips(arm: str, tmp_path: Path) -> None:
-    from giap.io.abundance import read_abundance
-    from giap.io.peptides import read_peptide_table
+    from gippa.io.abundance import read_abundance
+    from gippa.io.peptides import read_peptide_table
 
     path = sample_path(arm)
     outs = []
@@ -449,7 +449,7 @@ def test_cli_is_deterministic_and_round_trips(arm: str, tmp_path: Path) -> None:
         d = tmp_path / str(k)
         d.mkdir()
         res = _cli(path, d / "a.tsv.gz", d / "ab.tsv.gz", SEARCH_DB[arm])
-        codes = re.findall(r"^giap convert: (\w+): (\S+?):", res.stderr, re.M)
+        codes = re.findall(r"^gippa convert: (\w+): (\S+?):", res.stderr, re.M)
         assert res.returncode == 0, f"exit {res.returncode}, issues {codes}"
         outs.append(((d / "a.tsv.gz").read_bytes(), (d / "ab.tsv.gz").read_bytes()))
     same = outs[0] == outs[1]
@@ -471,7 +471,7 @@ def test_cli_is_deterministic_and_round_trips(arm: str, tmp_path: Path) -> None:
 @pytest.mark.parametrize("check", ["f1", "f2", "f6", "f7", "f10"])
 @pytest.mark.parametrize("arm", ARMS)
 def test_full_report(arm: str, check: str) -> None:
-    """F1, F2, F6, F7 and F10 on ``$GIAP_ROOT/pilot/<arm>/<arm>_report.parquet`` (job step 7)."""
+    """F1, F2, F6, F7 and F10 on ``$GIPPA_ROOT/pilot/<arm>/<arm>_report.parquet`` (job step 7)."""
     path = full_report_path(arm)
     if check == "f1":
         check_f1_columns(path)

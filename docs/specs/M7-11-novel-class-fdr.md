@@ -1,7 +1,7 @@
 # M7-11: Novel-ORF error control — picked class FDR with decoy rows, subgroup FDR for de novo
 
 Milestone M7 · track S (statistics) · **pass 2** · depends on: M7-06, M7-09 (the wired
-`novel_orfs` step), merged `giap.stats.tda.picked_fdr` and `monotone_q`, M3-10 placement FDR
+`novel_orfs` step), merged `gippa.stats.tda.picked_fdr` and `monotone_q`, M3-10 placement FDR
 (`stratum_qvalues`, ADR-0010), M3-23 makedb IDs · estimate ≈ 300 code lines (+ ≈ 500 test lines)
 · **stats** (statistician reviews the methods note and simulations before the code)
 
@@ -16,14 +16,14 @@ Milestone M7 · track S (statistics) · **pass 2** · depends on: M7-06, M7-09 (
   Calls need q ≤ 0.01. **Neither:** a call needs ≥ 2 distinct peptides and carries
   `class_fdr = unestimated`."
 - §8.1 row "Novel ORF | ORF | decoy rows in the input (picked, per class); genome decoy for de novo
-  | subgroup FDR | 0.01"; §7.9.2 (`>GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`; "No decoys.
+  | subgroup FDR | 0.01"; §7.9.2 (`>GIPPAORF_{class}_{contig}_{start1}_{end1}_{p|m}`; "No decoys.
   Search engines generate their own; with DIA-NN, use `--report-decoys`"); §8.2 ("decoys mimic
   targets"); `stats.alpha.novel_orfs` (0.01); ADR-0009 (picked FDR rescaled by the paired share);
   ADR-0010 (per-peptide π̂ weights).
 
 ## Public interface
 
-`src/giap/novel/fdr.py` (pure)
+`src/gippa/novel/fdr.py` (pure)
 ```python
 Regime = Literal["picked_decoy", "denovo_subgroup", "unestimated"]
 
@@ -45,7 +45,7 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
    six-frame ORF with the same `(contig, strand, stop)` (the makedb ORF is stop-to-stop, so the
    stop identifies it; `nterm_extension` entries by locus tag). Score of a target ORF = the best
    (minimum) input q, then maximum score, over its peptides; score of its decoy = the same over
-   decoy rows whose stripped ID is `<decoy_prefix>GIAPORF_…` of that entry. Within each class,
+   decoy rows whose stripped ID is `<decoy_prefix>GIPPAORF_…` of that entry. Within each class,
    `picked_fdr` (ties go to the decoy), with ADR-0009's rescaling by the paired share of the
    class's decoys. Classes without makedb tags (`pseudogene`, `sorf` by locus tag only,
    `cterm_extension`) fall back to `unestimated` (decision 2).
@@ -80,7 +80,7 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
 |---|---|---|
 | 1 | intergenic class: 150 target ORFs outscore their decoys before the first decoy win | class q of those 150 = 1/150 = **0.0067** → callable at 0.01 (B.6 analogue) |
 | 2 | intergenic class: 50 targets, no decoy wins | q = 1/50 = **0.02** → none called |
-| 3 | `cds_outframe` ORF matched to `GIAPORF_cds_outframe_c1_101_400_p`, its decoy `rev_GIAPORF_cds_outframe_c1_101_400_p` scores higher | the target loses the pick (counts as a decoy win) |
+| 3 | `cds_outframe` ORF matched to `GIPPAORF_cds_outframe_c1_101_400_p`, its decoy `rev_GIPPAORF_cds_outframe_c1_101_400_p` scores higher | the target loses the pick (counts as a decoy win) |
 | 4 | de novo: a decoy hit whose mirrored target interval is intergenic | counts in D_intergenic only |
 | 5 | de novo: ORF with peptide class q 0.004 and 0.03 | ORF class q **0.004** |
 | 6 | search against Bakta proteins with `--report-decoys` (`rev_<locus_tag>` decoys only) | `unestimated` + `decoys_not_makedb` |
@@ -133,7 +133,7 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
 5. **Test-author resolutions (11a6ca30) accepted:** frame layouts, NaN for unestimated or pick-losing
    ORFs, paired = stripped ID in `id_map`, `id_map=None` parses the tagged IDs, c = largest searched
    π̂ (missing = 1), q before score with ties to the decoy.
-6. **Split (MVP first):** this issue ships the pure `giap.novel.fdr` module that the tests pin.
+6. **Split (MVP first):** this issue ships the pure `gippa.novel.fdr` module that the tests pin.
    Wiring it into the `novel_orfs` step (the `decoys_not_makedb` warning, the rule 4 call, the
    `class_fdr` and flag columns, rule 5 logging and manifest) is **M7-11b**, with step-level tests
    written once the implementer has fixed the step inputs.

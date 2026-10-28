@@ -1,7 +1,7 @@
 # Gene-level abundance: iBAQ, Top3, protein-level route, missing values
 
-Implements `giap.genetable.abundance` (`peptide_abundance`, `protein_abundance`,
-`resolve_c10_scale`, `impute`, `gene_abundance`); GIAP_SPEC.md §2.1 decisions 2–3, §7.3.4, §7.2.6,
+Implements `gippa.genetable.abundance` (`peptide_abundance`, `protein_abundance`,
+`resolve_c10_scale`, `impute`, `gene_abundance`); GIPPA_SPEC.md §2.1 decisions 2–3, §7.3.4, §7.2.6,
 §9.3–9.4, §5.2 `abundance`; issue M4-14 (docs/specs/M4-14-abundance.md, including lead decisions
 1–6 on PR #82). The output is one point estimate per gene in one sample. This module runs no test,
 so it has no p-values, no test family (§8.1) and no CI. Uncertainty enters downstream through
@@ -12,7 +12,7 @@ rank-based statistics, TU-block resampling and the `basic`/`full` sensitivity re
 The aim is the relative molar amount of each gene's protein in a single sample, known only up to
 one common constant per run. Only ratios between genes and ranks carry meaning. Values are not
 absolute copy numbers. Values from different runs or inputs cannot be compared without
-normalisation, which GIAP does not do.
+normalisation, which GIPPA does not do.
 
 ## Which route is used (and when abundance is NA)
 
@@ -158,7 +158,7 @@ criterion `fwer` at 0.05 on per-replicate 0/1 indicators, ADR-0015 two-block con
   ρ_iBAQ − ρ_rawsum ≤ 0}.
 
 The generator is the test oracle (`tests/helpers/abundance_oracle.py`):
-- giapsim layout with 400 chromosome genes and M4-08 expression;
+- gippasim layout with 400 chromosome genes and M4-08 expression;
 - observable peptides quantified independently with probability p_obs = 0.6;
 - peptide noise: ln I = a·ln 2 + N(0, 0.5²).
 

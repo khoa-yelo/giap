@@ -12,10 +12,10 @@ import pandas as pd
 import pytest
 from matplotlib.colors import to_hex
 
-from giap.io.plot_files import read_png, write_instance
-from giap.viz import checklist as ck
-from giap.viz import style
-from giap.viz.base import Instance
+from gippa.io.plot_files import read_png, write_instance
+from gippa.viz import checklist as ck
+from gippa.viz import style
+from gippa.viz.base import Instance
 
 
 @pytest.fixture(autouse=True)

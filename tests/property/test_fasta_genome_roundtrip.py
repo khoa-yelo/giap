@@ -1,4 +1,4 @@
-"""Hypothesis properties for the genome FASTA writer/reader (issue M1-02; GIAP_SPEC.md §5.3)."""
+"""Hypothesis properties for the genome FASTA writer/reader (issue M1-02; GIPPA_SPEC.md §5.3)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.io.fasta import SAFE_ID, invalid_letters, read_genome_fasta, sanitize_id, write_fasta
+from gippa.io.fasta import SAFE_ID, invalid_letters, read_genome_fasta, sanitize_id, write_fasta
 
 FAST = settings(max_examples=150, deadline=None)
 SAFE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"

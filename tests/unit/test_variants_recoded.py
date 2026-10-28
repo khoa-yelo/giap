@@ -26,9 +26,9 @@ import pandas as pd
 import pytest
 from helpers.readthrough_toys import back_translate, gene, model, rc
 
-from giap.config import GiapConfig
-from giap.model import Replicon
-from giap.steps.variants import run_variants
+from gippa.config import GippaConfig
+from gippa.model import Replicon
+from gippa.steps.variants import run_variants
 
 BODY, FLANK = "MSDKPLTEAGRWQLNEFK", "VPAGHTLDMRK"
 N = 3 * (len(BODY) + 1 + len(FLANK) + 1)  # 93
@@ -73,7 +73,7 @@ def run(rows: list[dict[str, Any]], codon: str = "TGA", letter: str = "U", stran
     genome, gm = world(codon, letter, strand)
     hits = pd.DataFrame(rows)
     peptides = pd.DataFrame({"peptide": hits["peptide"].unique(), "search_db": "same"})
-    cfg = GiapConfig.model_validate({"genome_relation": "same", "sample_name": "S1"})
+    cfg = GippaConfig.model_validate({"genome_relation": "same", "sample_name": "S1"})
     return run_variants(hits, None, peptides, gm, genome, cfg)
 
 
@@ -86,7 +86,7 @@ def only(table: pd.DataFrame) -> dict[str, Any]:
 
 
 def test_recoded_site_set_of_the_toy() -> None:
-    from giap.mapping.readthrough import annotated_stops, site_keys
+    from gippa.mapping.readthrough import annotated_stops, site_keys
 
     genome, gm = world()
     sites, _ = annotated_stops(gm, genome, recoded=True)
@@ -97,8 +97,8 @@ def test_recoded_site_set_of_the_toy() -> None:
 
 
 def test_align_hits_accepts_a_star_at_a_recoded_codon() -> None:
-    from giap.mapping.readthrough import annotated_stops, site_keys
-    from giap.variants.align import align_hits
+    from gippa.mapping.readthrough import annotated_stops, site_keys
+    from gippa.variants.align import align_hits
 
     genome, gm = world()
     hits = pd.DataFrame([ex("U")])

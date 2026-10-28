@@ -1,9 +1,9 @@
-"""Attacks on the M8-14 giapsim function and determinants generators (GIAP_SPEC.md §7.7.5, §8.4
+"""Attacks on the M8-14 gippasim function and determinants generators (GIPPA_SPEC.md §7.7.5, §8.4
 rows ORA / GSEA / Determinants null, §8.5 attacks 2 and 3; statistician review of PR #251).
 Statistician-owned. These test the *generators* M8-15 gates on, through the shipped engines where
 that is the only way to say whether an attack is a fair null.
 
-Arms (probe evidence: ``$GIAP_ROOT``-free scratch probes of the PR #251 review, seeds below):
+Arms (probe evidence: ``$GIPPA_ROOT``-free scratch probes of the PR #251 review, seeds below):
 
 * **Attack 2, fitted p_detect** (gated, nightly; review B1, lead decision 4). Before the fix
   ``ora_attack_confounded(4000, -1.5)`` moved the members' detection logit directly, leaving their
@@ -56,19 +56,19 @@ GSEA_SIZE = (10, 500)
 
 
 def _fs() -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs
 
 
 def _sc() -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc
 
 
 def _coll(name: str, sets: dict[str, set[str]]) -> Any:
-    from giap.function.collections import GeneSets
+    from gippa.function.collections import GeneSets
 
     s = {t: frozenset(g) for t, g in sorted(sets.items())}
     return GeneSets(name, s, {t: t for t in s}, {}, 0.5, 0)  # type: ignore[arg-type]
@@ -103,8 +103,8 @@ def _gate(suite: str, stream: str, fn: Any, R: int, expect: str = "pass") -> Non
 
 def _ora_inputs(w: Any, fitted: bool, rng: np.random.Generator) -> tuple[pd.DataFrame, Any]:
     """The ORA gene frame (eligible genes: a protein sequence) and M4-13 folds."""
-    from giap.config.model import DetectabilityConfig
-    from giap.genetable.detectability import fit_detectability, tu_folds
+    from gippa.config.model import DetectabilityConfig
+    from gippa.genetable.detectability import fit_detectability, tu_folds
 
     g = w.expression.genes
     tu, _ = _tu_maps(w)
@@ -132,7 +132,7 @@ def _ora_inputs(w: Any, fitted: bool, rng: np.random.Generator) -> tuple[pd.Data
 
 
 def _ora_two_sided(genes: pd.DataFrame, members: set[str], folds: Any) -> float:
-    from giap.function import ora
+    from gippa.function import ora
 
     tab = ora.detection_enrichment(genes, [_coll("kegg", {"S": members})], (5, 10**6), 0.05,
                                    folds=folds)  # fmt: skip
@@ -205,9 +205,9 @@ def _gsea_genes(w: Any) -> pd.DataFrame:
 @pytest.mark.calsuite("gsea")
 def test_attack3_packed_sets_are_tested_after_tu_collapse() -> None:
     """B2: every packed set holds >= 10 scoring TUs, so the TU-collapsed engine tests all 20."""
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     w = _fs().draw(_sc().gsea_attack_operon_packed(4000, 20), np.random.default_rng(7))
     tab = gsea.gsea_table(_gsea_genes(w), [_coll("kegg", _members(w))], GSEA_SIZE, GseaConfig(),
@@ -247,9 +247,9 @@ def _packed_pick(rng: np.random.Generator) -> tuple[pd.DataFrame, set[str]]:
 
 
 def _packed_tu_rep(rng: np.random.Generator) -> float:
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     genes, members = _packed_pick(rng)
     step = for_step("function.gsea", int(rng.integers(0, 2**31 - 1)))
@@ -261,10 +261,10 @@ def _packed_tu_rep(rng: np.random.Generator) -> float:
 
 
 def _packed_gene_level_rep(rng: np.random.Generator) -> float:
-    """The arm GIAP rejects: detected genes ranked individually, permuted as if independent."""
-    from giap.config.model import GseaConfig
-    from giap.rng import for_step
-    from giap.stats.fgsea import fgsea_simple, prepare
+    """The arm GIPPA rejects: detected genes ranked individually, permuted as if independent."""
+    from gippa.config.model import GseaConfig
+    from gippa.rng import for_step
+    from gippa.stats.fgsea import fgsea_simple, prepare
 
     genes, members = _packed_pick(rng)
     d = genes[genes["detected"]]
@@ -296,9 +296,9 @@ def test_teeth_attack3_gene_level_gsea_fails_on_packed_sets(teeth_log: Path) -> 
 
 @pytest.mark.calsuite("gsea")
 def test_gsea_null_with_default_position_decay_at_level() -> None:
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     def fn(rng: np.random.Generator) -> float:
         lcfg, ecfg = _sc().gsea_null(4000)

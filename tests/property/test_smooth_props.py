@@ -1,4 +1,4 @@
-"""Hypothesis properties of ``loess_detrend`` (issue M5-01; GIAP_SPEC.md §7.3.5(c), (d) step 3).
+"""Hypothesis properties of ``loess_detrend`` (issue M5-01; GIPPA_SPEC.md §7.3.5(c), (d) step 3).
 
 - Rotation equivariance on circular input: rotating (y, pos) by any offset (pos taken mod period,
   re-sorted) rotates the residuals (<= 1e-9). Positions are integers (gene indices or TU ordinals,
@@ -17,7 +17,7 @@ import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.smooth import loess_detrend, loess_matrix
+from gippa.stats.smooth import loess_detrend, loess_matrix
 
 SETTINGS = settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 

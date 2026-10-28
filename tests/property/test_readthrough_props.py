@@ -1,10 +1,10 @@
 """Properties of the annotated-stop rule (M7-16a; ADR-0058 items 1-2; spec test plan, statistician
-review changes 7 and 9; GIAP_SPEC.md §11.2 "zero false negatives against a brute-force matcher
+review changes 7 and 9; GIPPA_SPEC.md §11.2 "zero false negatives against a brute-force matcher
 on random genomes <= 50 kb, for every difference type", now **with** the consumable-stop rule).
 
 Random genomes (linear or circular, both strands, occasional origin-near stops) carry random
 annotated CDS ending at random stop codons. The consumable cells are derived here independently
-of ``giap.mapping.readthrough`` (every ``*`` whose ``to_interval`` codon is an annotated stop,
+of ``gippa.mapping.readthrough`` (every ``*`` whose ``to_interval`` codon is an annotated stop,
 origin copies included) and must equal ``frame_cells``. Queries plant 0-2 differences
 (substitution, swap, block, near-block; often next to the cell) into windows spanning a marked
 cell, take windows spanning an unmarked stop, or are random. ``brute_readthrough.py`` scans every
@@ -41,14 +41,14 @@ from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from test_tolerant_seeds_props import worlds as seed_worlds
 
-from giap.config.model import TolerantConfig
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.frameshift import match_frameshift
-from giap.mapping.sixframe import STOP, Frame, SixFrameIndex, build_sixframe, decode, encode_query
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Replicon
-from giap.model.genes import GeneModel
-from giap.rng import for_step
+from gippa.config.model import TolerantConfig
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.sixframe import STOP, Frame, SixFrameIndex, build_sixframe, decode, encode_query
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Replicon
+from gippa.model.genes import GeneModel
+from gippa.rng import for_step
 
 CFG = TolerantConfig()
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=list(HealthCheck))
@@ -75,7 +75,7 @@ def _k(L: int) -> int:
 
 
 def _rt():  # type: ignore[no-untyped-def]
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     return rt
 

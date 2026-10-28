@@ -1,9 +1,9 @@
 """Write the rule-9 OSTIR input of M7-08: three sim100k novel candidates, one multi-start.
 
 Usage: python scripts/dev/record_ostir_novel_input.py <outdir>
-(PYTHONPATH=src:tests/sim:tests). Simulates giapsim SIM100K with the M7-08 test configuration
+(PYTHONPATH=src:tests/sim:tests). Simulates gippasim SIM100K with the M7-08 test configuration
 (tests/helpers/novel_steps_fixture.py: M3-19 proteomics, planted novel ORFs and N-terminal
-extensions), runs ``giap run --executor local`` on it and keeps three rows of the
+extensions), runs ``gippa run --executor local`` on it and keeps three rows of the
 ``ostir_input_novel.csv`` that ``novel_candidates`` wrote: the first multi-start row (``end >
 start``) and the first two other rows, in file order. Writes ``<outdir>/ostir_input.csv``.
 """
@@ -24,7 +24,7 @@ def main(argv: list[str]) -> int:
         root = Path(tmp)
         sim = nf.simulate(root / "sim")
         with nf.db_env(root):
-            code, log = nf.run_giap(sim, root / "OUT")
+            code, log = nf.run_gippa(sim, root / "OUT")
         if code != 0:
             print(log, file=sys.stderr)
             return code

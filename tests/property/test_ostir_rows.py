@@ -1,4 +1,4 @@
-"""Hypothesis properties for OSTIR rows (M2-16 acceptance criterion; GIAP_SPEC.md §7.1.6).
+"""Hypothesis properties for OSTIR rows (M2-16 acceptance criterion; GIPPA_SPEC.md §7.1.6).
 
 On circular replicons ``len(seq) == up + down`` (100 by default) and
 ``seq[start-1:start+2] == gene.start_codon``; on linear contigs the same identity holds after
@@ -16,8 +16,8 @@ from tempfile import TemporaryDirectory
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 ASD = "ACCTCCTTA"
 _COMP = str.maketrans("ACGT", "TGCA")
@@ -75,7 +75,7 @@ def oracle(g: Gene, rep: Replicon, genome: str, up: int, down: int) -> tuple[str
 @settings(max_examples=200, deadline=None)
 @given(cases("circular"))
 def test_circular_rows_have_100_nt_and_the_start_codon_at_51(c: tuple[Gene, Replicon, str]) -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g, rep, genome = c
     row = ostir_row(g, rep, genome, ASD)
@@ -89,7 +89,7 @@ def test_circular_rows_have_100_nt_and_the_start_codon_at_51(c: tuple[Gene, Repl
 @settings(max_examples=200, deadline=None)
 @given(cases("linear"))
 def test_linear_rows_clip_and_keep_the_identity(c: tuple[Gene, Replicon, str]) -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g, rep, genome = c
     row = ostir_row(g, rep, genome, ASD)
@@ -106,7 +106,7 @@ def test_linear_rows_clip_and_keep_the_identity(c: tuple[Gene, Replicon, str]) -
     st.integers(min_value=3, max_value=80),
 )
 def test_window_sizes_follow_up_and_down(c: tuple[Gene, Replicon, str], up: int, down: int) -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g, rep, genome = c
     row = ostir_row(g, rep, genome, ASD, up=up, down=down)
@@ -119,7 +119,7 @@ def test_window_sizes_follow_up_and_down(c: tuple[Gene, Replicon, str], up: int,
 @settings(max_examples=100, deadline=None)
 @given(cases("circular") | cases("linear"))
 def test_minus_row_equals_plus_row_of_the_mirrored_gene(c: tuple[Gene, Replicon, str]) -> None:
-    from giap.annotate.ostir import ostir_row
+    from gippa.annotate.ostir import ostir_row
 
     g, rep, genome = c
     n, iv = rep.length, g.interval
@@ -151,7 +151,7 @@ ids = st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789", min_size=1, max_
     )
 )  # fmt: skip
 def test_writer_round_trips_through_csv(rows: list[tuple[str, str, int]]) -> None:
-    from giap.annotate.ostir import OstirRow, write_ostir_input
+    from gippa.annotate.ostir import OstirRow, write_ostir_input
 
     objs = [OstirRow(i, s, p, p, ASD) for i, s, p in rows]
     with TemporaryDirectory() as d:
@@ -184,7 +184,7 @@ HEADER = (
 def test_parser_keeps_exactly_the_requested_positions(
     requested: dict[str, int], rows: list[tuple[str, int, float, int]]
 ) -> None:
-    from giap.annotate.ostir import parse_ostir
+    from gippa.annotate.ostir import parse_ostir
 
     # at most one row per (id, position): OSTIR scores each start once
     uniq: dict[tuple[str, int], tuple[float, int]] = {}

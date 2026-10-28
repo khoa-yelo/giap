@@ -1,4 +1,4 @@
-"""giapsim layout extension owed to M4-17: per-contig region placement (``RegionSpec.contig``).
+"""gippasim layout extension owed to M4-17: per-contig region placement (``RegionSpec.contig``).
 
 docs/specs/M4-17-region-tests.md "Note from M4-07 review" and M4-07 lead decision 6: a region can
 be placed on a named replicon (e.g. a 60-gene plasmid with its own AMR set); ``contig=None`` (the
@@ -14,7 +14,7 @@ import dataclasses
 import numpy as np
 import pytest
 
-import giapsim.layout as la
+import gippasim.layout as la
 
 
 def _cfg(**kw: object) -> object:

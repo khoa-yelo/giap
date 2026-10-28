@@ -1,6 +1,6 @@
-"""M3 gate, Route 1 share: >= 99.9 % recall of planted peptides (GIAP_SPEC.md §13 row M3, §7.2.2).
+"""M3 gate, Route 1 share: >= 99.9 % recall of planted peptides (GIPPA_SPEC.md §13 row M3, §7.2.2).
 
-giapsim genomes (circular, 50 kb and 100 kb); every protein is digested with trypsin (cut after
+gippasim genomes (circular, 50 kb and 100 kb); every protein is digested with trypsin (cut after
 K/R, not before P, no missed cleavages); peptides of 7-40 aa are "planted" at the known gene
 coordinates. N-terminal peptides of genes with a non-ATG start are excluded (their initiator is
 written as M but the genome codes V/L, the documented TE1 exception). Recall = share of planted
@@ -14,15 +14,15 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.fasta import read_genome_fasta
-from giap.mapping.decoys import build_decoys
-from giap.mapping.exact import match_exact
-from giap.mapping.sixframe import build_sixframe
-from giap.model import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
-from giap.rng import for_step
-from giapsim.codons import CODE_11
-from giapsim.simulate import SimConfig, revcomp, simulate
+from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.decoys import build_decoys
+from gippa.mapping.exact import match_exact
+from gippa.mapping.sixframe import build_sixframe
+from gippa.model import Interval, Replicon
+from gippa.model.genes import gene_model_from_bakta_json
+from gippa.rng import for_step
+from gippasim.codons import CODE_11
+from gippasim.simulate import SimConfig, revcomp, simulate
 
 pytestmark = pytest.mark.calibration
 

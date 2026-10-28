@@ -1,7 +1,7 @@
 # M3-14: Locus classes, uniqueness, gene assignment and genome relation
 
 Milestone M3 · depends on: M3-01 (`GeneModel`), M3-02 (frame rule), M3-04 (hit schema), M3-10
-(accepted placements), M3-12 (protein rows) · creates `src/giap/mapping/loci.py` · pure Python ·
+(accepted placements), M3-12 (protein rows) · creates `src/gippa/mapping/loci.py` · pure Python ·
 estimate ≈ 380 code lines
 
 ## Spec sections implemented
@@ -109,7 +109,7 @@ Model on circular `chr1` (L = 10,000): G1 cds + `[100,400)`; G2 cds − `[1000,1
 ## Acceptance criteria
 
 - [ ] `tests/unit/test_loci.py`: examples 1–15 and the edge cases.
-- [ ] Property: on giapsim genomes, every peptide cut in frame from inside a CDS classifies
+- [ ] Property: on gippasim genomes, every peptide cut in frame from inside a CDS classifies
   `cds_inframe` with that gene; the same window reverse-complemented classifies `antisense`.
 - [ ] Property: classification is invariant to the order of features in the model.
 - [ ] Benchmark: 500,000 hits on a 5-Mb model ≤ 20 s (interval lookup by sorted arrays).

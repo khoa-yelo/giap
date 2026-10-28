@@ -1,4 +1,4 @@
-"""Hypothesis properties of tblastn HSP chaining (issue M3-13; GIAP_SPEC.md §7.2.3, §6.5).
+"""Hypothesis properties of tblastn HSP chaining (issue M3-13; GIPPA_SPEC.md §7.2.3, §6.5).
 
 - Merging is invariant to the input order of HSPs (acceptance criterion).
 - Merged coverage <= 1, identity in [0, 1], ``q`` range inside the protein (acceptance criterion).
@@ -18,10 +18,10 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.coords import check_interval
-from giap.model.genes import GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.coords import check_interval
+from gippa.model.genes import GeneModel
 
 L = 30_000
 CIRC = Replicon("chr1", L, "circular", "chromosome")
@@ -30,7 +30,7 @@ PL = Replicon("pl1", 4_000, "circular", "plasmid")
 
 
 def _tb():  # type: ignore[no-untyped-def]
-    from giap.mapping import tblastn
+    from gippa.mapping import tblastn
 
     return tblastn
 
@@ -113,7 +113,7 @@ def test_bounds_canonical_and_ranks(data) -> None:  # type: ignore[no-untyped-de
         ranks = sorted(a.rank for a in alns if a.protein_id == pid)
         assert ranks == list(range(1, len(ranks) + 1))
     # canonical output is accepted by M3-12
-    from giap.mapping.protein_assign import assign_alignments
+    from gippa.mapping.protein_assign import assign_alignments
 
     assign_alignments(alns, GeneModel(reps, (), ()), ProteinsConfig())
 

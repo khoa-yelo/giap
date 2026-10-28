@@ -1,8 +1,8 @@
 """Steps ``transterm_input`` and ``terminator_layer`` (M2-15; M2-index step contract rows
-``transterm_input`` and ``terminator_layer``; GIAP_SPEC.md §6.2, §6.5, §7.1.5; Example 9).
+``transterm_input`` and ``terminator_layer``; GIPPA_SPEC.md §6.2, §6.5, §7.1.5; Example 9).
 
-Run through ``giap.steps.registry.run_step`` after ``parse_bakta`` on giapsim's SIM100K (the genome
-the recorded sim100k TerminatorNet/TransTermHP runs used; same contig names and lengths).
+Run through ``gippa.steps.registry.run_step`` after ``parse_bakta`` on gippasim's SIM100K (the
+genome the recorded sim100k TerminatorNet/TransTermHP runs used; same contig names and lengths).
 
 Conventions pinned here where the contract table is silent:
 
@@ -33,10 +33,10 @@ from typing import Any
 import pyarrow.parquet as pq
 import pytest
 
-import giapsim
-from giap.annotate.bakta import parse_bakta_json
-from giap.config import GiapConfig, resolve_config
-from giap.model.genes import Gene
+import gippasim
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config import GippaConfig, resolve_config
+from gippa.model.genes import Gene
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded" / "terminators"
 TN_SIM = DATA / "terminatornet" / "sim100k" / "terminatornet.tsv"
@@ -55,14 +55,14 @@ XC_HEADER = ["contig", "n_terminatornet", "n_transtermhp", "n_matched", "share_m
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     names = load_step_modules()
     mp.setattr(reg, "_REGISTRY", {})
     for n in names:
         if n != "registry":
-            importlib.reload(importlib.import_module(f"giap.steps.{n}"))
+            importlib.reload(importlib.import_module(f"gippa.steps.{n}"))
     return reg
 
 
@@ -84,13 +84,13 @@ class Sim:
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Sim:
     out = tmp_path_factory.mktemp("sim100k")
-    res = giapsim.simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, out / "sim")
+    res = gippasim.simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, out / "sim")
     work = out / "work"
     with pytest.MonkeyPatch.context() as mp:
         reg = _fresh_steps(mp)
         reg.run_step(
             "parse_bakta",
-            GiapConfig(seed=1),
+            GippaConfig(seed=1),
             {"bakta_json": res.bakta_json, "genome": res.genome_fasta},
             {k: work / v for k, v in PARSE_OUT.items()},
         )
@@ -136,13 +136,13 @@ def _layer_outputs(reg: ModuleType, out: Path) -> tuple[dict[str, Path], Path, P
 
 
 def _run_layer(
-    reg: ModuleType, sim: Sim, out: Path, cfg: GiapConfig | None = None
+    reg: ModuleType, sim: Sim, out: Path, cfg: GippaConfig | None = None
 ) -> tuple[Path, Path]:
     extra = {"terminatornet": TN_SIM, "transtermhp": TT_SIM}
     outs, parquet, xc = _layer_outputs(reg, out)
     reg.run_step(
         "terminator_layer",
-        cfg or GiapConfig(seed=1),
+        cfg or GippaConfig(seed=1),
         _inputs(reg, "terminator_layer", sim, extra),
         outs,
     )
@@ -204,7 +204,7 @@ def test_transterm_input_writes_the_coords_of_every_gene(
     out = tmp_path / "genes.coords"
     steps.run_step(
         "transterm_input",
-        GiapConfig(seed=1),
+        GippaConfig(seed=1),
         _inputs(steps, "transterm_input", sim, {}),
         {key: out},
     )
@@ -220,8 +220,8 @@ def test_transterm_input_writes_the_coords_of_every_gene(
 def test_transterm_input_is_deterministic(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
     (key,) = steps.get("transterm_input").outputs
     ins = _inputs(steps, "transterm_input", sim, {})
-    steps.run_step("transterm_input", GiapConfig(seed=1), ins, {key: tmp_path / "a.coords"})
-    steps.run_step("transterm_input", GiapConfig(seed=99), ins, {key: tmp_path / "b.coords"})
+    steps.run_step("transterm_input", GippaConfig(seed=1), ins, {key: tmp_path / "a.coords"})
+    steps.run_step("transterm_input", GippaConfig(seed=99), ins, {key: tmp_path / "b.coords"})
     assert (tmp_path / "a.coords").read_bytes() == (tmp_path / "b.coords").read_bytes()
 
 
@@ -262,8 +262,8 @@ def test_layer_crosscheck_table(steps: ModuleType, sim: Sim, tmp_path: Path) -> 
 
 
 def test_layer_is_byte_deterministic(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
-    p1, x1 = _run_layer(steps, sim, tmp_path / "a", GiapConfig(seed=1))
-    p2, x2 = _run_layer(steps, sim, tmp_path / "b", GiapConfig(seed=7))
+    p1, x1 = _run_layer(steps, sim, tmp_path / "a", GippaConfig(seed=1))
+    p2, x2 = _run_layer(steps, sim, tmp_path / "b", GippaConfig(seed=7))
     assert p1.read_bytes() == p2.read_bytes()
     assert x1.read_bytes() == x2.read_bytes()
 

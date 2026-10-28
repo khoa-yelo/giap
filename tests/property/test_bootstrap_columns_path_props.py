@@ -17,7 +17,7 @@ import pandas as pd
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.bootstrap import BootCI, tu_block_bootstrap
+from gippa.stats.bootstrap import BootCI, tu_block_bootstrap
 
 SETTINGS = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 

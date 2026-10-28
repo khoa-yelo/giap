@@ -2,12 +2,12 @@
 examples 6-7; methods docs/methods/operons.md "K-12 cut-off calibration (M6-12)" > TerminatorNet,
 B2).
 
-Interface pinned here (``giap.stats.cutoffs``, pure, 0-based half-open coordinates):
+Interface pinned here (``gippa.stats.cutoffs``, pure, 0-based half-open coordinates):
 
 - ``Window``: a named tuple ``(gene, strand, lo, hi)``, unrolled across the origin on a circular
   replicon; ``lo >= hi`` is an empty window;
 - ``downstream_windows(genes, replicon, slack_bp=50) -> list[Window]``: one window per gene, in
-  genome order whatever the input order, via ``giap.annotate.terminators._window`` with the
+  genome order whatever the input order, via ``gippa.annotate.terminators._window`` with the
   genome-order neighbour on **either** strand; a linear-contig gene without a neighbour gets
   ``DOWNSTREAM_NO_NEXT_BP`` (300) past its stop, clipped to the contig;
 - ``window_of(iv, windows, replicon) -> str | None``: the locus tag of the first same-strand
@@ -32,11 +32,11 @@ import random
 import numpy as np
 import pytest
 
-from giap.annotate.operons import intergenic_distance
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.rng import for_step
-from giap.stats.cutoffs import (
+from gippa.annotate.operons import intergenic_distance
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
+from gippa.rng import for_step
+from gippa.stats.cutoffs import (
     DEFAULT_SEED,
     STEP,
     Window,

@@ -1,4 +1,4 @@
-"""VCF 4.3 writer (issue M1-05; GIAP_SPEC.md §6.5, §7.5.5, §9.5, B.7, G14; ADR-0005 item 1).
+"""VCF 4.3 writer (issue M1-05; GIPPA_SPEC.md §6.5, §7.5.5, §9.5, B.7, G14; ADR-0005 item 1).
 
 POS is 1-based within ``[1, length]``; REF/ALT are forward-strand codons supplied by the caller
 (minus-strand conversion is the caller's job, G14). A codon crossing the origin raises.
@@ -11,8 +11,8 @@ import importlib.util
 
 import pytest
 
-from giap.io.vcf import VcfHeaderField, VcfRecord, write_vcf
-from giap.model import Replicon
+from gippa.io.vcf import VcfHeaderField, VcfRecord, write_vcf
+from gippa.model import Replicon
 
 C = Replicon("chr", 2000, "circular")
 L = Replicon("lin", 900, "linear")
@@ -67,7 +67,7 @@ def _b7(**kw) -> VcfRecord:
 
 def _write(path, records, replicons=(C,), **kw):
     args = dict(
-        giap_version="0.1.0",
+        gippa_version="0.1.0",
         genome_sha256=SHA,
         sample="pilot_A3",
         info_fields=INFO_FIELDS,
@@ -101,7 +101,7 @@ def test_header_exact(tmp_path) -> None:
     )
     assert _lines(p) == [
         "##fileformat=VCFv4.3",
-        "##source=giap-0.1.0",
+        "##source=gippa-0.1.0",
         f"##reference=sha256:{SHA}",
         "##contig=<ID=chr,length=2000>",
         "##contig=<ID=lin,length=900>",
@@ -136,7 +136,7 @@ def test_example_06_full_file_with_b7_record(tmp_path) -> None:
     p = _write(tmp_path / "v.vcf", [_b7()])
     assert p.read_text() == (
         "##fileformat=VCFv4.3\n"
-        "##source=giap-0.1.0\n"
+        "##source=gippa-0.1.0\n"
         f"##reference=sha256:{SHA}\n"
         "##contig=<ID=chr,length=2000>\n"
         '##INFO=<ID=GENE,Number=1,Type=String,Description="Locus tag">\n'

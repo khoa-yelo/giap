@@ -1,8 +1,8 @@
-"""``giap.viz.checklist``: the §14.4 style checklist as code (M9-24 examples 1-6, degenerate cases,
-lead decisions 1-3; M9-index decisions 30-31; GIAP_SPEC.md §10.1, §14.4).
+"""``gippa.viz.checklist``: the §14.4 style checklist as code (M9-24 examples 1-6, degenerate cases,
+lead decisions 1-3; M9-index decisions 30-31; GIPPA_SPEC.md §10.1, §14.4).
 
 Crafted figures each violate one item (or none). They are written with
-``giap.io.plot_files.write_instance`` so ``check_instance`` sees real ``files``.
+``gippa.io.plot_files.write_instance`` so ``check_instance`` sees real ``files``.
 
 Interface assumed beyond the spec text (the spec's public interface is ``CheckResult``,
 ``check_instance`` and ``score``):
@@ -32,10 +32,10 @@ from hypothesis import strategies as st
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from giap.io.plot_files import write_instance
-from giap.viz import base, style
-from giap.viz import checklist as ck
-from giap.viz.base import Instance
+from gippa.io.plot_files import write_instance
+from gippa.viz import base, style
+from gippa.viz import checklist as ck
+from gippa.viz.base import Instance
 
 ITEMS = (
     "title states the finding",
@@ -491,7 +491,7 @@ def _tagged_scatter(ax: Axes, n: int, gid: str | None, seed: int) -> None:
 
 def _track_gids() -> list[str]:
     """Two of V1's exported track gids (M9-26 lead decision 4, B1: ``circos.TRACK_GIDS``)."""
-    from giap.viz import circos
+    from gippa.viz import circos
 
     gids = sorted(str(g) for g in circos.TRACK_GIDS)
     assert {"gene_plus", "gene_minus", "abundance"} <= set(gids), gids
@@ -522,7 +522,7 @@ def test_b1_two_track_gids_with_15000_each_pass(tmp_path: Path) -> None:
 
 def test_b1_two_non_track_gids_with_15000_each_fail(tmp_path: Path) -> None:
     """Only V1's track gids split an axes; any other gid counts in the axes total."""
-    from giap.viz import circos
+    from gippa.viz import circos
 
     assert "hover_a" not in circos.TRACK_GIDS and "hover_b" not in circos.TRACK_GIDS
     fig = _figure()
@@ -538,7 +538,7 @@ def test_b1_two_non_track_gids_with_15000_each_fail(tmp_path: Path) -> None:
 
 def test_b1_untagged_and_a_non_track_gid_count_together(tmp_path: Path) -> None:
     """Decision 4: "Any other gid, and untagged artists, count together per axes"."""
-    from giap.viz import circos
+    from gippa.viz import circos
 
     assert "hover_a" not in circos.TRACK_GIDS
     fig = _figure()

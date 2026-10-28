@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (the report's wording is Unicode: –, ℓ̂, −∞, σ70)
 """M9-16 summary cards: examples 1-3, every row of the card table, the degenerate rows and lead
 decision 3 ("every number on a card is traceable to a named table and column")
-(docs/specs/M9-16-report-content.md; GIAP_SPEC.md §10.3 "Summary cards", "Wording"; R4).
+(docs/specs/M9-16-report-content.md; GIPPA_SPEC.md §10.3 "Summary cards", "Wording"; R4).
 
 Interface pinned here (M9-16 test author, beyond the spec text):
 - card names (``data-card``): ``genes_detected``, ``peptides_placed``, ``proteins_placed``,
@@ -10,7 +10,7 @@ Interface pinned here (M9-16 test author, beyond the spec text):
   ``proteins_placed``);
 - every card element carries ``data-source``: ``;``-joined ``<OUT-relative path>:<column>``
   entries naming each table column its number and its error estimate were read from (decision 3);
-  the card dicts of ``giap.report.build.cards`` carry the same list under ``"sources"``;
+  the card dicts of ``gippa.report.build.cards`` carry the same list under ``"sources"``;
 - the whole card text (whitespace-normalised) holds the example wording; the ``.estimate`` child
   holds the error estimate or the word ``unestimated``;
 - ``alt_calls`` counts ``variants.tsv`` rows per ``confidence`` (``high``, ``candidate``), its
@@ -49,7 +49,7 @@ from helpers.report_fixtures import Page, cfg, run_out
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.io.run_view import RunView
+from gippa.io.run_view import RunView
 
 ALL_CARDS = {"genes_detected", "peptides_placed", "proteins_placed", "islands", "operon_flags",
              "alt_calls", "novel_orfs", "model_r2"}  # fmt: skip
@@ -303,7 +303,7 @@ def test_card_sources_name_the_columns_it_reads(tmp_path: Path, card: str, must:
 
 
 def test_cards_function_returns_sources(tmp_path: Path) -> None:
-    from giap.report.build import cards
+    from gippa.report.build import cards
 
     out = _full_out(tmp_path)
     found, notes = cards(RunView.from_outdir(out), cfg())
@@ -342,7 +342,7 @@ def test_property_genes_value_is_the_detected_count(det: list[bool]) -> None:
 
 
 def test_unlabelled_numbers_flags_a_card_without_estimate() -> None:
-    from giap.report.checks import unlabelled_numbers
+    from gippa.report.checks import unlabelled_numbers
 
     cards = [
         {"name": "a", "value": "3", "estimate": "FWER ≤ 0.05"},
@@ -353,15 +353,15 @@ def test_unlabelled_numbers_flags_a_card_without_estimate() -> None:
 
 
 def test_unlabelled_numbers_missing_estimate_key() -> None:
-    from giap.report.checks import unlabelled_numbers
+    from gippa.report.checks import unlabelled_numbers
 
     assert unlabelled_numbers([{"name": "x", "value": "1"}]) == ["x"]
     assert unlabelled_numbers([]) == []
 
 
 def test_unlabelled_numbers_clean_on_the_full_run(tmp_path: Path) -> None:
-    from giap.report.build import cards
-    from giap.report.checks import unlabelled_numbers
+    from gippa.report.build import cards
+    from gippa.report.checks import unlabelled_numbers
 
     found, _ = cards(RunView.from_outdir(_full_out(tmp_path)), cfg())
     assert len(found) == len(ALL_CARDS)

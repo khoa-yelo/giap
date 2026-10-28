@@ -20,10 +20,10 @@ Interface (settled by the test author from the reviewer's names; ``main`` is the
   ``steps`` maps the ``measure_runtimes.py`` process name to ``{realtime_s, peak_rss_bytes,
   order}``, ``order`` ranking the steps by their first trace ``submit``. Never raises on a
   malformed row.
-* ``invalid_reasons(*, variant, commit, node, sku, trace_rows, manifest, sacct, giap_other,
+* ``invalid_reasons(*, variant, commit, node, sku, trace_rows, manifest, sacct, gippa_other,
   caches_before, caches_after) -> (reasons, warnings)``: ``manifest`` is the parsed
   ``run_manifest.json`` or ``None``; ``sacct`` the ``parse_sacct`` result or ``None``;
-  ``giap_other`` the record's ``cotenancy.giap_other`` (``{job, name, cpus: int, node}``);
+  ``gippa_other`` the record's ``cotenancy.gippa_other`` (``{job, name, cpus: int, node}``);
   the caches are the before/after file lists. Reasons as the spec names them, plus (lead,
   2026-10-24) ``manifest_missing``, ``commit_missing`` (empty or absent ``git_commit``) and
   ``sacct_missing``; ``contended_other_nodes`` is a warning.
@@ -96,7 +96,7 @@ def good(**over: Any) -> dict[str, Any]:
         "manifest": {"git_commit": COMMIT, "git_dirty": False, "resume": False,
                      "steps": [{"name": "operons", "status": "completed"}]},
         "sacct": dict(SACCT_OK),
-        "giap_other": [],
+        "gippa_other": [],
         "caches_before": ["/c/containers/bakta.img", "/c/envs/env-old"],
         "caches_after": ["/c/containers/bakta.img", "/c/envs/env-old"],
     }  # fmt: skip
@@ -326,7 +326,7 @@ def test_hosts_are_distinct_and_dashes_dropped(br: ModuleType) -> None:
 
 
 def test_empty_trace(br: ModuleType) -> None:
-    """giap failed before Nextflow started: n_tasks 0, steps {} (spec "Failed run")."""
+    """gippa failed before Nextflow started: n_tasks 0, steps {} (spec "Failed run")."""
     out = br.trace_stats([])
     assert out["steps"] == {}
     t = out["trace"]
@@ -408,8 +408,8 @@ CASES: list[tuple[str, dict[str, Any], str]] = [
                                    "steps": []}}, "commit_mismatch"),
     ("host_mismatch", {"trace_rows": [trow("A:X (1)", hostname="wheat-07")]}, "host_mismatch"),
     ("bakta_ran_in_core", {"trace_rows": [trow("ANNOTATE:BAKTA (k12)")]}, "bakta_ran_in_core"),
-    ("same_node_giap", {"giap_other": [{"job": "777", "name": "giap-run-pilot-a1", "cpus": 2,
-                                        "node": NODE}]}, "same_node_giap:777"),
+    ("same_node_gippa", {"gippa_other": [{"job": "777", "name": "gippa-run-pilot-a1", "cpus": 2,
+                                        "node": NODE}]}, "same_node_gippa:777"),
     ("image_created", {"caches_after": ["/c/containers/bakta.img", "/c/envs/env-old",
                                         "/c/containers/new-tool.img"]}, "image_or_env_created"),
     ("alloc_cpus", {"sacct": dict(SACCT_OK, alloc_cpus=18)}, "alloc_cpus:18"),
@@ -456,16 +456,16 @@ def test_all_reasons_are_recorded(br: ModuleType) -> None:
     ("cpus", "flagged"), [(16, True), (8, True), (7, False), (2, False)]
 )  # fmt: skip
 def test_contended_other_nodes_from_8_cpus(br: ModuleType, cpus: int, flagged: bool) -> None:
-    """A giap-* job with >= 8 CPUs on another node: a warning, valid (example 7b; M4 at 8)."""
-    other = [{"job": "778", "name": "giap-diann-a2", "cpus": cpus, "node": "wheat-07"}]
-    rs, ws = br.invalid_reasons(**good(giap_other=other))
+    """A gippa-* job with >= 8 CPUs on another node: a warning, valid (example 7b; M4 at 8)."""
+    other = [{"job": "778", "name": "gippa-diann-a2", "cpus": cpus, "node": "wheat-07"}]
+    rs, ws = br.invalid_reasons(**good(gippa_other=other))
     assert list(rs) == [], rs
     assert ("contended_other_nodes" in ws) is flagged, ws
 
 
 def test_same_node_job_of_any_size_invalidates(br: ModuleType) -> None:
     full = NODE + ".stanford.edu"
-    other = [{"job": "779", "name": "giap-x", "cpus": 16, "node": NODE},
-             {"job": "780", "name": "giap-y", "cpus": 1, "node": full}]  # fmt: skip
-    rs = reasons_of(br, giap_other=other)
-    assert {"same_node_giap:779", "same_node_giap:780"} <= set(rs), rs
+    other = [{"job": "779", "name": "gippa-x", "cpus": 16, "node": NODE},
+             {"job": "780", "name": "gippa-y", "cpus": 1, "node": full}]  # fmt: skip
+    rs = reasons_of(br, gippa_other=other)
+    assert {"same_node_gippa:779", "same_node_gippa:780"} <= set(rs), rs

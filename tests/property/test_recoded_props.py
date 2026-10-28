@@ -5,7 +5,7 @@ The 16a properties (``test_readthrough_props.py``) re-run on random genomes (lin
 both strands, genes crossing the origin) whose annotated CDS carry random ``U``-over-TGA (and
 ``O``-over-TAG) residues, plus deliberate mismatches (a ``U`` over a sense codon, which rule 21 (e)
 skips) and pseudogenes with ``U`` (never scanned). The expected sites are derived here from the
-final genome, independently of ``giap.mapping.readthrough``: a terminal key per scanned feature
+final genome, independently of ``gippa.mapping.readthrough``: a terminal key per scanned feature
 whose last codon is a stop, a recoded key per ``U``/``O`` at ``i >= 1`` whose codon matches. The
 oracle cells are every ``*`` whose codon is one of those keys (origin copies included).
 
@@ -31,12 +31,12 @@ from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from test_readthrough_props import CFG, Plan, _query, check_search, oracle_cells, oracle_mirror
 
-from giap.mapping.decoys import DecoyType, build_decoys
-from giap.mapping.sixframe import STOP, Frame, SixFrameIndex, build_sixframe
-from giap.mapping.tolerant import match_tolerant
-from giap.model import Replicon
-from giap.model.genes import GeneModel
-from giap.rng import for_step
+from gippa.mapping.decoys import DecoyType, build_decoys
+from gippa.mapping.sixframe import STOP, Frame, SixFrameIndex, build_sixframe
+from gippa.mapping.tolerant import match_tolerant
+from gippa.model import Replicon
+from gippa.model.genes import GeneModel
+from gippa.rng import for_step
 
 SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=list(HealthCheck))
 STOPS = ("TAA", "TAG", "TGA")
@@ -44,7 +44,7 @@ SENSE = tuple(a + b + c for a in "ACGT" for b in "ACGT" for c in "ACGT" if a + b
 
 
 def _rt():  # type: ignore[no-untyped-def]
-    import giap.mapping.readthrough as rt
+    import gippa.mapping.readthrough as rt
 
     return rt
 

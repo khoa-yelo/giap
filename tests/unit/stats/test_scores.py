@@ -1,4 +1,4 @@
-"""Left-censored Blom normal scores (issue M5-01; GIAP_SPEC.md §7.3.5(d) step 1, §7.3.6, §8.3).
+"""Left-censored Blom normal scores (issue M5-01; GIPPA_SPEC.md §7.3.5(d) step 1, §7.3.6, §8.3).
 
 ``blom_scores(x, censored_mask)``: censored entries (mask True) all get rank (n0 + 1) / 2, the
 average of ranks 1 .. n0; uncensored entries get n0 + their average rank among the uncensored
@@ -12,7 +12,7 @@ When the estimator does not exist:
 - len(x) != len(censored_mask) -> ValueError.
 
 The oracle below is written from the spec text with scipy.stats.rankdata (independent of
-giap.stats.scores).
+gippa.stats.scores).
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from hypothesis import strategies as st
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from giap.stats.scores import blom_scores
+from gippa.stats.scores import blom_scores
 
 nan = float("nan")
 F, T = False, True

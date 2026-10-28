@@ -4,7 +4,7 @@ Every builder takes 1-based closed coordinates, as the published TSVs carry them
 converts ``peptide_hits.start`` / ``genes.tsv`` ``start`` to 0-based on read. ``aa_pos`` and
 ``window_start_aa`` are 1-based protein positions. Tables go through
 ``helpers.viz_out_tree.write_schema_table`` (schema header; absent cells ``NA``). Nothing here
-touches ``$GIAP_DB_DIR`` or the network.
+touches ``$GIPPA_DB_DIR`` or the network.
 
 Fixture genome (``chr1`` 10,000 bp circular, ``chr2`` 5,000 bp linear):
 
@@ -189,7 +189,7 @@ def build_out(
 ) -> Path:
     """An ``OUT/`` with ``preflight.json`` and ``genes.tsv``; ``variants=None`` leaves
     ``variants.tsv`` out; ``windows`` is written to ``plots/support/variant_windows.tsv``."""
-    from giap.io.tsv import write_tsv
+    from gippa.io.tsv import write_tsv
 
     out = make_out(tmp)
     pf = out / "preflight" / "preflight.json"

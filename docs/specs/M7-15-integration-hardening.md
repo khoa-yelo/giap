@@ -9,7 +9,7 @@ statistical
 - §11.2 Golden layer: "gene, pair and variant tables for the 50-kb fixture"; §11.4 (the 50-kb
   golden fixture under `tests/data/golden/sim50k/`, `GOLDEN_SEED`); §11.2 Integration layer
   ("resume and failure paths … local and Nextflow executors give identical tables"); §6.3 error
-  strategy ("`giap run` exits 4 naming the failed step and its log"); §9.5 ("Every integration and
+  strategy ("`gippa run` exits 4 naming the failed step and its log"); §9.5 ("Every integration and
   end-to-end test validates outputs with `frictionless validate`, and checks GFF3 and VCF with
   format validators"); §11.7 TE7; the MVP-01 "Hardening owed" list, applied to VARIANTS and NOVEL.
 
@@ -24,12 +24,12 @@ statistical
    is a step error (exit 4 naming the step), not a test-only check.
 3. **Resume and failure.** `-resume` after a completed run re-executes nothing in VARIANTS/NOVEL;
    after changing `variants.high_min_peptides` only VARIANTS re-runs; a forced failure of
-   `OSTIR_NOVEL` (stub that exits 1) makes `giap run` exit 4 naming `OSTIR_NOVEL` and its log.
-4. **Real-tool arm.** One `sbatch scripts/slurm/giap_run.sbatch` under `-profile
+   `OSTIR_NOVEL` (stub that exits 1) makes `gippa run` exit 4 naming `OSTIR_NOVEL` and its log.
+4. **Real-tool arm.** One `sbatch scripts/slurm/gippa_run.sbatch` under `-profile
    farmshare,apptainer` (Promotech and OSTIR from their conda envs, ADR-0008) on K-12 with the
    in-silico TE8 peptide set (cross-strain, `related`), so the second round runs on real candidates;
    runtimes per process into `benchmarks/baseline.json` via `scripts/measure_runtimes.py`.
-5. **VCF FILTER.** Close the backlog item "declare GIAP's VCF FILTER values with descriptions" per
+5. **VCF FILTER.** Close the backlog item "declare GIPPA's VCF FILTER values with descriptions" per
    M7-03 decision 6: PASS only; remove or keep the writer's generic `##FILTER` branch (unused) as
    the lead prefers.
 6. **`novel_candidate_id`** in `mapping/peptide_hits.tsv` (M7-06 Q6), if the lead takes the
@@ -76,13 +76,13 @@ statistical
 4. **Sequencing:**
    - Items 2, 3, 4 and 6 are implemented now.
    - The `sim50k_m7` goldens are generated only after M7-12 (#225) merges; the implementer then
-     merges origin/main and runs `GIAP_UPDATE_GOLDEN=1` on Slurm.
+     merges origin/main and runs `GIPPA_UPDATE_GOLDEN=1` on Slurm.
    - The PR does not merge before that.
 5. **Real-tool arm (item 4):**
    - The implementer submits the K-12 `farmshare,apptainer` run with
-     `scripts/slurm/giap_run.sbatch`.
+     `scripts/slurm/gippa_run.sbatch`.
    - It records `novel_second_round_k12` in `benchmarks/baseline.json` and the job ID in
-     PROGRESS.md (the lead adds that line), and sets `$GIAP_M7_15_K12_OUT` for the e2e check.
+     PROGRESS.md (the lead adds that line), and sets `$GIPPA_M7_15_K12_OUT` for the e2e check.
    - No genome FASTA is committed.
 6. **Resume (example 2):** finding why an unchanged `--resume` re-runs 8 of 39 tasks is part of
    this issue; the cause goes in the PR body.
@@ -100,7 +100,7 @@ statistical
    - any other U or O is never an ALT;
    - each skipped site is counted in one event.
 10. **Goldens:** #225 has merged. The implementer merges origin/main, regenerates them with
-    `GIAP_UPDATE_GOLDEN=1` on Slurm and reruns the fast suite. Then the PR opens.
+    `GIPPA_UPDATE_GOLDEN=1` on Slurm and reruns the fast suite. Then the PR opens.
 11. **Review round (code review of 5c9695ce, #278).** Blocking:
     - **B1, retry growth:** a retry must change the request.
       - `time` grows with `task.attempt`: `12.h * task.attempt` on medium/high, and an explicit `2.h * task.attempt` on single/low under farmshare.
@@ -117,7 +117,7 @@ statistical
 
     Backlogged:
     - a static guard for the step-to-section map (review 5);
-    - the GIAP version in the task hash (review 6, predates this PR);
+    - the GIPPA version in the task hash (review 6, predates this PR);
     - the preflight keep-unchanged hunk and an all-cached assertion (review 10);
     - recording the `cache 'deep'` hashing cost (review 11).
 

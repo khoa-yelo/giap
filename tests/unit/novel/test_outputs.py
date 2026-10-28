@@ -1,19 +1,19 @@
 """Novel-ORF outputs: ``novel_orfs.tsv``, ``novel_orfs.gff3``, ``novel_orfs.faa`` and
-``annotation_patch.gff3`` (issue M7-07; GIAP_SPEC.md §7.6.6, §9.1, §9.3, §6.5; ADR-0012
+``annotation_patch.gff3`` (issue M7-07; GIPPA_SPEC.md §7.6.6, §9.1, §9.3, §6.5; ADR-0012
 decision 3, ADR-0013 decision 3).
 
 Examples 1-6 and 8 and every degenerate row of docs/specs/M7-07-novel-orf-outputs.md with its lead
 decisions (minus-strand ``start_*``/``end`` in transcription direction; no OSTIR score -> NA
 ``start_best_ostir``/``ostir_tir``, ``*_best`` from the longest start, flag ``ostir_missing``;
 FASTA suffixes ``|longest``/``|best_ostir``, merged when equal; no ``cterm_extension`` patch row).
-Example 7 (``giap makedb --patch``) is tests/integration/test_patch_makedb_roundtrip.py.
+Example 7 (``gippa makedb --patch``) is tests/integration/test_patch_makedb_roundtrip.py.
 
 Conventions pinned by the test author (see tests/helpers/novel_outputs_fixture.py):
 
 * ``orf_table(orfs, scored, genome=..., replicons=...)``; ``scored`` is keyed by ``orf_id`` (the
   M7-06 ``minimal_call`` columns plus optional ``start_best_ostir``, a 0-based codon of
   ``Orf.starts``, and any other table column); the TSV is written by ``write_novel_orfs``;
-* TSV cells follow giap.io.tsv: ``NA``, ``true``/``false``, ``%.6g``; ``peptides`` and ``flags``
+* TSV cells follow gippa.io.tsv: ``NA``, ``true``/``false``, ``%.6g``; ``peptides`` and ``flags``
   are ``;``-joined (flags in the schema vocabulary order, M7-09 decision 4);
 * GFF3 attributes use the column names; the first three keys are ``ID``, ``class``, ``called``;
   ``start_longest`` is written like the TSV (1-based, transcription direction);
@@ -62,8 +62,8 @@ from helpers.novel_outputs_fixture import (
     write_all,
 )
 
-from giap.io.gff3 import GffFeature, read_gff3, write_gff3
-from giap.io.protein_fasta import ProteinRecord
+from gippa.io.gff3 import GffFeature, read_gff3, write_gff3
+from gippa.io.protein_fasta import ProteinRecord
 
 ID1, ID6, ID1M = "NOVEL_c1_43_p", "NOVEL_c1_250_p", "NOVEL_c1_878_m"
 GFF_ATTRS = {
@@ -161,7 +161,7 @@ def test_example3_gff3_line(tmp_path: Path) -> None:
     assert all(isinstance(f, GffFeature) for f in feats)
     paths = _written(tmp_path, case, t)
     (cols,) = feature_lines(paths["novel_orfs.gff3"])
-    assert cols[:8] == ["c1", "GIAP", "CDS", "61", "123", ".", "+", "0"]
+    assert cols[:8] == ["c1", "GIPPA", "CDS", "61", "123", ".", "+", "0"]
     assert attr_keys(cols[8])[:3] == ["ID", "class", "called"]
     assert set(attr_keys(cols[8])) <= GFF_ATTRS
     a = attrs_of(cols[8])
@@ -174,7 +174,7 @@ def test_example4_patch_line(tmp_path: Path) -> None:
     case, _, t = _ex1_table()
     paths = _written(tmp_path, case, t)
     assert feature_lines(paths["annotation_patch.gff3"]) == [
-        ["c1", "GIAP", "CDS", "61", "123", ".", "+", "0",
+        ["c1", "GIPPA", "CDS", "61", "123", ".", "+", "0",
          f"ID={ID1};product={PATCH_PRODUCT}"],
     ]  # fmt: skip
 
@@ -185,7 +185,8 @@ def test_example5_nterm_extension_patch(tmp_path: Path) -> None:
     t = table(case, orfs, scored(orfs, called={ID6: True}))
     paths = _written(tmp_path, case, t)
     assert feature_lines(paths["annotation_patch.gff3"]) == [
-        ["c1", "GIAP", "CDS", "250", "900", ".", "+", "0", "ID=G;locus_tag=G;Note=nterm_extension"],
+        ["c1", "GIPPA", "CDS", "250", "900", ".", "+", "0",
+         "ID=G;locus_tag=G;Note=nterm_extension"],
     ]  # fmt: skip
     row = _row(paths["novel_orfs.tsv"], ID6)
     assert (row["class"], row["overlapping_gene"]) == ("nterm_extension", "G")
@@ -200,7 +201,8 @@ def test_example5_mirror_nterm_patch_uses_the_gene_end(tmp_path: Path) -> None:
     t = table(case, orfs, scored(orfs, called={orf.orf_id: True}))
     paths = _written(tmp_path, case, t)
     assert feature_lines(paths["annotation_patch.gff3"]) == [
-        ["c1", "GIAP", "CDS", "101", "751", ".", "-", "0", "ID=G;locus_tag=G;Note=nterm_extension"],
+        ["c1", "GIPPA", "CDS", "101", "751", ".", "-", "0",
+         "ID=G;locus_tag=G;Note=nterm_extension"],
     ]  # fmt: skip
     row = _row(paths["novel_orfs.tsv"], orf.orf_id)
     assert (row["start_longest"], row["end"]) == ("751", "101")
@@ -218,7 +220,7 @@ def test_example6_minus_strand_transcription_direction(tmp_path: Path) -> None:
     assert (row["length_aa_longest"], row["length_aa_best"]) == ("26", "26")
     assert row["start_codon_best"] == "ATG"
     (cols,) = feature_lines(paths["novel_orfs.gff3"])
-    assert cols[:8] == ["c1", "GIAP", "CDS", "878", "958", ".", "-", "0"]
+    assert cols[:8] == ["c1", "GIPPA", "CDS", "878", "958", ".", "-", "0"]
     assert attrs_of(cols[8])["start_longest"] == "958"
 
 
@@ -526,7 +528,7 @@ def test_new_orf_classes_are_patched_as_cds(tmp_path: Path, cls: str) -> None:
     o = dataclasses.replace(orf, cls=cls)
     t = table(case, [o], scored([o], best={ID1: 60}))
     (f,) = outputs().patch_features(t, case.gm)
-    assert (f.type, f.source, f.phase) == ("CDS", "GIAP", 0)
+    assert (f.type, f.source, f.phase) == ("CDS", "GIPPA", 0)
     assert (f.interval.start, f.interval.end, f.interval.strand) == (60, 123, "+")
     assert dict(f.attributes) == {"ID": ID1, "product": PATCH_PRODUCT}
 
@@ -549,12 +551,12 @@ def test_two_orfs_with_one_id_are_rejected() -> None:
 # ---------------------------------------------------------------- rule 5/6 invariants
 
 
-def test_every_gff_feature_is_a_giap_cds_with_phase_0_and_note() -> None:
+def test_every_gff_feature_is_a_gippa_cds_with_phase_0_and_note() -> None:
     case = ex1_ex6()
     orfs = orfs_of(case)
     t = table(case, orfs, scored(orfs))
     for f in outputs().gff_features(t):
-        assert (f.source, f.type, f.phase, f.score) == ("GIAP", "CDS", 0, None)
+        assert (f.source, f.type, f.phase, f.score) == ("GIPPA", "CDS", 0, None)
         assert f.attributes["Note"] == f.attributes["class"]
         assert f.interval.strand in ("+", "-")
 

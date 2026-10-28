@@ -16,7 +16,7 @@ Review items 1 and 3 and the nits:
 Cascadia, torch and lightning are never imported: ``work``, ``predict`` and ``merge`` import them
 inside the function, so the tests put small fakes into ``sys.modules`` (pickle stands in for
 ``torch.save``/``torch.load``; a prediction is the tuple ``("pred", batch_index)``). No network, no
-$GIAP_ROOT. No statistical claim, so no calibration test.
+$GIPPA_ROOT. No statistical claim, so no calibration test.
 """
 
 from __future__ import annotations

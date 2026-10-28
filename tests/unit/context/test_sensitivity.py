@@ -1,5 +1,5 @@
 """M4-19 sensitivity framework and the ``regions`` family: spec examples 1-5 and 7, edge cases and
-lead decisions 2-4 (docs/specs/M4-19-sensitivity-regions.md; GIAP_SPEC.md §8.6, §5.2, §7.3.2).
+lead decisions 2-4 (docs/specs/M4-19-sensitivity-regions.md; GIPPA_SPEC.md §8.6, §5.2, §7.3.2).
 
 Examples 6 (``off``: no file) and the step-level CRN checks live in
 tests/integration/test_sensitivity_step.py. Inputs: hand-built §9.3 gene tables
@@ -26,7 +26,7 @@ NAN = math.nan
 
 
 def _S() -> Any:
-    from giap.context import sensitivity as S
+    from gippa.context import sensitivity as S
 
     return S
 
@@ -303,7 +303,7 @@ def test_family_runs_the_region_tests_with_the_given_config(
     sd.call_regions_family(sd.family_tables(), cfg, np.random.default_rng(1))
     assert len(calls) == 1
     passed = [a for a in (*calls[0]["args"], *calls[0]["kwargs"].values())
-              if type(a).__name__ == "GiapConfig"]  # fmt: skip
+              if type(a).__name__ == "GippaConfig"]  # fmt: skip
     assert passed and all(c.stats.permutations == sd.SENS_B for c in passed)
 
 

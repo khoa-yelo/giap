@@ -1,6 +1,6 @@
 # M2-03: Gene model and defensive Bakta 1.12.2 JSON parser; Bakta command builder
 
-Milestone M2 · depends on: M1-01, M1-02; shares `giap.model.genes` with M3-01 · estimate ≈ 330 code lines (tests not counted) ·
+Milestone M2 · depends on: M1-01, M1-02; shares `gippa.model.genes` with M3-01 · estimate ≈ 330 code lines (tests not counted) ·
 capabilities: none (contract test on recorded JSON is `pending_sample` until M2-10)
 
 ## Spec sections implemented
@@ -21,13 +21,13 @@ capabilities: none (contract test on recorded JSON is `pending_sample` until M2-
 
 ## Public interface
 
-**Shared with M3-01.** M3-01 (`docs/specs/M3-01-gene-model.md`) defines `src/giap/model/genes.py`
+**Shared with M3-01.** M3-01 (`docs/specs/M3-01-gene-model.md`) defines `src/gippa/model/genes.py`
 (`Gene`, `NcFeature`, `GeneModel`, `gene_model_from_bakta_json`) as the interface Module 2 consumes,
 and says "M2's `parse_bakta` MUST return the same `GeneModel`". This issue therefore **extends** that
 module and never forks it: whichever of M2-03 / M3-01 merges second rebases onto the other. Fields
 below marked *(M2)* are additions with defaults, so M3 code is unaffected.
 
-`src/giap/model/genes.py` (additions to M3-01)
+`src/gippa/model/genes.py` (additions to M3-01)
 ```python
 @dataclass(frozen=True, slots=True)
 class Gene:                          # M3-01 fields: locus_tag, feature_type, interval, aa, nt,
@@ -43,9 +43,9 @@ class NcFeature:                     # M3-01 fields: id, type, interval
     nt: str | None = None                                         # (M2) rRNA (16S → anti-SD)
 ```
 M3-01's `NcType` gains `"oriv"`. In this file the names `Gene`, `NcFeature`, `GeneModel` refer to
-`giap.model.genes`.
+`gippa.model.genes`.
 
-`src/giap/annotate/bakta.py`
+`src/gippa/annotate/bakta.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class BaktaAnnotation:
@@ -58,7 +58,7 @@ def parse_bakta_json(path: Path, replicons: Mapping[str, Replicon] | None = None
                      genome: Mapping[str, str] | None = None) -> BaktaAnnotation
 # M3-01's gene_model_from_bakta_json(path, replicons) becomes `parse_bakta_json(path, replicons).model`
 ```
-`src/giap/annotate/bakta_cmd.py`
+`src/gippa/annotate/bakta_cmd.py`
 ```python
 def bakta_db_path(db_setting: str, db_dir: Path) -> tuple[Path, Literal["full", "light"]]
 def bakta_command(*, genome: Path, outdir: Path, prefix: str, db: Path, threads: int,
@@ -115,7 +115,7 @@ Parsing rules (each a test):
 
 - [ ] `tests/unit/test_bakta_json.py`: examples 1–9 on hand-written JSON snippets in the test.
 - [ ] `tests/unit/test_bakta_cmd.py`: example 10, `--regions` appended when given, `extra_args` last
-  before the genome, `db: auto` → `db` if `$GIAP_DB_DIR/bakta/db` exists else `db-light`.
+  before the genome, `db: auto` → `db` if `$GIPPA_DB_DIR/bakta/db` exists else `db-light`.
 - [ ] `tests/contract/test_bakta_contract.py` on `tests/data/recorded/bakta/1.12.2-light/sim100k/`
   and `1.12.2-full/{k12,nissle,sim100k}/`: parses; gene count equals the GFF3 CDS count; every
   locus tag of the FAA appears; `pending_sample` until M2-10 records them.
@@ -134,7 +134,7 @@ Parsing rules (each a test):
    three nucleotides of a partial gene are not a start codon.
 2. Each JSON sequence's `length` must equal the length of the genome sequence used (given `replicons` or
    JSON `nt`); mismatch → `BaktaParseError` naming the sequence (recorded JSON drops `nt`, M2-10).
-3. `giap.model.genes.gene_model_from_bakta_json` delegates to `parse_bakta_json(path, replicons).model`;
+3. `gippa.model.genes.gene_model_from_bakta_json` delegates to `parse_bakta_json(path, replicons).model`;
    one parser, identical results.
 4. Type validation raises `BaktaParseError`: non-string `nt`/`aa`; `start`/`stop` that are not ints
    (bools and floats rejected); `expert` that is not a list of dicts.

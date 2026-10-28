@@ -1,5 +1,5 @@
 """Calibration of the M7-12 round-2 planted-TIR knob on the ``sim300k`` size (lead decisions 13 and
-14 after the statistician's block on PR #225; GIAP_SPEC.md §7.6.6, §8.4 suite "Novel-ORF class
+14 after the statistician's block on PR #225; GIPPA_SPEC.md §7.6.6, §8.4 suite "Novel-ORF class
 FDR").
 
 Claims checked (each pooled over replicates of ``novel_orf_power(seed, "300k")``, seeds
@@ -15,7 +15,7 @@ tests/unit/test_sim_m7_round2.py):
   two-sample KS, p >= ``ks_min_p``.
 * **Estimable threshold (decision 13).** Every replicate has >= 200 annotated non-pseudo CDSs
   (decoy-picked q floor 1 / n < 0.01) and >= 20 detected genes with a TIR (M7-09 decision 1;
-  detected = >= 1 correct peptide, the simulator's stand-in for GIAP's rule).
+  detected = >= 1 correct peptide, the simulator's stand-in for GIPPA's rule).
 * **Share calibration.** With threshold t_r = 10 % quantile (linear) of the detected genes'
   first-round TIRs, the pooled number of planted starts with TIR >= t_r is within 3 SE of its
   expectation sum_r n_r (1 - Phi((log t_r - mu) / sigma)) (SE from the binomial variances), in
@@ -38,7 +38,7 @@ import pytest
 from helpers import m7_sim_oracle as O
 from scipy import stats
 
-import giapsim
+import gippasim
 
 pytestmark = pytest.mark.calsuite("novel_orfs")
 
@@ -80,12 +80,12 @@ def _detected_tirs(out: Path) -> np.ndarray:
 
 
 def _rep(d: Path, seed: int, arm: tuple[float, float]) -> Rep:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     cfg = sc.novel_orf_power(seed, "300k")
     if tuple(cfg.planted_tir) != arm:
         cfg = dataclasses.replace(cfg, planted_tir=arm)
-    giapsim.simulate(cfg, seed, d)
+    gippasim.simulate(cfg, seed, d)
     layer = {(r["contig"], r["strand"], int(r["start"])): float(r["tir_ostir"])
              for r in O.rows(d / "precomputed" / "rbs_novel.tsv")}  # fmt: skip
     rows = O.rows(d / "truth" / "novel_orfs.tsv")

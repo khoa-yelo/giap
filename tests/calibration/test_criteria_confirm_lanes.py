@@ -2,11 +2,11 @@
 records, verdicts and exit (R3: scheduling only; docs/specs/M11-03c-calibration-full-sharding.md,
 "PR 2" and acceptance criterion 7).
 
-``GIAP_CALIBRATION_CONFIRM_SLICE=k/L`` is read only in the confirm branches of ``calibrate`` and
+``GIPPA_CALIBRATION_CONFIRM_SLICE=k/L`` is read only in the confirm branches of ``calibrate`` and
 ``_calibrate_counts`` (``calibrate_pooled``, ``calibrate_fdr_counts``): there a listed check runs
 ``shard_replicates(R, L, k)`` of block 2 (its own R) and logs it as a block-2 ``shard`` record; an
-empty slice (R < L) logs nothing. ``GIAP_CALIBRATION_CONFIRM_LANES=L`` makes ``--merge`` start L
-block-2 pytests, each with ``--junitxml=<GIAP_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml`` on
+empty slice (R < L) logs nothing. ``GIPPA_CALIBRATION_CONFIRM_LANES=L`` makes ``--merge`` start L
+block-2 pytests, each with ``--junitxml=<GIPPA_CALIBRATION_CONFIRM_JUNIT>.lane<k>.junit.xml`` on
 the command line, and write ``<log>/<suite>.confirm_parts.json`` (the JUnit names it launched).
 A bad ``CONFIRM_LANES`` is ``MERGE_ERROR``, never a silent fallback.
 
@@ -36,9 +36,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-SLICE_ENV = "GIAP_CALIBRATION_CONFIRM_SLICE"
-LANES_ENV = "GIAP_CALIBRATION_CONFIRM_LANES"
-JUNIT_ENV = "GIAP_CALIBRATION_CONFIRM_JUNIT"
+SLICE_ENV = "GIPPA_CALIBRATION_CONFIRM_SLICE"
+LANES_ENV = "GIPPA_CALIBRATION_CONFIRM_LANES"
+JUNIT_ENV = "GIPPA_CALIBRATION_CONFIRM_JUNIT"
 NEW_VARS = (SLICE_ENV, LANES_ENV, JUNIT_ENV)
 
 HERE = Path(__file__).resolve().parent
@@ -46,7 +46,7 @@ FIXTURE = HERE / "_confirm_lanes_fixture_suite.py"
 SUITE = "discordance"
 FX = "discordance.confirm_lanes_fixture"
 N_SHARDS = 2  # block-1 shards; L differs from it on purpose (L = 3)
-JUNIT_BASE = "task-5.merge"  # <GIAP_CALIBRATION_CONFIRM_JUNIT> = <log>/task-5.merge
+JUNIT_BASE = "task-5.merge"  # <GIPPA_CALIBRATION_CONFIRM_JUNIT> = <log>/task-5.merge
 
 
 def _clean(mp: pytest.MonkeyPatch) -> None:
@@ -187,7 +187,7 @@ def test_slice_leaves_every_other_reader_unchanged() -> None:
 def test_slice_outside_a_confirm_run_changes_nothing(
     kind: str, shard: str | None, tmp_path: Path
 ) -> None:
-    """Without ``GIAP_CALIBRATION_CONFIRM`` the slice variable is ignored (unsharded: both
+    """Without ``GIPPA_CALIBRATION_CONFIRM`` the slice variable is ignored (unsharded: both
     blocks; block-1 shard: its own range), so behaviour is byte-unchanged."""
     stream = f"{SUITE}.confirm_ignored.{kind}"
     out = {}
@@ -252,7 +252,7 @@ def _env(log: Path) -> dict[str, str]:
     drop = (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV, *NEW_VARS, "PYTEST_ADDOPTS",
             "PYTEST_XDIST_WORKER")  # fmt: skip
     keep = {k: v for k, v in os.environ.items() if k not in drop}
-    return {**keep, C.LOG_DIR_ENV: str(log), "GIAP_CONFIRM_LANES_FIXTURE": "1"}
+    return {**keep, C.LOG_DIR_ENV: str(log), "GIPPA_CONFIRM_LANES_FIXTURE": "1"}
 
 
 def _setup(mp: pytest.MonkeyPatch, log: Path, selection: str) -> None:
@@ -535,7 +535,7 @@ def test_one_dead_lane_of_several_is_a_merge_error(L: int, base_root: Path, tmp_
     """Statistician's gap: only lane 1 dies (killed before it logs, exit 137 as after an OOM
     kill); the other lanes finish and log. Block 2 is incomplete: MERGE_ERROR, never a verdict."""
     log = tmp_path / "onedead"
-    env = {**_lane_env(log, L), "GIAP_CONFIRM_LANES_FIXTURE_DIE": "1"}
+    env = {**_lane_env(log, L), "GIPPA_CONFIRM_LANES_FIXTURE_DIE": "1"}
     assert _merge("ok", base_root, log, env) == C.MERGE_ERROR
     parts = json.loads((log / f"{SUITE}.confirm_parts.json").read_text())
     assert sorted(parts) == [f"{JUNIT_BASE}.lane{k}.junit.xml" for k in range(L)]
@@ -550,7 +550,7 @@ def test_one_dead_lane_of_several_is_a_merge_error(L: int, base_root: Path, tmp_
 def test_a_stray_confirm_slice_without_lanes_gives_the_reference(
     scenario: str, base_root: Path, tmp_path: Path, references: dict[str, tuple[int, Path]]
 ) -> None:
-    """Review S4: CONFIRM_LANES unset and a stray ``GIAP_CALIBRATION_CONFIRM_SLICE=1/3`` in the
+    """Review S4: CONFIRM_LANES unset and a stray ``GIPPA_CALIBRATION_CONFIRM_SLICE=1/3`` in the
     merge's environment: the sequential confirm child must not inherit it, so block 2 runs whole
     and the merge gives the reference exit and records."""
     rc_ref, ref_log = references[scenario]

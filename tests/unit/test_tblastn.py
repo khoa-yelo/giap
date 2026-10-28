@@ -1,6 +1,6 @@
 """tblastn route: commands, outfmt-6 parser, collinear HSP chaining (issue M3-13).
 
-GIAP_SPEC.md §7.2.3 (tblastn leftovers), §7.1.1 (``-db_gencode 11``), §6.5 (coordinates).
+GIPPA_SPEC.md §7.2.3 (tblastn leftovers), §7.1.1 (``-db_gencode 11``), §6.5 (coordinates).
 Examples 1-7 of docs/specs/M3-13-tblastn-route.md on hand-written rows (in the column layout of
 the real tool) and on ``tests/data/tblastn/mini/tblastn.tsv``, a real BLAST+ 2.16.0 run.
 
@@ -29,10 +29,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.coords import check_interval
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.coords import check_interval
+from gippa.model.genes import Gene, GeneModel
 
 OUTFMT = (
     "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore "
@@ -54,7 +54,7 @@ MINI_REPS = {
 
 
 def _tb():  # type: ignore[no-untyped-def]
-    from giap.mapping import tblastn
+    from gippa.mapping import tblastn
 
     return tblastn
 
@@ -131,7 +131,7 @@ def _model(reps: dict[str, Replicon], *genes: Gene) -> GeneModel:
 
 
 def _assign(alns, gm):  # type: ignore[no-untyped-def]
-    from giap.mapping.protein_assign import assign_alignments
+    from gippa.mapping.protein_assign import assign_alignments
 
     return assign_alignments(alns, gm, CFG)
 
@@ -664,7 +664,7 @@ def test_union_coverage_below_threshold_not_assigned() -> None:
 
 def test_miniprot_alignment_without_explicit_coverage_reports_span() -> None:
     """M3-12 unchanged: a ``ProteinAlignment`` built without coverage reports the span."""
-    from giap.mapping.miniprot import ProteinAlignment
+    from gippa.mapping.miniprot import ProteinAlignment
 
     a = ProteinAlignment(
         protein_id="M1",

@@ -161,7 +161,7 @@ def test_committed_metrics_commit_equals_the_freeze_commit() -> None:
     doc = json.loads(METRICS.read_text(encoding="utf-8"))
     head = _header(RUNBOOK.read_text(encoding="utf-8"))
     assert head.get("status") == "final"
-    assert doc["giap_commit"] == head["freeze_commit"]
+    assert doc["gippa_commit"] == head["freeze_commit"]
 
 
 def test_committed_metrics_never_records_the_runbook() -> None:

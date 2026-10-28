@@ -1,4 +1,4 @@
-"""Review pins for the protein FASTA reader (issue M1-03; GIAP_SPEC.md §5.3, §7.0)."""
+"""Review pins for the protein FASTA reader (issue M1-03; GIPPA_SPEC.md §5.3, §7.0)."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from giap.io.fasta import FastaFormatError
-from giap.io.protein_fasta import ProteinRecord, read_protein_fasta
+from gippa.io.fasta import FastaFormatError
+from gippa.io.protein_fasta import ProteinRecord, read_protein_fasta
 
 
 def _write_bytes(tmp_path: Path, data: bytes, name: str = "p.faa") -> Path:

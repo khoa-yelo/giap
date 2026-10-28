@@ -1,10 +1,10 @@
-// M11-14d: params.run_uniop (docs/specs/M11-14-container-install.md item 1 (c) "Run": `giap run`
+// M11-14d: params.run_uniop (docs/specs/M11-14-container-install.md item 1 (c) "Run": `gippa run`
 // passes params.run_uniop from the resolved annotation.uniop.enabled, and UNIOP is skipped when it
 // is false; AC 8). Stub runs of ANNOTATE through ../main.nf, as annotate.nf.test.
 //
 // With run_uniop = false: no UNIOP task, operon_pairs still runs once (it builds the
 // distance-model pairs) and receives no uniop_pred; every py step's --in keys still follow the
-// giap.steps registry. With run_uniop = true (the nextflow.config default), UNIOP runs once and
+// gippa.steps registry. With run_uniop = true (the nextflow.config default), UNIOP runs once and
 // operon_pairs receives uniop_pred.
 
 nextflow_pipeline {
@@ -38,7 +38,7 @@ nextflow_pipeline {
             def keys = H.stepInputs(op[0]).collect { it[0] }
             assert !keys.contains('uniop_pred') : "operon_pairs got uniop_pred: ${keys}"
             def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
-            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            assert probs.isEmpty() : "py step inputs vs gippa.steps registry: ${probs}"
         }
     }
 

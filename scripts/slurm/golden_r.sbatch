@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=giap-golden-r
+#SBATCH --job-name=gippa-golden-r
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=02:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
-# R golden references (M8-12; GIAP_SPEC.md §3.8, §11.5). Usage: sbatch golden_r.sbatch [checkout]
-#   1. builds env giap-golden-r from scripts/golden/golden_r.yml when its .giap-built marker
+# R golden references (M8-12; GIPPA_SPEC.md §3.8, §11.5). Usage: sbatch golden_r.sbatch [checkout]
+#   1. builds env gippa-golden-r from scripts/golden/golden_r.yml when its .gippa-built marker
 #      (sha256 of the yml, the build_envs.sh pattern) is missing or stale; conda-forge + bioconda only;
 #   2. checks packageVersion() of each package equals its pin, exports golden_r.explicit.txt;
 #   3. writes the inputs and runs make_golden_r.R twice, checking byte-identical outputs;
@@ -16,17 +16,17 @@
 # inputs or outputs/goseq.tsv.gz differ from the committed ones, unless GOLDEN_R_ALLOW_ORA_CHANGE=1
 # (M8-12b §2.1).
 set -euo pipefail
-source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
-WT="$(cd "${1:-$GIAP_REPO}" && pwd)"
-export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
+source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
+WT="$(cd "${1:-$GIPPA_REPO}" && pwd)"
+export TMPDIR="$(mktemp -d /tmp/gippa.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$WT"
 PY="$UV_PROJECT_ENVIRONMENT/bin/python"
-ENV=giap-golden-r
+ENV=gippa-golden-r
 YML="$WT/scripts/golden/golden_r.yml"
 LOCK="$WT/scripts/golden/golden_r.explicit.txt"
 DEST="$WT/tests/data/golden/r"
 prefix="$MAMBA_ROOT_PREFIX/envs/$ENV"
-marker="$prefix/.giap-built"
+marker="$prefix/.gippa-built"
 want="$(sha256sum "$YML" | cut -d' ' -f1)"
 : "${SLURM_JOB_ID:?run through sbatch: PROVENANCE.md records the job}"
 : "${GOLDEN_R_REASON:?set GOLDEN_R_REASON: PROVENANCE.md records why the data were regenerated}"
@@ -93,7 +93,7 @@ dirty=""
 [ -z "$(git status --porcelain -- scripts/golden scripts/slurm/golden_r.sbatch)" ] ||
   dirty=" (scripts modified after this commit)"
 cat > "$DEST/PROVENANCE.md" <<MD
-# R golden references: fgsea and goseq (M8-12; GIAP_SPEC.md §11.4, §11.5)
+# R golden references: fgsea and goseq (M8-12; GIPPA_SPEC.md §11.4, §11.5)
 
 - Command: \`sbatch scripts/slurm/golden_r.sbatch\` (runs \`scripts/golden/make_golden_inputs.py
   --seed $seed\` and \`Rscript --vanilla scripts/golden/make_golden_r.R\` in env \`$ENV\`).

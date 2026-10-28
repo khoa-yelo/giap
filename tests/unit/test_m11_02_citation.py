@@ -18,7 +18,7 @@ import jsonschema
 import pytest
 import yaml
 
-import giap
+import gippa
 
 ROOT = Path(__file__).resolve().parents[2]
 CFF = ROOT / "CITATION.cff"
@@ -48,11 +48,12 @@ def load_cff(text: str) -> dict[str, Any]:
 
 
 def agreement_errors(cff: dict[str, Any], version: str, changelog: str) -> list[str]:
-    """Item 4: CFF version == giap.__version__; a date-released has a matching changelog heading."""
+    """Item 4: CFF version == gippa.__version__; a date-released has a matching changelog
+    heading."""
     errors = []
     cff_version = str(cff.get("version"))
     if cff_version != version:
-        errors.append(f"CITATION.cff version {cff_version} != giap {version}")
+        errors.append(f"CITATION.cff version {cff_version} != gippa {version}")
     if "date-released" in cff:
         date = str(cff["date-released"])
         try:
@@ -60,7 +61,7 @@ def agreement_errors(cff: dict[str, Any], version: str, changelog: str) -> list[
         except ValueError:
             errors.append(f"CITATION.cff date-released {date!r} is not an ISO date")
         else:
-            heading = f"## GIAP {cff_version} ({date})"
+            heading = f"## GIPPA {cff_version} ({date})"
             if not any(line.strip() == heading for line in changelog.splitlines()):
                 errors.append(f"CHANGELOG.md has no heading {heading!r}")
     return errors
@@ -130,7 +131,7 @@ def test_cff_version_and_type(cff: dict[str, Any]) -> None:
 
 
 def test_title_and_message(cff: dict[str, Any]) -> None:
-    assert str(cff.get("title", "")).startswith("GIAP")
+    assert str(cff.get("title", "")).startswith("GIPPA")
     assert cff.get("message")
 
 
@@ -151,7 +152,7 @@ def test_authors_have_given_and_family_names(cff: dict[str, Any]) -> None:
 
 def test_license_and_repository(cff: dict[str, Any]) -> None:
     assert cff.get("license") == "MIT"
-    assert cff.get("repository-code") == "https://github.com/khoa-yelo/giap"
+    assert cff.get("repository-code") == "https://github.com/khoa-yelo/gippa"
 
 
 def test_keywords(cff: dict[str, Any]) -> None:
@@ -179,25 +180,25 @@ def test_no_email_in_citation(cff: dict[str, Any], cff_text: str) -> None:
 
 
 def test_citation_agrees_with_version_and_changelog(cff: dict[str, Any]) -> None:
-    errors = agreement_errors(cff, giap.__version__, CHANGELOG.read_text(encoding="utf-8"))
+    errors = agreement_errors(cff, gippa.__version__, CHANGELOG.read_text(encoding="utf-8"))
     assert errors == []
 
 
 def test_changelog_has_no_release_section_before_release_prep(cff: dict[str, Any]) -> None:
     # Acceptance 5: CHANGELOG.md is written once, by the release prep (M11-13), which also adds
-    # date-released; until then it carries no "## GIAP" release heading.
+    # date-released; until then it carries no "## GIPPA" release heading.
     if "date-released" not in cff:
         text = CHANGELOG.read_text(encoding="utf-8")
         assert "<!-- towncrier release notes start -->" in text
-        assert not re.search(r"^## GIAP ", text, flags=re.MULTILINE)
+        assert not re.search(r"^## GIPPA ", text, flags=re.MULTILINE)
 
 
 # examples 3-6 on synthetic inputs (self-tests of the checks above)
 
 BASE = """\
 cff-version: 1.2.0
-message: "If you use GIAP, please cite it as below."
-title: "GIAP"
+message: "If you use GIPPA, please cite it as below."
+title: "GIPPA"
 type: software
 authors:
   - family-names: Hoang
@@ -212,7 +213,7 @@ def test_example3_matching_version_passes() -> None:
 
 def test_example4_bumped_version_fails() -> None:
     errors = agreement_errors(load_cff(BASE), "1.0.0", "# Changelog\n")
-    assert errors == ["CITATION.cff version 0.0.1 != giap 1.0.0"]
+    assert errors == ["CITATION.cff version 0.0.1 != gippa 1.0.0"]
 
 
 def test_example5_date_without_changelog_heading_fails() -> None:
@@ -222,8 +223,8 @@ def test_example5_date_without_changelog_heading_fails() -> None:
         cff, "1.0.0", "# Changelog\n\n<!-- towncrier release notes start -->\n"
     )
     assert len(errors) == 1
-    assert "## GIAP 1.0.0 (2026-11-01)" in errors[0]
-    ok = "# Changelog\n\n## GIAP 1.0.0 (2026-11-01)\n\n### Features\n"
+    assert "## GIPPA 1.0.0 (2026-11-01)" in errors[0]
+    ok = "# Changelog\n\n## GIPPA 1.0.0 (2026-11-01)\n\n### Features\n"
     assert agreement_errors(cff, "1.0.0", ok) == []
 
 

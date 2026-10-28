@@ -4,7 +4,7 @@ Spec: docs/specs/M10-10-a3-run.md, "``cascadia_convert.sbatch`` (step 3)", examp
 "Empty input". The sandbox (``helpers.a3_run_m10_10.convert_sandbox``) runs the **real** M10-09
 converter and the real ``cascadia_convert.py`` of this checkout on three tiny ``.ssl`` written by
 the test; only ``a3_feasibility.py evaluate`` (M10-08b) is faked, by exit code (``FAKE_L6``).
-Nothing is submitted to Slurm and nothing touches the real ``$GIAP_ROOT``.
+Nothing is submitted to Slurm and nothing touches the real ``$GIPPA_ROOT``.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from helpers.a3_run_m10_10 import (
     strings,
 )
 
-from giap.cli import cli
+from gippa.cli import cli
 
 OUTPUTS = {"a3.tsv.gz", "a3.convert.json", "a3.convert.log"}
 
@@ -59,7 +59,7 @@ def _directive(key: str) -> str | None:
 def test_sbatch_house_rules() -> None:
     """Criterion 12 (R14, §3.8)."""
     job = _directive("job-name")
-    assert job and job.startswith("giap-"), f"job name {job!r}"
+    assert job and job.startswith("gippa-"), f"job name {job!r}"
     assert _directive("partition") == "normal"
     assert _directive("qos") == "normal"
     assert _directive("cpus-per-task") == "2"
@@ -126,7 +126,7 @@ def test_a3_out_dir_overrides_the_a3_root(box: ConvertSandbox) -> None:
     res = box.run(A3_OUT_DIR=str(other))
     assert res.returncode == 0, _msg(res)
     assert (other / "ssl.sha256").is_file()
-    assert not box.a3.exists(), "the default $GIAP_ROOT/pilot/A3 was used despite A3_OUT_DIR"
+    assert not box.a3.exists(), "the default $GIPPA_ROOT/pilot/A3 was used despite A3_OUT_DIR"
     assert set(box.inputs_files()) == OUTPUTS
 
 

@@ -1,4 +1,4 @@
-"""Contract test: geNOMAD 1.12.0 summary parser on recorded runs (M2-18; GIAP_SPEC.md §7.1.1).
+"""Contract test: geNOMAD 1.12.0 summary parser on recorded runs (M2-18; GIPPA_SPEC.md §7.1.1).
 
 Committed recordings (``tests/data/recorded/genomad/PROVENANCE.md``): the complete
 ``genome_summary/genome_{virus_summary,plasmid_summary,virus_genes}.tsv`` of sim100k, K-12 MG1655
@@ -8,7 +8,7 @@ and Nissle 1917 (prefix ``genome``), plus ``replicons.tsv``.
 * K-12: 5 proviruses, Nissle: 3 proviruses and 2 plasmids (acceptance: ≥ 1 provirus each).
 * Q2: every virus gene lies inside its provirus with the coordinates read as absolute 1-based
   closed contig positions (an ``a-1`` offset would move them out), which decides the rule.
-* full recordings under ``$GIAP_ROOT/recordings/genomad/`` (skipped when missing): committed
+* full recordings under ``$GIPPA_ROOT/recordings/genomad/`` (skipped when missing): committed
   copies are byte-identical and the full output directory parses to the same result.
 """
 
@@ -21,12 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from giap.model.coords import Interval, Replicon, check_interval
+from gippa.model.coords import Interval, Replicon, check_interval
 
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "genomad" / "1.12.0"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
 TSVS = ["virus_summary", "plasmid_summary", "virus_genes"]
-FULL = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings" / "genomad"
+FULL = Path(os.environ.get("GIPPA_ROOT", "/nonexistent")) / "recordings" / "genomad"
 TAX = "Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;"
 
 K12_PROVIRUSES = {  # seq_name coordinates (1-based closed) → score, n_hallmarks
@@ -58,13 +58,13 @@ def _rows(sample: str, name: str, base: Path = RECORDED) -> list[dict[str, str]]
 
 
 def _parse(sample: str, base: Path = RECORDED):  # type: ignore[no-untyped-def]
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.genomad import parse_genomad
 
     return parse_genomad(base / sample, "genome", _replicons(sample))
 
 
 def test_sim100k_is_empty() -> None:
-    from giap.annotate.genomad import GenomadResult
+    from gippa.annotate.genomad import GenomadResult
 
     assert _parse("sim100k") == GenomadResult((), (), ())
 
@@ -176,6 +176,6 @@ def test_full_recording_matches_committed_copy(sample: str) -> None:
         a = hashlib.sha256((full / rel).read_bytes()).hexdigest()
         b = hashlib.sha256((RECORDED / sample / rel).read_bytes()).hexdigest()
         assert a == b, f"{sample}: {rel} differs from the committed copy"
-    from giap.annotate.genomad import parse_genomad
+    from gippa.annotate.genomad import parse_genomad
 
     assert parse_genomad(full, "genome", _replicons(sample)) == _parse(sample)

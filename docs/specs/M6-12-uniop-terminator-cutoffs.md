@@ -3,11 +3,11 @@
 Milestone M6 · track V (validation) · **ready** (M6-11 merged as #141, 2026-10-21) · depends on:
 M6-11 (truth sets), merged M2-12 (UniOP adapter, distance model), M2-15 (TerminatorNet parser,
 terminator windows) · **statistical** (label `stats`) · four PRs (see "Split"): about 140 code lines
-in `src/giap/stats/`, about 230 in `validation/`, about 25 in the protected-file PR · produces
+in `src/gippa/stats/`, about 230 in `validation/`, about 25 in the protected-file PR · produces
 ADR-0022 and, after Khoa accepts it, a protected-file change.
 
 Release of record: **RegulonDB 14.5.0** (release 2026-01-28; Khoa, 2026-10-21, PROGRESS.md ›
-Questions item 1). GIAP_SPEC.md §15.3 and §7.4.6 say "v12"; the spec is read-only, and 14.5.0 is
+Questions item 1). GIPPA_SPEC.md §15.3 and §7.4.6 say "v12"; the spec is read-only, and 14.5.0 is
 the release that was fetched and is cited.
 
 ## Spec sections implemented
@@ -18,13 +18,13 @@ the release that was fetched and is cited.
   intergenic regions downstream of genes that lie within ±50 bp of a RegulonDB terminator on the
   same strand. Choose the smallest confidence with precision ≥ 0.90 (else maximum F1). RegulonDB
   is incomplete, so this precision is a lower bound; say so in the ADR." Step 5: "Record the
-  cut-offs in `src/giap/data/calibration.yaml`, with RegulonDB version, date, AUROC, precision and
+  cut-offs in `src/gippa/data/calibration.yaml`, with RegulonDB version, date, AUROC, precision and
   recall. The ADR goes to Khoa (protected file)."
 - §7.4.6 "Truth check": the UniOP-alone AUROC is the third clause of the M6 gate (§7.4.7, §13 row
   M6). The UniOP-plus-co-abundance comparison needs K-12 proteomics and stays deferred.
 - §7.1.3: the distance model p(operon | d) = 1 / (1 + exp((d − d₀)/s)), defaults d₀ = 50, s = 20,
   "refitted on RegulonDB K-12 pairs during calibration (§15.4) and stored in
-  `src/giap/data/calibration.yaml`".
+  `src/gippa/data/calibration.yaml`".
 - §7.1.5 and §7.4.5: "a TerminatorNet terminator at or above the calibrated confidence cut-off".
 
 ## Inputs, as they exist now
@@ -33,11 +33,11 @@ Every input is already on disk. **No tool needs to run again** (see "Where compu
 
 | Input | Path | Identity |
 |---|---|---|
-| Pair truth | `$GIAP_DATA_DIR/regulondb/14.5.0/truth/pair_truth.tsv` | columns `gene_a, gene_b, label, tu_ids`; `label ∈ {positive, negative, ambiguous}`; `tu_ids` `;`-joined; one row per same-strand adjacent pair of `giap.annotate.operons.adjacent_pairs` on contig `U00096.3`, wrap pair included |
-| Terminator truth | `$GIAP_DATA_DIR/regulondb/14.5.0/truth/terminator_truth.tsv` | columns `contig, start, end, strand, source_id`; **0-based half-open**; 375 rows (177 `+`, 198 `-`) |
-| Truth summary | `$GIAP_DATA_DIR/regulondb/14.5.0/truth/truth_summary.json` | `regulondb_version` 14.5.0, `release_date` 2026-01-28, and the SHA-256s of `TUSet` (c96c8a3b…), `TerminatorSet` (9d916ffe…) and `GeneProductSet` (3c2c6be3…) |
+| Pair truth | `$GIPPA_DATA_DIR/regulondb/14.5.0/truth/pair_truth.tsv` | columns `gene_a, gene_b, label, tu_ids`; `label ∈ {positive, negative, ambiguous}`; `tu_ids` `;`-joined; one row per same-strand adjacent pair of `gippa.annotate.operons.adjacent_pairs` on contig `U00096.3`, wrap pair included |
+| Terminator truth | `$GIPPA_DATA_DIR/regulondb/14.5.0/truth/terminator_truth.tsv` | columns `contig, start, end, strand, source_id`; **0-based half-open**; 375 rows (177 `+`, 198 `-`) |
+| Truth summary | `$GIPPA_DATA_DIR/regulondb/14.5.0/truth/truth_summary.json` | `regulondb_version` 14.5.0, `release_date` 2026-01-28, and the SHA-256s of `TUSet` (c96c8a3b…), `TerminatorSet` (9d916ffe…) and `GeneProductSet` (3c2c6be3…) |
 | Gene model | `tests/data/recorded/bakta/1.12.2-full/k12/k12_mg1655.json.gz` + `tests/data/genomes/k12_mg1655.fna.gz` | the **circular-tagged** Bakta 1.12.2 full-DB run (Slurm 1849096); 4,373 genes; replicon `U00096.3`, circular, 4,641,652 bp. M6-11 built the truth from this same model. |
-| UniOP run | `$GIAP_ROOT/recordings/uniop/k12_mg1655/{uniop.pred, uniop_cds.gff}` | pin 3ed14dfc (ADR-0008), Slurm 1849513_8; sha256 `uniop.pred` 7d852a93…, `uniop_cds.gff` ea587089…; 4,372 input genes |
+| UniOP run | `$GIPPA_ROOT/recordings/uniop/k12_mg1655/{uniop.pred, uniop_cds.gff}` | pin 3ed14dfc (ADR-0008), Slurm 1849513_8; sha256 `uniop.pred` 7d852a93…, `uniop_cds.gff` ea587089…; 4,372 input genes |
 | TerminatorNet run | `tests/data/recorded/terminatornet/721803095459/k12/terms.tsv.gz` (committed, verbatim `terminatornet.tsv`) | commit 72180309 (ADR-0008), `-s -n 17`, wheat-04, wall 3,603 s (job 1847778); genome `genome.norm.fa` sha256 918f35c7…, the same file Bakta's preflight wrote; 8,294 calls (4,166 `+`, 4,128 `-`) |
 
 M6-11's counts (truth_summary.json): 3,067 pairs, 1,730 positive, 1,009 negative, 328 ambiguous
@@ -46,7 +46,7 @@ M6-11's counts (truth_summary.json): 3,067 pairs, 1,730 positive, 1,009 negative
 ### The UniOP recording's `uniop_map.tsv` must not be used
 
 The recorded UniOP input was built from the **non-circular** Bakta run
-(`$GIAP_ROOT/recordings/bakta_full/k12_mg1655`). In that run `KOIAIB_00001` is the CDS at
+(`$GIPPA_ROOT/recordings/bakta_full/k12_mg1655`). In that run `KOIAIB_00001` is the CDS at
 190..255. The circular-tagged run that the truth uses calls one more CDS, at 3..98, and that CDS
 takes `KOIAIB_00001`. **Every later locus tag shifts by one.** So the recorded
 `uniop_map.tsv` (`U00096.3_1 → KOIAIB_00001`) labels each UniOP gene with its neighbour's tag.
@@ -63,7 +63,7 @@ Checked in-session: 4,372 of 4,372 rows match. The one model gene without a UniO
 `KOIAIB_00001` (3..98). With this map, all 2,739 labelled pairs have a UniOP probability. Only two
 ambiguous pairs lack one: `KOIAIB_00001–00002` and the wrap pair `KOIAIB_04716–00001`.
 
-The driver reads `uniop.pred` with `giap.annotate.uniop_adapter.parse_uniop_pred(pred, gff,
+The driver reads `uniop.pred` with `gippa.annotate.uniop_adapter.parse_uniop_pred(pred, gff,
 id_map)`, using the rebuilt `id_map`.
 
 ## How each number is computed
@@ -84,11 +84,11 @@ comparison the pipeline uses everywhere: `classify` in `operons/pairs.py`, `buil
   runs join when they share a strand. Every same-strand adjacent pair belongs to exactly one
   directon. Pairs inside a directon are correlated, because operons span several pairs, so
   resampling single pairs would make the CI too narrow.
-  - Use `giap.stats.bootstrap.tu_block_bootstrap(df, tu_col="directon_id", stat_fn, B=2000,
+  - Use `gippa.stats.bootstrap.tu_block_bootstrap(df, tu_col="directon_id", stat_fn, B=2000,
     rng, level=0.95)`, without strata.
   - A replicate with only one class gives NaN and is dropped. Fewer than B/2 valid replicates give
     a CI of (NaN, NaN), which `tu_block_bootstrap` already does.
-  - `rng = giap.rng.for_step("m6_12_cutoffs", seed)`, with `seed` = the config default
+  - `rng = gippa.rng.for_step("m6_12_cutoffs", seed)`, with `seed` = the config default
     (20261014).
 - **Reported:** the estimate and the CI to 3 decimals in docs and in full precision in JSON, with
   P, N and the number of directons.
@@ -120,7 +120,7 @@ comparison the pipeline uses everywhere: `classify` in `operons/pairs.py`, `buil
 
 ### 3. The d₀ / s refit
 
-- **Data.** The same L, with d = `giap.annotate.operons.intergenic_distance(a, b, replicon)`.
+- **Data.** The same L, with d = `gippa.annotate.operons.intergenic_distance(a, b, replicon)`.
   This is `b.start − a.end` in genome order, so it is negative for overlaps, and it is taken
   across the origin on a circular replicon. Every labelled pair is used, whatever its UniOP p
   is.
@@ -142,7 +142,7 @@ comparison the pipeline uses everywhere: `classify` in `operons/pairs.py`, `buil
 
 ### 4. The TerminatorNet cut-off
 
-- **Calls.** `giap.annotate.terminators.parse_terminatornet(terms.tsv.gz, replicons)` gives
+- **Calls.** `gippa.annotate.terminators.parse_terminatornet(terms.tsv.gz, replicons)` gives
   0-based half-open intervals on the forward strand with the strand and `confidence` (= `pred`).
   Only contig `U00096.3` is used.
 - **Downstream windows: what "in intergenic regions downstream of genes" means.**
@@ -150,7 +150,7 @@ comparison the pipeline uses everywhere: `classify` in `operons/pairs.py`, `buil
     window. It runs from g's 3′ end, moved 50 bp back into g (the §7.1.5 slack), up to the
     nearest end of g's **genome-order neighbour on either strand** in the direction of
     transcription.
-  - This is `giap.annotate.terminators._window(g, neighbour, replicon, 50)`.
+  - This is `gippa.annotate.terminators._window(g, neighbour, replicon, 50)`.
     - For a `+` gene the neighbour is the next gene in genome order, and the window is
       `[g.end − 50, neighbour.start)`.
     - For a `-` gene the neighbour is the previous gene, and the window is
@@ -187,16 +187,16 @@ comparison the pipeline uses everywhere: `classify` in `operons/pairs.py`, `buil
 | Work | Where | Cost |
 |---|---|---|
 | UniOP on K-12 | **no new run**: the recording (Slurm 1849513_8) is reused, with the map rebuilt by coordinates | 0. A fresh run on the circular-tagged Bakta model (question 2) would be one array task of `scripts/slurm/nf_process_real.sbatch` (task 8, UNIOP; 7 s of tool wall time; the job reserves 16 CPUs / 64 GB for under 10 min, about 3 CPU-h reserved). That run first needs an input override, because the script reads `recordings/bakta_full/`, the non-circular run. |
-| TerminatorNet on K-12 | **no new run**: the committed recording (job 1847778) is reused. Its input is the genome alone, the genome sha256 equals Bakta's preflight genome, and the commit equals the ADR-0008 pin. | 0. A re-run is needed only if the pin or the genome changes: 60 min wall on 17 CPUs, about 17 CPU-h, via `record_tools.sbatch terminatornet`, job name `giap-*`. Count it against the R14 128-CPU budget first. |
+| TerminatorNet on K-12 | **no new run**: the committed recording (job 1847778) is reused. Its input is the genome alone, the genome sha256 equals Bakta's preflight genome, and the commit equals the ADR-0008 pin. | 0. A re-run is needed only if the pin or the genome changes: 60 min wall on 17 CPUs, about 17 CPU-h, via `record_tools.sbatch terminatornet`, job name `gippa-*`. Count it against the R14 128-CPU budget first. |
 | The calibration itself (`validation/calibrate_cutoffs.py`, B = 2,000) | session allocation, 1 CPU | estimated under 2 min: 2,000 × (AUROC on 2,739 pairs + one IRLS fit) and 8,294 × 375 interval checks. If a real run exceeds 10 min, it moves to `sbatch` (spec §3.8). |
 | Fast suite after PR-C | Slurm, `scripts/slurm/test_branch.sbatch` | about 13 min (Slurm 1864288 took 13:10) |
 
 ## Outputs
 
-`validation/calibrate_cutoffs.py --regulondb-dir $GIAP_DATA_DIR/regulondb/14.5.0 --bakta-json …
---genome … --uniop-dir $GIAP_ROOT/recordings/uniop/k12_mg1655 --terminatornet
+`validation/calibrate_cutoffs.py --regulondb-dir $GIPPA_DATA_DIR/regulondb/14.5.0 --bakta-json …
+--genome … --uniop-dir $GIPPA_ROOT/recordings/uniop/k12_mg1655 --terminatornet
 tests/data/recorded/terminatornet/721803095459/k12/terms.tsv.gz --out-dir
-$GIAP_DATA_DIR/regulondb/14.5.0/calibration` writes the files below. None of them is committed
+$GIPPA_DATA_DIR/regulondb/14.5.0/calibration` writes the files below. None of them is committed
 (R6/R11). The ADR quotes the numbers and the SHA-256 of `cutoffs.json`.
 
 - `cutoffs.json`:
@@ -214,16 +214,16 @@ $GIAP_DATA_DIR/regulondb/14.5.0/calibration` writes the files below. None of the
 - `terminatornet_calls.tsv`: every eligible call, as `contig, start, end, strand, confidence,
   gene, matched_source_id` (empty when unmatched). Reviewers can audit matches from it.
 
-All JSON floats are finite or `null`, written with `giap.manifest.finite`. Re-running with the same
+All JSON floats are finite or `null`, written with `gippa.manifest.finite`. Re-running with the same
 inputs and seed gives a byte-identical `cutoffs.json` apart from `date`.
 
 ## What changes in protected files, and only after ADR-0022 is accepted
 
 The run reads its thresholds from **two** places:
 - `annotation.uniop.pair_threshold` and `annotation.terminators.terminatornet_yes` in
-  `src/giap/config/defaults.yaml` (and the matching defaults in `src/giap/config/model.py`,
+  `src/gippa/config/defaults.yaml` (and the matching defaults in `src/gippa/config/model.py`,
   enforced by `test_model_defaults_equal_defaults_yaml`);
-- `operon_distance` in `src/giap/data/calibration.yaml`, read by `steps/operons.py`.
+- `operon_distance` in `src/gippa/data/calibration.yaml`, read by `steps/operons.py`.
 
 `calibration.yaml`'s `terminatornet_yes.value` is not read by any code today. The manifest
 copies `{calibrated, provenance}` for each `calibration.yaml` key and emits the run flag
@@ -233,7 +233,7 @@ dropped a different flag, the per-row `uncalibrated` flag.
 PR-C therefore changes:
 
 ```yaml
-# src/giap/data/calibration.yaml (PR-C)
+# src/gippa/data/calibration.yaml (PR-C)
 operon_distance:
   d0: <fit>            # or 50 with calibrated: false if the refit fails
   s: <fit>
@@ -274,7 +274,7 @@ key with `{calibrated, provenance}`.
 
 | PR | Branch | Content | Roles | Counted lines | Waits for |
 |---|---|---|---|---|---|
-| A | `m6/cutoffs-stats` | (1) Statistician: a methods section "K-12 cut-off calibration (M6-12)" in `docs/methods/operons.md` (rules 1–4 above, the directon bootstrap, the lower-bound caveat), reviewed first (`stats`). (2) Test-author: unit tests on synthetic data (examples 1–5, degenerate rows marked A). (3) Implementer: `src/giap/stats/cutoffs.py`, pure functions: `auroc(scores, y)`, `threshold_curve(scores, y)`, `choose_cutoff(curve, precision=0.90)`, `fit_distance_model(d, y) -> DistanceFit`. | statistician → TA → impl | ≈ 140 | nothing |
+| A | `m6/cutoffs-stats` | (1) Statistician: a methods section "K-12 cut-off calibration (M6-12)" in `docs/methods/operons.md` (rules 1–4 above, the directon bootstrap, the lower-bound caveat), reviewed first (`stats`). (2) Test-author: unit tests on synthetic data (examples 1–5, degenerate rows marked A). (3) Implementer: `src/gippa/stats/cutoffs.py`, pure functions: `auroc(scores, y)`, `threshold_curve(scores, y)`, `choose_cutoff(curve, precision=0.90)`, `fit_distance_model(d, y) -> DistanceFit`. | statistician → TA → impl | ≈ 140 | nothing |
 | B | `m6/cutoffs-k12` (stacked on A, or after A merges) | (1) TA: tests for the driver on toy genomes (examples 6–9, the remaining degenerate rows), all offline. (2) Impl: `validation/calibrate_cutoffs.py` (coordinate re-map, directons, windows and matching, the bootstrap, writers, CLI). (3) The real run in the session; numbers go into PROGRESS.md and the methods note. (4) **`docs/adr/ADR-0022-uniop-terminatornet-cutoffs.md`, status `proposed`, Needs Khoa: yes**, with every number. (5) `changelog.d/` fragment. | TA → impl → lead | 0 (`validation/` is not counted; ≈ 230 actual) | A |
 | C0 | `m6/calibration-tests-agnostic` | Lead only (role guard: existing tests change): rewrite the tests pinned to the placeholder values so they read from `calibration.load()`. These are `tests/unit/test_operons.py` ≈ l. 530–548 and the `{"operon_distance", "terminatornet_yes"}` key sets and `uncalibrated:*` flag assertions in `tests/unit/manifest/test_content_cli_{local,nextflow}.py`. Add one test: for every `calibration.yaml` entry with `calibrated: true` and a `defaults.yaml` mirror, the two values are equal. It passes vacuously today. | lead | 0 (tests) | nothing; may land in parallel with A |
 | — | (on main) | Khoa sets ADR-0022 `Status: accepted-by-khoa`, as a tiny docs PR like #249 | Khoa / lead | 0 | B |
@@ -297,7 +297,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 | 7 | Circular 10 kb replicon: gA + [200,800), gB + [9500,9900); a call + [20,60) at 0.8; truth + [80,100) | gB's neighbour wraps to gA, so gB's window is [9450, 10200) unrolled. The call shifted by +10,000 is [10020,10060), inside the window, so it is **eligible**. The gap to the truth is 20, so it **matches**. The pair gB→gA has d = 200 − 9900 + 10000 = **300** in the refit. |
 | 8 | UniOP join on a toy recording whose map is shifted by one (GFF row `c_1` at 190..255 +, map `c_1 → T1`, but the model has T1 at [2,98) and T2 at [189,255)) | The coordinate map gives `c_1 → T2`; `uniop_map.tsv` is ignored. A GFF row with no exact coordinate match, or one matching two genes, raises `ValueError` naming that row. On the real K-12 inputs: 4,372 / 4,372 matched, `n_without_p` = 0 among labelled pairs. |
 | 9 | The real K-12 run (PR-B) | `cutoffs.json` with `n_labelled = 2739`, `n_positive = 1730`, `n_negative = 1009`; the UniOP AUROC with CI to 3 decimals; t\* and its rule; d₀ and s with CIs; the TerminatorNet t\* with `precision_is_lower_bound: true`. Running again with the same seed gives the same file apart from `date`. |
-| 10 | A `giap run` after PR-C | `manifest.calibration` has three keys, each `calibrated: true` with the ADR-0022 provenance. `flags` has no `uncalibrated:*` entry. TUs use the new `pair_threshold`; terminator "yes" uses the new `terminatornet_yes`. |
+| 10 | A `gippa run` after PR-C | `manifest.calibration` has three keys, each `calibrated: true` with the ADR-0022 provenance. `flags` has no `uncalibrated:*` entry. TUs use the new `pair_threshold`; terminator "yes" uses the new `terminatornet_yes`. |
 
 ## Edge and degenerate cases
 
@@ -327,7 +327,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 
 ## Acceptance criteria (each checkable by a test or a file check)
 
-- [ ] `giap.stats.cutoffs` reproduces examples 1–5 exactly. AUROC agrees with
+- [ ] `gippa.stats.cutoffs` reproduces examples 1–5 exactly. AUROC agrees with
   `sklearn.metrics.roc_auc_score`, used as a **test-only** oracle if it is in the dev extras, to
   1e-12 on 100 random tied inputs (Hypothesis).
 - [ ] `choose_cutoff` uses integer comparisons: a property test over random (TP, FP) curves never
@@ -335,7 +335,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 - [ ] `fit_distance_model` recovers (40, 15) within the tolerances of example 5 and reports the
   separation case as `converged = False`.
 - [ ] The driver reproduces examples 6–8 on toy inputs written by the tests. No test reads
-  `$GIAP_DATA_DIR` or the network.
+  `$GIPPA_DATA_DIR` or the network.
 - [ ] The driver raises on every identity mismatch in the degenerate table, and on a shifted map
   whose coordinates do not match.
 - [ ] Two runs with the same seed give `cutoffs.json` files that are equal apart from `date`
@@ -352,7 +352,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
   `test_model_defaults_equal_defaults_yaml` passes. The fast suite passes on Slurm.
   `check_protected.py` passes with `Gate-Change-Approved: ADR-0022` against main, where ADR-0022
   is `accepted-by-khoa`.
-- [ ] After PR-C, a `giap run` on SIM100K (example 10) has no `uncalibrated:*` flag. M6-09's fast
+- [ ] After PR-C, a `gippa run` on SIM100K (example 10) has no `uncalibrated:*` flag. M6-09's fast
   calibration suites are unchanged: the simulations plant their own probabilities and pass explicit
   thresholds. Any test that read the default threshold implicitly is listed in PR-C.
 
@@ -470,7 +470,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
      Moving them to the protected `tolerances.yaml` is backlog.
    - Examples 8–10 belong to parts B and C.
    - Truth-level recall gets a helper in part B.
-   - Next: the implementer (`src/giap/stats/cutoffs.py`).
+   - Next: the implementer (`src/gippa/stats/cutoffs.py`).
 8. **Part A implementer (1afd2b92): accepted.** The targeted tests pass (108). Slurm 1873873 gives
    13 passed for calibration and attacks, including the nightly directon null at R = 500. The
    fast suite (1873874) passed.
@@ -508,7 +508,7 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
     cut-off is the threshold that maximises F1 on the K-12 truth, as §15.4 specifies. There is
     no one-SE rule, even though the F1 curve is flat. The statistician's flat-curve note and
     `precision_lower_bound_window` are reported in ADR-0022 as context only. Part C runs the real K-12
-    calibration on Slurm and fills `src/giap/data/calibration.yaml`. ADR-0022 (accepted-by-khoa)
+    calibration on Slurm and fills `src/gippa/data/calibration.yaml`. ADR-0022 (accepted-by-khoa)
     lands first in a docs-only PR, because `check_protected.py` reads the ADR's status on the
     base branch; the calibration commit then carries `Gate-Change-Approved: ADR-0022`.
     Khoa, 2026-10-24: UniOP's `pair_threshold` is 0.5 (precision 0.896 on K-12, the same

@@ -1,13 +1,13 @@
 """miniprot route: commands, GFF parser, CDS assignment, similarity class (issue M3-12).
 
-GIAP_SPEC.md §7.2.3, §7.1.1 (miniprot gotcha), §9.3 (`protein_hits.tsv`), §6.5 (coordinates).
+GIPPA_SPEC.md §7.2.3, §7.1.1 (miniprot gotcha), §9.3 (`protein_hits.tsv`), §6.5 (coordinates).
 Examples 1-9 of docs/specs/M3-12-miniprot-route.md on hand-written GFF snippets; miniprot itself
 is never run here.
 
 Ambiguities resolved here (spec silent or open question):
 - Module split: builders, ``ProteinAlignment`` and ``parse_miniprot_gff`` live in
-  ``giap.mapping.miniprot``; ``reciprocal_overlap``, ``similarity_class`` and
-  ``assign_alignments`` in ``giap.mapping.protein_assign``.
+  ``gippa.mapping.miniprot``; ``reciprocal_overlap``, ``similarity_class`` and
+  ``assign_alignments`` in ``gippa.mapping.protein_assign``.
 - The returned ``protein_hits`` frame is internal, so ``start``/``end`` are 0-based half-open
   (unwrapped); the 1-based conversion happens in the M3-16 writer.
 - Thresholds are inclusive (``>=``) for identity, coverage and reciprocal overlap; the ``near``
@@ -30,9 +30,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from giap.config.model import ProteinsConfig
-from giap.model import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.config.model import ProteinsConfig
+from gippa.model import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 L = 100_000
 REPS = {"chr1": Replicon("chr1", L, "circular", "chromosome")}
@@ -61,13 +61,13 @@ PROTEIN_HITS_COLUMNS = [
 
 
 def _mp():  # type: ignore[no-untyped-def]
-    from giap.mapping import miniprot
+    from gippa.mapping import miniprot
 
     return miniprot
 
 
 def _pa():  # type: ignore[no-untyped-def]
-    from giap.mapping import protein_assign
+    from gippa.mapping import protein_assign
 
     return protein_assign
 

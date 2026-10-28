@@ -27,7 +27,7 @@ Interface pinned here (readings chosen where the spec leaves room; listed in the
   ``--accept-uniop-terms`` records ``terms: "flag"``.
 - ``setup --images --profile docker`` runs the UniOP step when ``uniop`` is in
   ``required_tools(cfg)``; ``--no-uniop`` and precomputed operon pairs skip it.
-- ``giap run`` adds ``-c <db_dir>/local_tools.config`` only when the file exists and R(P) is
+- ``gippa run`` adds ``-c <db_dir>/local_tools.config`` only when the file exists and R(P) is
   docker, apptainer, or micromamba under plain ``conda``; never under ``farmshare*``.
 """
 
@@ -124,7 +124,7 @@ def test_example_16_docker_build_argv(state: Path, archive: bytes, tmp_path: Pat
 def test_tag_is_localhost_pkg_uniop_version_key(
     state: Path, archive: bytes, tmp_path: Path
 ) -> None:
-    from giap.io.image_key import tag
+    from gippa.io.image_key import tag
 
     built(tmp_path, tmp_path / "db")
     (b,) = docker_calls(tmp_path, "build")
@@ -144,7 +144,7 @@ def test_staging_context_holds_the_bundled_files_and_the_archive(
     assert (ctx / "workflow/envs/uniop.yml").read_bytes() == (
         REPO / "workflow/envs/uniop.yml"
     ).read_bytes()
-    from giap.io.image_key import _copy_sources
+    from gippa.io.image_key import _copy_sources
 
     for src in _copy_sources(dockerfile.read_text(encoding="utf-8")):
         assert (ctx / src.removeprefix("./")).exists(), f"COPY source {src} not staged"
@@ -164,7 +164,7 @@ def test_no_builder_fetches_anything_itself(state: Path, archive: bytes, net: Fa
 def test_local_tools_config_has_only_the_docker_block(
     state: Path, archive: bytes, tmp_path: Path
 ) -> None:
-    from giap.preflight.environment import _local_containers
+    from gippa.preflight.environment import _local_containers
 
     db = tmp_path / "db"
     built(tmp_path, db)
@@ -185,8 +185,8 @@ def test_preflight_finds_the_local_image_under_docker_only(
     state: Path, archive: bytes, tmp_path: Path
 ) -> None:
     """14f1's row: present iff the local tag exists (``docker image inspect``, the fake)."""
-    from giap.annotate.tools import TOOLS
-    from giap.preflight.environment import missing_tool_reasons
+    from gippa.annotate.tools import TOOLS
+    from gippa.preflight.environment import missing_tool_reasons
 
     db = tmp_path / "db"
     built(tmp_path, db)
@@ -201,7 +201,7 @@ def test_local_tools_config_keeps_other_runtime_blocks(
     state: Path, archive: bytes, tmp_path: Path
 ) -> None:
     """Each builder adds its block: an existing apptainer block survives a docker build."""
-    from giap.preflight.environment import _local_containers
+    from gippa.preflight.environment import _local_containers
 
     db = tmp_path / "db"
     db.mkdir()
@@ -264,7 +264,7 @@ def test_example_16_image_uniop_record(state: Path, archive: bytes, tmp_path: Pa
 def test_the_record_survives_later_manifest_writes(
     state: Path, archive: bytes, tmp_path: Path
 ) -> None:
-    from giap.setupdb.manifest import read_records, write_manifest
+    from gippa.setupdb.manifest import read_records, write_manifest
 
     db = tmp_path / "db"
     built(tmp_path, db)
@@ -299,10 +299,10 @@ def test_build_failure_is_recorded_and_exits_2(
     assert "ERROR: failed to solve: fixture boom" in item["message"], item
     lt = db / LOCAL_TOOLS
     if lt.exists():
-        from giap.preflight.environment import _local_containers
+        from gippa.preflight.environment import _local_containers
 
         assert _local_containers(lt, "docker") == {}, "no docker block for a failed build"
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     record = getattr(environment, "uniop_setup_record", None)  # 14d (#387)
     if record is not None:
@@ -331,7 +331,7 @@ def test_os_error_in_the_build_is_recorded_and_exits_2(
     state: Path, archive: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An OSError (e.g. a shared cache dir owned by another user) is a record, not a traceback."""
-    from giap.setupdb import uniop_build
+    from gippa.setupdb import uniop_build
 
     def denied(context: Path, archive: Path, root: Path) -> None:
         raise PermissionError(13, "Permission denied", str(context))
@@ -434,7 +434,7 @@ def test_offline_under_images_installs_the_others_then_exits_2(
     assert items["image:bakta"]["status"] == "ok"
 
 
-# ---------------------------------------------------------------- example 19a: giap run -c
+# ---------------------------------------------------------------- example 19a: gippa run -c
 
 
 FAKE_NF = """#!/bin/sh
@@ -447,9 +447,9 @@ exit 0
 def run_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     """A genome, proteins, a DB dir with ``local_tools.config``, a fake ``nextflow``; preflight
     stubbed (it is not under test here)."""
-    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-    import giap.cli
+    import gippa.cli
 
     rng = random.Random(5)
     genome = tmp_path / "in" / "genome.fa"
@@ -465,7 +465,7 @@ def run_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
         "profiles {\n    docker { process { withName: 'UNIOP' { container = "
         "'localhost/x-uniop:t'; conda = '' } } }\n}\n"
     )
-    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(fake_gippa_root(tmp_path / "gippa_root")))
     bindir = tmp_path / "nfbin"
     bindir.mkdir()
     exe = bindir / "nextflow"
@@ -473,21 +473,21 @@ def run_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setenv("FAKE_NF_ARGS", str(tmp_path / "nf_args.txt"))
-    monkeypatch.setattr(giap.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
+    monkeypatch.setattr(gippa.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
     return {"genome": genome, "proteins": proteins, "db": db, "args": tmp_path / "nf_args.txt"}
 
 
 def _nf_argv(env: dict[str, Path], profile: str, tmp_path: Path) -> list[str]:
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     CliRunner().invoke(
         cli,
         ["run", "--genome", str(env["genome"]), "--proteins", str(env["proteins"]),
          "--outdir", str(tmp_path / "OUT"), "--db-dir", str(env["db"]), "--profile", profile],
     )  # fmt: skip
-    assert env["args"].is_file(), "giap run did not launch nextflow"
+    assert env["args"].is_file(), "gippa run did not launch nextflow"
     return env["args"].read_text().splitlines()
 
 
@@ -522,7 +522,7 @@ def test_run_passes_an_absolute_local_tools_path(
     """Nextflow runs in outdir, so a relative --db-dir must reach -c as an absolute path."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
+    from gippa.cli import cli
 
     monkeypatch.chdir(tmp_path)
     env = run_env

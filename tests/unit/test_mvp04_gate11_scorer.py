@@ -3,7 +3,7 @@
 The statistician's K-12 audit (docs/methods/variants-mvp04-k12-audit.md on stat/m7-k12-flags)
 found four scorer/truth bugs; the lead fixed all four as plain bug fixes, thresholds unchanged
 (precision >= 0.95, recall >= 0.90, n_high >= 30). Contract pinned here, on small hand-made
-tables (no giap, no giapsim):
+tables (no gippa, no gippasim):
 
 1. **I/L folding.** A ``high`` row is true when (``contig``, ``codon_start``, folded
    ``alt_aa``) is a truth site, where ``I``, ``L`` and ``J`` fold to one token on both sides:
@@ -81,7 +81,7 @@ def test_precision_just_below_threshold_still_fails(case: Case) -> None:
 
 
 def test_alt_j_matches_truth_i_and_truth_l(case: Case) -> None:
-    """Audit item 1: GIAP writes the folded I/L ALT token ``J`` (M7-02 rule 5)."""
+    """Audit item 1: GIPPA writes the folded I/L ALT token ``J`` (M7-02 rule 5)."""
     for k in range(5):
         case.alt[k][5] = "I"
         case.variants[k][8] = "J"
@@ -114,7 +114,7 @@ def test_folding_does_not_touch_other_residues(case: Case) -> None:
 
 def test_start_codon_flagged_row_leaves_the_precision_denominator(case: Case) -> None:
     """Audit item 2: ALT M at an annotated GTG start (``aa_pos`` 1, flag ``start_codon``) is no
-    truth site (giapsim leaves initiators out of truth) and no longer counts as false."""
+    truth site (gippasim leaves initiators out of truth) and no longer counts as false."""
     case.var(50_000, "M", gene=gene(99), ref_codon="GTG", ref="V",
              flags=FLAGS + ";start_codon")  # fmt: skip
     res = case.gate()

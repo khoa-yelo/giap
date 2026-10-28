@@ -1,5 +1,5 @@
 """Contract test: ``parse_ostir_starts`` on a recorded multi-start OSTIR 1.1.3 run (issue M7-08
-rule 9, example 5; GIAP_SPEC.md §5.4, §7.1.1, §7.6.2).
+rule 9, example 5; GIPPA_SPEC.md §5.4, §7.1.1, §7.6.2).
 
 Rule 9: one real OSTIR run with a multi-start ``start``/``end`` window on three sim100k
 candidates, recorded under ``tests/data/recorded/ostir/1.1.3/sim100k_novel/`` with
@@ -68,7 +68,7 @@ def test_recorded_output_has_several_starts_for_one_id(rec: Path) -> None:
 
 
 def test_example_5_parse_ostir_starts_on_the_recording(rec: Path) -> None:
-    from giap.annotate.ostir import RbsFeatures, parse_ostir_starts
+    from gippa.annotate.ostir import RbsFeatures, parse_ostir_starts
 
     req = _requested(rec / "ostir_input.csv")
     got = parse_ostir_starts(rec / "ostir.csv", req)

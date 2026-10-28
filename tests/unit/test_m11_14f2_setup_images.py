@@ -6,13 +6,13 @@ ADR-0060. 14f2 stacks on 14a (``image_cache``, ``images.json``) and 14f1 (``miss
 
 Interface pinned here (readings chosen where the spec leaves room):
 
-- New module ``giap.setupdb.images``. It reads the pins from ``workflow_main().parent / "conf"``
+- New module ``gippa.setupdb.images``. It reads the pins from ``workflow_main().parent / "conf"``
   (``containers.config`` ``withName`` lines, process name lower-cased to the ``TOOLS`` name, and
   ``images.json`` entries, which add the process-less fgsea). It looks ``workflow_main`` up as the
-  module attribute ``giap.setupdb.images.workflow_main`` (the tests patch it with a fake tree).
+  module attribute ``gippa.setupdb.images.workflow_main`` (the tests patch it with a fake tree).
 - ``image_set(cfg, all_images: bool) -> list[str]``: sorted tool names to pull. ``False``: the
   ``required_tools(cfg, abundance=True)`` names that have a pin; ``True``: every pinned tool.
-- ``giap setup`` gains ``--images`` (bare: the set of the existing ``--config``/``--set``;
+- ``gippa setup`` gains ``--images`` (bare: the set of the existing ``--config``/``--set``;
   ``--images all``: every pin), ``--profile apptainer|docker`` (required with ``--images``) and
   ``--cache-dir DIR`` (default ``image_cache(os.environ, db_dir)`` from 14a).
   - apptainer: ``apptainer pull <cache>/<simpleName>.img docker://<ref>`` (the last two
@@ -25,17 +25,17 @@ Interface pinned here (readings chosen where the spec leaves room):
     (GHCR) or the upstream tag the digest was resolved from (the ``//   <image>:<tag>`` comment
     lines of ``containers.config``), ``checksum`` = the pinned digest ``sha256:<hex>``,
     ``status`` ``ok``. Other manifest items are kept.
-- ``ToolRunner(db_dir=...)`` (keyword; ``giap setup`` passes its ``--db-dir``). ``command(tool,
-  argv)`` looks up ``$MAMBA_ROOT_PREFIX``/``$GIAP_ROOT/micromamba`` ``envs/giap-<tool>`` → the
+- ``ToolRunner(db_dir=...)`` (keyword; ``gippa setup`` passes its ``--db-dir``). ``command(tool,
+  argv)`` looks up ``$MAMBA_ROOT_PREFIX``/``$GIPPA_ROOT/micromamba`` ``envs/gippa-<tool>`` → the
   ``.img`` in ``image_cache(os.environ, db_dir)`` → ``docker run -u <uid>:<gid> -v <p>:<p> …
   <bare ref> <argv>`` (every existing absolute path in ``argv`` bound at the same path). Neither
-  ``$GIAP_ROOT`` nor a checkout is required; nothing found (no docker on ``PATH``) raises
+  ``$GIPPA_ROOT`` nor a checkout is required; nothing found (no docker on ``PATH``) raises
   ``ToolUnavailable``.
 - ``setup --check``: an installed DB whose version differs from this release's pin is reported
   ``installed <v_old>, this release pins <v_new>`` (exit 2).
 
 No test runs real docker/apptainer or touches a registry or the network: logging fakes sit first
-on ``PATH``; ``$GIAP_ROOT``, ``$GIAP_DB_DIR`` and the caches are unset or temporary.
+on ``PATH``; ``$GIPPA_ROOT``, ``$GIPPA_DB_DIR`` and the caches are unset or temporary.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ from click.testing import CliRunner
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.annotate.tools import TOOLS, read_containers_config, required_tools
-from giap.config import resolve_config
+from gippa.annotate.tools import TOOLS, read_containers_config, required_tools
+from gippa.config import resolve_config
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / "workflow"
@@ -125,9 +125,9 @@ exit 3
 
 def _images() -> Any:
     try:
-        from giap.setupdb import images
+        from gippa.setupdb import images
     except ImportError as exc:  # pragma: no cover - until 14f2 exists
-        pytest.fail(f"giap.setupdb.images is not implemented ({exc})")
+        pytest.fail(f"gippa.setupdb.images is not implemented ({exc})")
     return images
 
 
@@ -161,14 +161,14 @@ def install_fakes(bindir: Path, names: tuple[str, ...] = ("docker", "apptainer")
 
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never the real $GIAP_ROOT / $GIAP_DB_DIR / caches / envs; fake runtimes first on PATH."""
+    """Never the real $GIPPA_ROOT / $GIPPA_DB_DIR / caches / envs; fake runtimes first on PATH."""
     for var in (
-        "GIAP_DB_DIR",
-        "GIAP_ROOT",
-        "GIAP_REPO",
+        "GIPPA_DB_DIR",
+        "GIPPA_ROOT",
+        "GIPPA_REPO",
         "NXF_APPTAINER_CACHEDIR",
         "MAMBA_ROOT_PREFIX",
-        "GIAP_CONTAINER_RUNTIME",
+        "GIPPA_CONTAINER_RUNTIME",
         "FAKE_FAIL_FOR",
         "FAKE_BAD_FOR",
         "FAKE_BAD_DIGEST",
@@ -218,7 +218,7 @@ def make_tree(root: Path) -> Path:
 
 @pytest.fixture
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
-    """Patch the fake tree into ``giap.setupdb.images``; return tool → pinned ref."""
+    """Patch the fake tree into ``gippa.setupdb.images``; return tool → pinned ref."""
     main = make_tree(tmp_path / "wf")
     monkeypatch.setattr(_images(), "workflow_main", lambda: main)
     pinned = tool_pins(main.parent / "conf" / "containers.config")
@@ -233,7 +233,7 @@ def expected_version(tool: str, ref: str) -> str:
 
 
 def setup_cli(args: list[str]) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     return CliRunner().invoke(cli, ["setup", *args], catch_exceptions=False)
 
@@ -316,7 +316,7 @@ def test_apptainer_pulls_simple_names_into_the_db_dir_cache(
     want = default_set(tree)
     pulls = calls(tmp_path, "apptainer pull")
     assert len(pulls) == len({tree[t] for t in want})  # one pull per distinct image
-    cache = db / "containers"  # no NXF_APPTAINER_CACHEDIR, no GIAP_ROOT (Q-L11)
+    cache = db / "containers"  # no NXF_APPTAINER_CACHEDIR, no GIPPA_ROOT (Q-L11)
     for tool in want:
         ref = tree[tool]
         dest = cache / simple_name(ref)
@@ -369,11 +369,11 @@ def test_apptainer_cache_dir_choice(
     assert not (tmp_path / "not_this").exists()
 
 
-def test_giap_root_cache(
+def test_gippa_root_cache(
     tmp_path: Path, tree: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "root"
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     res = setup_cli(
         ["--db-dir", str(tmp_path / "db"), *SKIP_DBS, "--images", "--profile", "apptainer"]
     )
@@ -411,8 +411,8 @@ def test_apptainer_then_preflight_finds_every_image(
     tmp_path: Path, tree: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The files setup writes are the ones 14f1's preflight (and Nextflow) look for."""
-    from giap.io.image_key import image_cache
-    from giap.preflight import environment
+    from gippa.io.image_key import image_cache
+    from gippa.preflight import environment
 
     db = tmp_path / "db"
     res = setup_cli(["--db-dir", str(db), *SKIP_DBS, "--images", "all", "--profile", "apptainer"])
@@ -562,7 +562,7 @@ def test_images_needs_a_container_profile(
 
 
 def _runner(db: Path) -> Any:
-    from giap.setupdb.run import ToolRunner
+    from gippa.setupdb.run import ToolRunner
 
     return ToolRunner(db_dir=db)
 
@@ -581,7 +581,7 @@ def check_docker_argv(cmd: list[str], ref: str, argv: list[str], bound: list[Pat
         assert f"{p}:{p}" in vols or any(v.startswith(f"{p}:{p}:") for v in vols), (p, vols)
 
 
-def test_toolrunner_docker_without_giap_root(tmp_path: Path) -> None:
+def test_toolrunner_docker_without_gippa_root(tmp_path: Path) -> None:
     db, out = tmp_path / "db", tmp_path / "db" / "bakta" / "db-light.partial"
     out.mkdir(parents=True)
     argv = ["bakta_db", "download", "--output", str(out), "--type", "light"]
@@ -600,30 +600,30 @@ def test_toolrunner_cached_image_wins_over_docker(tmp_path: Path) -> None:
 
 def test_toolrunner_env_wins(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     mamba = tmp_path / "mamba"
-    (mamba / "envs" / "giap-bakta").mkdir(parents=True)
+    (mamba / "envs" / "gippa-bakta").mkdir(parents=True)
     monkeypatch.setenv("MAMBA_ROOT_PREFIX", str(mamba))
     cmd = _runner(tmp_path / "db").command("bakta", ["bakta_db", "--help"])
-    assert cmd[:4] == ["micromamba", "run", "-n", "giap-bakta"]
+    assert cmd[:4] == ["micromamba", "run", "-n", "gippa-bakta"]
 
 
 def test_toolrunner_nothing_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from giap.setupdb.run import ToolUnavailable
+    from gippa.setupdb.run import ToolUnavailable
 
     empty = tmp_path / "emptybin"
     empty.mkdir()
     monkeypatch.setenv("PATH", str(empty))
     with pytest.raises(ToolUnavailable) as exc:
         _runner(tmp_path / "db").command("bakta", ["bakta_db", "--help"])
-    assert "GIAP_ROOT is not set" not in str(exc.value)
+    assert "GIPPA_ROOT is not set" not in str(exc.value)
 
 
 def test_setup_downloads_bakta_through_docker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``giap setup`` needs no checkout env and no micromamba: the downloader runs in docker."""
+    """``gippa setup`` needs no checkout env and no micromamba: the downloader runs in docker."""
     from collections import namedtuple
 
-    from giap.setupdb import run
+    from gippa.setupdb import run
 
     usage = namedtuple("usage", "total used free")
     monkeypatch.setattr(run.shutil, "disk_usage", lambda _p: usage(1 << 50, 0, 1 << 50))
@@ -641,12 +641,12 @@ def test_setup_downloads_bakta_through_docker(
 
 
 def wheel_site(tmp: Path) -> Path:
-    """``src/giap`` copied with ``workflow/`` bundled inside, as the wheel lays it out (M11-01)."""
+    """``src/gippa`` copied with ``workflow/`` bundled inside, as the wheel lays it out (M11-01)."""
     site = tmp / "a" / "b" / "site"
     shutil.copytree(
-        REPO / "src" / "giap", site / "giap", ignore=shutil.ignore_patterns("__pycache__")
+        REPO / "src" / "gippa", site / "gippa", ignore=shutil.ignore_patterns("__pycache__")
     )
-    wf = site / "giap" / "workflow"
+    wf = site / "gippa" / "workflow"
     (wf / "conf").mkdir(parents=True)
     (wf / "main.nf").write_text("// bundled\n")
     for name in ("containers.config", "images.json"):
@@ -655,7 +655,7 @@ def wheel_site(tmp: Path) -> Path:
 
 
 def run_wheel(site: Path, cwd: Path, code: str, *args: str) -> subprocess.CompletedProcess[str]:
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIAP_", "MAMBA_", "NXF_"))}
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIPPA_", "MAMBA_", "NXF_"))}
     env["PYTHONPATH"] = str(site)
     return subprocess.run([sys.executable, "-c", code, *args], cwd=cwd, env=env, text=True,
                           capture_output=True, check=False, timeout=120)  # fmt: skip
@@ -667,11 +667,11 @@ def test_wheel_toolrunner_docker_no_checkout(tmp_path: Path) -> None:
     out = tmp_path / "db" / "out"
     out.mkdir(parents=True)
     code = (
-        "import json, sys, giap\n"
+        "import json, sys, gippa\n"
         "from pathlib import Path\n"
-        "from giap.setupdb.run import ToolRunner\n"
+        "from gippa.setupdb.run import ToolRunner\n"
         "cmd = ToolRunner(db_dir=Path(sys.argv[1])).command('bakta', sys.argv[2:])\n"
-        "print(json.dumps({'file': giap.__file__, 'cmd': cmd}))\n"
+        "print(json.dumps({'file': gippa.__file__, 'cmd': cmd}))\n"
     )
     argv = ["bakta_db", "download", "--output", str(out), "--type", "light"]
     proc = run_wheel(site, work, code, str(tmp_path / "db"), *argv)
@@ -685,7 +685,7 @@ def test_wheel_setup_images_docker_no_checkout(tmp_path: Path) -> None:
     site = wheel_site(tmp_path)
     work = Path(tempfile.mkdtemp(dir=tmp_path))
     db = tmp_path / "db"
-    code = "import sys\nfrom giap.cli import cli\nsys.argv[0] = 'giap'\ncli()\n"
+    code = "import sys\nfrom gippa.cli import cli\nsys.argv[0] = 'gippa'\ncli()\n"
     proc = run_wheel(site, work, code, "setup", "--db-dir", str(db), *SKIP_DBS, "--images",
                      "--profile", "docker")  # fmt: skip
     assert proc.returncode == 0, proc.stderr
@@ -711,7 +711,7 @@ def test_wheel_setup_images_docker_no_checkout(tmp_path: Path) -> None:
 def test_check_reports_a_db_pin_change(
     tmp_path: Path, item: str, write: Any, old: str, new: str, args: list[str]
 ) -> None:
-    from giap.setupdb.items import SOURCES
+    from gippa.setupdb.items import SOURCES
 
     assert SOURCES[item].version == new  # the pin this release ships
     db = tmp_path / "db"
@@ -797,7 +797,7 @@ def test_rerun_keeps_an_unchanged_ok_record(
 def test_images_respects_the_setup_lock(tmp_path: Path, tree: dict[str, str]) -> None:
     import fcntl
 
-    from giap.setupdb.run import LOCK
+    from gippa.setupdb.run import LOCK
 
     db = tmp_path / "db"
     db.mkdir()
@@ -808,7 +808,7 @@ def test_images_respects_the_setup_lock(tmp_path: Path, tree: dict[str, str]) ->
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
     assert res.exit_code == 2, res.output
-    assert "another giap setup is running" in res.output
+    assert "another gippa setup is running" in res.output
     assert not calls(tmp_path)
     assert not (db / "db_manifest.json").exists()
 
@@ -830,7 +830,7 @@ def test_apptainer_pull_that_writes_no_image_is_absent(
 
 
 def test_check_bakta_other_minor_is_not_a_pin_change(tmp_path: Path) -> None:
-    from giap.setupdb.items import SOURCES
+    from gippa.setupdb.items import SOURCES
 
     major = SOURCES["bakta_light"].version.split(".")[0]
     other = f"{major}.{int(SOURCES['bakta_light'].version.split('.')[1]) + 1}"

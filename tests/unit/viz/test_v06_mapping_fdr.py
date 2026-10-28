@@ -1,4 +1,4 @@
-"""V6 ``mapping_fdr``: can I trust tolerant hits and de novo peptides? (M9-05; GIAP_SPEC.md
+"""V6 ``mapping_fdr``: can I trust tolerant hits and de novo peptides? (M9-05; GIPPA_SPEC.md
 §10.2 V6, §9.3 ``mapping_fdr.tsv``, §5.2 ``stats.alpha.placement``, ``mapping.length_classes``).
 
 V6 draws the M3 estimates; it computes none. Tests the data frame (=
@@ -7,7 +7,7 @@ cases and determinism. No ``--mpl`` baselines (M9-25).
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.mapping_fdr``; importing it registers ``V06`` (name
+- The plot lives in ``gippa.viz.mapping_fdr``; importing it registers ``V06`` (name
   ``mapping_fdr``, ``needs=("mapping_fdr",)``, module ``core``). It returns one double-width
   ``Instance``, ``suffix=None``, ``coords=()``.
 - Panel axes carry ``Axes.get_label()`` ``"a"``, ``"b"`` and (only with de novo rows) ``"c"``.
@@ -51,11 +51,11 @@ from matplotlib.collections import PathCollection
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k" / "mapping"
@@ -90,17 +90,17 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 def _v06() -> base.PlotSpec:
-    import giap.viz.mapping_fdr  # noqa: F401  (registers V06)
+    import gippa.viz.mapping_fdr  # noqa: F401  (registers V06)
 
     return base.registered()["V06"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v06().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -202,7 +202,7 @@ def test_v06_is_registered_as_mapping_fdr() -> None:
     assert spec.module == "core"
 
 
-def test_no_mapping_fdr_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_mapping_fdr_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(tmp_path, hits=[], unmapped_rows=[])
     assert _v06().fn(RunView.from_outdir(out), cfg) == Skip("input_absent:mapping_fdr")
 
@@ -210,7 +210,7 @@ def test_no_mapping_fdr_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConf
 # --- structure --------------------------------------------------------------------------------
 
 
-def test_double_width_two_panels_without_denovo(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_double_width_two_panels_without_denovo(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -222,7 +222,7 @@ def test_double_width_two_panels_without_denovo(tmp_path: Path, cfg: GiapConfig)
     assert set(inst.data["panel"]) == {"a", "b"}
 
 
-def test_rows_are_sorted_by_panel_class_ndiff_bin_metric(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_rows_are_sorted_by_panel_class_ndiff_bin_metric(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path, EX6_DENOVO), cfg)
     a = _rows(inst, "a")
     expected_a = [
@@ -246,7 +246,7 @@ def test_rows_are_sorted_by_panel_class_ndiff_bin_metric(tmp_path: Path, cfg: Gi
     assert [int(_num(v)) for v in c["score_bin"]] == [1, 2, 3]
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path, EX6_DENOVO), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
@@ -256,7 +256,7 @@ def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (a) --------------------------------------------------------------------------------
 
 
-def test_example5_targets_and_decoys_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_targets_and_decoys_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     a = _rows(inst, "a")
     assert len(a) == 7 * 3 * 2
@@ -270,7 +270,7 @@ def test_example5_targets_and_decoys_rows(tmp_path: Path, cfg: GiapConfig) -> No
     assert all(_isna(v) for v in a["score_bin"])
 
 
-def test_panel_a_log_scale_and_colours(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_log_scale_and_colours(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     ax = _ax(inst, "a")
     assert ax.get_yscale() == "log"
@@ -302,7 +302,7 @@ def test_panel_a_follows_configured_length_classes(tmp_path: Path) -> None:
 # --- panel (b) --------------------------------------------------------------------------------
 
 
-def test_example4_stratum_rows_and_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_stratum_rows_and_title(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     b = _rows(inst, "b")
     fdr = b[b["metric"] == "fdr_stratum"]
@@ -317,7 +317,7 @@ def test_example4_stratum_rows_and_title(tmp_path: Path, cfg: GiapConfig) -> Non
     assert "express" not in inst.title.lower()
 
 
-def test_alpha_line_is_dashed_at_the_default(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_alpha_line_is_dashed_at_the_default(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     assert _hlines(_ax(inst, "b"), "--") == [pytest.approx(cfg.stats.alpha.placement)]
     assert cfg.stats.alpha.placement == 0.01
@@ -334,7 +334,7 @@ def test_alpha_line_and_title_follow_the_config(tmp_path: Path) -> None:
     assert inst.data.equals(_render(_ex4(tmp_path / "again"), resolve_config()).data)
 
 
-def test_points_accepted_labels_and_na_marker(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_points_accepted_labels_and_na_marker(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     ax = _ax(inst, "b")
     pts = _markers(ax)
@@ -350,7 +350,7 @@ def test_points_accepted_labels_and_na_marker(tmp_path: Path, cfg: GiapConfig) -
         assert n in texts, n
 
 
-def test_every_stratum_estimated_and_below_alpha(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_stratum_estimated_and_below_alpha(tmp_path: Path, cfg: GippaConfig) -> None:
     totals = {0: (500, 1, 0.002, 450), 1: (80, 0, 0.0, 70), 2: (30, 0, 0.005, 20)}
     inst = _render(mapping_out(tmp_path, fdr=full_placement(totals)), cfg)
     assert (
@@ -359,7 +359,7 @@ def test_every_stratum_estimated_and_below_alpha(tmp_path: Path, cfg: GiapConfig
     assert "NA (no targets)" not in _notes(_ax(inst, "b"))
 
 
-def test_every_target_count_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_target_count_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     """The 2026-10-22 validation run's first rows: (a) at the floor, (b) NA, title unestimated."""
     inst = _render(mapping_out(tmp_path, fdr=full_placement({})), cfg)
     a = _rows(inst, "a")
@@ -374,7 +374,7 @@ def test_every_target_count_zero(tmp_path: Path, cfg: GiapConfig) -> None:
     assert not inst.title.startswith("Placement FDR ≤")  # no stratum is estimated
 
 
-def test_an_all_zero_decoy_type_does_not_change_v6(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_an_all_zero_decoy_type_does_not_change_v6(tmp_path: Path, cfg: GippaConfig) -> None:
     only = _render(_ex4(tmp_path / "one"), cfg)
     both_rows = [*_ex4_rows(), *full_placement({}, decoy_type="shuffle")]
     both = _render(mapping_out(tmp_path / "two", fdr=both_rows), cfg)
@@ -382,7 +382,7 @@ def test_an_all_zero_decoy_type_does_not_change_v6(tmp_path: Path, cfg: GiapConf
     assert only.title == both.title
 
 
-def test_header_only_mapping_fdr_is_no_peptide_placements(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_mapping_fdr_is_no_peptide_placements(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(mapping_out(tmp_path, fdr=[]), cfg)
     assert list(inst.data.columns) == COLUMNS
     assert len(inst.data) == 0
@@ -395,7 +395,7 @@ def test_header_only_mapping_fdr_is_no_peptide_placements(tmp_path: Path, cfg: G
 # --- panel (c) --------------------------------------------------------------------------------
 
 
-def test_example6_denovo_precision_with_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_denovo_precision_with_footnote(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path, EX6_DENOVO), cfg)
     c = _rows(inst, "c")
     assert len(c) == 3
@@ -413,7 +413,7 @@ def test_example6_denovo_precision_with_footnote(tmp_path: Path, cfg: GiapConfig
     assert all(h for _, _, h in pts)  # c assumed: hollow
 
 
-def test_denovo_without_c_assumed_has_no_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_denovo_without_c_assumed_has_no_footnote(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [denovo_row(1, 0.85, 0.8, 0.9), denovo_row(2, 0.93, 0.9, 0.96)]
     inst = _render(_ex4(tmp_path, rows), cfg)
     assert FOOTNOTE not in _fig_texts(inst)
@@ -422,7 +422,7 @@ def test_denovo_without_c_assumed_has_no_footnote(tmp_path: Path, cfg: GiapConfi
     assert not any(h for _, _, h in pts)
 
 
-def test_denovo_error_bars_span_the_ci(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_denovo_error_bars_span_the_ci(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_ex4(tmp_path, EX6_DENOVO), cfg)
     ax = _ax(inst, "c")
     spans = []
@@ -487,7 +487,7 @@ def test_property_title_lists_exactly_the_strata_at_or_below_alpha(
 # --- the golden M3 tables, files and determinism ----------------------------------------------
 
 
-def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     out = mapping_out(tmp_path)
     (out / "mapping").mkdir(parents=True, exist_ok=True)
     (out / "mapping" / "mapping_fdr.tsv").write_bytes((GOLDEN / "mapping_fdr.tsv").read_bytes())
@@ -502,7 +502,7 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) ->
     assert "c" not in {ax.get_label() for ax in inst.figure.axes}
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _ex4(tmp_path / "run", EX6_DENOVO)
     written = []
     for name in ("x", "y"):
@@ -525,7 +525,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert any(line.startswith("c\tNA\tNA\t1\tprecision\t0.8\t0.7\t0.88\t") for line in tsv)
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_ex4(tmp_path, EX6_DENOVO))
     first = _v06().fn(view, cfg)
     second = _v06().fn(view, cfg)
@@ -534,7 +534,7 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
     assert first[0].title == second[0].title
 
 
-def test_shuffle_fallback_is_named_on_panels_a_and_b(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_shuffle_fallback_is_named_on_panels_a_and_b(tmp_path: Path, cfg: GippaConfig) -> None:
     """Review N2/N5 (#198): targets only under shuffle -> V6 draws those strata and says so."""
     shuffled = [{**r, "decoy_type": "shuffle"} for r in _ex4_rows()]
     inst = _render(mapping_out(tmp_path, fdr=[*full_placement({}), *shuffled]), cfg)

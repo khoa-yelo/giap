@@ -25,7 +25,7 @@ from helpers.function_db import (
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=400), np.random.default_rng(11))
     root = tmp_path_factory.mktemp("fdb")
@@ -33,8 +33,8 @@ def sim(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-de
 
 
 def _genes(lay, db_root: Path) -> pd.DataFrame:  # type: ignore[no-untyped-def]
-    from giap.genetable.assemble import function_columns
-    from giap.io.genes_tsv import read_cog_def
+    from gippa.genetable.assemble import function_columns
+    from gippa.io.genes_tsv import read_cog_def
 
     tags = lay.genes["locus_tag"].astype(str).tolist()
     fn = function_columns(lay.xrefs, read_cog_def(db_root / PATHS["cog2020_def"]))
@@ -51,7 +51,7 @@ def _genes(lay, db_root: Path) -> pd.DataFrame:  # type: ignore[no-untyped-def]
 
 
 def test_every_item_written_at_its_db_sources_path(sim) -> None:  # type: ignore[no-untyped-def]
-    from giap.setupdb.items import SOURCES
+    from gippa.setupdb.items import SOURCES
 
     _, db = sim
     for name in ITEMS:
@@ -62,7 +62,7 @@ def test_every_item_written_at_its_db_sources_path(sim) -> None:  # type: ignore
 
 
 def test_manifest_read_by_preflight(sim) -> None:  # type: ignore[no-untyped-def]
-    from giap.preflight.environment import read_manifest
+    from gippa.preflight.environment import read_manifest
 
     _, db = sim
     found = read_manifest(str(db.root)) or {}
@@ -70,9 +70,9 @@ def test_manifest_read_by_preflight(sim) -> None:  # type: ignore[no-untyped-def
 
 
 def test_resources_parse_and_collections_are_populated(sim) -> None:  # type: ignore[no-untyped-def]
-    from giap.function.collections import COLLECTIONS, build_collections
-    from giap.genetable.eligibility import eligible
-    from giap.io.function_resources import read_resources
+    from gippa.function.collections import COLLECTIONS, build_collections
+    from gippa.genetable.eligibility import eligible
+    from gippa.io.function_resources import read_resources
 
     lay, db = sim
     genes = _genes(lay, db.root)
@@ -88,7 +88,7 @@ def test_resources_parse_and_collections_are_populated(sim) -> None:  # type: ig
 
 
 def test_go_hierarchy_parent_and_group(sim) -> None:  # type: ignore[no-untyped-def]
-    from giap.io.function_resources import read_go
+    from gippa.io.function_resources import read_go
 
     lay, db = sim
     dag = read_go(db.paths["go_basic"])
@@ -102,7 +102,7 @@ def test_go_hierarchy_parent_and_group(sim) -> None:  # type: ignore[no-untyped-
 
 
 def test_cog_fun_has_the_ncbi_categories(sim) -> None:  # type: ignore[no-untyped-def]
-    from giap.io.function_resources import read_resources
+    from gippa.io.function_resources import read_resources
 
     _, db = sim
     res = read_resources(db.inputs(["cog2020_fun"]))

@@ -1,19 +1,19 @@
 """VARIANTS wiring follows the step registry (docs/specs/M7-04-variants-step-and-run.md rules 3
 and 5, acceptance "a registry test that the step's declared keys match the subworkflow's"; lead
-decision 3; GIAP_SPEC.md §6.2, §6.4, §9.1).
+decision 3; GIPPA_SPEC.md §6.2, §6.4, §9.1).
 
 Static checks of ``workflow/subworkflows/local/variants.nf``, ``mapping.nf`` and ``main.nf``
-against ``giap.steps`` (no Nextflow needed), in the style of ``test_nf_annotate_registry.py``.
+against ``gippa.steps`` (no Nextflow needed), in the style of ``test_nf_annotate_registry.py``.
 ``workflow/tests/variants.nf.test`` and ``main_variants.nf.test`` check the staged keys at run time.
 
 * variants.nf defines ``workflow VARIANTS``. It calls the ``variants`` step once, through a
-  ``GIAP_STEP`` alias, as ``ALIAS(v.files, v.keys, [...])`` with ``v = stepIn('variants', ...)``.
-  The spec writes ``GIAP_STEP as VARIANTS``, but ``VARIANTS`` is the subworkflow's own name, so
+  ``GIPPA_STEP`` alias, as ``ALIAS(v.files, v.keys, [...])`` with ``v = stepIn('variants', ...)``.
+  The spec writes ``GIPPA_STEP as VARIANTS``, but ``VARIANTS`` is the subworkflow's own name, so
   the alias name is left free (as OPERONS uses ``OPERONS_STEP``; the nf-tests find the task by its
   tag ``variants``).
 * The out spec is exactly ``pileup=tables/pileup.tsv.gz``, ``variants=tables/variants.tsv`` and
   ``variants_vcf=tables/variants.vcf``. Only ``tables/*`` is published, never work Parquet. These
-  names equal ``giap.runner.local.PUBLISHED_FILES`` (lead decision 3).
+  names equal ``gippa.runner.local.PUBLISHED_FILES`` (lead decision 3).
 * ``stepIn``'s third argument (``need``) is exactly the registry's required inputs (rule 5).
 * Every statically resolvable input key is a declared input.
 * ``take:`` names the six channels of rule 5, in order. ``emit:`` has ``pileup``, ``variants``
@@ -29,8 +29,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from giap.steps import load_step_modules
-from giap.steps import registry as reg
+from gippa.steps import load_step_modules
+from gippa.steps import registry as reg
 
 REPO = Path(__file__).resolve().parents[2]
 LOCAL = REPO / "workflow" / "subworkflows" / "local"
@@ -123,10 +123,10 @@ def test_variants_nf_defines_the_subworkflow() -> None:
     _workflow_block(_text(SUBWF), "VARIANTS")
 
 
-def test_variants_step_called_once_through_a_giap_step_alias() -> None:
+def test_variants_step_called_once_through_a_gippa_step_alias() -> None:
     text = _text(SUBWF)
     alias, _ = _call(text)
-    assert re.search(rf"GIAP_STEP\s+as\s+{alias}\b", text), f"{alias} is not a GIAP_STEP alias"
+    assert re.search(rf"GIPPA_STEP\s+as\s+{alias}\b", text), f"{alias} is not a GIPPA_STEP alias"
 
 
 def test_out_spec_is_the_three_tables_and_variants_qc() -> None:
@@ -140,7 +140,7 @@ def test_out_spec_is_the_three_tables_and_variants_qc() -> None:
 
 def test_out_spec_equals_the_local_published_files() -> None:
     """Lead decision 3: the local executor publishes the same names as Nextflow."""
-    from giap.runner.local import PUBLISHED_FILES
+    from gippa.runner.local import PUBLISHED_FILES
 
     for key, rel in OUT_SPEC.items():
         assert PUBLISHED_FILES.get(key) == rel, (key, PUBLISHED_FILES.get(key))
@@ -207,8 +207,8 @@ def test_main_calls_variants_after_mapping_inside_the_peptide_block() -> None:
 def test_nf_test_headers_equal_the_python_columns() -> None:
     """The headers that workflow/tests/variants.nf.test expects from the stub equal the §9.3
     columns, so the stub publishes what a real run would."""
-    from giap.variants.pileup import PILEUP_COLUMNS
-    from giap.variants.vcf_records import INFO_FIELDS, VARIANTS_COLUMNS
+    from gippa.variants.pileup import PILEUP_COLUMNS
+    from gippa.variants.vcf_records import INFO_FIELDS, VARIANTS_COLUMNS
 
     text = (REPO / "workflow" / "tests" / "variants.nf.test").read_text(encoding="utf-8")
     for name, cols in (("PILEUP_HEADER", PILEUP_COLUMNS), ("VARIANTS_HEADER", VARIANTS_COLUMNS)):

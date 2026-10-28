@@ -1,9 +1,9 @@
 """Bakta light with ``--regions`` keeps the user's CDS coordinates (M2-11 acceptance).
 
-docs/specs/M2-11-user-annotation-id-map.md; GIAP_SPEC.md §5.3 ("Bakta runs with ``--regions`` on
+docs/specs/M2-11-user-annotation-id-map.md; GIPPA_SPEC.md §5.3 ("Bakta runs with ``--regions`` on
 that file's CDS, so the gene coordinates match"), §7.1.1 (``--regions`` accepts CDS only).
 
-Runs Bakta 1.12.2 (light DB) as a process (R5) from its micromamba env on the giapsim SIM100K
+Runs Bakta 1.12.2 (light DB) as a process (R5) from its micromamba env on the gippasim SIM100K
 genome, with the simulator's GFF3 as ``--annotation``; at least 99 % of the id map rows must be
 ``identical``.
 """
@@ -18,26 +18,26 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-_GIAP_REPO = Path(os.environ.get("GIAP_REPO", REPO))
-_ROOT = Path(os.environ.get("GIAP_ROOT", _GIAP_REPO / "local"))
+_GIPPA_REPO = Path(os.environ.get("GIPPA_REPO", REPO))
+_ROOT = Path(os.environ.get("GIPPA_ROOT", _GIPPA_REPO / "local"))
 PREFIX = Path(os.environ.get("MAMBA_ROOT_PREFIX", _ROOT / "micromamba"))
-DB = Path(os.environ.get("GIAP_DB_DIR", _ROOT / "db"))
+DB = Path(os.environ.get("GIPPA_DB_DIR", _ROOT / "db"))
 
 pytestmark = [pytest.mark.needs_conda, pytest.mark.needs_bakta_db, pytest.mark.slow]
 
 
 def test_bakta_regions_keeps_given_cds(tmp_path: Path) -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.bakta_cmd import bakta_command
-    from giap.annotate.tools import TOOLS
-    from giap.annotate.user_annotation import (
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta_cmd import bakta_command
+    from gippa.annotate.tools import TOOLS
+    from gippa.annotate.user_annotation import (
         build_id_map,
         detect_format,
         read_user_cds,
         write_bakta_regions,
         write_id_map,
     )
-    from giapsim import SIM100K, SIM100K_SEED, simulate
+    from gippasim import SIM100K, SIM100K_SEED, simulate
 
     env = TOOLS["bakta"].env_name
     if not (PREFIX / "envs" / env).is_dir():

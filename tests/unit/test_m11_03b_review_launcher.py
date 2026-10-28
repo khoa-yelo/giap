@@ -5,8 +5,9 @@ Spec: docs/specs/M11-03b-nightly-readiness-labels.md, rule 3 of ``calibration_fu
 replaced by M11-03c PR 4 (docs/specs/M11-03c-calibration-full-sharding.md): a launch queues 16 jobs
 (15 per-suite jobs and the aggregator), so it refuses when ``jobs + 16 > 20``; it refuses when
 ``cpus + Σ + 1 > 128`` (Σ = 98); the worst-case end ``now + max(time) + 20 min`` (6 h 20 m) must be
-before the next nightly start (``GIAP_NIGHTLY_AT``, default ``01:30`` local), else refuse. The clock
-is ``GIAP_NOW`` (epoch seconds). Every refusal is exit 2, no ``sbatch`` call, and a message naming
+before the next nightly start (``GIPPA_NIGHTLY_AT``, default ``01:30`` local), else refuse. The
+clock
+is ``GIPPA_NOW`` (epoch seconds). Every refusal is exit 2, no ``sbatch`` call, and a message naming
 the numbers (jobs, CPUs, end, nightly start).
 
 Fixtures and helpers come from ``test_m11_03b_launcher`` (sandbox with a fake ``squeue`` printing
@@ -49,13 +50,13 @@ def accepted(sb: Sandbox, res: subprocess.CompletedProcess[str]) -> None:
 def test_empty_queue_at_22_00_reaches_the_nightly_and_refuses(sb: Sandbox) -> None:
     """22:00 + 6 h + 20 min = 04:20 >= 01:30."""
     _queue(sb, [])
-    out = refused(sb, _launch(sb, GIAP_NOW=at(22)))
+    out = refused(sb, _launch(sb, GIPPA_NOW=at(22)))
     assert "04:20" in out and "01:30" in out, out
 
 
 def test_empty_queue_at_10_00_ends_by_16_20(sb: Sandbox) -> None:
     _queue(sb, [])
-    accepted(sb, _launch(sb, GIAP_NOW=at(10)))
+    accepted(sb, _launch(sb, GIPPA_NOW=at(10)))
 
 
 @pytest.mark.parametrize(
@@ -70,7 +71,7 @@ def test_window_boundary_at_the_default_nightly(
     sb: Sandbox, hour: int, minute: int, ok: bool
 ) -> None:
     _queue(sb, [])
-    res = _launch(sb, GIAP_NOW=at(hour, minute))
+    res = _launch(sb, GIPPA_NOW=at(hour, minute))
     if ok:
         accepted(sb, res)
     else:
@@ -87,11 +88,11 @@ def test_window_boundary_at_the_default_nightly(
      ("23:00", 22, 0, False),  # the next start is today 23:00, before the 04:20 end
      ("22:30", 22, 0, False)],
 )  # fmt: skip
-def test_giap_nightly_at_overrides_the_start(
+def test_gippa_nightly_at_overrides_the_start(
     sb: Sandbox, nightly: str, hour: int, minute: int, ok: bool
 ) -> None:
     _queue(sb, [])
-    res = _launch(sb, GIAP_NOW=at(hour, minute), GIAP_NIGHTLY_AT=nightly)
+    res = _launch(sb, GIPPA_NOW=at(hour, minute), GIPPA_NIGHTLY_AT=nightly)
     if ok:
         accepted(sb, res)
     else:
@@ -99,12 +100,12 @@ def test_giap_nightly_at_overrides_the_start(
         assert nightly in out, out
 
 
-def test_the_clock_is_giap_now(sb: Sandbox) -> None:
-    """Same queue, same wall clock: only GIAP_NOW differs, and so does the outcome."""
+def test_the_clock_is_gippa_now(sb: Sandbox) -> None:
+    """Same queue, same wall clock: only GIPPA_NOW differs, and so does the outcome."""
     _queue(sb, [])
-    assert _launch(sb, GIAP_NOW=at(23)).returncode == 2
+    assert _launch(sb, GIPPA_NOW=at(23)).returncode == 2
     assert sb.sbatch_calls() == []
-    accepted(sb, _launch(sb, GIAP_NOW=at(11)))
+    accepted(sb, _launch(sb, GIPPA_NOW=at(11)))
 
 
 # ------------------------------------------------------------------ the 16-job count
@@ -112,34 +113,34 @@ def test_the_clock_is_giap_now(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     ("lines", "ok"),
-    [(["1 giap-j"] * 4, True),                       # 4 + 16 = 20
-     (["1 giap-j"] * 4 + ["2 other"] * 30, True),    # only giap-* jobs count
-     (["1 giap-j"] * 5, False),                      # 21 > 20
-     (["0 giap-pending"] * 5, False),                # pending tasks count, CPUs or not
-     (["1 giap-j"] * 10, False)],                    # the review's 10 + 16 = 26 case
+    [(["1 gippa-j"] * 4, True),                       # 4 + 16 = 20
+     (["1 gippa-j"] * 4 + ["2 other"] * 30, True),    # only gippa-* jobs count
+     (["1 gippa-j"] * 5, False),                      # 21 > 20
+     (["0 gippa-pending"] * 5, False),                # pending tasks count, CPUs or not
+     (["1 gippa-j"] * 10, False)],                    # the review's 10 + 16 = 26 case
 )  # fmt: skip
 def test_a_launch_counts_its_16_jobs(sb: Sandbox, lines: list[str], ok: bool) -> None:
     _queue(sb, lines)
-    res = _launch(sb, GIAP_NOW=at(10))
+    res = _launch(sb, GIPPA_NOW=at(10))
     if ok:
         accepted(sb, res)
     else:
         out = refused(sb, res)
-        n = sum(ln.split()[1].startswith("giap-") for ln in lines)
+        n = sum(ln.split()[1].startswith("gippa-") for ln in lines)
         assert re.search(rf"\b{n}\b", out) and re.search(r"\b16\b", out), out
         assert re.search(r"\b20\b", out), out
 
 
 def test_no_standing_reserve_for_the_nightly_cpus(sb: Sandbox) -> None:
     """No standing reserve (B3 replaces Q3): 29 CPUs queued fit exactly (29 + 98 + 1 = 128)."""
-    _queue(sb, ["29 giap-other"])
-    accepted(sb, _launch(sb, GIAP_NOW=at(10)))
-    _queue(sb, ["30 giap-other"])
-    refused_res = _launch(sb, GIAP_NOW=at(10))
+    _queue(sb, ["29 gippa-other"])
+    accepted(sb, _launch(sb, GIPPA_NOW=at(10)))
+    _queue(sb, ["30 gippa-other"])
+    refused_res = _launch(sb, GIPPA_NOW=at(10))
     assert refused_res.returncode == 2, _out(refused_res)
 
 
 def test_cpu_refusal_names_the_numbers(sb: Sandbox) -> None:
-    _queue(sb, ["112 giap-big"])  # 112 + 98 + 1 = 211 > 128
-    out = refused(sb, _launch(sb, GIAP_NOW=at(10)))
+    _queue(sb, ["112 gippa-big"])  # 112 + 98 + 1 = 211 > 128
+    out = refused(sb, _launch(sb, GIPPA_NOW=at(10)))
     assert all(re.search(rf"\b{n}\b", out) for n in (112, 99, 128)), out

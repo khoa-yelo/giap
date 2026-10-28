@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from giap.determinants import features
+from gippa.determinants import features
 
 
 def test_lookup_with_duplicate_tags_keeps_first() -> None:

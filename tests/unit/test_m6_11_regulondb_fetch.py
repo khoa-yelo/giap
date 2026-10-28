@@ -1,4 +1,4 @@
-"""``validation/fetch_regulondb.py`` without the network (M6-11; GIAP_SPEC.md §3.9, §15.3).
+"""``validation/fetch_regulondb.py`` without the network (M6-11; GIPPA_SPEC.md §3.9, §15.3).
 
 Nothing here opens a socket: the one network call of the TLS path is injected, the GraphQL
 transport is stubbed at ``urllib.request.urlopen``, and no RegulonDB bytes are committed (R6/R11)
@@ -357,7 +357,7 @@ def test_main_writes_the_release_directory_and_the_provenance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     captured: list[dict[str, Any]] = []
-    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(fr, "regulondb_context", lambda: ssl.create_default_context())
     monkeypatch.setattr(fr.urllib.request, "urlopen", _stub_urlopen(captured))
 
@@ -377,7 +377,7 @@ def test_main_writes_the_release_directory_and_the_provenance(
 def test_main_is_idempotent_and_appends_the_second_date(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(fr, "regulondb_context", lambda: ssl.create_default_context())
     monkeypatch.setattr(fr.urllib.request, "urlopen", _stub_urlopen([]))
     assert fr.main() == 0
@@ -397,18 +397,18 @@ def test_main_is_idempotent_and_appends_the_second_date(
     assert second["retrieved_dates"] == [first["retrieved"], "2026-11-02"]
 
 
-def test_main_fails_without_giap_data_dir(
+def test_main_fails_without_gippa_data_dir(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.delenv("GIAP_DATA_DIR", raising=False)
+    monkeypatch.delenv("GIPPA_DATA_DIR", raising=False)
     assert fr.main() == 1
-    assert "GIAP_DATA_DIR is not set" in capsys.readouterr().err
+    assert "GIPPA_DATA_DIR is not set" in capsys.readouterr().err
 
 
 def test_main_reports_a_broken_chain_instead_of_downgrading(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(tmp_path))
 
     def boom() -> ssl.SSLContext:
         raise fr.FetchError("the GlobalSign intermediate changed")
@@ -425,7 +425,7 @@ def test_main_reports_a_broken_chain_instead_of_downgrading(
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git is not on PATH")
 def test_no_regulondb_bytes_are_committed() -> None:
-    """R6/R11 and the §15.3 row: the data lives in ``$GIAP_DATA_DIR``, never in the repo."""
+    """R6/R11 and the §15.3 row: the data lives in ``$GIPPA_DATA_DIR``, never in the repo."""
     names = {"TUSet.txt", "TerminatorSet.txt", "GeneProductSet.txt", "OperonSet.txt"}
     tracked = subprocess.run(
         ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
@@ -513,7 +513,7 @@ def test_an_openssl_timeout_is_a_fetch_error_not_a_traceback(
 def test_main_returns_1_when_openssl_times_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(tmp_path))
     _pin(monkeypatch, _TEST_CA_DER)
     monkeypatch.setattr(fr.shutil, "which", lambda _name: "/usr/bin/openssl")
 
@@ -538,7 +538,7 @@ def test_main_returns_1_when_openssl_times_out(
 def test_main_returns_1_and_writes_nothing_when_every_attempt_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIPPA_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(fr, "regulondb_context", lambda: ssl.create_default_context())
     calls: list[str] = []
 

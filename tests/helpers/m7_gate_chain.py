@@ -1,13 +1,13 @@
-"""One M7-13a gate replicate: a giapsim scenario through preflight, the mapping chain and the
+"""One M7-13a gate replicate: a gippasim scenario through preflight, the mapping chain and the
 registered ``variants`` step (docs/specs/M7-13-calibration-gate.md rule 1; test plumbing, no
 statistics). Used by tests/calibration/test_variants_gate.py and the attack file.
 
 ``run_chain`` simulates ``sim_cfg`` at ``seed``; with a strain the sample's peptides are mapped to
 the reference strain (``reference.fasta``, ``reference_bakta_like.json``), as M7-10's
-``helpers.class_error_chain.build_chain`` does. ``peptides`` / ``reference`` name giapsim output
+``helpers.class_error_chain.build_chain`` does. ``peptides`` / ``reference`` name gippasim output
 files (``None``: no reference peptides); ``rewrite`` may replace either input file before preflight
 (the A6c systematic swaps, the reference-proteome arm), keyed by the file name. A test
-``$GIAP_DB_DIR`` is used (never the real one).
+``$GIPPA_DB_DIR`` is used (never the real one).
 """
 
 from __future__ import annotations
@@ -21,16 +21,16 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from giap.config import resolve_config
+from gippa.config import resolve_config
 from helpers.class_error_chain import STEP_KEYS, library_preflight, oracle_sites, run_step
 from helpers.mapping_steps import drive, fresh_steps
 
-Rewrite = Callable[[Path, Any], Path]  # (giapsim file, SimResult) -> file to use instead
+Rewrite = Callable[[Path, Any], Path]  # (gippasim file, SimResult) -> file to use instead
 
 
 @dataclasses.dataclass
 class GateRun:
-    res: Any  # giapsim SimResult (genome/bakta replaced by the reference strain's with a strain)
+    res: Any  # gippasim SimResult (genome/bakta replaced by the reference strain's with a strain)
     cfg: Any
     avail: dict[str, Path]
     variants: pd.DataFrame  # variants.tsv as written (strings; codon_start 1-based)
@@ -63,7 +63,7 @@ def run_chain(
     overrides: Sequence[str] = (),
     rewrite: Mapping[str, Rewrite] | None = None,
 ) -> GateRun:
-    from giapsim.simulate import simulate
+    from gippasim.simulate import simulate
 
     res = simulate(sim_cfg, seed, root / "sim")
     if res.reference_fasta is not None and res.reference_json is not None:

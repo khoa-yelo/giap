@@ -4,7 +4,7 @@ One simulated genome per replicate feeds every (region, statistic) check: each c
 own ``_criteria`` stream (so its log record and block-2 confirmation are its own), and
 replicate ``i`` of any stream maps back to the scenario's replicate ``i`` (seed
 ``suite_seed(<scenario stream>, i)``), simulated once per process and cached. Region tests run with
-``giap.rng.for_step("context_stats", seed)`` (spec "RNG"), ``seed`` drawn from the replicate.
+``gippa.rng.for_step("context_stats", seed)`` (spec "RNG"), ``seed`` drawn from the replicate.
 
 A check's replicate value is the p-value of one region row; NA (no valid shift, or no detected
 gene for HL) counts as p = 1 (``p_or_one``: a test that cannot be computed does not reject).
@@ -15,7 +15,7 @@ statistic (``check_level_pooled``, m = 4: rejection indicators of different type
 <= 0.06 over 20,000 null replicates); the plasmid's AMR set is gated at alpha in {0.05, 0.10} only
 (``PLASMID_LEVELS``: with K = 59 shifts p <= 0.01 is unattainable).
 
-``needs_m4_13`` marks checks whose p_detect comes from M4-13 (``giap.genetable.detectability``,
+``needs_m4_13`` marks checks whose p_detect comes from M4-13 (``gippa.genetable.detectability``,
 PR #83): xfail(strict=False) "needs M4-13 (#83)" while that module is absent (lead decisions 4, 8);
 the mark lifts itself once #83 is merged.
 """
@@ -40,7 +40,7 @@ PLASMID_LEVELS = (0.05, 0.10)
 
 def _has_m4_13() -> bool:
     try:
-        return importlib.util.find_spec("giap.genetable.detectability") is not None
+        return importlib.util.find_spec("gippa.genetable.detectability") is not None
     except ModuleNotFoundError:
         return False
 
@@ -78,7 +78,7 @@ def replicate_results(sc: Scenario, i: int) -> pd.DataFrame:
     """``test_all_regions`` output of replicate ``i`` of scenario ``sc`` (cached)."""
     key = (sc.stream, i)
     if key not in _TABLES:
-        from giap.rng import for_step
+        from gippa.rng import for_step
 
         rng = _C().replicate_rng(sc.stream, i)
         lc = rd.calibration_layout_config(sc.n_genes, **dict(sc.layout_kw))

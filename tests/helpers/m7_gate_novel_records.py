@@ -1,13 +1,13 @@
 """Per-replicate count records of the M7-13b novel-ORF gate (docs/specs/M7-13-calibration-gate.md
 rules 1, 5-8, 10, § Attacks a, b, d, GC; M7-11b rule 11; lead decision 1 ``GATE_R``). Test
-plumbing owned by the test-author: each record simulates ``novel_orf_power`` and runs GIAP through
+plumbing owned by the test-author: each record simulates ``novel_orf_power`` and runs GIPPA through
 the ``novel_orfs`` step, then reduces the written ``tables/novel_orfs.tsv`` and the side table
 ``novel_class_fdr`` with the pure helpers of ``tests/calibration/_m7_gate.py`` (implementer), so
-no check reruns GIAP and the harness logs the counts (shards merge from them).
+no check reruns GIPPA and the harness logs the counts (shards merge from them).
 
-The chain (``run_giap``) is ``giap run --executor local`` with the local runner's targets cut to
-``novel_orfs`` (every layer is precomputed by giapsim; no tool runs; plots and report are not
-built). A test ``$GIAP_DB_DIR`` is used (never the real one). The side table is read from
+The chain (``run_gippa``) is ``gippa run --executor local`` with the local runner's targets cut to
+``novel_orfs`` (every layer is precomputed by gippasim; no tool runs; plots and report are not
+built). A test ``$GIPPA_DB_DIR`` is used (never the real one). The side table is read from
 ``work/novel_class_fdr`` (else the published ``novel/novel_class_fdr.parquet``); it exists only
 once M7-11b (#256) lands, so every record raises ``FileNotFoundError`` before that.
 
@@ -19,7 +19,7 @@ mutant, clustered null) re-simulates that same seed, so the arms are paired. Tes
 Test-side transforms (no simulator change):
 
 * ``inject_false_orfs`` (G4-k3, rule 8): the M7-12 non-coding six-frame pool
-  (``giapsim.proteomics.sixframe_noncoding_pool`` rebuilt from the Bakta-like JSON and the novel
+  (``gippasim.proteomics.sixframe_noncoding_pool`` rebuilt from the Bakta-like JSON and the novel
   truth); a *segment* is a stop-free stretch of one frame closed by a stop codon holding >= 5
   distinct pool products. Per class of ``SIX_CLASSES`` 20 segments are drawn; each gets 3-5 of
   its products as wrong de novo reads, half of them (``k // 2``) carrying one reversed internal
@@ -35,8 +35,8 @@ Test-side transforms (no simulator change):
   shares no key with, and does not overlap, any planted ORF (either strand). Each entry goes to
   the target or the decoy side with p = 1/2 and gets k = 3-5 distinct products as PSM rows
   (decoy: the product reversed, protein ``rev_<id>``), each with a ``(q_value, pep, score)``
-  triple resampled from the simulation's ``rev_GIAPORF_`` rows (the null component); target
-  intensity resampled from the ``GIAPORF_`` target rows, ``run1``-``run3``, charge 2-3.
+  triple resampled from the simulation's ``rev_GIPPAORF_`` rows (the null component); target
+  intensity resampled from the ``GIPPAORF_`` target rows, ``run1``-``run3``, charge 2-3.
 
 Appended reads copy the de novo TSV columns: fresh ``spectrum_id`` ``inj.<tag>.<n>`` in ``run1``,
 charge 2, score and intensity resampled from the file's own rows. Every record is appended as one
@@ -129,20 +129,20 @@ class NovelRun:
 
 
 def simulate(i: int, size: str, root: Path) -> Any:
-    from giapsim import scenarios as sc
-    from giapsim.simulate import simulate as run_sim
+    from gippasim import scenarios as sc
+    from gippasim.simulate import simulate as run_sim
 
     n = sc.NOVEL_PER_CLASS_GATE if size == "1M" else None
     return run_sim(sc.novel_orf_power(sim_seed(i), size, n_per_class=n), sim_seed(i), root / "sim")
 
 
-def run_giap(res: Any, peptides: Path, out: Path, seed: int, sets: Sequence[str] = ()) -> NovelRun:
-    """``giap run`` (local executor) through ``novel_orfs`` only; RuntimeError on a non-zero exit
+def run_gippa(res: Any, peptides: Path, out: Path, seed: int, sets: Sequence[str] = ()) -> NovelRun:
+    """``gippa run`` (local executor) through ``novel_orfs`` only; RuntimeError on a non-zero exit
     (never an AssertionError, so a broken chain cannot pass as a strict xfail)."""
     from click.testing import CliRunner
 
-    from giap.cli import cli
-    from giap.runner import local
+    from gippa.cli import cli
+    from gippa.runner import local
     from helpers.novel_steps_fixture import db_env
 
     orig = local.run_local
@@ -160,9 +160,9 @@ def run_giap(res: Any, peptides: Path, out: Path, seed: int, sets: Sequence[str]
         mp.setattr(local, "run_local", only_novel)
         r = CliRunner().invoke(cli, args)
     if r.exception is not None and not isinstance(r.exception, SystemExit):
-        raise RuntimeError(f"giap run raised {r.exception!r}") from r.exception
+        raise RuntimeError(f"gippa run raised {r.exception!r}") from r.exception
     if r.exit_code != 0:
-        raise RuntimeError(f"giap run exit {r.exit_code}: {r.output[-3000:]}")
+        raise RuntimeError(f"gippa run exit {r.exit_code}: {r.output[-3000:]}")
     side_path = out / "work" / "novel_class_fdr"
     if not side_path.exists():
         side_path = out / "novel" / "novel_class_fdr.parquet"
@@ -176,13 +176,13 @@ def _lengths(res: Any) -> dict[str, int]:
 
 
 def _genome(res: Any) -> dict[str, str]:
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     return {r.id: r.sequence.upper() for r in read_genome_fasta(Path(res.genome_fasta))}
 
 
 def _truth(res: Any) -> pd.DataFrame:
-    from giapsim.truth import read_novel_orfs
+    from gippasim.truth import read_novel_orfs
 
     return read_novel_orfs(res.outdir)
 
@@ -246,7 +246,7 @@ def _diag(run: NovelRun, rows: pd.DataFrame, truth: pd.DataFrame,
 SHARED_NO_PAIR = "shared_peptide_no_pair"
 NO_PAIR = "no_makedb_pair"
 _MAKEDB_RE = re.compile(
-    r"^GIAPORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
+    r"^GIPPAORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
 )
 
 
@@ -255,7 +255,7 @@ def _il(p: str) -> str:
     return str(p).strip().upper().replace("I", "L").replace("J", "L")
 
 
-#: injection reach (review B2 on #271): the injected keys that reached GIAP's table, summed over
+#: injection reach (review B2 on #271): the injected keys that reached GIPPA's table, summed over
 #: the replicates run, must be at least this share of the injected ones. Fast tier (Slurm 1877255
 #: / 1878529, R = 10-20): G4-k3 600 of 600 (1.0 in every replicate), GC 399 of 400 (minimum
 #: 39 of 40 = 0.975 in one replicate); 0.90 leaves room below the lowest replicate seen.
@@ -264,17 +264,17 @@ REACH_MIN_SHARE = 0.90
 
 def check_reach(rows: int, injected: int, what: str) -> None:
     """RuntimeError (never an AssertionError, so a strict xfail cannot absorb it) when the
-    injected false ORFs did not reach GIAP: ``rows`` is 0 or below ``REACH_MIN_SHARE`` of
+    injected false ORFs did not reach GIPPA: ``rows`` is 0 or below ``REACH_MIN_SHARE`` of
     ``injected`` (``injected`` < 1 is itself a broken transform)."""
     if injected < 1 or rows < 1 or rows < REACH_MIN_SHARE * injected:
         raise RuntimeError(
-            f"{what}: injection did not reach GIAP ({rows} rows at {injected} injected keys,"
+            f"{what}: injection did not reach GIPPA ({rows} rows at {injected} injected keys,"
             f" need >= {REACH_MIN_SHARE:.2f} of them)"
         )
 
 
 def parse_makedb_id(pid: str) -> tuple[str, str, int, int, str] | None:
-    """``(cls, contig, a, b, strand)`` of ``GIAPORF_<cls>_<contig>_<a>_<b>_<p|m>`` (1-based closed
+    """``(cls, contig, a, b, strand)`` of ``GIPPAORF_<cls>_<contig>_<a>_<b>_<p|m>`` (1-based closed
     plus-strand span without the stop codon), else None (gene loci, ``rev_`` decoys)."""
     m = _MAKEDB_RE.match(str(pid).strip())
     if m is None:
@@ -305,7 +305,7 @@ def planted_in_entry(entry: tuple[str, str, int, int, str],
 def shared_peptide_no_pair(peptides: Sequence[str], rows: pd.DataFrame,
                            own_key: tuple[str, str, int], truth: pd.DataFrame) -> bool:  # fmt: skip
     """Lead decision 11: at least one input row carries one of ``peptides`` (I/L-insensitive),
-    and every such row names at least one ``GIAPORF_`` entry, each holding a planted ORF other
+    and every such row names at least one ``GIPPAORF_`` entry, each holding a planted ORF other
     than ``own_key``. Gene loci, decoys and non-planted entries veto."""
     want = {_il(p) for p in peptides if str(p).strip()}
     if not want:
@@ -366,12 +366,12 @@ def pooled_side(run: NovelRun, res: Any) -> tuple[pd.DataFrame, int]:
     classes (``intergenic``, ``cds_outframe``, ``antisense``; ``nterm_extension`` keeps its
     locus-tag list, it cannot pair by stop). The ORFs are rebuilt from the run's own work files
     (M7-06 ``candidate_rows`` + ``reconstruct``); ``(side, n side picked rows not rebuilt)``."""
-    from giap.config import resolve_config
-    from giap.io.fasta import read_genome_fasta
-    from giap.io.work_tables import _read_tsv_table
-    from giap.novel import class_call, fdr
-    from giap.novel.candidates import candidate_rows, reconstruct
-    from giap.steps.mapping import read_gene_model
+    from gippa.config import resolve_config
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.io.work_tables import _read_tsv_table
+    from gippa.novel import class_call, fdr
+    from gippa.novel.candidates import candidate_rows, reconstruct
+    from gippa.steps.mapping import read_gene_model
 
     w = run.work
     cfg = resolve_config(Path(res.config_yaml))
@@ -401,7 +401,7 @@ def pooled_side(run: NovelRun, res: Any) -> tuple[pd.DataFrame, int]:
 
 def _segments(res: Any, classes: Sequence[str]) -> dict[str, list[dict[str, Any]]]:
     """Stop-closed segments of the non-coding six-frame pool with their distinct products."""
-    from giapsim.proteomics import ProteomicsConfig, sixframe_noncoding_pool
+    from gippasim.proteomics import ProteomicsConfig, sixframe_noncoding_pool
 
     js = json.loads(Path(res.bakta_json).read_text())
     cds = [f for f in js["features"] if f.get("type") in ("cds", "sorf")]
@@ -520,13 +520,13 @@ def gc_poor_peptides(res: Any, rng: np.random.Generator) -> tuple[Path, dict[str
 
 
 def makedb_id(cls: str, seg: Mapping[str, Any]) -> str:
-    """giapsim's makedb ID of a segment (stop codon excluded, 1-based closed, plus-strand
-    coordinates): ``GIAPORF_<cls>_<contig>_<a>_<b>_<p|m>`` with ``a = nt0 + 1, b = t`` on ``+``
+    """gippasim's makedb ID of a segment (stop codon excluded, 1-based closed, plus-strand
+    coordinates): ``GIPPAORF_<cls>_<contig>_<a>_<b>_<p|m>`` with ``a = nt0 + 1, b = t`` on ``+``
     and ``a = n - t + 1, b = n - nt0`` on ``-`` (``seg["nt"] = (nt0, t, n)`` strand-local)."""
     nt0, t, n = seg["nt"]
     if seg["strand"] == "+":
-        return f"GIAPORF_{cls}_{seg['contig']}_{nt0 + 1}_{t}_p"
-    return f"GIAPORF_{cls}_{seg['contig']}_{n - t + 1}_{n - nt0}_m"
+        return f"GIPPAORF_{cls}_{seg['contig']}_{nt0 + 1}_{t}_p"
+    return f"GIPPAORF_{cls}_{seg['contig']}_{n - t + 1}_{n - nt0}_m"
 
 
 def segment_span(seg: Mapping[str, Any]) -> tuple[int, int]:
@@ -549,7 +549,7 @@ def _planted(res: Any) -> tuple[set[tuple[str, str, int]], dict[str, list[tuple[
 def null_segments(res: Any, cls: str = CL_CLASS) -> list[dict[str, Any]]:
     """Segments of ``cls`` eligible as clustered-null entries (module doc), with ``id``."""
     pep = _tsv(Path(res.outdir) / "peptides.tsv")
-    seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIAPORF_" in p}
+    seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIPPAORF_" in p}
     keys, spans = _planted(res)
     out = []
     for s in _segments(res, (cls,))[cls]:
@@ -570,10 +570,10 @@ def inject_null_entries(res: Any, rng: np.random.Generator,
     """The clustered-null transform (module doc); the database file and the injected entries."""
     pep = _tsv(Path(res.outdir) / "peptides.tsv")
     ids = pep["protein_ids"]
-    null = pep[ids.str.startswith("rev_GIAPORF_")]
-    tgt_int = pep.loc[ids.str.startswith("GIAPORF_"), "intensity"].to_numpy()
+    null = pep[ids.str.startswith("rev_GIPPAORF_")]
+    tgt_int = pep.loc[ids.str.startswith("GIPPAORF_"), "intensity"].to_numpy()
     if null.empty or not len(tgt_int):  # not an AssertionError: a broken transform
-        raise RuntimeError("clustered null: no GIAPORF_ target or rev_GIAPORF_ rows to resample")
+        raise RuntimeError("clustered null: no GIPPAORF_ target or rev_GIPPAORF_ rows to resample")
     segs = null_segments(res)
     take = rng.choice(len(segs), size=min(m, len(segs)), replace=False)
     rows: list[dict[str, Any]] = []
@@ -636,13 +636,13 @@ def gate_record(i: int, size: str = "1M") -> dict[str, Any]:
     try:
         res = simulate(i, size, root)
         seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
-        db = run_giap(res, Path(res.outdir) / "peptides.tsv", root / "db" / "OUT", seed)
-        dn = run_giap(res, Path(res.outdir) / "peptides_denovo.tsv", root / "dn" / "OUT", seed)
+        db = run_gippa(res, Path(res.outdir) / "peptides.tsv", root / "db" / "OUT", seed)
+        dn = run_gippa(res, Path(res.outdir) / "peptides_denovo.tsv", root / "dn" / "OUT", seed)
         pep = _tsv(Path(res.outdir) / "peptides.tsv")
         dn_rows = _tsv(Path(res.outdir) / "peptides_denovo.tsv")
         stripped = root / "peptides.nodecoy.tsv"
         pep[pep["is_decoy"].str.lower() != "true"].to_csv(stripped, sep="\t", index=False)
-        nd = run_giap(res, stripped, root / "nd" / "OUT", seed)
+        nd = run_gippa(res, stripped, root / "nd" / "OUT", seed)
         g3 = g3_counts(db, truth, lengths)
         g4 = {
             **g4_counts(db, truth, "picked_decoy", lengths),
@@ -683,7 +683,7 @@ def k3_record(i: int, size: str = "1M") -> dict[str, Any]:
         res = simulate(i, size, root)
         seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
         path, info = inject_false_orfs(res, _C().replicate_rng(K3_BASE, i))
-        dn = run_giap(res, path, root / "k3" / "OUT", seed)
+        dn = run_gippa(res, path, root / "k3" / "OUT", seed)
         rec = {"stream": K3_BASE, "replicate": i, "seed": seed, "size": size,
                "g4k3": g4_counts(dn, truth, "denovo_subgroup", lengths),
                "injected": {c: len(v) for c, v in info["keys"].items()},
@@ -704,7 +704,7 @@ def gc_record(i: int, size: str = "1M") -> dict[str, Any]:
         res = simulate(i, size, root)
         seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
         path, info = gc_poor_peptides(res, _C().replicate_rng(GC_BASE, i))
-        dn = run_giap(res, path, root / "gc" / "OUT", seed)
+        dn = run_gippa(res, path, root / "gc" / "OUT", seed)
         g4 = g4_counts(dn, truth, "denovo_subgroup", lengths)
         rec = {"stream": GC_BASE, "replicate": i, "seed": seed, "size": size,
                "gc": {k: v for k, v in g4.items() if ".intergenic." in k},
@@ -725,7 +725,7 @@ def rbs_record(i: int, size: str = "1M") -> dict[str, Any]:
     try:
         res = simulate(i, size, root)
         seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
-        db = run_giap(res, Path(res.outdir) / "peptides.tsv", root / "rbs" / "OUT", seed,
+        db = run_gippa(res, Path(res.outdir) / "peptides.tsv", root / "rbs" / "OUT", seed,
                       sets=[f"novel_orfs.rbs_min_quantile={RBS_MUTANT_QUANTILE}"])  # fmt: skip
         rec = {"stream": f"{GATE_BASE}.rbs", "replicate": i, "seed": seed, "size": size,
                "g3_by_class": g3_counts(db, truth, lengths),
@@ -746,7 +746,7 @@ def cluster_record(i: int, size: str = "1M") -> dict[str, Any]:
         res = simulate(i, size, root)
         seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
         path, info = inject_null_entries(res, _C().replicate_rng(CL_BASE, i))
-        db = run_giap(res, path, root / "cl" / "OUT", seed)
+        db = run_gippa(res, path, root / "cl" / "OUT", seed)
         a = G.match_novel(G.g4_predictions(db.novel_orfs, db.side, None, regime="picked_decoy",
                                            lengths=lengths), truth, lengths)  # fmt: skip
         targets = G.list_targets(db.side, "picked_decoy")

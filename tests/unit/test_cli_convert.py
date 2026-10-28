@@ -1,4 +1,4 @@
-"""``giap convert --from generic|diann`` end to end (issue M1-07; GIAP_SPEC.md §5.1, §5.4)."""
+"""``gippa convert --from generic|diann`` end to end (issue M1-07; GIPPA_SPEC.md §5.1, §5.4)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 from click.testing import CliRunner
 
-from giap.cli import cli
-from giap.exitcodes import ExitCode
+from gippa.cli import cli
+from gippa.exitcodes import ExitCode
 
 DIANN_ROWS = [
     {

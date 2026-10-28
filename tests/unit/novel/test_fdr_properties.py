@@ -1,6 +1,6 @@
 """Hypothesis properties of the M7-11 class FDR (docs/specs/M7-11-novel-class-fdr.md rules 2-3).
 
-* picked, one class, every decoy paired: the class q equals ``giap.stats.tda.picked_fdr`` on the
+* picked, one class, every decoy paired: the class q equals ``gippa.stats.tda.picked_fdr`` on the
   per-entry best scores (oracle; ADR-0009 rescaling is the identity at f = 1);
 * picked classes are never pooled: a class's q does not change when another class is added;
 * q lies in (0, 1], is monotone in the ORF score, and does not depend on row or ORF order;
@@ -26,16 +26,16 @@ from helpers.novel_fdr_fixture import (
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.placement_fdr import stratum_qvalues
-from giap.model.coords import Interval
-from giap.stats.tda import picked_fdr
+from gippa.mapping.placement_fdr import stratum_qvalues
+from gippa.model.coords import Interval
+from gippa.stats.tda import picked_fdr
 
 SETTINGS = settings(max_examples=40, deadline=None,
                     suppress_health_check=[HealthCheck.too_slow])  # fmt: skip
 
 
 def _fdr():  # type: ignore[no-untyped-def]
-    import giap.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
+    import gippa.novel.fdr as m  # fails (ModuleNotFoundError) until M7-11 lands
 
     return m
 
@@ -196,4 +196,4 @@ def test_property_helpers_build_frames() -> None:
     w = PickedWorld()
     _build(w, "intergenic", "c1", [(1, 2)])
     assert isinstance(w.peptides, pd.DataFrame) and w.peptides["is_decoy"].tolist() == [False, True]
-    assert w.id_map["db_id"].str.startswith("GIAPORF_intergenic_c1_").all()
+    assert w.id_map["db_id"].str.startswith("GIPPAORF_intergenic_c1_").all()

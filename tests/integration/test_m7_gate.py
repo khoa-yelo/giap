@@ -1,10 +1,10 @@
-"""Gate M7 evidence ledger (GIAP_SPEC.md §13 row M7; docs/specs/M7-13c-gate-evidence.md rules 2-5,
+"""Gate M7 evidence ledger (GIPPA_SPEC.md §13 row M7; docs/specs/M7-13c-gate-evidence.md rules 2-5,
 lead decisions 1-2, 9-10), modelled on tests/integration/test_m5_gate.py.
 
-Reads the records of one full-tier run in ``$GIAP_CALIBRATION_LOG_DIR`` (required, rule 2:
-``$GIAP_ROOT/logs/calibration/m7-gate-<C>``, never the shared fast-tier ``local/logs``):
+Reads the records of one full-tier run in ``$GIPPA_CALIBRATION_LOG_DIR`` (required, rule 2:
+``$GIPPA_ROOT/logs/calibration/m7-gate-<C>``, never the shared fast-tier ``local/logs``):
 ``variants.merged.jsonl`` (array task 13) and ``<NOVEL_SUITE>.merged.jsonl`` (task 11,
-``novel_orfs``; ``GIAP_M7_NOVEL_SUITE=novel_orfs_gate`` for task 15 once ADR-0048 is accepted).
+``novel_orfs``; ``GIPPA_M7_NOVEL_SUITE=novel_orfs_gate`` for task 15 once ADR-0048 is accepted).
 Rule 3: a record counts only once per check at the full R (variants 100, novel gate 300), with its
 replicates covering ``0..R-1`` (and ``R..2R-1`` when block 2 decided) in the raw ``<suite>.jsonl``
 and a status other than ``shard``/``pending``/``skipped``. Missing or short evidence raises
@@ -14,7 +14,7 @@ is replicates ``0..99`` of ``variants_gate_replicates.jsonl`` plus a ``full`` di
 G4 cells may be ``vacuous`` only where M7-13 rule 6 predicts it, and fail on any
 ``UNESTIMATED_BUGS`` reason in their full diagnostics (spec O3). Not checked here: attacks
 a/b/d/GC, TE2, the reference arm, strand and origin facts (lead decision 9). The log-reading tests
-skip unless ``GIAP_M7_GATE=1``; the synthetic-record tests always run.
+skip unless ``GIPPA_M7_GATE=1``; the synthetic-record tests always run.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ Check = tuple[str, str, str, str | None, float]  # (suite, stream, criterion, ke
 
 
 def novel_suite() -> str:
-    return os.environ.get("GIAP_M7_NOVEL_SUITE", "novel_orfs")
+    return os.environ.get("GIPPA_M7_NOVEL_SUITE", "novel_orfs")
 
 
 def f1_min() -> dict[str, float]:
@@ -88,13 +88,13 @@ def predicted_vacuous(name: str) -> bool:
 
 
 def demanded() -> bool:
-    return os.environ.get("GIAP_M7_GATE") == "1"
+    return os.environ.get("GIPPA_M7_GATE") == "1"
 
 
 def log_dir() -> Path:
-    raw = os.environ.get("GIAP_CALIBRATION_LOG_DIR")
+    raw = os.environ.get("GIPPA_CALIBRATION_LOG_DIR")
     if not raw:
-        raise RuntimeError("set GIAP_CALIBRATION_LOG_DIR to the gate run's own directory (rule 2)")
+        raise RuntimeError("set GIPPA_CALIBRATION_LOG_DIR to the gate run's own directory (rule 2)")
     return Path(raw)
 
 
@@ -184,7 +184,7 @@ def a6a_verdict(d: Path | None = None) -> None:
     assert not bad, f"A6a unflagged isobaric rows: {bad}"
 
 
-GATE = pytest.mark.skipif(not demanded(), reason="set GIAP_M7_GATE=1 to read the M7 gate run")
+GATE = pytest.mark.skipif(not demanded(), reason="set GIPPA_M7_GATE=1 to read the M7 gate run")
 GATED = [n for n, c in required().items() if (c[0], c[1]) not in KNOWN_FAILURES]
 KNOWN = [n for n, c in required().items() if (c[0], c[1]) in KNOWN_FAILURES]
 G4_CELLS = [n for n in GATED if n.startswith("G4:")]
@@ -277,11 +277,11 @@ G3_BASE = {"stream": "novel_orfs.g3", "criterion": "pooled_f1", "key": "g3", "le
 
 
 def test_the_switch_and_the_log_dir_are_required(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GIAP_M7_GATE", raising=False)
+    monkeypatch.delenv("GIPPA_M7_GATE", raising=False)
     assert not demanded()
-    monkeypatch.setenv("GIAP_M7_GATE", "1")
+    monkeypatch.setenv("GIPPA_M7_GATE", "1")
     assert demanded()
-    monkeypatch.delenv("GIAP_CALIBRATION_LOG_DIR", raising=False)
+    monkeypatch.delenv("GIPPA_CALIBRATION_LOG_DIR", raising=False)
     with pytest.raises(RuntimeError, match="rule 2"):
         log_dir()
 

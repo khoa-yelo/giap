@@ -40,9 +40,9 @@ from typing import Any
 import pytest
 import yaml
 
-from giap.annotate.tools import TOOLS
-from giap.io.image_key import key as image_key
-from giap.io.image_key import tag as image_tag
+from gippa.annotate.tools import TOOLS
+from gippa.io.image_key import key as image_key
+from gippa.io.image_key import tag as image_tag
 
 REPO = Path(__file__).resolve().parents[2]
 WF = REPO / ".github" / "workflows" / "containers.yml"
@@ -184,7 +184,7 @@ def _fakes(tmp_path: Path, *, fake_git: bool = False) -> tuple[Path, dict[str, s
 
 def _ref(root: Path, tool: str) -> str:
     k = image_key(tool, root)
-    return f"{NS}/giap-{tool}:{image_tag(TOOLS[tool].version, k)}"
+    return f"{NS}/gippa-{tool}:{image_tag(TOOLS[tool].version, k)}"
 
 
 def _set_state(state: Path, entries: dict[str, dict[str, str]]) -> None:
@@ -367,7 +367,7 @@ def test_plan_matrix_entries_carry_ref_version_key_and_licence(tmp_path: Path) -
     for tool, e in entries.items():
         k = image_key(tool, root)
         t = image_tag(TOOLS[tool].version, k)
-        assert e["ref"] == f"{NS}/giap-{tool}:{t}"
+        assert e["ref"] == f"{NS}/gippa-{tool}:{t}"
         assert e["key"] == k
         assert e["version"] == t.removesuffix(f"-{k}"), "version is the tag without -<key>"
         assert e["licence"] == TOOLS[tool].licence

@@ -1,5 +1,5 @@
 """Hand-made tables for the fixed MVP-04 gate 11 scorer (tests/unit/test_mvp04_gate11_scorer.py
-pins the contract). Nothing here imports giap or giapsim."""
+pins the contract). Nothing here imports gippa or gippasim."""
 
 from __future__ import annotations
 

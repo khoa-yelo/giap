@@ -25,8 +25,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
-from giap.model.coords import Interval
+from gippa.mapping.placement_fdr import PER_PEPTIDE_COLUMNS
+from gippa.model.coords import Interval
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -399,7 +399,7 @@ def test_proxy_result_to_json_round_trip() -> None:
 
 
 def _gene(tag: str, kind: str, aa: str, nt: str | None) -> Any:
-    from giap.model.genes import Gene
+    from gippa.model.genes import Gene
 
     return Gene(tag, kind, Interval("chr", 0, 3 * len(aa) + 3, "+"), aa, nt, None)  # type: ignore[arg-type]
 

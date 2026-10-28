@@ -5,7 +5,7 @@ V02, V03, V10, V13 and V15 printed raw floats ("Moran's I 0.492986 (q = 0.002854
 index shows the same titles (it reads each SVG's ``<title>``) and the V3 locus index. V15 printed a
 small, non-zero SD as "± 0.00" and a narrow interval as "0.02–0.02".
 
-Interface assumed (test-author choice, reported to the lead): ``giap.viz.base.sig(value,
+Interface assumed (test-author choice, reported to the lead): ``gippa.viz.base.sig(value,
 digits=2) -> str`` is the shared formatter (V07's "q = 0.23" style): ``value`` rounded to
 ``digits`` significant digits, ``"NA"`` for ``None`` / NaN (the ``base.title_pct`` NA convention),
 zero (and -0.0) as ``"0"``. Lead decision on #322 review B1: plain for ``1e-3 <= |x| < 1e5``,
@@ -30,10 +30,10 @@ from hypothesis import given
 from hypothesis import strategies as st
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 MINUS = "−"
 _DEC = re.compile(r"[-−]?\d*\.\d+(?:e[-+]?\d+)?")
@@ -45,7 +45,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -68,7 +68,7 @@ def _too_precise(text: str) -> list[str]:
 
 def _sig() -> object:
     fn = getattr(base, "sig", None)
-    assert callable(fn), "giap.viz.base.sig (the shared number formatter) is missing"
+    assert callable(fn), "gippa.viz.base.sig (the shared number formatter) is missing"
     return fn
 
 
@@ -209,7 +209,7 @@ def test_v02_title_rounds_morans_i_and_q(tmp_path: Path) -> None:
 # --------------------------------------------------------------------- V10
 
 
-def test_v10_title_rounds_morans_i_and_q(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v10_title_rounds_morans_i_and_q(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = correlogram_rows(
         "chrA",
         overrides={
@@ -230,8 +230,8 @@ def test_v10_title_rounds_morans_i_and_q(tmp_path: Path, cfg: GiapConfig) -> Non
 # --------------------------------------------------------------------- V03 and its index
 
 
-def _v03(tmp: Path, cfg: GiapConfig) -> list[Instance]:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+def _v03(tmp: Path, cfg: GippaConfig) -> list[Instance]:
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     out = vl.build_out(
         tmp,
@@ -246,7 +246,7 @@ def _v03(tmp: Path, cfg: GiapConfig) -> list[Instance]:
     return list(result)
 
 
-def test_v03_locus_titles_round_q_mean_and_p(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v03_locus_titles_round_q_mean_and_p(tmp_path: Path, cfg: GippaConfig) -> None:
     insts = _v03(tmp_path, cfg)
     loci = [i for i in insts if i.suffix is not None]
     assert {i.suffix for i in loci} == {"prophage_1", "ISL_1"}
@@ -256,7 +256,7 @@ def test_v03_locus_titles_round_q_mean_and_p(tmp_path: Path, cfg: GiapConfig) ->
         assert _too_precise(sup) == [], sup
 
 
-def test_v03_index_rounds_the_error_column_text(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v03_index_rounds_the_error_column_text(tmp_path: Path, cfg: GippaConfig) -> None:
     (index,) = [i for i in _v03(tmp_path, cfg) if i.suffix is None]
     texts = [t.get_text() for t in index.figure.findobj(Text) if t.get_text().strip()]
     assert any("prophage_1" in t for t in texts), texts
@@ -264,9 +264,9 @@ def test_v03_index_rounds_the_error_column_text(tmp_path: Path, cfg: GiapConfig)
     assert bad == [], bad
 
 
-def test_v03_tiny_q_prints_in_scientific_notation(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v03_tiny_q_prints_in_scientific_notation(tmp_path: Path, cfg: GippaConfig) -> None:
     """#322 B1: an analytic region q far below 1e-12 must not print a run of zeros."""
-    import giap.viz.locus  # noqa: F401  (registers V03)
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     out = vl.build_out(
         tmp_path,
@@ -283,8 +283,8 @@ def test_v03_tiny_q_prints_in_scientific_notation(tmp_path: Path, cfg: GiapConfi
 # --------------------------------------------------------------------- V13 locus label
 
 
-def test_v13_locus_label_rounds_best_q(tmp_path: Path, cfg: GiapConfig) -> None:
-    import giap.viz.novel_orfs  # noqa: F401  (registers V13)
+def test_v13_locus_label_rounds_best_q(tmp_path: Path, cfg: GippaConfig) -> None:
+    import gippa.viz.novel_orfs  # noqa: F401  (registers V13)
 
     row = {
         "orf_id": "NOVEL_chr1_5001_p", "class": "intergenic", "contig": "chr1", "strand": "+",
@@ -304,14 +304,14 @@ def test_v13_locus_label_rounds_best_q(tmp_path: Path, cfg: GiapConfig) -> None:
 # --------------------------------------------------------------------- V15
 
 
-def _v15_title(tmp: Path, cfg: GiapConfig, **kw: object) -> str:
+def _v15_title(tmp: Path, cfg: GippaConfig, **kw: object) -> str:
     out = vd.build_out(tmp, vd.model_table(**kw))  # type: ignore[arg-type]
     result = plot_spec("V15").fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     return result[0].title
 
 
-def test_v15_small_nonzero_sd_is_not_printed_as_zero(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v15_small_nonzero_sd_is_not_printed_as_zero(tmp_path: Path, cfg: GippaConfig) -> None:
     """K-12: "Elastic net CV R² 0.04 ± 0.00"."""
     t = _v15_title(tmp_path, cfg, en_cv=(0.0412, 0.00123, 0.02))
     m = re.search(r"CV R² (\S+) ± (\S+?)[;,( ]", t)
@@ -320,7 +320,7 @@ def test_v15_small_nonzero_sd_is_not_printed_as_zero(tmp_path: Path, cfg: GiapCo
     assert _parse(m.group(1)) == pytest.approx(0.0412, rel=0.05), t
 
 
-def test_v15_narrow_interval_ends_stay_distinct(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v15_narrow_interval_ends_stay_distinct(tmp_path: Path, cfg: GippaConfig) -> None:
     """K-12: "protein 0.02 (repeat t-interval 0.02–0.02, uncalibrated)"."""
     en = {"transcription": (0.005, -0.01, 0.02), "protein": (0.0203, 0.0151, 0.0249)}
     t = _v15_title(tmp_path, cfg, en=en)
@@ -336,7 +336,7 @@ def test_v15_narrow_interval_ends_stay_distinct(tmp_path: Path, cfg: GiapConfig)
 def test_v15_f2_float_noise_is_short(value: float) -> None:
     """#322 B1: ``_f2`` routes small values through ``sig``; float noise must not print as a
     long run of zeros."""
-    from giap.viz.determinants import _f2
+    from gippa.viz.determinants import _f2
 
     out = _f2(value)
     assert "0000" not in out, out
@@ -344,7 +344,7 @@ def test_v15_f2_float_noise_is_short(value: float) -> None:
     assert _parse(out) == pytest.approx(value, rel=0.05), out
 
 
-def test_v15_title_with_a_float_noise_mean_is_short(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_v15_title_with_a_float_noise_mean_is_short(tmp_path: Path, cfg: GippaConfig) -> None:
     t = _v15_title(tmp_path, cfg, en_cv=(-1.7e-17, 0.03, 0.02))
     m = re.search(r"CV R² (\S+) ± ", t)
     assert m, t

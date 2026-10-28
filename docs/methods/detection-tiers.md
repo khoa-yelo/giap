@@ -1,8 +1,8 @@
 # Detection tiers and gene-level FDR (M4-12)
 
 Status: M4-24 shared ranking key approved by the statistician 2026-10-23 (PR #238). Earlier: statistician re-review 2026-10-15 (PR #92, after f297600): PEP-only path approved;
-**changes requested** on the contaminant-decoy rule (lead decision 11), see Sign-off. Code: `src/giap/genetable/detection.py`.
-Spec: GIAP_SPEC.md §2.1 decision 4, §7.3, §7.3.2, §9.3; ADR-0009; docs/specs/M4-12-detection-tiers.md.
+**changes requested** on the contaminant-decoy rule (lead decision 11), see Sign-off. Code: `src/gippa/genetable/detection.py`.
+Spec: GIPPA_SPEC.md §2.1 decision 4, §7.3, §7.3.2, §9.3; ADR-0009; docs/specs/M4-12-detection-tiers.md.
 
 ## Tier choice (once per run, from the input)
 1. `decoy_picked`: at least one C9 decoy row with `protein_ids` passes q <= `input.q_value_max`
@@ -35,7 +35,7 @@ thresholds and sum PEP for F(t). Mixed input keeps the given q (decision 11).
 
 Asymmetry (lead question 1). Decoys pass the same q <= `q_value_max` filter as targets, but targets
 must also be placed on a gene and decoys cannot be. False targets that do not place are lost while
-their decoys stay, so D is too large and the picked estimate errs conservative. In giapsim every
+their decoys stay, so D is too large and the picked estimate errs conservative. In gippasim every
 false target places (`false_source = random_gene`), which is the least favourable case for this
 asymmetry.
 
@@ -82,7 +82,7 @@ gene got q = 1/T. That was a no-decoy estimate labelled `decoy_picked`.
    `decoy_unscored`. The no-decoy chain applies (`mayu` when an accepted target has q or PEP,
    else `two_peptide` or `protein_list`). The gene table equals that of the same input without its
    decoy rows. The `tier` rows still report the decoy counts and f. Two inputs reach this case:
-   decoys with no ranking value at all (giapsim M3-19), and targets with none.
+   decoys with no ranking value at all (gippasim M3-19), and targets with none.
 4. **q filter (ADR-0047).** Decoys with q above `q_value_max` leave the competition only when some
    C9 target row carries q. Without that, filtering only the decoys would remove weak decoys whose
    targets all stay. When q ∈ S and q is monotone in the ranking, the filter changes no target's
@@ -95,7 +95,7 @@ disagree (table below, `score + noise`). The one input this does not cover is ac
 whose q is NA while their decoys have a q and are filtered (see Sign-off of M4-24, note 1).
 
 ## MAYU tier
-`giap.stats.mayu.mayu_gene_fdr` (see mayu-gene-fdr.md) on eligible genes, with sizes
+`gippa.stats.mayu.mayu_gene_fdr` (see mayu-gene-fdr.md) on eligible genes, with sizes
 `n_observable_peptides`, P(t) = distinct accepted peptides, F = sum of PEP when every accepted peptide has
 one. Otherwise F = t |P(t)|, with warning `pep_partial` when only some have one. `fdr_2pep` is reported
 under its own name and is not the gene FDR. Warning `unspecific_search`: more than 50 % of distinct
@@ -120,7 +120,7 @@ Contaminant evidence counts toward detection in every tier (lead decision 2).
 | 30 % decoy loss (any tier) | 0.05 | 0.0100 +- 0.0004 | 0.0499 +- 0.0008 | 0.0552 +- 0.0008 |
 
 All claims pass (mean <= q + k SE). Notes for review: the MAYU PEP and no-PEP variants are identical
-because giapsim's q-values are running means of PEP, so sum PEP = t |P(t)| at every threshold. The FDP
+because gippasim's q-values are running means of PEP, so sum PEP = t |P(t)| at every threshold. The FDP
 saturates near 0.05 at q = 0.10 because accepted peptides already pass q <= 0.01. Recorded, not gated:
 `two_peptide` FDP 0.003 (pi 0.01) and 0.053 (pi 0.05).
 
@@ -153,7 +153,7 @@ Reading:
    approximation, two-block rule): MAYU pi 0.01 at q = 0.01 and R = 300 fails one block with
    probability ~0.05 and both with ~0.0024. Every other gene_fdr claim, the attack included, is
    below 1e-3. The suite adds ~0.003 to the ~0.04 nightly budget of ADR-0015.
-2. **PEP against no PEP.** In giapsim q is the running mean of PEP, so sum PEP equals t |P(t)| and
+2. **PEP against no PEP.** In gippasim q is the running mean of PEP, so sum PEP equals t |P(t)| and
    the two gated claims are one claim. The M4-09 simulator is the one already in use, so it does not
    separate them on its own. Once q comes from target-decoy competition (D/T over the emitted
    decoys), the two differ (0.0096 against 0.0101 at pi 0.01) and both stay at level. An
@@ -188,7 +188,7 @@ every replicate). Every target peptide passes the q filter, so q = 0.05 / 0.10 a
 | 4,500, 0.01 | 0.00983 +- 0.00010 | 0.04940 +- 0.00022 | 0.05538 +- 0.00020 |
 | 4,500, 0.05 | 0.00995 +- 0.00011 | 0.04945 +- 0.00025 | 0.09871 +- 0.00035 |
 
-At q <= 0.05 it equals the `mayu_pep` claim (giapsim q is the running mean of PEP, so the derived
+At q <= 0.05 it equals the `mayu_pep` claim (gippasim q is the running mean of PEP, so the derived
 q reproduces it on the accepted prefix). At q = 0.10 and pi 0.05 it is the first gene-FDR claim of
 M4-12 that is informative at 0.10 (FDP 0.098, at level). Approved.
 
@@ -243,7 +243,7 @@ pi 0.05, R = 300 (200 for the last block), seeds `SeedSequence([20261023, 238, 5
 | targets: q NA on 50 % of rows, decoys complete | 0.00460 +- 0.00014 | 0.05302 +- 0.00290 (p90 0.135) | `decoy_picked` |
 | same, decoy q filter off when a target q is NA (mutant) | 0.00423 +- 0.00018 | 0.02234 +- 0.00039 | `decoy_picked` |
 
-Reading: in giapsim, q and PEP are monotone in the score, so any non-empty S gives the same
+Reading: in gippasim, q and PEP are monotone in the score, so any non-empty S gives the same
 ordering and the same FDP as the baseline. When the ranked score disagrees with the q that
 accepted the targets (noise rows), the estimate is conservative, as argued above. The targeted
 calibration files (attacks `unscored`, `decoy_loss`, `inputs`, and `test_gene_fdr_real_mapping`)
@@ -260,7 +260,7 @@ Approved: rules 1-6 and the S = ∅ fallback. Notes, none blocking:
    target q is NA restores the margin (0.022). Rule 6 calls the sparse target column
    "conservative". That holds for the ranking, not for the ranking combined with the filter.
    Backlog: extend ADR-0047's symmetry from "some target carries q" to "every target carries q".
-2. The calibration attack `decoys_score_only` has teeth against the defect (D = 0). In giapsim it
+2. The calibration attack `decoys_score_only` has teeth against the defect (D = 0). In gippasim it
    cannot tell S = {score} from S = {q}, because the columns are monotone in each other. A variant
    with an engine-like q that is not monotone in the score (M4-12 replication, Reading 2) would separate
    them.

@@ -2,7 +2,7 @@
 lead decision Q20: a floor of at least 3 of 5 planted rows; statistician review of the 16b
 amendment, items 1-2).
 
-giapsim, ``related``, ``StrainConfig(snv_rate_per_kb=5, n_stop_loss=5)``, ``wrong_source =
+gippasim, ``related``, ``StrainConfig(snv_rate_per_kb=5, n_stop_loss=5)``, ``wrong_source =
 "other_strain"`` (``pi_wrong`` 0.05), through preflight and the registered steps (``drive``, as
 ``run_chain`` does) to ``loci`` and ``variants``. For every ``truth/stop_loss.tsv`` row whose
 ``cterm_peptide`` is accepted:
@@ -53,11 +53,11 @@ def _flags(s: str) -> set[str]:
 
 @pytest.fixture(scope="module")
 def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    from giap.config import resolve_config
-    from giap.mapping.sixframe import load_stop_cells
-    from giapsim.proteomics import ProteomicsConfig
-    from giapsim.simulate import SimConfig, simulate
-    from giapsim.strain import StrainConfig
+    from gippa.config import resolve_config
+    from gippa.mapping.sixframe import load_stop_cells
+    from gippasim.proteomics import ProteomicsConfig
+    from gippasim.simulate import SimConfig, simulate
+    from gippasim.strain import StrainConfig
 
     tmp = tmp_path_factory.mktemp("rt_strain")
     res = simulate(
@@ -84,7 +84,7 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     sl["codon_start"] = sl["codon_start"].astype(int)
     sl["planted"] = sl["planted"].str.lower() == "true"
     rt_path = out / "truth" / "readthrough.tsv"
-    from giap.io.fasta import read_genome_fasta
+    from gippa.io.fasta import read_genome_fasta
 
     lengths = {r.id: len(r.sequence) for r in read_genome_fasta(Path(res.genome_fasta))}
     return {

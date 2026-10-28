@@ -1,5 +1,5 @@
 """M8 gate, half 2: the ``ora`` and ``gsea`` nulls at level (docs/specs/M8-15-calibration-gate.md
-§ Suites and criteria, lead decisions 1-7; GIAP_SPEC.md §7.7.5, §8.4 rows ORA and GSEA, §13 row
+§ Suites and criteria, lead decisions 1-7; GIPPA_SPEC.md §7.7.5, §8.4 rows ORA and GSEA, §13 row
 M8; ADR-0015, ADR-0029, ADR-0035, ADR-0038). Attacks 2 and 3: ``attacks/test_attack_function.py``.
 
 Criterion: the §8.4 **level** check at every alpha of ``levels`` (lead decision 2: Wallenius /
@@ -71,13 +71,13 @@ def _levels() -> list[float]:
 
 
 def _sc() -> Any:
-    import giapsim.scenarios as sc
+    import gippasim.scenarios as sc
 
     return sc
 
 
 def _draw(pair: Any, rng: np.random.Generator) -> Any:
-    import giapsim.function_sim as fs
+    import gippasim.function_sim as fs
 
     return fs.draw(pair, rng)
 
@@ -115,8 +115,8 @@ def _ora_null(i: int) -> dict[Any, Any]:
 
 
 def _ora_null_run(i: int) -> dict[Any, Any]:
-    from giap.function import ora
-    from giap.genetable.detectability import tu_folds
+    from gippa.function import ora
+    from gippa.genetable.detectability import tu_folds
 
     w = _draw(_sc().ora_null(N_GENES), C.replicate_rng(SIM_ORA, i))
     genes = F.gene_frame(w)
@@ -239,7 +239,7 @@ def test_ora_null_fitted_p_detect_pooled_level_per_direction(full: bool) -> None
 
 @pytest.fixture(scope="module")
 def r_engine(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+    from gippa.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     return r_fgsea_engine(
         resolve_launcher(os.environ), tmp_root=Path(tmp_path_factory.mktemp("m815_fgsea"))
@@ -247,9 +247,9 @@ def r_engine(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _gsea_null(engine: Any, i: int) -> np.ndarray:
-    from giap.config.model import GseaConfig
-    from giap.function import gsea
-    from giap.rng import for_step
+    from gippa.config.model import GseaConfig
+    from gippa.function import gsea
+    from gippa.rng import for_step
 
     w = _draw(_sc().gsea_null(N_GENES), C.replicate_rng(SIM_GSEA, i))
     genes = F.gene_frame(w)

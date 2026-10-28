@@ -1,6 +1,6 @@
-"""Hypothesis properties for the gene model (issue M3-01; GIAP_SPEC.md §6.5, §7.1.2, §11.2).
+"""Hypothesis properties for the gene model (issue M3-01; GIPPA_SPEC.md §6.5, §7.1.2, §11.2).
 
-- For giapsim genomes (random seeds) ``overlapping(g.interval)`` contains ``g`` and ``nt``
+- For gippasim genomes (random seeds) ``overlapping(g.interval)`` contains ``g`` and ``nt``
   translated with table 11 (initiator read as M) equals ``aa + "*"``.
 - ``overlapping`` equals a brute-force origin-aware overlap test on random circular and linear
   replicons, for both strands, and is deterministic.
@@ -15,8 +15,8 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.model import Interval, Replicon, split_at_origin
-from giap.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
+from gippa.model import Interval, Replicon, split_at_origin
+from gippa.model.genes import Gene, GeneModel, NcFeature, gene_model_from_bakta_json
 
 BASES = "TCAG"
 AA_11 = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
@@ -35,11 +35,11 @@ def translate11(nt: str) -> str:
 
 @settings(max_examples=8, deadline=None)
 @given(seed=st.integers(min_value=0, max_value=2**31 - 1))
-def test_giapsim_genes_self_overlap_and_translate(seed: int) -> None:
-    import giapsim
+def test_gippasim_genes_self_overlap_and_translate(seed: int) -> None:
+    import gippasim
 
     with tempfile.TemporaryDirectory() as d:
-        res = giapsim.simulate(giapsim.SimConfig(genome_length=20_000), seed=seed, outdir=d)
+        res = gippasim.simulate(gippasim.SimConfig(genome_length=20_000), seed=seed, outdir=d)
         reps = {"chr1": Replicon("chr1", 20_000, "circular", "chromosome")}
         m = gene_model_from_bakta_json(res.bakta_json, reps)
     assert len(m.genes) == res.n_genes

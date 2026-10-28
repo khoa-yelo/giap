@@ -1,4 +1,4 @@
-"""Attack nulls for the M5-02 autocorrelation engine (GIAP_SPEC.md §8.5; statistician-owned).
+"""Attack nulls for the M5-02 autocorrelation engine (GIPPA_SPEC.md §8.5; statistician-owned).
 
 Proposed by the statistician review of PR #116 for tests/calibration/attacks/. Each generator stays
 inside the null each engine claims and tries to push the lag test above level:
@@ -35,7 +35,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats import autocorr as ac
+from gippa.stats import autocorr as ac
 
 B = 199
 MODES = [

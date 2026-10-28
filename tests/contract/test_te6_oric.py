@@ -37,8 +37,8 @@ def _fasta(path: Path) -> dict[str, str]:
 
 
 def test_te6_oric_next_to_mnmg() -> None:
-    from giap.annotate.bakta import parse_bakta_json
-    from giap.annotate.bakta_layers import nearest_genes
+    from gippa.annotate.bakta import parse_bakta_json
+    from gippa.annotate.bakta_layers import nearest_genes
 
     js = _one("*.json", "*.json.gz")
     assert js is not None, f"no Bakta JSON in {K12}"

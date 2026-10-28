@@ -24,7 +24,7 @@ finding B3). A number in the section "Pass-1 runs (M10-04)" is allowed only as:
   table column headed attempt/exit/step, or as a Markdown list ordinal at the start of a line.
 
 Fenced code blocks are read too. A code line (backslash continuations joined) that starts with
-an allow-listed command word (``sbatch giap python nextflow sacct bash squeue``) has its numeric
+an allow-listed command word (``sbatch gippa python nextflow sacct bash squeue``) has its numeric
 flag values (``--threads 14``, ``-j 1873779``) allowed; the rest of that line, and every other
 code line, is scanned like prose. Anything else with a digit fails: counts of genes, peptides or
 precursors, percentages, rho, Jaccards.
@@ -64,7 +64,7 @@ _ALLOWED = [
     r"[\w.\-/]*[A-Za-z_][\w.\-/]*",  # identifiers, paths, ordinals (2nd), .r2
     r"(?m)^\s*\d+\.\s",  # list ordinals
 ]
-_CMD_WORD = re.compile(r"(?:sbatch|giap|python3?|nextflow|sacct|bash|squeue)")
+_CMD_WORD = re.compile(r"(?:sbatch|gippa|python3?|nextflow|sacct|bash|squeue)")
 _FLAG_VALUE = re.compile(r"(?<!\S)(--?[A-Za-z][\w.-]*)(?:=|\s+)\d[\w.:,-]*")
 _FENCE = re.compile(r"^[ \t]*(```|~~~)[^\n]*\n(.*?)^[ \t]*\1[ \t]*$", re.M | re.S)
 _JOB_WORD = re.compile(r"(?i)\b(?:slurm|job(?:s|ids?)?)\b")
@@ -184,10 +184,10 @@ _LEGIT = (
     "| Arm | Attempt | Head job | Class | Exit |\n|---|---|---|---|---|\n"
     "| A2 | 1 | 1873779 | fresh | 0 |\n| A2 | 2 | 1873790 | resume-infra | 0 |\n",
     "1. A2 first, then A1 (step 8, ADR-0046, the 2nd attempt, `out_a2.r2`).\n",
-    "```bash\nsbatch -J giap-run-pilot-a2 scripts/slurm/giap_run.sbatch \\\n"
+    "```bash\nsbatch -J gippa-run-pilot-a2 scripts/slurm/gippa_run.sbatch \\\n"
     "  --genome $G --threads 14 --memory 54.GB --outdir $R/out_a2\n"
     "sacct -P -n -j 1873779 -o JobID,State,ExitCode\n"
-    "squeue -h -u $USER -n giap-run-pilot-a2\n```\n",
+    "squeue -h -u $USER -n gippa-run-pilot-a2\n```\n",
     "MaxRSS 2104832K, 1.5G and 3012M; 54 GB requested.\n",
 )
 

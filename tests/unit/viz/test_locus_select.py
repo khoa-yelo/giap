@@ -1,9 +1,9 @@
-"""V3 locus pool, order and cap (M9-10 "Selection and order"; GIAP_SPEC.md §10.2 V3, §10.1;
+"""V3 locus pool, order and cap (M9-10 "Selection and order"; GIPPA_SPEC.md §10.2 V3, §10.1;
 M9-index decision 18; lead decisions 2026-10-22).
 
 Interface assumed where the spec leaves it open (reported to the lead):
 
-- ``giap.viz.locus`` exports ``Locus``, ``select_loci``, ``render_locus``; importing it registers
+- ``gippa.viz.locus`` exports ``Locus``, ``select_loci``, ``render_locus``; importing it registers
   ``V03`` with the name ``locus``. ``needs`` holds none of ``regions_stats``, ``islands``,
   ``operon_flags``, ``peptide_hits`` (each may be absent; the degenerate table).
 - ``select_loci`` returns the **whole** ordered pool (the index lists every candidate); the plot
@@ -30,12 +30,12 @@ import pandas as pd
 import pytest
 from helpers import viz_locus as vl
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
-from giap.viz.locus import Locus, select_loci
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
+from gippa.viz.locus import Locus, select_loci
 
 INDEX_COLUMNS = ["rank", "locus_id", "kind", "contig", "start", "end", "error", "rendered"]
 KIND_ORDER = ("prophage", "bgc", "island", "operon_flag")
@@ -47,21 +47,21 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
-def _cfg(*overrides: str) -> GiapConfig:
+def _cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
 def _v03() -> base.PlotSpec:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     return base.registered()["V03"]
 
 
-def _run(out: Path, cfg: GiapConfig) -> tuple[Instance, list[Instance]]:
+def _run(out: Path, cfg: GippaConfig) -> tuple[Instance, list[Instance]]:
     result = _v03().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     index = [i for i in result if i.suffix is None]
@@ -117,14 +117,14 @@ def test_v03_is_registered_as_locus_without_hard_table_needs() -> None:
         assert key not in spec.needs
 
 
-def test_locus_is_a_frozen_dataclass(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_locus_is_a_frozen_dataclass(tmp_path: Path, cfg: GippaConfig) -> None:
     lo = select_loci(RunView.from_outdir(_example1_out(tmp_path)), cfg)[0]
     assert isinstance(lo, Locus)
     with pytest.raises(AttributeError):
         lo.locus_id = "x"  # type: ignore[misc]
 
 
-def test_example1_order_across_kinds(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_order_across_kinds(tmp_path: Path, cfg: GippaConfig) -> None:
     loci = select_loci(RunView.from_outdir(_example1_out(tmp_path)), cfg)
     assert _ids(loci) == ["prophage_1", "ISL_1", "PAIR_7", "prophage_2"]
     assert [lo.kind for lo in loci] == ["prophage", "island", "operon_flag", "prophage"]
@@ -132,7 +132,7 @@ def test_example1_order_across_kinds(tmp_path: Path, cfg: GiapConfig) -> None:
     assert loci[3].error is None
 
 
-def test_spans_are_zero_based_half_open(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_spans_are_zero_based_half_open(tmp_path: Path, cfg: GippaConfig) -> None:
     loci = {
         lo.locus_id: lo for lo in select_loci(RunView.from_outdir(_example1_out(tmp_path)), cfg)
     }
@@ -147,7 +147,7 @@ def test_spans_are_zero_based_half_open(tmp_path: Path, cfg: GiapConfig) -> None
 
 
 def test_island_crossing_the_origin_keeps_its_unwrapped_span(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = vl.build_out(tmp_path, islands=[vl.island("ISL_1", "chr1", 99_001, 101_500, 0.01)])
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
@@ -155,7 +155,7 @@ def test_island_crossing_the_origin_keeps_its_unwrapped_span(
 
 
 def test_pool_takes_only_all_subset_o_minus_e_prophage_and_bgc_rows(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     rows = [
         vl.region_stat("prophage_1", "prophage", "chr1", 10_001, 20_000, 0.04),
@@ -173,7 +173,7 @@ def test_pool_takes_only_all_subset_o_minus_e_prophage_and_bgc_rows(
     assert [lo.kind for lo in loci] == ["prophage", "bgc"]
 
 
-def test_regions_are_not_filtered_by_alpha(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_regions_are_not_filtered_by_alpha(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path,
         regions_stats=[vl.region_stat("prophage_1", "prophage", "chr1", 10_001, 20_000, 0.9)],
@@ -182,7 +182,7 @@ def test_regions_are_not_filtered_by_alpha(tmp_path: Path, cfg: GiapConfig) -> N
     assert _ids(select_loci(RunView.from_outdir(out), cfg)) == ["prophage_1", "ISL_1"]
 
 
-def test_novel_orfs_are_not_in_the_pool(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_novel_orfs_are_not_in_the_pool(tmp_path: Path, cfg: GippaConfig) -> None:
     orf = {
         "orf_id": "NORF_1",
         "class": "intergenic",
@@ -232,7 +232,7 @@ def test_flags_are_kept_at_q_at_most_alpha(tmp_path: Path) -> None:
     assert _ids(select_loci(view, _cfg("stats.alpha.operon_flags=0.05"))) == []
 
 
-def test_flag_genes_in_different_tus_span_both_genes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_flag_genes_in_different_tus_span_both_genes(tmp_path: Path, cfg: GippaConfig) -> None:
     genes, tus = _operon_genes()
     out = vl.build_out(tmp_path, genes=genes, tus=tus, flags=[vl.flag("PAIR_2", "g4", "g5", 0.01)])
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
@@ -240,7 +240,7 @@ def test_flag_genes_in_different_tus_span_both_genes(tmp_path: Path, cfg: GiapCo
     assert (lo.start0, lo.end0) == (41_100, 45_000)  # g4 start .. g5 end
 
 
-def test_example7_flags_in_one_tu_merge_into_one_locus(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example7_flags_in_one_tu_merge_into_one_locus(tmp_path: Path, cfg: GippaConfig) -> None:
     genes, tus = _operon_genes()
     flags = [
         vl.flag("PAIR_8", "g4", "g3", 0.05, flag="unexplained_discordance"),
@@ -262,7 +262,7 @@ def test_example7_flags_in_one_tu_merge_into_one_locus(tmp_path: Path, cfg: Giap
 # --- order: ties and NA ------------------------------------------------------------------------
 
 
-def test_ties_break_by_kind_then_id(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_ties_break_by_kind_then_id(tmp_path: Path, cfg: GippaConfig) -> None:
     genes, tus = _operon_genes()
     out = vl.build_out(
         tmp_path,
@@ -281,7 +281,7 @@ def test_ties_break_by_kind_then_id(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _ids(loci) == ["prophage_1", "bgc_1", "ISL_1", "PAIR_1", "prophage_2"]
 
 
-def test_na_errors_sort_last_then_by_kind(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_errors_sort_last_then_by_kind(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path,
         regions_stats=[
@@ -308,7 +308,7 @@ def _many_out(tmp: Path, n: int) -> Path:
     return vl.build_out(tmp, regions_stats=rows)
 
 
-def test_example2_sixty_candidates_fifty_rendered(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_sixty_candidates_fifty_rendered(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _many_out(tmp_path, 60)
     assert cfg.report.max_locus_plots == 50
     assert len(select_loci(RunView.from_outdir(out), cfg)) == 60
@@ -336,7 +336,7 @@ def test_max_locus_plots_zero_renders_none_and_lists_all(tmp_path: Path) -> None
     assert [bool(v) for v in index.data["rendered"]] == [False, False, False]
 
 
-def test_no_loci_writes_a_header_only_index(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_loci_writes_a_header_only_index(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(tmp_path, genes=[vl.gene("g1", "chr1", 101, 400, log2=20.0)])
     index, rendered = _run(out, cfg)
     assert rendered == []
@@ -345,7 +345,7 @@ def test_no_loci_writes_a_header_only_index(tmp_path: Path, cfg: GiapConfig) -> 
     assert index.title == "no loci to show"
 
 
-def test_header_only_tables_are_no_loci(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_tables_are_no_loci(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(tmp_path, regions_stats=[], islands=[], flags=[], tus=[])
     index, rendered = _run(out, cfg)
     assert rendered == []
@@ -353,7 +353,7 @@ def test_header_only_tables_are_no_loci(tmp_path: Path, cfg: GiapConfig) -> None
 
 
 def test_example1_index_tsv_is_one_based_with_kind_and_na_error(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = _example1_out(tmp_path / "run")
     index, _ = _run(out, cfg)
@@ -370,7 +370,7 @@ def test_example1_index_tsv_is_one_based_with_kind_and_na_error(
     ]
 
 
-def test_index_rows_match_select_loci(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_index_rows_match_select_loci(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _example1_out(tmp_path)
     loci = select_loci(RunView.from_outdir(out), cfg)
     index, _ = _run(out, cfg)
@@ -386,7 +386,7 @@ def test_index_rows_match_select_loci(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- labels and file names -----------------------------------------------------------------------
 
 
-def test_labels_follow_the_title_templates(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_labels_follow_the_title_templates(tmp_path: Path, cfg: GippaConfig) -> None:
     loci = {
         lo.locus_id: lo for lo in select_loci(RunView.from_outdir(_example1_out(tmp_path)), cfg)
     }
@@ -396,7 +396,7 @@ def test_labels_follow_the_title_templates(tmp_path: Path, cfg: GiapConfig) -> N
     assert loci["PAIR_7"].label == "internal_promoter_supported between g3 and g4 (q = 0.02)"
 
 
-def test_low_island_label(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_low_island_label(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path, islands=[vl.island("ISL_3", "chr1", 5_001, 9_000, 0.002, direction="low",
                                      mean=17.25)]
@@ -405,7 +405,7 @@ def test_low_island_label(tmp_path: Path, cfg: GiapConfig) -> None:
     assert lo.label == "ISL_3 (low): mean log2 17.2, FWER p 0.002"  # 3 significant digits
 
 
-def test_instance_files_are_named_by_sanitised_locus_id(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_instance_files_are_named_by_sanitised_locus_id(tmp_path: Path, cfg: GippaConfig) -> None:
     out = vl.build_out(
         tmp_path / "run",
         regions_stats=[vl.region_stat("bgc/1 x", "bgc", "chr1", 20_001, 22_000, 0.01)],
@@ -423,6 +423,6 @@ def test_instance_files_are_named_by_sanitised_locus_id(tmp_path: Path, cfg: Gia
     ]
 
 
-def test_error_is_finite_or_none(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_error_is_finite_or_none(tmp_path: Path, cfg: GippaConfig) -> None:
     for lo in select_loci(RunView.from_outdir(_example1_out(tmp_path)), cfg):
         assert lo.error is None or math.isfinite(lo.error)

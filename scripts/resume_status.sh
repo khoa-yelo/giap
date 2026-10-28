@@ -1,10 +1,10 @@
 #!/bin/bash
-# What was in flight when the last session stopped (GIAP_SPEC.md R8, §14.10).
+# What was in flight when the last session stopped (GIPPA_SPEC.md R8, §14.10).
 # Run first in every new session: lists each worktree's issue, the last feature-loop step that was
-# committed, uncommitted work left behind, the next step, open PRs, GIAP Slurm jobs and time left.
+# committed, uncommitted work left behind, the next step, open PRs, GIPPA Slurm jobs and time left.
 set -uo pipefail
 source "$(dirname "$0")/farmshare_env.sh"
-cd "$GIAP_REPO" || exit 1
+cd "$GIPPA_REPO" || exit 1
 git fetch -q origin --prune 2>/dev/null || echo "(git fetch failed; showing local state)"
 
 next_step() {  # role of the last commit -> next step of the feature loop (§14.3)
@@ -17,7 +17,7 @@ next_step() {  # role of the last commit -> next step of the feature loop (§14.
   esac
 }
 
-echo "== GIAP resume status ($(date '+%F %T')) =="
+echo "== GIPPA resume status ($(date '+%F %T')) =="
 if [ -n "${SLURM_JOB_ID:-}" ]; then
   echo "allocation: job $SLURM_JOB_ID, time left $(squeue -h -j "$SLURM_JOB_ID" -o %L 2>/dev/null)"
 else
@@ -53,9 +53,9 @@ echo "== Open PRs =="
 gh pr list --state open --json number,title,headRefName --jq '.[] | "- #\(.number) \(.headRefName): \(.title)"' 2>/dev/null || echo "(gh unavailable)"
 echo
 
-echo "== GIAP Slurm jobs =="
-squeue --me -h -o '%i %j %T %M %l %R' 2>/dev/null | grep ' giap-' || echo "(none running)"
-for log in $(ls -t "$GIAP_LOG_DIR"/giap-*.out 2>/dev/null | head -3); do
+echo "== GIPPA Slurm jobs =="
+squeue --me -h -o '%i %j %T %M %l %R' 2>/dev/null | grep -E ' (giap|gippa)-' || echo "(none running)"
+for log in $(ls -t "$GIPPA_LOG_DIR"/gippa-*.out "$GIPPA_LOG_DIR"/giap-*.out 2>/dev/null | head -3); do
   echo "  recent log $(basename "$log"): $(tail -1 "$log")"
 done
 echo

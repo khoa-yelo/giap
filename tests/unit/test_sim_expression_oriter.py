@@ -1,4 +1,4 @@
-"""giapsim replichore truth and the ori-ter gradient (issue M5-04; GIAP_SPEC.md §7.3.5(e), §11.3).
+"""gippasim replichore truth and the ori-ter gradient (issue M5-04; GIPPA_SPEC.md §7.3.5(e), §11.3).
 
 Examples 3-6 and the expression half of the determinism criterion of
 docs/specs/M5-04-sim-oric-gradient.md (the spec's ``tests/sim/test_expression_oriter.py``; lives in
@@ -31,7 +31,7 @@ import oric_oracle as oo
 
 MU = 20.0
 NEW_COLUMNS = ("replichore_true", "replichore_position_true")
-# ``simulate_expression`` frames before M5-04 (giapsim at 09df79b), as sha256 of the CSV with every
+# ``simulate_expression`` frames before M5-04 (gippasim at 09df79b), as sha256 of the CSV with every
 # float written to 9 significant digits (``stable_sha``): the raw float bits differ between CPUs
 # (iron-01 vs wheat-05, Slurm 1861237), the rounded text does not (checked on both node types).
 # default = LayoutConfig() seed 1, ExpressionConfig() seed 1; mixed = the M4-08 mixed layout
@@ -49,13 +49,13 @@ FLAT: dict[str, Any] = {"tu_sd": 0.0, "gene_sd": 0.0, "stoich_sd": 0.0, "positio
 
 
 def _ex() -> Any:
-    import giapsim.expression
+    import gippasim.expression
 
-    return giapsim.expression
+    return gippasim.expression
 
 
 def layout(seed: int = 1, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 

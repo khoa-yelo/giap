@@ -28,9 +28,9 @@ from helpers.novel_oracle import Case, cds, hit_row, mirror_case, mirror_interva
 from helpers.novel_outputs_fixture import orfs_of, scored, table
 from helpers.readthrough_toys import toy_c1
 
-from giap.io.gff3 import write_gff3
-from giap.model import Replicon
-from giap.model.coords import Interval
+from gippa.io.gff3 import write_gff3
+from gippa.model import Replicon
+from gippa.model.coords import Interval
 
 N = 126
 P1, P2 = ("WQLNEFKWVPAGHTL", 33, 78), ("KWVPAGHTLDMR", 51, 87)
@@ -67,8 +67,8 @@ def row_of(c: Case, peptide_intervals: dict[str, list[Interval]] | None = None) 
 def patch_lines(c: Case, tmp: Path, peptide_intervals: Any = None) -> list[str]:
     from helpers.novel_evidence_fixture import GT30
 
-    from giap.novel.evidence import apply_evidence
-    from giap.novel.outputs import patch_features
+    from gippa.novel.evidence import apply_evidence
+    from gippa.novel.outputs import patch_features
 
     orfs = orfs_of(c)
     t = table(c, orfs, scored(orfs))
@@ -113,7 +113,7 @@ def test_example_6_called_with_readthrough_candidate() -> None:
 def test_example_6_class_rule() -> None:
     from helpers.novel_evidence_fixture import GT30
 
-    from giap.novel.evidence import class_rules
+    from gippa.novel.evidence import class_rules
 
     c = case()
     orfs = orfs_of(c)
@@ -139,7 +139,7 @@ def test_one_spanning_peptide_is_a_candidate_but_not_called() -> None:
 
 def test_example_6_patch_row(tmp_path: Path) -> None:
     lines = patch_lines(case(), tmp_path)
-    assert lines == ["c1\tGIAP\tCDS\t1\t93\t.\t+\t0\tID=G1;locus_tag=G1;Note=cterm_extension"]
+    assert lines == ["c1\tGIPPA\tCDS\t1\t93\t.\t+\t0\tID=G1;locus_tag=G1;Note=cterm_extension"]
 
 
 # ---------------------------------------------------------------- spans_annotated_stop
@@ -183,7 +183,7 @@ def test_minus_strand_patch_row(tmp_path: Path) -> None:
     (orf,) = orfs_of(m)
     ivs = {orf.orf_id: [Interval("c1", *mirror_interval(s, e, N), "-") for _p, s, e in (P1, P2)]}
     lines = patch_lines(m, tmp_path, ivs)
-    assert lines == ["c1\tGIAP\tCDS\t34\t126\t.\t-\t0\tID=G1;locus_tag=G1;Note=cterm_extension"]
+    assert lines == ["c1\tGIPPA\tCDS\t34\t126\t.\t-\t0\tID=G1;locus_tag=G1;Note=cterm_extension"]
 
 
 def test_open_3p_end_patch_row_is_partial(tmp_path: Path) -> None:

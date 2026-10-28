@@ -4,10 +4,10 @@ Spec docs/specs/M11-09b-bare-image-refs.md: rules 1-5, examples 1 and 4-9, accep
 2, 5, 6, 7 and 9, and the trace-row note of the test plan. Defaults of the spec questions: H4 is
 strict (Q1), Docker Hub short names (Q2), readers accept an optional ``docker://`` (Q3).
 
-No network and no real ``$GIAP_ROOT``: ``update_digests.py`` edits a copy in ``tmp_path``,
+No network and no real ``$GIPPA_ROOT``: ``update_digests.py`` edits a copy in ``tmp_path``,
 ``resolve_digest.resolve`` runs against a monkeypatched ``urllib.request.urlopen``, readiness runs
 on the ``helpers.release_readiness`` fixture repository, and ``ToolRunner`` reads a throw-away
-``GIAP_REPO``.
+``GIPPA_REPO``.
 
 Where the spec leaves the wording open: H4's reason for a non-``withName`` ``container =`` value is
 checked only for ``docker:// prefix:`` plus the image name (the spec writes ``<ref>``, which may or
@@ -34,8 +34,8 @@ from helpers.release_readiness import Fixture, row, text_of
 from hypothesis import given
 from hypothesis import strategies as st
 
-from giap.annotate.tools import read_containers_config
-from giap.preflight.environment import _image_file_name
+from gippa.annotate.tools import read_containers_config
+from gippa.preflight.environment import _image_file_name
 
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = REPO / "workflow" / "conf" / "containers.config"
@@ -213,7 +213,7 @@ def test_no_code_requires_the_docker_prefix_to_find_a_pin() -> None:
 # ------------------------------------------------------------------ example 5: update_digests.py
 
 OSTIR_E = "e" * 64
-OSTIR_REF = f"ghcr.io/khoa-yelo/giap-ostir@sha256:{OSTIR_E}"
+OSTIR_REF = f"ghcr.io/khoa-yelo/gippa-ostir@sha256:{OSTIR_E}"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
@@ -239,7 +239,7 @@ def test_example5_update_digests_writes_a_bare_line(tmp_path: Path) -> None:
 
 
 def test_update_digests_replaces_a_legacy_prefixed_line_in_place(tmp_path: Path) -> None:
-    legacy = f"docker://ghcr.io/khoa-yelo/giap-ostir@sha256:{'a' * 64}"
+    legacy = f"docker://ghcr.io/khoa-yelo/gippa-ostir@sha256:{'a' * 64}"
     old = f"  withName: 'OSTIR' {{ container = '{legacy}' }}"
     lines = _text().splitlines()
     end = max(i for i, ln in enumerate(lines) if ln == "}")
@@ -260,7 +260,7 @@ def test_update_digests_replaces_a_legacy_prefixed_line_in_place(tmp_path: Path)
 
 
 def test_update_digests_pin_line_is_bare_and_readable(tmp_path: Path) -> None:
-    mod = _load(UPDATE_DIGESTS, "giap_m11_09b_update_digests")
+    mod = _load(UPDATE_DIGESTS, "gippa_m11_09b_update_digests")
     line = mod.pin_line("OSTIR", OSTIR_REF)
     assert line == f"  withName: 'OSTIR' {{ container = '{OSTIR_REF}' }}"
     cfg = tmp_path / "c.config"
@@ -293,7 +293,7 @@ class _Resp(io.BytesIO):
 
 @pytest.fixture
 def resolve_mod(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    mod = _load(RESOLVE_DIGEST, "giap_m11_09b_resolve_digest")
+    mod = _load(RESOLVE_DIGEST, "gippa_m11_09b_resolve_digest")
     calls: list[str] = []
 
     def urlopen(req: Any, timeout: float = 0) -> _Resp:
@@ -326,7 +326,7 @@ def test_resolve_main_prints_the_bare_reference(
     ["quay.io/biocontainers/blast:2.16.0--h66d330f_5", "oschwengers/bakta:v1.12.2", "ubuntu:24.04"],
 )
 def test_split_ref_accepts_a_prefixed_input(ref: str) -> None:
-    mod = _load(RESOLVE_DIGEST, "giap_m11_09b_resolve_digest_split")
+    mod = _load(RESOLVE_DIGEST, "gippa_m11_09b_resolve_digest_split")
     assert mod.split_ref(f"docker://{ref}") == mod.split_ref(ref)
 
 
@@ -422,7 +422,7 @@ def test_h4_other_container_value_bare_passes(tmp_path: Path) -> None:
 def test_toolrunner_finds_the_pinned_image_in_either_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, form: str
 ) -> None:
-    from giap.setupdb import ToolRunner
+    from gippa.setupdb import ToolRunner
 
     repo = tmp_path / "repo"
     (repo / "workflow" / "conf").mkdir(parents=True)
@@ -432,8 +432,8 @@ def test_toolrunner_finds_the_pinned_image_in_either_form(
     cache.mkdir()
     img = cache / f"oschwengers-bakta@sha256-{BAKTA_D}.img"
     img.write_bytes(b"")
-    monkeypatch.setenv("GIAP_REPO", str(repo))
-    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "root"))
+    monkeypatch.setenv("GIPPA_REPO", str(repo))
+    monkeypatch.setenv("GIPPA_ROOT", str(tmp_path / "root"))
     monkeypatch.setenv("MAMBA_ROOT_PREFIX", str(tmp_path / "mamba"))
     monkeypatch.setenv("NXF_APPTAINER_CACHEDIR", str(cache))
     argv = ["bakta_db", "download", "--type", "light"]
@@ -447,7 +447,7 @@ def test_toolrunner_finds_the_pinned_image_in_either_form(
 
 
 def test_trace_row_with_bare_container_gives_the_same_digest(tmp_path: Path) -> None:
-    from giap.io import manifest_sources
+    from gippa.io import manifest_sources
 
     reps = []
     for value in (PINNED["MINIPROT"], f"docker://{PINNED['MINIPROT']}"):

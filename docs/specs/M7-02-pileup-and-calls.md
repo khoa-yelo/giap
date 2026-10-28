@@ -5,7 +5,7 @@ Milestone M7 · track V (variants) · **pass 1** · depends on: M7-01 · estimat
 
 ## Spec sections implemented
 
-- §7.5 preamble: "At every genome codon covered by accepted peptides, GIAP reports whether the
+- §7.5 preamble: "At every genome codon covered by accepted peptides, GIPPA reports whether the
   peptides support the genome's residue (REF), a different residue (ALT), or both. It never names
   modifications."
 - §7.5.2 steps 2–4: "**Pileup.** For each covered codon, count distinct peptides supporting REF
@@ -23,7 +23,7 @@ Milestone M7 · track V (variants) · **pass 1** · depends on: M7-01 · estimat
 
 ## Public interface
 
-`src/giap/variants/pileup.py` (pure)
+`src/gippa/variants/pileup.py` (pure)
 ```python
 CallKind = Literal["REF", "ALT", "mixed", "no_call"]
 AltType = Literal["substitution", "swap", "block", "frameshift"]
@@ -37,10 +37,10 @@ class Support:                    # per peptide, joined from C9 peptides.norm + 
     uniqueness: str
 
 def eligible(aligns: Sequence[HitAlignment], support: Mapping[str, Support],
-             cfg: GiapConfig) -> list[HitAlignment]: ...
+             cfg: GippaConfig) -> list[HitAlignment]: ...
 def pileup(aligns: Sequence[HitAlignment], gm: GeneModel, genome: Mapping[str, str],
-           cfg: GiapConfig) -> pd.DataFrame: ...          # one row per covered codon
-def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...   # variants.tsv core rows
+           cfg: GippaConfig) -> pd.DataFrame: ...          # one row per covered codon
+def sites(pile: pd.DataFrame, cfg: GippaConfig) -> pd.DataFrame: ...   # variants.tsv core rows
 ```
 
 ## Rules
@@ -162,7 +162,7 @@ swaps everywhere) tests these counting rules together with the M7-05 flags.
    the second codon as REF would be false (its residue is not observed) and as ALT would double the
    event.
 5. `variant_id` scheme: §6.5 defines none. **Proposed default:** `VAR_<n>` in §6.5 order (rule
-   11). `giap compare` (M9) matches sites by coordinates, not by ID.
+   11). `gippa compare` (M9) matches sites by coordinates, not by ID.
 
 ## Lead decisions after the test step (2026-10-21, tests at 6be780d)
 1. **Interface.** `pileup(aligns, gm, genome, cfg, *, support=...)` takes the peptide `Support` table as a keyword argument. Frameshift events travel from the pileup to `sites` through internal columns or `attrs`, never as pileup rows.

@@ -1,6 +1,6 @@
 """Independent oracle and API lookup for the M2-13 promoter-window tests.
 
-The spec places the functions in ``giap.annotate.promoters`` and ``giap.annotate.promotech_cmd``
+The spec places the functions in ``gippa.annotate.promoters`` and ``gippa.annotate.promotech_cmd``
 without saying which file holds the Promotech parser; ``api(name)`` looks in both (promoters first).
 
 Window geometry (docs/specs/M2-13, S = first base of the start codon 0-based, E = interval end):
@@ -15,7 +15,7 @@ import importlib
 from typing import Any
 
 _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
-MODULES = ("giap.annotate.promoters", "giap.annotate.promotech_cmd")
+MODULES = ("gippa.annotate.promoters", "gippa.annotate.promotech_cmd")
 
 
 def api(name: str) -> Any:

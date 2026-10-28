@@ -1,9 +1,9 @@
 cff-version: 1.2.0
-message: "If you use GIAP, please cite it as below."
-title: "GIAP: genome-integrated analysis of proteomics data"
+message: "If you use GIPPA, please cite it as below."
+title: "GIPPA: genome integrated prokaryotic proteomics analysis"
 type: software
 abstract: >-
-  GIAP (genome-integrated analysis of proteomics data) takes one assembled bacterial genome plus
+  GIPPA (genome integrated prokaryotic proteomics analysis) takes one assembled bacterial genome plus
   proteomics evidence and asks what genome context explains about which proteins are detected, and
   how abundant they are. It places peptides and proteins on the genome with its own error control,
   builds one gene table keyed by Bakta locus tags, tests genome context (regions, autocorrelation,
@@ -13,7 +13,7 @@ authors:
   - family-names: Hoang
     given-names: Khoa
 license: MIT
-repository-code: "https://github.com/khoa-yelo/giap"
+repository-code: "https://github.com/khoa-yelo/gippa"
 version: 0.0.1
 keywords:
   - "proteogenomics"

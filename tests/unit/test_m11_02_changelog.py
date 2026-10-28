@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FRAGMENTS = ROOT / "changelog.d"
 PYPROJECT = ROOT / "pyproject.toml"
 
-REPO_URL = "https://github.com/khoa-yelo/giap"
+REPO_URL = "https://github.com/khoa-yelo/gippa"
 TYPES = [
     ("feature", "Features"),
     ("bugfix", "Fixes"),
@@ -30,7 +30,7 @@ TYPES = [
 ]
 NAME_RE = re.compile(r"^(\+[a-z0-9-]+|\d+)\.(feature|bugfix|doc|removal|misc)\.md$")
 MILESTONE_RE = re.compile(r"^\+m(\d{2})-[a-z0-9-]+\.feature\.md$")
-TITLE = "## GIAP 1.0.0 (2026-11-01)"
+TITLE = "## GIPPA 1.0.0 (2026-11-01)"
 # Internal references that must not reach users: issue ids (M6-11, M10-15b), PR numbers (#317).
 INTERNAL_REF_RE = re.compile(r"\bM\d{1,2}-\d{2}[a-z]?\b|#\d+")
 
@@ -52,8 +52,8 @@ def _draft(tmp_path: Path, extra: dict[str, str] | None = None) -> str:
     shutil.copytree(FRAGMENTS, tmp_path / "changelog.d")
     shutil.copy2(PYPROJECT, tmp_path / "pyproject.toml")
     shutil.copy2(ROOT / "CHANGELOG.md", tmp_path / "CHANGELOG.md")
-    (tmp_path / "src" / "giap").mkdir(parents=True)
-    shutil.copy2(ROOT / "src" / "giap" / "__init__.py", tmp_path / "src" / "giap" / "__init__.py")
+    (tmp_path / "src" / "gippa").mkdir(parents=True)
+    shutil.copy2(ROOT / "src" / "gippa" / "__init__.py", tmp_path / "src" / "gippa" / "__init__.py")
     for name, text in (extra or {}).items():
         (tmp_path / "changelog.d" / name).write_text(text, encoding="utf-8")
     proc = subprocess.run(
@@ -103,8 +103,8 @@ def _sections(draft: str) -> dict[str, list[str]]:
 
 def test_towncrier_name_and_title_format() -> None:
     cfg = _towncrier_cfg()
-    assert cfg.get("name") == "GIAP"
-    assert cfg.get("title_format") == "## GIAP {version} ({project_date})"
+    assert cfg.get("name") == "GIPPA"
+    assert cfg.get("title_format") == "## GIPPA {version} ({project_date})"
     assert cfg.get("directory") == "changelog.d"
     assert cfg.get("filename") == "CHANGELOG.md"
 

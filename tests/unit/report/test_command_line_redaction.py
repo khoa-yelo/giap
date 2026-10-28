@@ -1,5 +1,5 @@
 """The report's "command line" provenance row carries no absolute path in any form (M9-02
-behaviour 6, GIAP_SPEC.md §6.6; #323 review B1 and S1).
+behaviour 6, GIPPA_SPEC.md §6.6; #323 review B1 and S1).
 
 Rule pinned here (the review's fix, lead brief for #323):
 
@@ -32,17 +32,17 @@ ABS = re.compile(r"(?:^|[\s=,])/|(?:^|\s)-[A-Za-z]/")
 
 
 def _cmd(args: list[str], outdir: str | None = OUTDIR) -> str:
-    from giap.io.run_view import RunView
-    from giap.report.content import provenance
+    from gippa.io.run_view import RunView
+    from gippa.report.content import provenance
 
-    doc: dict[str, Any] = {"command_line": ["giap", "run", *args]}
+    doc: dict[str, Any] = {"command_line": ["gippa", "run", *args]}
     if outdir is not None:
         doc["outdir"] = outdir
     view = RunView.from_inputs({})  # no files: only the manifest doc is read
     lines = dict(provenance(view, doc, None)["lines"])
     row = lines["command line"]
-    assert row.startswith("giap run"), row
-    return str(row)[len("giap run") :].strip()
+    assert row.startswith("gippa run"), row
+    return str(row)[len("gippa run") :].strip()
 
 
 # ---------------------------------------------------------------- B1: the leaking forms
@@ -137,18 +137,18 @@ def test_report_html_command_row_has_no_absolute_path(tmp_path: Path) -> None:
     from helpers.report_content import manifest, write_manifest
     from helpers.report_fixtures import cfg, parse, run_out
 
-    from giap.io.run_view import RunView
-    from giap.report.build import build_report
+    from gippa.io.run_view import RunView
+    from gippa.report.build import build_report
 
     out = run_out(tmp_path)
     secret = "/home/someone/private"
-    line = ["giap", "run", "--genome", f"{secret}/g.fa", "--outdir", str(out),
+    line = ["gippa", "run", "--genome", f"{secret}/g.fa", "--outdir", str(out),
             "--set", f"db={secret}/db", f"--set=k={secret}/c.yaml",
             "--reads", f"a.fq,{secret}/b.fq", f"-o{secret}/x", f"--outdir={out}/sub"]  # fmt: skip
     write_manifest(out, manifest(command_line=line, outdir=str(out)))
     page = build_report(RunView.from_outdir(out), {}, {}, cfg())
     text = " ".join(parse(page).section("provenance").text().split())
-    assert "giap run --genome g.fa --outdir OUT --set db=db --set=k=c.yaml" in text, text
+    assert "gippa run --genome g.fa --outdir OUT --set db=db --set=k=c.yaml" in text, text
     assert "--reads a.fq,b.fq -ox --outdir=OUT/sub" in text, text
     assert secret not in page
     assert str(tmp_path) not in page

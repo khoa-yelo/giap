@@ -1,13 +1,13 @@
 # M11 "Release 1.0": issue index
 
-Spec: GIAP_SPEC.md §13 row M11. Deliverables: "packages, containers by digest, MkDocs site,
+Spec: GIPPA_SPEC.md §13 row M11. Deliverables: "packages, containers by digest, MkDocs site,
 changelog, citation file, preprint outline". **Gate:** "the acceptance criteria below [§13.2];
 **Khoa approves** the release" (§14.8 checkpoint 5).
 
 Sources read: §13 row M11 and §13.2 (all seven bullets), §12 (`release.yml`: "verify gates,
 changelog and the version; build sdist and wheel; publish to PyPI (trusted publishing); create the
 tag and GitHub release (the Zenodo DOI comes from the GitHub integration). Bioconda recipe PR as a
-manual follow-up"; `containers.yml`: "build per-tool images, push to `ghcr.io/<owner>/giap-<tool>`,
+manual follow-up"; `containers.yml`: "build per-tool images, push to `ghcr.io/<owner>/gippa-<tool>`,
 open a PR updating the digests"; the **Releases** paragraph: "semantic versioning, changelog
 fragments (towncrier), PyPI and Bioconda packages, containers pinned by digest, and a Zenodo DOI
 each time"), §3.10 ("never push tags"; "Tags and releases come from `release.yml`
@@ -18,7 +18,7 @@ release"; e2e "weekly and before release"), §14.1 (docs role), §14.2 ("Every P
 changelog fragment"), §14.6 (pins by digest), §14.8 items 5–7, §16 (nothing here is deferred),
 R1, R3, R5 ("geNOMAD is non-commercial: document that in the user guide"), R6, R11, R12, R13,
 Appendix A.5 (docs agent: "Document every CLI option and output table from the code and schemas …
-licence notes"). Backlog: "(Khoa, 2026-10-24) running GIAP on macOS is untested … Candidate for
+licence notes"). Backlog: "(Khoa, 2026-10-24) running GIPPA on macOS is untested … Candidate for
 M11: a Docker-profile test run, and documenting the platforms." Prior specs: M2-01 (images, ADR-0008),
 M10-12 (`docs/user-guide/runtimes.md`, question L9), M10-15 (`metrics.py checklist()`).
 
@@ -46,8 +46,8 @@ runbook, outline, fragments) is not gated but is listed.
 
 | Piece | State |
 |---|---|
-| `pyproject.toml` | hatchling; `name = "giap"`, **`version = "0.0.1"` written twice** (pyproject and `src/giap/__init__.py`; also `CITATION.cff`); extras `dev`, `docs` (`mkdocs-material`); `giap` console script; `[tool.towncrier]` with `directory = "changelog.d"`; wheel `packages = ["src/giap"]` |
-| Workflow in the wheel | **missing.** `giap.runner.nextflow.workflow_main()` looks for `<checkout>/workflow/main.nf`, then `giap/workflow/main.nf` inside the package, but nothing copies `workflow/` into the wheel. An installed `giap run` finds no workflow |
+| `pyproject.toml` | hatchling; `name = "gippa"`, **`version = "0.0.1"` written twice** (pyproject and `src/gippa/__init__.py`; also `CITATION.cff`); extras `dev`, `docs` (`mkdocs-material`); `gippa` console script; `[tool.towncrier]` with `directory = "changelog.d"`; wheel `packages = ["src/gippa"]` |
+| Workflow in the wheel | **missing.** `gippa.runner.nextflow.workflow_main()` looks for `<checkout>/workflow/main.nf`, then `gippa/workflow/main.nf` inside the package, but nothing copies `workflow/` into the wheel. An installed `gippa run` finds no workflow |
 | `CHANGELOG.md` | header and the towncrier marker only; **no release section** |
 | `changelog.d/` | 2 fragments (`m0-scaffold.feature.md`, `m6-11-regulondb.feature.md`) for 317 merged PRs; §14.2's "every PR includes a changelog fragment" is not enforced |
 | `CITATION.cff` | `cff-version 1.2.0`, title, one author (Khoa Hoang), licence, repository, `version: 0.0.1`; no `type`, `date-released`, `abstract`, `keywords`, `identifiers` |
@@ -56,15 +56,15 @@ runbook, outline, fragments) is not gated but is listed.
 | `.github/workflows/` | `ci.yml`, `golden-r.yml` only. **No `release.yml`, `containers.yml` or docs workflow** |
 | Containers | `workflow/conf/containers.config`: 7 processes by digest (Bakta, TransTermHP, geNOMAD, antiSMASH, miniprot, BLAST, TBLASTN). Six Dockerfiles under `workflow/containers/` (uniop, promotech, promoter_calculator, terminatornet, bactermfinder, ostir) are **never built**; those processes stay conda-only. The UniOP Dockerfile says "built for local use only, never pushed publicly" (unlicensed, R5/R11). fgsea is conda-only by M8-17 decision 9 |
 | MkDocs | **no `mkdocs.yml`, no user guide.** `docs/` holds `adr/` (57), `methods/` (29 notes, 4 with `$…$` math), `specs/`, `backlog.md`. `mkdocs` 1.6.1 and `mkdocs-material` 9.7.7 are in the shared venv. `docs/user-guide/runtimes.md` is promised by M10-12 (L9) |
-| Generated references | `scripts/write_config_schema.py --check` (config JSON Schema) exists; `src/giap/schemas/` has the Frictionless `datapackage.json`, `tables/`, manifest schemas. No CLI or table reference page |
-| Release evidence | `validation/pilot/metrics.py checklist()` (§15.6 rows), `validation/pilot/metrics/metrics.json` (committed by M10-15b), `benchmarks/baseline.json`, `$GIAP_ROOT/logs/nightly.tsv` and `weekly.tsv` (date, job, commit, exit, summary). No release checker |
-| Accounts | repository `khoa-yelo/giap` is **public** (the spec assumed private; Pages and Zenodo both need public). PyPI `giap` and Bioconda `giap`: **not taken** (404 on 2026-10-24). No Pages site. No tags, no releases. All runtime deps exist on conda-forge or bioconda (`codon-bias` on bioconda only) |
+| Generated references | `scripts/write_config_schema.py --check` (config JSON Schema) exists; `src/gippa/schemas/` has the Frictionless `datapackage.json`, `tables/`, manifest schemas. No CLI or table reference page |
+| Release evidence | `validation/pilot/metrics.py checklist()` (§15.6 rows), `validation/pilot/metrics/metrics.json` (committed by M10-15b), `benchmarks/baseline.json`, `$GIPPA_ROOT/logs/nightly.tsv` and `weekly.tsv` (date, job, commit, exit, summary). No release checker |
+| Accounts | repository `khoa-yelo/gippa` is **public** (the spec assumed private; Pages and Zenodo both need public). PyPI `gippa` and Bioconda `gippa`: **not taken** (404 on 2026-10-24). No Pages site. No tags, no releases. All runtime deps exist on conda-forge or bioconda (`codon-bias` on bioconda only) |
 
 ## Issues
 
 | Order | Issue | Pass | Scope | Depends on | Code lines | Test lines | Khoa |
 |---|---|---|---|---|---|---|---|
-| 1 | [M11-01](M11-01-package-build.md) | 1 | single-source version; `workflow/` bundled as `giap/workflow`; sdist/wheel content rules; `scripts/release/check_dist.py`; CI `package` job (build, check, clean-venv install smoke) | none | 190 | 230 | no |
+| 1 | [M11-01](M11-01-package-build.md) | 1 | single-source version; `workflow/` bundled as `gippa/workflow`; sdist/wheel content rules; `scripts/release/check_dist.py`; CI `package` job (build, check, clean-venv install smoke) | none | 190 | 230 | no |
 | 2 | [M11-02](M11-02-changelog-citation.md) | 1 | towncrier rendering rules; retroactive milestone fragments M0–M10; `CITATION.cff` complete and schema-checked; version agreement test | none | 30 | 160 | Q-K7 (authors) |
 | 3 | [M11-03](M11-03-release-readiness.md) | 1 | `scripts/release/readiness.py`: §13.2 bullets + release hygiene → `validation/release/<v>/readiness.json` + `READINESS.md` | 01, 02 (soft) | 340 | 320 | Q-K5, Q-K6 (criteria readings) |
 | 3b | [M11-03b](M11-03b-nightly-readiness-labels.md) | 1 | `calibration_full` / `calibration_attacks` rows: task records + JUnit in `calibration_full.sbatch`, `calibration_full_launch.sh`, `scripts/ci/calibration_rows.py` | 03 | 300 | 300 | no |
@@ -128,9 +128,9 @@ has a reversible default the specs already use. Details are in the issue files.
 
 | # | Question | Default in use | Issue |
 |---|---|---|---|
-| Q-K1 | PyPI: register a **pending trusted publisher** for project `giap` (owner `khoa-yelo`, repo `giap`, workflow `release.yml`, environment `pypi`), and the same on TestPyPI? | yes, both; the first non-dry dispatch targets TestPyPI | 04, 05 |
+| Q-K1 | PyPI: register a **pending trusted publisher** for project `gippa` (owner `khoa-yelo`, repo `gippa`, workflow `release.yml`, environment `pypi`), and the same on TestPyPI? | yes, both; the first non-dry dispatch targets TestPyPI | 04, 05 |
 | Q-K2 | Who may dispatch a publishing run? | `github.actor == 'khoa-yelo'` **and** GitHub environments `pypi`/`testpypi` with Khoa as required reviewer | 04 |
-| Q-K3 | Zenodo: enable the GitHub integration for `khoa-yelo/giap` before the first release; metadata from `CITATION.cff` (no `.zenodo.json`)? | yes | 05, 13 |
+| Q-K3 | Zenodo: enable the GitHub integration for `khoa-yelo/gippa` before the first release; metadata from `CITATION.cff` (no `.zenodo.json`)? | yes | 05, 13 |
 | Q-K4 | Version string | `1.0.0` (PEP 440 = semver here); no `rc` on PyPI — the rehearsal uploads `1.0.0` itself to TestPyPI (a separate index) before the PyPI dispatch | 04, 13 |
 | Q-K5 | §13.2 says every available true-example assertion "passes"; §15.6 lets TE2–TE5 be "reported; failures explained". Which reading gates the release? | strict: a TE that is `reported (not passed)` makes readiness `fail`; Khoa may waive by an accepted ADR, which readiness then cites | 03 |
 | Q-K6 | Is the runtime bullet ("about 35 min (range 16–55)") a pass/fail criterion? | yes: median `k12_standard` in [16, 55] min is `pass`; outside is `fail` unless waived by ADR | 03 |
@@ -148,16 +148,16 @@ has a reversible default the specs already use. Details are in the issue files.
 | Q-K18 | Approve every `ghcr` build, or only the first? | every build until Khoa removes the reviewer | 14 |
 | Q-K19 | fgsea image vs. M8-17 decision 9 (conda-only) | image | 14 |
 | Q-L1 | sdist contents | `src/`, `workflow/` (without `workflow/tests`), README, LICENSE, NOTICE, CHANGELOG, CITATION, pyproject; **no** tests, docs, validation, scripts, benchmarks | 01 |
-| Q-L2 | Installed-package smoke cannot use `giap run --profile test,stub` (`_PROFILES` rejects `test`/`stub`) | the smoke parses the installed workflow with `nextflow config -profile test,stub` and `-profile farmshare,apptainer`, and asserts `workflow_main()` resolves inside site-packages; no CLI change | 01 |
+| Q-L2 | Installed-package smoke cannot use `gippa run --profile test,stub` (`_PROFILES` rejects `test`/`stub`) | the smoke parses the installed workflow with `nextflow config -profile test,stub` and `-profile farmshare,apptainer`, and asserts `workflow_main()` resolves inside site-packages; no CLI change | 01 |
 | Q-L3 | Retroactive changelog granularity | one fragment per milestone M0–M10 (plus the two existing), written by the docs role from PROGRESS and the indexes | 02 |
-| Q-L4 | Readiness is computed on FarmShare (it reads `$GIAP_ROOT/logs`) and committed; `release.yml` cannot see FarmShare | the committed `readiness.json` names commit R; `release.yml` passes only if HEAD = R or R..HEAD touches only release-paperwork paths | 03, 04 |
+| Q-L4 | Readiness is computed on FarmShare (it reads `$GIPPA_ROOT/logs`) and committed; `release.yml` cannot see FarmShare | the committed `readiness.json` names commit R; `release.yml` passes only if HEAD = R or R..HEAD touches only release-paperwork paths | 03, 04 |
 | Q-L5 | Pin third-party Actions by commit SHA in the new workflows | yes in `release.yml`, `containers.yml`, `docs.yml` (tag in a comment); `ci.yml` unchanged | 04, 06, 07 |
 | Q-L6 | Put ADRs and specs on the site? | ADRs yes ("Decisions"), specs no (`exclude_docs`), backlog no | 07 |
 | Q-L7 | Math in methods notes (4 notes use `$…$`) | `pymdownx.arithmatex` (generic) + MathJax 3 from jsDelivr on the site only | 07 |
-| Q-L8 | A `giap` core image on GHCR? | no: the spec asks for per-tool images only (R1) | 06 |
+| Q-L8 | A `gippa` core image on GHCR? | no: the spec asks for per-tool images only (R1) | 06 |
 | Q-L9 | Changelog-fragment check severity | fail for PRs that change `src/` or `workflow/` without a fragment; label `no-changelog` exempts | 12 |
 | Q-L10 | Bioconda `run:` dependencies beyond pyproject | add `nextflow` (bioconda) and `openjdk >=17`; Apptainer/conda left to the user | 10 |
-| Q-L11 | Image cache without `$GIAP_ROOT` | `NXF_APPTAINER_CACHEDIR` → `$GIAP_ROOT/containers` → `<db_dir>/containers` | 14 |
+| Q-L11 | Image cache without `$GIPPA_ROOT` | `NXF_APPTAINER_CACHEDIR` → `$GIPPA_ROOT/containers` → `<db_dir>/containers` | 14 |
 | Q-L12 | BacTermFinder lock files | resolve on FarmShare in 14b | 14 |
 | Q-L13 | Separate `output_schema_version` from the config's `schema_version` | yes, `1.0` from 1.0.0 | 14 |
 | Q-L14 | Keep the M11-06 `:<sha7>` tags | no (`images.json` `built_from` + OCI label) | 14 |

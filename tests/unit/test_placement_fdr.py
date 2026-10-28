@@ -1,4 +1,4 @@
-"""Placement FDR (G3): strata, pi_wrong, q-values, ``mapping_fdr`` rows (issue M3-10; GIAP_SPEC.md
+"""Placement FDR (G3): strata, pi_wrong, q-values, ``mapping_fdr`` rows (issue M3-10; GIPPA_SPEC.md
 §7.2.5 steps 1-6, §8.1, §9.3, Appendix B.6).
 
 Conventions pinned here (docs/specs/M3-10-placement-fdr.md, lead decisions in M3-index.md):
@@ -40,16 +40,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from giap.config import GiapConfig
-from giap.mapping.chance import ResidueFreqs, expected_hits
-from giap.mapping.hits import hits_frame
-from giap.mapping.placement_fdr import (
+from gippa.config import GippaConfig
+from gippa.mapping.chance import ResidueFreqs, expected_hits
+from gippa.mapping.hits import hits_frame
+from gippa.mapping.placement_fdr import (
     PeptideCosts,
     best_costs,
     placement,
     stratum_qvalues,
 )
-from giap.stats.tda import tda_qvalues
+from gippa.stats.tda import tda_qvalues
 
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 PREFIX = "MDEFGHKLNPQRSTVWYACDEFGHKLMNPQRSTVWY"
@@ -117,8 +117,8 @@ def decoys(
     ]
 
 
-def cfg(alpha: float = 0.01, q_value_max: float = 0.01) -> GiapConfig:
-    return GiapConfig.model_validate(
+def cfg(alpha: float = 0.01, q_value_max: float = 0.01) -> GippaConfig:
+    return GippaConfig.model_validate(
         {"stats": {"alpha": {"placement": alpha}}, "input": {"q_value_max": q_value_max}}
     )
 

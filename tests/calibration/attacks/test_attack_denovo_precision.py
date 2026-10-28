@@ -1,4 +1,4 @@
-"""Attack nulls for the de novo π̂ handed to the placement FDR (M3-11 → M3-10; GIAP_SPEC.md
+"""Attack nulls for the de novo π̂ handed to the placement FDR (M3-11 → M3-10; GIPPA_SPEC.md
 §7.2.5, §8.5; ADR-0010; statistician). Method: docs/methods/denovo-precision.md, sections
 "π̂ for M3-10" and "Calibration and attacks".
 
@@ -50,8 +50,8 @@ import pandas as pd
 import pytest
 from _gate import calibrate_levels
 
-from giap.mapping.denovo_precision import denovo_precision, pi_wrong_denovo, score_bins
-from giap.rng import for_step
+from gippa.mapping.denovo_precision import denovo_precision, pi_wrong_denovo, score_bins
+from gippa.rng import for_step
 
 P_BIN = np.array([0.3, 0.45, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99])
 N_BIN = P_BIN.size

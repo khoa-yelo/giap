@@ -3,16 +3,16 @@
 Interface assumed (test-author reading of the spec; the spec names ``build_manifest(sources) ->
 dict`` and leaves the sources open):
 
-``giap.manifest.ManifestSources`` is a keyword-only dataclass holding everything the pure builder
-reads, already parsed (no file I/O in ``giap.manifest``):
+``gippa.manifest.ManifestSources`` is a keyword-only dataclass holding everything the pure builder
+reads, already parsed (no file I/O in ``gippa.manifest``):
 
 ====================  =========================================================================
 field                 meaning
 ====================  =========================================================================
-``cfg``               the resolved ``GiapConfig``
+``cfg``               the resolved ``GippaConfig``
 ``preflight``         the parsed ``preflight/preflight.json`` (``inputs``, ``checks``,
                       ``evidence_tier``, ...)
-``registered``        every registered ``giap.steps.registry.StepSpec``
+``registered``        every registered ``gippa.steps.registry.StepSpec``
 ``executor``          ``"local"`` or ``"nextflow"``
 ``profile``           the ``--profile`` string, or None
 ``resume``            the ``--resume`` flag
@@ -24,13 +24,13 @@ field                 meaning
 ``failed_step``       the failed step name, or None
 ``failed_log``        the failed step's log path, or None
 ``publication``       the ``--publication`` flag
-``giap_version``      ``giap.__version__``
+``gippa_version``      ``gippa.__version__``
 ``git_commit``        ``str`` or None
 ``git_dirty``         ``bool`` or None
 ``input_paths``       preflight role → the path given on the command line (``inputs[].path``)
 ``extra_inputs``      rows the manifest hashed itself (``{role, file, path, sha256, size}``),
                       e.g. role ``precomputed:<key>``
-``inputs_absent``     optional ``giap run`` inputs that were not given
+``inputs_absent``     optional ``gippa run`` inputs that were not given
 ``events``            the parsed ``OUT/logs/events.jsonl`` lines, in file order
 ``annotation_meta``   the parsed ``annotation_meta.json``, or None
 ``trace``             the Nextflow ``trace.tsv`` rows (``csv.DictReader`` dicts, human-readable
@@ -43,8 +43,8 @@ field                 meaning
 ====================  =========================================================================
 
 Only ``cfg``, ``preflight``, ``registered`` and ``executor`` are required; every other field has
-an empty default (``None``, ``()``, ``{}``, ``False``, ``0``, ``""``; ``giap_version`` defaults to
-``giap.__version__``).
+an empty default (``None``, ``()``, ``{}``, ``False``, ``0``, ``""``; ``gippa_version`` defaults to
+``gippa.__version__``).
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
-SCHEMA = REPO / "src" / "giap" / "schemas" / "run_manifest.schema.json"
+SCHEMA = REPO / "src" / "gippa" / "schemas" / "run_manifest.schema.json"
 
 SHA_GENOME = "a" * 64
 SHA_PEPTIDES = "b" * 64
@@ -75,7 +75,7 @@ def preflight_doc(
     ]  # fmt: skip
     return {
         "schema_version": "1.0",
-        "giap_version": "0.0.0",
+        "gippa_version": "0.0.0",
         "inputs": [dict(r) for r in rows],
         "checks": [dict(c) for c in checks],
         "evidence_tier": tier,
@@ -100,7 +100,7 @@ def spec(
     precomputed: str | None = None,
 ) -> Any:
     """A registry ``StepSpec`` (no function needed by the builder)."""
-    from giap.steps.registry import StepSpec
+    from gippa.steps.registry import StepSpec
 
     return StepSpec(name=name, kind=kind, inputs=(), outputs=(f"{name}.out",),  # type: ignore[arg-type]
                     optional_inputs=(), module=module, precomputed=precomputed,  # type: ignore[arg-type]
@@ -132,18 +132,18 @@ def trace_row(name: str, status: str = "COMPLETED", **kw: str) -> dict[str, str]
 
 def sources(**over: Any) -> Any:
     """``ManifestSources`` with a baseline (genome + peptides, two core py steps, local)."""
-    from giap.config import GiapConfig
-    from giap.manifest import ManifestSources
+    from gippa.config import GippaConfig
+    from gippa.manifest import ManifestSources
 
     base: dict[str, Any] = {
-        "cfg": GiapConfig(seed=7),
+        "cfg": GippaConfig(seed=7),
         "preflight": preflight_doc(),
         "registered": [spec("detectability"), spec("gene_table")],
         "executor": "local",
         "profile": None,
         "resume": False,
         "outdir": "/runs/OUT",
-        "command_line": ["giap", "run", "--genome", "/data/genome.fa"],
+        "command_line": ["gippa", "run", "--genome", "/data/genome.fa"],
         "started_at": "2026-10-22T10:00:00+00:00",
         "finished_at": "2026-10-22T10:05:00+00:00",
         "exit_code": 0,
@@ -163,7 +163,7 @@ def sources(**over: Any) -> Any:
 
 
 def build(**over: Any) -> dict[str, Any]:
-    from giap.manifest import build_manifest
+    from gippa.manifest import build_manifest
 
     out = build_manifest(sources(**over))
     assert isinstance(out, dict)

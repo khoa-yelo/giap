@@ -1,5 +1,5 @@
 """M9-25 work item 3: the structure snapshot of ``report.html`` and ``compare.html`` on both
-frozen fixtures (docs/specs/M9-25-snapshot-baselines.md example 3; GIAP_SPEC.md §10.3 "A snapshot
+frozen fixtures (docs/specs/M9-25-snapshot-baselines.md example 3; GIPPA_SPEC.md §10.3 "A snapshot
 of the HTML structure (headings and IDs)").
 
 The ordered ``[tag, id]`` list (``helpers.snapshot_fixture.structure``: every ``<section>``,
@@ -61,7 +61,7 @@ def test_renamed_section_id_fails_the_snapshot(tmp_path: Path) -> None:
 @pytest.mark.parametrize("fixture", sf.FIXTURES)
 def test_stored_report_sections_are_the_13_fixed_ids(fixture: str) -> None:
     """Index decision 21: the report's sections have fixed IDs, in order."""
-    from giap.report.build import SECTIONS
+    from gippa.report.build import SECTIONS
 
     stored = _stored()[f"{fixture}/report.html"]
     assert [i for t, i in stored if t == "section"] == [s.id for s in SECTIONS]
@@ -89,7 +89,7 @@ def test_rich_report_inlines_a_figure_for_every_plot_but_v16() -> None:
             slots[current] += 1
         elif tag == "section":
             current = None
-    from giap.report.build import SECTIONS
+    from gippa.report.build import SECTIONS
 
     assert sorted(slots) == sorted(p for s in SECTIONS for p in s.plots)
     assert "V16" not in slots

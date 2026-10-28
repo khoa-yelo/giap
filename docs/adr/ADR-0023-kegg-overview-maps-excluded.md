@@ -27,5 +27,5 @@ These are KEGG's "Global and overview maps" group as of the installed release. A
 The code review of #159 found that map01310 and map01320 (with 39 and 53 KO links) passed the original `map011xx`/`map012xx` rule. tests/unit/function/test_collections_review.py pins the full list, along with neighbouring maps that are kept.
 
 ## Consequences
-- A KEGG release that adds a new overview map must update the pattern (`giap.function.collections._OVERVIEW`) and this ADR.
+- A KEGG release that adds a new overview map must update the pattern (`gippa.function.collections._OVERVIEW`) and this ADR.
 - A future `kegg_overview_excluded: N` run flag would be an additive change.

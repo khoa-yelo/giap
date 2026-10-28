@@ -10,19 +10,19 @@ Milestone M1 · depends on: M1-09, M1-10 · estimate ≈ 360 changed lines (sche
 - §7.0 Outputs: "`preflight.json`: checks with severity, value and rule; derived routing; the evidence
   tier; replicon table." · "`preflight.md`: a human-readable summary." · Test: "The JSON report
   validates against its schema."
-- §9.5: JSON Schemas live in `src/giap/schemas/`. §6.6: no timestamps or absolute paths in tables
+- §9.5: JSON Schemas live in `src/gippa/schemas/`. §6.6: no timestamps or absolute paths in tables
   (applied here too, for byte-identical reports). M1 gate: "`preflight.json` validated against its schema".
 
 ## Public interface
 
-`src/giap/preflight/environment.py`
+`src/gippa/preflight/environment.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class Requirement:
     name: str; module: str; kind: Literal["binary", "env", "db", "model"]; min_version: str | None
 
 @dataclass(frozen=True, slots=True)
-class EnvProbe:                          # injected; real probe reads .giap/capabilities.json + db_manifest.json
+class EnvProbe:                          # injected; real probe reads .gippa/capabilities.json + db_manifest.json
     found: Mapping[str, str | None]      # requirement name → version found, None if missing
     free_disk_bytes: int; total_ram_bytes: int
 
@@ -30,11 +30,11 @@ def requirements(modules: Sequence[str], promoters_mode: str) -> list[Requiremen
 def environment_checks(reqs: Sequence[Requirement], probe: EnvProbe, need_disk_bytes: int,
                        need_ram_bytes: int) -> list[Check]: ...
 ```
-`src/giap/preflight/report.py`
+`src/gippa/preflight/report.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class PreflightReport:
-    giap_version: str; inputs: list[InputRef]          # role, file name (no directory), sha256, size
+    gippa_version: str; inputs: list[InputRef]          # role, file name (no directory), sha256, size
     checks: list[Check]; routing: Mapping[str, JsonValue]; evidence_tier: str
     replicons: list[Replicon]; contig_map: list[tuple[str, str]]
     @property
@@ -44,8 +44,8 @@ def to_json_dict(r: PreflightReport) -> dict[str, JsonValue]: ...
 def write_preflight_json(path: Path, r: PreflightReport) -> None: ...    # sorted keys, indent 2, "\n"
 def render_preflight_md(r: PreflightReport) -> str: ...
 ```
-`src/giap/schemas/preflight.schema.json` (Draft 2020-12), required top-level keys:
-`schema_version`, `giap_version`, `inputs`, `checks`, `summary` (`n_error`, `n_warn`, `n_info`,
+`src/gippa/schemas/preflight.schema.json` (Draft 2020-12), required top-level keys:
+`schema_version`, `gippa_version`, `inputs`, `checks`, `summary` (`n_error`, `n_warn`, `n_info`,
 `n_ok`), `evidence_tier` (enum of the four tiers), `routing`, `replicons` (`id`, `length`,
 `topology`, `kind`), `contig_map`. Each check: `rule_id` (pattern `^[a-z]+\.[a-z_]+$`), `input`
 (enum), `level` (enum `ok|info|warn|error`), `rule`, `value`, `message`, `exit_code` (0 or 2).
@@ -82,10 +82,10 @@ def render_preflight_md(r: PreflightReport) -> str: ...
 
 ## Questions for the lead
 
-1. `giap preflight` has no `--db-dir` (§5.1). Where does it find DB versions? **Proposed default:**
-   no new option or config key; the probe reads `$GIAP_DB_DIR/db_manifest.json` (env var from
-   `farmshare_env.sh`) and `.giap/capabilities.json`. Until M2 writes the DB manifest, a missing
-   manifest is an environment **error only under `giap run`** and **info** under `giap preflight`.
+1. `gippa preflight` has no `--db-dir` (§5.1). Where does it find DB versions? **Proposed default:**
+   no new option or config key; the probe reads `$GIPPA_DB_DIR/db_manifest.json` (env var from
+   `farmshare_env.sh`) and `.gippa/capabilities.json`. Until M2 writes the DB manifest, a missing
+   manifest is an environment **error only under `gippa run`** and **info** under `gippa preflight`.
 2. RAM/disk needs per module are only given for genome-wide Promotech (24 GB). **Decision (Khoa
    rejected new thresholds, ADR-0005 item 4):** preflight warns only when `promoters: genome` and RAM
    < 24 GB; free RAM and free disk are otherwise recorded as Info values and never warn.

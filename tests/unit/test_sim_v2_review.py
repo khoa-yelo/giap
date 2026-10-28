@@ -1,4 +1,4 @@
-"""giapsim v2: lead decisions after code review of PR #38 (docs/specs/M2-05-simulator-v2.md, end).
+"""gippasim v2: lead decisions after code review of PR #38 (docs/specs/M2-05-simulator-v2.md, end).
 
 Decision 1: no gene, on either strand, has a second ``AGGAGG`` core with a 5-10 nt spacer before
 its start codon besides its true RBS (read here from the genome in the gene's reading orientation).
@@ -9,7 +9,7 @@ numbered per type by contig order then start; official tool casing (``Terminator
 interval (false positives included) lists the genes it holds by M2-19's rule (>= 50 % of the CDS).
 Decision 4: one test per surviving mutant, each checked against the genome sequence.
 
-Conventions pinned here (implementer's docstrings in ``giapsim/signals.py``): a terminator is a
+Conventions pinned here (implementer's docstrings in ``gippasim/signals.py``): a terminator is a
 7-bp G/C stem, a 4-nt loop, the reverse-complement stem and an 8-nt U-tract (26 nt) starting
 5-15 nt after the TU's last stop codon; ``truth/tus.tsv`` ``start``/``end`` span the TU's genes
 (first start codon to last stop codon); the ``-10`` box ``TATAAT`` ends 3-9 nt before the TSS and
@@ -26,9 +26,9 @@ from typing import Any
 
 import pytest
 
-import giapsim
-from giap.annotate.bakta import parse_bakta_json
-from giapsim import simulate
+import gippasim
+from gippa.annotate.bakta import parse_bakta_json
+from gippasim import simulate
 
 N_SEEDS = 40
 RBS = "AGGAGG"
@@ -98,7 +98,7 @@ def full_cfg(seed: int) -> Any:
     """SIM100K at full signal strength; odd seeds add an origin-crossing gene, half the seeds a
     high false-positive rate (more false regions for the membership test)."""
     return dataclasses.replace(
-        giapsim.SIM100K,
+        gippasim.SIM100K,
         rbs_strength=1.0,
         promoter_strength=1.0,
         terminator_strength=1.0,
@@ -114,7 +114,7 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> list[Out]:
     for seed in range(1, N_SEEDS + 1):
         simulate(full_cfg(seed), seed, root / f"s{seed}")
         out.append(Out(root / f"s{seed}"))
-    simulate(giapsim.SIM100K, giapsim.SIM100K_SEED, root / "sim100k")
+    simulate(gippasim.SIM100K, gippasim.SIM100K_SEED, root / "sim100k")
     out.append(Out(root / "sim100k"))
     return out
 

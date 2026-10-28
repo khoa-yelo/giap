@@ -1,4 +1,4 @@
-"""giapsim on the real K-12 genome, part 1 (docs/specs/MVP-04-ecoli-evidence-run.md).
+"""gippasim on the real K-12 genome, part 1 (docs/specs/MVP-04-ecoli-evidence-run.md).
 
 Covers everything that does not depend on ``decoys = "scored_null"`` (that mode, examples 2-4 and
 rule 6, comes in part 2): the input hash check (rule 1, example 1, D1), reading the committed
@@ -11,12 +11,12 @@ All runs use a test-time 200-kb excerpt of the committed FASTA and recorded JSON
 written to pytest temporary directories only. The RegulonDB tables are hand-made,
 RegulonDB-*shaped* fixtures over real Bakta loci (no RegulonDB bytes, R11).
 
-Assumed interface (spec "Interface", names the implementer may refine within giapsim):
+Assumed interface (spec "Interface", names the implementer may refine within gippasim):
 
-* ``giapsim.real_genome.simulate_on_genome(cfg, seed, outdir, *, genome_fasta, bakta_json,
+* ``gippasim.real_genome.simulate_on_genome(cfg, seed, outdir, *, genome_fasta, bakta_json,
   tu_set, check_hashes=True)``; ``check_hashes=False`` lets an excerpt through rule 1.
-* ``giapsim.real_genome.verify_inputs(genome_fasta, bakta_json)`` raises a ``ValueError`` whose
-  text contains ``input_hash_mismatch:<file name>``; ``python -m giapsim.real_genome --genome G
+* ``gippasim.real_genome.verify_inputs(genome_fasta, bakta_json)`` raises a ``ValueError`` whose
+  text contains ``input_hash_mismatch:<file name>``; ``python -m gippasim.real_genome --genome G
   --annotation J --seed S --outdir D`` exits non-zero with that text on stderr.
 * ``GeneProductSet.txt`` (gene coordinates) is read from the directory of ``tu_set``.
 * ``truth/genes.tsv`` ``tu_id`` values are the layout's ``TU_<n>`` ids, so ``truth/islands.tsv``
@@ -44,7 +44,7 @@ import pytest
 import yaml
 from helpers import mvp04_data as M
 
-from giapsim.expression import IslandSpec
+from gippasim.expression import IslandSpec
 
 SEED = 20261023
 N_NOVEL = 20
@@ -53,11 +53,11 @@ ISLANDS = ((2, 3.0), (18, -3.0), (34, 3.0), (50, -3.0), (66, 3.0), (82, -3.0))
 
 
 def rg() -> ModuleType:
-    return importlib.import_module("giapsim.real_genome")
+    return importlib.import_module("gippasim.real_genome")
 
 
 def scenario() -> Any:
-    return importlib.import_module("giapsim.scenarios").k12_evidence()
+    return importlib.import_module("gippasim.scenarios").k12_evidence()
 
 
 def excerpt_cfg(
@@ -109,7 +109,7 @@ def sample_seq(out: Path) -> str:
 
 
 def test_k12_evidence_scenario_pins_the_spec_choices() -> None:
-    sc = importlib.import_module("giapsim.scenarios")
+    sc = importlib.import_module("gippasim.scenarios")
     cfg = sc.k12_evidence()
     assert isinstance(cfg, rg().RealGenomeConfig)
     assert isinstance(sc.K12_EVIDENCE_SEED, int)
@@ -132,7 +132,7 @@ def test_k12_evidence_scenario_pins_the_spec_choices() -> None:
 def test_tuned_intercept_changes_b0_only_and_leaves_the_default_alone() -> None:
     """Rule 7: only b0 is tuned (the default -2.0 saturates, example 8); the other detect_logit
     terms and every existing default stay as they are (no pin changes)."""
-    from giapsim.proteomics import ProteomicsConfig
+    from gippasim.proteomics import ProteomicsConfig
 
     b0, b1, b2 = scenario().proteomics.detect_logit
     assert (b1, b2) == (0.08, 0.9)
@@ -142,7 +142,7 @@ def test_tuned_intercept_changes_b0_only_and_leaves_the_default_alone() -> None:
 
 def test_b0_and_share_are_documented() -> None:
     """Rule 7: b0 (and the measured share) are recorded in the scenario docstring."""
-    sc = importlib.import_module("giapsim.scenarios")
+    sc = importlib.import_module("gippasim.scenarios")
     b0 = sc.k12_evidence().proteomics.detect_logit[0]
     doc = (sc.k12_evidence.__doc__ or "") + (sc.__doc__ or "")
     assert f"{b0:g}" in doc or str(b0) in doc
@@ -192,7 +192,7 @@ def test_one_changed_base_is_an_input_hash_mismatch(tmp_path: Path) -> None:
 
 def test_lost_topology_tag_fails_the_hash_check_first(tmp_path: Path) -> None:
     """D1: the file hash covers the header, so a FASTA without ``[topology=circular]`` (same
-    sequence) is refused before giap could read the replicon as linear."""
+    sequence) is refused before gippa could read the replicon as linear."""
     head, _ = M.k12_text()
     assert head.endswith("[topology=circular]")
     fasta = _k12_copy(tmp_path, header=head.replace(" [topology=circular]", ""))
@@ -216,7 +216,7 @@ def test_input_step_cli_exits_non_zero_on_a_mismatch(tmp_path: Path) -> None:
         [str(M.REPO / "tests" / "sim"), str(M.REPO / "src"), env.get("PYTHONPATH", "")]
     )
     proc = subprocess.run(
-        [sys.executable, "-m", "giapsim.real_genome", "--genome", str(fasta), "--annotation",
+        [sys.executable, "-m", "gippasim.real_genome", "--genome", str(fasta), "--annotation",
          str(M.K12_JSON), "--seed", str(SEED), "--outdir", str(out)],
         capture_output=True, text=True, env=env, timeout=600, check=False,
     )  # fmt: skip
@@ -237,7 +237,7 @@ def test_outputs_are_written(base: tuple[Path, list[Any], str]) -> None:
     expected.append("truth/sample_genome.fna")
     for rel in expected:
         assert (out / rel).is_file(), rel
-    assert not (out / "sample_genome.fna").exists()  # never next to the giap inputs
+    assert not (out / "sample_genome.fna").exists()  # never next to the gippa inputs
 
 
 def test_config_yaml_holds_only_seed_and_sample_name(base: tuple[Path, list[Any], str]) -> None:
@@ -401,7 +401,7 @@ def test_regulondb_tus_match_by_strand_and_stop(ex: M.Excerpt, tmp_path: Path) -
 def test_abundance_is_centred_on_log_abundance_mean(
     ex: M.Excerpt, base: tuple[Path, list[Any], str]
 ) -> None:
-    from giapsim.proteomics import LOG_ABUNDANCE
+    from gippasim.proteomics import LOG_ABUNDANCE
 
     ab = M.abundance_of(base[0])
     vals = [ab[g.locus] for g in ex.genes if g.locus in ab]

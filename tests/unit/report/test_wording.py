@@ -1,6 +1,6 @@
-"""M9-16 behaviour 7, example 5 and the wording acceptance item: ``giap.report.checks.wording``
+"""M9-16 behaviour 7, example 5 and the wording acceptance item: ``gippa.report.checks.wording``
 finds "express" (any case, at a word start) outside quoted citations; every template, snippet,
-report and plot string passes it (docs/specs/M9-16-report-content.md; GIAP_SPEC.md §1 rule 6,
+report and plot string passes it (docs/specs/M9-16-report-content.md; GIPPA_SPEC.md §1 rule 6,
 §10.3 "Wording"; M9-index decision 25).
 
 Interface pinned here (M9-16 test author, beyond the spec text):
@@ -11,7 +11,7 @@ Interface pinned here (M9-16 test author, beyond the spec text):
   citations) is skipped;
 - the snapshot fixture (M9-25) does not exist yet, so the rendered-report scan uses a rich
   synthetic ``OUT/`` tree, and the plot-title scan reads every string literal (docstrings
-  excepted) of ``src/giap/viz`` and ``src/giap/report`` (``checks.py``, which holds the pattern,
+  excepted) of ``src/gippa/viz`` and ``src/gippa/report`` (``checks.py``, which holds the pattern,
   excepted).
 """
 
@@ -40,11 +40,11 @@ from helpers.report_content import (
 from helpers.report_fixtures import run_out
 
 ROOT = Path(__file__).resolve().parents[3]
-REPORT = ROOT / "src" / "giap" / "report"
+REPORT = ROOT / "src" / "gippa" / "report"
 
 
 def _wording(text: str) -> list[str]:
-    from giap.report.checks import wording
+    from gippa.report.checks import wording
 
     return wording(text)
 
@@ -146,7 +146,7 @@ def _literals(path: Path) -> list[str]:
 #: ``checks.py`` holds the pattern itself and is left out
 # checklist.py (M9-24) states the "express" rule itself, as report/checks.py does
 _PY = sorted(
-    p for p in (ROOT / "src" / "giap" / "viz").rglob("*.py") if p.name != "checklist.py"
+    p for p in (ROOT / "src" / "gippa" / "viz").rglob("*.py") if p.name != "checklist.py"
 ) + sorted(p for p in REPORT.rglob("*.py") if p.name != "checks.py")
 
 

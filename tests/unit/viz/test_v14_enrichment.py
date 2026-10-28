@@ -1,4 +1,4 @@
-"""V14 ``enrichment``: which functions are high or low? (M9-19; GIAP_SPEC.md §10.2 V14, §7.7.3-
+"""V14 ``enrichment``: which functions are high or low? (M9-19; GIPPA_SPEC.md §10.2 V14, §7.7.3-
 §7.7.5, ADR-0025/0026/0027/0029/0035, §9.3 ``enrichment_gsea.tsv`` / ``enrichment_detection.tsv``;
 M9-17 ``plots/support/gsea_running``; lead decisions 1-3 of 2026-10-23).
 
@@ -10,7 +10,7 @@ degenerate cases, examples 1-5, the §14.4 checklist, determinism, registration 
 
 Interface assumed where the spec leaves it open (M9-19 test author):
 
-- Importing every ``giap.viz`` module (``giap.steps.plots.load_plot_modules``) registers ``V14``
+- Importing every ``gippa.viz`` module (``gippa.steps.plots.load_plot_modules``) registers ``V14``
   (name ``enrichment``, ``module="function"``, ``layers=()``: the no-resources case is an empty
   state, not a skip); ``enrichment_gsea`` and ``enrichment_detection`` are among its ``needs`` /
   ``optional``; with both tables absent it skips ``input_absent:...``. One ``Instance``,
@@ -63,11 +63,11 @@ from matplotlib.collections import LineCollection, PathCollection, PolyCollectio
 from matplotlib.container import ErrorbarContainer
 from matplotlib.patches import Rectangle
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 # review round (decision 5 N8): the TSV gains ``redundant``, appended last
 COLUMNS = [
@@ -78,7 +78,7 @@ OVER, UNDER = "#0072B2", "#D55E00"
 XLABEL_C = "observed / expected detected TUs"
 FOOT_GSEA = "GSEA is conditional on detection, with no p_detect adjustment"
 FOOT_COVERAGE = "coverage = share of eligible genes with ≥ 1 term"
-NO_RESOURCES = "No annotation resources installed (giap setup --go --kegg --cog)"
+NO_RESOURCES = "No annotation resources installed (gippa setup --go --kegg --cog)"
 EX3_TITLE = (
     "3 sets enriched by abundance at q ≤ 0.05 (conditional on detection); "
     "2 categories detected more or less than expected"
@@ -94,7 +94,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -102,7 +102,7 @@ def cfg() -> GiapConfig:
 
 
 def _v14() -> base.PlotSpec:
-    from giap.steps.plots import load_plot_modules
+    from gippa.steps.plots import load_plot_modules
 
     load_plot_modules()
     reg = base.registered()
@@ -110,11 +110,11 @@ def _v14() -> base.PlotSpec:
     return reg["V14"]
 
 
-def _result(out: Path, cfg: GiapConfig) -> list[Instance] | Skip:
+def _result(out: Path, cfg: GippaConfig) -> list[Instance] | Skip:
     return _v14().fn(RunView.from_outdir(out), cfg)
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _result(out, cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -123,7 +123,7 @@ def _render(out: Path, cfg: GiapConfig) -> Instance:
     return inst
 
 
-def _main(tmp: Path, cfg: GiapConfig, **kw: object) -> Instance:
+def _main(tmp: Path, cfg: GippaConfig, **kw: object) -> Instance:
     return _render(ve.main_out(tmp, **kw), cfg)
 
 
@@ -275,12 +275,12 @@ def test_v14_is_registered_as_enrichment() -> None:
     assert {"enrichment_gsea", "enrichment_detection"} <= declared
 
 
-def test_function_module_off_is_skipped(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_function_module_off_is_skipped(tmp_path: Path, cfg: GippaConfig) -> None:
     out = ve.main_out(tmp_path, modules=["core"])
     assert _result(out, cfg) == Skip("module_off:function")
 
 
-def test_no_enrichment_tables_is_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_enrichment_tables_is_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     result = _result(ve.build_out(tmp_path, None, None), cfg)
     assert isinstance(result, Skip)
     assert result.reason.startswith("input_absent:enrichment_")
@@ -293,7 +293,7 @@ def test_plotly_twin_is_registered() -> None:
 # --- data TSV ---------------------------------------------------------------------------------
 
 
-def test_columns_and_instance(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_columns_and_instance(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -301,7 +301,7 @@ def test_columns_and_instance(tmp_path: Path, cfg: GiapConfig) -> None:
     assert set(inst.data["panel"].astype(str)) == {"a", "b", "c"}
 
 
-def test_panel_a_rows_copy_the_support(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_rows_copy_the_support(tmp_path: Path, cfg: GippaConfig) -> None:
     a = _rows(_main(tmp_path, cfg), "a")
     assert len(a) == 6 * ve.N_TUS
     for s in _sets():
@@ -314,7 +314,7 @@ def test_panel_a_rows_copy_the_support(tmp_path: Path, cfg: GiapConfig) -> None:
         assert [_bool(v) for v in rows["in_set"]] == [i in members for i in range(1, ve.N_TUS + 1)]
 
 
-def test_panel_b_rows_are_every_finite_gsea_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_rows_are_every_finite_gsea_row(tmp_path: Path, cfg: GippaConfig) -> None:
     b = _rows(_main(tmp_path, cfg), "b")
     finite = [r for r in ve.main_gsea() if not _isna(r["nes"]) and not _isna(r["q_value"])]
     assert len(finite) == 8
@@ -327,7 +327,7 @@ def test_panel_b_rows_are_every_finite_gsea_row(tmp_path: Path, cfg: GiapConfig)
     assert "genomic_cluster" in str(by.loc["GO:0006412", "flags"])
 
 
-def test_example_1_o_over_e(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_1_o_over_e(tmp_path: Path, cfg: GippaConfig) -> None:
     """ORA row stat 12, effect 4: O/E = 12 / 8 = 1.5."""
     c = _rows(_main(tmp_path, cfg), "c")
     j = c[(c["collection"] == "cog") & (c["term"] == "J")]
@@ -337,7 +337,7 @@ def test_example_1_o_over_e(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _num(j.iloc[0]["coverage"]) == pytest.approx(0.75)
 
 
-def test_panel_c_rows_are_the_significant_ones(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_rows_are_the_significant_ones(tmp_path: Path, cfg: GippaConfig) -> None:
     c = _rows(_main(tmp_path, cfg), "c")
     keys = sorted(zip(c["collection"], c["term"], c["direction"], strict=True))
     assert keys == [("cog", "J", "over"), ("kegg", "ko00010", "under")]
@@ -347,7 +347,7 @@ def test_panel_c_rows_are_the_significant_ones(tmp_path: Path, cfg: GiapConfig) 
 
 
 def test_data_sorted_by_panel_collection_term_direction_rank(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     d = _main(tmp_path, cfg).data
     order = {c: i for i, c in enumerate(ve.COLLECTIONS)}
@@ -366,7 +366,7 @@ def test_data_sorted_by_panel_collection_term_direction_rank(
 # --- panel (a) --------------------------------------------------------------------------------
 
 
-def test_panel_a_six_small_multiples_in_support_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_six_small_multiples_in_support_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     axes = _axes(inst, "a")
     assert len(axes) == 6
@@ -376,7 +376,7 @@ def test_panel_a_six_small_multiples_in_support_order(tmp_path: Path, cfg: GiapC
             assert part in title, (part, title)
 
 
-def test_panel_a_running_sum_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_running_sum_line(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     for ax, s in zip(_axes(inst, "a"), _sets(), strict=True):
         want = [ve.g6(v) for v in s["running"]]  # type: ignore[attr-defined]
@@ -394,7 +394,7 @@ def test_panel_a_running_sum_line(tmp_path: Path, cfg: GiapConfig) -> None:
         assert found, f"no running-sum line for {s['term']}"
 
 
-def test_panel_a_leading_edge_shaded_up_to_the_peak(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_a_leading_edge_shaded_up_to_the_peak(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     negative = 0
     for ax, s in zip(_axes(inst, "a"), _sets(), strict=True):
@@ -415,7 +415,7 @@ def test_panel_a_leading_edge_shaded_up_to_the_peak(tmp_path: Path, cfg: GiapCon
 @pytest.mark.parametrize(("term", "flag"), [("GO:0006412", "genomic_cluster"),
                                             ("GO:0005840", "detection_confounded")])  # fmt: skip
 def test_example_2_flagged_set_banner_and_dashed_outline(
-    tmp_path: Path, cfg: GiapConfig, term: str, flag: str
+    tmp_path: Path, cfg: GippaConfig, term: str, flag: str
 ) -> None:
     inst = _main(tmp_path, cfg)
     axes = dict(zip((str(s["term"]) for s in _sets()), _axes(inst, "a"), strict=True))
@@ -426,7 +426,7 @@ def test_example_2_flagged_set_banner_and_dashed_outline(
     assert not any(s.get_visible() and _dashed(s) for s in plain.spines.values())
 
 
-def test_fewer_than_six_support_sets(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_fewer_than_six_support_sets(tmp_path: Path, cfg: GippaConfig) -> None:
     sets = _sets()[:2]
     out = ve.build_out(tmp_path, ve.main_gsea(), ve.main_ora(), ve.running_rows(sets))
     inst = _render(out, cfg)
@@ -436,7 +436,7 @@ def test_fewer_than_six_support_sets(tmp_path: Path, cfg: GiapConfig) -> None:
     assert len(_rows(inst, "a")) == 2 * ve.N_TUS
 
 
-def test_plain_tsv_support_file_is_read(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_plain_tsv_support_file_is_read(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg, gz=False)
     assert len(_rows(inst, "a")) == 6 * ve.N_TUS
 
@@ -452,17 +452,17 @@ def _one_set_out(tmp: Path, peak: float, es: float) -> Path:
     return ve.build_out(tmp, gsea, ve.main_ora(), rows)
 
 
-def test_example_4_support_peak_equal_to_es_is_accepted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_4_support_peak_equal_to_es_is_accepted(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_one_set_out(tmp_path, 0.62, 0.62), cfg)
     assert len(_rows(inst, "a")) == 4
 
 
-def test_example_5_support_peak_differs_from_es_raises(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_5_support_peak_differs_from_es_raises(tmp_path: Path, cfg: GippaConfig) -> None:
     with pytest.raises(ValueError):
         _result(_one_set_out(tmp_path, 0.60, 0.62), cfg)
 
 
-def test_mismatch_on_a_negative_set_raises(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_mismatch_on_a_negative_set_raises(tmp_path: Path, cfg: GippaConfig) -> None:
     gsea = ve.main_gsea()
     j = next(r for r in gsea if r["term"] == "J")
     j["es"] = float(j["es"]) - 0.05  # type: ignore[arg-type]
@@ -478,14 +478,14 @@ def _b_point(r: dict[str, object]) -> tuple[float, float]:
     return float(r["nes"]), -math.log10(float(r["q_value"]))  # type: ignore[arg-type]
 
 
-def test_panel_b_one_marker_per_finite_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_one_marker_per_finite_row(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "b")
     finite = [r for r in ve.main_gsea() if not _isna(r["nes"]) and not _isna(r["q_value"])]
     pts = sorted((round(m.x, 6), round(m.y, 6)) for m in markers(ax))
     assert pts == sorted((round(x, 6), round(y, 6)) for x, y in map(_b_point, finite))
 
 
-def test_panel_b_colours_by_collection_fixed_and_distinct(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_colours_by_collection_fixed_and_distinct(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path / "all", cfg), "b")
     colour: dict[str, str] = {}
     for r in ve.main_gsea():
@@ -505,7 +505,7 @@ def test_panel_b_colours_by_collection_fixed_and_distinct(tmp_path: Path, cfg: G
     assert _hex(m) == {colour["go_slim"]}
 
 
-def test_panel_b_flagged_rows_hollow(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_flagged_rows_hollow(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "b")
     for r in ve.main_gsea():
         if _isna(r["nes"]):
@@ -515,7 +515,7 @@ def test_panel_b_flagged_rows_hollow(tmp_path: Path, cfg: GiapConfig) -> None:
         assert m.hollow == flagged, r["term"]
 
 
-def test_panel_b_redundant_small_and_grey(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_redundant_small_and_grey(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "b")
     red = next(r for r in ve.main_gsea() if r["redundant"])
     x, y = _b_point(red)
@@ -527,7 +527,7 @@ def test_panel_b_redundant_small_and_grey(tmp_path: Path, cfg: GiapConfig) -> No
                                    == mcolors.to_hex(c)[5:7] for c in rs[3].colours())  # fmt: skip
 
 
-def test_panel_b_alpha_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_alpha_line(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "b")
     want = -math.log10(0.05)
     lines = [ln for ln in ax.lines if ln.get_transform() == ax.get_yaxis_transform()]
@@ -540,12 +540,14 @@ def test_panel_b_alpha_line_follows_the_config(tmp_path: Path) -> None:
     assert ("h", pytest.approx(1.0)) in _ref_lines(ax)
 
 
-def test_panel_b_no_error_bars(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_no_error_bars(tmp_path: Path, cfg: GippaConfig) -> None:
     """ADR-0027: NES has no CI."""
     _no_error_bars(_one(_main(tmp_path, cfg), "b"))
 
 
-def test_panel_b_labels_ten_most_significant_non_redundant(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_b_labels_ten_most_significant_non_redundant(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     rows = [ve.gsea_row("kegg", f"ko9{i:04d}", name=f"pathway number {i:02d}", nes=1.0 + i / 10,
                         q=0.001 * (i + 1)) for i in range(14)]  # fmt: skip
     rows[0]["redundant"] = True  # the most significant row is redundant: never labelled
@@ -560,7 +562,7 @@ def test_panel_b_labels_ten_most_significant_non_redundant(tmp_path: Path, cfg: 
     assert not any(labelled(i) for i in range(11, 14)), labels
 
 
-def test_q_zero_is_capped_and_noted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_q_zero_is_capped_and_noted(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [
         ve.gsea_row("kegg", "ko00010", nes=2.0, p=0.0, q=0.0),
         ve.gsea_row("cog", "J", nes=1.0, p=0.001, q=0.004),
@@ -578,7 +580,7 @@ def test_q_zero_is_capped_and_noted(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (c) --------------------------------------------------------------------------------
 
 
-def test_panel_c_points_on_a_log2_axis(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_points_on_a_log2_axis(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "c")
     assert ax.get_xscale() == "log"
     assert ax.xaxis.get_transform().base == 2  # type: ignore[attr-defined]
@@ -586,7 +588,7 @@ def test_panel_c_points_on_a_log2_axis(tmp_path: Path, cfg: GiapConfig) -> None:
     assert ax.get_xlabel() == XLABEL_C
 
 
-def test_panel_c_coloured_by_direction(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_coloured_by_direction(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _one(_main(tmp_path, cfg), "c")
     by_x = {round(m.x, 9): m for m in markers(ax)}
     assert OVER in by_x[1.5].colours()
@@ -594,7 +596,7 @@ def test_panel_c_coloured_by_direction(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def test_decision_2_ora_points_without_bars_labelled_ci_unestimated(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _main(tmp_path, cfg)
     for ax in _c_axes(inst):
@@ -602,7 +604,7 @@ def test_decision_2_ora_points_without_bars_labelled_ci_unestimated(
     assert "CI unestimated" in _all_text(inst)
 
 
-def test_panel_c_coverage_printed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_coverage_printed(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = ve.main_ora()
     ora[0]["coverage"], ora[1]["coverage"] = 0.62, 0.31
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
@@ -611,7 +613,7 @@ def test_panel_c_coverage_printed(tmp_path: Path, cfg: GiapConfig) -> None:
         assert f"{cov:.2f}" in found or f"{round(cov * 100)} %" in found, found
 
 
-def test_only_under_rows_significant(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_only_under_rows_significant(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [
         ve.ora_row("cog", "C", "under", 3, -3, 0.01),
         ve.ora_row("cog", "E", "under", 1, -4, 0.02),
@@ -631,7 +633,7 @@ def _ora_none_significant(n: int = 25) -> list[dict[str, object]]:
 
 
 def test_decision_1_nothing_significant_shows_the_20_smallest_q(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     ora = _ora_none_significant()
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
@@ -641,7 +643,7 @@ def test_decision_1_nothing_significant_shows_the_20_smallest_q(
     assert len(markers(_one(inst, "c"))) == 20
 
 
-def test_decision_1_alpha_line_in_panel_c(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_decision_1_alpha_line_in_panel_c(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = _ora_none_significant()
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
     refs = [v for ax in _c_axes(inst) for _, v in _ref_lines(ax)]
@@ -651,13 +653,13 @@ def test_decision_1_alpha_line_in_panel_c(tmp_path: Path, cfg: GiapConfig) -> No
 # --- footnote and title -----------------------------------------------------------------------
 
 
-def test_footnotes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_footnotes(tmp_path: Path, cfg: GippaConfig) -> None:
     text = _all_text(_main(tmp_path, cfg))
     assert FOOT_GSEA in text
     assert FOOT_COVERAGE in text
 
 
-def test_example_3_title(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example_3_title(tmp_path: Path, cfg: GippaConfig) -> None:
     """3 non-redundant GSEA rows and 1 redundant at q <= 0.05; 2 ORA rows."""
     assert _main(tmp_path, cfg).title == EX3_TITLE
 
@@ -670,7 +672,7 @@ def test_title_follows_alpha(tmp_path: Path) -> None:
     )
 
 
-def test_title_when_nothing_passes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_when_nothing_passes(tmp_path: Path, cfg: GippaConfig) -> None:
     gsea = [ve.gsea_row("kegg", "ko00020", nes=0.9, q=0.5)]
     inst = _render(ve.build_out(tmp_path, gsea, _ora_none_significant()), cfg)
     assert inst.title == "No set or category passes q ≤ 0.05"
@@ -680,8 +682,8 @@ def test_title_when_nothing_passes(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- degenerate cases -------------------------------------------------------------------------
 
 
-def test_no_resources_is_an_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.viz import checklist
+def test_no_resources_is_an_empty_state(tmp_path: Path, cfg: GippaConfig) -> None:
+    from gippa.viz import checklist
 
     flags = ["layer_missing:go", "layer_missing:kegg", "layer_missing:cog"]
     inst = _render(ve.build_out(tmp_path, [], [], flags=flags), cfg)
@@ -691,7 +693,7 @@ def test_no_resources_is_an_empty_state(tmp_path: Path, cfg: GiapConfig) -> None
     assert checklist.is_empty_state(inst)
 
 
-def test_no_abundance_panels_a_b_note_and_c_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_abundance_panels_a_b_note_and_c_drawn(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(ve.build_out(tmp_path, [], ve.main_ora()), cfg)
     assert "no abundance input" in _all_text(inst)
     assert sorted(round(m.x, 9) for m in markers(_one(inst, "c"))) == [0.25, 1.5]
@@ -699,7 +701,7 @@ def test_no_abundance_panels_a_b_note_and_c_drawn(tmp_path: Path, cfg: GiapConfi
     assert "2 categories detected more or less than expected" in inst.title
 
 
-def test_support_absent_panel_a_note(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_support_absent_panel_a_note(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ve.main_ora()), cfg)
     assert "running scores not available" in _all_text(inst)
     assert len(markers(_one(inst, "b"))) == 8
@@ -708,13 +710,13 @@ def test_support_absent_panel_a_note(tmp_path: Path, cfg: GiapConfig) -> None:
     assert inst.title == EX3_TITLE
 
 
-def test_header_only_detection_with_gsea(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_header_only_detection_with_gsea(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), [], ve.running_rows(_sets())), cfg)
     assert len(markers(_one(inst, "b"))) == 8
     assert "c" not in set(inst.data["panel"].astype(str))
 
 
-def test_double_width(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_double_width(tmp_path: Path, cfg: GippaConfig) -> None:
     assert _main(tmp_path, cfg).figure.get_figwidth() == pytest.approx(style.DOUBLE_IN)
 
 
@@ -722,7 +724,7 @@ def test_double_width(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 def _check(inst: Instance, tmp: Path) -> list[str]:
-    from giap.viz import checklist
+    from gippa.viz import checklist
 
     files = write_instance(inst, "V14", "enrichment", tmp, ["svg", "png"], 100)
     return [f"{r.item}: {r.detail}" for r in checklist.check_instance(inst, "V14", files)
@@ -731,7 +733,7 @@ def _check(inst: Instance, tmp: Path) -> list[str]:
 
 @pytest.mark.parametrize("case", ["main", "nothing_significant", "no_abundance", "no_support",
                                   "no_resources"])  # fmt: skip
-def test_checklist_gated_items_pass(tmp_path: Path, cfg: GiapConfig, case: str) -> None:
+def test_checklist_gated_items_pass(tmp_path: Path, cfg: GippaConfig, case: str) -> None:
     run = tmp_path / "run"
     if case == "main":
         out = ve.main_out(run)
@@ -751,7 +753,7 @@ def test_checklist_gated_items_pass(tmp_path: Path, cfg: GiapConfig, case: str) 
 # --- determinism ------------------------------------------------------------------------------
 
 
-def test_two_renders_write_identical_files(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_two_renders_write_identical_files(tmp_path: Path, cfg: GippaConfig) -> None:
     out = ve.main_out(tmp_path / "run")
     blobs = []
     for name in ("x", "y"):
@@ -763,7 +765,7 @@ def test_two_renders_write_identical_files(tmp_path: Path, cfg: GiapConfig) -> N
     assert tsv[0] == "\t".join(COLUMNS)
 
 
-def test_input_row_order_does_not_change_the_data(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_input_row_order_does_not_change_the_data(tmp_path: Path, cfg: GippaConfig) -> None:
     a = _main(tmp_path / "a", cfg)
     gsea, ora = ve.main_gsea(), ve.main_ora()
     rng = random.Random(7)
@@ -777,7 +779,7 @@ def test_input_row_order_does_not_change_the_data(tmp_path: Path, cfg: GiapConfi
 # --- the Plotly twin --------------------------------------------------------------------------
 
 
-def test_twin_builds_from_the_data_tsv(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_twin_builds_from_the_data_tsv(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     frame = tw.instance_frame(inst.data)
     s = tw.spec("V14", frame, inst.title)
@@ -789,7 +791,7 @@ def test_twin_builds_from_the_data_tsv(tmp_path: Path, cfg: GiapConfig) -> None:
     assert tw.figure_text("V14", frame, inst.title) == tw.figure_text("V14", frame, inst.title)
 
 
-def test_twin_header_only_is_none(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_twin_header_only_is_none(tmp_path: Path, cfg: GippaConfig) -> None:
     flags = ["layer_missing:go", "layer_missing:kegg", "layer_missing:cog"]
     inst = _render(ve.build_out(tmp_path, [], [], flags=flags), cfg)
     assert tw.figure_text("V14", tw.instance_frame(inst.data), inst.title) is None
@@ -804,8 +806,8 @@ def test_plots_step_renders_v14_with_the_support_file(
     from helpers.report_fixtures import cfg as small_cfg
     from helpers.report_fixtures import write_preflight
 
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     _v14()
@@ -818,7 +820,7 @@ def test_plots_step_renders_v14_with_the_support_file(
         "plots_support": out / "plots" / "support",
     }
     plots = tmp_path / "work" / "plots"
-    caplog.set_level(logging.INFO, logger="giap.steps")
+    caplog.set_level(logging.INFO, logger="gippa.steps")
     reg.run_step("plots", small_cfg(), inputs, {"plots": plots})
     assert (plots / "V14_enrichment.svg").is_file()
     data = pd.read_csv(plots / "data" / "V14_enrichment.tsv", sep="\t", dtype=str,
@@ -908,14 +910,14 @@ def _long_names_out(tmp: Path) -> Path:
     return ve.build_out(tmp, gsea, ora)
 
 
-def test_b1_checklist_long_names_no_overlapping_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_checklist_long_names_no_overlapping_labels(tmp_path: Path, cfg: GippaConfig) -> None:
     """B1: (c)'s left edge follows the measured width of (b)'s label column."""
     fails = _check(_render(_long_names_out(tmp_path / "run"), cfg), tmp_path / "plots")
     assert not [f for f in fails if f.startswith("no overlapping labels")], fails
     assert fails == []
 
 
-def test_b1_panel_b_labels_left_of_panel_c(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_panel_b_labels_left_of_panel_c(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_long_names_out(tmp_path), cfg)
     renderer = _renderer(inst)
     right = max(t.get_window_extent(renderer).x1 for t in _one(inst, "b").texts if t.get_text())
@@ -929,19 +931,19 @@ def test_b1_panel_b_labels_left_of_panel_c(tmp_path: Path, cfg: GiapConfig) -> N
 # --- the surviving mutants
 
 
-def test_es_one_g6_step_apart_is_accepted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_es_one_g6_step_apart_is_accepted(tmp_path: Path, cfg: GippaConfig) -> None:
     """``_REL``: support 0.623456 vs table 0.623457 (one %.6g step, ~1.6e-6 relative) passes."""
     inst = _render(_one_set_out(tmp_path, 0.623456, 0.623457), cfg)
     assert len(_rows(inst, "a")) == 4
 
 
-def test_es_1e4_relative_apart_raises(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_es_1e4_relative_apart_raises(tmp_path: Path, cfg: GippaConfig) -> None:
     """``_REL``: 0.620062 vs 0.62 (1e-4 relative) is a mismatch."""
     with pytest.raises(ValueError):
         _result(_one_set_out(tmp_path, 0.620062, 0.62), cfg)
 
 
-def test_panel_c_o_over_e_descending_top_to_bottom(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_o_over_e_descending_top_to_bottom(tmp_path: Path, cfg: GippaConfig) -> None:
     spec = (("C", 4, 8), ("E", 9, 3), ("J", 12, 8), ("K", 2, 4), ("L", 6, 6))
     ora = [ve.ora_row("cog", t, "over" if s > e else "under", s, s - e, 0.01) for t, s, e in spec]
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
@@ -953,8 +955,10 @@ def test_panel_c_o_over_e_descending_top_to_bottom(tmp_path: Path, cfg: GiapConf
     assert top_down == sorted(top_down, reverse=True), top_down
 
 
-def test_one_layer_missing_flag_is_the_generic_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
-    from giap.viz import checklist, enrichment
+def test_one_layer_missing_flag_is_the_generic_empty_state(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
+    from gippa.viz import checklist, enrichment
 
     inst = _render(ve.build_out(tmp_path, [], [], flags=["layer_missing:go"]), cfg)
     assert inst.title != NO_RESOURCES
@@ -970,7 +974,7 @@ def _ora_q0() -> list[dict[str, object]]:
             ve.ora_row("kegg", "ko00010", "under", 2, -6, 0.03, name="Glycolysis")]  # fmt: skip
 
 
-def test_n1_ora_q_zero_noted_in_the_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n1_ora_q_zero_noted_in_the_footnote(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), _ora_q0(), ve.running_rows(_sets())),
                    cfg)  # fmt: skip
     assert "cap" in _all_text(inst).lower()
@@ -1006,7 +1010,7 @@ def _shape_at(ax: Axes, x: float, y: float, tol: float = 1e-6) -> list[bool]:
     return out
 
 
-def test_n2_q_zero_point_uses_a_triangle_in_panel_b(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n2_q_zero_point_uses_a_triangle_in_panel_b(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [ve.gsea_row("kegg", "ko00010", nes=2.0, p=0.0, q=0.0),
             ve.gsea_row("cog", "J", nes=1.0, p=0.001, q=0.004)]  # fmt: skip
     ax = _one(_render(ve.build_out(tmp_path, rows, ve.main_ora()), cfg), "b")
@@ -1016,7 +1020,7 @@ def test_n2_q_zero_point_uses_a_triangle_in_panel_b(tmp_path: Path, cfg: GiapCon
 
 
 def test_n2_q_zero_point_uses_a_triangle_in_the_panel_c_q_strip(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), _ora_q0(), ve.running_rows(_sets())),
                    cfg)  # fmt: skip
@@ -1045,7 +1049,7 @@ def _leaders(ax: Axes) -> list[np.ndarray]:
 
 
 def test_n3_leaders_start_at_the_label_column_with_an_elbow(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     inst = _main(tmp_path, cfg)
     ax = _one(inst, "b")
@@ -1066,7 +1070,7 @@ def test_n3_leaders_start_at_the_label_column_with_an_elbow(
         assert any(np.hypot(*(p[-1] - q)) <= _PX for q in pts), (t.get_text(), p.tolist())
 
 
-def test_n3_legend_upper_left_and_clear_of_the_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_legend_upper_left_and_clear_of_the_labels(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     ax = _one(inst, "b")
     leg = ax.get_legend()
@@ -1083,7 +1087,7 @@ def test_n3_legend_upper_left_and_clear_of_the_labels(tmp_path: Path, cfg: GiapC
         assert not (w > 0.5 and h > 0.5), t.get_text()
 
 
-def test_n4_banner_sits_under_the_title_not_over_the_axes(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n4_banner_sits_under_the_title_not_over_the_axes(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _main(tmp_path, cfg)
     axes = dict(zip((str(s["term"]) for s in _sets()), _axes(inst, "a"), strict=True))
     renderer = _renderer(inst)
@@ -1097,21 +1101,23 @@ def test_n4_banner_sits_under_the_title_not_over_the_axes(tmp_path: Path, cfg: G
         assert bb.y1 <= tb.y0 + 0.5, (term, bb, tb)  # below the title
 
 
-def test_n5_panel_c_capped_at_30_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n5_panel_c_capped_at_30_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [ve.ora_row("cog", f"T{i:03d}", "over", 6, 2, 0.001 * (i + 1)) for i in range(40)]
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
     assert len(markers(_one(inst, "c"))) == 30
     assert "+10 more in the TSV" in _all_text(inst)
 
 
-def test_n5_no_note_at_30_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n5_no_note_at_30_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [ve.ora_row("cog", f"T{i:03d}", "over", 6, 2, 0.001 * (i + 1)) for i in range(30)]
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
     assert len(markers(_one(inst, "c"))) == 30
     assert "more in the TSV" not in _all_text(inst)
 
 
-def test_n6_tied_q_selection_is_independent_of_input_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n6_tied_q_selection_is_independent_of_input_order(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     """Nothing significant, ties at the 20th q: broken on collection, term, direction."""
     tied = [ve.ora_row("cog", f"T{i:03d}", d, 6, 2, 0.2)
             for i in range(11) for d in ("over", "under")]  # fmt: skip
@@ -1128,7 +1134,7 @@ def test_n6_tied_q_selection_is_independent_of_input_order(tmp_path: Path, cfg: 
     pd.testing.assert_frame_equal(datas[0], datas[1])
 
 
-def test_n7_no_testable_sets(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n7_no_testable_sets(tmp_path: Path, cfg: GippaConfig) -> None:
     gsea = [ve.gsea_row("kegg", "ko00010", es=None, nes=None, p=None, q=None,
                         flags="size_filtered", size=1)]  # fmt: skip
     inst = _render(ve.build_out(tmp_path, gsea, ve.main_ora()), cfg)
@@ -1136,7 +1142,7 @@ def test_n7_no_testable_sets(tmp_path: Path, cfg: GiapConfig) -> None:
     assert len(markers(_one(inst, "c"))) == 2
 
 
-def test_n8_data_redundant_column(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n8_data_redundant_column(tmp_path: Path, cfg: GippaConfig) -> None:
     b = _rows(_main(tmp_path, cfg), "b").set_index("term")
     assert "redundant" in b.columns
     assert _bool(b.loc["GO:0003735", "redundant"])
@@ -1151,7 +1157,7 @@ def _b_traces(s: dict[str, object]) -> list[dict[str, object]]:
     return [t for t in tw.on_axes(s, "NES") if "markers" in tw.mode(t)]
 
 
-def test_n8_twin_keeps_q_zero_at_the_cap(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n8_twin_keeps_q_zero_at_the_cap(tmp_path: Path, cfg: GippaConfig) -> None:
     rows = [ve.gsea_row("kegg", "ko00010", nes=2.0, p=0.0, q=0.0),
             ve.gsea_row("cog", "J", nes=1.0, p=0.001, q=0.004)]  # fmt: skip
     s = _twin_of(_render(ve.build_out(tmp_path, rows, ve.main_ora()), cfg))
@@ -1160,7 +1166,7 @@ def test_n8_twin_keeps_q_zero_at_the_cap(tmp_path: Path, cfg: GiapConfig) -> Non
     assert math.isfinite(top) and top >= -math.log10(0.004), pts
 
 
-def test_n8_twin_draws_the_alpha_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n8_twin_draws_the_alpha_line(tmp_path: Path, cfg: GippaConfig) -> None:
     s = _twin_of(_main(tmp_path, cfg))
     want = -math.log10(0.05)
     shapes = s.get("layout", {}).get("shapes", [])  # type: ignore[attr-defined]
@@ -1172,7 +1178,7 @@ def test_n8_twin_draws_the_alpha_line(tmp_path: Path, cfg: GiapConfig) -> None:
     assert hits or lines, (shapes, [t.get("mode") for t in tw.traces(s)])
 
 
-def test_n8_twin_panel_c_in_o_over_e_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n8_twin_panel_c_in_o_over_e_order(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [ve.ora_row("cog", t, "over" if s > e else "under", s, s - e, 0.01)
            for t, s, e in (("C", 4, 8), ("E", 9, 3), ("J", 12, 8), ("K", 2, 4))]  # fmt: skip
     s = _twin_of(_render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())),
@@ -1190,7 +1196,7 @@ def test_n8_twin_panel_c_in_o_over_e_order(tmp_path: Path, cfg: GiapConfig) -> N
     assert got == sorted(got, reverse=True), (top_down, got)
 
 
-def test_n8_twin_redundant_rows_small_and_grey(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n8_twin_redundant_rows_small_and_grey(tmp_path: Path, cfg: GippaConfig) -> None:
     red = next(r for r in ve.main_gsea() if r["redundant"])
     s = _twin_of(_main(tmp_path, cfg))
     points = []  # (nes, colour, size)
@@ -1208,7 +1214,7 @@ def test_n8_twin_redundant_rows_small_and_grey(tmp_path: Path, cfg: GiapConfig) 
     assert hexc is not None and hexc[1:3] == hexc[3:5] == hexc[5:7], rp
 
 
-def test_n11_o_over_e_undefined_note(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n11_o_over_e_undefined_note(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [*ve.main_ora()[:2], ve.ora_row("cog", "L", "over", 3, 3, 0.01)]  # E = 0
     inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
     assert "O/E undefined (E = 0)" in _all_text(inst)

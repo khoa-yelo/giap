@@ -11,7 +11,7 @@ Milestone M1 · depends on: M1-02 (`open_text`, `FastaFormatError`) · estimate 
 - §7.0 rows Proteins/IDs, alphabet, length classes, duplicate sequences (rules in M1-10).
 - §5.2 `input.peptide_len: [7, 40]` ("shorter are dropped; longer protein records go to miniprot").
 
-## Public interface (`src/giap/io/protein_fasta.py`)
+## Public interface (`src/gippa/io/protein_fasta.py`)
 
 ```python
 STANDARD_AA: frozenset[str]          # ACDEFGHIKLMNPQRSTVWY + U

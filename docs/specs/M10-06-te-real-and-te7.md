@@ -1,7 +1,7 @@
 # M10-06: real-data TE2–TE5 (`validation/pilot/te_real.py`) and TE7 (a second A2 run, byte comparison)
 
 Milestone M10 · **pass 2** · depends on: M10-05 (`metrics.py`, `metrics.json`, the report template
-and its notes rules), M10-04 (the accepted A2 attempt under `$GIAP_ROOT/runs/pilot/pass1/`,
+and its notes rules), M10-04 (the accepted A2 attempt under `$GIPPA_ROOT/runs/pilot/pass1/`,
 `ATTEMPTS.tsv`), M10-02 and M10-03 (`diann_pilot.sbatch`, `diann_convert.sbatch`, both honouring
 `OUT_DIR`) · estimate ≈ 310 code lines (index: 280) + ≈ 380 test lines · **not `stats`** (no test
 statistic, no p-value; one reused Wilson interval, descriptive) · roles: validation
@@ -35,16 +35,16 @@ R14 budget, PROGRESS) · Khoa: nothing new; Q-K1 of M10-05 (what may be committe
 | Piece | State | Used for |
 |---|---|---|
 | `validation/proxies/te_proxies.py` | `te2_result(sites) -> ProxyResult` (counts `alt_sites`, `high`, `high_start_codon`, `high_stop_codon`, `violations`; exemption set `TE2_EXEMPT`; up to 50 example violations). No TE3/TE4 proxy; the TE5 proxy is a test (`tests/integration/test_te5_proxy.py`, M3-15) | TE2 **reuses `te2_result`**; no copy of its rule |
-| `giap.annotate.bakta_layers` | `RIBOSOMAL_PRODUCT = ^(30S|50S) ribosomal protein`, `RIBOSOMAL_GENE = ^(rps|rpl|rpm)[A-Z]`, `is_ribosomal_protein(g)` (§7.1.2) | TE3's gene set (see the gap below) |
-| `giap.steps.mapping.select_queries` | the queried peptide set (M10-05 metric 2's **U**) | TE5 universe |
+| `gippa.annotate.bakta_layers` | `RIBOSOMAL_PRODUCT = ^(30S|50S) ribosomal protein`, `RIBOSOMAL_GENE = ^(rps|rpl|rpm)[A-Z]`, `is_ribosomal_protein(g)` (§7.1.2) | TE3's gene set (see the gap below) |
+| `gippa.steps.mapping.select_queries` | the queried peptide set (M10-05 metric 2's **U**) | TE5 universe |
 | `genes.tsv` | `locus_tag`, `gene`, `product`, `feature_type`, `detection_status`, `abundance_log2`, `abundance_imputed`, `abundance_type`, `abundance_scale`, `top3_log2`, `n_peptides_unique`, `n_observable_peptides`, `region_ids`, `replicon_type` | TE2 breakdowns, TE3, TE4 |
 | `variants.tsv` | `variant_id`, `gene`, `aa_pos`, `ref_aa`, `alt_aa`, `alt_type`, `call`, `confidence` {high, candidate}, `n_alt`, `class_error_rate`, `flags` | TE2 |
 | `unmapped.tsv` | `sequence_id`, `kind`, `label` {contaminant, unmapped}, `reason`, `contaminant_match` | TE5 |
 | `detection_summary.tsv` | QC row `id_mixups` (ALT sites of any confidence with same-database support and neither flag; M7-14) | TE2 cross-check |
-| `$GIAP_DB_DIR/contaminants/contaminants.fasta` | 381 records, `>sp|Cont_<ACC>|<NAME> <description> OS=…`; the file both DIA-NN arms searched (M10-03) | TE5 families |
-| `diann_pilot.sbatch A2` (M10-02) | writes everything to `${OUT_DIR:-$GIAP_ROOT/pilot}/A2/`, including `outputs.sha256` (one line per output file) and `provenance.json` (node, image sha256, cfg sha256). The first A2 search: Slurm 1879956, rye-02 (`CPU_SKU:9754`), 16 CPUs, 14 min 21 s | the second search (TE7, DIA-NN layer) |
+| `$GIPPA_DB_DIR/contaminants/contaminants.fasta` | 381 records, `>sp|Cont_<ACC>|<NAME> <description> OS=…`; the file both DIA-NN arms searched (M10-03) | TE5 families |
+| `diann_pilot.sbatch A2` (M10-02) | writes everything to `${OUT_DIR:-$GIPPA_ROOT/pilot}/A2/`, including `outputs.sha256` (one line per output file) and `provenance.json` (node, image sha256, cfg sha256). The first A2 search: Slurm 1879956, rye-02 (`CPU_SKU:9754`), 16 CPUs, 14 min 21 s | the second search (TE7, DIA-NN layer) |
 | `diann_convert.sbatch A2` (M10-03) | reads `${OUT_DIR}/A2/A2_report.parquet`, writes `${OUT_DIR}/inputs/a2.tsv.gz` + `a2.convert.json`; conversion is byte-deterministic (its own determinism step) | converts the second search |
-| `giap_run.sbatch` | head job; runs the main checkout; `run_manifest.json` has `git_commit`, `git_dirty`, `resume`, `inputs[]` sha256, `seeds`, `config`, `databases`, `steps[]`; `logs/trace.tsv` has `hostname` per task | the second GIAP run |
+| `gippa_run.sbatch` | head job; runs the main checkout; `run_manifest.json` has `git_commit`, `git_dirty`, `resume`, `inputs[]` sha256, `seeds`, `config`, `databases`, `steps[]`; `logs/trace.tsv` has `hostname` per task | the second GIPPA run |
 | `tests/helpers/byte_identity.py` | `tree_bytes(root)`, `differing(a, b)` | the TE7 tree comparison reuses the same idea (in `te_real.py`, which may not import `tests/`) |
 | `scripts/measure_runtimes.py` | host → node-class lookup from the trace `hostname` | TE7 diagnosis (which CPU class ran each step) |
 | M10-05 `metrics.py` | `compute`, `render`, the §15.6 checklist (bullet 5 "always `pending (M10-06)`"), `notes.md` rules (no unknown 4-digit number, no 7-letter amino-acid string) | the hook below |
@@ -60,19 +60,19 @@ not about the pipeline. TE3 therefore uses a stricter rule (below, question L1),
 **53** CDS on that annotation (including the zinc-limitation paralog `rpmE2` "type B 50S ribosomal
 protein L31"). The same annotation names no `rplQ`, `rplT` or `rpsH` gene and names two genes
 `rpsD`; TE3 takes the annotation as it is and the report states the set size. The §7.1.2 rule
-itself is not changed (it is GIAP's CAI reference, out of scope); a backlog item records it.
+itself is not changed (it is GIPPA's CAI reference, out of scope); a backlog item records it.
 
 ## Inputs (all on FarmShare; none committed)
 
 | Name | Path (default) | Used by |
 |---|---|---|
-| `OUT_A2` | the accepted pass-1 A2 attempt, resolved through `$GIAP_ROOT/runs/pilot/pass1/ATTEMPTS.tsv` (M10-05 lead decision 1) | TE2–TE5, TE7 reference |
+| `OUT_A2` | the accepted pass-1 A2 attempt, resolved through `$GIPPA_ROOT/runs/pilot/pass1/ATTEMPTS.tsv` (M10-05 lead decision 1) | TE2–TE5, TE7 reference |
 | `OUT_A1` | the accepted pass-1 A1 attempt (same resolution) | TE5 (A1 half) |
-| `PEP_A1`, `PEP_A2` | `$GIAP_ROOT/pilot/inputs/a{1,2}.tsv.gz` | TE5 (accepted rows and `protein_ids`) |
-| `CONTAM` | `$GIAP_DB_DIR/contaminants/contaminants.fasta` | TE5 families |
-| `OUT_REP` | `$GIAP_ROOT/runs/pilot/te7/out_a2_rep1` (and `out_a2_rep2` when needed, see TE7) | TE7 |
-| `DIANN_A`, `DIANN_B` | `$GIAP_ROOT/pilot/A2/` and `$GIAP_ROOT/pilot/te7/A2/` (search directories) | TE7, DIA-NN layer |
-| `CONV_B` | `$GIAP_ROOT/pilot/te7/inputs/a2.tsv.gz` and `a2.convert.json` | TE7, DIA-NN layer |
+| `PEP_A1`, `PEP_A2` | `$GIPPA_ROOT/pilot/inputs/a{1,2}.tsv.gz` | TE5 (accepted rows and `protein_ids`) |
+| `CONTAM` | `$GIPPA_DB_DIR/contaminants/contaminants.fasta` | TE5 families |
+| `OUT_REP` | `$GIPPA_ROOT/runs/pilot/te7/out_a2_rep1` (and `out_a2_rep2` when needed, see TE7) | TE7 |
+| `DIANN_A`, `DIANN_B` | `$GIPPA_ROOT/pilot/A2/` and `$GIPPA_ROOT/pilot/te7/A2/` (search directories) | TE7, DIA-NN layer |
+| `CONV_B` | `$GIPPA_ROOT/pilot/te7/inputs/a2.tsv.gz` and `a2.convert.json` | TE7, DIA-NN layer |
 
 Preconditions of `te_real.py compute` (exit 2, nothing written): each run's manifest has
 `exit_code = 0`; the `--peptides` sha256 in each manifest equals the sha256 of `PEP_*`; the
@@ -84,7 +84,7 @@ contaminant FASTA's sha256 equals the one the manifests record for the contamina
 Notation as in M10-05: *accepted* = `q_value ≤ 0.01`; *target* = `is_decoy` false; **G** = the
 `genes.tsv` rows with `feature_type` in {cds, sorf}; *measured* = `abundance_log2` not NA and
 `abundance_imputed` false. Every TE has `status` ∈ {`pass`, `fail`, `not_evaluable`} and, when not
-`pass`, a `reason` list. Shares carry a 95 % Wilson interval (`giap.stats.cutoffs.wilson_ci`),
+`pass`, a `reason` list. Shares carry a 95 % Wilson interval (`gippa.stats.cutoffs.wilson_ci`),
 labelled nominal and descriptive (as TE1: a census share, judged on the point value; the CI is
 never the test).
 
@@ -181,18 +181,18 @@ The `keratin_associated` family gets the same counts under `secondary`.
 
 ### TE7: a second A2 run, byte for byte
 
-Two layers. **Only the GIAP layer decides TE7**; the DIA-NN layer is an upstream reproducibility
+Two layers. **Only the GIPPA layer decides TE7**; the DIA-NN layer is an upstream reproducibility
 finding, reported beside it and never folded into the verdict.
 
-#### GIAP layer (the verdict)
+#### GIPPA layer (the verdict)
 
 **The pair.** The reference is the accepted pass-1 A2 attempt when it is *eligible*: its manifest
 has `resume: false`, no step `cached`, `git_dirty: false`, and its `git_commit` is
 *code-equivalent* to the replicate's commit, i.e. `git diff --quiet REF REP -- src/ workflow/
-pyproject.toml uv.lock scripts/slurm/giap_run.sbatch` succeeds. Otherwise two fresh replicates
+pyproject.toml uv.lock scripts/slurm/gippa_run.sbatch` succeeds. Otherwise two fresh replicates
 (`out_a2_rep1`, `out_a2_rep2`) on one commit form the pair (question L8). Each replicate is a
 **fresh** run: a new outdir (so a new Nextflow work directory), no `--resume`, the same command as
-M10-04's A2 (same `--peptides` path `$GIAP_ROOT/pilot/inputs/a2.tsv.gz`, genome, annotation,
+M10-04's A2 (same `--peptides` path `$GIPPA_ROOT/pilot/inputs/a2.tsv.gz`, genome, annotation,
 `--db-dir`, `--threads 14 --memory 54.GB`, default seed).
 
 **Pair preconditions** (exit 2, nothing written, the message names the field): both manifests
@@ -205,7 +205,7 @@ as above.
 | Class | Paths | Treatment |
 |---|---|---|
 | `excluded` | `work/**`, `logs/**`, `.nextflow*`, `run_manifest.json`, `report/**`, `preflight/**` | not compared (timestamps, absolute paths, host names); listed by count |
-| `external` | `annotation/tools/**` (native outputs of Bakta, UniOP, Promotech, geNOMAD, antiSMASH, …) | compared and reported; **not** in the verdict (tools outside GIAP, R5) |
+| `external` | `annotation/tools/**` (native outputs of Bakta, UniOP, Promotech, geNOMAD, antiSMASH, …) | compared and reported; **not** in the verdict (tools outside GIPPA, R5) |
 | `figures` | `plots/**` except `plots/data/**` | compared and reported; not in the verdict (TE7 names tables) |
 | `gate` | every other regular file: `tables/**`, `mapping/**`, `annotation/*` (top level), `plots/data/**`, `schemas/datapackage.json` | **byte comparison decides TE7** |
 
@@ -235,10 +235,10 @@ Whether it should count as a pass is question L9.
 #### DIA-NN layer (reported, never the verdict)
 
 A second A2 search with the M10-02 chain, unchanged except for the output directory and the node
-class: `OUT_DIR=$GIAP_ROOT/pilot/te7 sbatch -J giap-diann-A2-te7 --constraint=CPU_SKU:9754
+class: `OUT_DIR=$GIPPA_ROOT/pilot/te7 sbatch -J gippa-diann-A2-te7 --constraint=CPU_SKU:9754
 scripts/slurm/diann_pilot.sbatch A2` (both steps, library prediction included, 16 CPUs, the class
-of the first search: question L10), then its check, then `OUT_DIR=$GIAP_ROOT/pilot/te7 sbatch -J
-giap-diann-convert-A2-te7 scripts/slurm/diann_convert.sbatch A2`. Compared, in order:
+of the first search: question L10), then its check, then `OUT_DIR=$GIPPA_ROOT/pilot/te7 sbatch -J
+gippa-diann-convert-A2-te7 scripts/slurm/diann_convert.sbatch A2`. Compared, in order:
 
 | Level | Compared | Result |
 |---|---|---|
@@ -248,24 +248,24 @@ giap-diann-convert-A2-te7 scripts/slurm/diann_convert.sbatch A2`. Compared, in o
 | L3 | when L2 differs: aggregate difference of the two converted tables, keyed by (`run`, `modified_peptide`, `charge`, `is_decoy`): rows only in A, only in B, in both; Jaccard of the accepted target precursors and of the accepted target peptides; rows in both whose `q_value` differs, whose acceptance flips, whose `intensity` differs, and the maximum absolute log2 intensity ratio | `nondeterministic` with these aggregates |
 
 `diann.status` is the first of `identical_report`, `identical_converted`, `nondeterministic`.
-**End-to-end claim:** when `diann.status` ≠ `nondeterministic` and the GIAP layer passes, the
-report states that raw data → GIAP tables reproduce byte for byte (the replicate's converted table
-has the same bytes as the input the GIAP pair used, so the GIAP pair covers it). When DIA-NN is
-nondeterministic, the GIAP pair still runs on the original `a2.tsv.gz` (TE7 needs identical
-inputs), the report shows the L3 aggregates as an upstream finding, and no GIAP run on the second
+**End-to-end claim:** when `diann.status` ≠ `nondeterministic` and the GIPPA layer passes, the
+report states that raw data → GIPPA tables reproduce byte for byte (the replicate's converted table
+has the same bytes as the input the GIPPA pair used, so the GIPPA pair covers it). When DIA-NN is
+nondeterministic, the GIPPA pair still runs on the original `a2.tsv.gz` (TE7 needs identical
+inputs), the report shows the L3 aggregates as an upstream finding, and no GIPPA run on the second
 table is made in this issue (question L11). Same node class, same image, same cfg, same thread
 count: a difference is DIA-NN's own (threading), not the hardware's; the report says which.
 
 ## Investigation of failures (§15.6 "investigated and explained")
 
 For each TE2–TE5 with `status` ≠ `pass`, and for TE7 when it fails, the validation agent writes a
-section `## Diagnosis: TE<n>` in `$GIAP_ROOT/pilot/metrics/notes.md`, built from `te_real.json`,
+section `## Diagnosis: TE<n>` in `$GIPPA_ROOT/pilot/metrics/notes.md`, built from `te_real.json`,
 `te7.json` and `te_real_exceptions.tsv` (aggregates only in the text). Each section names one
 **cause class**, the evidence, and the action:
 
 | Cause class | Meaning | Required action |
 |---|---|---|
-| `pipeline_bug` | a GIAP defect (mapping, variant flags, bucket rule, gene table, determinism) | a backlog entry or issue linked in the section; the fix in its own PR; the TE re-evaluated on a re-run (M10-04 resume rules), both results kept |
+| `pipeline_bug` | a GIPPA defect (mapping, variant flags, bucket rule, gene table, determinism) | a backlog entry or issue linked in the section; the fix in its own PR; the TE re-evaluated on a re-run (M10-04 resume rules), both results kept |
 | `annotation` | the Bakta model (a name, a start, a missing gene) explains it | stated; no change to the annotation |
 | `search` | the DIA-NN identification or settings explain it (for example no N-terminal acetylation searched) | stated; a settings change is an ADR-0051 amendment for Khoa, not done here |
 | `biology` | the sample explains it (growth phase, a paralog not expressed) | stated with the evidence |
@@ -277,13 +277,13 @@ table (exit 1 otherwise).
 
 ## Outputs
 
-All under `METRICS_DIR` (default `$GIAP_ROOT/pilot/metrics/`), never under the checkout (exit 2
+All under `METRICS_DIR` (default `$GIPPA_ROOT/pilot/metrics/`), never under the checkout (exit 2
 for `--out` inside the repository, as M10-05):
 
 | File | Content | Row-level DIA-NN-derived data? |
 |---|---|---|
-| `te_real.json` | `{"schema": "giap-pilot-te-real/1", "inputs": {name: {path, sha256}}, "spec": <git SHA of this spec>, "te2": …, "te3": …, "te4": …, "te5": {"A1": …, "A2": …, "status": …}, "warnings": […]}` | no: counts, shares, CIs, four log2 values and ratios |
-| `te7.json` | `{"schema": "giap-pilot-te7/1", "pair": {run: {outdir, git_commit, job}}, "giap": {"status", "n_gate", "n_external", "n_figures", "n_excluded", "differing": [{path, class, sub_class, columns, n_cells, max_abs, max_rel, producer, cpu_classes}], "external_differing": […], "figures_differing": […]}, "diann": {"status", "l0": {...}, "l3": {...} or null, "nodes": […]}, "end_to_end": bool}` | no values; GIAP table **paths** and column names, and DIA-NN file names |
+| `te_real.json` | `{"schema": "gippa-pilot-te-real/1", "inputs": {name: {path, sha256}}, "spec": <git SHA of this spec>, "te2": …, "te3": …, "te4": …, "te5": {"A1": …, "A2": …, "status": …}, "warnings": […]}` | no: counts, shares, CIs, four log2 values and ratios |
+| `te7.json` | `{"schema": "gippa-pilot-te7/1", "pair": {run: {outdir, git_commit, job}}, "gippa": {"status", "n_gate", "n_external", "n_figures", "n_excluded", "differing": [{path, class, sub_class, columns, n_cells, max_abs, max_rel, producer, cpu_classes}], "external_differing": […], "figures_differing": […]}, "diann": {"status", "l0": {...}, "l3": {...} or null, "nodes": […]}, "end_to_end": bool}` | no values; GIPPA table **paths** and column names, and DIA-NN file names |
 | `te_real_exceptions.tsv` | `te`, `kind`, `id` (locus tag or peptide), `detail`; sorted by (`te`, `kind`, `id`) | **yes**: never committed |
 | `te7_files.tsv` | `path`, `class`, `sha256_a`, `sha256_b`, `equal` | hashes of derived files: never committed |
 
@@ -298,7 +298,7 @@ otherwise, with the explanation enforced by `render`. TE7 is shown in its own re
 "True examples (TE2–TE5) and determinism (TE7)" with one table row per TE (status, the headline
 number, its source) and drops TE2–TE5 and TE7 from "Pending in pass 2".
 
-**Committed:** `te_real.py`, `te7_known_columns.tsv` (column names of GIAP's own tables, from the
+**Committed:** `te_real.py`, `te7_known_columns.tsv` (column names of GIPPA's own tables, from the
 two cited decisions), the template section, the `metrics.py` hook, tests, and a README section
 "TE2–TE5 and TE7 (M10-06)" with job IDs, states, nodes, elapsed times and exit codes only.
 PROGRESS gets the job IDs and, as aggregates per Q-K1's default, only the five statuses.
@@ -313,7 +313,7 @@ reader), `diann_layer(sums_a, sums_b, conv_a, conv_b) -> dict` (frames for L3). 
 ```text
 python validation/pilot/te_real.py compute --a2 OUT_A2 --a1 OUT_A1 \
     --peptides-a1 PEP_A1 --peptides-a2 PEP_A2 --contaminants CONTAM --out METRICS_DIR
-python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIAP_REPO \
+python validation/pilot/te_real.py te7 --ref OUT_A --rep OUT_B --repo GIPPA_REPO \
     [--diann-a DIANN_A --diann-b DIANN_B --peptides-a PEP_A2 --peptides-b CONV_B] --out METRICS_DIR
 ```
 
@@ -329,10 +329,10 @@ inconsistency (a cross-check that must hold by construction, such as `|S|` per f
 1. After M10-05 merged and the accepted pass-1 A2 attempt exists: `te_real.py compute` (session
    or `dev`), then `metrics.py compute --te-real …` and `render`.
 2. The second DIA-NN search (16 CPUs, ~15 min) and its conversion (4 CPUs, minutes), chained with
-   `--dependency=afterok`. Submit only when the sum S of running and pending `giap-*` CPUs is
+   `--dependency=afterok`. Submit only when the sum S of running and pending `gippa-*` CPUs is
    ≤ 112.
-3. The GIAP replicate: `sbatch -J giap-run-pilot-a2-te7 scripts/slurm/giap_run.sbatch …
-   --outdir $GIAP_ROOT/runs/pilot/te7/out_a2_rep1` with M10-04's A2 arguments, when S ≤ 14 (one
+3. The GIPPA replicate: `sbatch -J gippa-run-pilot-a2-te7 scripts/slurm/gippa_run.sbatch …
+   --outdir $GIPPA_ROOT/runs/pilot/te7/out_a2_rep1` with M10-04's A2 arguments, when S ≤ 14 (one
    arm needs up to 114 CPUs) and no other pilot arm runs (index decision 3). It does not wait for
    step 2: its input is the original table. A second replicate, if eligibility fails, follows the
    same rule, one at a time.
@@ -352,10 +352,10 @@ Hand-made values (not from the real reports).
 | 4 | **TE3 detection boundary and secondaries.** \|R\| = 52, 46 detected; the 6 missed include `rpmE2` (type B) | share 0.885 [0.770, 0.946]: clause 1 fails, `status: fail`. Secondary without type B: 46/51 = 0.902 [0.790, 0.957] (reported, verdict unchanged). The §7.1.2-set secondary is computed on the genes `is_ribosomal_protein` selects in the same fixture |
 | 5 | **TE4.** `rplL` 22.0, `rplJ` 20.1 → 1.9 (float64 1.8999999999999986) in [1, 3]; `atpA` 19.0, `atpD` 19.6 → −0.6 in [−1, 1]; scale molar, type ibaq | both pairs hold, `status: pass`; Top3 secondaries reported. Variants: `rplL` 23.0, `rplJ` 20.0 → 3.0 holds; 23.25 → 3.25 fails (`status: fail`); `rplJ` imputed → that pair `not_evaluable`, `status: not_evaluable`; `abundance_scale = relative` → both `relative_scale`, `not_evaluable` |
 | 6 | **TE5 (A2).** Accepted target peptides of **U**: `VATVSLPR` (`Cont_P00761`) in `unmapped.tsv` as `contaminant`, `no_hit`, match `Cont_P00761`; `SLNNQFASFIDK` (`Cont_P04264`) in the bucket with match `Cont_P13645`; `LSSPATLNSR` (`Cont_P00761;JMJJOG_01234`) with an accepted exact hit; a `Cont_P02769` (albumin) peptide; `LASYLDK` (`Cont_P13645`) with an accepted tolerant placement only | S = 4 (albumin is not a family); `genome_exact` 1 (exempt); `bucket` 2 (`match_other_entry` 1); `placed_tolerant` 1; `share_bucket` 2/3; arm `fail`; TE5 `fail`. Without the tolerant peptide: 2/2 = 1.0 [0.342, 1.0], arm `pass` |
-| 7 | **TE7 pass.** Reference and replicate at the same commit, both fresh; `run_manifest.json`, `logs/trace.tsv` and `report/report.html` differ; every `tables/`, `mapping/`, `annotation/*`, `plots/data/` file and `schemas/datapackage.json` has the same sha256; one `annotation/tools/promotech/…` file differs | `giap.status: pass`; `external_differing` lists the Promotech file (not in the verdict); excluded counted |
-| 8 | **TE7 fail, classified.** `tables/genes.tsv` differs in 3 `abundance_log2` cells by ≤ 2e-15; `tables/pileup.tsv.gz` differs, decompressed equal; `tables/islands.tsv` has the same lines in another order; `tables/regions_stats.tsv` differs only in its M4-20 float columns, the producing step ran on `CPU_SKU:6148` vs `CPU_SKU:9754`; `mapping/extra.tsv` only in the replicate | `giap.status: fail`; classes: genes `numeric_only` (columns [abundance_log2], 3 cells, max_abs 2e-15), pileup `gzip_header_only`, islands `row_order_only`, regions_stats `numeric_only`/`known_lapack`, extra `only_in:rep1`. The report lists five diagnoses; each non-LAPACK class is a `pipeline_bug` candidate |
-| 9 | **DIA-NN identical after conversion.** `A2_report.parquet` sha256 differs (the file embeds the output path); `a2.tsv.gz` sha256 equal; GIAP layer passes | `diann.status: identical_converted`; `l3: null`; `end_to_end: true`; the report says raw data → GIAP tables reproduce byte for byte, and why the report file itself differs (L0 names) |
-| 10 | **DIA-NN nondeterministic.** Converted tables differ: 12 rows only in A, 9 only in B, 3 acceptance flips, max \|log2 intensity ratio\| 0.004; GIAP pair (original table twice) identical | `diann.status: nondeterministic` with those aggregates and the precursor and peptide Jaccards; `giap.status: pass`; `end_to_end: false`; TE7 is reported as passed; DIA-NN's threading nondeterminism is a separate finding in the report (same node class, so not hardware) |
+| 7 | **TE7 pass.** Reference and replicate at the same commit, both fresh; `run_manifest.json`, `logs/trace.tsv` and `report/report.html` differ; every `tables/`, `mapping/`, `annotation/*`, `plots/data/` file and `schemas/datapackage.json` has the same sha256; one `annotation/tools/promotech/…` file differs | `gippa.status: pass`; `external_differing` lists the Promotech file (not in the verdict); excluded counted |
+| 8 | **TE7 fail, classified.** `tables/genes.tsv` differs in 3 `abundance_log2` cells by ≤ 2e-15; `tables/pileup.tsv.gz` differs, decompressed equal; `tables/islands.tsv` has the same lines in another order; `tables/regions_stats.tsv` differs only in its M4-20 float columns, the producing step ran on `CPU_SKU:6148` vs `CPU_SKU:9754`; `mapping/extra.tsv` only in the replicate | `gippa.status: fail`; classes: genes `numeric_only` (columns [abundance_log2], 3 cells, max_abs 2e-15), pileup `gzip_header_only`, islands `row_order_only`, regions_stats `numeric_only`/`known_lapack`, extra `only_in:rep1`. The report lists five diagnoses; each non-LAPACK class is a `pipeline_bug` candidate |
+| 9 | **DIA-NN identical after conversion.** `A2_report.parquet` sha256 differs (the file embeds the output path); `a2.tsv.gz` sha256 equal; GIPPA layer passes | `diann.status: identical_converted`; `l3: null`; `end_to_end: true`; the report says raw data → GIPPA tables reproduce byte for byte, and why the report file itself differs (L0 names) |
+| 10 | **DIA-NN nondeterministic.** Converted tables differ: 12 rows only in A, 9 only in B, 3 acceptance flips, max \|log2 intensity ratio\| 0.004; GIPPA pair (original table twice) identical | `diann.status: nondeterministic` with those aggregates and the precursor and peptide Jaccards; `gippa.status: pass`; `end_to_end: false`; TE7 is reported as passed; DIA-NN's threading nondeterminism is a separate finding in the report (same node class, so not hardware) |
 
 ## Edge cases
 
@@ -385,10 +385,10 @@ Hand-made values (not from the real reports).
   Blocked).
 - **TE7 with a module switched off** in one run only: the pair precondition on `config` fails
   (exit 2). With different task hosts but no differing file: `pass`; hosts are recorded.
-- **`.gz` gate files.** A differing gzip header is a fail (GIAP writes `mtime = 0`, so it is a
+- **`.gz` gate files.** A differing gzip header is a fail (GIPPA writes `mtime = 0`, so it is a
   determinism bug), classified `gzip_header_only`.
 - **DIA-NN replicate fails or lands on another class.** A failed search is retried once (R9 counts
-  it), then the DIA-NN layer is `not_run` with the reason, and TE7 is still decided by the GIAP
+  it), then the DIA-NN layer is `not_run` with the reason, and TE7 is still decided by the GIPPA
   pair. A different node (the constraint cannot be met) is recorded in `diann.nodes`, and the
   report says the hardware may contribute.
 - **Contaminant FASTA changed since the searches.** Its sha256 differs from the manifest's: exit 2
@@ -396,7 +396,7 @@ Hand-made values (not from the real reports).
 
 ## Acceptance criteria
 
-On CI (no real data; every input is synthetic or hand-made in `tmp_path`; giapsim for the
+On CI (no real data; every input is synthetic or hand-made in `tmp_path`; gippasim for the
 integration test):
 
 1. `te2` calls `validation.proxies.te_proxies.te2_result` (spy) and reproduces examples 1–2,
@@ -431,8 +431,8 @@ integration test):
     `te_real.json`, `te7.json` and TSVs.
 11. Guard (extends M10-05's): `git ls-files` lists no `te_real.json`, `te7.json`,
     `te_real_exceptions.tsv` or `te7_files.tsv`.
-12. Integration (`slow`, Slurm via `test_branch.sbatch`): two `giap run --executor local` runs of
-    giapsim SIM100K with the same seed in two directories, with planted trypsin and keratin
+12. Integration (`slow`, Slurm via `test_branch.sbatch`): two `gippa run --executor local` runs of
+    gippasim SIM100K with the same seed in two directories, with planted trypsin and keratin
     peptides from `contaminants_mini.faa` added to the peptide table; `te7` gives `pass`; TE5 gives
     `pass` with S equal to the planted family peptides not in the genome (oracle
     `tests/helpers/contaminant_oracle.py`); TE2 runs on the run's `variants.tsv`. A copy of one run
@@ -440,11 +440,11 @@ integration test):
 
 On FarmShare (evidence; PR description, README section and PROGRESS, not CI):
 
-13. The second DIA-NN search and its conversion exit 0, and the GIAP replicate passes M10-04's
+13. The second DIA-NN search and its conversion exit 0, and the GIPPA replicate passes M10-04's
     rule set A; `te_real.py compute` and `te7` exit 0; `metrics.py compute --te-real --te7` and
     `render` exit 0, which, by criterion 9, means every non-pass TE has its diagnosis.
 14. The PR lists the five statuses (TE2–TE5, TE7), `diann.status` and the cause class of every
-    diagnosis; numbers stay under `$GIAP_ROOT/pilot/metrics/` (Q-K1). A failing TE does not fail
+    diagnosis; numbers stay under `$GIPPA_ROOT/pilot/metrics/` (Q-K1). A failing TE does not fail
     the issue; an unexplained one does. Every `pipeline_bug` diagnosis has a linked backlog entry
     or issue.
 
@@ -471,7 +471,7 @@ most); the integration test runs on Slurm.
 | TE3 (set, two clauses, secondaries) | 45 |
 | TE4 | 30 |
 | TE5 (families, classes, two arms) | 50 |
-| TE7 GIAP layer (pair checks, classes, diagnosis) | 65 |
+| TE7 GIPPA layer (pair checks, classes, diagnosis) | 65 |
 | TE7 DIA-NN layer (L0–L3) | 35 |
 | CLI, preconditions, writers | 40 |
 | `metrics.py` hook and the render rule | 15 |
@@ -491,10 +491,10 @@ own CLI subcommand already).
 | L5 | TE5 families: trypsin = description exactly "Trypsin"/"Anionic trypsin"/"Cationic trypsin"; keratin = "Keratin, type I/II …"; keratin-associated proteins reported but not judged? | yes |
 | L6 | TE5 on both arms (the spec names no arm) or A2 only? | both; TE5 passes only when both arms pass |
 | L7 | TE5: does a family peptide with an accepted tolerant placement violate "land in the contaminant bucket"? (M3-15 keeps any accepted placement out of the bucket; an exact genome match is exempt.) | yes, a violation (`placed_tolerant`) |
-| L8 | TE7 pair: compare against the pass-1 A2 attempt when it is fresh and code-equivalent (no diff under `src/`, `workflow/`, `pyproject.toml`, `uv.lock`, `giap_run.sbatch`), else two new replicates on one commit? | yes |
+| L8 | TE7 pair: compare against the pass-1 A2 attempt when it is fresh and code-equivalent (no diff under `src/`, `workflow/`, `pyproject.toml`, `uv.lock`, `gippa_run.sbatch`), else two new replicates on one commit? | yes |
 | L9 | Cross-node LAPACK differences (M4-20 decision 9) can make a cluster TE7 fail on `regions_stats.tsv` and the join-count columns, because tasks land on different CPU classes. Count a `known_lapack`-only result as a pass, pin both runs' tasks to one CPU class (a profile change, out of scope here), or report it as a fail with that diagnosis? | report `fail` with the `known_lapack` diagnosis and the M4-20 decision 10 backlog link (TE7 says byte-identical; R3); pinning stays a backlog option |
 | L10 | DIA-NN replicate: rerun both steps (library prediction too) in a new `OUT_DIR`, 16 CPUs, `--constraint=CPU_SKU:9754` (the class of Slurm 1879956), so a difference is DIA-NN's own and not the hardware's? | yes |
-| L11 | If DIA-NN is nondeterministic, run GIAP a third time on the second converted table (a sensitivity analysis of A2's conclusions to search noise)? | no in this issue: the L3 aggregates are reported; a backlog item if the differences are not trivial |
+| L11 | If DIA-NN is nondeterministic, run GIPPA a third time on the second converted table (a sensitivity analysis of A2's conclusions to search noise)? | no in this issue: the L3 aggregates are reported; a backlog item if the differences are not trivial |
 | L12 | TE7 gate set: `tables/`, `mapping/`, top-level `annotation/`, `plots/data/`, `schemas/datapackage.json`; external tool outputs and figures reported but not judged; manifest, logs, report and preflight excluded? | yes |
 | L13 | Enforce "investigated and explained" in `render` (exit 1 when a non-pass TE has no diagnosis section with a cause class)? | yes |
 | L14 | Size: 310 lines is above the index's 280. One PR, or TE7 split now? | one PR; split only if review pushes past ~400 |

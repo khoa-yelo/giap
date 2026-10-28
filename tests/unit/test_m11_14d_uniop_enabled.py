@@ -11,15 +11,15 @@ pairs"; Q-K13 (Khoa
 Interface pinned here (implementer; the spec leaves these names open):
 
 - ``UniopConfig.enabled: bool | Literal["auto"] = True`` (config model, ``defaults.yaml`` and
-  ``src/giap/schemas/config.schema.json``).
-- ``giap.annotate.tools.required_tools(cfg)``: ``uniop`` is needed under ``enabled: true`` and
+  ``src/gippa/schemas/config.schema.json``).
+- ``gippa.annotate.tools.required_tools(cfg)``: ``uniop`` is needed under ``enabled: true`` and
   ``auto`` (preflight must probe it), never under ``false`` or a precomputed operon layer.
-- ``giap.preflight.environment.resolve_uniop(cfg, *, installed, publication) -> UniopResolution``,
+- ``gippa.preflight.environment.resolve_uniop(cfg, *, installed, publication) -> UniopResolution``,
   pure. ``UniopResolution`` has:
   - ``run_uniop: bool``: whether UNIOP runs;
   - ``level``: ``"ok"`` | ``"warn"`` | ``"error"`` (error: ``environment.tools`` exit 2);
   - ``message: str``: the warning or error text (``""`` when ok);
-  - ``cfg: GiapConfig``: the configuration written to ``resolved_config.yaml``, with
+  - ``cfg: GippaConfig``: the configuration written to ``resolved_config.yaml``, with
     ``annotation.uniop.enabled`` a bool (never ``"auto"``). How it records that ``auto``
     resolved to false (so ``operon_pairs`` can say "UniOP not installed") is the
     implementer's choice; the step tests round-trip it through ``write_params``.
@@ -29,7 +29,7 @@ Interface pinned here (implementer; the spec leaves these names open):
   - an explicit ``false`` is a warning (exit 0; ``--strict`` exit 3): ``FALSE_WARNING`` below;
   - a ``db_manifest.json`` item ``image:uniop`` whose ``status`` is not ``ok`` (``absent``,
     ``mismatch``, ``failed``) gives ``detail = "(last setup: <its message>)"``;
-  - ``giap.preflight.environment.probe_uniop(profile, *, image_cache, env_root, local_tools)
+  - ``gippa.preflight.environment.probe_uniop(profile, *, image_cache, env_root, local_tools)
     -> (returncode, stderr)`` runs UniOP's entry point with ``--help`` in the runtime the
     profile resolves to (no such probe exists for any tool today; preflight only checks files
     and ``docker image inspect``). ``run_preflight`` calls it, looked up as a module attribute,
@@ -39,15 +39,15 @@ Interface pinned here (implementer; the spec leaves these names open):
 - ``run_preflight(..., profile=..., publication=False)``: a new keyword; ``uniop`` installed
   means not in ``missing_tools`` (14f1) and a passing probe. The warnings and both errors live
   on the ``environment.tools`` check.
-- ``giap run``: ``OUT/work/params.json`` gains ``run_uniop`` (bool), and
+- ``gippa run``: ``OUT/work/params.json`` gains ``run_uniop`` (bool), and
   ``resolved_config.yaml`` carries the resolved ``enabled``.
   ``write_params(outdir, cfg, inputs)`` sets ``run_uniop`` from ``cfg.annotation.uniop.enabled``
   of an already resolved ``cfg``.
 
-Fakes only: ``$GIAP_ROOT`` is ``helpers.fake_env.fake_giap_root`` (``skip=["uniop"]``: not
+Fakes only: ``$GIPPA_ROOT`` is ``helpers.fake_env.fake_gippa_root`` (``skip=["uniop"]``: not
 installed). The profile is ``farmshare,apptainer``, where 14f1 takes the images from
-``$GIAP_ROOT/containers`` and the envs from ``$GIAP_ROOT/micromamba/envs``. A fake ``nextflow``
-on ``PATH`` records its argv. No network; never the real ``$GIAP_DB_DIR`` or ``$GIAP_ROOT``.
+``$GIPPA_ROOT/containers`` and the envs from ``$GIPPA_ROOT/micromamba/envs``. A fake ``nextflow``
+on ``PATH`` records its argv. No network; never the real ``$GIPPA_DB_DIR`` or ``$GIPPA_ROOT``.
 """
 
 from __future__ import annotations
@@ -64,15 +64,15 @@ from typing import Any
 import pytest
 import yaml
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.config import GiapConfig, json_schema, resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import GippaConfig, json_schema, resolve_config
+from gippa.exitcodes import ExitCode
 
 REPO = Path(__file__).resolve().parents[2]
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
-DEFAULTS_YAML = REPO / "src" / "giap" / "config" / "defaults.yaml"
-CONFIG_SCHEMA = REPO / "src" / "giap" / "schemas" / "config.schema.json"
+DEFAULTS_YAML = REPO / "src" / "gippa" / "config" / "defaults.yaml"
+CONFIG_SCHEMA = REPO / "src" / "gippa" / "schemas" / "config.schema.json"
 PROFILE = "farmshare,apptainer"
 
 #: spec item 1 (c), row ``auto | no | no`` (the prefix up to the item 3 command)
@@ -97,19 +97,19 @@ def _set(enabled: bool | str) -> str:
     return f"annotation.uniop.enabled={str(enabled).lower()}"
 
 
-def _cfg(enabled: bool | str, *extra: str) -> GiapConfig:
+def _cfg(enabled: bool | str, *extra: str) -> GippaConfig:
     return resolve_config(overrides=[*QUIET, _set(enabled), *extra])
 
 
 def _env_mod() -> Any:
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     return environment
 
 
-def _resolve(cfg: GiapConfig, installed: bool, publication: bool) -> Any:
+def _resolve(cfg: GippaConfig, installed: bool, publication: bool) -> Any:
     fn = getattr(_env_mod(), "resolve_uniop", None)
-    assert fn is not None, "giap.preflight.environment.resolve_uniop is not implemented"
+    assert fn is not None, "gippa.preflight.environment.resolve_uniop is not implemented"
     return fn(cfg, installed=installed, publication=publication)
 
 
@@ -121,7 +121,7 @@ def _resolve(cfg: GiapConfig, installed: bool, publication: bool) -> Any:
 
 
 def test_default_is_auto_in_the_model() -> None:
-    assert GiapConfig().annotation.uniop.enabled == "auto"
+    assert GippaConfig().annotation.uniop.enabled == "auto"
 
 
 def test_default_is_auto_in_defaults_yaml() -> None:
@@ -227,8 +227,8 @@ def test_json_schema_has_enabled_true_false_auto(source: str) -> None:
 # ---------------------------------------------------------------- required tools
 
 
-def _required(cfg: GiapConfig) -> set[str]:
-    from giap.annotate.tools import required_tools
+def _required(cfg: GippaConfig) -> set[str]:
+    from gippa.annotate.tools import required_tools
 
     return {t.name for t in required_tools(cfg)}
 
@@ -333,7 +333,7 @@ def test_detail_is_appended_when_not_installed(enabled: bool | str, level: str) 
     """``resolve_uniop(..., detail=...)``: why uniop is missing (recorded setup failure or a
     failed probe) goes into the error (``true``) or the warning (``auto``)."""
     fn = getattr(_env_mod(), "resolve_uniop", None)
-    assert fn is not None, "giap.preflight.environment.resolve_uniop is not implemented"
+    assert fn is not None, "gippa.preflight.environment.resolve_uniop is not implemented"
     res = fn(_cfg(enabled), installed=False, publication=False, detail=LAST_SETUP.format(SETUP_MSG))
     assert res.level == level, res
     assert LAST_SETUP.format(SETUP_MSG) in res.message, res.message
@@ -341,7 +341,7 @@ def test_detail_is_appended_when_not_installed(enabled: bool | str, level: str) 
 
 def test_detail_is_ignored_when_installed() -> None:
     fn = getattr(_env_mod(), "resolve_uniop", None)
-    assert fn is not None, "giap.preflight.environment.resolve_uniop is not implemented"
+    assert fn is not None, "gippa.preflight.environment.resolve_uniop is not implemented"
     res = fn(_cfg(True), installed=True, publication=False, detail="stale text")
     assert res.level == "ok" and res.message == "", res
 
@@ -393,7 +393,7 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 
 @pytest.fixture
 def inputs(tmp_path: Path) -> Any:
-    from giap.preflight.run import PreflightInputs
+    from gippa.preflight.run import PreflightInputs
 
     rng = random.Random(0)
     g = tmp_path / "in" / "g.fa"
@@ -415,7 +415,7 @@ def db(tmp_path: Path) -> Path:
 def _probe_ok(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> list[tuple[Any, ...]]:
-    """The UniOP probe (``giap.preflight.environment.probe_uniop``, looked up as a module
+    """The UniOP probe (``gippa.preflight.environment.probe_uniop``, looked up as a module
     attribute) succeeds unless a test says otherwise; the fake roots hold no real UniOP."""
     calls: list[tuple[Any, ...]] = []
 
@@ -429,8 +429,8 @@ def _probe_ok(
 
 
 def _root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, uniop: bool) -> Path:
-    root = fake_giap_root(tmp_path / "giap_root", skip=() if uniop else ("uniop",))
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root", skip=() if uniop else ("uniop",))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
     return root
 
@@ -438,7 +438,7 @@ def _root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, uniop: bool) -> Pa
 def _preflight(
     inputs: Any, db: Path, tmp_path: Path, enabled: bool | str, publication: bool, *extra: str
 ) -> tuple[Any, Any]:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     report, _ = run_preflight(inputs, _cfg(enabled, *extra), None, "run", tmp_path / "OUT", db,
                               profile=PROFILE, publication=publication)  # fmt: skip
@@ -453,7 +453,7 @@ def _missing(check: Any) -> set[str]:
 
 
 def _code(report: Any) -> int:
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     return int(exit_code(report, False))
 
@@ -479,7 +479,7 @@ def test_example_8_auto_not_installed_warns_and_passes(
     assert AUTO_WARNING in check.message, check.message
     assert "uniop" not in _missing(check), check.value
     assert _code(report) == ExitCode.SUCCESS
-    from giap.preflight.run import exit_code
+    from gippa.preflight.run import exit_code
 
     assert exit_code(report, True) == ExitCode.WARNINGS_STRICT  # --strict turns it into exit 3
 
@@ -523,8 +523,8 @@ def test_auto_warning_does_not_hide_other_missing_tools(
     inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Another tool missing is still an error; uniop is not among the missing under ``auto``."""
-    root = fake_giap_root(tmp_path / "giap_root", skip=("uniop", "ostir"))
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root", skip=("uniop", "ostir"))
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
     report, check = _preflight(inputs, db, tmp_path, "auto", False)
     assert check.level == "error", check
@@ -535,7 +535,7 @@ def test_auto_warning_does_not_hide_other_missing_tools(
 def test_publication_keyword_defaults_to_false(
     inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from giap.preflight.run import run_preflight
+    from gippa.preflight.run import run_preflight
 
     _root(tmp_path, monkeypatch, uniop=False)
     report, _ = run_preflight(inputs, _cfg("auto"), None, "run", tmp_path / "OUT", db,
@@ -613,11 +613,11 @@ def _probe(monkeypatch: pytest.MonkeyPatch, code: int, err: str) -> list[Any]:
 def test_probe_is_a_module_function() -> None:
     import inspect
 
-    from giap.preflight import environment
+    from gippa.preflight import environment
 
     fn = getattr(environment, "probe_uniop", None)
     assert fn is not None and inspect.isfunction(fn), "probe_uniop is not implemented"
-    assert fn.__module__ == "giap.preflight.environment"
+    assert fn.__module__ == "gippa.preflight.environment"
     params = inspect.signature(fn).parameters
     assert {"image_cache", "env_root", "local_tools"} <= set(params), list(params)
 
@@ -686,7 +686,7 @@ def test_failed_probe_under_auto_with_publication_exits_2(
 
 @pytest.mark.parametrize("enabled", [True, False])
 def test_write_params_run_uniop_from_the_resolved_value(tmp_path: Path, enabled: bool) -> None:
-    from giap.runner.nextflow import write_params
+    from gippa.runner.nextflow import write_params
 
     params, resolved = write_params(tmp_path / "OUT", _cfg(enabled), {})
     data = json.loads(params.read_text(encoding="utf-8"))
@@ -697,7 +697,7 @@ def test_write_params_run_uniop_from_the_resolved_value(tmp_path: Path, enabled:
 
 @pytest.mark.parametrize(("installed", "want"), [(True, True), (False, False)])
 def test_write_params_of_a_resolved_auto(tmp_path: Path, installed: bool, want: bool) -> None:
-    from giap.runner.nextflow import write_params
+    from gippa.runner.nextflow import write_params
 
     res = _resolve(_cfg("auto"), installed=installed, publication=False)
     params, resolved = write_params(tmp_path / "OUT", res.cfg, {})
@@ -723,7 +723,7 @@ def test_annotate_subworkflow_reads_params_run_uniop() -> None:
     assert "params.run_uniop" in text
 
 
-# ---------------------------------------------------------------- giap run (fake nextflow)
+# ---------------------------------------------------------------- gippa run (fake nextflow)
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -765,15 +765,15 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return args
 
 
-def _giap_run(
+def _gippa_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path,
     *, uniop: bool, sets: tuple[str, ...] = (), publication: bool = False,
 ) -> tuple[int, str, Path]:  # fmt: skip
-    from giap.cli import cli
+    from gippa.cli import cli
 
     _root(tmp_path, monkeypatch, uniop=uniop)
     db = write_setup_manifest(tmp_path / "db_env")
-    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(db))
     out = tmp_path / "OUT"
     argv = ["run", "--genome", str(genome), "--proteins", str(proteins), "--outdir", str(out),
             "--profile", PROFILE]  # fmt: skip
@@ -790,7 +790,7 @@ def _giap_run(
 
 def _params(out: Path) -> dict[str, Any]:
     path = out / "work" / "params.json"
-    assert path.is_file(), "giap run wrote no params.json"
+    assert path.is_file(), "gippa run wrote no params.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     return data
@@ -810,7 +810,7 @@ def _preflight_messages(out: Path) -> str:
 def test_run_default_installed_passes_run_uniop_true(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True)
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True)
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is True
     assert _resolved_enabled(out) is True
@@ -820,7 +820,7 @@ def test_run_default_installed_passes_run_uniop_true(
 def test_run_example_8_auto_not_installed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
                                 sets=(_set("auto"),))  # fmt: skip
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is False
@@ -832,7 +832,7 @@ def test_run_example_8_auto_not_installed(
 def test_run_auto_installed_resolves_to_true(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
                                 sets=(_set("auto"),))  # fmt: skip
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is True
@@ -843,7 +843,7 @@ def test_run_example_8b_auto_publication_exits_2_before_nextflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path,
     fake_nf: Path,
 ) -> None:  # fmt: skip
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
                                 sets=(_set("auto"),), publication=True)  # fmt: skip
     assert code == ExitCode.ENVIRONMENT, text
     assert AUTO_PUBLICATION_ERROR in text + _preflight_messages(out)
@@ -854,7 +854,7 @@ def test_run_example_9_true_not_installed_exits_2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path,
     fake_nf: Path,
 ) -> None:  # fmt: skip
-    code, text, _ = _giap_run(
+    code, text, _ = _gippa_run(
         tmp_path,
         monkeypatch,
         genome,
@@ -871,7 +871,7 @@ def test_run_example_9_true_not_installed_exits_2(
 def test_run_example_9b_false_with_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=False,
                                 sets=(_set(False),), publication=True)  # fmt: skip
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is False
@@ -882,7 +882,7 @@ def test_run_example_9b_false_with_publication(
 def test_run_example_9b_warns_in_preflight_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
                                 sets=(_set(False),))  # fmt: skip
     assert code == ExitCode.SUCCESS, text
     assert FALSE_WARNING in _preflight_messages(out)
@@ -893,7 +893,7 @@ def test_run_auto_with_a_failed_probe_falls_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
 ) -> None:
     _probe(monkeypatch, 1, PROBE_STDERR)
-    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+    code, text, out = _gippa_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
                                 sets=(_set("auto"),))  # fmt: skip
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is False

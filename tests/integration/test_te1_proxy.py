@@ -1,4 +1,4 @@
-"""TE1 in-silico proxy (issue M3-22 examples 4-5; GIAP_SPEC.md §11.6 TE1, §13 gate M3).
+"""TE1 in-silico proxy (issue M3-22 examples 4-5; GIPPA_SPEC.md §11.6 TE1, §13 gate M3).
 
 §11.6: "In-silico proxy: in-silico tryptic peptides of Nissle Bakta proteins map >= 99.9 %
 exactly in frame, the exceptions being N-terminal peptides at non-ATG starts".
@@ -29,7 +29,7 @@ peptides, 431 ``non_atg_nterm``; an in-frame translation oracle finds 4 other mi
 0.99998).
 
 Inputs may be gzip-compressed (§5.3). ``validation/`` is imported from the repository root.
-Every run gets a test ``$GIAP_DB_DIR`` (never the real one).
+Every run gets a test ``$GIPPA_DB_DIR`` (never the real one).
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def _te_proxies() -> Any:
 
 @pytest.fixture(autouse=True)
 def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -74,7 +74,7 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _genes(path: Path) -> list[dict[str, Any]]:
-    """CDS/sORF features with a protein, from Bakta 1.12 or giapsim JSON."""
+    """CDS/sORF features with a protein, from Bakta 1.12 or gippasim JSON."""
     return [
         f
         for f in _load_json(path)["features"]
@@ -83,7 +83,7 @@ def _genes(path: Path) -> list[dict[str, Any]]:
 
 
 def _nterm(aa: str) -> list[str]:
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     return [p for s, _, p in digest(aa) if s == 0]
 
@@ -101,14 +101,14 @@ def _check_shape(r: Any) -> None:
 
 
 def _sim(tmp: Path, seed: int, **kw: Any) -> Any:
-    from giapsim.simulate import SimConfig, simulate
+    from gippasim.simulate import SimConfig, simulate
 
     return simulate(SimConfig(genome_length=100_000, write_precomputed=True, **kw), seed, tmp)
 
 
 def _n_peptides(genes: list[dict[str, Any]]) -> int:
     """Distinct digest sequences over every gene (lead decision 4)."""
-    from giap.mapping.digest import digest
+    from gippa.mapping.digest import digest
 
     return len({p for g in genes for _, _, p in digest(g["aa"])})
 

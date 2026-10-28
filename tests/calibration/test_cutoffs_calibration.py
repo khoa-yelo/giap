@@ -27,8 +27,8 @@ import numpy as np
 import pytest
 from scipy.stats import binom, norm
 
-from giap.rng import for_step
-from giap.stats.cutoffs import auroc_ci, distance_fit_ci, wilson_ci
+from gippa.rng import for_step
+from gippa.stats.cutoffs import auroc_ci, distance_fit_ci, wilson_ci
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("regions")]
 

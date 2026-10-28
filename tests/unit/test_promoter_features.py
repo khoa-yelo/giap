@@ -16,9 +16,9 @@ import pandas as pd
 import pytest
 from helpers.promoter_oracle import api
 
-from giap.annotate.operons import Tu
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import Tu
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 CHR1 = Replicon("chr1", 100_000, "circular", "chromosome")
 REPS = {"chr1": CHR1}  # decision 7: replicons is required

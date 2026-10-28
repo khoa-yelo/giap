@@ -1,10 +1,10 @@
 # Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
 
-Implements `giap.context.regions` (GIAP_SPEC.md §7.3.5(b), §8.1, Appendix B.4; issue M4-17,
+Implements `gippa.context.regions` (GIPPA_SPEC.md §7.3.5(b), §8.1, Appendix B.4; issue M4-17,
 docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10) and the `regions_stats.tsv`
-rows of `giap.context.regions_table` (issue M4-18, docs/specs/M4-18-regions-stats-table.md,
-sections "Replicon-level effects" and "Descriptive rows"). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
-and `giap.stats.robust` (M4-04) and `giap.stats.multitest.bh` (M4-01). Statistician sign-off: see
+rows of `gippa.context.regions_table` (issue M4-18, docs/specs/M4-18-regions-stats-table.md,
+sections "Replicon-level effects" and "Descriptive rows"). Reuses `gippa.stats.permutation` (M4-03), `gippa.stats.bootstrap`
+and `gippa.stats.robust` (M4-04) and `gippa.stats.multitest.bh` (M4-01). Statistician sign-off: see
 the end of this note.
 
 ## Index
@@ -158,11 +158,11 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   anti-conservative (synthetic, R = 4,000: replicon p ~ Beta(4, 1.5), 40-gene region p ~ Beta(2, 2)
   gives 0.016 / 0.074 / 0.131 at α = 0.01 / 0.05 / 0.10; replicon Beta(0.3, 0.3), region p = 0.5
   gives 0.074 / 0.212 / 0.303). The studentised shift statistic Σ(d − p)/√Σ p(1 − p), recomputed at
-  each shift, restores level (0.010 / 0.048 / 0.103 and 0.010 / 0.046 / 0.097); adopted (ADR-0018). The giapsim attack-2
+  each shift, restores level (0.010 / 0.048 / 0.103 and 0.010 / 0.046 / 0.097); adopted (ADR-0018). The gippasim attack-2
   layout (short prophage genes, low p) is the conservative direction (0.004 / 0.019 / 0.047 with
   p_detect_true) and cannot detect this.
   (ii) *detection-selection bias of HL*: HL uses detected genes only. When detection depends on
-  abundance (giapsim `detection = "abundance"`, β_abundance 0.5–1) and the region's genes are short,
+  abundance (gippasim `detection = "abundance"`, β_abundance 0.5–1) and the region's genes are short,
   only its abundant genes are detected: prophage HL rejects 0.089 / 0.21–0.25 / 0.30–0.35 (R = 2,000,
   mean HL +0.7 to +0.8 log2; control layout without short genes 0.004–0.009 / 0.036–0.048 /
   0.080–0.100). Residualising log2 abundance on detectability covariates among the replicon's
@@ -176,7 +176,7 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   distribution than the shift null (same mechanism as (i) for O − E). It fails even when detection
   does not depend on abundance (A2-HL-MAR below) and even with the exact oracle E[a | x, detected].
 - **Replication dosage.** Real replicons have an ori → ter gene-dosage gradient (up to ~1–2 log2 in
-  fast growth) that giapsim does not model; circular shifts move the region along it, so HL partly
+  fast growth) that gippasim does not model; circular shifts move the region along it, so HL partly
   measures position. Report HL as "relative to random positions on this replicon", not as a
   region-specific regulatory effect.
 - **Plasmid copy number** cancels exactly (within-replicon comparisons): results are bitwise identical

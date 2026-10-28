@@ -1,5 +1,5 @@
 """M6-05 pass 1: discordant OP pairs — the t test and the BH family
-(docs/specs/M6-05-discordance.md; GIAP_SPEC.md §7.4.2, §7.4.3, §8.1).
+(docs/specs/M6-05-discordance.md; GIPPA_SPEC.md §7.4.2, §7.4.3, §8.1).
 
 Integration pass (MVP-first): the both-detected branch, eligibility, the degenerate table and the
 pass-1 one-detected branch (``p_miss = None`` -> ``no_detection_limit_model``). Per M6-index lead
@@ -24,21 +24,21 @@ from helpers.pairs_data import frame, gene, reps
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import giap.stats.tdist as tdist
-from giap.config import GiapConfig
-from giap.operons import discordance as disc
-from giap.stats.multitest import bh
-from giap.stats.tdist import StudentT, student_t_two_sided
+import gippa.stats.tdist as tdist
+from gippa.config import GippaConfig
+from gippa.operons import discordance as disc
+from gippa.stats.multitest import bh
+from gippa.stats.tdist import StudentT, student_t_two_sided
 
 ROW_COLS = ("pair_id", "test", "stat", "effect", "p_value", "q_value", "method", "flags")
 _DYADIC = 2.0**20
 
 
-def _cfg(**abundance: Any) -> GiapConfig:
+def _cfg(**abundance: Any) -> GippaConfig:
     doc: dict[str, Any] = {"seed": 1}
     if abundance:
         doc["abundance"] = abundance
-    return GiapConfig.model_validate(doc)
+    return GippaConfig.model_validate(doc)
 
 
 def _t_draws(n: int, seed: int = 7, loc: float = 0.05, scale: float = 0.4, df: float = 6.0):
@@ -86,7 +86,7 @@ def chain(
     return pairs, tbl
 
 
-def run(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig | None = None) -> Any:
+def run(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GippaConfig | None = None) -> Any:
     # M6-05's constant-scale null; M6-13's abundance-dependent scale has its own tests
     return disc.discordance(pairs, genes, cfg or _cfg(), None, sigma_model="constant")
 

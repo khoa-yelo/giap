@@ -15,7 +15,7 @@ spec-writer's proposed defaults (R10) and records them here.
    are `.`; a BED score outside 0–1000 raises. VCF header `##reference=sha256:<hex>`; a codon
    crossing the origin raises in the VCF writer (M7 decides how to report it).
    GFF3: every replicon gets a `##sequence-region` pragma; only circular replicons also get a
-   `region` feature with `Is_circular=true`; `read_gff3` skips GIAP's own region lines.
+   `region` feature with `Is_circular=true`; `read_gff3` skips GIPPA's own region lines.
    After the M1-05 review: CDS features must carry a phase (GFF3 3.1.26; overrides the issue's
    "phase None → `.`" edge case); the reader accepts strand `?`, rejects duplicate attribute keys
    and invalid percent-escapes, and accepts only plain digits for coordinates. VCF: INFO/FORMAT
@@ -24,10 +24,10 @@ spec-writer's proposed defaults (R10) and records them here.
    count; header text may not contain control characters; contig IDs must be safe IDs. REF is
    checked against the genome only when the caller passes the sequences (optional argument).
    A FILTER value other than `PASS` gets a generic `##FILTER` header line; M7 replaces these with
-   explicit descriptions when it defines GIAP's filters (docs/backlog.md).
+   explicit descriptions when it defines GIPPA's filters (docs/backlog.md).
 2. **Peptide and abundance tables.** Median across runs uses only runs where the peptide was
    quantified. The generic reader warns and drops rows with modification syntax (stripping is
-   `giap convert`'s job) and peptides > 40 aa. Mixed `source` for one peptide: `database` wins,
+   `gippa convert`'s job) and peptides > 40 aa. Mixed `source` for one peptide: `database` wins,
    with a warning. DIA-NN `PG.MaxLFQ` is collapsed across runs by median; intensity 0 → NA; the
    user passes `--abundance-type maxlfq`.
    After the M1-06 review: rows with any error-level issue (bad type, out of range, `nan`/`inf`
@@ -45,7 +45,7 @@ spec-writer's proposed defaults (R10) and records them here.
    threshold reuses `preflight.min_largest_contig_warn`. The abundance join check runs only when
    at least one ID matches a protein; otherwise it is reported as deferred (info). Without
    `--outdir`, preflight prints its summary and writes nothing. A missing `db_manifest.json` is
-   info under `giap preflight` and an error under `giap run` until M2 lands. Proteins of 7–40 aa
+   info under `gippa preflight` and an error under `gippa run` until M2 lands. Proteins of 7–40 aa
    become peptide rows.
 4. **New warning thresholds: rejected by Khoa (2026-10-14).** No new config keys. The decoy share and
    free RAM/disk are reported as Info only; the only resource warning is §7.0's ≥ 24 GB for genome-wide

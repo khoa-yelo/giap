@@ -1,4 +1,4 @@
-"""Regenerate src/giap/schemas/config.schema.json from the pydantic model.
+"""Regenerate src/gippa/schemas/config.schema.json from the pydantic model.
 
 Usage: uv run python scripts/write_config_schema.py [--check]
 --check exits 1 when the committed file is out of date.
@@ -10,9 +10,9 @@ import json
 import sys
 from pathlib import Path
 
-from giap.config import json_schema
+from gippa.config import json_schema
 
-TARGET = Path(__file__).resolve().parents[1] / "src" / "giap" / "schemas" / "config.schema.json"
+TARGET = Path(__file__).resolve().parents[1] / "src" / "gippa" / "schemas" / "config.schema.json"
 
 
 def render() -> str:

@@ -1,6 +1,6 @@
 """V3 locus order within each §8.1 family, not across scales
 (docs/specs/V03-order-within-kind.md, with its "Statistician review" and "Lead decisions" of
-2026-10-25; GIAP_SPEC.md §10.2 V3, §8.1).
+2026-10-25; GIPPA_SPEC.md §10.2 V3, §8.1).
 
 The rule under test: each locus gets the key ``(tier, family_rank, family_index, locus_id)``.
 
@@ -37,11 +37,11 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.run_view import RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
-from giap.viz.locus import Locus, select_loci
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.run_view import RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
+from gippa.viz.locus import Locus, select_loci
 
 FAMILIES = ("prophage", "bgc", "island", "operon_discordance", "missed_operon")
 FLAG_FAMILIES = ("operon_discordance", "missed_operon")
@@ -82,17 +82,17 @@ def _style() -> None:
 
 
 @functools.lru_cache(maxsize=64)
-def _cfg(*overrides: str) -> GiapConfig:
+def _cfg(*overrides: str) -> GippaConfig:
     return resolve_config(overrides=list(overrides))
 
 
 def _v03() -> base.PlotSpec:
-    import giap.viz.locus  # noqa: F401  (registers V03)
+    import gippa.viz.locus  # noqa: F401  (registers V03)
 
     return base.registered()["V03"]
 
 
-def _run(out: Path, cfg: GiapConfig) -> tuple[Instance, list[Instance]]:
+def _run(out: Path, cfg: GippaConfig) -> tuple[Instance, list[Instance]]:
     result = _v03().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     index = [i for i in result if i.suffix is None]
@@ -109,7 +109,7 @@ def _keys(loci: Sequence[Locus]) -> list[Key]:
     return [(lo.kind, lo.locus_id) for lo in loci]
 
 
-def _alphas(cfg: GiapConfig) -> dict[str, float]:
+def _alphas(cfg: GippaConfig) -> dict[str, float]:
     a = cfg.stats.alpha
     return {f: (a.operon_flags if f in FLAG_FAMILIES else a.context) for f in FAMILIES}
 
@@ -160,7 +160,7 @@ def _build(tmp: Path, entries: Sequence[Entry], shuffle_seed: int | None = None)
 
 
 def _select(
-    entries: Sequence[Entry], cfg: GiapConfig, shuffle_seed: int | None = None
+    entries: Sequence[Entry], cfg: GippaConfig, shuffle_seed: int | None = None
 ) -> list[Key]:
     with tempfile.TemporaryDirectory() as tmp:
         out = _build(Path(tmp), entries, shuffle_seed)
@@ -178,7 +178,7 @@ def _error_of(entries: Sequence[Entry]) -> dict[Key, float | None]:
     return {(KIND[f], lid): e for f, lid, e in entries}
 
 
-def _in_pool(entries: Sequence[Entry], cfg: GiapConfig) -> list[Entry]:
+def _in_pool(entries: Sequence[Entry], cfg: GippaConfig) -> list[Entry]:
     a = cfg.stats.alpha.operon_flags
     return [t for t in entries if t[0] not in FLAG_FAMILIES or (t[2] is not None and t[2] <= a)]
 
@@ -206,7 +206,7 @@ def _family_ranks(entries: Sequence[Entry], alphas: Mapping[str, float]) -> dict
     return ranks
 
 
-def _expected(entries: Sequence[Entry], cfg: GiapConfig) -> list[Key]:
+def _expected(entries: Sequence[Entry], cfg: GippaConfig) -> list[Key]:
     """The full key ``(tier, family_rank, family_index, locus_id)`` on the pool."""
     pool, alphas = _in_pool(entries, cfg), _alphas(cfg)
     ranks = _family_ranks(pool, alphas)
@@ -478,7 +478,7 @@ def test_flags_of_two_families_in_one_tu_stay_two_loci(tmp_path: Path) -> None:
 # --- properties ------------------------------------------------------------------------------
 
 
-def _check_pool(entries: Sequence[Entry], got: Sequence[Key], cfg: GiapConfig) -> None:
+def _check_pool(entries: Sequence[Entry], got: Sequence[Key], cfg: GippaConfig) -> None:
     """Pool membership is unchanged: exactly the in-pool entries, once each."""
     want = {(KIND[f], lid) for f, lid, _ in _in_pool(entries, cfg)}
     assert len(got) == len(set(got)) == len(want)

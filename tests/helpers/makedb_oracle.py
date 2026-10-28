@@ -1,6 +1,6 @@
-"""Brute-force oracle for `giap makedb` six-frame ORFs (issue M3-23; GIAP_SPEC.md §7.9.2).
+"""Brute-force oracle for `gippa makedb` six-frame ORFs (issue M3-23; GIPPA_SPEC.md §7.9.2).
 
-Independent of ``giap.makedb``: plain-string translation with table 11 and a codon-by-codon walk
+Independent of ``gippa.makedb``: plain-string translation with table 11 and a codon-by-codon walk
 over each strand, written from docs/specs/M3-23-makedb.md:
 
 * ORFs are maximal stop-to-stop segments of each of the six frames (stop codons excluded),
@@ -12,7 +12,7 @@ over each strand, written from docs/specs/M3-23-makedb.md:
   part + the first 30 codons of the CDS translated codon by codon from the genome (lead decision
   5); header interval = upstream part + those codons (lead decision 9); undefined when the walk
   runs off a linear contig or meets ``X`` (lead decision 4).
-* Other ORFs take the class of ``giap.mapping.loci.classify_locus``; ``rna_overlap`` and
+* Other ORFs take the class of ``gippa.mapping.loci.classify_locus``; ``rna_overlap`` and
   ``pseudogene`` ORFs are omitted.
 
 The oracle only uses ``classify_locus`` (M3-14, merged) for the class of non-dropped ORFs.
@@ -23,9 +23,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from giap.mapping.loci import classify_locus
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene, GeneModel
+from gippa.mapping.loci import classify_locus
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene, GeneModel
 
 STOPS = frozenset({"TAA", "TAG", "TGA"})
 _COMP = str.maketrans("ACGTN", "TGCAN")
@@ -258,7 +258,7 @@ def nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> tuple[list[Nterm]
 
 
 def orf_header(cls: str, contig: str, start: int, end: int, strand: str) -> str:
-    return f"GIAPORF_{cls}_{contig}_{start + 1}_{end}_{'p' if strand == '+' else 'm'}"
+    return f"GIPPAORF_{cls}_{contig}_{start + 1}_{end}_{'p' if strand == '+' else 'm'}"
 
 
 def nterm_header(nt: Nterm, gm: GeneModel) -> str:

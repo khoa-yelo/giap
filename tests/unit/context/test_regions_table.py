@@ -1,4 +1,4 @@
-"""M4-18 ``giap.context.regions_table``: plasmid rows, prophage subset rows, the table assembler.
+"""M4-18 ``gippa.context.regions_table``: plasmid rows, prophage subset rows, the table assembler.
 
 docs/specs/M4-18-regions-stats-table.md examples 1-7 and 9, edge cases, and the lead decisions of
 2026-10-20 (binding): raw log2 HL for plasmids without imputed genes (2), the reference-replicon
@@ -273,9 +273,9 @@ def test_example_5_no_plasmid_no_rows() -> None:
 
 
 def test_plasmid_type_switched_off_gives_no_rows() -> None:
-    from giap.config.model import GiapConfig
+    from gippa.config.model import GippaConfig
 
-    cfg = GiapConfig.model_validate({"stats": {"bootstrap": B},
+    cfg = GippaConfig.model_validate({"stats": {"bootstrap": B},
                                      "context": {"region_types": ["prophage", "bgc"]}})  # fmt: skip
     assert _plasmids(example_1(), cfg=cfg).empty
 
@@ -387,7 +387,7 @@ def test_no_adjusted_row_when_hl_is_na() -> None:
 
 
 def _small() -> int:
-    from giap.context import regions as R
+    from gippa.context import regions as R
 
     return int(R.SMALL_REGION)
 
@@ -650,7 +650,7 @@ def test_empty_genome_gives_empty_table() -> None:
 
 
 def test_example_9_same_seed_same_table(tmp_path: Path) -> None:
-    from giap.io.regions_tsv import write_regions_stats
+    from gippa.io.regions_tsv import write_regions_stats
 
     g = sd.mixed_genome()
     depth = sd.depth_frame({"chr1": 40.0, "p1": 160.0})

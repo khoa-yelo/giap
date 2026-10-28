@@ -9,7 +9,7 @@ partial dependence is a model-explanation computation; null draws are written as
 V14(a), V15(b,c) and V18(c) need things that only a fitted model or a running null has: the ranked
 TU scores and set positions behind each GSEA running sum, per-feature SHAP values (the table keeps
 block sums only), partial-dependence curves, and the null statistics of regions, islands and the
-determinants permutation test. §7.9.4 forbids `giap report` from recomputing statistics, so the
+determinants permutation test. §7.9.4 forbids `gippa report` from recomputing statistics, so the
 producing steps write them once, as support files (ADR-M9-A).
 
 ## Spec sections implemented
@@ -125,7 +125,7 @@ Definitions:
    - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
      context.nf. Today only the local executor publishes them.
 7. **Nextflow wiring (follow-up, test-author 9b229c4c). Gaps 1, 2 and 4–6 accepted as proposed.**
-   - **Optional output:** GIAP_STEP gains a separate optional `*_support` output
+   - **Optional output:** GIPPA_STEP gains a separate optional `*_support` output
      (`path '*_support', optional: true, emit: support`). The steps are unchanged.
    - **Publishing:** the out spec is `'<key>=<key>'`, and `saveAs` maps `<key>/support/<f>` to `plots/support/<f>`,
      file by file. Never publish a whole `plots/` directory from two tasks.
@@ -144,7 +144,7 @@ Definitions:
      `abs(abs(dev) - abs(es)) <= ES_TOL`. V14 takes the ES marker and its sign from the table's `es`.
    - **Stale sibling (review B1b):** publishing unlinks the other-suffix sibling (`.tsv` vs `.tsv.gz`) before
      copying, through one helper shared with write_support.
-   - **Plots in `giap run` (review B1a):** owned by M9-21 (the RunView analysis-support lookup and the plots
+   - **Plots in `gippa run` (review B1a):** owned by M9-21 (the RunView analysis-support lookup and the plots
      inputs) and m9/support-nf-wiring (runner staging and Nextflow). Not changed here; the
      integration parity test there pins it.
    - **Split-contig test (review B2):** a fixture region on two replicons. Two (region, contig, stat) groups,
@@ -164,6 +164,6 @@ Definitions:
    - **Backlogged:** N4 (`attrs` rank labels → explicit return), N6 (SHAP computed twice), N7
      (redundant filter), PD grid ≤ 0 for LOG_FEATURES.
 9. **The NF wiring (ff2df639) departs from decision 7, and both changes are accepted:**
-   - **File glob:** GIAP_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
+   - **File glob:** GIPPA_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
    - **The plots step copies the staged support** into its own `plots/support/` (`copy_staged_support`). Publishing `plots/` replaces `OUT/plots/`, which would otherwise wipe the files the analysis steps already published.
    - **Backlog:** a unit test for `copy_staged_support`, and determinants.nf emitting no `events` into the PLOTS pair.

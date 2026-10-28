@@ -1,4 +1,4 @@
-"""M5-07: the island power recorder ``scripts/dev/island_power.py`` (GIAP_SPEC.md §7.3.6 "Power
+"""M5-07: the island power recorder ``scripts/dev/island_power.py`` (GIPPA_SPEC.md §7.3.6 "Power
 (recorded, not gated): islands of 5, 10 and 20 TUs with effects of 1, 1.5 and 2 SD"; spec
 docs/specs/M5-07-island-calibration-power.md "Public interface", Examples 4-5, lead decision 30).
 
@@ -84,7 +84,7 @@ def test_cell_seeds_are_calibration_base_plus_index() -> None:
 @pytest.mark.parametrize("direction", ["high", "low"])
 @pytest.mark.parametrize("detection", ["covariates_only", "abundance"])
 def test_scenario_is_island_power_with_signed_effect(direction: str, detection: str) -> None:
-    from giapsim import scenarios as sc
+    from gippasim import scenarios as sc
 
     m = power_module()
     lcfg, ecfg = m.scenario(10, 1.5, direction, detection=detection)
@@ -104,7 +104,7 @@ def test_planted_island_avoids_regions(seed: int) -> None:
     not add power). Checked on drawn layouts of the largest island (20 TUs)."""
     import numpy as np
 
-    import giapsim.layout as la
+    import gippasim.layout as la
 
     m = power_module()
     lcfg, ecfg = m.scenario(20, 2.0, "high")

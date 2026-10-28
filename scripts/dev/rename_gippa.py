@@ -14,13 +14,17 @@ list and the protected spans below. Paths: every tracked path with ``giap`` in a
 outside the path keep list, is moved with ``git mv`` (shallowest component first, so
 ``src/giap`` and ``tests/sim/giapsim`` move as whole directories).
 
+Q-K32 (ADR-0064 amendment): every document is rewritten, the spec moves to ``GIPPA_SPEC.md``
+and the keep list holds data only, plus the rename record (ADR-0064, docs/specs/rename-gippa.md).
+The old expansion becomes "genome integrated prokaryotic proteomics analysis" everywhere.
+
 Never edited: the keep paths (``KEEP_PATHS``, every ``PROVENANCE.md`` / ``*.PROVENANCE.md``),
 ``.github/`` (listed for Khoa only), binary files (a NUL byte, not UTF-8, or a ``BINARY_EXT``
 suffix such as ``.gz``/``.parquet``/``.png``/``.pdf``/``.sif``) and sequence files
 (``SEQUENCE_EXT``: FASTA and GenBank content is never touched, because GIAP is a tetrapeptide).
 
 Protected spans inside renamed files (kept as written; ``--check`` reports them by category):
-``GIAP_SPEC`` (the read-only spec keeps its name), the checkout path ``bios/270/khoa/giap`` (it
+the checkout path ``bios/270/khoa/giap`` (it
 does not move, decision 5), the recording marker ``.giap-complete`` (on-disk under ``$GIAP_ROOT``,
 whose contents do not move), the setup lock ``.giap_setup.lock`` (old and new ``setup`` must lock
 each other out on a shared ``$GIAP_DB_DIR``), the SVG salt ``"giap"`` (decision 7), uppercase
@@ -32,6 +36,9 @@ farmshare_env.sh, ``giap-*`` job counting in the R14 checks and probe_env.py, ``
 
 Every transition asserts its end state and raises ``TransitionError`` when its anchor no longer
 matches (a later main changed the line), so ``--apply`` refuses and ``--check`` reports it.
+``--check`` also fails on any case-insensitive ``giap`` left in the documentation (``is_doc``:
+the root docs, docs/ and every tracked ``*.md`` / ``*.rst``) outside the rename record, the data
+keep paths and the kept data tokens (``DOC_ALLOWED``).
 """
 
 from __future__ import annotations
@@ -50,13 +57,12 @@ ANY = re.compile(r"giap", re.I)
 # ---------------------------------------------------------------- keep list (ADR-0064 decision 3)
 
 #: (pattern, category). A pattern ending in "/" is a directory prefix; else an exact path or regex.
+#: Q-K32: data only, plus the rename record. Documentation (spec, ADRs, docs/specs, PROGRESS.md,
+#: backlog, docs/validation, validation/reports) is rewritten. validation/release/ holds only
+#: .gitkeep: a file added there is rewritten unless it is sha256-pinned (then list it here).
 KEEP_PATHS: tuple[tuple[str, str], ...] = (
-    ("GIAP_SPEC.md", "spec"),
-    (r"re:docs/adr/ADR-00(0[1-9]|[1-5][0-9]|6[0-4])-", "historical-adr"),  # 0064: the name map
-    ("docs/adr/index.md", "historical-adr"),  # lists the historical ADR titles
-    ("docs/specs/", "historical-specs"),
-    ("PROGRESS.md", "progress-history"),  # the lead renames the header block by hand
-    ("docs/backlog.md", "backlog-history"),
+    ("docs/adr/ADR-0064-rename-giap-to-gippa.md", "rename-record"),  # maps the old name
+    ("docs/specs/rename-gippa.md", "rename-record"),  # its inventory: giap->gippa tables
     ("tests/data/recorded/", "recorded-tool-data"),
     ("tests/data/uniop/", "recorded-tool-data"),  # verbatim UniOP input/output excerpts (spot 3)
     ("tests/data/golden/r/VERSIONS.txt", "recorded-tool-data"),  # the R env as recorded
@@ -66,20 +72,16 @@ KEEP_PATHS: tuple[tuple[str, str], ...] = (
     ("validation/pilot/inputs/", "pilot-artefact"),
     ("validation/pilot/diann_A1.cfg", "pilot-artefact"),  # sha256-pinned in reproduce.md
     ("validation/pilot/diann_A2.cfg", "pilot-artefact"),
-    ("validation/reports/", "validation-report"),
-    ("validation/release/", "validation-report"),
-    ("docs/validation/", "validation-report"),
     (".github/", "github-khoa"),
     ("scripts/dev/rename_gippa.py", "rename-tooling"),  # the map itself
     ("scripts/dev/rename_compare.py", "rename-tooling"),
     ("tests/unit/test_rename_compare.py", "rename-tooling"),
     ("tests/unit/test_rename_gippa_tooling.py", "rename-tooling"),
+    ("tests/unit/test_rename_gippa_docs.py", "rename-tooling"),
 )
 #: keep paths whose *path* also stays (all other keep categories only keep their content)
 PATH_KEEP_CATEGORIES = frozenset(
-    {"spec", "historical-adr", "historical-specs", "recorded-tool-data", "github-khoa",
-     "pilot-artefact", "validation-report", "progress-history", "backlog-history",
-     "rename-tooling"}
+    {"rename-record", "recorded-tool-data", "github-khoa", "pilot-artefact", "rename-tooling"}
 )  # fmt: skip
 BINARY_EXT = frozenset(
     {".gz", ".bgz", ".bz2", ".xz", ".zst", ".zip", ".tar", ".parquet", ".png", ".pdf", ".sif",
@@ -89,6 +91,8 @@ BINARY_EXT = frozenset(
 SEQUENCE_EXT = frozenset(
     {".fa", ".faa", ".fasta", ".fas", ".fna", ".ffn", ".frn", ".gbff", ".gbk", ".gb", ".embl"}
 )
+#: never sniffed as FASTA: a page may open with a blockquote (``> **Note** ...``)
+DOC_SUFFIXES = frozenset({".md", ".yml", ".yaml", ".cff", ".txt", ".rst", ".html"})
 
 # ---------------------------------------------------------------- protected spans
 
@@ -112,8 +116,9 @@ def _p(rx: str, flags: int = 0) -> re.Pattern[str]:
 
 #: an uppercase GIAP that is not a whole word or a known identifier prefix: a possible peptide
 PEPTIDE = _p(r"[A-Z]+GIAP[A-Z]*|GIAP(?!ORF|NOVEL|SIM)[A-Z]+")
+ADR64_FILE = "ADR-0064-rename-giap-to-gippa"  # the kept rename record's file name
 GLOBAL_PROTECT: tuple[Protect, ...] = (
-    Protect(_p(r"GIAP_SPEC"), "GIAP_SPEC token"),
+    Protect(_p(re.escape(ADR64_FILE)), "link to the kept ADR-0064 file"),
     Protect(_p(r"bios([/-])270\1khoa\1giap(?![A-Za-z0-9_])"), "checkout path (does not move)"),
     Protect(_p(r"\.giap-complete"), "recording marker under $GIAP_ROOT (does not move)"),
     Protect(_p(r"\.giap_setup\.lock"), "setup lock (old and new setup exclude each other)"),
@@ -150,6 +155,12 @@ FILE_PROTECT: tuple[Protect, ...] = (
     Protect(_p(re.escape(R14_NOTE)), "transition: R14 counts giap-* too", ("AGENTS.md",)),
     Protect(_p(r'\(" giap-", " gippa-"\)'), "transition: R14 counts giap-* too", (PROBE,)),
     Protect(_p(r"^\.giap/$", re.M), "transition: old probe dir stays ignored", (".gitignore",)),
+    Protect(_p(r'old="GIAP_\$\{name#GIPPA_\}"'), "transition: kept pilot cfgs name old vars",
+            ("scripts/slurm/diann_pilot.sbatch",)),
+    Protect(_p(r'key\.replace\("GIPPA_", "GIAP_", 1\)'),
+            "transition: kept pilot cfgs name old vars", ("tests/helpers/pilot_kit.py",)),
+    Protect(_p(r"^- \[ADR-0064:.*$", re.M), "ADR-0064 index line (the rename record)",
+            ("docs/adr/index.md",)),
 )  # fmt: skip
 
 # ---------------------------------------------------------------- transitions (idempotent edits)
@@ -229,6 +240,61 @@ def _gitignore(text: str) -> str:
     return "\n".join(lines)
 
 
+#: the old expansion in every variant (Q-K32); the loose form is the end-state assertion and is
+#: anchored to "genome-integrated", so other prose about proteomics data never trips it
+NEW_EXPANSION = "genome integrated prokaryotic proteomics analysis"
+_OLD_EXPANSION = re.compile(
+    r"genome[-\s]+integrated\s+(?:analysis\s+of\s+proteomics\s+data(?:\s+for\s+bacterial"
+    r"\s+genomes)?|annotation\s+of\s+proteomics)",
+    re.I,
+)
+_OLD_LOOSE = re.compile(r"genome[-\s]+integrated(?!\s+prokaryotic\s+proteomics\s+analysis)", re.I)
+
+
+def _expansion(text: str) -> str:
+    def new(m: re.Match[str]) -> str:
+        return NEW_EXPANSION.capitalize() if m[0][0].isupper() else NEW_EXPANSION
+
+    text = _OLD_EXPANSION.sub(new, text)
+    if m := _OLD_LOOSE.search(text):
+        raise TransitionError(f"old expansion left (update _OLD_EXPANSION): {m[0]!r}")
+    # "the GIAP → GIPPA rename" reads "GIPPA → GIPPA" after the map
+    text = _SELF_ARROW.sub(lambda m: "rename to GIPPA" if m[1] else "GIPPA rename", text)
+    # "renames the image prefix (`giap-` → `gippa-`)" -> "renames the image prefix to `gippa-`"
+    text = _SELF_PAREN.sub(lambda m: f" to {m[1]}{m[3]}{m[1]}", text)
+    for m in _SELF_LOOSE.finditer(text):
+        if m[1].lower() == m[2].lower():
+            raise TransitionError(f"'GIPPA → GIPPA' left (update _SELF_ARROW): {m[0]!r}")
+    return text
+
+
+_SELF_ARROW = re.compile(r"(rename\s+)GIPPA\s+→\s+GIPPA|GIPPA\s+→\s+GIPPA\s+rename")
+_TOKEN = r"\w*gippa[\w*-]*"
+_SELF_PAREN = re.compile(
+    rf"\s*\(\s*([`'\"]*)({_TOKEN})\1\s*(?:→|->)\s*\1(\2)\1\s*\)", re.I
+)  # fmt: skip
+#: any "X → X" left after the map (any case, code spans, quotes, -/_ suffixes), compared by token;
+#: the right side is a lookahead so chains ("a → b → c") are checked pair by pair
+_SELF_LOOSE = re.compile(
+    rf"({_TOKEN})[`'\"*,;:]*\s*(?:→|->|=>|\bto\b)\s*[`'\"*]*(?=({_TOKEN}))", re.I
+)  # fmt: skip
+
+
+#: README "Status": the rename is the PR itself, so its pending item goes (post-map wording)
+_CLAUSE = (
+    ", and the code rename: until it lands, the package, the command and the environment "
+    "variables are `gippa` (`gippa run`, `GIPPA_DB_DIR`);"
+)
+_README_CLAUSE = re.compile(r"\s+".join(re.escape(w) for w in _CLAUSE.split()))
+
+
+def _readme(text: str) -> str:
+    text = _README_CLAUSE.sub(";", text)
+    if m := re.search(r"until it lands|the code rename", text):
+        raise TransitionError(f"README rename clause left (update _README_CLAUSE): {m[0]!r}")
+    return text
+
+
 _R14_GREP = _ensure("grep ' gippa-'", "grep -E ' (giap|gippa)-'")
 _R14_CASE = _ensure('case "$name" in gippa-*)', 'case "$name" in giap-*|gippa-*)')
 _PROBE_OLD = (
@@ -258,6 +324,7 @@ TRANSITIONS: dict[str, Callable[[str], str]] = {
     PROBE: _ensure(_PROBE_OLD, _PROBE_NEW),
     "AGENTS.md": _ensure("jobs named `gippa-*`,", f"jobs named `gippa-*` {R14_NOTE},"),
     ".gitignore": _gitignore,
+    "README.md": _readme,
 }  # fmt: skip
 
 # ---------------------------------------------------------------- the map
@@ -299,7 +366,8 @@ def file_kind(path: str, data: bytes) -> str:
         data.decode("utf-8")
     except UnicodeDecodeError:
         return "binary"
-    if suffix in SEQUENCE_EXT or data.lstrip()[:1] == b">":
+    sniff = suffix not in DOC_SUFFIXES and not is_doc(path)
+    if suffix in SEQUENCE_EXT or (sniff and data.lstrip()[:1] == b">"):
         return "sequence"
     return "text"
 
@@ -354,9 +422,9 @@ def transform(path: str, text: str) -> str:
     pieces: list[str] = []
     pos = 0
     for start, end, _ in protected_spans(path, text):
-        pieces += [map_text(text[pos:start]), text[start:end]]
+        pieces += [_expansion(map_text(text[pos:start])), text[start:end]]
         pos = end
-    pieces.append(map_text(text[pos:]))
+    pieces.append(_expansion(map_text(text[pos:])))  # protected spans never pass _expansion
     out = "".join(pieces)
     edit = TRANSITIONS.get(path)
     return edit(out) if edit else out
@@ -416,7 +484,8 @@ def survey(repo: Path) -> Report:
         if new_path != path:
             rep.moves.append((path, new_path))
         data = (repo / path).read_bytes()
-        if not ANY.search(data.decode("latin-1")) and new_path not in TRANSITIONS:
+        quick = data.decode("latin-1")
+        if not ANY.search(quick) and not _OLD_LOOSE.search(quick) and new_path not in TRANSITIONS:
             continue
         kind = file_kind(path, data)
         cat = keep_category(path)
@@ -560,6 +629,50 @@ def print_plan(rep: Report, repo: Path, verbose: bool) -> None:
         print(f"{path} ({n} digests)")
 
 
+DOC_FILES = frozenset(
+    {"README.md", "CITATION.cff", "mkdocs.yml", "AGENTS.md", "CLAUDE.md", "GIPPA_SPEC.md",
+     "PROGRESS.md"}
+)  # fmt: skip
+#: the only giap a document may keep (Q-K32): data tokens, the rename record's file name and the
+#: AGENTS.md R14 note (decision 5: agents count old `giap-*` jobs until none is left)
+DOC_ALLOWED = _p(
+    r"\.giap-complete|\.giap_setup\.lock|bios([/-])270\1khoa\1giap(?![A-Za-z0-9_])|"
+    + re.escape(ADR64_FILE)
+    + "|"
+    + re.escape(R14_NOTE)
+)
+_ADR64_LINE = _p(r"^- \[ADR-0064:")
+
+
+def is_doc(path: str) -> bool:
+    """Documentation (Q-K32): the root docs, docs/ and every ``*.md`` / ``*.rst`` (data keep
+    paths among them are reported as kept by ``doc_leftovers``)."""
+    suffix = PurePosixPath(path).suffix.lower()
+    return path in DOC_FILES or path.startswith("docs/") or suffix in {".md", ".rst"}
+
+
+def doc_leftovers(repo: Path) -> tuple[list[tuple[str, int, str]], list[str]]:
+    """``giap`` left in the documentation outside the allowed tokens, and the documentation
+    files kept as data (``keep_category``: PROVENANCE notes, the rename record)."""
+    hits: list[tuple[str, int, str]] = []
+    kept: list[str] = []
+    for path in tracked(repo):
+        if not is_doc(path):
+            continue
+        data = (repo / path).read_bytes()
+        if file_kind(path, data) != "text" or not ANY.search(text := data.decode("utf-8")):
+            continue
+        if keep_category(path):
+            kept.append(path)
+            continue
+        for no, line in _line_hits(text):
+            if path == "docs/adr/index.md" and _ADR64_LINE.match(line):
+                continue
+            if ANY.search(DOC_ALLOWED.sub("", line)):
+                hits.append((path, no, line.strip()))
+    return hits, kept
+
+
 def check(repo: Path, verbose: bool) -> int:
     """Exit status 1 when anything that should be renamed is left (content or path)."""
     rep = survey(repo)
@@ -579,6 +692,13 @@ def check(repo: Path, verbose: bool) -> int:
     for path, err in rep.broken:
         print(f"LEFTOVER transition {path}: {err}")
         bad += 1
+    docs, docs_kept = doc_leftovers(repo)
+    for path, no, line in docs:
+        print(f"LEFTOVER doc {path}:{no}: {line}")
+    bad += len(docs)
+    for path in docs_kept:
+        print(f"kept in docs ({keep_category(path)}): {path}")
+    print(f"docs leftovers: {len(docs)}")
     print("## giap left after the rename, by keep category (occurrences)")
     for cat, n in sorted(rep.kept.items()):
         print(f"{cat:55s} {n:6d}")

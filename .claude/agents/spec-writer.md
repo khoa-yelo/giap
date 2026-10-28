@@ -1,6 +1,6 @@
 ---
 name: spec-writer
-description: Turns a GIAP_SPEC.md section into an issue with input/expected-output examples, edge cases and acceptance criteria. Use at step 1 of the feature loop.
+description: Turns a GIPPA_SPEC.md section into an issue with input/expected-output examples, edge cases and acceptance criteria. Use at step 1 of the feature loop.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 Write docs/specs/<issue>.md: the spec section, 3–10 concrete examples (input → expected output),

@@ -1,8 +1,8 @@
-"""TE1, TE2 and TE8 in-silico proxies (GIAP_SPEC.md §11.6, §13 gates M3 and M7; M3-22, M7-14).
+"""TE1, TE2 and TE8 in-silico proxies (GIPPA_SPEC.md §11.6, §13 gates M3 and M7; M3-22, M7-14).
 
-Both proxies digest proteins with :func:`giap.mapping.digest.digest` (trypsin_p, missed <= 1,
+Both proxies digest proteins with :func:`gippa.mapping.digest.digest` (trypsin_p, missed <= 1,
 7-30 aa) and send the distinct peptide sequences (lead decision 4) through the merged mapping
-chain (``giap preflight`` normalisation, then the registered steps under the local executor) as a
+chain (``gippa preflight`` normalisation, then the registered steps under the local executor) as a
 ``database`` input without q-values or PEPs, so every decoy hit weighs 1 (pure target-decoy).
 
 * **TE1** (``search_db = same``): Nissle Bakta CDS/sORF proteins (pseudogene-flagged CDSs
@@ -49,18 +49,18 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from giap.annotate.bakta import parse_bakta_json
-from giap.config import GiapConfig, resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.io.protein_fasta import read_protein_fasta
-from giap.io.tsv import write_tsv
-from giap.mapping.chance import residue_freqs
-from giap.mapping.digest import digest
-from giap.mapping.placement_fdr import DECOY_TYPE_OF, STRATA, best_costs
-from giap.mapping.sixframe import load_index
-from giap.model.coords import Interval
-from giap.model.genes import Gene
-from giap.steps.mapping import select_queries
+from gippa.annotate.bakta import parse_bakta_json
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.io.protein_fasta import read_protein_fasta
+from gippa.io.tsv import write_tsv
+from gippa.mapping.chance import residue_freqs
+from gippa.mapping.digest import digest
+from gippa.mapping.placement_fdr import DECOY_TYPE_OF, STRATA, best_costs
+from gippa.mapping.sixframe import load_index
+from gippa.model.coords import Interval
+from gippa.model.genes import Gene
+from gippa.steps.mapping import select_queries
 
 TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
 TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
@@ -152,7 +152,7 @@ def inframe_inside(
     contig: str, start: int, end: int, strand: str, gene: Interval, circular_len: int | None
 ) -> bool:
     """``[start, end)`` (0-based, unwrapped) lies inside ``gene`` on its strand and frame; on a
-    circular replicon the hit may be shifted by +-L (as in ``giap.mapping.loci``)."""
+    circular replicon the hit may be shifted by +-L (as in ``gippa.mapping.loci``)."""
     if gene.contig != contig or gene.strand != strand:
         return False
     fs, fe = gene.start, gene.end
@@ -351,7 +351,7 @@ def _write_peptides(path: Path, sources: Mapping[str, Collection[str]], search_d
 
 
 def run_chain(
-    cfg: GiapConfig,
+    cfg: GippaConfig,
     genome: Path,
     bakta_json: Path,
     sources: Mapping[str, Collection[str]],
@@ -360,9 +360,9 @@ def run_chain(
     targets: Sequence[str],
 ) -> Path:
     """Preflight + the local executor up to ``targets``; returns the work directory."""
-    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
-    from giap.runner.local import run_local
-    from giap.steps import load_step_modules
+    from gippa.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    from gippa.runner.local import run_local
+    from gippa.steps import load_step_modules
 
     tsv = out / "peptides.tsv"
     out.mkdir(parents=True, exist_ok=True)
@@ -405,7 +405,7 @@ def te1_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
     sources = peptide_sources((g.locus_tag, g.aa) for g in genes)
     excluded = non_atg_nterm(genes)
     cfg = resolve_config()
-    with tempfile.TemporaryDirectory(prefix="giap-te1-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="gippa-te1-") as tmp:
         work = run_chain(cfg, genome, bakta_json, sources, "same", Path(tmp), ["loci"])
         hits = _read_hits_tsv(work / "mapping" / "peptide_hits.tsv")
         per = pd.read_parquet(work / "placement")  # the per-peptide table TE8 reads (rule 24)
@@ -416,13 +416,13 @@ def te1_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
 def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
     """TE2: TE1's same-strain peptides through the chain and ``variants``; no ``high`` ALT site
     without the ``start_codon`` or ``stop_codon`` flag."""
-    from giap.io.variant_tables import read_variants
+    from gippa.io.variant_tables import read_variants
 
     genes, _ = read_coding_genes(bakta_json, genome)
     sources = peptide_sources((g.locus_tag, g.aa) for g in genes)
     # the same strain: genome_relation same; the VCF sample needs a resolved name
     cfg = resolve_config(overrides=["genome_relation=same", "sample_name=te2"])
-    with tempfile.TemporaryDirectory(prefix="giap-te2-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="gippa-te2-") as tmp:
         work = run_chain(cfg, genome, bakta_json, sources, "same", Path(tmp), ["variants"])
         sites = read_variants(work / "variants")
     return te2_result(sites)
@@ -484,7 +484,7 @@ def te8_proxy(
     k12_genes, _ = read_coding_genes(k12_json, k12_genome)
     excluded = uni_nterm & set(non_atg_nterm(k12_genes))  # decision 9: gene-model reading
     cfg = resolve_config()
-    with tempfile.TemporaryDirectory(prefix="giap-te8-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="gippa-te8-") as tmp:
         k_work = run_chain(cfg, k12_genome, k12_json, sources, "other", Path(tmp) / "k12",
                            ["map_exact"])  # fmt: skip
         hx = pd.read_parquet(k_work / "hits_exact")

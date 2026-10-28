@@ -1,8 +1,8 @@
 """MVP-03a examples 1-6 and the run-free edge cases against the pure manifest builder
-(docs/specs/MVP-03-manifest-finalize.md D-C, D-E, "Examples", "Edge cases"; GIAP_SPEC.md §6.6,
+(docs/specs/MVP-03-manifest-finalize.md D-C, D-E, "Examples", "Edge cases"; GIPPA_SPEC.md §6.6,
 §6.7, §9.1, §9.4).
 
-Interface assumed: ``giap.manifest.build_manifest(sources: ManifestSources) -> dict`` (no file
+Interface assumed: ``gippa.manifest.build_manifest(sources: ManifestSources) -> dict`` (no file
 I/O); the ``ManifestSources`` fields are listed in ``tests/helpers/manifest_data.py``.
 
 Builder rules pinned here (spec D-C, lead decisions 7, 8 and 11 and question 1):
@@ -13,8 +13,8 @@ Builder rules pinned here (spec D-C, lead decisions 7, 8 and 11 and question 1):
   always kept). ``layers_missing`` = the ``<layer>`` of each kept ``layer_missing:<layer>`` flag.
 * ``warnings`` = sorted unique ``preflight:<rule_id>`` for each ``warn`` check and
   ``<step>:<event>`` for each WARNING event (machine IDs, never messages).
-* ``steps`` (Nextflow) = the trace grouped by step name (``giap.runner.nextflow``'s rule: process
-  name lowercased, the tag for ``GIAP_STEP``), last attempt of each task only: ``wall_time_s``
+* ``steps`` (Nextflow) = the trace grouped by step name (``gippa.runner.nextflow``'s rule: process
+  name lowercased, the tag for ``GIPPA_STEP``), last attempt of each task only: ``wall_time_s``
   = sum of realtime, ``cpu_time_s`` = sum of realtime * %cpu / 100, ``peak_rss_bytes`` = max
   peak_rss (binary units, an int), ``n_tasks`` = distinct task names, ``n_retries`` = earlier
   attempts. A metric ``-`` or empty is left out. ``steps`` (local) = ``local_steps`` with
@@ -46,10 +46,10 @@ from helpers.manifest_data import (
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from gippa.config import GippaConfig
 
 KEYS_03A = {
-    "schema_version", "giap_version", "git_commit", "git_dirty", "command_line", "executor",
+    "schema_version", "gippa_version", "git_commit", "git_dirty", "command_line", "executor",
     "profile", "resume", "outdir", "started_at", "finished_at", "status", "exit_code",
     "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
     "databases", "annotation", "detection_tier", "seeds", "steps", "skipped", "modules_off",
@@ -79,8 +79,8 @@ def test_completed_run_fields() -> None:
     assert m["exit_code"] == 0
     assert m["failed_step"] is None and m["failed_log"] is None
     assert m["executor"] == "local"
-    assert m["schema_version"] == GiapConfig().schema_version
-    assert m["config"] == GiapConfig(seed=7).model_dump(mode="json")
+    assert m["schema_version"] == GippaConfig().schema_version
+    assert m["config"] == GippaConfig(seed=7).model_dump(mode="json")
     assert m["detection_tier"] == "peptides"
 
 
@@ -122,7 +122,7 @@ def test_example_2_annotation_meta_flags_and_block() -> None:
 
 
 def test_example_3_off_module_explains_its_layer() -> None:
-    cfg = GiapConfig(seed=7, modules=["core", "mobile"])
+    cfg = GippaConfig(seed=7, modules=["core", "mobile"])
     m = build(cfg=cfg, events=[layer_missing("context_layers", "antismash")])
     assert m["modules_off"] == ["bgc", "function"]
     assert "antismash" not in m["layers_missing"]
@@ -130,7 +130,7 @@ def test_example_3_off_module_explains_its_layer() -> None:
 
 
 def test_decision_7_genomad_dropped_when_mobile_off() -> None:
-    cfg = GiapConfig(seed=7, modules=["core"])
+    cfg = GippaConfig(seed=7, modules=["core"])
     m = build(cfg=cfg, events=[layer_missing("context_layers", "genomad")])
     assert "layer_missing:genomad" not in m["flags"]
     assert m["layers_missing"] == []
@@ -144,14 +144,14 @@ def test_decision_7_off_module_layer_kept_when_module_on() -> None:
 
 @pytest.mark.parametrize("layer", ["cog", "go", "kegg"])
 def test_decision_7_cog_go_kegg_always_kept(layer: str) -> None:
-    cfg = GiapConfig(seed=7, modules=["core"])
+    cfg = GippaConfig(seed=7, modules=["core"])
     m = build(cfg=cfg, events=[layer_missing("gene_table", layer)])
     assert f"layer_missing:{layer}" in m["flags"]
     assert layer in m["layers_missing"]
 
 
 def test_modules_off_sorted_for_core_only() -> None:
-    m = build(cfg=GiapConfig(seed=7, modules=["core"]))
+    m = build(cfg=GippaConfig(seed=7, modules=["core"]))
     assert m["modules_off"] == ["bgc", "function", "mobile"]
 
 
@@ -232,7 +232,7 @@ def test_failed_last_attempt_gives_status_failed() -> None:
     trace = [
         trace_row("PROMOTECH (chunk_1)", "FAILED", exit="137", attempt="1", realtime="1s"),
         trace_row("PROMOTECH (chunk_1)", "FAILED", exit="137", attempt="2", realtime="1s"),
-        trace_row("ANNOTATE:GIAP_STEP (parse_bakta)", "COMPLETED", realtime="2s"),
+        trace_row("ANNOTATE:GIPPA_STEP (parse_bakta)", "COMPLETED", realtime="2s"),
     ]
     m = build(executor="nextflow", trace=trace, local_steps=(), exit_code=4,
               failed_step="promotech", failed_log="/w/ab/cdef12/.command.log",
@@ -245,7 +245,7 @@ def test_failed_last_attempt_gives_status_failed() -> None:
 
 
 def test_cached_rows_give_status_cached() -> None:
-    trace = [trace_row("ANNOTATE:GIAP_STEP (parse_bakta)", "CACHED", realtime="2s")]
+    trace = [trace_row("ANNOTATE:GIPPA_STEP (parse_bakta)", "CACHED", realtime="2s")]
     m = build(executor="nextflow", trace=trace, local_steps=(), resume=True,
               registered=[spec("parse_bakta")])  # fmt: skip
     (s,) = m["steps"]
@@ -255,8 +255,8 @@ def test_cached_rows_give_status_cached() -> None:
 
 
 def test_steps_keep_trace_order() -> None:
-    trace = [trace_row("X:GIAP_STEP (zeta)", realtime="1s"),
-             trace_row("X:GIAP_STEP (alpha)", realtime="1s")]  # fmt: skip
+    trace = [trace_row("X:GIPPA_STEP (zeta)", realtime="1s"),
+             trace_row("X:GIPPA_STEP (alpha)", realtime="1s")]  # fmt: skip
     m = build(executor="nextflow", trace=trace, local_steps=(),
               registered=[spec("zeta"), spec("alpha")])  # fmt: skip
     assert [s["name"] for s in m["steps"]] == ["zeta", "alpha"]
@@ -284,7 +284,7 @@ def test_local_steps_in_plan_order_without_rss() -> None:
 
 
 def test_example_6_seeds() -> None:
-    m = build(cfg=GiapConfig(seed=7))
+    m = build(cfg=GippaConfig(seed=7))
     assert m["seeds"] == {"master": 7, "detectability": 3987542110, "gene_table": 393846822}
 
 
@@ -295,8 +295,8 @@ def test_seeds_are_crc32_of_step_names() -> None:
 
 def test_seeds_skip_external_steps() -> None:
     trace = [trace_row("PROMOTECH (chunk_1)", realtime="1s"),
-             trace_row("X:GIAP_STEP (gene_table)", realtime="1s")]  # fmt: skip
-    m = build(executor="nextflow", trace=trace, local_steps=(), cfg=GiapConfig(seed=3),
+             trace_row("X:GIPPA_STEP (gene_table)", realtime="1s")]  # fmt: skip
+    m = build(executor="nextflow", trace=trace, local_steps=(), cfg=GippaConfig(seed=3),
               registered=[spec("promotech", kind="ext"), spec("gene_table")])  # fmt: skip
     assert m["seeds"] == {"master": 3, "gene_table": zlib.crc32(b"gene_table")}
 
@@ -305,7 +305,7 @@ def test_seeds_skip_external_steps() -> None:
 
 
 def test_skipped_reasons_and_order() -> None:
-    cfg = GiapConfig.model_validate(
+    cfg = GippaConfig.model_validate(
         {"seed": 7, "modules": ["core"],
          "annotation": {"precomputed": {"terminators": "/data/terminators.tsv"}}}
     )  # fmt: skip
@@ -466,7 +466,7 @@ def test_tools_one_row_per_name_and_version() -> None:
         _report("NOVEL:BAKTA", "bakta", "1.11.4", "sha256:" + "d" * 64),
         _report("ANNOTATE:PROMOTECH", "promotech", "1.0", None, "e" * 64),
         _report("OTHER:PROMOTECH", "promotech", "1.1", None, "f" * 64),
-        _report("ANNOTATE:GIAP_STEP", "giap", "0.1.0"),
+        _report("ANNOTATE:GIPPA_STEP", "gippa", "0.1.0"),
     ]
     m = build(executor="nextflow", trace=[], local_steps=(), tool_reports=reports)
     assert [(t["name"], t["version"]) for t in m["tools"]] == [
@@ -479,9 +479,9 @@ def test_tools_one_row_per_name_and_version() -> None:
     validate(m)
 
 
-def test_giap_itself_is_not_a_tool() -> None:
+def test_gippa_itself_is_not_a_tool() -> None:
     m = build(executor="nextflow", trace=[], local_steps=(),
-              tool_reports=[_report("X:GIAP_STEP", "giap", "0.1.0")])  # fmt: skip
+              tool_reports=[_report("X:GIPPA_STEP", "gippa", "0.1.0")])  # fmt: skip
     assert m["tools"] == []
 
 
@@ -505,13 +505,13 @@ def test_git_checkout_fields() -> None:
 
 
 def test_volatile_field_lists_the_constant() -> None:
-    from giap.manifest import VOLATILE
+    from gippa.manifest import VOLATILE
 
     assert build()["volatile"] == list(VOLATILE)
 
 
 def test_digest_field_matches_the_core() -> None:
-    from giap.manifest import provenance_core, provenance_digest
+    from gippa.manifest import provenance_core, provenance_digest
 
     m = build()
     assert m["provenance_digest"] == provenance_digest(provenance_core(m))
@@ -525,7 +525,7 @@ def test_publication_flag_recorded() -> None:
 def test_builder_does_not_mutate_its_sources() -> None:
     from helpers.manifest_data import sources
 
-    from giap.manifest import build_manifest
+    from gippa.manifest import build_manifest
 
     evs = _flag_events()
     before = json.dumps(evs, sort_keys=True)

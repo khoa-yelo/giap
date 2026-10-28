@@ -1,4 +1,4 @@
-"""giapsim layout oriC feature and the C15 ``features`` writer (issue M5-04; GIAP_SPEC.md §11.3).
+"""gippasim layout oriC feature and the C15 ``features`` writer (issue M5-04; GIPPA_SPEC.md §11.3).
 
 Examples 1, 2 and 7, the oriC edge cases and the determinism criterion of
 docs/specs/M5-04-sim-oric-gradient.md, checked against tests/helpers/oric_oracle.py (written from
@@ -40,7 +40,7 @@ PRE_M5_DEFAULT_SHA256 = {
     "genes.parquet": "e0d4341901746a7444965ebe8070a3c382d5edc6f864bff8597bd8e697b65e65",
     "layers.parquet": "c7ae231f33b641c11a6b7b03ce95c36e5daf5c6b7fd5c1a46456d31e6d6c5ba5",
     "region_genes.parquet": "1197b721b0b595beaf182adb375dfbf0707c5cf8085b5d4598106988f1215fd7",
-    "regions.parquet": "54ca39d8465b7720f4417364363d63ce4c6aa92cd893cad24c2f311c825f2ca5",
+    "regions.parquet": "372cebd51acc2a81a72dd80fae4d7ad2321e342e681300036d8916393e0d5712",
     "replicons.parquet": "baa9f94adf047f02a746031e33777abc727b0eea9e650454e0b7a868562bd85e",
     "tus.parquet": "c564de32b5fac4d9d1dc6a9ff5f885065ccdec0c2d7547b7ce48561f0e1ca825",
     "xrefs.parquet": "0fd3d2531b4d94b2dc6370de0378ecb870858dc2f6b091c37854771e474f592e",
@@ -55,13 +55,13 @@ ARROW_TYPES = {
 
 
 def simulate(seed: int = 1, **kw: Any) -> Any:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     return simulate_layout(LayoutConfig(**kw), np.random.default_rng(seed))
 
 
 def write(layout: Any, work: Path) -> None:
-    from giapsim.contract_tables import write_contract_tables
+    from gippasim.contract_tables import write_contract_tables
 
     write_contract_tables(layout, work)
 
@@ -85,7 +85,7 @@ def digests(work: Path) -> dict[str, str]:
 
 
 def test_layout_config_oric_frac_defaults_to_none() -> None:
-    from giapsim.layout import LayoutConfig
+    from gippasim.layout import LayoutConfig
 
     assert LayoutConfig().oric_frac is None
     cfg = LayoutConfig(oric_frac=0.5)
@@ -94,9 +94,9 @@ def test_layout_config_oric_frac_defaults_to_none() -> None:
 
 
 def test_contract_types_have_c15_with_every_column_written() -> None:
-    """giapsim's literal C15 copy: the ten parse_bakta columns, none optional (gene, product,
+    """gippasim's literal C15 copy: the ten parse_bakta columns, none optional (gene, product,
     amino_acid and anticodon are nullable, not absent)."""
-    from giapsim.contract_tables import CONTRACT_COLUMNS, CONTRACT_TYPES, REQUIRED_COLUMNS
+    from gippasim.contract_tables import CONTRACT_COLUMNS, CONTRACT_TYPES, REQUIRED_COLUMNS
 
     assert tuple(CONTRACT_COLUMNS["features"]) == oo.FEATURE_COLUMNS
     assert tuple(REQUIRED_COLUMNS["features"]) == oo.FEATURE_COLUMNS
@@ -238,7 +238,7 @@ def test_oric_only_on_chr1_with_plasmids_and_contigs() -> None:
 
 def place(frac: float, genes: list[tuple[int, int]], length: int) -> tuple[int, int]:
     """``(start, end)`` of ``_place_oric`` for chr1 genes ``(start, end)`` on a circle."""
-    from giapsim.layout import _place_oric
+    from gippasim.layout import _place_oric
 
     contig = ["chr1"] * len(genes)
     row = _place_oric(frac, contig, np.array([s for s, _ in genes]),
@@ -293,7 +293,7 @@ def test_place_oric_ties_take_the_first_gap() -> None:
 
 @pytest.mark.parametrize("frac", [-0.1, 1.0, 1.5, math.nan, math.inf])
 def test_oric_frac_outside_unit_interval_is_value_error(frac: float) -> None:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     with pytest.raises(ValueError, match="oric_frac"):
         simulate_layout(LayoutConfig(n_genes_chromosome=100, oric_frac=frac),
@@ -342,7 +342,7 @@ def test_origin_crossing_with_oric_near_zero(seed: int, frac: float) -> None:
 
 
 def test_example7_features_parquet_written_and_valid(tmp_path: Path, half: Any) -> None:
-    from giap.genetable.contract import validate_inputs, validate_table
+    from gippa.genetable.contract import validate_inputs, validate_table
 
     work = tmp_path / "w"
     write(half, work)
@@ -363,7 +363,7 @@ def test_example7_features_parquet_written_and_valid(tmp_path: Path, half: Any) 
 
 def test_example7_without_features_file_no_issue(tmp_path: Path, half: Any) -> None:
     """Optional: the other tables load and cross-validate the same without features.parquet."""
-    from giap.genetable.contract import validate_inputs
+    from gippa.genetable.contract import validate_inputs
 
     work = tmp_path / "w"
     write(half, work)
@@ -407,10 +407,10 @@ def test_different_seed_moves_the_oric() -> None:
 
 @pytest.fixture(scope="module")
 def m0_oric(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, Any]:
-    import giapsim
-    from giapsim.layout import layout_from_simulation
+    import gippasim
+    from gippasim.layout import layout_from_simulation
 
-    sim = giapsim.simulate(giapsim.SimConfig(oric=True, crispr=True), 3,
+    sim = gippasim.simulate(gippasim.SimConfig(oric=True, crispr=True), 3,
                            tmp_path_factory.mktemp("m0") / "sim")  # fmt: skip
     return sim, layout_from_simulation(sim)
 
@@ -441,7 +441,7 @@ def test_adapter_fills_features_from_bakta_like_json(m0_oric: tuple[Any, Any]) -
 
 
 def test_adapter_features_valid_in_contract(m0_oric: tuple[Any, Any], tmp_path: Path) -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     _, lay = m0_oric
     write(lay, tmp_path / "w")
@@ -475,7 +475,7 @@ def _fake_sim(tmp_path: Path, features: list[dict[str, Any]], length: int = 6000
 def test_adapter_unwraps_an_origin_crossing_feature(tmp_path: Path) -> None:
     """S3: a Bakta feature with ``stop <= start`` crosses the origin; C15 keeps ``end``
     unwrapped (``end = stop + length``, §6.5), so ``length < end < 2 length``."""
-    from giapsim.layout import layout_from_simulation
+    from gippasim.layout import layout_from_simulation
 
     sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 5901,
                                        "stop": 132, "strand": "?", "id": "O1"}])  # fmt: skip
@@ -489,7 +489,7 @@ def test_adapter_unwraps_an_origin_crossing_feature(tmp_path: Path) -> None:
 
 
 def test_adapter_keeps_a_non_crossing_feature_unchanged(tmp_path: Path) -> None:
-    from giapsim.layout import layout_from_simulation
+    from gippasim.layout import layout_from_simulation
 
     sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 2001,
                                        "stop": 2232, "strand": "?", "id": "O1"}])  # fmt: skip
@@ -498,8 +498,8 @@ def test_adapter_keeps_a_non_crossing_feature_unchanged(tmp_path: Path) -> None:
 
 
 def test_adapter_crossing_feature_is_contract_valid(tmp_path: Path) -> None:
-    from giap.genetable.contract import validate_table
-    from giapsim.layout import layout_from_simulation
+    from gippa.genetable.contract import validate_table
+    from gippasim.layout import layout_from_simulation
 
     sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 5901,
                                        "stop": 132, "strand": "?", "id": "O1"}])  # fmt: skip
@@ -509,9 +509,9 @@ def test_adapter_crossing_feature_is_contract_valid(tmp_path: Path) -> None:
 
 
 def test_adapter_without_oric_has_empty_features(tmp_path: Path) -> None:
-    import giapsim
-    from giapsim.layout import layout_from_simulation
+    import gippasim
+    from gippasim.layout import layout_from_simulation
 
-    sim = giapsim.simulate(giapsim.SimConfig(), 2, tmp_path / "sim")
+    sim = gippasim.simulate(gippasim.SimConfig(), 2, tmp_path / "sim")
     f = layout_from_simulation(sim).features
     assert len(f) == 0 and tuple(f.columns) == oo.FEATURE_COLUMNS

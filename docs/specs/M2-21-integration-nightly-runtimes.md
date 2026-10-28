@@ -15,7 +15,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
   farmshare,apptainer` on the 100-kb genome (Bakta light and full DB); `record-fixtures` mode
   (`--export=MODE=record`); benchmarks pinned to one node class with `--constraint` (median of 5; fail
   on > 15 % slowdown against `baseline.json` on the same node class). Tests `main` and the newest open
-  PR branches, each in its own `git worktree` under `$GIAP_ROOT/ci/`". `weekly.sbatch`: "end-to-end
+  PR branches, each in its own `git worktree` under `$GIPPA_ROOT/ci/`". `weekly.sbatch`: "end-to-end
   runs on K-12 and Nissle with live full-DB Bakta and with the recorded JSON; antiSMASH live run; …".
 - §11.2 Integration: "the 100-kb synthetic genome through every wrapper (Bakta light DB plus recorded
   full-DB fixtures for Module 7); resume and failure paths; stub mode for fast workflow tests; local
@@ -28,13 +28,13 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 ## Public interface
 
 - Wave-B recordings via `record_fixtures.sbatch TOOLS=uniop,promotech,promoter_calculator,ostir,transtermhp`
-  on sim100k (and `uniop` on k12 for M6 calibration), inputs built by the GIAP builders from the
+  on sim100k (and `uniop` on k12 for M6 calibration), inputs built by the GIPPA builders from the
   recorded full-DB Bakta genes; flips the remaining `pending_sample` contract tests.
 - `scripts/slurm/nightly.sbatch` (`MODE=test|record`; job array: `0` = integration, `1` = benchmarks,
-  `2..` reserved for calibration from M3): worktrees under `$GIAP_ROOT/ci/<branch>`; runs
+  `2..` reserved for calibration from M3): worktrees under `$GIPPA_ROOT/ci/<branch>`; runs
   `uv run pytest tests/integration tests/contract --require-capabilities <farmshare_nightly list>`,
   `nf-test test workflow/tests --profile farmshare,apptainer`, and
-  `giap run … --executor nextflow -profile farmshare,apptainer` on sim100k with Bakta light and with
+  `gippa run … --executor nextflow -profile farmshare,apptainer` on sim100k with Bakta light and with
   the recorded full-DB JSON; posts a summary with `scripts/ci/post_summary.py` (`gh issue comment`).
 - `scripts/slurm/weekly.sbatch`: live full-DB Bakta + annotation track on K-12 and Nissle, antiSMASH
   live run, TE6 on the live K-12 JSON; later milestones append their e2e steps.
@@ -43,7 +43,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 - `tests/integration/test_local_vs_nextflow.py`: same SIM100K config with every layer precomputed,
   `--executor local` vs `--executor nextflow -profile farmshare_local` → identical `annotation/*.tsv`.
 - `.github/workflows/containers.yml` (§12): builds `workflow/containers/<tool>/` images, pushes
-  `ghcr.io/khoa-yelo/giap-<tool>`, opens a PR updating `containers.config` digests.
+  `ghcr.io/khoa-yelo/gippa-<tool>`, opens a PR updating `containers.config` digests.
 - `benchmarks/test_annotation_steps.py` + `benchmarks/baseline.json` (first baseline, per node class).
 
 ## Examples
@@ -54,13 +54,13 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 | 2 | same with `local/db/genomad_db` renamed away | the job fails (not skips): `required capability needs_genomad_db is missing` |
 | 3 | `MODE=record` | runs `record_fixtures.sbatch` logic for every tool; `git status` shows no fixture diff when versions are unchanged (byte-identical gz) |
 | 4 | `test_local_vs_nextflow` | `cmp` equal for `operon_pairs.tsv`, `tus.tsv`, `regions.tsv` and every BED |
-| 5 | `giap run` on sim100k, then kill one Promotech task and `-resume` | completes; finished tasks cached (trace shows `CACHED`) |
-| 6 | a tool exits 1 (simulated with a broken env var) | `giap run` exits 4 naming the step and its `.command.log` |
+| 5 | `gippa run` on sim100k, then kill one Promotech task and `-resume` | completes; finished tasks cached (trace shows `CACHED`) |
+| 6 | a tool exits 1 (simulated with a broken env var) | `gippa run` exits 4 naming the step and its `.command.log` |
 | 7 | `measure_runtimes.py trace.tsv --sacct 1850000` | one row per tool, e.g. `bakta (full) | sim100k | 0:06:12 | 9.8 GB | barley (1850000)` |
 
 ## Edge cases
 
-- Jobs named `giap-nightly`, `giap-weekly`; Nextflow `queueSize = 20`; GIAP never exceeds 128 CPUs (R14).
+- Jobs named `gippa-nightly`, `gippa-weekly`; Nextflow `queueSize = 20`; GIPPA never exceeds 128 CPUs (R14).
 - Nightly checks out the newest open PR branches in their own worktrees and never pushes.
 - If a §3.2 source is down, the affected recording sub-task is recorded under "Blocked" (R6) and the
   rest of the nightly continues.
@@ -90,7 +90,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 3. The existing `scripts/slurm/nightly.sbatch` (PR #105: calibration_nightly on origin/main, scrontab
    installed by Khoa 2026-10-16 01:30) is extended, not replaced: it becomes the §12 job array
    (0 = integration + contract with `--require-capabilities`, 1 = benchmarks on wheat, 2 = the
-   calibration_nightly tests, 3 = real `giap run` on sim100k with Bakta light and with recorded full-DB
+   calibration_nightly tests, 3 = real `gippa run` on sim100k with Bakta light and with recorded full-DB
    JSON); the scrontab line keeps pointing at it. MODE=record runs scripts/slurm/record_tools.sbatch logic.
 4. Results: one line per sub-task in local/logs/nightly.tsv plus a comment on a "Nightly (FarmShare)"
    GitHub issue via scripts/ci/post_summary.py (create the issue once if missing).
@@ -101,7 +101,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 7. local ≡ Nextflow (example 4) runs SIM100K with proteomics + peptides only, because `--executor local`
    cannot run miniprot; killed task simulated with `beforeScript 'exit 137'`; broken tool via
    `PROMOTECH_HOME=/nonexistent`.
-8. Finding: $GIAP_ROOT/recordings/promotech/sim100k is a genome-wide `-g` run (GIAP uses `-s` windows) and
+8. Finding: $GIPPA_ROOT/recordings/promotech/sim100k is a genome-wide `-g` run (GIPPA uses `-s` windows) and
    labels every row `chr1,plasmid_1` — not a valid fixture; re-record sim100k in `-s` mode (backlog).
    BacTermFinder stays pending (no recording; no env).
 9. (lead, after the implementer) Nightly nf-test runs `--profile test,stub` by default
@@ -109,7 +109,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
    env, so real-tool coverage stays with scripts/slurm/nf_process_real.sbatch (all 9 processes on 3 genomes).
 10. The benchmark arm resubmits itself to wheat when an array task lands elsewhere; the 15 % slowdown gate
     applies only to steps with a baseline ≥ 1 s (context_layers_sim100k at 0.15 s is recorded, not gated).
-11. Bug found: `giap run --annotation <bakta.json>` does not skip Bakta under Nextflow; nightly/weekly use
+11. Bug found: `gippa run --annotation <bakta.json>` does not skip Bakta under Nextflow; nightly/weekly use
     `--set annotation.precomputed.bakta_json=…` meanwhile. Fix `--annotation` (backlog, M2 follow-up).
 
 ## Lead decisions after the code review of PR #107 (changes requested)
@@ -131,7 +131,7 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
     job; nightly.scrontab is rewritten accordingly. Khoa approved reinstalling it after merge.
 19. (test-author design issue) The benchmark resubmission gets a new job ID, so `afterany:<array>` alone
     fires too early. When task 1 resubmits, it finds the pending summary job of the same night (by its
-    `giap-*` name and the array ID, via `squeue -u $USER`) and adds `afterany:<resubmitted id>` to its
+    `gippa-*` name and the array ID, via `squeue -u $USER`) and adds `afterany:<resubmitted id>` to its
     dependency with `scontrol update`. If no summary job is found, it writes a warning row; it never
     posts itself.
 20. Node class (decision 16): from the trace `hostname` field only, with `--sacct` as the fallback when

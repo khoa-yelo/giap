@@ -3,7 +3,7 @@
 The committed real headers live in ``tests/data/recorded/headers/<tool>.<file>.txt`` (see
 PROVENANCE.md there). Here: every committed header is the one the module writes (its text appears
 in ``workflow/modules/local/<tool>/main.nf``, in the stub block for stubs), the committed copies
-match the recordings under ``$GIAP_ROOT/recordings/<tool>/sim100k`` when those exist, and the
+match the recordings under ``$GIPPA_ROOT/recordings/<tool>/sim100k`` when those exist, and the
 Promoter Calculator script writes the 27-column header when the tool wrote no CSV. The exact stub
 output files are checked dynamically in ``workflow/tests/annotate.nf.test`` and
 ``workflow/tests/annotate_tools.nf.test``. No Nextflow needed.
@@ -116,7 +116,7 @@ def test_promoter_calculator_script_writes_the_real_header_when_no_csv() -> None
 
 
 def _recording(tool: str, glob: str) -> Path | None:
-    root = os.environ.get("GIAP_ROOT")
+    root = os.environ.get("GIPPA_ROOT")
     if not root:
         return None
     base = Path(root) / "recordings" / tool / "sim100k"
@@ -129,7 +129,7 @@ def test_committed_header_equals_the_recording(name: str) -> None:
     tool, _, glob = CASES[name]
     rec = _recording(tool, glob)
     if rec is None:
-        pytest.skip(f"no recording $GIAP_ROOT/recordings/{tool}/sim100k/**/{glob}")
+        pytest.skip(f"no recording $GIPPA_ROOT/recordings/{tool}/sim100k/**/{glob}")
     want = _header(name)
     got = [ln.rstrip("\r") for ln in rec.read_text(encoding="utf-8").splitlines()[: len(want)]]
     assert got == want, f"{rec}: header differs from {name}"

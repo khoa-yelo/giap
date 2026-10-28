@@ -12,7 +12,7 @@ Milestone M1 · depends on: M1-03, M1-06, M1-08, M1-09 · estimate ≈ 400 chang
   `protein_list` — proteins only, no peptides".
 - §2.1 decision 3: protein-level abundance values "are used only when no peptide intensities are given".
 
-## Public interface (`src/giap/preflight/evidence.py`, pure)
+## Public interface (`src/gippa/preflight/evidence.py`, pure)
 
 ```python
 Tier = Literal["decoy_picked", "mayu", "two_peptide", "protein_list"]
@@ -26,7 +26,7 @@ def tier_check(tier: Tier) -> Check: ...
 def abundance_checks(table: AbundanceTable | None, issues: Sequence[Issue],
                      proteins: Sequence[ProteinRecord] | None, scale: Scale,
                      requested_scale: str, peptides_have_intensity: bool,
-                     cfg: GiapConfig) -> list[Check]: ...
+                     cfg: GippaConfig) -> list[Check]: ...
 ```
 `candidate_tier`: `decoy_picked` if any row has `is_decoy` true and non-empty `protein_ids`; else
 `mayu` if a `q_value` or `pep` column has any non-missing value; else `two_peptide` if peptides

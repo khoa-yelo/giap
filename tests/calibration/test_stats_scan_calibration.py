@@ -1,4 +1,4 @@
-"""FWER calibration of the M5-03 window scan (GIAP_SPEC.md §7.3.5(d) steps 4-6, §8.1, §8.4).
+"""FWER calibration of the M5-03 window scan (GIPPA_SPEC.md §7.3.5(d) steps 4-6, §8.1, §8.4).
 
 Claim (§8.1 "Islands ... maximum statistic | FWER | 0.05"): with an exchangeable null, the
 maximum-statistic p-value controls the family-wise error over all windows of both signs, i.e.
@@ -29,7 +29,7 @@ import numpy as np
 import pytest
 from _gate import calibrate_levels
 
-from giap.stats.scan import ScanResult, fwer_p, merge_windows, scan_max, scan_null_max
+from gippa.stats.scan import ScanResult, fwer_p, merge_windows, scan_max, scan_null_max
 
 MODES = [
     pytest.param(False, marks=pytest.mark.calibration, id="fast"),

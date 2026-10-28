@@ -1,17 +1,17 @@
-"""M9-16b examples 1, 2, 3 and 9 on a real ``giap run`` of sim100k (giapsim seed 20261014;
+"""M9-16b examples 1, 2, 3 and 9 on a real ``gippa run`` of sim100k (gippasim seed 20261014;
 docs/specs/M9-16b-report-after-manifest.md; acceptance "tests/integration/test_report_run.py
 (extended)", kept in its own module because the role guard forbids editing existing tests).
 
-Inputs as tests/integration/test_report_run.py: the giapsim SIM100K genome with M3-19 proteomics
+Inputs as tests/integration/test_report_run.py: the gippasim SIM100K genome with M3-19 proteomics
 and every precomputed layer, ``--modules core``, one seed, the test DB of
-tests/helpers/mapping_steps.py (never the real ``$GIAP_DB_DIR``). Slow: run on Slurm
+tests/helpers/mapping_steps.py (never the real ``$GIPPA_DB_DIR``). Slow: run on Slurm
 (scripts/slurm/test_branch.sbatch ... -m slow).
 
 * example 1: ``--executor local``: ``OUT/report/report.html`` carries the manifest's provenance
   (version, commit, a command line with ``--executor local``, seed, file digest, provenance
   digest) and not the "not written" sentence; ``OUT/work/report/report.html`` still has it;
 * example 2: the same on ``OUT/report/report.html`` with the Nextflow executor;
-* example 3: ``giap report OUT`` right after gives the same ``report.html`` bytes;
+* example 3: ``gippa report OUT`` right after gives the same ``report.html`` bytes;
 * example 9: no key or value of ``run_manifest.json`` names ``report/report.html`` or a
   ``plots/`` file.
 """
@@ -31,24 +31,24 @@ import pytest
 from click.testing import CliRunner
 from helpers.report_fixtures import Node, parse
 
-import giap
+import gippa
 
 pytestmark = [pytest.mark.slow]
 
 SEED = 7
-NOT_WRITTEN = "run_manifest.json not written by this GIAP version"
+NOT_WRITTEN = "run_manifest.json not written by this GIPPA version"
 DIGEST_LABEL = "manifest digest (SHA-256 of run_manifest.json)"
 
 
 @pytest.fixture(scope="module")
 def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
-    import giapsim
-    from giapsim.proteomics import ProteomicsConfig
+    import gippasim
+    from gippasim.proteomics import ProteomicsConfig
 
     cfg = dataclasses.replace(
-        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+        gippasim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
     )
-    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+    return gippasim.simulate(cfg, gippasim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
 
 
 @pytest.fixture(scope="module")
@@ -59,10 +59,10 @@ def db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _invoke(args: list[str], db: Path) -> Any:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("GIPPA_DB_DIR", str(db))
         mp.setenv("NXF_ANSI_LOG", "false")
         res = CliRunner().invoke(cli, args)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -107,7 +107,7 @@ def _check_full_provenance(out: Path, executor: str | None) -> None:
     assert m["status"] == "completed"
     rows, text = _prov(out / "report" / "report.html")
     assert NOT_WRITTEN not in text, "the published page predates the manifest"
-    assert rows["GIAP version"] == m["giap_version"] == giap.__version__
+    assert rows["GIPPA version"] == m["gippa_version"] == gippa.__version__
     if m.get("git_commit"):
         assert rows["commit"].startswith(m["git_commit"])
     if executor is not None:
@@ -142,7 +142,7 @@ def test_example_9_no_report_or_plot_checksum_in_the_manifest(local: Path) -> No
         assert not re.search(r"(^|/)plots/", s), s
 
 
-def test_example_3_giap_report_after_the_run_is_byte_identical(
+def test_example_3_gippa_report_after_the_run_is_byte_identical(
     local: Path, db: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     out = tmp_path_factory.mktemp("REPORT_16B") / "OUT"

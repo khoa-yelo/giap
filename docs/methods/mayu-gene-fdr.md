@@ -1,6 +1,6 @@
 # MAYU-style gene-level FDR (closed form)
 
-Implements `giap.stats.mayu.mayu_gene_fdr` (GIAP_SPEC.md §7.3.2 "MAYU-style closed form (G7)",
+Implements `gippa.stats.mayu.mayu_gene_fdr` (GIPPA_SPEC.md §7.3.2 "MAYU-style closed form (G7)",
 §8.3, Appendix B.3; issue M4-02). Used by the `mayu` detection tier (M4-12): when the input has no
 pairable decoy rows, or when more than 20 % of decoys are unpaired (ADR-0009 keeps this as an upper
 guard; below it the picked tier rescales decoy wins by 1/f).
@@ -42,7 +42,7 @@ peptide owe their detection to false peptides alone.
    threshold (the `no_pep` attack below is numerically identical to the PEP run). PEPs are used for
    all peptides or none: all-NaN means "no PEPs"; partly-NaN raises (the tier decides once per run).
 6. **Gene q.** Thresholds are the distinct finite best-peptide q values; q_g = min over t ≥ best_q_g
-   of FDR(t) (`monotone_q` from `giap.stats.tda`). Detected at q_g ≤ 0.01. This is one test family
+   of FDR(t) (`monotone_q` from `gippa.stats.tda`). Detected at q_g ≤ 0.01. This is one test family
    per run (all eligible genes), matching §8.1's "Gene detected" row.
 7. **≥ 2-peptide variant.** The chance that a gene gets ≥ 2 false peptides is approximated by
    Poisson(λ = F·w_b): p_b⁽²⁾ = 1 − e^(−λ)(1 + λ), plugged into the same FP formula with the same
@@ -138,7 +138,7 @@ q = 0.01), `noisy_size` 1.05 (FDP 0.0102 at q = 0.01; at the 2-SE edge).
 ## Sign-off
 
 Statistician (M4-02 review, 2026-10-14): **approved** for `mayu_gene_fdr` as implemented in
-`src/giap/stats/mayu.py`: formula matches §7.3.2 and B.3, bins and monotone q are correct, at level
+`src/gippa/stats/mayu.py`: formula matches §7.3.2 and B.3, bins and monotone q are correct, at level
 under the model and the attacks above. Forwarded to M4-12: the flat-hit-distribution direction
 (semi-/unspecific searches), the base case's zero margin at q = 0.01, and input validation of PEPs
 and sizes.

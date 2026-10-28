@@ -1,8 +1,8 @@
 """M4-15 ``write_genes_tsv`` / ``read_genes_tsv`` and the ``genes`` table schema
-(docs/specs/M4-15-gene-table-assembly.md; GIAP_SPEC.md §6.5, §6.6, §9.2, §9.3, §9.5; ADR-0006).
+(docs/specs/M4-15-gene-table-assembly.md; GIPPA_SPEC.md §6.5, §6.6, §9.2, §9.3, §9.5; ADR-0006).
 
 Pinned by the test author:
-- The schema file is ``src/giap/schemas/tables/genes.schema.json`` (lead decision 16, the
+- The schema file is ``src/gippa/schemas/tables/genes.schema.json`` (lead decision 16, the
   ``<table>.schema.json`` convention); ``genes.json`` must not exist. Like the M3-16 / M4-16 table
   schemas it is a Frictionless *schema* descriptor with a top-level ``coordinates`` key, which is
   removed before ``frictionless.Schema.from_descriptor``.
@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import gene_table_fixture as gt
 from gene_table_fixture import as_list, is_na, tag
 
-TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[3] / "src" / "gippa" / "schemas" / "tables"
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +67,7 @@ def frictionless_report(path: Path) -> Any:
 
 
 def write(tmp_path: Path, df: pd.DataFrame, name: str = "genes.tsv") -> Path:
-    from giap.io.genes_tsv import write_genes_tsv
+    from gippa.io.genes_tsv import write_genes_tsv
 
     path = tmp_path / name
     write_genes_tsv(path, df)
@@ -133,7 +133,7 @@ def _equal_cells(c: str, a: Any, b: Any) -> bool:
 
 def test_round_trip_dtype_aware(tmp_path: Path, table: pd.DataFrame) -> None:
     """Acceptance: ``read_genes_tsv(write_genes_tsv(df)) == df`` on the fixture."""
-    from giap.io.genes_tsv import read_genes_tsv
+    from gippa.io.genes_tsv import read_genes_tsv
 
     back = read_genes_tsv(write(tmp_path, table))
     assert tuple(back.columns) == gt.GENES_COLUMNS
@@ -154,7 +154,7 @@ def test_round_trip_dtype_aware(tmp_path: Path, table: pd.DataFrame) -> None:
 
 
 def test_round_trip_is_idempotent_on_bytes(tmp_path: Path, table: pd.DataFrame) -> None:
-    from giap.io.genes_tsv import read_genes_tsv
+    from gippa.io.genes_tsv import read_genes_tsv
 
     first = write(tmp_path, table, "a.tsv")
     second = write(tmp_path, read_genes_tsv(first), "b.tsv")
@@ -166,7 +166,7 @@ def test_parquet_round_trip_keeps_missing_values(tmp_path: Path, table: pd.DataF
     (never the text ``"nan"``), also after a second write as the ``detectability`` step does."""
     import pyarrow.parquet as pq
 
-    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+    from gippa.io.genes_tsv import read_genes_parquet, write_genes_parquet
 
     first = tmp_path / "pre.parquet"
     write_genes_parquet(first, table)
@@ -190,7 +190,7 @@ def test_parquet_round_trip_keeps_missing_values(tmp_path: Path, table: pd.DataF
 
 def test_read_cog_def_falls_back_from_utf8(tmp_path: Path) -> None:
     """Lead decision 13: the NCBI file holds cp1252 bytes (0x92); ``read_cog_def`` reads it."""
-    from giap.io.genes_tsv import read_cog_def
+    from gippa.io.genes_tsv import read_cog_def
 
     path = tmp_path / "cog-20.def.tab"
     rows = [b"COG0593\tL\tDnaA\x92s ATPase\tDnaA\t\t\t\n", b"COG0002\tKT\tRegulator\tRegX\t\t\t\n"]

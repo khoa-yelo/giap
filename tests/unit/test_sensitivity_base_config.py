@@ -39,7 +39,7 @@ def _matches(pat: str, simple: str, qualified: str) -> bool:
 
 def test_the_step_runs_as_sensitivity_inside_sensitivity_reruns() -> None:
     text = NF.read_text(encoding="utf-8")
-    assert re.search(r"GIAP_STEP\s+as\s+SENSITIVITY\b", text)
+    assert re.search(r"GIPPA_STEP\s+as\s+SENSITIVITY\b", text)
     assert re.search(r"workflow\s+SENSITIVITY_RERUNS\b", text)
 
 
@@ -48,7 +48,7 @@ def test_base_config_sizes_sensitivity_like_function_step() -> None:
     hits = [(p, b) for p, b in sel if _matches(p, "SENSITIVITY", QUALIFIED)]
     assert hits, f"no withName selector for {QUALIFIED} in base.config: {[p for p, _ in sel]}"
     for pat, _ in hits:
-        for other in ("GIAP_STEP", "FUNCTION_STEP", "DETERMINANTS_STEP", "CONTEXT_STATS"):
+        for other in ("GIPPA_STEP", "FUNCTION_STEP", "DETERMINANTS_STEP", "CONTEXT_STATS"):
             assert not _matches(pat, other, f"CONTEXT:{other}"), f"{pat} also matches {other}"
     body = hits[-1][1]  # the last matching selector wins in Nextflow
     mem = re.search(r"\bmemory\s*=\s*\{?\s*(\d+(?:\.\d+)?)\s*\.\s*GB", body)

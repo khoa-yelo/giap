@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 from helpers.release_readiness import VERSION, Fixture, load_module, nightly_row, passing_nightly
-from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_giap_repo, make_sandbox
+from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_gippa_repo, make_sandbox
 
 NIGHTLY = REPO / "scripts" / "slurm" / "nightly.sbatch"
 JOB = "4242"
@@ -23,14 +23,14 @@ JOB = "4242"
 
 @pytest.fixture
 def sb(tmp_path: Path) -> Sandbox:
-    assert_honours_giap_repo(NIGHTLY.read_text(), "nightly.sbatch")
+    assert_honours_gippa_repo(NIGHTLY.read_text(), "nightly.sbatch")
     return make_sandbox(tmp_path / "sb")
 
 
 def _task2(sb: Sandbox, **env: str) -> list[list[str]]:
     base = {"SLURM_ARRAY_TASK_ID": "2", "SLURM_ARRAY_JOB_ID": JOB, "SLURM_JOB_ID": "5002",
             "SLURM_ARRAY_TASK_COUNT": "4", "SLURM_CPUS_PER_TASK": "2",
-            "SLURM_JOB_NAME": "giap-nightly", "NIGHTLY_POST": "dry"}  # fmt: skip
+            "SLURM_JOB_NAME": "gippa-nightly", "NIGHTLY_POST": "dry"}  # fmt: skip
     sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly.sbatch")], env={**base, **env})
     rows = [r for r in sb.tsv_rows() if len(r) >= 5 and r[1] == f"{JOB}_2"]
     assert len(rows) == 1, rows

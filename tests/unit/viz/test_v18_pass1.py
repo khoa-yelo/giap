@@ -1,4 +1,4 @@
-"""V18 ``stat_diagnostics`` pass 1: (a) reliability, (b) p-value histograms (M9-07; GIAP_SPEC.md
+"""V18 ``stat_diagnostics`` pass 1: (a) reliability, (b) p-value histograms (M9-07; GIPPA_SPEC.md
 §10.2 V18, §7.3.3, §8.1, §8.2, §9.2).
 
 Tests the plotted data (``Instance.data`` = ``plots/data/V18_stat_diagnostics.tsv``), the axes
@@ -7,7 +7,7 @@ baselines (M9-25 owns those).
 
 Interface assumed where the spec leaves it open:
 
-- The plot lives in ``giap.viz.diagnostics``; importing it registers ``V18`` (name
+- The plot lives in ``gippa.viz.diagnostics``; importing it registers ``V18`` (name
   ``stat_diagnostics``, ``needs=()`` because a missing ``detection_summary`` still draws panel (b),
   ``optional`` ⊇ {``detection_summary``, ``regions_stats``, ``autocorrelation``, ``pairs``,
   ``enrichment_detection``, ``enrichment_gsea``}, ``module="core"``). The tests call
@@ -57,15 +57,15 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import PATHS, RunView
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import PATHS, RunView
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDEN = REPO / "tests" / "data" / "golden" / "sim50k" / "m4"
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 COLUMNS = ["panel", "table", "family", "bin", "x", "y", "n", "metric", "value"]
 TABLE_ORDER = [
     "regions_stats",
@@ -93,7 +93,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -230,12 +230,12 @@ def _out(tmp: Path, **tables: Sequence[Mapping[str, object]] | None) -> Path:
 
 
 def _v18() -> base.PlotSpec:
-    import giap.viz.diagnostics  # noqa: F401  (registers V18)
+    import gippa.viz.diagnostics  # noqa: F401  (registers V18)
 
     return base.registered()["V18"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v18().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -335,7 +335,7 @@ def test_run_view_knows_the_enrichment_tables() -> None:
 
 
 def test_family_table_is_the_spec_table() -> None:
-    import giap.viz.diagnostics as diag
+    import gippa.viz.diagnostics as diag
 
     got = [(str(t), tuple(k)) for t, k in diag.FAMILIES]
     assert got == [(t, FAMILY_KEYS[t]) for t in TABLE_ORDER]
@@ -345,7 +345,7 @@ def test_family_table_is_the_spec_table() -> None:
 
 def test_every_table_with_p_value_is_a_family_or_not_drawn() -> None:
     """A new test table cannot be forgotten silently (acceptance criterion)."""
-    import giap.viz.diagnostics as diag
+    import gippa.viz.diagnostics as diag
 
     with_p = {
         p.name.split(".")[0]
@@ -382,7 +382,7 @@ def _full_out(tmp: Path) -> Path:
     )
 
 
-def test_one_instance_with_exact_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_instance_with_exact_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_full_out(tmp_path), cfg)
     assert inst.suffix is None
     assert inst.coords == ()
@@ -392,7 +392,7 @@ def test_one_instance_with_exact_columns(tmp_path: Path, cfg: GiapConfig) -> Non
     assert width in (style.SINGLE_IN, style.DOUBLE_IN)
 
 
-def test_example1_title_and_bin_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example1_title_and_bin_rows(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, detection_summary=EX1_SUMMARY), cfg)
     expected = "Detectability calibration slope 0.97 (intercept 0.02), Brier 0.11"
     assert inst.title == expected
@@ -411,20 +411,20 @@ def test_example1_title_and_bin_rows(tmp_path: Path, cfg: GiapConfig) -> None:
     assert _metric(inst, "brier") == pytest.approx(0.11)
 
 
-def test_title_numbers_use_two_significant_digits(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_title_numbers_use_two_significant_digits(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.2, 0.3, 10), (0.7, 0.6, 10)]), *_overall(1.234, -0.0456, 0.1)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     assert inst.title == "Detectability calibration slope 1.2 (intercept -0.046), Brier 0.1"
 
 
-def test_constant_title_counts_drawn_families(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_constant_title_counts_drawn_families(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.4, 0.4, 87)]), *_overall(None, None, 0.24, constant=True)]
     regions = [_region(0.2, i=0), _region(0.6, "hl_shift", i=1)]
     inst = _render(_out(tmp_path, detection_summary=summary, regions_stats=regions), cfg)
     assert inst.title == "Detectability constant; 2 test families shown"
 
 
-def test_titles_never_say_calibrated_or_express(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_titles_never_say_calibrated_or_express(tmp_path: Path, cfg: GippaConfig) -> None:
     cases = [
         {"detection_summary": EX1_SUMMARY},
         {"detection_summary": _overall(None, None, 0.2, constant=True)},
@@ -436,7 +436,7 @@ def test_titles_never_say_calibrated_or_express(tmp_path: Path, cfg: GiapConfig)
         assert "express" not in inst.title.lower()
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_full_out(tmp_path), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
@@ -446,7 +446,7 @@ def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
 # --- panel (a) --------------------------------------------------------------------------------
 
 
-def test_reliability_axes_labels_and_limits(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_reliability_axes_labels_and_limits(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _ax(_render(_out(tmp_path, detection_summary=EX1_SUMMARY), cfg), "a")
     assert ax.get_xlabel() == "mean predicted p_detect"
     assert ax.get_ylabel() == "observed detection rate"
@@ -454,7 +454,7 @@ def test_reliability_axes_labels_and_limits(tmp_path: Path, cfg: GiapConfig) -> 
     assert tuple(round(v, 6) for v in ax.get_ylim()) == (0.0, 1.0)
 
 
-def test_reliability_diagonal_is_grey_dashed(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_reliability_diagonal_is_grey_dashed(tmp_path: Path, cfg: GippaConfig) -> None:
     ax = _ax(_render(_out(tmp_path, detection_summary=EX1_SUMMARY), cfg), "a")
     diag = [
         ln
@@ -474,7 +474,7 @@ def _joined_line(ax: Axes, xs: Sequence[float]) -> Line2D:
     return found[0]
 
 
-def test_points_are_joined_in_numeric_bin_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_points_are_joined_in_numeric_bin_order(tmp_path: Path, cfg: GippaConfig) -> None:
     """Ten bins: bin 10 is last (numeric, not string order '1', '10', '2')."""
     pts = [(0.05 + 0.09 * i, 0.04 + 0.09 * i, 10 + i) for i in range(10)]
     rows = _bins(pts)
@@ -487,7 +487,7 @@ def test_points_are_joined_in_numeric_bin_order(tmp_path: Path, cfg: GiapConfig)
     assert bins == list(range(1, 11))
 
 
-def test_marker_area_is_proportional_to_n(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_marker_area_is_proportional_to_n(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.2, 0.25, 10), (0.8, 0.7, 40)]), *_overall(0.9, 0.05, 0.15)]
     ax = _ax(_render(_out(tmp_path, detection_summary=summary), cfg), "a")
     colls = [c for c in ax.collections if isinstance(c, PathCollection) and len(c.get_offsets())]
@@ -499,13 +499,13 @@ def test_marker_area_is_proportional_to_n(tmp_path: Path, cfg: GiapConfig) -> No
     assert sizes[1] / sizes[0] == pytest.approx(4.0)
 
 
-def test_overall_numbers_are_in_the_corner(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_overall_numbers_are_in_the_corner(tmp_path: Path, cfg: GippaConfig) -> None:
     text = " ".join(_texts(_ax(_render(_out(tmp_path, detection_summary=EX1_SUMMARY), cfg), "a")))
     for word, value in (("slope", "0.97"), ("intercept", "0.02"), ("Brier", "0.11")):
         assert word in text and value in text, text
 
 
-def test_example4_constant_model_draws_the_text(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example4_constant_model_draws_the_text(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*_bins([(0.0, 0.0, 9)] * 10), *_overall(None, None, 0.0, constant=True)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     ax = _ax(inst, "a")
@@ -514,21 +514,21 @@ def test_example4_constant_model_draws_the_text(tmp_path: Path, cfg: GiapConfig)
     assert inst.title == "Detectability constant; 0 test families shown"
 
 
-def test_constant_value_zero_is_not_constant(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_constant_value_zero_is_not_constant(tmp_path: Path, cfg: GippaConfig) -> None:
     summary = [*EX1_SUMMARY, _ds("overall", "all", "detectability_constant", 0.0)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
     assert CONSTANT_TEXT not in _texts(_ax(inst, "a"))
     assert inst.title.startswith("Detectability calibration slope 0.97")
 
 
-def test_other_sections_are_ignored(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_other_sections_are_ignored(tmp_path: Path, cfg: GippaConfig) -> None:
     other = {**BASIC_ROW, "group_type": "bin", "group": "1", "metric": "mean_p", "value": 0.5}
     inst = _render(_out(tmp_path, detection_summary=[other, *EX1_SUMMARY]), cfg)
     a = _rows(inst, "a")
     assert len(a[a["metric"].map(_isna)]) == 2
 
 
-def test_detection_summary_absent_panel_a_not_available(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_detection_summary_absent_panel_a_not_available(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, regions_stats=[_region(0.01), _region(0.5, i=1)]), cfg)
     assert any("not available" in t for t in _texts(_ax(inst, "a")))
     assert len(_rows(inst, "a")) == 0
@@ -539,7 +539,7 @@ def test_detection_summary_absent_panel_a_not_available(tmp_path: Path, cfg: Gia
 # --- panel (b) --------------------------------------------------------------------------------
 
 
-def test_example2_regions_histogram(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_regions_histogram(tmp_path: Path, cfg: GippaConfig) -> None:
     regions = [_region(p, i=i) for i, p in enumerate([0.01, 0.04, 0.5, 1.0])]
     inst = _render(_out(tmp_path, detection_summary=EX1_SUMMARY, regions_stats=regions), cfg)
     assert _families(inst) == [("regions_stats", "o_minus_e")]
@@ -557,7 +557,7 @@ def test_example2_regions_histogram(tmp_path: Path, cfg: GiapConfig) -> None:
 
 
 @pytest.mark.parametrize("k", range(21))
-def test_decimal_bin_edges_are_closed_on_the_left(tmp_path: Path, cfg: GiapConfig, k: int) -> None:
+def test_decimal_bin_edges_are_closed_on_the_left(tmp_path: Path, cfg: GippaConfig, k: int) -> None:
     """p = k/20 as written by a permutation test with B + 1 = 20 lands in bin k; 1 in bin 19."""
     p = float(f"{k / 20:.2f}")
     inst = _render(_out(tmp_path, regions_stats=[_region(p)]), cfg)
@@ -566,20 +566,20 @@ def test_decimal_bin_edges_are_closed_on_the_left(tmp_path: Path, cfg: GiapConfi
     assert sum(counts.values()) == 1
 
 
-def test_one_p_is_a_one_count_histogram(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_one_p_is_a_one_count_histogram(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, pairs=[_pair(0.42, "one_detected_pmiss")]), cfg)
     ax = _hist_axes(inst)["pairs / one_detected_pmiss"]
     assert _bar_counts(ax) == {8: 1.0}
     assert "n = 1" in ax.get_title()
 
 
-def test_p_zero_is_drawn_in_the_first_bin(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_p_zero_is_drawn_in_the_first_bin(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_out(tmp_path, regions_stats=[_region(0.0), _region(0.3, i=1)]), cfg)
     assert _family_counts(inst, "regions_stats", "o_minus_e")[0] == 1
     assert _bar_counts(_hist_axes(inst)["regions_stats / o_minus_e"])[0] == 1.0
 
 
-def test_family_rows_filters(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_family_rows_filters(tmp_path: Path, cfg: GippaConfig) -> None:
     """regions: subset = all only; pairs: test none excluded even with a p; NA p dropped."""
     regions = [
         _region(0.1, i=0),
@@ -598,7 +598,7 @@ def test_family_rows_filters(tmp_path: Path, cfg: GiapConfig) -> None:
     }
 
 
-def test_composite_family_keys_and_sort_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_composite_family_keys_and_sort_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_full_out(tmp_path), cfg)
     assert _families(inst) == [
         ("regions_stats", "hl_shift"),
@@ -623,7 +623,7 @@ def test_composite_family_keys_and_sort_order(tmp_path: Path, cfg: GiapConfig) -
     assert len(b) == 9 * 20
 
 
-def test_example3_islands_are_never_a_histogram(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_islands_are_never_a_histogram(tmp_path: Path, cfg: GippaConfig) -> None:
     island = {**ISLAND_ROW, "stat": "scan_max", "p_value": 0.03}
     inst = _render(_out(tmp_path, detection_summary=EX1_SUMMARY, islands=[island]), cfg)
     assert "islands" not in set(inst.data["table"].dropna().astype(str))
@@ -631,7 +631,7 @@ def test_example3_islands_are_never_a_histogram(tmp_path: Path, cfg: GiapConfig)
     assert NO_P_TEXT in _texts(_ax(inst, "b"))
 
 
-def test_no_finite_p_draws_the_empty_text(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_finite_p_draws_the_empty_text(tmp_path: Path, cfg: GippaConfig) -> None:
     acf = [_autocorr(None, "morans_i", "gene_label", lag) for lag in range(1, 5)]
     inst = _render(_out(tmp_path, detection_summary=EX1_SUMMARY, autocorrelation=acf), cfg)
     assert len(_rows(inst, "b")) == 0
@@ -642,7 +642,7 @@ def test_no_finite_p_draws_the_empty_text(tmp_path: Path, cfg: GiapConfig) -> No
     assert len(_rows(inst, "a")) > 0
 
 
-def test_enrichment_tables_are_read_when_present(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_enrichment_tables_are_read_when_present(tmp_path: Path, cfg: GippaConfig) -> None:
     ora = [_ora(0.01 * (i + 1), "go_bp", "over", i) for i in range(5)]
     gsea = [_gsea(0.5, "kegg", 0), _gsea(0.97, "kegg", 1)]
     inst = _render(_out(tmp_path, enrichment_detection=ora, enrichment_gsea=gsea), cfg)
@@ -684,7 +684,7 @@ def _twenty_families() -> tuple[dict[str, list[dict]], list[tuple[str, str]]]:
     return tables, [(t, f) for t, f, _ in fams]
 
 
-def test_example5_twenty_families_draw_the_16_largest(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example5_twenty_families_draw_the_16_largest(tmp_path: Path, cfg: GippaConfig) -> None:
     tables, fams = _twenty_families()
     inst = _render(_out(tmp_path, detection_summary=EX1_SUMMARY, **tables), cfg)
     assert set(_families(inst)) == set(fams)
@@ -695,7 +695,7 @@ def test_example5_twenty_families_draw_the_16_largest(tmp_path: Path, cfg: GiapC
         assert sum(_family_counts(inst, t, f).values()) == size
 
 
-def test_grid_has_at_most_four_columns(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_grid_has_at_most_four_columns(tmp_path: Path, cfg: GippaConfig) -> None:
     tables, _ = _twenty_families()
     inst = _render(_out(tmp_path, **tables), cfg)
     x0 = {round(float(ax.get_position().x0), 3) for ax in _hist_axes(inst).values()}
@@ -703,7 +703,7 @@ def test_grid_has_at_most_four_columns(tmp_path: Path, cfg: GiapConfig) -> None:
     assert not [ax for ax in inst.figure.axes if ax.get_label() == "b"]
 
 
-def test_constant_title_with_twenty_families_counts_16(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_constant_title_with_twenty_families_counts_16(tmp_path: Path, cfg: GippaConfig) -> None:
     tables, _ = _twenty_families()
     summary = _overall(None, None, 0.2, constant=True)
     inst = _render(_out(tmp_path, detection_summary=summary, **tables), cfg)
@@ -787,7 +787,7 @@ def test_property_top_16_by_size(sizes: list[int], n_fam: int) -> None:
 # --- files, determinism, fixtures ---------------------------------------------------------------
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _full_out(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -809,7 +809,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert "b\tregions_stats\to_minus_e\t0.95\tNA\tNA\t1\tNA\tNA" in tsv
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_full_out(tmp_path))
     first = _v18().fn(view, cfg)
     second = _v18().fn(view, cfg)
@@ -818,7 +818,7 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
     assert first[0].title == second[0].title
 
 
-def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     for name in ("detection_summary", "regions_stats"):
         shutil.copyfile(GOLDEN / f"{name}.tsv", out / "tables" / f"{name}.tsv")
@@ -832,7 +832,7 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) ->
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_renders_on_the_validation_run(tmp_path: Path, cfg: GippaConfig) -> None:
     """Example 4 and the 'every autocorrelation p NA' case on the real validation run."""
     inst = _render(VAL_OUT, cfg)
     assert CONSTANT_TEXT in _texts(_ax(inst, "a"))

@@ -1,22 +1,22 @@
-"""giapsim operon scenarios (issue M6-03; GIAP_SPEC.md §11.3, §8.4 ``discordance`` and
+"""gippasim operon scenarios (issue M6-03; GIPPA_SPEC.md §11.3, §8.4 ``discordance`` and
 ``missed_operons``, §8.5 attack 1, §7.4.5, §7.4.7).
 
 Examples 1-7, the degenerate-case rows and lead decision 1 of
 docs/specs/M6-03-sim-operon-scenarios.md, the truth-file round trip through
-``giapsim.contract_tables``, determinism and Hypothesis invariants. The generator-level
+``gippasim.contract_tables``, determinism and Hypothesis invariants. The generator-level
 distributional claims (no excess of small |Delta| under the null, an excess under the power
 scenarios) are in tests/calibration/test_sim_operon_calibration.py.
 
 Interface assumed beyond the spec's five signatures (test-author choices, reported to the lead):
 
-* the five scenarios live in ``giapsim.scenarios`` and return ``Pair = (LayoutConfig,
+* the five scenarios live in ``gippasim.scenarios`` and return ``Pair = (LayoutConfig,
   ExpressionConfig)`` like the M5-04 scenarios (pure functions of their arguments, so equal
   arguments give equal pairs); whatever they plant is carried by the configs;
-* ``giapsim.scenarios.simulate_operons(cfgs: Pair, seed: int) -> OperonSim`` draws one replicate
+* ``gippasim.scenarios.simulate_operons(cfgs: Pair, seed: int) -> OperonSim`` draws one replicate
   (all randomness from ``seed``) and returns an object with
-  - ``layout`` (``giapsim.layout.Layout``) and ``expression`` (``giapsim.expression.Expression``),
+  - ``layout`` (``gippasim.layout.Layout``) and ``expression`` (``gippasim.expression.Expression``),
   - ``pairs``: one row per pair, at least ``PAIR_KEYS`` below: the §9.3 ``pairs.tsv`` columns the
-    sim can know (``pair_id`` unique; ``class`` OP/NO/CV/DV/SW as giap.operons.pairs would call it:
+    sim can know (``pair_id`` unique; ``class`` OP/NO/CV/DV/SW as gippa.operons.pairs would call it:
     same-strand adjacent pairs are OP iff ``uniop_p >= 0.5``; OP, NO and SW oriented in the
     direction of transcription with ``a`` upstream, CV and DV with ``a`` the left gene;
     ``abundance_log2_*`` equal to ``abundance_log2_true`` for detected genes and ``delta_log2 =
@@ -31,10 +31,10 @@ Interface assumed beyond the spec's five signatures (test-author choices, report
     ``promoter`` or ``terminator``, ``effect_log2`` the signed planted Delta) and ``operon_t``
     (one row ``loc, scale, df``: the generating Student-t of the within-operon Delta); scenarios
     without a planted effect have empty ``missed_operons`` / ``discordant_pairs`` frames;
-* ``giapsim.contract_tables.OPERON_TRUTH_TYPES`` declares the truth files as
+* ``gippasim.contract_tables.OPERON_TRUTH_TYPES`` declares the truth files as
   ``CONTRACT_TYPES`` declares C1-C8 and C15 (key -> ((column, logical dtype), ...)), with at least
   the columns above in that order; ``write_operon_truth(sim, out_dir) -> dict[str, Path]`` writes
-  ``out_dir/truth/<key>.tsv`` (giap TSV conventions: ``true``/``false``, ``NA``) and
+  ``out_dir/truth/<key>.tsv`` (gippa TSV conventions: ``true``/``false``, ``NA``) and
   ``read_operon_truth(out_dir) -> dict[str, DataFrame]`` reads them back;
 * example 2's "Delta of OP pairs" and example 3's background are the *true* classes (class OP and
   ``true_operon``; class NO and not ``true_operon``), both genes detected, so a UniOP error the
@@ -87,9 +87,9 @@ TRUTH_COLUMNS = {
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 def _call(name: str, *args: Any) -> tuple[Any, Any]:
@@ -156,8 +156,8 @@ def test_every_scenario_and_the_driver_exist() -> None:
     ],
 )
 def test_scenarios_return_pure_config_pairs(name: str, args: tuple[Any, ...]) -> None:
-    from giapsim.expression import ExpressionConfig
-    from giapsim.layout import LayoutConfig
+    from gippasim.expression import ExpressionConfig
+    from gippasim.layout import LayoutConfig
 
     cfgs = _call(name, *args)
     assert isinstance(cfgs, tuple) and len(cfgs) == 2
@@ -257,7 +257,7 @@ def test_example2_op_delta_follows_the_generating_t() -> None:
     """``fit_student_t`` on the both-detected true OP Delta recovers ``truth["operon_t"]``
     (loc within 0.15 scale, scale within 20 %, df within a factor 2.5 or both >= 30); KS against
     the generating t at p > 0.001."""
-    from giap.stats.tdist import fit_student_t
+    from gippa.stats.tdist import fit_student_t
 
     s = sim("operon_null", (N,), 0)
     loc, scale, df = t_params(s)
@@ -401,7 +401,7 @@ def _frames(s: Any) -> list[pd.DataFrame]:
 def test_example7_same_seed_identical_outputs(
     name: str, args: tuple[Any, ...], tmp_path: Path
 ) -> None:
-    from giapsim.contract_tables import write_operon_truth
+    from gippasim.contract_tables import write_operon_truth
 
     m = _sc()
     one = m.simulate_operons(_call(name, *args), 11)
@@ -459,10 +459,10 @@ def test_item7_one_detected_op_pairs_exist() -> None:
 
 
 def test_truth_types_are_declared() -> None:
-    from giapsim.contract_tables import CONTRACT_TYPES, OPERON_TRUTH_TYPES
+    from gippasim.contract_tables import CONTRACT_TYPES, OPERON_TRUTH_TYPES
 
     assert set(OPERON_TRUTH_TYPES) >= set(TRUTH_KEYS)
-    assert not set(OPERON_TRUTH_TYPES) & set(CONTRACT_TYPES)  # truth, not giap contract tables
+    assert not set(OPERON_TRUTH_TYPES) & set(CONTRACT_TYPES)  # truth, not gippa contract tables
     for key, cols in TRUTH_COLUMNS.items():
         names = tuple(c for c, _ in OPERON_TRUTH_TYPES[key])
         assert names[: len(cols)] == cols, key
@@ -476,7 +476,7 @@ def test_truth_types_are_declared() -> None:
      ("discordance_power", (600, 10, 2.0))],
 )  # fmt: skip
 def test_truth_files_round_trip(name: str, args: tuple[Any, ...], tmp_path: Path) -> None:
-    from giapsim.contract_tables import OPERON_TRUTH_TYPES, read_operon_truth, write_operon_truth
+    from gippasim.contract_tables import OPERON_TRUTH_TYPES, read_operon_truth, write_operon_truth
 
     s = sim(name, args, 5)
     paths = write_operon_truth(s, tmp_path)
@@ -493,11 +493,11 @@ def test_truth_files_round_trip(name: str, args: tuple[Any, ...], tmp_path: Path
         assert list(b.columns) == list(a.columns), key
         pd.testing.assert_frame_equal(a, b, check_dtype=False, check_exact=False, rtol=1e-5)
     text = (tmp_path / "truth" / "pairs.tsv").read_text(encoding="utf-8")
-    assert "\ttrue" in text or "\tfalse" in text  # giap TSV booleans
+    assert "\ttrue" in text or "\tfalse" in text  # gippa TSV booleans
 
 
 def test_missed_operons_file_lists_the_planted_ids(tmp_path: Path) -> None:
-    from giapsim.contract_tables import write_operon_truth
+    from gippasim.contract_tables import write_operon_truth
 
     s = sim("missed_operon_power", (N, 50, 0.1), 2)
     path = write_operon_truth(s, tmp_path)["missed_operons"]

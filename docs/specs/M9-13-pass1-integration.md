@@ -6,9 +6,9 @@ Milestone M9 · **pass 1 — the M9 integration milestone** · depends on: M9-02
 ## The gap this closes
 
 Each plot issue is tested on in-memory frames. This issue proves the whole chain on a real run: a
-`giap run` on sim100k through Slurm and Nextflow writes `plots/` and `report/report.html` with
+`gippa run` on sim100k through Slurm and Nextflow writes `plots/` and `report/report.html` with
 every pass-1 plot rendered or skipped for a recorded reason; the local executor gives the same
-data TSVs; `giap report` rebuilds them identically; the report opens offline. It is the MVP
+data TSVs; `gippa report` rebuilds them identically; the report opens offline. It is the MVP
 evidence before any hardening.
 
 ## Spec sections implemented
@@ -19,17 +19,17 @@ evidence before any hardening.
 
 ## Work
 
-1. `tests/integration/test_plots_report_run.py`: local-executor `giap run` on sim100k (the
-   giapsim default seed), then: every registered pass-1 plot is either rendered or has a
-   `plots.skipped` event; `giap report OUT` twice → identical `plots/data/*.tsv` and identical
+1. `tests/integration/test_plots_report_run.py`: local-executor `gippa run` on sim100k (the
+   gippasim default seed), then: every registered pass-1 plot is either rendered or has a
+   `plots.skipped` event; `gippa report OUT` twice → identical `plots/data/*.tsv` and identical
    `report.html`; executor equality against the Nextflow `-profile test` run (beside the existing
    equality test).
-2. `src/giap/report/checks.py` (pure; used by tests and later by M9-14/M9-25):
+2. `src/gippa/report/checks.py` (pure; used by tests and later by M9-14/M9-25):
    `relative_links(html) -> list[str]`, `external_loads(html) -> list[str]` (any `src`, `href` on
    `<link>`/`<script>`/`<img>`/`<iframe>`, CSS `url(…)` or `@import` that is absolute, protocol-
    relative or `file:`). Anchor `href`s to documentation are allowed only if M9-16 needs them and
    are not "loaded at view time".
-3. **Evidence that counts:** one real `sbatch scripts/slurm/giap_run.sbatch` on sim100k
+3. **Evidence that counts:** one real `sbatch scripts/slurm/gippa_run.sbatch` on sim100k
    (`-profile farmshare,apptainer`) reaching the end with `report/report.html`; job ID in
    PROGRESS.md; a short note listing which plots rendered non-empty, which drew empty states, and
    which skipped with which reason.
@@ -53,7 +53,7 @@ evidence before any hardening.
 | 2 | `external_loads(report.html)` | `[]` |
 | 3 | every `relative_links` target | exists on disk |
 | 4 | `diff -r plots/data` between local and Nextflow runs | no difference |
-| 5 | `giap report OUT` twice | identical `plots/data/*.tsv` |
+| 5 | `gippa report OUT` twice | identical `plots/data/*.tsv` |
 
 ## Acceptance criteria
 
@@ -75,16 +75,16 @@ evidence before any hardening.
    review; the expected plot list in example 1 is the target, and the branch merges main once they
    land. A plot absent from the registry must fail example 1, not skip it.
 3. The integration test is marked `slow` and `integration` and runs through `test_branch.sbatch`;
-   the real `giap_run.sbatch` evidence run (Work item 3) is the lead's step after the code lands.
+   the real `gippa_run.sbatch` evidence run (Work item 3) is the lead's step after the code lands.
 
 ## Lead decisions on the tests (2026-10-22, after b346d7e)
 
 4. Zero detections: V07, V10 and V18 must each draw something (an empty state or honest zero rows);
    V07's basic-group rows with observed 0 are acceptable, so header-only data is not required.
 5. Example 4 needs Nextflow inside the test job. `needs_nextflow` skipped in `test_branch.sbatch`
-   although `scripts/farmshare_env.sh` puts the `giap-wf` env's `nextflow` / `nf-test` on PATH in
+   although `scripts/farmshare_env.sh` puts the `gippa-wf` env's `nextflow` / `nf-test` on PATH in
    the session; the implementer finds why (PATH order in the sbatch script, Java, or the capability
    probe) and fixes it in `scripts/slurm/test_branch.sbatch` (not protected) so example 4 runs; a
    skip is not evidence.
-6. The checks module is shared: M9-14 switches its local `external_loads` to `giap.report.checks`
+6. The checks module is shared: M9-14 switches its local `external_loads` to `gippa.report.checks`
    when this merges.

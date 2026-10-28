@@ -1,4 +1,4 @@
-"""Hypothesis properties of the FDR engine (issue M4-01; GIAP_SPEC.md §8.3).
+"""Hypothesis properties of the FDR engine (issue M4-01; GIPPA_SPEC.md §8.3).
 
 - ``bh``: q >= p, q <= 1, q monotone in p, NaN positions preserved, invariant to input order;
 - ``tda_qvalues``: q non-increasing in score, adding a decoy never lowers any q, invariant to
@@ -13,8 +13,8 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.stats.multitest import bh
-from giap.stats.tda import monotone_q, picked_fdr, tda_qvalues
+from gippa.stats.multitest import bh
+from gippa.stats.tda import monotone_q, picked_fdr, tda_qvalues
 
 FAST = settings(max_examples=200, deadline=None)
 EPS = 1e-12

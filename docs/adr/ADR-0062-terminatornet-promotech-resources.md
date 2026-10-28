@@ -39,7 +39,7 @@ In `workflow/conf/base.config`:
   84 % CPU, 7.5 GiB peak RSS (job 1897274) vs 8 CPUs 2.9–3.7 min for the pass-3 A1 chunks on the
   same node (jobs 1896300, 1896301); `sequences_predictions.csv` byte-identical (`cmp`) to the
   pass-3 A1 chunk (job 1896305; only Promotech's own `sequences.log.txt` timing lines differ,
-  which GIAP does not read).
+  which GIPPA does not read).
 - Effective requests checked with a local-executor Nextflow run of base.config + farmshare.config
   (`--threads 14`): TERMINATORNET 14 CPUs/16 GB/12 h, PROMOTECH 3 CPUs/10 GB/12 h, OSTIR (control)
   8 CPUs/16 GB.
@@ -49,7 +49,7 @@ In `workflow/conf/base.config`:
 ## Consequences
 - Expected critical-path cut on a 5-Mb genome: 55–70 min of 90–240 min (TerminatorNet), plus the
   Promotech queue wait when the cluster is busy. A 16-CPU request may wait longer than an 8-CPU
-  one on a full cluster; the measured mean wait of 14–16-CPU GIAP tasks was 6 min.
+  one on a full cluster; the measured mean wait of 14–16-CPU GIPPA tasks was 6 min.
 - R14 is unchanged: `queueSize` × the 16-CPU cap still bounds a run at 128 CPUs, and Promotech's
   11 chunks now ask for 33 CPUs instead of 88.
 - If a Promotech chunk ever exceeds 10 GB it is killed (137) and retried at 20 GB.

@@ -4,7 +4,7 @@
 - Spec sections: §15.4 steps 3–5, §7.1.3, §7.1.5, §7.4.5, §7.4.6, §7.4.7; spec
   `docs/specs/M6-12-uniop-terminator-cutoffs.md` with lead decisions 1–10; methods
   `docs/methods/operons.md` › "K-12 cut-off calibration (M6-12)"
-- Needs Khoa: yes (a protected file, `src/giap/data/calibration.yaml`, and two defaults change).
+- Needs Khoa: yes (a protected file, `src/gippa/data/calibration.yaml`, and two defaults change).
   Khoa decided the cut-off rule on 2026-10-23: **max-F1 as §15.4 specifies, no one-SE rule**.
 
 ## Context
@@ -42,7 +42,7 @@ round-trip `repr` and must not be rounded, because the pipeline compares with `�
 | `terminatornet_yes.value` | **0.9999999999961204** | `max_f1` (no candidate reaches 0.90) | `defaults.yaml` `annotation.terminators.terminatornet_yes`; `config/model.py` |
 
 All three entries become `calibrated: true` with the ADR-0022 provenance. The proposed file is
-`$GIAP_ROOT/stat/m612c/calibration.yaml.proposed` (with `calibration.yaml.diff`); the lead
+`$GIPPA_ROOT/stat/m612c/calibration.yaml.proposed` (with `calibration.yaml.diff`); the lead
 commits it in PR-C with `Gate-Change-Approved: ADR-0022`.
 
 **Downstream changes.**
@@ -61,13 +61,13 @@ commits it in PR-C with `Gate-Change-Approved: ADR-0022`.
 ## Evidence
 
 **Run.** `validation/calibrate_cutoffs.py` (part B, #264) at worktree HEAD 3db69d9b, Slurm
-**1879748** (wheat-05, 59 s wall), output `$GIAP_DATA_DIR/regulondb/14.5.0/calibration/` (not
-committed, R6/R11). Rerun **1879749** with the same seed into `$GIAP_ROOT/stat/m612c/rerun/`:
+**1879748** (wheat-05, 59 s wall), output `$GIPPA_DATA_DIR/regulondb/14.5.0/calibration/` (not
+committed, R6/R11). Rerun **1879749** with the same seed into `$GIPPA_ROOT/stat/m612c/rerun/`:
 `cutoffs.json` identical apart from `date`; the three TSVs byte-identical.
 - `cutoffs.json` sha256 **edcf9044eafe5f1f3f31aab93c759a035efd25ffa240bd199a637640e843d6eb**
 - `uniop_curve.tsv` 87054f2e…11, `terminatornet_curve.tsv` b4de9758…1f,
   `terminatornet_calls.tsv` 705903eb…97
-- seed 20261014 (`giap.rng.for_step("m6_12_cutoffs", seed)`), B = 2,000, R = 200, cluster
+- seed 20261014 (`gippa.rng.for_step("m6_12_cutoffs", seed)`), B = 2,000, R = 200, cluster
   `directon`, 773 directons holding labelled pairs.
 - Identities checked by the driver: truth SHA-256s `TUSet` c96c8a3b…39fc, `TerminatorSet`
   9d916ffe…f366, `GeneProductSet` 3c2c6be3…9dde; genome (normalised) 918f35c7…14f2; UniOP pin
@@ -196,7 +196,7 @@ downstream window is a cluster) for precision.
 - The rule's F1 is call-level (recall = TP over all matched eligible calls), as specified; the
   reported recall is truth-level.
 
-**Gate and tests run with the proposed values** (scratch copies under `$GIAP_ROOT/stat/m612c/`;
+**Gate and tests run with the proposed values** (scratch copies under `$GIPPA_ROOT/stat/m612c/`;
 `calibration.yaml` itself was not edited):
 - `tests/calibration -m calibration`, targeted to the cut-off, coincidence, operon-FDR and
   operon-simulation suites with their attacks (7 files, 20 tests, including the directon-clustered
@@ -263,9 +263,9 @@ source, so the fallback runs at p_dist ≥ 0.5, i.e. d ≤ d₀ = 102.69 bp (int
 (2,739 pairs, P / N = 1,730 / 1,009, 773 directons; the driver's identity checks pass on the
 ADR-0022 pins), d₀ and s read from `calibration.yaml`, t from `defaults.yaml`. Directon-bootstrap
 percentile 95 % CIs with t fixed (the M6-12 `fixed_cutoff_ci`, not re-selected), B = 2,000, seed
-20261014, `giap.rng.for_step("m11_14s2_operon_fallback", seed)`. UniOP at the same t and the
+20261014, `gippa.rng.for_step("m11_14s2_operon_fallback", seed)`. UniOP at the same t and the
 paired difference UniOP − distance (same directon replicates) are reported for comparison.
-Output `$GIAP_ROOT/stat/m11-14s2/operating_point.json` (sha256 fbed7547…c645; not committed,
+Output `$GIPPA_ROOT/stat/m11-14s2/operating_point.json` (sha256 fbed7547…c645; not committed,
 R6/R11); a rerun with the same seed is identical apart from `date`. Run in the session allocation
 (Slurm 1892896, 14 s).
 

@@ -1,4 +1,4 @@
-# M1-07: Modification stripping and `giap convert --from generic|diann`
+# M1-07: Modification stripping and `gippa convert --from generic|diann`
 
 Milestone M1 · depends on: M1-04, M1-06 · estimate ≈ 390 changed lines (fixtures excluded)
 
@@ -15,19 +15,19 @@ Milestone M1 · depends on: M1-04, M1-06 · estimate ≈ 390 changed lines (fixt
 - §5.4 generic: "validates, normalises and reports problems".
 - §5.4 stripping: "removes bracketed or parenthesised modifications (`(UniMod:35)`, `[+15.995]`,
   `[UNIMOD:35]`, `+15.995`, `n[42]`) and lower-case residues, and keeps only uppercase letters."
-- §5.1: `giap convert --from … INPUT [INPUT ...] --out peptides.tsv [--abundance-out abundance.tsv]
+- §5.1: `gippa convert --from … INPUT [INPUT ...] --out peptides.tsv [--abundance-out abundance.tsv]
   [--source database|denovo] [--search-db same|other]`. Casanovo/InstaNovo/Cascadia are not M1.
 
 ## Public interface
 
-`src/giap/io/converters/strip.py`
+`src/gippa/io/converters/strip.py`
 ```python
 def strip_modifications(seq: str) -> str: ...
 ```
 Order: remove `(…)` and `[…]` groups (non-nested), then `[+-]\d+(\.\d+)?` mass deltas, then every
 character that is not `A–Z` (this drops lower-case residues and `n`/`c` terminus markers, `.`, `_`).
 
-`src/giap/io/converters/base.py`
+`src/gippa/io/converters/base.py`
 ```python
 @dataclass(frozen=True, slots=True)
 class ConvertResult:
@@ -35,11 +35,11 @@ class ConvertResult:
     abundance: pd.DataFrame | None         # columns protein_id, maxlfq
     issues: list[Issue]
 ```
-`src/giap/io/converters/generic.py`: `def convert_generic(paths: Sequence[Path], *, source: str |
+`src/gippa/io/converters/generic.py`: `def convert_generic(paths: Sequence[Path], *, source: str |
 None, search_db: str | None, cfg: InputConfig) -> ConvertResult`.
-`src/giap/io/converters/diann.py`: `def convert_diann(paths: Sequence[Path], *, search_db: str |
+`src/gippa/io/converters/diann.py`: `def convert_diann(paths: Sequence[Path], *, search_db: str |
 None, cfg: InputConfig) -> ConvertResult` (reads `.parquet` with pyarrow, else TSV).
-`src/giap/io/converters/__init__.py`: `CONVERTERS: Mapping[str, Callable[..., ConvertResult]]`.
+`src/gippa/io/converters/__init__.py`: `CONVERTERS: Mapping[str, Callable[..., ConvertResult]]`.
 
 Rules: several INPUT files are concatenated in argument order. Output rows sorted by `run`,
 `peptide`, `modified_peptide`, `charge`. DIA-NN `Decoy` 0/1 → `false/true`; intensity `0` → `NA`
@@ -97,4 +97,4 @@ CLI: writes with `write_tsv`; prints issues to stderr; exit 0, or 1 on error iss
 - The DIA-NN reader loads only the mapped columns and converts numbers directly (500k rows < 15 s).
 - MaxLFQ abundance excludes decoy rows and drops protein groups with no value.
 - Converters report `validate_peptides` issues but keep warn-level rows in the output: any error
-  already makes `giap convert` exit 1 without writing, and preflight re-validates the table.
+  already makes `gippa convert` exit 1 without writing, and preflight re-validates the table.

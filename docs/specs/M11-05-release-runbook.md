@@ -19,15 +19,15 @@ PROGRESS. No step tells an agent to tag, upload, or dispatch with `dry_run=false
 
 ### A. Once, before the first release (Khoa)
 
-1. PyPI → Account → Publishing → "Add a new pending publisher": project `giap`, owner
-   `khoa-yelo`, repository `giap`, workflow `release.yml`, environment `pypi`. Same on TestPyPI with
+1. PyPI → Account → Publishing → "Add a new pending publisher": project `gippa`, owner
+   `khoa-yelo`, repository `gippa`, workflow `release.yml`, environment `pypi`. Same on TestPyPI with
    environment `testpypi` (Q-K1).
 2. GitHub → Settings → Environments: create `pypi` and `testpypi`, required reviewer `khoa-yelo`,
    deployment branch `main` only (Q-K2).
-3. Zenodo → log in with GitHub → GitHub tab → switch on `khoa-yelo/giap` (Q-K3).
+3. Zenodo → log in with GitHub → GitHub tab → switch on `khoa-yelo/gippa` (Q-K3).
 4. GitHub → Settings → Pages → Source "GitHub Actions" (Q-K9; needed by M11-07's deploy job).
-5. GHCR: after the first `containers.yml` run, each `giap-<tool>` package → Package settings →
-   visibility Public (Q-K8; never `giap-uniop`, which is never pushed).
+5. GHCR: after the first `containers.yml` run, each `gippa-<tool>` package → Package settings →
+   visibility Public (Q-K8; never `gippa-uniop`, which is never pushed).
 
 ### B. Each release: agent and lead
 
@@ -48,14 +48,14 @@ PROGRESS. No step tells an agent to tag, upload, or dispatch with `dry_run=false
 11. Approve (§14.8 item 5) in writing; the lead copies the words into PROGRESS.
 12. Rehearsal (first release; optional later): Actions → release → Run workflow with
     `version=<v> dry_run=false target=testpypi`; approve the `testpypi` environment; check
-    `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ giap==<v>`.
+    `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gippa==<v>`.
 13. Real: `version=<v> dry_run=false target=pypi`; approve the `pypi` environment. The workflow
     uploads, tags `v<v>` and creates the GitHub release; Zenodo mints the DOI.
 
 ### D. After the release (agent, then Khoa)
 
 14. Agent: PyPI install smoke in a fresh venv on FarmShare (inside the allocation):
-    `giap --version`, `giap version --json`, `giap preflight` on the tiny genome.
+    `gippa --version`, `gippa version --json`, `gippa preflight` on the tiny genome.
 15. Agent: post-release PR: `CITATION.cff › identifiers` (Zenodo concept DOI and version DOI from
     the Zenodo record page), README badge, `__version__` stays `<v>` until the next release.
 16. Agent: render the Bioconda recipe (M11-10) with the PyPI sdist sha256 and hand it to Khoa;
@@ -88,7 +88,7 @@ PROGRESS. No step tells an agent to tag, upload, or dispatch with `dry_run=false
 1. `docs/release.md` exists with sections A–E and steps 1–17.
 2. A test asserts: no `git tag`, `git push --tags`, `--follow-tags` or `dry_run=false` in any step
    whose actor is not Khoa; every step names an actor; the workflow, environment and project names
-   match `release.yml` (parsed) — `release.yml`, `pypi`, `testpypi`, `giap`.
+   match `release.yml` (parsed) — `release.yml`, `pypi`, `testpypi`, `gippa`.
 3. AGENTS.md gains one line (lead edit, not in this PR's role): "Agents never dispatch release.yml
    with dry_run=false and never push tags (docs/release.md)."
 

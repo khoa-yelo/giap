@@ -20,12 +20,12 @@ import pytest
 from helpers.novel_fdr_fixture import pep_row, peptides_frame
 from helpers.novel_oracle import Case, Seq, hit_row, mirror_case, translate
 
-from giap.config.model import GiapConfig
-from giap.makedb.build import six_frame_orfs
-from giap.mapping.sixframe import build_sixframe
-from giap.model.coords import Replicon
-from giap.novel.candidates import candidate_rows, reconstruct
-from giap.novel.fdr import picked_class_fdr
+from gippa.config.model import GippaConfig
+from gippa.makedb.build import six_frame_orfs
+from gippa.mapping.sixframe import build_sixframe
+from gippa.model.coords import Replicon
+from gippa.novel.candidates import candidate_rows, reconstruct
+from gippa.novel.fdr import picked_class_fdr
 
 N = 300
 LIN = {"lin": Replicon("lin", N, "linear", "plasmid")}
@@ -48,7 +48,7 @@ def open3_case() -> Case:
 def _world(strand: str):  # type: ignore[no-untyped-def]
     case = open3_case() if strand == "+" else mirror_case(open3_case())
     rows = candidate_rows(case.hits_df(), case.peptides_df(), None)
-    (orf,) = reconstruct(rows, case.gm, case.genome, GiapConfig(seed=1))
+    (orf,) = reconstruct(rows, case.gm, case.genome, GippaConfig(seed=1))
     index = build_sixframe(dict(case.genome), case.gm.replicons)
     entries = six_frame_orfs(index, case.gm, dict(case.genome), 10)
     return case, orf, entries

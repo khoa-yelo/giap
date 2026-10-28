@@ -1,11 +1,11 @@
-"""``giap run`` wires preflight output and the database directory into Nextflow (M2-07 follow-up).
+"""``gippa run`` wires preflight output and the database directory into Nextflow (M2-07 follow-up).
 
 docs/specs/M2-07-nextflow-tool-processes.md, "Follow-up PR (stacked, branch m2/run-wiring)" and code
 review item 1 of PR #65: ``workflow/main.nf`` takes the ANNOTATE branch only when
-``params.inputs.genome`` and ``params.inputs.replicons`` are both set; ``giap run --genome G`` must
-therefore run preflight (GIAP_SPEC.md §5.1: errors stop the run, exit 1) and pass the normalised
+``params.inputs.genome`` and ``params.inputs.replicons`` are both set; ``gippa run --genome G`` must
+therefore run preflight (GIPPA_SPEC.md §5.1: errors stop the run, exit 1) and pass the normalised
 ``replicons.tsv`` (``id id type c|l -``, preflight format) plus ``params.db_dir`` (``--db-dir``,
-else ``$GIAP_DB_DIR``) to Nextflow.
+else ``$GIPPA_DB_DIR``) to Nextflow.
 
 A fake ``nextflow`` executable on ``PATH`` records its argv; nothing real is launched. Every test
 provides a database directory whose ``db_manifest.json`` lists every requirement, so the run-mode
@@ -23,10 +23,10 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from helpers.fake_env import fake_giap_root, write_setup_manifest
+from helpers.fake_env import fake_gippa_root, write_setup_manifest
 
-from giap.exitcodes import ExitCode
-from giap.runner.nextflow import launch_command
+from gippa.exitcodes import ExitCode
+from gippa.runner.nextflow import launch_command
 
 FAKE_NF = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NF_ARGS"
@@ -36,16 +36,16 @@ ALL_MODULES = ["core", "mobile", "bgc", "function"]
 
 
 @pytest.fixture(autouse=True)
-def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _fake_gippa_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
-    root = fake_giap_root(tmp_path / "giap_root")
-    monkeypatch.setenv("GIAP_ROOT", str(root))
+    root = fake_gippa_root(tmp_path / "gippa_root")
+    monkeypatch.setenv("GIPPA_ROOT", str(root))
     return root
 
 
 def _write_db(path: Path) -> Path:
     path.mkdir(parents=True)
-    write_setup_manifest(path)  # real `giap setup` format (decision 4c)
+    write_setup_manifest(path)  # real `gippa setup` format (decision 4c)
     return path
 
 
@@ -79,7 +79,7 @@ def proteins(tmp_path: Path) -> Path:
 @pytest.fixture
 def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = _write_db(tmp_path / "db_env")
-    monkeypatch.setenv("GIAP_DB_DIR", str(path))
+    monkeypatch.setenv("GIPPA_DB_DIR", str(path))
     return path
 
 
@@ -97,7 +97,7 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _run(argv: list[str], proteins: Path) -> tuple[int, str]:
-    from giap.cli import cli
+    from gippa.cli import cli
 
     result = CliRunner().invoke(cli, ["run", *argv, "--proteins", str(proteins)])
     out = result.output + (result.stderr if result.stderr_bytes is not None else "")
@@ -108,7 +108,7 @@ def _run(argv: list[str], proteins: Path) -> tuple[int, str]:
 
 def _params(out: Path) -> dict[str, object]:
     path = out / "work" / "params.json"
-    assert path.is_file(), "giap run wrote no params.json"
+    assert path.is_file(), "gippa run wrote no params.json"
     data = json.loads(path.read_text())
     assert isinstance(data, dict)
     return data
@@ -210,7 +210,7 @@ def test_run_launch_argv_points_at_the_written_params(
 def test_run_db_dir_flag_reaches_params(
     proteins: Path, genome: Path, fake_nf: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("GIAP_DB_DIR", raising=False)
+    monkeypatch.delenv("GIPPA_DB_DIR", raising=False)
     flag = _write_db(tmp_path / "db_flag")
     out = tmp_path / "OUT"
     code, text = _run(
@@ -220,7 +220,7 @@ def test_run_db_dir_flag_reaches_params(
     assert _params(out).get("db_dir") == str(flag.absolute())
 
 
-def test_run_db_dir_defaults_to_giap_db_dir(
+def test_run_db_dir_defaults_to_gippa_db_dir(
     proteins: Path, genome: Path, db: Path, fake_nf: Path, tmp_path: Path
 ) -> None:
     out = tmp_path / "OUT"

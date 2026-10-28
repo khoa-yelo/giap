@@ -1,6 +1,6 @@
 """M4-11 accepted evidence and per-gene evidence counts (docs/specs/M4-11-accepted-evidence.md).
 
-Spec: GIAP_SPEC.md §7.3.1 (five conditions, distinct peptides), §7.2.6 (uniqueness and locus
+Spec: GIPPA_SPEC.md §7.3.1 (five conditions, distinct peptides), §7.2.6 (uniqueness and locus
 classes), §7.2.7 (genome relation), §9.3 (`genes.tsv` evidence columns), §9.4 (gene flags), §6.5
 (origin-crossing intervals). Lead decisions: pseudogene placements assign to the pseudogene
 (M4-index decision 1); `cterm_extension` is an assigning class (ADR-0013, M4-06 review decision 2).
@@ -38,15 +38,15 @@ REPLICONS = (("chr1", 100_000, "circular"),)
 
 
 def _ev() -> Any:
-    from giap.genetable import evidence
+    from gippa.genetable import evidence
 
     return evidence
 
 
 def _cfg(q: float = 0.01, alpha: float = 0.01, relation: str = "related") -> Any:
-    from giap.config import GiapConfig
+    from gippa.config import GippaConfig
 
-    return GiapConfig(
+    return GippaConfig(
         genome_relation=relation,
         input={"q_value_max": q},
         stats={"alpha": {"placement": alpha}},
@@ -664,8 +664,8 @@ def test_inputs_not_mutated() -> None:
 
 
 def _sim_inputs(n_genes: int, seed: int, origin: bool) -> tuple[Any, ...]:
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     layout = simulate_layout(
         LayoutConfig(
@@ -716,9 +716,9 @@ def test_simulated_4500_genes_detected_have_evidence() -> None:
 
 def test_m409_default_fixture_detected_true_have_evidence() -> None:
     """Acceptance criterion on the M4-09 default fixture (skipped until M4-09 merges)."""
-    evmod = pytest.importorskip("giapsim.evidence")
-    from giapsim.expression import ExpressionConfig, simulate_expression
-    from giapsim.layout import LayoutConfig, simulate_layout
+    evmod = pytest.importorskip("gippasim.evidence")
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     layout = simulate_layout(LayoutConfig(), np.random.default_rng(1))
     expr = simulate_expression(layout, ExpressionConfig(), np.random.default_rng(2))

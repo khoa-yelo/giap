@@ -32,7 +32,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from giap.annotate.tools import TOOLS
+from gippa.annotate.tools import TOOLS
 
 REPO = Path(__file__).resolve().parents[2]
 GHCR = ["bactermfinder", "ostir", "promoter_calculator", "promotech", "terminatornet"]

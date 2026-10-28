@@ -1,4 +1,4 @@
-"""Hypothesis properties for the six-frame index (issue M3-02; GIAP_SPEC.md §7.2.1, §11.2).
+"""Hypothesis properties for the six-frame index (issue M3-02; GIPPA_SPEC.md §7.2.1, §11.2).
 
 Genomes are drawn as (seed, length, topology) and generated with a seeded RNG so that 5-kb
 sequences stay cheap; about 1 % of positions are ``N`` to exercise ambiguous codons.
@@ -12,7 +12,7 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.mapping.sixframe import (
+from gippa.mapping.sixframe import (
     SixFrameIndex,
     build_sixframe,
     decode,
@@ -20,8 +20,8 @@ from giap.mapping.sixframe import (
     encode_query,
     encode_target,
 )
-from giap.model import Interval, Replicon, split_at_origin
-from giapsim.codons import CODE_11
+from gippa.model import Interval, Replicon, split_at_origin
+from gippasim.codons import CODE_11
 
 SETTINGS = settings(max_examples=40, deadline=None)
 _RC = str.maketrans("ACGTN", "TGCAN")

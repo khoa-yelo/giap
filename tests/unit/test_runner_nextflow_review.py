@@ -8,8 +8,8 @@ Pure Python: no Nextflow is started (the Nextflow-side checks live in
   abbreviated ``hash`` under the run's work dir ``OUT/work`` (the trace lives at
   ``OUT/logs/trace.tsv``) and must be the existing task directory.
 - (2) ``failed_step`` = the last FAILED row whose task name has no later COMPLETED row; a
-  retried-then-succeeded attempt never counts. For ``GIAP_STEP`` the tag is the step, so two
-  ``GIAP_STEP`` tasks with different tags are different steps.
+  retried-then-succeeded attempt never counts. For ``GIPPA_STEP`` the tag is the step, so two
+  ``GIPPA_STEP`` tasks with different tags are different steps.
 - (6) Input paths in ``params.json`` are absolute even when given relative (Nextflow's cwd is OUT);
   a failed run without a trace still exits 4; runner messages go to stderr only.
 """
@@ -26,12 +26,12 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import resolve_config
-from giap.exitcodes import ExitCode
+from gippa.config import resolve_config
+from gippa.exitcodes import ExitCode
 
 
 def _nf() -> ModuleType:
-    return importlib.import_module("giap.runner.nextflow")
+    return importlib.import_module("gippa.runner.nextflow")
 
 
 # Nextflow's default trace fields (no workdir), verified with `nextflow run ... -with-trace`.
@@ -112,7 +112,7 @@ def test_run_nextflow_default_trace_names_step_and_log(
 ) -> None:
     out = tmp_path / "OUT"
     _default_trace(
-        out, [_default_row(out, 1, "8e/cccccc", "ANNOTATE:GIAP_STEP (parse_bakta)", "FAILED", "4")]
+        out, [_default_row(out, 1, "8e/cccccc", "ANNOTATE:GIPPA_STEP (parse_bakta)", "FAILED", "4")]
     )
     code = _nf().run_nextflow([sys.executable, "-c", "import sys; sys.exit(1)"], out)
     assert code == ExitCode.STEP_FAILED
@@ -164,14 +164,14 @@ def test_retried_then_succeeded_only_is_none(tmp_path: Path) -> None:
     assert _nf().failed_step(trace) is None
 
 
-def test_giap_step_tags_are_distinct_steps(tmp_path: Path) -> None:
-    """A later COMPLETED GIAP_STEP with another tag does not hide the failed one."""
+def test_gippa_step_tags_are_distinct_steps(tmp_path: Path) -> None:
+    """A later COMPLETED GIPPA_STEP with another tag does not hide the failed one."""
     out = tmp_path / "OUT"
     trace = _full_trace(
         out,
         [
-            (1, "11/aaaaaa", "ANNOTATE:GIAP_STEP (parse_bakta)", "FAILED", "1"),
-            (2, "22/bbbbbb", "ANNOTATE:GIAP_STEP (operons)", "COMPLETED", "0"),
+            (1, "11/aaaaaa", "ANNOTATE:GIPPA_STEP (parse_bakta)", "FAILED", "1"),
+            (2, "22/bbbbbb", "ANNOTATE:GIPPA_STEP (operons)", "COMPLETED", "0"),
         ],
     )
     assert _nf().failed_step(trace) == ("parse_bakta", str(_taskdir(out, "11/aaaaaa")))
@@ -181,15 +181,15 @@ _NAMES = [
     "ANNOTATE:BAKTA (chr1)",
     "ANNOTATE:GENOMAD (chr1)",
     "ANNOTATE:TERMINATORNET (chr1)",
-    "ANNOTATE:GIAP_STEP (parse_bakta)",
-    "ANNOTATE:GIAP_STEP (operons)",
+    "ANNOTATE:GIPPA_STEP (parse_bakta)",
+    "ANNOTATE:GIPPA_STEP (operons)",
 ]
 _STEP = {
     "ANNOTATE:BAKTA (chr1)": "bakta",
     "ANNOTATE:GENOMAD (chr1)": "genomad",
     "ANNOTATE:TERMINATORNET (chr1)": "terminatornet",
-    "ANNOTATE:GIAP_STEP (parse_bakta)": "parse_bakta",
-    "ANNOTATE:GIAP_STEP (operons)": "operons",
+    "ANNOTATE:GIPPA_STEP (parse_bakta)": "parse_bakta",
+    "ANNOTATE:GIPPA_STEP (operons)": "operons",
 }
 
 
@@ -256,7 +256,7 @@ def test_run_nextflow_without_trace_exits_4_on_stderr(
     cap = capfd.readouterr()
     assert "nextflow exited 3" in cap.err
     assert str(out / ".nextflow.log") in cap.err
-    assert "giap run" not in cap.out
+    assert "gippa run" not in cap.out
 
 
 def test_run_nextflow_step_message_on_stderr_only(

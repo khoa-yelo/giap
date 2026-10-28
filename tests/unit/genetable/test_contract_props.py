@@ -18,7 +18,7 @@ SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=[Healt
 
 
 def _validate(frames: dict[str, Any]) -> list[Any]:
-    from giap.genetable.contract import validate_inputs, validate_table
+    from gippa.genetable.contract import validate_inputs, validate_table
 
     out = []
     for k in TABLE_KEYS:
@@ -50,7 +50,7 @@ def test_dropping_a_gene_from_tus_is_reported(layout: tuple[int, list[int]], dat
     tus = f["tus"].copy()
     tus["genes"] = [[g for g in gs if g != victim] for gs in tus["genes"]]
     f["tus"] = tus[[len(g) > 0 for g in tus["genes"]]].reset_index(drop=True)
-    from giap.genetable.contract import validate_inputs
+    from gippa.genetable.contract import validate_inputs
 
     hit = [i for i in validate_inputs(make_inputs(f)) if i.code == "contract.tus.gene_coverage"]
     assert hit and any(victim in i.message + " ".join(i.examples) for i in hit)
@@ -69,7 +69,7 @@ def test_gene_in_two_tus_is_reported(layout: tuple[int, list[int]], data: Any) -
     g = tus.at[i, "genes"][0]
     tus.at[j, "genes"] = [*tus.at[j, "genes"], g]
     f["tus"] = tus
-    from giap.genetable.contract import validate_inputs
+    from gippa.genetable.contract import validate_inputs
 
     hit = [i for i in validate_inputs(make_inputs(f)) if i.code == "contract.tus.gene_coverage"]
     assert hit and all(x.severity == "error" for x in hit)
@@ -78,7 +78,7 @@ def test_gene_in_two_tus_is_reported(layout: tuple[int, list[int]], data: Any) -
 @SETTINGS
 @given(st.sampled_from(TABLE_KEYS), st.data())
 def test_any_column_subset_never_raises_and_reports_each_missing(table: str, data: Any) -> None:
-    from giap.genetable.contract import TABLES, validate_table
+    from gippa.genetable.contract import TABLES, validate_table
 
     df = build_frames(20)[table]
     cols = list(df.columns)
@@ -94,7 +94,7 @@ def test_any_column_subset_never_raises_and_reports_each_missing(table: str, dat
 @given(st.sampled_from(ORDER_FREE), st.integers(min_value=0, max_value=10_000))
 def test_row_permutation_does_not_change_issue_codes(table: str, seed: int) -> None:
     """Per-table checks are row-order free (codes and severities, not row numbers)."""
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     df = build_frames(20)[table]
     perm = df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
@@ -113,7 +113,7 @@ _id_lists = st.lists(_ids, max_size=5)
 
 
 def _peptide_issues(protein_ids: list[Any]) -> list[Any]:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     p = build_frames(20)["peptides"]
     p["protein_ids"] = pd.Series(protein_ids, dtype=object)
@@ -151,7 +151,7 @@ def test_protein_ids_bad_element_anywhere_is_error(
 @SETTINGS
 @given(st.lists(_id_lists, min_size=4, max_size=4), st.integers(min_value=0, max_value=3))
 def test_protein_ids_joined_string_cell_is_dtype_error(lists: list[list[str]], row: int) -> None:
-    from giap.genetable.contract import validate_table
+    from gippa.genetable.contract import validate_table
 
     cells: list[Any] = list(lists)
     cells[row] = ";".join(lists[row]) or "GSIM_00005"

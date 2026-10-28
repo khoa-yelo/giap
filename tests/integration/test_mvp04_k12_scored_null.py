@@ -3,7 +3,7 @@
 
 Slow: one whole-genome ``simulate_on_genome(k12_evidence(), K12_EVIDENCE_SEED)`` from the
 committed FASTA and recorded Bakta JSON (hash-checked), outputs in pytest temporary directories.
-RegulonDB TUs when ``$GIAP_DATA_DIR/regulondb/14.5.0/TUSet.txt`` exists, else the gap rule (the
+RegulonDB TUs when ``$GIPPA_DATA_DIR/regulondb/14.5.0/TUSet.txt`` exists, else the gap rule (the
 decoy checks do not depend on the TUs). Interface: as tests/unit/test_mvp04_scored_null.py.
 
 Claims (single fixed seed, as the acceptance gates):
@@ -11,7 +11,7 @@ Claims (single fixed seed, as the acceptance gates):
 * acceptance 4: eligible target-won genes T (truth-unique correct peptides at q <= 0.01 whose
   best key beats the gene's best paired decoy) is >= 110 (q_floor <= 0.00909) and inside the
   spec's expected 2,300-3,100 (truth-detected share 0.631 x 4,367 ~ 2,757);
-* acceptance 2, 3: GIAP's ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning,
+* acceptance 2, 3: GIPPA's ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning,
   paired share f >= 0.98; acceptance 5: at least one decoy win (gate), and the count inside the
   spec's expected 20-300 (lead decision 10: ~41 decoy wins under the fixed 50/50 split, Slurm
   1871592, 10 seeds; ~11 under the withdrawn search-space split);
@@ -45,10 +45,10 @@ GATE5_EXPECTED = (20, 300)  # spec acceptance 5 "Expected" (decoy wins), lead de
 
 @pytest.fixture(scope="module")
 def k12(tmp_path_factory: pytest.TempPathFactory) -> D.View:
-    sc = importlib.import_module("giapsim.scenarios")
+    sc = importlib.import_module("gippasim.scenarios")
     out = tmp_path_factory.mktemp("mvp04_k12_scored")
     tu = M.TUSET if M.TUSET.is_file() else None
-    importlib.import_module("giapsim.real_genome").simulate_on_genome(
+    importlib.import_module("gippasim.real_genome").simulate_on_genome(
         sc.k12_evidence(), sc.K12_EVIDENCE_SEED, out, genome_fasta=M.K12_FASTA,
         bakta_json=M.K12_JSON, tu_set=tu,
     )  # fmt: skip
@@ -77,8 +77,8 @@ def test_eligible_target_won_genes(k12: D.View, genes: list[M.Gene]) -> None:
     assert T_RANGE[0] <= t <= T_RANGE[1], t
 
 
-def test_giap_tier_pairing_and_decoy_wins(k12: D.View, genes: list[M.Gene]) -> None:
-    tier = D.giap_tier(k12, [g.locus for g in genes])
+def test_gippa_tier_pairing_and_decoy_wins(k12: D.View, genes: list[M.Gene]) -> None:
+    tier = D.gippa_tier(k12, [g.locus for g in genes])
     assert tier.tier == "decoy_picked", tier
     assert tier.warnings == (), tier
     assert tier.paired_share >= 0.98, tier.paired_share

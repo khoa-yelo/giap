@@ -1,4 +1,4 @@
-"""Independent checks for giapsim's sequence-free layout (issue M4-07; GIAP_SPEC.md §11.3).
+"""Independent checks for gippasim's sequence-free layout (issue M4-07; GIPPA_SPEC.md §11.3).
 
 Written from docs/specs/M4-07-sim-layout-tables.md and M2-20's column definitions, without reading
 the simulator: a table-11 translator, the expected ``uniop_p_prev/next`` in transcription order,
@@ -314,7 +314,7 @@ def within_sd(k: float, n: int, p: float, z: float = 4.0) -> bool:
 
 def write_m3_headers(work: Path) -> None:
     """Header-only M3 tables (nothing placed) so the M4-06 loader sees a complete work dir."""
-    from giap.genetable.contract import TABLES
+    from gippa.genetable.contract import TABLES
 
     for key, name in (("peptide_hits", M3_FILES[0]), ("protein_hits", M3_FILES[1]),
                       ("unmapped", M3_FILES[2])):  # fmt: skip
@@ -324,7 +324,7 @@ def write_m3_headers(work: Path) -> None:
 
 
 def load_work(work: Path) -> tuple[Any, list[Any]]:
-    from giap.io.work_tables import default_paths, load_m4_inputs
+    from gippa.io.work_tables import default_paths, load_m4_inputs
 
     write_m3_headers(work)
     return load_m4_inputs(default_paths(work))
@@ -335,6 +335,6 @@ def errors(issues: Iterable[Any]) -> list[Any]:
 
 
 def read_parquets(work: Path) -> Mapping[str, pd.DataFrame]:
-    from giap.io.work_tables import FILE_NAMES
+    from gippa.io.work_tables import FILE_NAMES
 
     return {k: pd.read_parquet(work / FILE_NAMES[k]) for k in WRITTEN_TABLES}

@@ -6,8 +6,8 @@ edge cases "Empty input" and "Ties", acceptance criteria 1 (a)-(h), 2 and 4; lea
 (2026-10-24): criterion 1 (i) (no 3+-digit numbers outside provenance columns) is dropped.
 
 Fixtures are hand-made runbooks and a synthetic checkout in ``tmp_path``
-(``helpers.m10_14_kit``); ``verify`` runs against fake ``$GIAP_ROOT`` files in ``tmp_path``.
-Nothing reads the real ``$GIAP_ROOT``, Slurm or the network. The conventions the spec leaves open
+(``helpers.m10_14_kit``); ``verify`` runs against fake ``$GIPPA_ROOT`` files in ``tmp_path``.
+Nothing reads the real ``$GIPPA_ROOT``, Slurm or the network. The conventions the spec leaves open
 are listed in the docstring of ``helpers.m10_14_kit``.
 
 ``reproduce_check`` moves files and compares hashes; it makes no statistical claim, so this module
@@ -86,7 +86,7 @@ def test_parse_reads_header_tables_and_steps(rc: Any) -> None:
     assert s7.title == "conversion" and s7.issue == "M10-03"
     assert s7.job == {
         "script": "scripts/slurm/diann_convert.sbatch",
-        "name": "giap-diann-convert-A1",
+        "name": "gippa-diann-convert-A1",
         "partition": "normal",
         "qos": "normal",
         "cpus": "2",
@@ -98,7 +98,7 @@ def test_parse_reads_header_tables_and_steps(rc: Any) -> None:
     }
     assert any("diann_convert.sbatch" in c for c in s7.commands)
     assert s7.reads == ["genome"]
-    assert s7.writes == ["$GIAP_ROOT/pilot/inputs/a1.tsv.gz"]
+    assert s7.writes == ["$GIPPA_ROOT/pilot/inputs/a1.tsv.gz"]
     assert rb.steps[0].job is None, "`Job: none (session)` parses as no job"
     assert rb.steps[3].job["children"] == "nextflow:normalx14cpu"
     assert [e["step"] for e in rb.evidence] == ["S5", "S8"]
@@ -108,7 +108,7 @@ def test_parse_reads_header_tables_and_steps(rc: Any) -> None:
 
 
 def test_parse_reads_outputs_and_final_header(rc: Any) -> None:
-    out = f"| a2_table | $GIAP_ROOT/pilot/inputs/a2.tsv.gz | {'d' * 64} | - | yes |"
+    out = f"| a2_table | $GIPPA_ROOT/pilot/inputs/a2.tsv.gz | {'d' * 64} | - | yes |"
     rb = rc.parse(
         runbook(status="final", freeze=F, a3_branch="cascadia", cascadia="active", outputs=[out])
     )
@@ -116,7 +116,7 @@ def test_parse_reads_outputs_and_final_header(rc: Any) -> None:
     assert rb.outputs == [
         {
             "id": "a2_table",
-            "path": "$GIAP_ROOT/pilot/inputs/a2.tsv.gz",
+            "path": "$GIPPA_ROOT/pilot/inputs/a2.tsv.gz",
             "sha256": "d" * 64,
             "recorded_in": "-",
             "kept": "yes",
@@ -135,7 +135,7 @@ def test_property_inputs_round_trip(rows: dict[str, str]) -> None:
     """Any well-formed Inputs table parses back to its ids and hashes, in order."""
     rc = load_reproduce_check()
     lines = [
-        f"| {i} | $GIAP_ROOT/x/{i}.bin | {h} | $GIAP_ROOT/x/provenance.json |"
+        f"| {i} | $GIPPA_ROOT/x/{i}.bin | {h} | $GIPPA_ROOT/x/provenance.json |"
         for i, h in rows.items()
     ]
     rb = rc.parse(runbook(inputs=lines))
@@ -146,7 +146,7 @@ def test_property_inputs_round_trip(rows: dict[str, str]) -> None:
 
 
 def test_default_fixture_passes(rc: Any, tmp_path: Path) -> None:
-    """Example 1 (S7 verbatim): the script exists, -J is giap-*, every field equals the header."""
+    """Example 1 (S7 verbatim): the script exists, -J is gippa-*, every field equals the header."""
     repo = synthetic_repo(tmp_path)
     assert _issues(rc, runbook(), repo) == []
 
@@ -176,9 +176,9 @@ def test_command_override_is_the_expected_value(rc: Any, tmp_path: Path) -> None
     assert "job_class_mismatch:S5:mem:64000M!=32000M" in issues, issues
 
 
-def test_job_name_must_start_with_giap(rc: Any, tmp_path: Path) -> None:
+def test_job_name_must_start_with_gippa(rc: Any, tmp_path: Path) -> None:
     repo = synthetic_repo(tmp_path)
-    step = s5(jname="diann-A1").replace("name=giap-diann-A1", "name=diann-A1")
+    step = s5(jname="diann-A1").replace("name=gippa-diann-A1", "name=diann-A1")
     issues = _issues(rc, runbook(steps=[STEP_S0, step, STEP_S7]), repo)
     assert any("diann-A1" in s and "S5" in s for s in issues), issues
 
@@ -207,7 +207,7 @@ def test_malformed_inputs_rows(rc: Any, tmp_path: Path) -> None:
     assert any("diann_image" in s for s in _issues(rc, runbook(inputs=[INPUT_GENOME, upper]), repo))
     bad_id = INPUT_IMAGE.replace("| diann_image |", "| DIA-NN image |")
     assert _issues(rc, runbook(inputs=[INPUT_GENOME, bad_id]), repo)
-    abspath = INPUT_IMAGE.replace("$GIAP_ROOT/images", "/home/someone/images")
+    abspath = INPUT_IMAGE.replace("$GIPPA_ROOT/images", "/home/someone/images")
     assert _issues(rc, runbook(inputs=[INPUT_GENOME, abspath]), repo)
 
 
@@ -256,7 +256,7 @@ def test_duplicate_hash_is_a_warning(tmp_path: Path) -> None:
     """Edge case "Ties": the same hash on two rows with different paths is reported, not failed."""
     repo = synthetic_repo(tmp_path)
     copy = (
-        f"| genome_copy | $GIAP_ROOT/pilot/inputs/genome.fna.gz | {GENOME_SHA} | {MANIFEST_REL} |"
+        f"| genome_copy | $GIPPA_ROOT/pilot/inputs/genome.fna.gz | {GENOME_SHA} | {MANIFEST_REL} |"
     )
     p = tmp_path / "reproduce.md"
     p.write_text(runbook(inputs=[INPUT_GENOME, INPUT_IMAGE, copy]))
@@ -281,11 +281,11 @@ def test_stray_64_hex(rc: Any, tmp_path: Path) -> None:
     stray = "ab12" * 16
     issues = _issues(rc, runbook(prose=f"An old hash {stray} kept for the record."), repo)
     assert any(stray[:12] in s for s in issues), issues
-    out = f"| a1_table | $GIAP_ROOT/pilot/inputs/a1.tsv.gz | {stray} | - | yes |"
+    out = f"| a1_table | $GIPPA_ROOT/pilot/inputs/a1.tsv.gz | {stray} | - | yes |"
     assert _issues(rc, runbook(prose=f"The table hashes to {stray}.", outputs=[out]), repo) == []
 
 
-@pytest.mark.parametrize("cmd", ["uv run giap --help", "uv sync --frozen", "pip install giap"])
+@pytest.mark.parametrize("cmd", ["uv run gippa --help", "uv sync --frozen", "pip install gippa"])
 def test_forbidden_commands(rc: Any, tmp_path: Path, cmd: str) -> None:
     repo = synthetic_repo(tmp_path)
     step = STEP_S7.replace("```bash\n", f"```bash\n{cmd}\n")
@@ -337,7 +337,7 @@ def test_cli_static_exit_codes(tmp_path: Path) -> None:
     assert "job_class_mismatch:S5:mem:64G!=64000M" in res.stdout + res.stderr
 
 
-# ---------------------------------------------------------------- verify (fake $GIAP_ROOT)
+# ---------------------------------------------------------------- verify (fake $GIPPA_ROOT)
 
 
 def _verify_world(tmp_path: Path) -> tuple[Path, Path, str]:
@@ -359,13 +359,13 @@ def _verify_world(tmp_path: Path) -> tuple[Path, Path, str]:
     prov.write_text(json.dumps({"raw": [{"run": "WT_1", "analysis_tdf_sha256": tdf_sha}]}))
     rows = [
         INPUT_GENOME,
-        f"| diann_image | $GIAP_ROOT/images/diann_2.3.1.sif | {img_sha} | {PIN_REL} |",
-        f"| wt1_tdf | $GIAP_ROOT/data/pxd078459/WT_1.d/analysis.tdf | {tdf_sha} | "
-        "$GIAP_ROOT/pilot/A1/provenance.json |",
-        f"| wt1_tdf_bin | $GIAP_ROOT/data/pxd078459/WT_1.d/analysis.tdf_bin | {'e' * 64} | "
-        "$GIAP_ROOT/pilot/A1/provenance.json |",
-        f"| a3_table | $GIAP_ROOT/pilot/inputs/a3.tsv.gz | {'f' * 64} | "
-        "$GIAP_ROOT/pilot/inputs/a3.convert.json |",
+        f"| diann_image | $GIPPA_ROOT/images/diann_2.3.1.sif | {img_sha} | {PIN_REL} |",
+        f"| wt1_tdf | $GIPPA_ROOT/data/pxd078459/WT_1.d/analysis.tdf | {tdf_sha} | "
+        "$GIPPA_ROOT/pilot/A1/provenance.json |",
+        f"| wt1_tdf_bin | $GIPPA_ROOT/data/pxd078459/WT_1.d/analysis.tdf_bin | {'e' * 64} | "
+        "$GIPPA_ROOT/pilot/A1/provenance.json |",
+        f"| a3_table | $GIPPA_ROOT/pilot/inputs/a3.tsv.gz | {'f' * 64} | "
+        "$GIPPA_ROOT/pilot/inputs/a3.convert.json |",
     ]
     return repo, root, runbook(inputs=rows)
 
@@ -401,7 +401,7 @@ def test_verify_altered_image(rc: Any, tmp_path: Path) -> None:
     p, out = tmp_path / "rb.md", tmp_path / "verify.json"
     p.write_text(text)
     cli = run_cli(
-        "verify", str(p), "--out", str(out), "--repo", str(repo), env={"GIAP_ROOT": str(root)}
+        "verify", str(p), "--out", str(out), "--repo", str(repo), env={"GIPPA_ROOT": str(root)}
     )
     assert cli.returncode == 1, cli.stdout + cli.stderr
     doc = json.loads(out.read_text())
@@ -440,7 +440,7 @@ def test_verify_cli_ok(tmp_path: Path) -> None:
     out.parent.mkdir()
     p.write_text(text)
     cli = run_cli(
-        "verify", str(p), "--out", str(out), "--repo", str(repo), env={"GIAP_ROOT": str(root)}
+        "verify", str(p), "--out", str(out), "--repo", str(repo), env={"GIPPA_ROOT": str(root)}
     )
     assert cli.returncode == 0, cli.stdout + cli.stderr
     doc = json.loads(out.read_text())
@@ -451,7 +451,7 @@ def test_verify_cli_ok(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the committed draft runbook
 
 PATH_TOKEN = re.compile(
-    r"(?:\$\{?GIAP_REPO\}?/)?((?:scripts|validation|workflow|tests/data)/[^\s\"'`;|)(<>]+)"
+    r"(?:\$\{?GIPPA_REPO\}?/)?((?:scripts|validation|workflow|tests/data)/[^\s\"'`;|)(<>]+)"
 )
 FENCE = re.compile(r"^```bash\n(.*?)^```", re.M | re.S)
 JOB_LINE = re.compile(r"^Job:\s*(.*)$", re.M)
@@ -532,7 +532,8 @@ def test_committed_runbook_paths_exist() -> None:
 
 
 def test_committed_runbook_sbatch_calls() -> None:
-    """Criterion 1 (b): every sbatch call names an existing scripts/slurm/*.sbatch; -J is giap-*."""
+    """Criterion 1 (b): every sbatch call names an existing scripts/slurm/*.sbatch; -J is
+    gippa-*."""
     text = _committed()
     calls = [
         ln
@@ -546,7 +547,7 @@ def test_committed_runbook_sbatch_calls() -> None:
         assert scripts, f"sbatch call names no scripts/slurm/*.sbatch: {ln}"
         assert (REPO / scripts[0]).is_file(), f"missing script {scripts[0]}"
         for name in re.findall(r"(?:-J|--job-name)[= ]\s*\"?([^\s\"]+)", ln):
-            assert name.startswith("giap-"), f"job name {name!r} (R14: giap-*): {ln}"
+            assert name.startswith("gippa-"), f"job name {name!r} (R14: gippa-*): {ln}"
 
 
 def _logical_lines(block: str) -> list[str]:
@@ -585,7 +586,7 @@ def test_committed_runbook_job_lines_match_headers() -> None:
             "array",
         ):
             assert f in fields, f"{sid}: Job line lacks {f}= ({jobs[0]})"
-        assert fields["name"].startswith("giap-"), f"{sid}: name={fields['name']}"
+        assert fields["name"].startswith("gippa-"), f"{sid}: name={fields['name']}"
         if fields["script"] == "-":
             continue  # a dev job without a script (srun): nothing to compare
         script = REPO / fields["script"]
@@ -610,7 +611,7 @@ def test_committed_runbook_inputs_well_formed() -> None:
         assert re.fullmatch(r"[a-z0-9_]+", r["id"]), r
         assert re.fullmatch(r"[0-9a-f]{64}", r["sha256"]), r
         path = r["path"]
-        assert path.startswith(("$GIAP_ROOT", "$GIAP_DATA_DIR", "$GIAP_DB_DIR")) or (
+        assert path.startswith(("$GIPPA_ROOT", "$GIPPA_DATA_DIR", "$GIPPA_DB_DIR")) or (
             not path.startswith("/") and (REPO / path).is_file()
         ), f"{r['id']}: path {path!r} is neither committed nor on FarmShare"
         recs = [x.strip() for x in r["recorded_in"].split(";") if x.strip()]
@@ -681,7 +682,7 @@ def test_committed_runbook_names_the_freeze_scripts() -> None:
     text = _committed()
     assert "scripts/slurm/pilot_reproduce_check.sbatch" in text
     assert "scripts/slurm/pilot_cleanup.sbatch" in text
-    for name in ("giap-run-freeze-a2", "giap-run-freeze-a1", "giap-run-freeze-a2-rep"):
+    for name in ("gippa-run-freeze-a2", "gippa-run-freeze-a1", "gippa-run-freeze-a2-rep"):
         assert name in text, name
 
 
@@ -689,18 +690,18 @@ def test_committed_runbook_names_the_freeze_scripts() -> None:
 
 
 def test_reproduce_check_sbatch_house_rules() -> None:
-    check_house_rules(REPRO_SBATCH, name="giap-pilot-repro-check", cpus=2, mem_gb=8, minutes=60)
+    check_house_rules(REPRO_SBATCH, name="gippa-pilot-repro-check", cpus=2, mem_gb=8, minutes=60)
 
 
 def test_reproduce_check_sbatch_runs_static_verify_and_reconversion() -> None:
-    """S-check steps 1-3: static, verify into $GIAP_ROOT/pilot/reproduce/verify-<F7>.json, and
+    """S-check steps 1-3: static, verify into $GIPPA_ROOT/pilot/reproduce/verify-<F7>.json, and
     the re-conversion with the M10-03 arguments through the venv python (no uv run)."""
     code = sbatch_code(REPRO_SBATCH)
     assert "reproduce_check.py" in code and re.search(r"\bstatic\b", code)
     assert re.search(r"\bverify\b", code) and "--out" in code
     assert "pilot/reproduce" in code and "verify-" in code
-    assert "GIAP_PYTHON" in code and "giap.cli" in code
-    assert re.search(r"convert\b.*--from\s+diann|--from diann", code), "giap convert --from diann"
+    assert "GIPPA_PYTHON" in code and "gippa.cli" in code
+    assert re.search(r"convert\b.*--from\s+diann|--from diann", code), "gippa convert --from diann"
     assert "--search-db" in code and "--abundance-out" in code
     assert "TMPDIR" in code, "re-converted tables go to $TMPDIR, never over the inputs"
     assert "identical" in code and "changed" in code
@@ -721,6 +722,6 @@ def test_reproduce_check_sbatch_bash32() -> None:
 
 def test_glob_tokens_are_excepted_by_the_own_regex() -> None:
     """Self-test of the path regex used on the committed runbook (globs are not files)."""
-    toks = PATH_TOKEN.findall('sbatch "$GIAP_REPO/scripts/slurm/x.sbatch" validation/pilot/a*.cfg')
+    toks = PATH_TOKEN.findall('sbatch "$GIPPA_REPO/scripts/slurm/x.sbatch" validation/pilot/a*.cfg')
     assert toks == ["scripts/slurm/x.sbatch", "validation/pilot/a*.cfg"]
     assert fnmatch.fnmatch("validation/pilot/a1.cfg", toks[1])

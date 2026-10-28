@@ -1,4 +1,4 @@
-# MVP-01: wire the registered steps into `giap run` (gene table, detectability, context)
+# MVP-01: wire the registered steps into `gippa run` (gene table, detectability, context)
 
 Track: **MVP / end-to-end** (Khoa, 2026-10-20: "achieve end to end integration of the tool first")
 · depends on: nothing (every step is merged and registered)
@@ -6,11 +6,11 @@ Track: **MVP / end-to-end** (Khoa, 2026-10-20: "achieve end to end integration o
 ## The gap
 31 steps are registered, but `workflow/main.nf` calls only `ANNOTATE` and `MAPPING`. Everything M4 and
 M5 built — `gene_table`, `detectability`, `context_stats`, `run_sensitivity`, and soon the
-autocorrelation and island tables — is reachable from Python only. `giap run` stops after mapping.
+autocorrelation and island tables — is reachable from Python only. `gippa run` stops after mapping.
 This issue closes that, and supersedes the three backlog wiring items (M4-15, M4-18, M4-19 decision 16).
 
 ## Goal
-`giap run` on the simulated 100 kb genome produces, in one invocation: `genetable/genes.parquet`,
+`gippa run` on the simulated 100 kb genome produces, in one invocation: `genetable/genes.parquet`,
 the detectability summary, `tables/regions_stats.tsv` and `tables/sensitivity.tsv`.
 
 ## How this issue is sequenced (Khoa, 2026-10-20)
@@ -39,7 +39,7 @@ work is split into two passes:
    optional input to `context_stats`; wire it when #124 has merged, otherwise leave the channel empty.
 4. **Scope discipline:** wiring only. Do not change step behaviour, do not add calibration, and if a step
    needs a small fix to run under Nextflow, make the smallest one and say so in the PR.
-5. Evidence that counts: a real `sbatch scripts/slurm/giap_run.sbatch` on sim100k that reaches the end
+5. Evidence that counts: a real `sbatch scripts/slurm/gippa_run.sbatch` on sim100k that reaches the end
    and writes the four outputs. nf-test stub coverage for the new subworkflows, in the existing style.
 
 ## Definition of done

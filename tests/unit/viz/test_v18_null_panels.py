@@ -1,4 +1,4 @@
-"""V18 panel (c): null distributions against the observed statistic (M9-21; GIAP_SPEC.md §10.2
+"""V18 panel (c): null distributions against the observed statistic (M9-21; GIPPA_SPEC.md §10.2
 V18, §7.3.5(b, d), §7.8.2 step 4; ADR-0018, ADR-0034; docs/specs/M9-21-v18-null-panels.md and its
 lead decisions 1-4).
 
@@ -89,12 +89,12 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.io.tsv import write_tsv
-from giap.viz import base, style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.io.tsv import write_tsv
+from gippa.viz import base, style
+from gippa.viz.base import Instance, Skip
 
 COLUMNS = ["panel", "table", "family", "bin", "x", "y", "n", "metric", "value"]
 N_BINS = 30
@@ -130,7 +130,7 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
@@ -309,12 +309,12 @@ def _full(tmp: Path) -> Path:
 
 
 def _v18() -> base.PlotSpec:
-    import giap.viz.diagnostics  # noqa: F401  (registers V18)
+    import gippa.viz.diagnostics  # noqa: F401  (registers V18)
 
     return base.registered()["V18"]
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = _v18().fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -423,7 +423,7 @@ def test_v18_declares_the_null_tables_optional() -> None:
 
 
 def test_example1_fifteen_regions_draw_the_twelve_smallest_q(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = make_out(tmp_path)
     order = [7, 14, 0, 3, 11, 9, 1, 13, 5, 2, 12, 4, 10, 8, 6]  # rows not in q order
@@ -436,7 +436,7 @@ def test_example1_fifteen_regions_draw_the_twelve_smallest_q(
     assert not any(ax.get_label() == "c" for ax in inst.figure.axes)
 
 
-def test_region_histogram_rows_and_observed_row(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_histogram_rows_and_observed_row(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     obs = _regions(out, 3)
     inst = _render(out, cfg)
@@ -453,7 +453,7 @@ def test_region_histogram_rows_and_observed_row(tmp_path: Path, cfg: GiapConfig)
 
 
 def test_observed_line_is_the_studentised_statistic_not_raw_o_minus_e(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     """Acceptance: the line is the null file's ``observed`` (ADR-0018), not regions_stats'
     ``effect`` / ``o_minus_e`` (the reported raw O - E)."""
@@ -468,7 +468,7 @@ def test_observed_line_is_the_studentised_statistic_not_raw_o_minus_e(
     assert 7.5 not in lines
 
 
-def test_region_x_label_names_the_studentised_statistic(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_x_label_names_the_studentised_statistic(tmp_path: Path, cfg: GippaConfig) -> None:
     """Lead decision 1."""
     inst = _render(_full(tmp_path), cfg)
     regions = [ax for k, ax in _c_axes(inst).items() if k.startswith("regions_stats / ")]
@@ -476,7 +476,7 @@ def test_region_x_label_names_the_studentised_statistic(tmp_path: Path, cfg: Gia
     assert {ax.get_xlabel() for ax in regions} == {XLABEL_REGIONS}
 
 
-def test_region_caption_gives_p_and_q(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_caption_gives_p_and_q(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(out, regions_stats=[_rs("R01", 0.012, 0.034)])
     _support(out, "null_regions", NR_COLUMNS, _nr("R01", _vals(30, 1), 1.0))
@@ -485,7 +485,7 @@ def test_region_caption_gives_p_and_q(tmp_path: Path, cfg: GiapConfig) -> None:
     assert any("p 0.012, q 0.034" in t for t in texts), texts
 
 
-def test_q_ties_break_on_p_then_region_id(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_q_ties_break_on_p_then_region_id(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     rows = [_rs(f"R{i:02d}", 0.02, 0.05, i=i) for i in range(14)]
     rows[13] = _rs("R13", 0.01, 0.05, i=13)  # same q, smaller p: first
@@ -496,7 +496,9 @@ def test_q_ties_break_on_p_then_region_id(tmp_path: Path, cfg: GiapConfig) -> No
     assert got == ["R13 / o_minus_e", *(f"R{i:02d} / o_minus_e" for i in range(11))]
 
 
-def test_constant_null_draws_one_bar_and_the_observed_line(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_constant_null_draws_one_bar_and_the_observed_line(
+    tmp_path: Path, cfg: GippaConfig
+) -> None:
     out = make_out(tmp_path)
     _tables(out, regions_stats=[_rs("R01", 1.0, 1.0)])
     _support(out, "null_regions", NR_COLUMNS, _nr("R01", [1.5] * 40, 1.5))
@@ -510,7 +512,7 @@ def test_constant_null_draws_one_bar_and_the_observed_line(tmp_path: Path, cfg: 
     assert 1.5 in _vlines(ax)
 
 
-def test_k_zero_region_is_not_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_k_zero_region_is_not_drawn(tmp_path: Path, cfg: GippaConfig) -> None:
     """M9-17: a region with K = 0 shifts has no null rows (n_perm 0, p and q NA)."""
     out = make_out(tmp_path)
     _tables(
@@ -531,7 +533,7 @@ def test_k_zero_region_is_not_drawn(tmp_path: Path, cfg: GiapConfig) -> None:
     assert not [k for k in _c_axes(inst) if "R00" in k]
 
 
-def test_na_null_values_are_not_counted(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_na_null_values_are_not_counted(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     values = [*_vals(25, 3), math.nan, math.nan]
     _tables(out, regions_stats=[_rs("R01", 0.02, 0.04)])
@@ -540,7 +542,7 @@ def test_na_null_values_are_not_counted(tmp_path: Path, cfg: GiapConfig) -> None
     _check_histogram(inst, "regions_stats", "R01 / o_minus_e", values)
 
 
-def test_percentile_grid_is_a_labelled_step_cdf(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_percentile_grid_is_a_labelled_step_cdf(tmp_path: Path, cfg: GippaConfig) -> None:
     """M9-17 Q2 fallback: ``percentile`` column -> a step CDF, labelled, not a histogram."""
     out = make_out(tmp_path)
     grid = [round(-2.0 + 4.0 * k / 100, 4) for k in range(1, 100)]
@@ -573,7 +575,7 @@ def test_percentile_grid_is_a_labelled_step_cdf(tmp_path: Path, cfg: GiapConfig)
         assert _observed(inst, "regions_stats", fam) == obs
 
 
-def test_regions_need_regions_stats_to_rank(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_regions_need_regions_stats_to_rank(tmp_path: Path, cfg: GippaConfig) -> None:
     """Proposed default: without ``regions_stats`` there is no q, so no region is drawn."""
     out = make_out(tmp_path)
     _support(out, "null_regions", NR_COLUMNS, _nr("R01", _vals(20, 1), 1.0))
@@ -585,7 +587,7 @@ def test_regions_need_regions_stats_to_rank(tmp_path: Path, cfg: GiapConfig) -> 
 # --- islands -----------------------------------------------------------------------------------
 
 
-def test_islands_histogram_observed_max_and_fwer_p(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_islands_histogram_observed_max_and_fwer_p(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(
         out,
@@ -610,7 +612,7 @@ def test_islands_histogram_observed_max_and_fwer_p(tmp_path: Path, cfg: GiapConf
     assert not any("FWER" in t for t in texts), texts
 
 
-def test_islands_one_panel_per_scanned_contig(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_islands_one_panel_per_scanned_contig(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(out, islands=[_island("ISL1", "chr1", 0.03), _island("ISL2", "chr2", 0.4, i=1)])
     rows = _ni("chr2", _vals(40, 1), 3.0) + _ni("chr1", _vals(40, 2), 5.0)
@@ -626,7 +628,7 @@ def test_islands_one_panel_per_scanned_contig(tmp_path: Path, cfg: GiapConfig) -
 
 
 @pytest.mark.parametrize("form", ["absent", "header_only"])
-def test_no_scanned_contig_no_islands_panel(tmp_path: Path, cfg: GiapConfig, form: str) -> None:
+def test_no_scanned_contig_no_islands_panel(tmp_path: Path, cfg: GippaConfig, form: str) -> None:
     out = make_out(tmp_path)
     _regions(out, 2)
     _tables(out, islands=[])
@@ -641,7 +643,7 @@ def test_no_scanned_contig_no_islands_panel(tmp_path: Path, cfg: GiapConfig, for
 # --- determinants -------------------------------------------------------------------------------
 
 
-def test_example2_determinants_one_histogram_per_model(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example2_determinants_one_histogram_per_model(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(out, determinants_model=[*_dm("lightgbm", 0.001, None), *_dm("elastic_net", 0.3, None)])
     lgb, enet = _vals(999, 11, 0.05), _vals(999, 12, 0.05)
@@ -662,7 +664,7 @@ def test_example2_determinants_one_histogram_per_model(tmp_path: Path, cfg: Giap
         assert 0.21 in _vlines(_ax(inst, f"determinants_model / {model}"))
 
 
-def test_uncalibrated_caption_while_flagged(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_uncalibrated_caption_while_flagged(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(
         out,
@@ -683,7 +685,7 @@ def test_uncalibrated_caption_while_flagged(tmp_path: Path, cfg: GiapConfig) -> 
 
 @pytest.mark.parametrize("with_file", [False, True])
 def test_too_few_rows_no_determinants_panel(
-    tmp_path: Path, cfg: GiapConfig, with_file: bool
+    tmp_path: Path, cfg: GippaConfig, with_file: bool
 ) -> None:
     out = make_out(tmp_path)
     _regions(out, 2)
@@ -705,7 +707,7 @@ def test_too_few_rows_no_determinants_panel(
 # --- absent files, panel order, panels a and b ------------------------------------------------
 
 
-def test_example3_no_support_draws_panel_c_text_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example3_no_support_draws_panel_c_text_only(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(out, regions_stats=[_rs("R01", 0.01, 0.02)])
     inst = _render(out, cfg)
@@ -716,7 +718,7 @@ def test_example3_no_support_draws_panel_c_text_only(tmp_path: Path, cfg: GiapCo
     assert len(_rows(inst, "c")) == 0
 
 
-def test_panels_a_and_b_unchanged_by_the_null_support(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panels_a_and_b_unchanged_by_the_null_support(tmp_path: Path, cfg: GippaConfig) -> None:
     full = _full(tmp_path / "with")
     bare = make_out(tmp_path / "without")
     for name in ("regions_stats", "islands", "determinants_model"):
@@ -742,7 +744,9 @@ def test_panels_a_and_b_unchanged_by_the_null_support(tmp_path: Path, cfg: GiapC
         ("null_regions", "null_determinants"),
     ],
 )
-def test_each_support_file_alone(tmp_path: Path, cfg: GiapConfig, present: tuple[str, ...]) -> None:
+def test_each_support_file_alone(
+    tmp_path: Path, cfg: GippaConfig, present: tuple[str, ...]
+) -> None:
     out = _full(tmp_path)
     for name in ("null_regions", "null_islands", "null_determinants"):
         if name not in present:
@@ -757,7 +761,7 @@ def test_each_support_file_alone(tmp_path: Path, cfg: GiapConfig, present: tuple
     assert not any(ax.get_label() == "c" for ax in inst.figure.axes)
 
 
-def test_panel_c_rows_follow_b_in_table_order(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_panel_c_rows_follow_b_in_table_order(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_full(tmp_path), cfg)
     panels = list(dict.fromkeys(inst.data["panel"]))
     assert panels == ["b", "c"]  # no detection_summary: no panel a rows
@@ -822,7 +826,7 @@ def test_property_at_most_twelve_smallest_q(qs: list[int], seed: int) -> None:
 # --- determinism, files, style checklist ---------------------------------------------------------
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _full(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -838,7 +842,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert "c\tregions_stats\tR00 / o_minus_e\tNA\tNA\tNA\tNA\tobserved\t2" in tsv
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_full(tmp_path))
     first, second = _v18().fn(view, cfg), _v18().fn(view, cfg)
     assert isinstance(first, list) and isinstance(second, list)
@@ -848,9 +852,9 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
 
 @pytest.mark.parametrize("case", ["full", "grid", "no_support"])
 def test_style_checklist_passes_every_gated_item(
-    tmp_path: Path, cfg: GiapConfig, case: str
+    tmp_path: Path, cfg: GippaConfig, case: str
 ) -> None:
-    from giap.viz import checklist
+    from gippa.viz import checklist
 
     if case == "full":
         out = _full(tmp_path / "run")
@@ -885,8 +889,8 @@ def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def test_plots_step_declares_the_m9_17_support_inputs() -> None:
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     spec = reg.get("plots")
@@ -905,7 +909,7 @@ def test_plots_step_view_reads_the_null_files(
     from helpers.report_fixtures import cfg as small_cfg
     from helpers.report_fixtures import figure, run_out
 
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     seen: dict[str, Any] = {}
 
@@ -946,8 +950,8 @@ def test_plots_step_view_reads_the_null_files(
 
 def test_plots_step_declares_function_support() -> None:
     """Lead decision 3 / 4: ``function_support`` (M9-17 ``gsea_running``) is a plots input too."""
-    from giap.steps import load_step_modules
-    from giap.steps import registry as reg
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
 
     load_step_modules()
     assert sa.SUPPORT_KEYS["function"] in set(reg.get("plots").optional_inputs)
@@ -960,7 +964,7 @@ def _probe_plots_step(
     from helpers.report_fixtures import cfg as small_cfg
     from helpers.report_fixtures import figure, run_out
 
-    from giap.steps import registry as reg
+    from gippa.steps import registry as reg
 
     seen: dict[str, Any] = {}
 
@@ -1034,7 +1038,7 @@ def test_plots_support_input_takes_precedence_in_the_view(tmp_path: Path) -> Non
 # --- review round (lead decision 4) ---------------------------------------------------------------
 
 
-def test_b1_split_region_draws_each_contig_alone(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_b1_split_region_draws_each_contig_alone(tmp_path: Path, cfg: GippaConfig) -> None:
     """B1: R01 has a regions_stats row on chr1 and one on pA; each panel draws its own contig's
     null, observed line and p / q; a one-contig region keeps the plain family."""
     out = make_out(tmp_path)
@@ -1069,7 +1073,7 @@ def test_b1_split_region_draws_each_contig_alone(tmp_path: Path, cfg: GiapConfig
 
 
 def test_b1_split_region_grid_is_one_monotone_step_cdf_per_contig(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = make_out(tmp_path)
     _tables(
@@ -1112,7 +1116,7 @@ def _genome_max(per: Mapping[str, Sequence[float]]) -> list[float]:
 
 
 def test_b2_genome_wide_island_null_is_the_replicate_wise_maximum(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = make_out(tmp_path)
     a = _vals(200, 1)
@@ -1151,7 +1155,7 @@ def test_b2_genome_wide_island_null_is_the_replicate_wise_maximum(
 
 
 def test_b2_genome_wide_without_islands_table_says_p_not_available(
-    tmp_path: Path, cfg: GiapConfig
+    tmp_path: Path, cfg: GippaConfig
 ) -> None:
     out = make_out(tmp_path)
     _support(out, "null_islands", NI_COLUMNS, _ni("chr1", _vals(50, 1), 2.0))
@@ -1170,7 +1174,7 @@ def test_b2_genome_wide_without_islands_table_says_p_not_available(
     ],
 )
 def test_s1_at_most_seven_per_replicon_multiples(
-    tmp_path: Path, cfg: GiapConfig, observed: list[float], drawn: list[int], n_not_drawn: int
+    tmp_path: Path, cfg: GippaConfig, observed: list[float], drawn: list[int], n_not_drawn: int
 ) -> None:
     out = make_out(tmp_path)
     order = list(range(len(observed)))
@@ -1193,7 +1197,7 @@ def test_s1_at_most_seven_per_replicon_multiples(
 
 
 @pytest.mark.parametrize("table", ["regions_stats", "determinants_model"])
-def test_n1_nan_observed_reads_observed_na(tmp_path: Path, cfg: GiapConfig, table: str) -> None:
+def test_n1_nan_observed_reads_observed_na(tmp_path: Path, cfg: GippaConfig, table: str) -> None:
     out = make_out(tmp_path)
     if table == "regions_stats":
         _tables(out, regions_stats=[_rs("R01", 0.01, 0.02)])
@@ -1209,7 +1213,7 @@ def test_n1_nan_observed_reads_observed_na(tmp_path: Path, cfg: GiapConfig, tabl
     assert any("observed NA" in t for t in texts), texts
 
 
-def test_n1_nan_observed_max_reads_observed_na(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n1_nan_observed_max_reads_observed_na(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _support(out, "null_islands", NI_COLUMNS, _ni("chr1", _vals(50, 1), math.nan))
     inst = _render(out, cfg)
@@ -1217,7 +1221,7 @@ def test_n1_nan_observed_max_reads_observed_na(tmp_path: Path, cfg: GiapConfig) 
     assert any("observed NA" in t for t in texts), texts
 
 
-def test_n2_x_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n2_x_labels(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_full(tmp_path), cfg)
     labels: dict[str, set[str]] = {}
     for key, ax in _c_axes(inst).items():
@@ -1229,7 +1233,7 @@ def test_n2_x_labels(tmp_path: Path, cfg: GiapConfig) -> None:
     }
 
 
-def test_n3_numeric_looking_keys_still_join(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_n3_numeric_looking_keys_still_join(tmp_path: Path, cfg: GippaConfig) -> None:
     """N3: region_id / contig "001" are read as strings on both sides of the join."""
     out = make_out(tmp_path)
     _tables(
@@ -1245,7 +1249,7 @@ def test_n3_numeric_looking_keys_still_join(tmp_path: Path, cfg: GiapConfig) -> 
     assert _families(inst, "islands") == [("islands", GENOME), ("islands", "007 / abs")]
 
 
-def test_adr_0034_note_without_determinants_model(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_adr_0034_note_without_determinants_model(tmp_path: Path, cfg: GippaConfig) -> None:
     """The uncalibrated note is unconditional; without the table the p is "not available"."""
     out = make_out(tmp_path)
     _support(out, "null_determinants", ND_COLUMNS, _nd("lightgbm", _vals(99, 1, 0.05), 0.2))
@@ -1255,7 +1259,7 @@ def test_adr_0034_note_without_determinants_model(tmp_path: Path, cfg: GiapConfi
     assert not any("p NA" in t for t in texts), texts
 
 
-def test_region_missing_p_reads_p_not_available(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_region_missing_p_reads_p_not_available(tmp_path: Path, cfg: GippaConfig) -> None:
     out = make_out(tmp_path)
     _tables(out, regions_stats=[_rs("R01", None, 0.02)])
     _support(out, "null_regions", NR_COLUMNS, _nr("R01", _vals(20, 1), 1.0))

@@ -19,7 +19,7 @@ Milestone M2 · depends on: M2-02, M2-03 · estimate ≈ 300 code lines (tests n
 
 ## Public interface
 
-`src/giap/annotate/bakta_layers.py`
+`src/gippa/annotate/bakta_layers.py`
 ```python
 RIBOSOMAL_PRODUCT: re.Pattern[str]   # ^(30S|50S) ribosomal protein
 RIBOSOMAL_GENE: re.Pattern[str]      # ^(rps|rpl|rpm)[A-Z]
@@ -33,7 +33,7 @@ def split_xrefs(genes: Sequence[Gene]) -> list[tuple[str, str, str]]  # (locus_t
 def annotation_source(db_type: str) -> Literal["bakta_full", "bakta_light", "user"]
 def nearest_genes(feature: NcFeature, genes: Sequence[Gene], replicon: Replicon, n: int = 2) -> list[tuple[str, int]]
 ```
-`src/giap/steps/annotation.py`: `@step("parse_bakta", inputs=["bakta_json", "genome"],
+`src/gippa/steps/annotation.py`: `@step("parse_bakta", inputs=["bakta_json", "genome"],
 outputs=["genes", "features", "replicons", "rrna16s", "trna_counts", "xrefs", "annotation_meta"],
 precomputed=None)`.
 
@@ -100,5 +100,5 @@ Output files (work dir, internal; 0-based half-open in Parquet):
    protein" is not ribosomal (product match anchored at the start); a tRNA without anticodon writes no
    anticodon row; `nearest_genes` ties keep input order; parquet columns carry no statistics; the 16S
    tail is upper-cased.
-2. The deterministic parquet writer moves to `giap.io` (public, reusable by later steps); steps import
+2. The deterministic parquet writer moves to `gippa.io` (public, reusable by later steps); steps import
    no private helpers (`_slice` becomes public or moves with it).

@@ -1,4 +1,4 @@
-"""Attack nulls on the M7-11b wired call path (GIAP_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009;
+"""Attack nulls on the M7-11b wired call path (GIPPA_SPEC.md §7.6.4, §8.1, §8.5; ADR-0009;
 docs/specs/M7-11b-class-fdr-wiring.md rules 2, 5, 6; statistician, PR #256 review).
 
 ``tests/calibration/test_class_call_calibration.py`` measures ORFs whose class-FDR *cell* is
@@ -50,7 +50,7 @@ GT = gene_table()
 
 
 def _cc():  # type: ignore[no-untyped-def]
-    import giap.novel.class_call as m
+    import gippa.novel.class_call as m
 
     return m
 
@@ -99,9 +99,9 @@ def _called_fdp(
 ) -> Callable[[np.random.Generator], np.ndarray]:
     """FDP of ``called`` at every level: class FDR once, then ``apply_evidence`` per alpha, with the
     step's float ``class_q`` (lead decision 6, gap 2)."""
-    from giap.novel.candidates import minimal_call
-    from giap.novel.evidence import apply_evidence
-    from giap.novel.outputs import orf_table
+    from gippa.novel.candidates import minimal_call
+    from gippa.novel.evidence import apply_evidence
+    from gippa.novel.outputs import orf_table
 
     levels = C.load_tolerances().levels
 
@@ -183,7 +183,7 @@ def _repointed(loss: float) -> Callable[[np.random.Generator], np.ndarray]:
                 did = entry[0]
                 if rng.random() < loss:  # tagged, parseable, no target anywhere
                     n_lost += 1
-                    did = f"GIAPORF_intergenic_ghost_{600 * n_lost + 1}_{600 * n_lost + 300}_p"
+                    did = f"GIPPAORF_intergenic_ghost_{600 * n_lost + 1}_{600 * n_lost + 300}_p"
                 w.decoy(did, 0, q=_q_in(s), score=s)
         res = _cc().class_fdr(w.orfs, w.peptides, gm=GM, genome=GENOME, cfg=config(),
                               denovo=None)  # fmt: skip

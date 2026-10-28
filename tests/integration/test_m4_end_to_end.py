@@ -1,8 +1,8 @@
-"""M4 end to end on giapsim fixtures (docs/specs/M4-20-integration-golden.md examples 1, 3-8).
+"""M4 end to end on gippasim fixtures (docs/specs/M4-20-integration-golden.md examples 1, 3-8).
 
 ``build_m4_fixture`` writes the M4-06 contract tables, then ``run_gene_table`` ->
 ``run_detectability`` -> ``run_context_stats`` -> ``run_sensitivity`` (the spec's call order, the
-one MVP-01 wired into ``giap run``) produce ``tables/genes.tsv``, ``detection_summary.tsv``,
+one MVP-01 wired into ``gippa run``) produce ``tables/genes.tsv``, ``detection_summary.tsv``,
 ``regions_stats.tsv`` and ``sensitivity.tsv``. Every table validates with ``frictionless`` against
 its §9.5 resource.
 
@@ -122,9 +122,9 @@ def test_genes_tsv_is_written_by_context_stats(tmp_path: Path, db: Path) -> None
     ``detectability`` there is no ``genes.tsv``, so a run whose ``context_stats`` is skipped (no
     C7/C8) publishes none. §6.2 gives the file to ``finalize``, which is its proper owner.
     """
-    from giap.steps.context_stats import run_context_stats
-    from giap.steps.detectability import run_detectability
-    from giap.steps.gene_table import run_gene_table
+    from gippa.steps.context_stats import run_context_stats
+    from gippa.steps.detectability import run_detectability
+    from gippa.steps.gene_table import run_gene_table
 
     work = mc.build(tmp_path / "work", seed=SEED, size="sim50k")
     cfg = _cfg()
@@ -247,8 +247,8 @@ def test_example_7_plasmid_rows_are_dosage_plus_regulation(draft: dict[str, Path
 
 def test_example_8_contract_violation_stops_the_step(tmp_path: Path, db: Path) -> None:
     """A gene in no TU is a contract ``error``: ``run_gene_table`` raises and writes nothing."""
-    from giap.steps.gene_table import run_gene_table
-    from giap.steps.registry import StepError
+    from gippa.steps.gene_table import run_gene_table
+    from gippa.steps.registry import StepError
 
     work = mc.build(tmp_path / "work", seed=SEED, size="sim1000")
     tus = pd.read_parquet(work / "tus.parquet")

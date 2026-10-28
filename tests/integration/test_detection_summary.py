@@ -1,6 +1,6 @@
 """M4-16 example 8 on the simulated fixture (docs/specs/M4-16-detection-summary.md).
 
-Inputs come from merged producers: M4-07 layout and M4-08 expression (giapsim), C1-C13 written
+Inputs come from merged producers: M4-07 layout and M4-08 expression (gippasim), C1-C13 written
 to disk and read back with M4-06 ``load_m4_inputs``, M4-11 ``accepted_peptides`` /
 ``gene_evidence`` with the M4-12 two-peptide rule; ``p_detect`` is the simulator's
 ``p_detect_true`` until M4-13 merges, and the detectability / tier parts have the M4-13 / M4-12
@@ -22,15 +22,15 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import detection_summary_fixture as fx
 
-TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+TABLE_DIR = Path(__file__).resolve().parents[2] / "src" / "gippa" / "schemas" / "tables"
 B = 200
 
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Any, pd.DataFrame, Path]:
-    from giap.context import summary
-    from giap.io.summary_tsv import write_detection_summary
-    from giap.rng import for_step
+    from gippa.context import summary
+    from gippa.io.summary_tsv import write_detection_summary
+    from gippa.rng import for_step
 
     work = tmp_path_factory.mktemp("work")
     sim = fx.sim_fixture(work, seed=7, n_genes=300)
@@ -63,7 +63,7 @@ def test_example_8_validates_against_schema(built: tuple[Any, pd.DataFrame, Path
 
 
 def test_example_8_sections_in_order(built: tuple[Any, pd.DataFrame, Path]) -> None:
-    from giap.io.tsv import read_tsv
+    from gippa.io.tsv import read_tsv
 
     _, _, out = built
     header, rows = read_tsv(out)
@@ -121,9 +121,9 @@ def test_example_8_detectability_rows_carried(built: tuple[Any, pd.DataFrame, Pa
 def test_example_8_byte_identical_rerun(
     built: tuple[Any, pd.DataFrame, Path], tmp_path: Path
 ) -> None:
-    from giap.context import summary
-    from giap.io.summary_tsv import write_detection_summary
-    from giap.rng import for_step
+    from gippa.context import summary
+    from gippa.io.summary_tsv import write_detection_summary
+    from gippa.rng import for_step
 
     sim, _, out = built
     basic = summary.basic_rows(sim.genes, B, for_step("context_stats", 7))

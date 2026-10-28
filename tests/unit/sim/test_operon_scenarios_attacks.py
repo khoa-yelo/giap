@@ -1,5 +1,5 @@
-"""giapsim operon scenarios, round 2: lead decisions 10, 11, 13 and 14 of
-docs/specs/M6-03-sim-operon-scenarios.md (the statistician's block on PR #222; GIAP_SPEC.md §8.4
+"""gippasim operon scenarios, round 2: lead decisions 10, 11, 13 and 14 of
+docs/specs/M6-03-sim-operon-scenarios.md (the statistician's block on PR #222; GIPPA_SPEC.md §8.4
 ``missed_operons``, §8.5, ADR-0018). Decision 12 (the attack bites) and the R = 20 share of
 decision 10 are in tests/calibration/test_sim_operon_attack_calibration.py.
 
@@ -8,7 +8,7 @@ Interface assumed (test-author choices, reported to the lead):
 * **decision 10**: ``operon_attack_detection`` returns an ``OperonConfig`` with
   ``detection = "abundance"``, a positive ``beta["log2_abundance"]`` and ``operon_t`` set
   (``OperonConfig`` no longer rejects ``operon_t`` with abundance detection). The detection logit
-  of every gene is the merged ``giapsim.expression`` logit (``beta`` intercept, ``log_length``,
+  of every gene is the merged ``gippasim.expression`` logit (``beta`` intercept, ``log_length``,
   ``log1p_n_obs``, ``gravy``, the region shift) plus ``beta["log2_abundance"]`` times the gene's
   *final* (post-walk, post-planting) ``abundance_log2_true``; ``p_detect_true`` is its sigmoid and
   ``detected_true`` is drawn from it after the walk. Any centring offset lives in the intercept;
@@ -49,9 +49,9 @@ N = 1800
 
 
 def _sc() -> Any:
-    import giapsim.scenarios
+    import gippasim.scenarios
 
-    return giapsim.scenarios
+    return gippasim.scenarios
 
 
 @cache
@@ -93,7 +93,7 @@ def _with_layout(cfgs: tuple[Any, Any], **kw: Any) -> tuple[Any, Any]:
 
 
 def test_short_convergent_gaps_defaults_off_with_the_minus20_300_range() -> None:  # decision 23
-    from giapsim.layout import LayoutConfig
+    from gippasim.layout import LayoutConfig
 
     cfg = LayoutConfig()
     assert cfg.short_convergent_gaps is False
@@ -101,7 +101,7 @@ def test_short_convergent_gaps_defaults_off_with_the_minus20_300_range() -> None
 
 
 def test_short_convergent_gaps_off_explicitly_is_the_default_layout() -> None:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     a = simulate_layout(LayoutConfig(), np.random.default_rng(7))
     b = simulate_layout(LayoutConfig(short_convergent_gaps=False), np.random.default_rng(7))
@@ -118,7 +118,7 @@ def _digest(*frames: pd.DataFrame) -> str:
 
 
 def test_default_layout_is_byte_identical_to_fd3f3a3() -> None:
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     g = simulate_layout(LayoutConfig(), np.random.default_rng(7)).genes
     assert _digest(g) == "c889d561360d77be959edf0ad618d38bcffb8fdd635be93c8c8b97f4f895ea7e"
@@ -226,7 +226,7 @@ def test_missed_operon_power_has_short_cv_decoys() -> None:
 
 
 def test_operon_config_accepts_operon_t_with_abundance_detection() -> None:
-    from giapsim.operons import OperonConfig
+    from gippasim.operons import OperonConfig
 
     sc = _sc()
     beta = {**dict(sc.OPERON_BETA), "log2_abundance": 0.3}
@@ -366,7 +366,7 @@ def test_attack_planted_pairs_are_true_no_pairs_with_small_delta(
 def test_attack_planting_writes_missed_operons_tsv(
     name: str, args: tuple[Any, ...], tmp_path: Path
 ) -> None:
-    from giapsim.contract_tables import read_operon_truth, write_operon_truth
+    from gippasim.contract_tables import read_operon_truth, write_operon_truth
 
     s = sim(name, args, 0, (("n_planted", 20), ("effect_sd", 0.1)))
     paths = write_operon_truth(s, tmp_path)

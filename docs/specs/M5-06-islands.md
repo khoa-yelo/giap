@@ -23,7 +23,7 @@ Milestone M5 · track R (context statistics) · depends on: M5-01 (Blom, LOESS),
 
 ## Public interface
 
-`src/giap/context/islands.py` (pure)
+`src/gippa/context/islands.py` (pure)
 ```python
 @dataclass(frozen=True, slots=True)
 class TuSeries:
@@ -35,9 +35,9 @@ class TuSeries:
 
 def gene_scores(ix: pd.DataFrame) -> pd.Series: ...              # Blom per scored gene (index locus_tag)
 def tu_series(ix: pd.DataFrame, tus: pd.DataFrame, contig: str, circular: bool, span_frac: float) -> TuSeries: ...
-def block_length(ts: TuSeries, cfg: GiapConfig, rng) -> int: ...
-def scan_replicons(series: Sequence[TuSeries], cfg: GiapConfig, rng) -> IslandScan: ...
-def islands_frame(scan: IslandScan, genes: pd.DataFrame, cfg: GiapConfig, rng) -> pd.DataFrame: ...
+def block_length(ts: TuSeries, cfg: GippaConfig, rng) -> int: ...
+def scan_replicons(series: Sequence[TuSeries], cfg: GippaConfig, rng) -> IslandScan: ...
+def islands_frame(scan: IslandScan, genes: pd.DataFrame, cfg: GippaConfig, rng) -> pd.DataFrame: ...
 def gene_island_map(islands: pd.DataFrame) -> pd.DataFrame: ...   # locus_tag → island_id
 ```
 1. **Scored genes.** From `replicon_index` (eligible: not partial, `p_detect` present). A gene is
@@ -68,7 +68,7 @@ def gene_island_map(islands: pd.DataFrame) -> pd.DataFrame: ...   # locus_tag �
 8. **IDs.** `ISL_<n>`, n = 1, 2, … by contig order, then `start`, then direction (high first).
 9. **Gene map.** `island_id` per gene; a gene in two islands (only possible for a high and a low island
    overlapping) gets the one with the smaller p, then larger |S|, then smaller ISL number.
-10. **RNG.** `giap.rng.for_step("context_stats.islands", seed)`: block-length permutations of every
+10. **RNG.** `gippa.rng.for_step("context_stats.islands", seed)`: block-length permutations of every
     replicon (C1 order), then the bootstrap draws (replicons in C1 order), then the effect CIs (island
     order).
 
@@ -172,15 +172,15 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205�
 47. Low islands are much harder to detect than high ones, because left censoring bounds the low direction
     at the shared censored score (≈ −1.9 Blom) while the high direction reaches +3.3. docs/methods/islands.md
     gains a line on this asymmetry, and M5-07 records low-island power separately. Spec examples 4–5 are
-    tested on hand-built frames at the real α; on giapsim they are reachable only with
-    `detection="abundance"` (+6 SD found at p 0.01–0.04), so the giapsim test asserts only the claim that
+    tested on hand-built frames at the real α; on gippasim they are reachable only with
+    `detection="abundance"` (+6 SD found at p 0.01–0.04), so the gippasim test asserts only the claim that
     must hold at any power (no false island) and records the miss.
 48. **ADR-0021 Amendment 1 (Khoa, option B): `uncalibrated` is dropped.** No replicon carries it; the
     §9.4 run report carries ℓ̂, ℓ' (`block_len`) and the lag-1 Moran's I of the detrended TU scores per
     replicon instead. The `flags` column of decision 44 stays for `ci_few_units`. M5-09's schema must not
     add `uncalibrated`.
 49. **Ori–ter gradient (statistician).** The inflation is real but needs an unrealistic amplitude: the
-    hand-built null's AR(1) innovation SD is 1 against giapsim's 2, so "amplitude 2" there is giapsim's
+    hand-built null's AR(1) innovation SD is 1 against gippasim's 2, so "amplitude 2" there is gippasim's
     4 log2 (a 16-fold ori:ter ratio). Gate `scenarios.oriter_gradient(1800, 0.5, 2.0)` at the ordinary
     bound (measured 0.042) and the `detection="abundance"` variant (0.017); **record, not gate**, the
     4-log2 and hand-built 2-SD versions (0.062 / 0.066; 0.136 at α 0.10). Attack docstrings quote

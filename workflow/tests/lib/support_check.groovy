@@ -2,7 +2,7 @@
 // under Nextflow). `published(outDir)`: every published file, OUT-relative, logs/ excluded.
 // `supportDirs(outDir)`: the top-level OUT entries named *_support (a support key published as
 // its own directory instead of under plots/support/). `argvOuts(dir)`: the --out values the fake
-// giap (workflow/tests/bin_giap/giap) recorded in a task directory's giap.argv.
+// gippa (workflow/tests/bin_gippa/gippa) recorded in a task directory's gippa.argv.
 def published = { String outDir ->
     def root = new File(outDir)
     def out = []
@@ -16,7 +16,7 @@ def supportDirs = { String outDir ->
     root.isDirectory() ? root.listFiles().findAll { it.name.endsWith('_support') }.collect { it.name }.sort() : []
 }
 def argvOuts = { File dir ->
-    def f = new File(dir, 'giap.argv')
+    def f = new File(dir, 'gippa.argv')
     if (!f.isFile()) return []
     def lines = f.readLines()
     (0..<lines.size()).findAll { lines[it] == '--out' && it + 1 < lines.size() }.collect { lines[it + 1] }

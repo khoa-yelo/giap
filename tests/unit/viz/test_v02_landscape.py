@@ -1,5 +1,6 @@
-"""V2 ``abundance_landscape``: where along each replicon are proteins abundant? (M9-09; GIAP_SPEC.md
-§10.2 V2, §7.3.5(d) islands, M5-01 ``giap.stats.smooth.loess_detrend``; lead decisions 2026-10-22).
+"""V2 ``abundance_landscape``: where along each replicon are proteins abundant? (M9-09;
+GIPPA_SPEC.md
+§10.2 V2, §7.3.5(d) islands, M5-01 ``gippa.stats.smooth.loess_detrend``; lead decisions 2026-10-22).
 
 V2 draws measured detected genes, a rug of undetected genes, a gene-level LOESS trend at the
 islands' span fraction (``context.islands.detrend_span_frac``; legend "trend (LOESS, span <frac>)",
@@ -13,7 +14,7 @@ explicit circular padding (``helpers.viz_landscape.lowess_oracle``) and against 
 
 Interface assumed where the spec leaves it open:
 
-- The plot is registered as ``V02`` / ``abundance_landscape`` by some ``giap.viz`` module (found by
+- The plot is registered as ``V02`` / ``abundance_landscape`` by some ``gippa.viz`` module (found by
   walking the package, as the ``plots`` step does); ``genes_tsv`` is in ``needs`` and ``islands``
   is not (a missing islands table is drawn without shading). It returns one double-width
   ``Instance`` with ``suffix=None``.
@@ -55,12 +56,12 @@ from matplotlib.collections import LineCollection, PathCollection
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
-from giap.config import GiapConfig, resolve_config
-from giap.io.plot_files import write_instance
-from giap.io.run_view import RunView
-from giap.stats.smooth import loess_detrend
-from giap.viz import style
-from giap.viz.base import Instance, Skip
+from gippa.config import GippaConfig, resolve_config
+from gippa.io.plot_files import write_instance
+from gippa.io.run_view import RunView
+from gippa.stats.smooth import loess_detrend
+from gippa.viz import style
+from gippa.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
 # product: M9-15 lead decision 1
@@ -82,16 +83,16 @@ def _style() -> None:
 
 
 @pytest.fixture
-def cfg() -> GiapConfig:
+def cfg() -> GippaConfig:
     return resolve_config()
 
 
 @pytest.fixture
-def cfg1() -> GiapConfig:
+def cfg1() -> GippaConfig:
     return resolve_config(overrides=[FRAC1])
 
 
-def _render(out: Path, cfg: GiapConfig) -> Instance:
+def _render(out: Path, cfg: GippaConfig) -> Instance:
     result = plot_spec("V02").fn(RunView.from_outdir(out), cfg)
     assert not isinstance(result, Skip), result
     assert len(result) == 1
@@ -211,7 +212,7 @@ def test_v02_is_registered_as_abundance_landscape() -> None:
     assert spec.module == "core"
 
 
-def test_no_genes_table_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_genes_table_is_skipped_as_input_absent(tmp_path: Path, cfg: GippaConfig) -> None:
     out = landscape_out(tmp_path, genes=None, islands=[])
     assert plot_spec("V02").fn(RunView.from_outdir(out), cfg) == Skip("input_absent:genes_tsv")
 
@@ -219,7 +220,7 @@ def test_no_genes_table_is_skipped_as_input_absent(tmp_path: Path, cfg: GiapConf
 # --- examples 1-3 -----------------------------------------------------------------------------
 
 
-def test_example1_points_and_trend_rows(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_example1_points_and_trend_rows(tmp_path: Path, cfg1: GippaConfig) -> None:
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=[]), cfg1)
     assert inst.suffix is None
     assert list(inst.data.columns) == COLUMNS
@@ -236,7 +237,7 @@ def test_example1_points_and_trend_rows(tmp_path: Path, cfg1: GiapConfig) -> Non
     assert list(trend["value"]) == pytest.approx(list(oracle), rel=1e-5)
 
 
-def test_trend_equals_the_engine_fit_to_1e_12(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_trend_equals_the_engine_fit_to_1e_12(tmp_path: Path, cfg1: GippaConfig) -> None:
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=[]), cfg1)
     trend = _kind(inst.data, "trend")
     got = np.array([float(v) for v in trend["value"]])
@@ -253,7 +254,7 @@ def test_trend_equals_the_engine_fit_to_1e_12(tmp_path: Path, cfg1: GiapConfig) 
     assert xs[-1] == pytest.approx(90.0, abs=1e-3)
 
 
-def test_points_are_drawn_in_kb_and_blue(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_points_are_drawn_in_kb_and_blue(tmp_path: Path, cfg1: GippaConfig) -> None:
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=[]), cfg1)
     ax = _ax(inst, "chr1")
     pts = _points(ax)
@@ -263,7 +264,7 @@ def test_points_are_drawn_in_kb_and_blue(tmp_path: Path, cfg1: GiapConfig) -> No
     assert ax.get_ylabel() == "log2 abundance"
 
 
-def test_legend_names_the_loess_span(tmp_path: Path, cfg: GiapConfig, cfg1: GiapConfig) -> None:
+def test_legend_names_the_loess_span(tmp_path: Path, cfg: GippaConfig, cfg1: GippaConfig) -> None:
     for c, want in ((cfg1, "trend (LOESS, span 1)"), (cfg, "trend (LOESS, span 0.1)")):
         genes = [gene(f"g{i}", 2_000 * i + 1_000, float(i % 5)) for i in range(40)]
         inst = _render(landscape_out(tmp_path / want, genes=genes, islands=[]), c)
@@ -271,7 +272,7 @@ def test_legend_names_the_loess_span(tmp_path: Path, cfg: GiapConfig, cfg1: Giap
         assert "express" not in " ".join(_fig_texts(inst)).lower()
 
 
-def test_example2_undetected_gene_is_one_rug_row(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_example2_undetected_gene_is_one_rug_row(tmp_path: Path, cfg1: GippaConfig) -> None:
     genes = [*_ex1_genes(), gene("u1", 40_000, None, status="not_detected")]
     inst = _render(landscape_out(tmp_path, genes=genes, islands=[]), cfg1)
     tsv = _tsv(inst, tmp_path / "plots")
@@ -285,7 +286,7 @@ def test_example2_undetected_gene_is_one_rug_row(tmp_path: Path, cfg1: GiapConfi
     assert any(abs(x - 40.0) < 1e-3 for x in xs)
 
 
-def test_single_peptide_unestimated_rug_is_orange(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_single_peptide_unestimated_rug_is_orange(tmp_path: Path, cfg1: GippaConfig) -> None:
     genes = [
         *_ex1_genes(),
         gene("u1", 40_000, None, status="not_detected"),
@@ -302,7 +303,7 @@ def test_single_peptide_unestimated_rug_is_orange(tmp_path: Path, cfg1: GiapConf
     assert not any(abs(x - 60.0) < 1e-3 for x, _ in _points(ax))  # not a point
 
 
-def test_example3_one_significant_island_and_title(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_example3_one_significant_island_and_title(tmp_path: Path, cfg1: GippaConfig) -> None:
     islands = [
         island("ISL_1", "high", 20_001, 40_000, 0.01),
         island("ISL_2", "low", 60_001, 80_000, 0.30),
@@ -323,7 +324,7 @@ def test_example3_one_significant_island_and_title(tmp_path: Path, cfg1: GiapCon
     assert alpha == pytest.approx(0.25)
 
 
-def test_low_island_uses_the_low_hatch(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_low_island_uses_the_low_hatch(tmp_path: Path, cfg1: GippaConfig) -> None:
     islands = [island("ISL_2", "low", 60_001, 80_000, 0.002)]
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=islands), cfg1)
     spans = _spans(_ax(inst, "chr1"))
@@ -343,7 +344,7 @@ def test_island_alpha_follows_the_config_inclusively(tmp_path: Path) -> None:
     assert len(_spans(_ax(inst, "chr1"))) == 1
 
 
-def test_title_adds_the_lag1_gene_label_morans_i(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_title_adds_the_lag1_gene_label_morans_i(tmp_path: Path, cfg1: GippaConfig) -> None:
     rows = correlogram_rows(
         overrides={
             ("morans_i", "gene_label", 1): (0.31, -0.002, -0.05, 0.05, 0.002),
@@ -358,7 +359,7 @@ def test_title_adds_the_lag1_gene_label_morans_i(tmp_path: Path, cfg1: GiapConfi
     )
 
 
-def test_title_has_no_morans_clause_without_a_finite_q(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_title_has_no_morans_clause_without_a_finite_q(tmp_path: Path, cfg1: GippaConfig) -> None:
     out = landscape_out(
         tmp_path, genes=_ex1_genes(), islands=[], autocorr=na_correlogram_rows("chr1")
     )
@@ -368,7 +369,7 @@ def test_title_has_no_morans_clause_without_a_finite_q(tmp_path: Path, cfg1: Gia
 # --- degenerate cases -------------------------------------------------------------------------
 
 
-def test_origin_crossing_island_is_two_spans(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_origin_crossing_island_is_two_spans(tmp_path: Path, cfg1: GippaConfig) -> None:
     islands = [island("ISL_9", "high", 95_001, 105_000, 0.001)]
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=islands), cfg1)
     spans = [(round(s[1], 3), round(s[2], 3)) for s in _spans(_ax(inst, "chr1"))]
@@ -378,7 +379,7 @@ def test_origin_crossing_island_is_two_spans(tmp_path: Path, cfg1: GiapConfig) -
     assert (int(isl.loc[0, "start"]), int(isl.loc[0, "end"])) == (95_001, 105_000)
 
 
-def test_imputed_and_partial_values_are_never_drawn(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_imputed_and_partial_values_are_never_drawn(tmp_path: Path, cfg1: GippaConfig) -> None:
     genes = [
         *_ex1_genes(),
         gene("imp", 60_000, 9.0, imputed=True),
@@ -396,7 +397,7 @@ def test_imputed_and_partial_values_are_never_drawn(tmp_path: Path, cfg1: GiapCo
     np.testing.assert_allclose(trend, engine, atol=1e-12)
 
 
-def test_fewer_than_three_points_draw_no_trend(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_fewer_than_three_points_draw_no_trend(tmp_path: Path, cfg1: GippaConfig) -> None:
     genes = [
         gene("g1", 10_000, 1.0),
         gene("g2", 30_000, 2.0),
@@ -409,7 +410,7 @@ def test_fewer_than_three_points_draw_no_trend(tmp_path: Path, cfg1: GiapConfig)
     assert _trend_lines(_ax(inst, "chr1")) == []
 
 
-def test_linear_contig_uses_an_unpadded_loess(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_linear_contig_uses_an_unpadded_loess(tmp_path: Path, cfg1: GippaConfig) -> None:
     rep = ("lin1", 100_000, "linear", "chromosome")
     genes = [
         gene(f"g{i}", m, y, contig="lin1")
@@ -423,7 +424,7 @@ def test_linear_contig_uses_an_unpadded_loess(tmp_path: Path, cfg1: GiapConfig) 
     np.testing.assert_allclose(trend, linear, atol=1e-9)
 
 
-def test_origin_crossing_gene_midpoint_wraps(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_origin_crossing_gene_midpoint_wraps(tmp_path: Path, cfg1: GippaConfig) -> None:
     """Midpoint unwrapped then mod L: a gene 99,501-100,500 (1-based) sits at position 1."""
     genes = [
         gene("ori", 100_000, 0.5, crosses_origin=True),
@@ -440,7 +441,7 @@ def test_origin_crossing_gene_midpoint_wraps(tmp_path: Path, cfg1: GiapConfig) -
     assert min(xs) == pytest.approx(0.0, abs=1e-3)
 
 
-def test_no_abundance_is_a_rug_for_every_gene(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_abundance_is_a_rug_for_every_gene(tmp_path: Path, cfg: GippaConfig) -> None:
     genes = [
         gene("d1", 10_000, None, abundance_type="none"),
         gene("d2", 30_000, None, abundance_type="none"),
@@ -457,7 +458,7 @@ def test_no_abundance_is_a_rug_for_every_gene(tmp_path: Path, cfg: GiapConfig) -
     assert _trend_lines(ax) == []
 
 
-def test_no_islands_table_draws_no_shading_and_says_so(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_no_islands_table_draws_no_shading_and_says_so(tmp_path: Path, cfg1: GippaConfig) -> None:
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=None), cfg1)
     assert _spans(_ax(inst, "chr1")) == []
     assert len(_kind(inst.data, "island")) == 0
@@ -466,7 +467,7 @@ def test_no_islands_table_draws_no_shading_and_says_so(tmp_path: Path, cfg1: Gia
 
 
 def test_without_support_files_there_are_no_landmark_lines(
-    tmp_path: Path, cfg1: GiapConfig
+    tmp_path: Path, cfg1: GippaConfig
 ) -> None:
     """M9-03 (#210) is not merged: no ``plots/support/replicon_landmarks.tsv`` -> no lines."""
     inst = _render(landscape_out(tmp_path, genes=_ex1_genes(), islands=[]), cfg1)
@@ -477,7 +478,9 @@ def test_without_support_files_there_are_no_landmark_lines(
     assert not ({"oriC", "ter"} & set(_fig_texts(inst)))
 
 
-def test_one_panel_per_replicon_with_genes_in_fasta_order(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_one_panel_per_replicon_with_genes_in_fasta_order(
+    tmp_path: Path, cfg1: GippaConfig
+) -> None:
     reps = [
         CHR1,
         ("plasmid_1", 8_000, "circular", "plasmid"),
@@ -499,7 +502,7 @@ def test_one_panel_per_replicon_with_genes_in_fasta_order(tmp_path: Path, cfg1: 
     assert len(_kind(inst.data, "trend", "plasmid_1")) == 4
 
 
-def test_long_replicon_is_drawn_in_mb(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_long_replicon_is_drawn_in_mb(tmp_path: Path, cfg1: GippaConfig) -> None:
     rep = ("big", 3_000_000, "circular", "chromosome")
     genes = [gene(f"g{i}", m, float(i)) for i, m in enumerate((500_000, 1_000_000, 2_000_000))]
     genes = [{**g, "contig": "big"} for g in genes]
@@ -509,7 +512,7 @@ def test_long_replicon_is_drawn_in_mb(tmp_path: Path, cfg1: GiapConfig) -> None:
     assert [x for x, _ in _points(ax)] == pytest.approx([0.5, 1.0, 2.0], abs=1e-6)
 
 
-def test_rows_sort_by_contig_kind_position_locus(tmp_path: Path, cfg1: GiapConfig) -> None:
+def test_rows_sort_by_contig_kind_position_locus(tmp_path: Path, cfg1: GippaConfig) -> None:
     genes = [
         gene("g5", 90_000, 1.0),
         gene("u2", 20_000, None, status="not_detected"),
@@ -530,10 +533,10 @@ def test_rows_sort_by_contig_kind_position_locus(tmp_path: Path, cfg1: GiapConfi
     assert list(_kind(tsv, "rug")["locus_tag"]) == ["u1", "u2"]
 
 
-def test_more_than_20000_points_are_binned(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_more_than_20000_points_are_binned(tmp_path: Path, cfg: GippaConfig) -> None:
     """20,001 measured genes on one replicon: at most 20,000 point rows, ``locus_tag`` NA, each
     the median of its equal-width bin (M9-01 ``binned`` edges)."""
-    from giap.viz.base import binned
+    from gippa.viz.base import binned
 
     n, length = 20_001, 200_010
     mids = np.arange(n, dtype=np.int64) * 10 + 5
@@ -663,19 +666,19 @@ def _rich(tmp: Path) -> Path:
     return landscape_out(tmp, replicons=reps, genes=genes, islands=islands, autocorr=rows)
 
 
-def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_every_text_is_at_least_6_pt(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_rich(tmp_path), cfg)
     sizes = [t.get_fontsize() for t in inst.figure.findobj(Text) if t.get_text()]
     assert sizes
     assert min(sizes) >= 6
 
 
-def test_no_text_overlaps_after_an_agg_draw(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_no_text_overlaps_after_an_agg_draw(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_rich(tmp_path), cfg)
     assert text_overlaps(inst.figure) == []
 
 
-def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
     out = _rich(tmp_path / "run")
     written = []
     for name in ("x", "y"):
@@ -695,7 +698,7 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert tsv[0] == "\t".join(COLUMNS)
 
 
-def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GippaConfig) -> None:
     view = RunView.from_outdir(_rich(tmp_path))
     first = plot_spec("V02").fn(view, cfg)
     second = plot_spec("V02").fn(view, cfg)
@@ -707,7 +710,7 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
 # --- example 6: the validation run ------------------------------------------------------------
 
 
-def test_validation_like_run_is_rug_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_validation_like_run_is_rug_only(tmp_path: Path, cfg: GippaConfig) -> None:
     """Example 6 in miniature: measured values on genes none of which is detected (the
     2026-10-22 validation run), header-only islands, all-NA autocorrelation."""
     reps = [CHR1, ("plasmid_1", 8_000, "circular", "plasmid")]
@@ -725,12 +728,12 @@ def test_validation_like_run_is_rug_only(tmp_path: Path, cfg: GiapConfig) -> Non
     assert "Moran" not in inst.title
 
 
-VAL_OUT = Path(os.environ.get("GIAP_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
+VAL_OUT = Path(os.environ.get("GIPPA_ROOT", REPO / "local")) / "runs" / "val-mvp-2026-10-22" / "OUT"
 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
-def test_example6_validation_run_is_rug_only(tmp_path: Path, cfg: GiapConfig) -> None:
+def test_example6_validation_run_is_rug_only(tmp_path: Path, cfg: GippaConfig) -> None:
     """87 genes (85 chr1, 2 plasmid_1), none detected; islands header-only."""
     inst = _render(VAL_OUT, cfg)
     assert len(_kind(inst.data, "rug")) == 87

@@ -26,7 +26,7 @@ from helpers.novel_outputs_fixture import ex1_hits, ex1_seq, orfs_of, scored, ta
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.model.coords import Replicon
+from gippa.model.coords import Replicon
 
 K = 6
 CONTIGS = [f"k{i}" for i in range(K)]

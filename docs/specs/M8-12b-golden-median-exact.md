@@ -76,9 +76,9 @@ Let N = 2000 (even) and let s₀ ≤ … ≤ s₁₉₉₉ be the sorted scores.
   - every median convention gives +0.0: lower, upper, midpoint, `statistics.median`,
     `np.quantile(·, 0.5)` with linear interpolation (a + (b − a)·t with a = b = 0), and R's
     `median`;
-  - `giap.function.gsea.tu_ranking` computes `means − np.median(means)` = `means − 0.0`, and
+  - `gippa.function.gsea.tu_ranking` computes `means − np.median(means)` = `means − 0.0`, and
     x − 0.0 == x bitwise for every finite x, including +0.0. With one gene per TU (the M8-13
-    fixture), the TU mean is the score itself (a mean over one float is that float), so GIAP sends
+    fixture), the TU mean is the score itself (a mean over one float is that float), so GIPPA sends
     R **exactly** the golden scores.
 - **General rule** (used in the toy examples): with N even you need Z ≥ 2 zeros and
   |n_neg − n_pos| ≤ Z − 2. With N odd you need Z ≥ 1 and |n_neg − n_pos| ≤ Z − 1.
@@ -152,7 +152,7 @@ committed code). d = 8, and the 8 negatives closest to zero are negated:
 
    Every other line keeps its current form, so `test_provenance_records_the_run` still passes.
 
-The job keeps building nothing new. `giap-golden-r` exists and its `.giap-built` marker matches
+The job keeps building nothing new. `gippa-golden-r` exists and its `.gippa-built` marker matches
 the yml, so there is no rebuild. The lock re-export must come out byte-identical
 (sha256 `eb4448ff…0b7c`).
 
@@ -162,7 +162,7 @@ the yml, so there is no rebuild. The lock re-export must come out byte-identical
   1. commit and push the generator and sbatch changes first. PROVENANCE records
      `git rev-parse HEAD` and marks "(scripts modified after this commit)" if the scripts are
      dirty, which must not happen;
-  2. sum the CPUs of running and pending `giap-*` jobs (R14, ≤ 128);
+  2. sum the CPUs of running and pending `gippa-*` jobs (R14, ≤ 128);
   3. submit.
 - **Command:**
   `GOLDEN_R_REASON="M8-12b: median-exact GSEA inputs (M8-13 lead decision 1)" sbatch --export=ALL --cpus-per-task=2 --mem=8G --time=00:20:00 scripts/slurm/golden_r.sbatch /home/classes/bios/270/khoa/giap/local/worktrees/m8-12b`
@@ -202,7 +202,7 @@ python scripts/golden/make_wallenius_exact.py [--inputs DIR] [--out FILE] [--wor
   depend on which other categories run, or on `--workers`.
 - `--log` writes the check summary of §3.4 as JSON.
 - Imports: the standard library (`fractions`, `math`, `multiprocessing`, `gzip`, `csv`, `json`,
-  `argparse`) and `numpy`, for long double only. **No scipy, no R, no `giap`, and no goseq or
+  `argparse`) and `numpy`, for long double only. **No scipy, no R, no `gippa`, and no goseq or
   BiasedUrn code**, used or read (ADR-0044). The module exposes pure functions for tests:
   - `odds(...)`;
   - `r1_pmf(M, n, N, omega) -> np.ndarray[longdouble]`;
@@ -216,7 +216,7 @@ python scripts/golden/make_wallenius_exact.py [--inputs DIR] [--out FILE] [--wor
 - **ω.** The `p_detect` strings are parsed as exact decimals (`Fraction("0.123456")`). Then
   ω = mean_in / mean_out = (Σ_C p / n) / ((Σ_all p − Σ_C p)/(M − n)), computed exactly and then
   **correctly rounded once to float64**. The result is a dyadic rational, which R2 needs.
-  - It can differ from GIAP's float ω (numpy means) by a few ulp. The effect on a tail is about
+  - It can differ from GIPPA's float ω (numpy means) by a few ulp. The effect on a tail is about
     k · 4e-16 relative, < 1e-13, against the gate's 1e-6 and the M8-13 test's 1e-12 R1 check.
     The generator logs the maximum ulp difference against the numpy formula.
   - This is question 3.
@@ -298,7 +298,7 @@ under = P(X ≤ k), as in goseq and in `tests/helpers/golden_r_gate.py::urn_tail
 
 ### 3.6 The job (`scripts/slurm/golden_wallenius.sbatch`, ≈ 50 lines)
 
-- `#SBATCH --job-name=giap-golden-wallenius`, 4 CPUs, 4 GB, `--time=01:00:00` (ADR-0044: ≤ 4 CPUs,
+- `#SBATCH --job-name=gippa-golden-wallenius`, 4 CPUs, 4 GB, `--time=01:00:00` (ADR-0044: ≤ 4 CPUs,
   ≤ 1 h). It takes one optional argument, the checkout, and requires `SLURM_JOB_ID`.
 - It runs the generator **twice** with `--workers 4` into `$TMPDIR` and `cmp`s the two files,
   about 16 min. Then it copies the file to `tests/data/golden/wallenius/` and writes
@@ -351,7 +351,7 @@ file under either directory needs **that** directory's `PROVENANCE.md` in the sa
 | `tests/unit/test_golden_r_inputs.py` | **No edit needed**: `abs(median) ≤ 0.05`, the ties, zeros and planted-z checks all still pass (checked on the scratch output). The stronger rule goes in a new test file (§Test plan) | — |
 | `tests/golden/test_golden_r_files.py` | no edit; must pass on the new files, including `test_committed_inputs_equal_a_fresh_generation`, `min p ≤ 1e-25`, a p in (1e-3, 1e-2], NA `log2err` ≤ 5 %, and calc_gsea_stat vs fgsea ≤ 1e-12 | — |
 | `tests/unit/test_golden_r_boundary.py` | no edit; new cases for the wallenius directory in a new test | test-author |
-| **A1 (#204)**, `tests/contract/test_fgsea_r_contract.py` (`test_golden_contract_strings`, `…_through_wrapper`, `test_seed_is_set_before_every_job`) | no edit; must pass on the new `fgsea.tsv.gz` against the live `giap-fgsea` env (Slurm). This is the "A1 recheck" of lead decision 1 | lead runs, records the job |
+| **A1 (#204)**, `tests/contract/test_fgsea_r_contract.py` (`test_golden_contract_strings`, `…_through_wrapper`, `test_seed_is_set_before_every_job`) | no edit; must pass on the new `fgsea.tsv.gz` against the live `gippa-fgsea` env (Slurm). This is the "A1 recheck" of lead decision 1 | lead runs, records the job |
 | M8-13 branch (`m8/golden-equivalence`) | after this merges, it merges main. The skipped G1 exact equality, example 9 and G3a get written. Its numbers ("9 fgsea sets with p < 1e-10 today") are re-read from the new file | M8-13 test-author |
 | `tolerances.yaml` | none here (lead, M8-13 PR, `Gate-Change-Approved: ADR-0044`) | lead |
 | M8-index row 12 | add "12b" (lead's edit) | lead |
@@ -419,8 +419,8 @@ file under either directory needs **that** directory's `PROVENANCE.md` in the sa
 - [ ] **B9** `check_golden_provenance.py` covers both directories (example 10), and the existing
       boundary tests still pass.
 - [ ] **B10** The generator imports only the standard library and numpy (an AST test like
-      `test_numpy_only_and_no_giap_import`), and `check_imports.py` passes.
-- [ ] **B11** No change to `src/`, `tolerances.yaml`, `GIAP_SPEC.md` or any existing test file.
+      `test_numpy_only_and_no_gippa_import`), and `check_imports.py` passes.
+- [ ] **B11** No change to `src/`, `tolerances.yaml`, `GIPPA_SPEC.md` or any existing test file.
 
 ## Test plan (test-author writes; new files only, because existing tests are not edited)
 
@@ -489,7 +489,7 @@ is a branch, so that is expected.
    scores.
 3. **ω of the exact reference.** **Default: the exact rational mean ratio from the decimal
    strings, correctly rounded once** (the definition; independent of numpy's summation order).
-   *Alternative:* the same float as GIAP's `category_odds`, recomputed with numpy means, which
+   *Alternative:* the same float as GIPPA's `category_odds`, recomputed with numpy means, which
    isolates the tail computation completely. The two differ by < 1e-13 relative in p; the
    generator logs the ulp gap either way.
 4. **One PR or two?** **Default: one PR on this branch**, with commits in the order median →

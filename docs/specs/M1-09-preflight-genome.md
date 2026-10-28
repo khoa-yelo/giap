@@ -16,7 +16,7 @@ Milestone M1 · depends on: M1-01, M1-02 · estimate ≈ 400 changed lines (≈ 
 
 ## Public interface
 
-`src/giap/preflight/checks.py`
+`src/gippa/preflight/checks.py`
 ```python
 Level = Literal["ok", "info", "warn", "error"]
 InputName = Literal["inputs", "genome", "proteins", "peptides", "abundance", "environment"]
@@ -33,7 +33,7 @@ class Check:
 
 def worst(checks: Iterable[Check]) -> Level: ...
 ```
-`src/giap/preflight/genome.py` (pure; no file I/O)
+`src/gippa/preflight/genome.py` (pure; no file I/O)
 ```python
 @dataclass(frozen=True, slots=True)
 class GenomeSummary:
@@ -48,7 +48,7 @@ def n50(lengths: Sequence[int]) -> int: ...
 def resolve_topology(s: GenomeSummary, complete: bool | Literal["auto"]) -> tuple[Topology, ...]: ...
 def classify_replicons(s: GenomeSummary, topo: Sequence[Topology], small_bp: int,
                        chromosome_min_bp: int = 1_000_000) -> list[Replicon]: ...
-def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = None) -> list[Check]: ...
+def genome_checks(s: GenomeSummary, cfg: GippaConfig, parse_error: str | None = None) -> list[Check]: ...
 ```
 `n50`: sort descending; the length at which the cumulative sum first reaches ≥ half the total.
 GC = (G + C) / (A + C + G + T), ambiguous codes excluded. Positions in `value` are 1-based closed
@@ -92,7 +92,7 @@ Replicon classification examples (`small_bp=500_000`):
   through `T_PRE_10`, plus the three classification examples and the `n50` edge cases.
 - [ ] Every `Check` produced has a `rule_id` from the table; unknown IDs fail a test.
 - [ ] Rules are pure functions of `GenomeSummary` + config (no file access; checked by importing
-  only `giap.preflight.genome` in tests with in-memory records).
+  only `gippa.preflight.genome` in tests with in-memory records).
 
 ## Questions for the lead
 

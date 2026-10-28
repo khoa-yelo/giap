@@ -1,17 +1,17 @@
 # Autocorrelation of abundance along the replicon
 
 Issue M5-01 adds the shared detrending helper and M5-02 the lag statistics, nulls and block length;
-the per-replicon autocorrelation tables are M5-05 (GIAP_SPEC.md §7.3.5(c), ADR-0020 with Amendment 1,
+the per-replicon autocorrelation tables are M5-05 (GIPPA_SPEC.md §7.3.5(c), ADR-0020 with Amendment 1,
 ADR-0021).
 
-`giap.stats.autocorr` provides `morans_i`, `join_count`, `label_permutations`, `tu_blocks`,
+`gippa.stats.autocorr` provides `morans_i`, `join_count`, `label_permutations`, `tu_blocks`,
 `tu_block_permutations`, `lag_test`, `choose_block_len` and `block_len_prime` (issue M5-02, lead
-decisions 4–22; GIAP_SPEC.md §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4). Statistician sign-off for
+decisions 4–22; GIPPA_SPEC.md §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4). Statistician sign-off for
 the statistics is at the end of this note.
 
 ## Detrending
 
-`giap.stats.smooth.loess_detrend(y, pos, frac, *, circular, period=None, min_points=3)` and
+`gippa.stats.smooth.loess_detrend(y, pos, frac, *, circular, period=None, min_points=3)` and
 `loess_matrix(...)` (the n × n smoother H with `loess_detrend(y, …).fit == H @ y`). M5-05 detrends
 log2-abundance residuals along gene index and M5-06 detrends Blom scores along TU order, both with
 span 10 % and circular padding on circular replicons, so both use this one helper.
@@ -153,7 +153,7 @@ and the null and uses the +1 rule, so it is exactly valid under exchangeability
 - This applies even when the observation differs from the constant null. The observed arrangement is
   always in the permutation support (the identity, or a rotation for the circular statistics), so a
   constant sampled null with a different observation arises only by chance from a sparse null. The
-  +1-rule p, 1/(B + 1), would then be valid, but GIAP reports NA (decisions 20 and 22).
+  +1-rule p, 1/(B + 1), would then be valid, but GIPPA reports NA (decisions 20 and 22).
 - The rule is conservative: it never adds a rejection. A p of 1 from a degenerate null would make BH
   more conservative, not inflate the FDR. Reporting NA avoids enlarging the BH family (m) without
   adding information.

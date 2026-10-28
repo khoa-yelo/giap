@@ -1,11 +1,11 @@
 """Inputs, oracles and the step driver for M5-06 islands (docs/specs/M5-06-islands.md).
 
-Only the last section ("driving the step") calls ``giap.context.islands``: the oracles are
+Only the last section ("driving the step") calls ``gippa.context.islands``: the oracles are
 written from the spec text (§7.3.5(d) steps 1-10, lead decisions 21-27 and 40-42, ADR-0021) on
 top of the *merged* engines
-``giap.stats.scores.blom_scores``, ``giap.stats.smooth.loess_detrend``,
-``giap.stats.autocorr.choose_block_len`` / ``block_len_prime``, ``giap.stats.scan`` and
-``giap.stats.bootstrap``, each tested by its own issue.
+``gippa.stats.scores.blom_scores``, ``gippa.stats.smooth.loess_detrend``,
+``gippa.stats.autocorr.choose_block_len`` / ``block_len_prime``, ``gippa.stats.scan`` and
+``gippa.stats.bootstrap``, each tested by its own issue.
 
 Inputs. Hand-built gene tables reuse the M4-17 builder (``region_tests_data.gene_table``,
 §9.3 ``genes.tsv`` columns); ``tu_frame`` derives the C5 ``tus`` frame from them (0-based
@@ -13,7 +13,7 @@ half-open, like every internal table). ``sim_contig`` draws a larger replicon: T
 log2 abundance, gene noise, an optional ori-ter-like gradient and detection independent of
 abundance (the island null).
 
-Interface assumed of ``giap.context.islands`` (spec "Public interface" plus what the reported
+Interface assumed of ``gippa.context.islands`` (spec "Public interface" plus what the reported
 coordinates need; see the test module docstrings):
 
 ``TuSeries(contig, circular, length, tu_ids, genes, start, end, score, detrended)``
@@ -73,8 +73,8 @@ def config(
     seed: int = 7,
     abundance_missing: str | None = None,
 ) -> Any:
-    """A ``GiapConfig`` with the §5.2 knobs the island step reads."""
-    from giap.config.model import GiapConfig
+    """A ``GippaConfig`` with the §5.2 knobs the island step reads."""
+    from gippa.config.model import GippaConfig
 
     raw: dict[str, Any] = {
         "seed": seed,
@@ -94,7 +94,7 @@ def config(
     }
     if abundance_missing is not None:
         raw["abundance"] = {"missing": abundance_missing}
-    return GiapConfig.model_validate(raw)
+    return GippaConfig.model_validate(raw)
 
 
 # --------------------------------------------------------------------------- input frames
@@ -224,14 +224,14 @@ def sim_contig(
 
 
 def scenario_contigs(rng: Any, pair: Any) -> list[Contig]:
-    """A giapsim ``scenarios`` pair ``(LayoutConfig, ExpressionConfig)`` drawn as ``Contig``s.
+    """A gippasim ``scenarios`` pair ``(LayoutConfig, ExpressionConfig)`` drawn as ``Contig``s.
 
     The layout and the expression truth are drawn from ``rng``; ``detected_true``,
     ``p_detect_true`` and ``abundance_log2_true`` become the gene table's evidence columns, as
     ``region_tests_data.tables_from`` does with ``p_source = "true"``.
     """
-    import giapsim.expression as ex
-    import giapsim.layout as la
+    import gippasim.expression as ex
+    import gippasim.layout as la
 
     lcfg, ecfg = pair
     lay = la.simulate_layout(lcfg, rng)
@@ -305,7 +305,7 @@ def scored_table(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
 
 def oracle_gene_scores(genes: pd.DataFrame, contig: str) -> pd.Series:
     """Blom scores of the scored genes of ``contig``, indexed by ``locus_tag`` (spec step 1)."""
-    from giap.stats.scores import blom_scores
+    from gippa.stats.scores import blom_scores
 
     t = scored_table(genes, contig)
     z = blom_scores(np.where(t["det"].to_numpy(bool), t["a"].to_numpy(float), 0.0),
@@ -334,7 +334,7 @@ def oracle_series(
     genes: pd.DataFrame, tus: pd.DataFrame, replicons: pd.DataFrame, cfg: Any
 ) -> list[OracleSeries]:
     """One :class:`OracleSeries` per replicon, replicons in C1 order (spec steps 2-3)."""
-    from giap.stats.smooth import loess_detrend, loess_span_points
+    from gippa.stats.smooth import loess_detrend, loess_span_points
 
     frac = cfg.context.islands.detrend_span_frac
     tu_idx = tus.set_index(["contig", "tu_id"])
@@ -400,9 +400,9 @@ class OracleScan:
 def oracle_scan(series: Sequence[OracleSeries], cfg: Any, rng: Any) -> OracleScan:
     """Spec steps 4-6 with the draw order of step 10 (block lengths for every scanned replicon in
     C1 order, then the bootstrap draws in C1 order); ``rng`` is advanced in place."""
-    from giap.stats.autocorr import block_len_prime, choose_block_len, morans_i
-    from giap.stats.bootstrap import circular_block_bootstrap
-    from giap.stats.scan import fwer_p, merge_windows, scan_max, scan_null_max
+    from gippa.stats.autocorr import block_len_prime, choose_block_len, morans_i
+    from gippa.stats.bootstrap import circular_block_bootstrap
+    from gippa.stats.scan import fwer_p, merge_windows, scan_max, scan_null_max
 
     isl = cfg.context.islands
     wmin, wmax, alpha = isl.min_tus, isl.max_tus, cfg.stats.alpha.context
@@ -484,7 +484,7 @@ def window_tus(s: OracleSeries, start: int, length: int) -> list[int]:
 def oracle_frame(genes: pd.DataFrame, scan: OracleScan, cfg: Any, rng: Any) -> pd.DataFrame:
     """The expected ``islands.tsv`` rows (spec steps 7-8), drawing the effect CIs from ``rng``
     in island order."""
-    from giap.stats.bootstrap import tu_block_bootstrap
+    from gippa.stats.bootstrap import tu_block_bootstrap
 
     rows = []
     for ri, (s, res, p, cl) in enumerate(
@@ -538,7 +538,7 @@ def oracle_islands(
     genes: pd.DataFrame, tus: pd.DataFrame, replicons: pd.DataFrame, cfg: Any, seed: int
 ) -> tuple[pd.DataFrame, OracleScan]:
     """The whole oracle pipeline on one random stream (§6.6 ``context_stats.islands``)."""
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     rng = for_step(STEP, seed)
     series = oracle_series(genes, tus, replicons, cfg)
@@ -605,8 +605,8 @@ def build_series(
     genes: pd.DataFrame, tus: pd.DataFrame, replicons: pd.DataFrame, cfg: Any
 ) -> list[Any]:
     """``TuSeries`` per replicon in C1 order (no randomness)."""
-    from giap.context.islands import tu_series
-    from giap.context.regions import replicon_index
+    from gippa.context.islands import tu_series
+    from gippa.context.regions import replicon_index
 
     return [
         tu_series(
@@ -625,7 +625,7 @@ def step(
     genes: pd.DataFrame, series: Sequence[Any], cfg: Any, rng: Any
 ) -> tuple[pd.DataFrame, Any]:
     """``scan_replicons`` then ``islands_frame`` on one random stream."""
-    from giap.context.islands import islands_frame, scan_replicons
+    from gippa.context.islands import islands_frame, scan_replicons
 
     scan = scan_replicons(list(series), cfg, rng)
     return islands_frame(scan, genes, cfg, rng), scan

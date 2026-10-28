@@ -4,7 +4,7 @@
 
 ## `pileup`
 
-One row per codon covered by an eligible peptide, with REF, I/L and ALT distinct-peptide counts (GIAP_SPEC.md §7.5.2, §7.5.5, §9.3).
+One row per codon covered by an eligible peptide, with REF, I/L and ALT distinct-peptide counts (GIPPA_SPEC.md §7.5.2, §7.5.5, §9.3).
 
 - Path: `tables/pileup.tsv.gz`
 - Coordinates: 1-based closed
@@ -25,7 +25,7 @@ One row per codon covered by an eligible peptide, with REF, I/L and ALT distinct
 
 ## `variants`
 
-Sites with an ALT or mixed call, plus frameshift events (GIAP_SPEC.md §7.5.2, §7.5.5, §9.3).
+Sites with an ALT or mixed call, plus frameshift events (GIPPA_SPEC.md §7.5.2, §7.5.5, §9.3).
 
 - Path: `tables/variants.tsv`
 - Coordinates: 1-based closed
@@ -56,7 +56,7 @@ Sites with an ALT or mixed call, plus frameshift events (GIAP_SPEC.md §7.5.2, �
 
 ## `novel_orfs`
 
-One row per novel ORF candidate (GIAP_SPEC.md §7.6.6, §9.3; ADR-0012 decision 3).
+One row per novel ORF candidate (GIPPA_SPEC.md §7.6.6, §9.3; ADR-0012 decision 3).
 
 - Path: `tables/novel_orfs.tsv`
 - Coordinates: 1-based closed
@@ -93,7 +93,7 @@ One row per novel ORF candidate (GIAP_SPEC.md §7.6.6, §9.3; ADR-0012 decision 
 
 ## `replicon_landmarks`
 
-Plot support table (ADR-0043): oriC and terminus of every replicon, for V1 and V2 (GIAP_SPEC.md §7.3.5(e), §10.2). Not a result table.
+Plot support table (ADR-0043): oriC and terminus of every replicon, for V1 and V2 (GIPPA_SPEC.md §7.3.5(e), §10.2). Not a result table.
 
 - Path: `plots/support/replicon_landmarks.tsv`
 - Coordinates: 1-based closed
@@ -104,13 +104,13 @@ Plot support table (ADR-0043): oriC and terminus of every replicon, for V1 and V
 | `contig` | string | — | Replicon name (C1 = FASTA order) | required |
 | `length_bp` | integer | — | Replicon length in bp | required; minimum 1 |
 | `topology` | string | — | Replicon topology | required; one of `circular`, `linear` |
-| `oric_position` | integer | — | 1-based oriC position (giap.context.oriter.oric_position); NA on linear and no_oric replicons | minimum 1 |
+| `oric_position` | integer | — | 1-based oriC position (gippa.context.oriter.oric_position); NA on linear and no_oric replicons | minimum 1 |
 | `ter_position` | integer | — | 1-based terminus position, ((oriC0 + L // 2) mod L) + 1; NA with oric_position | minimum 1 |
 | `status` | string | — | called, no_oric (no call or calls too far apart) or linear | required; one of `called`, `no_oric`, `linear` |
 
 ## `gc_skew`
 
-Plot support table (ADR-0043): windowed GC skew of every replicon, for V1 (GIAP_SPEC.md §10.2). Not a result table.
+Plot support table (ADR-0043): windowed GC skew of every replicon, for V1 (GIPPA_SPEC.md §10.2). Not a result table.
 
 - Path: `plots/support/gc_skew.tsv`
 - Coordinates: 1-based closed
@@ -126,7 +126,7 @@ Plot support table (ADR-0043): windowed GC skew of every replicon, for V1 (GIAP_
 
 ## `variant_windows`
 
-Plot support table (ADR-0043): the reference protein around each V12 top ALT site (GIAP_SPEC.md §10.2 V12; M9-18). Not a result table.
+Plot support table (ADR-0043): the reference protein around each V12 top ALT site (GIPPA_SPEC.md §10.2 V12; M9-18). Not a result table.
 
 - Path: `plots/support/variant_windows.tsv`
 - Coordinates: 1-based closed
@@ -142,7 +142,7 @@ Plot support table (ADR-0043): the reference protein around each V12 top ALT sit
 
 ## `gsea_running`
 
-The fgsea running sum of the top 6 GSEA sets (smallest q_value, then largest |nes|, collection, term; p_value NA excluded), one row per ranked TU, for V14(a) (GIAP_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the function step. Not a result table.
+The fgsea running sum of the top 6 GSEA sets (smallest q_value, then largest |nes|, collection, term; p_value NA excluded), one row per ranked TU, for V14(a) (GIPPA_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the function step. Not a result table.
 
 - Path: `plots/support/gsea_running.tsv`
 - Coordinates: —
@@ -160,7 +160,7 @@ The fgsea running sum of the top 6 GSEA sets (smallest q_value, then largest |ne
 
 ## `determinants_shap`
 
-Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIAP_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap\_&lt;block&gt; columns. Written by the determinants step. Not a result table.
+Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIPPA_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap\_&lt;block&gt; columns. Written by the determinants step. Not a result table.
 
 - Path: `plots/support/determinants_shap.tsv`
 - Coordinates: —
@@ -175,7 +175,7 @@ Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold booste
 
 ## `determinants_pd`
 
-LightGBM partial dependence of CAI, tAI, OSTIR TIR and promoter score, for V15(b) (GIAP_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Grid: the 5 %, 10 %, ..., 95 % quantiles plus min and max of the feature over the model rows, on the feature's own scale. Written by the determinants step. Not a result table.
+LightGBM partial dependence of CAI, tAI, OSTIR TIR and promoter score, for V15(b) (GIPPA_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Grid: the 5 %, 10 %, ..., 95 % quantiles plus min and max of the feature over the model rows, on the feature's own scale. Written by the determinants step. Not a result table.
 
 - Path: `plots/support/determinants_pd.tsv`
 - Coordinates: —
@@ -191,7 +191,7 @@ LightGBM partial dependence of CAI, tAI, OSTIR TIR and promoter score, for V15(b
 
 ## `null_regions`
 
-Circular-shift null of every tested region and statistic, for V18 (GIAP_SPEC.md §7.3.5(b), §10.2; docs/specs/M9-17-plot-support-analysis.md). The values are the statistic each test compares: for o_minus_e the ADR-0018 studentised sum(d - p) / sqrt(sum p (1 - p)), for hl_shift the studentised T = HL / sqrt(V) of ADR-0018's amendments, not the reported effect. Written by the context_stats step while the file stays under 5 MB (2^20 bytes per MB); otherwise the file holds the 1st-99th percentile grid of each null and its header's fourth column is percentile (1-99) instead of shift_k (schema plot_support/null_regions_grid.json). Not a result table.
+Circular-shift null of every tested region and statistic, for V18 (GIPPA_SPEC.md §7.3.5(b), §10.2; docs/specs/M9-17-plot-support-analysis.md). The values are the statistic each test compares: for o_minus_e the ADR-0018 studentised sum(d - p) / sqrt(sum p (1 - p)), for hl_shift the studentised T = HL / sqrt(V) of ADR-0018's amendments, not the reported effect. Written by the context_stats step while the file stays under 5 MB (2^20 bytes per MB); otherwise the file holds the 1st-99th percentile grid of each null and its header's fourth column is percentile (1-99) instead of shift_k (schema plot_support/null_regions_grid.json). Not a result table.
 
 - Path: `plots/support/null_regions.tsv`
 - Coordinates: —
@@ -208,7 +208,7 @@ Circular-shift null of every tested region and statistic, for V18 (GIAP_SPEC.md 
 
 ## `null_islands`
 
-Island scan null: per scanned replicon and bootstrap replicate, the maximum |S_w| over the replicon's windows; their maximum over replicons is the genome-wide M_b of the FWER (GIAP_SPEC.md §7.3.5(d), §10.2 V18; docs/specs/M9-17-plot-support-analysis.md). Written by the context_stats step. Not a result table.
+Island scan null: per scanned replicon and bootstrap replicate, the maximum |S_w| over the replicon's windows; their maximum over replicons is the genome-wide M_b of the FWER (GIPPA_SPEC.md §7.3.5(d), §10.2 V18; docs/specs/M9-17-plot-support-analysis.md). Written by the context_stats step. Not a result table.
 
 - Path: `plots/support/null_islands.tsv`
 - Coordinates: —
@@ -224,7 +224,7 @@ Island scan null: per scanned replicon and bootstrap replicate, the maximum |S_w
 
 ## `null_determinants`
 
-The TU-size-preserving permutation null of the determinants models' CV R², for V18 (GIAP_SPEC.md §7.8.2, §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the determinants step. Not a result table.
+The TU-size-preserving permutation null of the determinants models' CV R², for V18 (GIPPA_SPEC.md §7.8.2, §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the determinants step. Not a result table.
 
 - Path: `plots/support/null_determinants.tsv`
 - Coordinates: —
@@ -239,7 +239,7 @@ The TU-size-preserving permutation null of the determinants models' CV R², for 
 
 ## `autocorrelation`
 
-Spatial autocorrelation of detection and abundance along each replicon and the origin-to-terminus gradient (GIAP_SPEC.md §9.3, §7.3.5(c) and §7.3.5(e)).
+Spatial autocorrelation of detection and abundance along each replicon and the origin-to-terminus gradient (GIPPA_SPEC.md §9.3, §7.3.5(c) and §7.3.5(e)).
 
 - Path: —
 - Coordinates: —
@@ -267,7 +267,7 @@ Spatial autocorrelation of detection and abundance along each replicon and the o
 
 ## `category_summary`
 
-Observed minus expected detected genes per functional category of the cog, kegg and go_slim collections, with a TU block-bootstrap CI (GIAP_SPEC.md §7.7.5, §9.3; M8-03, M8-06). The table has no coordinate fields.
+Observed minus expected detected genes per functional category of the cog, kegg and go_slim collections, with a TU block-bootstrap CI (GIPPA_SPEC.md §7.7.5, §9.3; M8-03, M8-06). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -290,7 +290,7 @@ Observed minus expected detected genes per functional category of the cog, kegg 
 
 ## `compare_abundance`
 
-giap compare: per unordered run pair, Spearman rho of log2 abundance on the shared detected and measured genes with a TU-block bootstrap percentile CI, and Bland-Altman bias and 95% limits of agreement (GIAP_SPEC.md §7.9.3, §8.2, §8.3; M9-22, ADR-0046). The table has no coordinate fields.
+gippa compare: per unordered run pair, Spearman rho of log2 abundance on the shared detected and measured genes with a TU-block bootstrap percentile CI, and Bland-Altman bias and 95% limits of agreement (GIPPA_SPEC.md §7.9.3, §8.2, §8.3; M9-22, ADR-0046). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -314,7 +314,7 @@ giap compare: per unordered run pair, Spearman rho of log2 abundance on the shar
 
 ## `compare_detection`
 
-giap compare: the gene x run detection matrix (section matrix) and the exact UpSet intersections of the detected sets (section intersection), long form (GIAP_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.
+gippa compare: the gene x run detection matrix (section matrix) and the exact UpSet intersections of the detected sets (section intersection), long form (GIPPA_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -332,7 +332,7 @@ giap compare: the gene x run detection matrix (section matrix) and the exact UpS
 
 ## `compare_stability`
 
-giap compare: Jaccard overlap between runs of island genes, operon-flag pairs, enriched categories, called novel ORFs and ALT sites (GIAP_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.
+gippa compare: Jaccard overlap between runs of island genes, operon-flag pairs, enriched categories, called novel ORFs and ALT sites (GIPPA_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -351,7 +351,7 @@ giap compare: Jaccard overlap between runs of island genes, operon-flag pairs, e
 
 ## `detection_summary`
 
-Detection summary in long format: tier, basic O - E, detectability and QC rows (GIAP_SPEC.md §9.3).
+Detection summary in long format: tier, basic O - E, detectability and QC rows (GIPPA_SPEC.md §9.3).
 
 - Path: —
 - Coordinates: —
@@ -371,7 +371,7 @@ Detection summary in long format: tier, basic O - E, detectability and QC rows (
 
 ## `determinants_attribution`
 
-Per-gene LightGBM SHAP attribution by feature block, dominant block, residual and flags (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3, §9.4).
+Per-gene LightGBM SHAP attribution by feature block, dominant block, residual and flags (GIPPA_SPEC.md §7.8.2, §7.8.3, §9.3, §9.4).
 
 - Path: —
 - Coordinates: —
@@ -394,7 +394,7 @@ Per-gene LightGBM SHAP attribution by feature block, dominant block, residual an
 
 ## `determinants_features`
 
-Per-gene raw determinant features of the eligible genes, in §6.5 order; a feature NA in every row is dropped from the models (GIAP_SPEC.md §7.8.1, §7.8.3).
+Per-gene raw determinant features of the eligible genes, in §6.5 order; a feature NA in every row is dropped from the models (GIPPA_SPEC.md §7.8.1, §7.8.3).
 
 - Path: —
 - Coordinates: —
@@ -442,7 +442,7 @@ Per-gene raw determinant features of the eligible genes, in §6.5 order; a featu
 
 ## `determinants_model`
 
-Determinants models per model and metric: CV R² mean and SD, permutation null p, drop-one-block ΔR² with t-interval, univariate Spearman rho and AUROC (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3).
+Determinants models per model and metric: CV R² mean and SD, permutation null p, drop-one-block ΔR² with t-interval, univariate Spearman rho and AUROC (GIPPA_SPEC.md §7.8.2, §7.8.3, §9.3).
 
 - Path: —
 - Coordinates: —
@@ -462,7 +462,7 @@ Determinants models per model and metric: CV R² mean and SD, permutation null p
 
 ## `enrichment_detection`
 
-TU-level detection enrichment (over- and under-detection) per term under the conditional Poisson-binomial null, with GO elim (GIAP_SPEC.md §7.7.3, §9.3; ADR-0029, ADR-0035; M8-04, M8-06). The table has no coordinate fields.
+TU-level detection enrichment (over- and under-detection) per term under the conditional Poisson-binomial null, with GO elim (GIPPA_SPEC.md §7.7.3, §9.3; ADR-0029, ADR-0035; M8-04, M8-06). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -498,7 +498,7 @@ TU-level detection enrichment (over- and under-detection) per term under the con
 
 ## `enrichment_gsea`
 
-TU-level abundance set enrichment (fgsea) per term with TU-set permutations (GIAP_SPEC.md §7.7.4, §9.3; M8-02, M8-05, M8-06). The table has no coordinate fields.
+TU-level abundance set enrichment (fgsea) per term with TU-set permutations (GIPPA_SPEC.md §7.7.4, §9.3; M8-02, M8-05, M8-06). The table has no coordinate fields.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -530,7 +530,7 @@ TU-level abundance set enrichment (fgsea) per term with TU-set permutations (GIA
 
 ## `genes`
 
-One row per annotated CDS, sORF or pseudogene: identity, context, regulatory and sequence features, evidence, abundance, function and flags (GIAP_SPEC.md §9.3).
+One row per annotated CDS, sORF or pseudogene: identity, context, regulatory and sequence features, evidence, abundance, function and flags (GIPPA_SPEC.md §9.3).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -610,11 +610,11 @@ One row per annotated CDS, sORF or pseudogene: identity, context, regulatory and
 | `kegg_ko` | string | — | Semicolon-joined KEGG orthologs | — |
 | `ec` | string | — | Semicolon-joined EC numbers | — |
 | `annotation_source` | string | — | Source of the annotation | one of `bakta_full`, `bakta_light`, `user` |
-| `flags` | string | — | Semicolon-joined gene flags (GIAP_SPEC.md §9.4) | pattern `(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence)(?:;(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence))*` |
+| `flags` | string | — | Semicolon-joined gene flags (GIPPA_SPEC.md §9.4) | pattern `(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence)(?:;(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence))*` |
 
 ## `islands`
 
-Expression islands: contiguous runs of transcription units with unusually high or low detrended abundance scores (GIAP_SPEC.md §9.3, §7.3.5(d)).
+Expression islands: contiguous runs of transcription units with unusually high or low detrended abundance scores (GIPPA_SPEC.md §9.3, §7.3.5(d)).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -649,7 +649,7 @@ Expression islands: contiguous runs of transcription units with unusually high o
 
 ## `mapping_fdr`
 
-Placement FDR strata and de novo precision bins (GIAP_SPEC.md §9.3).
+Placement FDR strata and de novo precision bins (GIPPA_SPEC.md §9.3).
 
 - Path: —
 - Coordinates: —
@@ -675,7 +675,7 @@ Placement FDR strata and de novo precision bins (GIAP_SPEC.md §9.3).
 
 ## `operon_flags`
 
-Flagged pairs only, with the evidence behind each flag (GIAP_SPEC.md §9.3, §7.4.5; M6-07, M6-08).
+Flagged pairs only, with the evidence behind each flag (GIPPA_SPEC.md §9.3, §7.4.5; M6-07, M6-08).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -697,7 +697,7 @@ Flagged pairs only, with the evidence behind each flag (GIAP_SPEC.md §9.3, §7.
 
 ## `operons`
 
-Transcription units (C5 TUs) with their detection, abundance and flag summaries (GIAP_SPEC.md §9.3; M6-07, M6-08).
+Transcription units (C5 TUs) with their detection, abundance and flag summaries (GIPPA_SPEC.md §9.3; M6-07, M6-08).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -719,7 +719,7 @@ Transcription units (C5 TUs) with their detection, abundance and flag summaries 
 
 ## `pairs`
 
-Adjacent gene pairs and the SW decoy triples with their between-gene evidence, per-gene detection and abundance and the operon tests (GIAP_SPEC.md §9.3, §7.4; M6-08).
+Adjacent gene pairs and the SW decoy triples with their between-gene evidence, per-gene detection and abundance and the operon tests (GIPPA_SPEC.md §9.3, §7.4; M6-08).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -759,7 +759,7 @@ Adjacent gene pairs and the SW decoy triples with their between-gene evidence, p
 
 ## `peptide_hits`
 
-One row per peptide x accepted locus (GIAP_SPEC.md §9.3); rejected placements are in unmapped.tsv.
+One row per peptide x accepted locus (GIPPA_SPEC.md §9.3); rejected placements are in unmapped.tsv.
 
 - Path: —
 - Coordinates: 1-based closed
@@ -792,7 +792,7 @@ One row per peptide x accepted locus (GIAP_SPEC.md §9.3); rejected placements a
 
 ## `protein_hits`
 
-One row per protein alignment kept by M3-13 (GIAP_SPEC.md §9.3).
+One row per protein alignment kept by M3-13 (GIPPA_SPEC.md §9.3).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -817,7 +817,7 @@ One row per protein alignment kept by M3-13 (GIAP_SPEC.md §9.3).
 
 ## `regions_stats`
 
-Region statistics: M4-17 region tests, plasmid replicon-level rows, descriptive prophage subset rows (GIAP_SPEC.md §9.3, §7.3.5(b)).
+Region statistics: M4-17 region tests, plasmid replicon-level rows, descriptive prophage subset rows (GIPPA_SPEC.md §9.3, §7.3.5(b)).
 
 - Path: —
 - Coordinates: 1-based closed
@@ -852,7 +852,7 @@ Region statistics: M4-17 region tests, plasmid replicon-level rows, descriptive 
 
 ## `sensitivity`
 
-Stability of flagged sets under sensitivity variants: Jaccard index of each variant's flagged IDs against the primary's, both at B = 199 (GIAP_SPEC.md §8.6).
+Stability of flagged sets under sensitivity variants: Jaccard index of each variant's flagged IDs against the primary's, both at B = 199 (GIPPA_SPEC.md §8.6).
 
 - Path: —
 - Coordinates: —
@@ -870,7 +870,7 @@ Stability of flagged sets under sensitivity variants: Jaccard index of each vari
 
 ## `unmapped`
 
-Unmapped and contaminant peptides and proteins (GIAP_SPEC.md §9.3).
+Unmapped and contaminant peptides and proteins (GIPPA_SPEC.md §9.3).
 
 - Path: —
 - Coordinates: —

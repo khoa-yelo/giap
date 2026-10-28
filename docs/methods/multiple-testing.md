@@ -1,6 +1,6 @@
 # Multiple testing: Benjamini–Hochberg
 
-Implements `giap.stats.multitest.bh` (GIAP_SPEC.md §8.2, §8.3, Appendix B.1; issue M4-01).
+Implements `gippa.stats.multitest.bh` (GIPPA_SPEC.md §8.2, §8.3, Appendix B.1; issue M4-01).
 Statistician sign-off: see the end of this note.
 
 ## Definition
@@ -28,7 +28,7 @@ q is returned in input order (never sorted).
 - BH controls FDR ≤ π₀·α ≤ α for independent p-values and under positive regression dependence
   (PRDS; Benjamini & Yekutieli 2001), which covers one-sided tests on positively correlated
   Gaussian statistics. It does **not** guarantee FDR under arbitrary dependence (BY would be
-  needed); GIAP's families are chosen so that PRDS is plausible or so that resampling respects the
+  needed); GIPPA's families are chosen so that PRDS is plausible or so that resampling respects the
   dependence (TU blocks, circular shifts).
 - No π₀ estimation is done (no Storey adjustment): BH is conservative by the factor π₀.
 - Discrete p-values (permutation p = (1 + b)/(1 + B), rounded p) keep control; BH is conservative
@@ -75,4 +75,4 @@ Exactness: agrees with `statsmodels.stats.multitest.multipletests(method="fdr_bh
 ## Sign-off
 
 Statistician (M4-01 review, 2026-10-14): **approved** for `bh` as implemented in
-`src/giap/stats/multitest.py`.
+`src/gippa/stats/multitest.py`.

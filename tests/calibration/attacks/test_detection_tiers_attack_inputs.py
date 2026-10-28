@@ -1,4 +1,4 @@
-"""Attack nulls for the M4-12 review fixes (PR #92 lead decisions 5 and 11; GIAP_SPEC.md §7.3.2,
+"""Attack nulls for the M4-12 review fixes (PR #92 lead decisions 5 and 11; GIPPA_SPEC.md §7.3.2,
 §8.5). Added by the statistician's re-review.
 
 Generator: the ``gene_fdr`` replicate of tests/helpers/detection_tiers_calsim.py (M4-07 -> M4-08 ->

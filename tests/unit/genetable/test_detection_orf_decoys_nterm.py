@@ -1,6 +1,6 @@
 """M7-12 lead decision 28 (amends decision 23; code review #225 B1).
 
-An all-``GIAPORF_`` decoy leaves gene-level pairing only when none of its stripped IDs maps to a
+An all-``GIPPAORF_`` decoy leaves gene-level pairing only when none of its stripped IDs maps to a
 gene in the protein-gene map. An ``nterm_extension`` entry is voted to its gene by its target
 peptides, so its decoy pairs with that gene, as on main; otherwise the gene's target would compete
 without its decoy (anti-conservative). An all-ORF decoy that maps to no gene is still excluded.
@@ -21,10 +21,10 @@ import detection_tiers_fixtures as fx
 import evidence_oracle as eo
 from detection_tiers_fixtures import Builder
 
-from giap.genetable.detection import pair_decoys
+from gippa.genetable.detection import pair_decoys
 
-EXT = "GIAPORF_nterm_extension_chr1_50_190_p"
-UNMAPPED = [f"GIAPORF_intergenic_chr1_{5000 + 30 * i}_{5090 + 30 * i}_p" for i in range(3)]
+EXT = "GIPPAORF_nterm_extension_chr1_50_190_p"
+UNMAPPED = [f"GIPPAORF_intergenic_chr1_{5000 + 30 * i}_{5090 + 30 * i}_p" for i in range(3)]
 
 
 def _nterm_builder(ext_decoy: str, extra: list[list[str]] | None = None) -> Builder:
@@ -97,7 +97,7 @@ def test_pair_decoys_maps_an_orf_entry_voted_to_a_gene() -> None:
     assert out["gene"].tolist() == ["g1"]
 
 
-ORF_POOL = [f"GIAPORF_nterm_extension_chr1_{10 * i}_{10 * i + 90}_p" for i in range(6)]
+ORF_POOL = [f"GIPPAORF_nterm_extension_chr1_{10 * i}_{10 * i + 90}_p" for i in range(6)]
 GENES = ["g0", "g1", "g2"]
 
 

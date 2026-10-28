@@ -1,5 +1,5 @@
 # TransTermHP 2.09 (GPL-3.0-or-later per the bioconda recipe).
-name: giap-transtermhp
+name: gippa-transtermhp
 channels: [conda-forge, bioconda]
 dependencies:
   - transtermhp=2.09

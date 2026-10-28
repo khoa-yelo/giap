@@ -22,7 +22,7 @@ N_FLIP = 60
 
 
 def _rng() -> np.random.Generator:
-    from giap.rng import for_step
+    from gippa.rng import for_step
 
     return for_step(f"sensitivity/{sf.DET}", sf.SEED)
 
@@ -40,7 +40,7 @@ def world() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def test_with_gene_calls_takes_detected_from_genes(world: tuple[pd.DataFrame, Any]) -> None:
-    from giap.determinants.sensitivity import with_gene_calls
+    from gippa.determinants.sensitivity import with_gene_calls
 
     genes, feats = world
     out = with_gene_calls(feats, genes)

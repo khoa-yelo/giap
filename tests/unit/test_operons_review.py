@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from giap.annotate.operons import build_tus, tu_upstream, write_tus_tsv
-from giap.annotate.uniop_adapter import PairProb
-from giap.io.tsv import read_tsv
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
+from gippa.annotate.operons import build_tus, tu_upstream, write_tus_tsv
+from gippa.annotate.uniop_adapter import PairProb
+from gippa.io.tsv import read_tsv
+from gippa.model.coords import Interval, Replicon
+from gippa.model.genes import Gene
 
 CHR = Replicon("chr1", 100_000, "circular", "chromosome")
 

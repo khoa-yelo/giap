@@ -26,9 +26,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from giap.mapping.diffops import BLOCKS, NEAR_BLOCKS, block_tables
-from giap.mapping.sixframe import decode, encode_query, encode_target
-from giap.mapping.tolerant_dp import BAND, Alignment, verify
+from gippa.mapping.diffops import BLOCKS, NEAR_BLOCKS, block_tables
+from gippa.mapping.sixframe import decode, encode_query, encode_target
+from gippa.mapping.tolerant_dp import BAND, Alignment, verify
 
 TABLES = block_tables()
 SRC = Path(__file__).resolve().parents[2] / "src"
@@ -206,9 +206,9 @@ def _jit_cases() -> list[tuple[str, str, int, int]]:
 
 _SCRIPT = """
 import json, sys
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import encode_query, encode_target
-from giap.mapping.tolerant_dp import verify
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import encode_query, encode_target
+from gippa.mapping.tolerant_dp import verify
 tables = block_tables()
 out = []
 for q, f, d0, k in json.load(sys.stdin):
@@ -293,9 +293,9 @@ def test_int64_and_strided_inputs_match_uint8(case: tuple[str, str, int, int]) -
 _COMPILE_SCRIPT = """
 import json
 import numpy as np
-from giap.mapping import tolerant_dp
-from giap.mapping.diffops import block_tables
-from giap.mapping.sixframe import encode_query, encode_target
+from gippa.mapping import tolerant_dp
+from gippa.mapping.diffops import block_tables
+from gippa.mapping.sixframe import encode_query, encode_target
 tables = block_tables()
 kernels = [v for v in vars(tolerant_dp).values()
            if hasattr(v, "signatures") and hasattr(v, "py_func")]

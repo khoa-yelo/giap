@@ -25,10 +25,10 @@ import pandas as pd
 import pytest
 from helpers.readthrough_toys import back_translate, gene, model, rc
 
-from giap.config import GiapConfig
-from giap.model import Replicon
-from giap.steps.variants import run_variants
-from giap.variants.vcf_records import minimal_alt_codon
+from gippa.config import GippaConfig
+from gippa.model import Replicon
+from gippa.steps.variants import run_variants
+from gippa.variants.vcf_records import minimal_alt_codon
 
 BODY, FLANK = "MSDKPLTEAGRWQLNEFK", "VPAGHTLDMRK"
 N = 3 * (len(BODY) + 1 + len(FLANK) + 1)  # 93
@@ -49,8 +49,8 @@ def window(a: int, b: int, strand: str = "+") -> tuple[int, int]:
     return (s, e) if strand == "+" else (N - e, N - s)
 
 
-def _cfg(relation: str = "same") -> GiapConfig:
-    return GiapConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
+def _cfg(relation: str = "same") -> GippaConfig:
+    return GippaConfig.model_validate({"genome_relation": relation, "sample_name": "S1"})
 
 
 def _hit(
@@ -248,7 +248,7 @@ def test_stop_plus_one_mismatch_costs_two() -> None:
 
 
 def test_align_hits_takes_the_site_set() -> None:
-    from giap.variants.align import align_hits
+    from gippa.variants.align import align_hits
 
     genome, gm = world()
     hits = pd.DataFrame([ex1()])
@@ -262,7 +262,7 @@ def test_align_hits_takes_the_site_set() -> None:
 
 
 def test_align_hit_minus_strand_site_key_is_the_lowest_coordinate() -> None:
-    from giap.variants.align import align_hits
+    from gippa.variants.align import align_hits
 
     genome, gm = world(strand="-")
     hits = pd.DataFrame([ex1(strand="-")])

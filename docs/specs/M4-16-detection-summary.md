@@ -20,15 +20,15 @@ code lines (+ ≈ 300 test lines) · **can start now** (tests use small hand-bui
 
 ## Public interface
 
-`src/giap/context/summary.py` (pure)
+`src/gippa/context/summary.py` (pure)
 ```python
 def basic_rows(genes: pd.DataFrame, B: int, rng: np.random.Generator) -> pd.DataFrame: ...
 def qc_rows(peptides, peptide_hits, unmapped) -> pd.DataFrame: ...
 def detection_summary(parts: Sequence[pd.DataFrame]) -> pd.DataFrame: ...   # concat, validate, sort
 SUMMARY_COLUMNS = ("section", "group_type", "group", "metric", "value", "ci_low", "ci_high", "n", "flags")
 ```
-`src/giap/io/summary_tsv.py`: `write_detection_summary(path, df)`;
-`src/giap/schemas/tables/detection_summary.json`.
+`src/gippa/io/summary_tsv.py`: `write_detection_summary(path, df)`;
+`src/gippa/schemas/tables/detection_summary.json`.
 
 - `basic_rows` uses eligible genes only (`detection_status != partial_excluded`). Groups:
   `group_type = "replicon"` (each contig), `"feature_class"` (`cds`, `sorf`, `pseudogene`, and
@@ -38,7 +38,7 @@ SUMMARY_COLUMNS = ("section", "group_type", "group", "metric", "value", "ci_low"
   (with `ci_low`/`ci_high` from `tu_block_bootstrap` over the group's TUs; only the group's genes
   inside each drawn TU count), `o_over_e` (NA when E = 0). `n` = n_genes on every row.
 - Detected = `detected` column (primary analysis: single-peptide genes are not detected).
-- RNG: `giap.rng.for_step("context_stats", seed)`; groups processed in sorted order so draws are
+- RNG: `gippa.rng.for_step("context_stats", seed)`; groups processed in sorted order so draws are
   reproducible.
 - `qc_rows` (`section = qc`, `group_type = "run"`, `group = "all"`): `id_mixups` = distinct peptides
   with C11 flag `engine_protein_mismatch`; `genome_inconsistent_rate` = among C9 target peptides with
@@ -92,7 +92,7 @@ how multi-letter COG categories are counted, the QC metrics' definitions.
 1. The test-author's resolutions are accepted (`n_tu` row per group; `ci_few_units` flag on `o_minus_e`
    with < 10 TUs; missing `n` → NA, missing `flags` → empty; ValueError on an unknown section or a missing
    core column; `genome_inconsistent_rate` NA without same-database peptides).
-2. The schema is `src/giap/schemas/tables/detection_summary.schema.json` (same convention as the M3-16
+2. The schema is `src/gippa/schemas/tables/detection_summary.schema.json` (same convention as the M3-16
    table schemas).
 3. Stand-ins for unmerged producers (p_detect, COG, tier/detectability columns) are replaced by the real
    M4-12/M4-13 outputs when those merge (backlog, M4-20).

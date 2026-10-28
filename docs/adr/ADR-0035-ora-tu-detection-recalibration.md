@@ -7,7 +7,7 @@
 ## Context
 ADR-0029 counts ORA in TUs. Each TU has detection probability q = 1 − ∏(1 − p̂) over its eligible genes, and the test is the conditional Poisson-binomial law of K given N (M8-04a). That primitive is exact for any q (statistician, #172). The problem is the q formula itself. When genes of a TU share a detection effect, or p̂ is miscalibrated at gene level, q is biased, and the bias grows with TU size.
 
-The statistician's attack used p̂ equal to the exact marginal over a shared TU effect of strength c, with 3,000 p values per cell. Bounds are 0.0136 at α 0.01 and 0.058 at α 0.05. Slurm 1867453 and 1867454; files in `$GIAP_ROOT/stat/m8-04a-review/`.
+The statistician's attack used p̂ equal to the exact marginal over a shared TU effect of strength c, with 3,000 p values per cell. Bounds are 0.0136 at α 0.01 and 0.058 at α 0.05. Slurm 1867453 and 1867454; files in `$GIPPA_ROOT/stat/m8-04a-review/`.
 
 | Scenario | Categories | Tail | α 0.01 | α 0.05 |
 |---|---|---|---|---|

@@ -1,9 +1,9 @@
 """Plot support tables from run inputs (M9-03; docs/specs/M9-03-plot-support-run-inputs.md).
 
-``giap.viz.support.replicon_landmarks`` (oriC and terminus per replicon, V1 and V2) and
-``giap.viz.support.gc_skew`` (windowed GC skew, V1): spec examples 1-7, the degenerate-case
-table, and Hypothesis properties -- the oriC agrees with ``giap.context.oriter.oric_position`` on
-giapsim layouts (acceptance criterion), the terminus is the antipode, windows tile each contig,
+``gippa.viz.support.replicon_landmarks`` (oriC and terminus per replicon, V1 and V2) and
+``gippa.viz.support.gc_skew`` (windowed GC skew, V1): spec examples 1-7, the degenerate-case
+table, and Hypothesis properties -- the oriC agrees with ``gippa.context.oriter.oric_position`` on
+gippasim layouts (acceptance criterion), the terminus is the antipode, windows tile each contig,
 the cumulative skew is the running sum with NA windows carrying, case does not matter.
 
 Interface assumed beyond the spec text (M9-03 test author):
@@ -47,7 +47,7 @@ SETTINGS = settings(
 
 
 def _support() -> Any:
-    from giap.viz import support
+    from gippa.viz import support
 
     return support
 
@@ -229,14 +229,14 @@ def test_inputs_are_not_mutated() -> None:
     pd.testing.assert_frame_equal(feats, f0)
 
 
-# ---------------------------------------------------------------- properties (giapsim)
+# ---------------------------------------------------------------- properties (gippasim)
 
 
 @st.composite
 def sim_layout(draw: Any) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(replicons, features) of a small giapsim layout, with extra oriC calls sometimes added on
+    """(replicons, features) of a small gippasim layout, with extra oriC calls sometimes added on
     chr1 (close to or far from the planted one) and on a plasmid."""
-    from giapsim.layout import LayoutConfig, simulate_layout
+    from gippasim.layout import LayoutConfig, simulate_layout
 
     seed = draw(st.integers(0, 2**31 - 1))
     oric_frac = draw(st.one_of(st.none(), st.floats(0.0, 0.999)))
@@ -250,7 +250,7 @@ def sim_layout(draw: Any) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     try:
         layout = simulate_layout(cfg, np.random.default_rng(seed))
-    except ValueError:  # no intergenic gap fits an oriC (giapsim lead decision 14)
+    except ValueError:  # no intergenic gap fits an oriC (gippasim lead decision 14)
         assume(False)
     reps = layout.replicons.reset_index(drop=True)
     feats = layout.features.reset_index(drop=True)
@@ -268,10 +268,10 @@ def sim_layout(draw: Any) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 @SETTINGS
 @given(data=sim_layout())
-def test_property_oric_agrees_with_oriter_on_giapsim_layouts(
+def test_property_oric_agrees_with_oriter_on_gippasim_layouts(
     data: tuple[pd.DataFrame, pd.DataFrame],
 ) -> None:
-    from giap.context import oriter
+    from gippa.context import oriter
 
     reps, feats = data
     out = _support().replicon_landmarks(reps, feats)

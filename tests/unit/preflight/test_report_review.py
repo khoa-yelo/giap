@@ -1,5 +1,5 @@
 """Review follow-ups for the preflight report and environment rules (issue M1-11;
-GIAP_SPEC.md §7.0, §9.5; spec ``docs/specs/M1-11-preflight-env-report.md`` "Lead decisions after
+GIPPA_SPEC.md §7.0, §9.5; spec ``docs/specs/M1-11-preflight-env-report.md`` "Lead decisions after
 code review").
 
 Pins: tool versions match the pinned major.minor with patch ≥ pin and pre-releases below the
@@ -22,14 +22,14 @@ import jsonschema
 import numpy as np
 import pytest
 
-from giap.config import resolve_config
-from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Replicon
-from giap.preflight.checks import Check
-from giap.preflight.environment import EnvProbe, Requirement, environment_checks, requirements
-from giap.preflight.evidence import inputs_checks
-from giap.preflight.genome import genome_checks, summarize_genome
-from giap.preflight.report import (
+from gippa.config import resolve_config
+from gippa.io.fasta import read_genome_fasta
+from gippa.model.coords import Replicon
+from gippa.preflight.checks import Check
+from gippa.preflight.environment import EnvProbe, Requirement, environment_checks, requirements
+from gippa.preflight.evidence import inputs_checks
+from gippa.preflight.genome import genome_checks, summarize_genome
+from gippa.preflight.report import (
     InputRef,
     PreflightReport,
     render_preflight_md,
@@ -38,7 +38,7 @@ from giap.preflight.report import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = ROOT / "src" / "giap" / "schemas" / "preflight.schema.json"
+SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 GIB = 1024**3
 ROUTING: dict[str, Any] = {
     "n_proteins_long": 1,
@@ -73,7 +73,7 @@ def report(
     replicons: Sequence[Replicon] | None = None,
 ) -> PreflightReport:
     return PreflightReport(
-        giap_version="0.0.0",
+        gippa_version="0.0.0",
         inputs=list(
             inputs if inputs is not None else [InputRef("genome", "genome.fa", "a" * 64, 10)]
         ),

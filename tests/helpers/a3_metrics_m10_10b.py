@@ -1,11 +1,11 @@
 """Builders for the M10-10b tests (metric 6 and hypothesis 4; docs/specs/M10-10-a3-run.md).
 
 Everything is synthetic: every ``novel_orfs.tsv``, ``variants.tsv``, ``mapping_fdr.tsv`` and
-``compare_stability.tsv`` frame is written under its schema with GIAP's own TSV writer and read
-back with ``giap.io.run_view.read_schema_tsv`` (the reader ``metrics.py``'s ``_table`` uses, so
+``compare_stability.tsv`` frame is written under its schema with GIPPA's own TSV writer and read
+back with ``gippa.io.run_view.read_schema_tsv`` (the reader ``metrics.py``'s ``_table`` uses, so
 the dtypes are the ones the code sees; coordinates stay 1-based as written). The de novo
 peptides are made-up strings (``synthetic_peptides``), never taken from a real run; nothing
-comes from ``$GIAP_ROOT``.
+comes from ``$GIPPA_ROOT``.
 
 ``build_a3(pilot, world)`` extends M10-05's synthetic pilot (``helpers.pilot_metrics_m10``) with
 the A3 inputs of ``metrics.py compute --a3``: ``out_a3`` (manifest with the ``genome``,
@@ -64,7 +64,7 @@ VERDICTS = ("not_supported", "consistent_with_lower_bound", "not_evaluable")
 
 def wilson(k: int, n: int, level: float = 0.95) -> tuple[float, float]:
     """The Wilson score interval written out from its textbook formula (an oracle independent of
-    ``giap.stats.cutoffs.wilson_ci``); exact 0 / 1 ends at k = 0 / n."""
+    ``gippa.stats.cutoffs.wilson_ci``); exact 0 / 1 ends at k = 0 / n."""
     z = float(norm.ppf(1.0 - (1.0 - level) / 2.0))
     p = k / n
     d = 1.0 + z * z / n
@@ -90,11 +90,11 @@ _SERIAL = itertools.count()
 
 def frame(stem: str, rows: Sequence[Mapping[str, object]], tmp: Path) -> pd.DataFrame:
     """``rows`` written as ``<stem>.tsv`` under its schema and read back as metrics.py reads it."""
-    from giap.io.run_view import read_schema_tsv
+    from gippa.io.run_view import read_schema_tsv
 
     path = write_table(tmp / f"{stem}.{next(_SERIAL)}.tsv", stem, rows)
     schema = json.loads(
-        (REPO / "src" / "giap" / "schemas" / "tables" / f"{stem}.schema.json").read_text("utf-8")
+        (REPO / "src" / "gippa" / "schemas" / "tables" / f"{stem}.schema.json").read_text("utf-8")
     )
     return read_schema_tsv(path, stem, schema)
 
@@ -302,7 +302,7 @@ def equal_bins(n_bins: int, per_bin: int) -> tuple[list[str], list[float], list[
     peptides of each bin."""
     import numpy as np
 
-    from giap.mapping.denovo_precision import score_bins
+    from gippa.mapping.denovo_precision import score_bins
 
     n = n_bins * per_bin
     peps = synthetic_peptides(n)
@@ -317,8 +317,8 @@ PEPTIDE_COLS_A3 = ("peptide", "modified_peptide", "score", "run", "charge", "spe
 
 
 def write_denovo_table(path: Path, rows: Sequence[Mapping[str, object]]) -> Path:
-    """A de novo peptide table in ``giap convert --from cascadia``'s columns (gzip, mtime 0)."""
-    from giap.io.tsv import format_value
+    """A de novo peptide table in ``gippa convert --from cascadia``'s columns (gzip, mtime 0)."""
+    from gippa.io.tsv import format_value
 
     lines = ["\t".join(PEPTIDE_COLS_A3)]
     lines += ["\t".join(format_value(r.get(c)) for c in PEPTIDE_COLS_A3) for r in rows]

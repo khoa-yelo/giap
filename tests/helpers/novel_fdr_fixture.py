@@ -2,16 +2,16 @@
 
 Conventions pinned by the test author (the spec leaves the frame layouts open):
 
-* ``peptides`` is the aggregated C9 frame (``giap.io.peptides.AGG_COLUMNS``): ``protein_ids`` is a
-  list of IDs, decoy rows have ``is_decoy`` true and prefixed IDs (``rev_GIAPORF_...``).
-* ``id_map`` is ``db_id_map.tsv`` as a frame (``giap.makedb.build.ID_MAP_COLUMNS``): 1-based
+* ``peptides`` is the aggregated C9 frame (``gippa.io.peptides.AGG_COLUMNS``): ``protein_ids`` is a
+  list of IDs, decoy rows have ``is_decoy`` true and prefixed IDs (``rev_GIPPAORF_...``).
+* ``id_map`` is ``db_id_map.tsv`` as a frame (``gippa.makedb.build.ID_MAP_COLUMNS``): 1-based
   closed ``start``/``end``, ``kind = orf``, ``locus_tag`` set for ``nterm_extension`` entries only.
 * A plus-strand makedb ORF ``[s, e)`` (0-based, stop-to-stop, stops excluded) is closed by the stop
   codon at ``e``; a minus-strand one by the stop codon at ``s - 3``. ``Orf.stop`` is that lowest
-  coordinate, so the ORF of ``GIAPORF_cds_outframe_c1_101_400_p`` has ``stop = 400``.
+  coordinate, so the ORF of ``GIPPAORF_cds_outframe_c1_101_400_p`` has ``stop = 400``.
 * Picked scores are encoded by a rank (1 = best): input ``q_value = rank * 1e-5`` (all <= 0.01, so
   no ``q_value_max`` filter can drop a row) and ``score = 1000 - rank`` (consistent with q).
-* De novo hit frames carry ``giap.mapping.hits.HIT_COLUMNS`` plus the M3-10 ranking score E:
+* De novo hit frames carry ``gippa.mapping.hits.HIT_COLUMNS`` plus the M3-10 ranking score E:
   ``e_target`` on target rows (``search = target``) and ``e_decoy`` on decoy rows
   (``search = decoy``, the mirrored target interval in ``contig/start/end/strand``), one decoy row
   per peptide (its best decoy cost), ``n_diff = 0``.
@@ -30,9 +30,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giap.mapping.hits import HIT_COLUMNS
-from giap.model.coords import Interval
-from giap.novel.candidates import Orf
+from gippa.mapping.hits import HIT_COLUMNS
+from gippa.model.coords import Interval
+from gippa.novel.candidates import Orf
 
 ALPHA = 0.01  # stats.alpha.novel_orfs
 LETTERS = "ACDEFGHKMNPQRSTVWY"  # no I/L: I/L folding never changes a name
@@ -90,7 +90,7 @@ def make_orf(
 
 
 def db_id(cls: str, contig: str, start0: int, end0: int, strand: str) -> str:
-    return f"GIAPORF_{cls}_{contig}_{start0 + 1}_{end0}_{'p' if strand == '+' else 'm'}"
+    return f"GIPPAORF_{cls}_{contig}_{start0 + 1}_{end0}_{'p' if strand == '+' else 'm'}"
 
 
 def pep_row(

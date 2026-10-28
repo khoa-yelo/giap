@@ -18,7 +18,7 @@ M2-13/14/15 `*_between` helpers, M4-15 gene table) · estimate ≈ 340 code line
 
 ## Public interface
 
-`src/giap/operons/pairs.py` (pure)
+`src/gippa/operons/pairs.py` (pure)
 ```python
 PairClass = Literal["OP", "NO", "CV", "DV", "SW"]
 
@@ -34,10 +34,10 @@ def adjacent_chain(genes: Sequence[Gene], replicons: Mapping[str, Replicon]
 def sandwich_pairs(genes, replicons) -> list[tuple[Gene, Gene, Gene]]: ...
 def classify(a: Gene, b: Gene, uniop_p: float | None, threshold: float) -> PairClass: ...
 def pair_frame(genes_tbl: pd.DataFrame, genes: Sequence[Gene], replicons, pairs_raw: pd.DataFrame,
-               ev: Evidence, cfg: GiapConfig) -> pd.DataFrame: ...
+               ev: Evidence, cfg: GippaConfig) -> pd.DataFrame: ...
 ```
 
-1. **Adjacency.** `giap.annotate.operons.adjacent_pairs` gains `same_strand: bool = True`
+1. **Adjacency.** `gippa.annotate.operons.adjacent_pairs` gains `same_strand: bool = True`
    (decision 1; the default keeps the M2-12 behaviour); `adjacent_chain` calls it with `same_strand=False`. One definition of genome order,
    of the wrap pair on circular replicons and of `intergenic_distance` (which already handles the
    origin) is therefore shared with M2-12.
@@ -128,8 +128,8 @@ G4 `−` [1500, 1900), G5 `+` [2000, 2400). `pair_threshold` 0.5.
 
 ## Questions for the lead
 
-1. Extend the merged `giap.annotate.operons.adjacent_pairs` with `same_strand=False`, or write a
-   second adjacency function in `giap.operons`? **Proposed default:** extend, so wrap handling and
+1. Extend the merged `gippa.annotate.operons.adjacent_pairs` with `same_strand=False`, or write a
+   second adjacency function in `gippa.operons`? **Proposed default:** extend, so wrap handling and
    genome order have one definition (the M2 function is already imported by M6).
 2. Do `partial` genes stay in the chain? **Proposed default:** yes for geometry (dropping them would
    make two genuine neighbours adjacent), no for tests (§7.3 eligibility).

@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from giap.rng import for_step
-from giap.stats.permutation import choose_shifts, perm_p
+from gippa.rng import for_step
+from gippa.stats.permutation import choose_shifts, perm_p
 
 NAN = float("nan")
 INF = float("inf")

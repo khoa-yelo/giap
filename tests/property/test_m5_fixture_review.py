@@ -19,15 +19,15 @@ def _oric_mid(work: Path) -> float:
 
 
 def test_the_oric_frac_keyword_wins_over_layout(tmp_path: Path) -> None:
-    from giapsim.fixtures import build_m4_fixture
+    from gippasim.fixtures import build_m4_fixture
 
     build_m4_fixture(tmp_path, seed=3, size="sim1000", layout={"oric_frac": 0.3}, oric_frac=0.8)
     assert abs(_oric_mid(tmp_path) - 0.8) < 0.02
 
 
 def _with_other_rows() -> object:
-    from giapsim.fixtures import fixture_layout
-    from giapsim.layout import place_oric
+    from gippasim.fixtures import fixture_layout
+    from gippasim.layout import place_oric
 
     lay = place_oric(fixture_layout(3, "sim1000", None), 0.5)
     o = lay.features.iloc[0]
@@ -37,7 +37,7 @@ def _with_other_rows() -> object:
 
 
 def test_place_oric_keeps_other_rows_sorted_and_replaces_old_oric() -> None:
-    from giapsim.layout import place_oric
+    from gippasim.layout import place_oric
 
     lay = place_oric(place_oric(_with_other_rows(), 0.2), 0.8)  # type: ignore[arg-type]
     f = lay.features
@@ -48,8 +48,8 @@ def test_place_oric_keeps_other_rows_sorted_and_replaces_old_oric() -> None:
 
 @pytest.mark.parametrize("frac", [1.0, -0.1, float("nan")])
 def test_place_oric_rejects_a_fraction_outside_0_1(frac: float) -> None:
-    from giapsim.fixtures import fixture_layout
-    from giapsim.layout import place_oric
+    from gippasim.fixtures import fixture_layout
+    from gippasim.layout import place_oric
 
     with pytest.raises(ValueError, match="oric_frac"):
         place_oric(fixture_layout(3, "sim1000", None), frac)

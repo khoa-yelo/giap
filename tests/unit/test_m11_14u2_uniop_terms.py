@@ -9,7 +9,7 @@ Interface pinned here (readings chosen where the spec leaves room; listed in the
 
 - The notice is one line, printed (stdout or stderr) whenever the UniOP step runs for a build
   runtime (docker, apptainer, micromamba), accepted or not.
-- TTY detection goes through ``giap.setupdb.uniop_build.stdin_is_tty() -> bool`` (a module
+- TTY detection goes through ``gippa.setupdb.uniop_build.stdin_is_tty() -> bool`` (a module
   function, looked up at call time, so a test can stand in for a terminal; ``CliRunner`` has
   none). On a TTY without the flag, setup prints ``Build UniOP for your own use? [y/N]`` after the
   notice and reads one answer from stdin: ``y``/``yes`` builds with ``terms: "prompt"``; ``n``,
@@ -80,14 +80,14 @@ def archive(net: FakeNet, monkeypatch: pytest.MonkeyPatch) -> bytes:
 
 
 def _tty(monkeypatch: pytest.MonkeyPatch, is_tty: bool = True) -> None:
-    from giap.setupdb import uniop_build
+    from gippa.setupdb import uniop_build
 
     monkeypatch.setattr(uniop_build, "stdin_is_tty", lambda: is_tty, raising=False)
 
 
 def _invoke(args: list[str], answer: str | None = None) -> tuple[int, str]:
-    """``giap setup <args>`` with ``answer`` on stdin (``None``: empty stdin)."""
-    from giap.cli import cli
+    """``gippa setup <args>`` with ``answer`` on stdin (``None``: empty stdin)."""
+    from gippa.cli import cli
 
     res = CliRunner().invoke(cli, ["setup", *args], input=answer)
     if res.exception is not None and not isinstance(res.exception, SystemExit):
@@ -249,16 +249,16 @@ def test_accepted_build_failure_exits_2_under_images(
 
 
 def _record_run_setup(monkeypatch: pytest.MonkeyPatch) -> list[set[str]]:
-    import giap.setupdb
-    from giap.exitcodes import ExitCode
+    import gippa.setupdb
+    from gippa.exitcodes import ExitCode
 
     planned: list[set[str]] = []
 
     def fake(opts: Any, runner: Any, fetcher: Any) -> ExitCode:
-        planned.append({i.name for i in giap.setupdb.plan(opts)})
+        planned.append({i.name for i in gippa.setupdb.plan(opts)})
         return ExitCode.SUCCESS
 
-    monkeypatch.setattr(giap.setupdb, "run_setup", fake)
+    monkeypatch.setattr(gippa.setupdb, "run_setup", fake)
     return planned
 
 
@@ -303,7 +303,7 @@ def test_qk27_images_still_includes_uniop(
 def test_prebuilt_records_empty_terms(
     net: FakeNet, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GIAP_ROOT", str(prebuilt_root(tmp_path / "giap_root")))
+    monkeypatch.setenv("GIPPA_ROOT", str(prebuilt_root(tmp_path / "gippa_root")))
     db = tmp_path / "db"
     code, out = setup_cli(_uniop_args(db, ACCEPT, profile="farmshare,apptainer"))
     assert code == 0, out

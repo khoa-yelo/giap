@@ -471,13 +471,13 @@ def test_methods_index_golden(gr: ModuleType, tmp_path: Path) -> None:
     d.mkdir()
     (d / "a.md").write_text("# Alpha method\n\nText.\n", encoding="utf-8")
     (d / "b.md").write_text("Intro without a title.\n\n## Sub\n", encoding="utf-8")
-    (d / "c.md").write_text("\n# `giap compare`: x\n", encoding="utf-8")
+    (d / "c.md").write_text("\n# `gippa compare`: x\n", encoding="utf-8")
     (d / "index.md").write_text("# stale index\n", encoding="utf-8")
     assert gr.render_index(d, "methods") == (
         f"# Methods\n\n{GENERATED}\n\n"
         "- [Alpha method](a.md)\n"
         "- [b](b.md)\n"
-        "- [`giap compare`: x](c.md)\n"
+        "- [`gippa compare`: x](c.md)\n"
     )
 
 
@@ -541,8 +541,8 @@ def test_main_writes_every_page(gr: ModuleType, docs: Path) -> None:
 def test_main_is_deterministic(gr: ModuleType, docs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert gr.main([]) == 0
     first = _snapshot(docs)
-    for name in ("GIAP_DB_DIR", "GIAP_THREADS", "SLURM_CPUS_PER_TASK", "OMP_NUM_THREADS"):
-        monkeypatch.setenv(name, "/sentinel/977" if name == "GIAP_DB_DIR" else "977")
+    for name in ("GIPPA_DB_DIR", "GIPPA_THREADS", "SLURM_CPUS_PER_TASK", "OMP_NUM_THREADS"):
+        monkeypatch.setenv(name, "/sentinel/977" if name == "GIPPA_DB_DIR" else "977")
     monkeypatch.setenv("COLUMNS", "37")
     assert gr.main([]) == 0
     assert _snapshot(docs) == first
@@ -563,13 +563,13 @@ def test_check_fails_on_a_stale_page_and_leaves_it(
 ) -> None:
     assert gr.main([]) == 0
     cli = docs / "reference" / "cli.md"
-    stale = cli.read_text(encoding="utf-8").replace("## giap run", "## giap ran")
+    stale = cli.read_text(encoding="utf-8").replace("## gippa run", "## gippa ran")
     cli.write_text(stale, encoding="utf-8")
     capsys.readouterr()
     assert gr.main(["--check"]) == 1
     out = "".join(capsys.readouterr())
     assert "docs/reference/cli.md is stale" in out
-    assert "-## giap ran" in out and "+## giap run" in out  # unified diff, committed → generated
+    assert "-## gippa ran" in out and "+## gippa run" in out  # unified diff, committed → generated
     assert cli.read_text(encoding="utf-8") == stale
     assert sorted(p.name for p in docs.rglob("*") if p.is_file()) == sorted(
         Path(r).name for r in OUTPUTS
@@ -589,8 +589,8 @@ def test_check_fails_on_a_missing_page(
 def test_example2_new_option_without_regenerating(
     gr: ModuleType, docs: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Example 2: a PR adds ``--foo`` to ``giap run`` and does not regenerate."""
-    from giap.cli import cli
+    """Example 2: a PR adds ``--foo`` to ``gippa run`` and does not regenerate."""
+    from gippa.cli import cli
 
     assert gr.main([]) == 0
     run = cli.commands["run"]

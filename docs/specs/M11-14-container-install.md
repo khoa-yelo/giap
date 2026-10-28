@@ -3,12 +3,12 @@
 Milestone M11 · **pass 2, after the rebrand** · depends on: M11-01 (wheel bundles `workflow/`),
 M11-04 (`release.yml`), M11-06 (`containers.yml`, `update_digests.py`), M11-09 (docker smoke),
 M11-09b (bare refs, ADR-0059), M11-03 (readiness H4), ADR-0022 (operon distance model); the
-GIAP → GIPPA rename PR (backlog "Rebrand") before any publish · estimate ≈ 1,590 code lines +
+GIPPA rename PR (backlog "Rebrand") before any publish · estimate ≈ 1,590 code lines +
 ≈ 2,220 test lines in 14 code/test PRs and one docs PR (table at the end), plus one Khoa action (14j)
 · **`stats` (14d, 14d2, 14s1, 14s2, 14g)**: 14d changes which model builds the TUs, which are the
 exchangeability blocks of most §8 nulls; 14g decides when calibration evidence is reused ·
-roles: implementer (`scripts/release/`, `src/giap/preflight/`, `src/giap/setupdb/`,
-`src/giap/io/fgsea_r.py`, `src/giap/compare/`, `src/giap/report/`, `workflow/`), test-author
+roles: implementer (`scripts/release/`, `src/gippa/preflight/`, `src/gippa/setupdb/`,
+`src/gippa/io/fgsea_r.py`, `src/gippa/compare/`, `src/gippa/report/`, `workflow/`), test-author
 (`tests/unit/test_m11_14_*.py`), **statistician** (owns
 `tests/calibration/attacks/test_attack_operon_distance_fallback.py`, the ADR-0022 addendum and the
 `NON_STATS_PATHS` list), docs (`docs/get-started/install.md`, `docs/get-started/upgrade.md`,
@@ -49,13 +49,13 @@ and "iterate on the final version fast. Make sure that whatever is built can be 
 5. gippa run ... --profile docker|apptainer
 ```
 
-No repository checkout, no `build_envs.sbatch`, no `$GIAP_ROOT/micromamba`. Nextflow pulls every
+No repository checkout, no `build_envs.sbatch`, no `$GIPPA_ROOT/micromamba`. Nextflow pulls every
 tool image by digest (docker), or runs it from the cache that step 3 filled (apptainer). Below,
-`<pkg>` is the PyPI project name read from `pyproject.toml` (`giap` today, `gippa` after the
+`<pkg>` is the PyPI project name read from `pyproject.toml` (`gippa` today, `gippa` after the
 rename); `<owner>` is the GitHub owner (`khoa-yelo`, Q-K14).
 
 **UniOP (Khoa, 2026-10-25: "UniOP is published research, we should be able to allow a mechanism
-for installing it").** UniOP has no licence file, so GIAP never redistributes it (no published
+for installing it").** UniOP has no licence file, so GIPPA never redistributes it (no published
 image, no vendoring; R5/R11). Step 3 instead fetches the pinned commit from the authors' GitHub on
 the user's machine, checks its sha256 and builds it locally (item 1b, 14u1/14u2), after the user accepts
 the terms. Step 4 then passes **with UniOP** under the default `annotation.uniop.enabled: true`.
@@ -70,30 +70,30 @@ build fails (offline, no build rights), and it becomes the default only after 14
 |---|---|---|---|
 | bakta, transtermhp, genomad, antismash, miniprot, blast (BLAST, TBLASTN) | upstream, by digest | unchanged | none |
 | promotech, promoter_calculator, terminatornet, bactermfinder, ostir | Dockerfile, never built (M11-06) | `ghcr.io/<owner>/<pkg>-<tool>` by digest, content-addressed tag (item 2) | 14a, 14b, 14j |
-| fgsea | conda-only, started by the `function` step (M8-17 decision 9, ADR-0038) | `ghcr.io/<owner>/<pkg>-fgsea` with `giap_fgsea.R` baked in; run by `giap.io.fgsea_r` when no env or prefix is found | 14c |
+| fgsea | conda-only, started by the `function` step (M8-17 decision 9, ADR-0038) | `ghcr.io/<owner>/<pkg>-fgsea` with `gippa_fgsea.R` baked in; run by `gippa.io.fgsea_r` when no env or prefix is found | 14c |
 | uniop | conda-only; unlicensed | **never published.** Built locally from the authors' archive by `<pkg> setup --uniop`, which `setup --images` runs by default (14u1, 14u2); `annotation.uniop.enabled: true \| false \| auto` (14d) for the failure path; `auto` becomes the default only after 14s1 + 14s2 (14d2); Khoa may ask the authors for a licence | 14u1, 14u2, 14d, 14d2, 14s1, 14s2 |
 | codon_bias | in-process | unchanged | none |
 | cascadia, timsconvert (`PILOT_TOOLS`), DIA-NN | pilot only | out of scope: not on the user path | none |
 
 **fgsea (14c).**
 - The image is built from `workflow/containers/fgsea/Dockerfile`, which installs
-  `workflow/envs/locks/fgsea.explicit.txt` and copies `workflow/bin/giap_fgsea.R` to
-  `/opt/<pkg>/giap_fgsea.R`. So `workflow/bin/giap_fgsea.R` is a key input (item 2): a script
+  `workflow/envs/locks/fgsea.explicit.txt` and copies `workflow/bin/gippa_fgsea.R` to
+  `/opt/<pkg>/gippa_fgsea.R`. So `workflow/bin/gippa_fgsea.R` is a key input (item 2): a script
   change rebuilds the image.
 - Its ref lives **only** in `workflow/conf/images.json` (`"processes": []`). No
   `withName: 'FGSEA'` line is written, because no such Nextflow process exists and the selector
   would log "no process matching config selector" on every run. H4 and `update_digests.py` accept
   an `images.json` entry with no process for `fgsea` only.
 - Resolution order in `resolve_launcher`:
-  1. `GIAP_FGSEA_PREFIX`. An explicit prefix **never falls through**: a bad prefix still raises
+  1. `GIPPA_FGSEA_PREFIX`. An explicit prefix **never falls through**: a bad prefix still raises
      as today, so the FarmShare profiles (`prebuilt_envs.config` sets it) behave as before.
-  2. The prebuilt `giap-fgsea` env (marker equal to the env file's sha256).
-  3. The image, run through the runtime that `giap run` passes in `GIAP_CONTAINER_RUNTIME`
+  2. The prebuilt `gippa-fgsea` env (marker equal to the env file's sha256).
+  3. The image, run through the runtime that `gippa run` passes in `GIPPA_CONTAINER_RUNTIME`
      (`docker` | `apptainer`; unset → `FgseaEngineUnavailable`). The cache directory comes from
      the same helper as preflight (item 3; 14a).
 - The image argv (AC 7 pins it):
-  - docker: `docker run --rm --cidfile <call_dir>.cid -u <uid>:<gid> -v <call_dir>:<call_dir> -w <call_dir> -e LC_ALL=C <ref> Rscript --vanilla /opt/<pkg>/giap_fgsea.R <the nine options of command()>`;
-  - apptainer: `apptainer exec --cleanenv -B <call_dir> --pwd <call_dir> <cache>/<simpleName>.img Rscript --vanilla /opt/<pkg>/giap_fgsea.R <options>`.
+  - docker: `docker run --rm --cidfile <call_dir>.cid -u <uid>:<gid> -v <call_dir>:<call_dir> -w <call_dir> -e LC_ALL=C <ref> Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <the nine options of command()>`;
+  - apptainer: `apptainer exec --cleanenv -B <call_dir> --pwd <call_dir> <cache>/<simpleName>.img Rscript --vanilla /opt/<pkg>/gippa_fgsea.R <options>`.
 
   Lead amendment (2026-10-26, #386 review B1/S1): `--vanilla` stays on the image path, because
   apptainer binds `$HOME`, so the user's `~/.Rprofile`, `~/.Renviron` and `~/R` library would
@@ -123,7 +123,7 @@ build fails (offline, no build rights), and it becomes the default only after 14
   and the JSON Schema). 14d ships the default `true` (today's behaviour). 14d2 changes the default
   to `auto` in a one-line PR. 14d2 may merge only after 14s1 and 14s2 have merged and the
   statistician has signed off in the PR.
-- **Preflight resolution** (in `src/giap/preflight/`; the resolved value goes into
+- **Preflight resolution** (in `src/gippa/preflight/`; the resolved value goes into
   `resolved_config.yaml`):
 
   | `enabled` | UniOP installed | `--publication` | Result |
@@ -149,11 +149,11 @@ build fails (offline, no build rights), and it becomes the default only after 14
     precomputed layer, not `test`/`stub`). A nonzero exit counts as "not installed" for the table
     above, with the last non-empty stderr line appended to the message.
   - **Run-time failure.** A UniOP failure during the run (`UniOP failed (…)`) cannot be seen by
-    preflight. `giap run` prints one warning line at the end of the run naming the reason and
-    the distance model, for example `giap run: warning: operons used the distance model: UniOP
+    preflight. `gippa run` prints one warning line at the end of the run naming the reason and
+    the distance model, for example `gippa run: warning: operons used the distance model: UniOP
     failed (no uniop.pred)`, besides the manifest and report record.
 
-- **Run.** `giap run` passes `params.run_uniop` (from the resolved value), and `UNIOP` is skipped
+- **Run.** `gippa run` passes `params.run_uniop` (from the resolved value), and `UNIOP` is skipped
   when it is false.
 - **`operon_pairs`** takes its reason from the resolved config, not from the missing input. The
   reasons:
@@ -171,7 +171,7 @@ build fails (offline, no build rights), and it becomes the default only after 14
   RegulonDB K-12 at the pair threshold; TU-based tests use these units". X and Y are read from
   `calibration.yaml: operon_distance` (14s2). Today `report/` has no operon-source text.
 - **Compare** (14h) warns `compare.operon_source: run A uniop, run B distance_model` when the
-  sources differ. `giap compare` bootstraps over the first run's TUs, so mixing sources changes
+  sources differ. `gippa compare` bootstraps over the first run's TUs, so mixing sources changes
   the blocks.
 
 *Statistical evidence that gates 14d2 (statistician-owned; R3: no bound, α, R or tolerance
@@ -179,7 +179,7 @@ moves).*
 - **14s1: attack `tests/calibration/attacks/test_attack_operon_distance_fallback.py`** (§8.5).
   The fast tier runs under `-m calibration`; the R of the existing gates goes under
   `calibration_full`.
-  - **Arm A, class re-derivation.** Run giapsim `operon_null`, `operon_attack_ar1` and
+  - **Arm A, class re-derivation.** Run gippasim `operon_null`, `operon_attack_ar1` and
     `operon_attack_detection` with `uniop_p` replaced by
     `distance_model_p(intergenic_bp, d₀, s)` from `calibration.yaml` and `source =
     distance_model`. Then run the M6-09 discordance level and missed-operon decoy-FDR checks at
@@ -222,7 +222,7 @@ moves).*
 **1b. UniOP local build (14u1, 14u2).**
 - **Command.** `<pkg> setup --uniop --db-dir DB --profile P [--cache-dir DIR]
   [--accept-uniop-terms]`. It replaces the 14e draft's `--tools uniop --runtime`.
-- **Runtime from the profile list (one rule for setup, preflight and `giap run`).** `P` may be a
+- **Runtime from the profile list (one rule for setup, preflight and `gippa run`).** `P` may be a
   comma list. The resolved runtime `R(P)` is the first rule that matches, in this order:
   1. **micromamba**, if any profile in the list enables conda (`conda`, `farmshare`,
      `farmshare_local`);
@@ -230,7 +230,7 @@ moves).*
   3. **docker**, if `docker` is in the list;
   4. otherwise none: `uniop` is missing (`no container or conda profile`).
 
-  So the micromamba rule wins: `farmshare,apptainer` (the `giap_run.sbatch` profile) resolves to
+  So the micromamba rule wins: `farmshare,apptainer` (the `gippa_run.sbatch` profile) resolves to
   micromamba, which is also the only FarmShare path that needs no fakeroot. Lists that combine
   `conda` with `docker` or `apptainer` (and no `farmshare*`) are not supported for UniOP. Preflight
   reports `uniop` missing with `ambiguous UniOP runtime for <P>: use one of conda | docker | apptainer`.
@@ -238,7 +238,7 @@ moves).*
   `required_tools(cfg)` for the resolved config (true for the defaults; false with
   `annotation.uniop.enabled: false` or precomputed operon pairs). `--no-uniop` skips it.
 - **Fetch (one download, one check, three runtimes; 14u1).**
-  - The archive is a new `DbItem` row of `src/giap/data/db_sources.yaml`, laid out exactly like the
+  - The archive is a new `DbItem` row of `src/gippa/data/db_sources.yaml`, laid out exactly like the
     others:
     - `name: uniop_source`;
     - `version: git:3ed14dfc2a5d69b993d99a26e50c1f8e9723c087`;
@@ -268,7 +268,7 @@ moves).*
     the `.sif` are `0600`. A lab-wide cache therefore never shares one user's UniOP copy, and the
     install page says so.
 - **Image key (14a, 14u1).**
-  - `key(t)` lives in `src/giap/io/image_key.py`, so an installed wheel can compute it from the
+  - `key(t)` lives in `src/gippa/io/image_key.py`, so an installed wheel can compute it from the
     bundled `workflow/`. 14a puts it there. `scripts/release/image_key.py` is the CLI over it, and
     readiness H4 calls the same function.
   - The file mode comes from the exec bit (`100755` if any x bit is set, else `100644`), which
@@ -289,8 +289,8 @@ moves).*
     a scripted install never hangs and never fails on UniOP alone. Preflight then names the
     command (item 3). Once the terms are accepted, a failed fetch, checksum or build exits 2 in
     both forms, after the other items are installed.
-  - **Why this default.** With no licence, GIAP has no permission to pass on and cannot accept on
-    the user's behalf. A silent yes in a non-interactive install would make GIAP the one deciding.
+  - **Why this default.** With no licence, GIPPA has no permission to pass on and cannot accept on
+    the user's behalf. A silent yes in a non-interactive install would make GIPPA the one deciding.
     A default of no costs a scripted install one flag, and pip users following the install page
     copy that flag knowingly.
 - **Build per runtime.** Nothing is ever pushed.
@@ -300,7 +300,7 @@ moves).*
   - **apptainer (14u2):** `workflow/containers/uniop/uniop.def` is new and is a key input.
     - It mirrors the Dockerfile: `Bootstrap: docker` from the same digest-pinned micromamba base,
       `%files` for `uniop.yml` and `uniop-src.tar.gz`, and `%post` doing the same install and
-      extraction into `/opt/conda/share/uniop` plus `GIAP_COMMIT`, then `chmod -R a+rX` on that
+      extraction into `/opt/conda/share/uniop` plus `GIPPA_COMMIT`, then `chmod -R a+rX` on that
       directory.
     - `%post` has **no `chown`**. In the fallback below only one uid is mapped, and the Dockerfile's
       `--chown=$MAMBA_USER` has no `.def` equivalent.
@@ -314,11 +314,11 @@ moves).*
     - **"No fakeroot" means both attempts failed.** There is no `/etc/subuid` pre-check, because it
       says "no" on FarmShare even though step 2 succeeds. The item is then recorded `absent`
       with `apptainer build failed (fakeroot unavailable or build error): <last stderr line>; use --profile docker or conda, or set annotation.uniop.enabled=auto`.
-  - **micromamba (14u2), plain `conda` profile:** creates `<cache-dir>/envs/giap-uniop` from the
-    lock, then extracts the archive into `<prefix>/share/uniop` with `GIAP_COMMIT`, which is where
+  - **micromamba (14u2), plain `conda` profile:** creates `<cache-dir>/envs/gippa-uniop` from the
+    lock, then extracts the archive into `<prefix>/share/uniop` with `GIPPA_COMMIT`, which is where
     `UNIOP_HOME` defaults in `modules/local/uniop/main.nf`.
   - **micromamba, `farmshare*` lists (the prebuilt case):** `prebuilt_envs.config` already pins
-    `UNIOP { conda = $GIAP_ROOT/micromamba/envs/giap-uniop }`. `setup --uniop` builds nothing
+    `UNIOP { conda = $GIPPA_ROOT/micromamba/envs/gippa-uniop }`. `setup --uniop` builds nothing
     there. It checks that this prefix exists with `share/uniop`, and records it with
     `local_build.runtime: prebuilt`. Otherwise it exits 2 with
     `sbatch scripts/slurm/build_envs.sbatch uniop`.
@@ -335,7 +335,7 @@ moves).*
     ```
   - It **never sets `conda.enabled`**, because conda is a global switch. Conda stays on only where
     the `conda` and `farmshare*` profiles turn it on.
-  - **When `giap run` adds it.** `giap run` adds `-c <db_dir>/local_tools.config` only when the
+  - **When `gippa run` adds it.** `gippa run` adds `-c <db_dir>/local_tools.config` only when the
     file exists and `R(P)` is docker, apptainer, or micromamba under plain `conda`. It **never**
     adds the file under a `farmshare*` list. There `prebuilt_envs.config` owns UNIOP, so a local
     `.sif` and the host env are never combined.
@@ -371,7 +371,7 @@ moves).*
 - **Image key.**
   - For tool `t`, the inputs are every file under `workflow/containers/t/`, plus
     `workflow/envs/t.yml`, plus `workflow/envs/locks/t.explicit.txt` and `t.pip.txt` when
-    present. fgsea adds `workflow/bin/giap_fgsea.R`.
+    present. fgsea adds `workflow/bin/gippa_fgsea.R`.
   - `key(t)` is the first 12 hex of sha256 over the UTF-8 text made of one line
     `<repo-relative POSIX path>\t<git file mode: 100644 or 100755>\t<sha256 hex of the file bytes>\n`
     per input.
@@ -410,7 +410,7 @@ moves).*
     `cancel-in-progress: false`, so no two runs of the workflow overlap. Pushes from outside the
     workflow are forbidden (ADR-0060 §2), so no window remains.
   - The anonymous check lives only in `release.yml` verify (14g), where it means "not public".
-- **Only changed tools rebuild.** A GIAP release in which `ostir`'s inputs did not change keeps the
+- **Only changed tools rebuild.** A GIPPA release in which `ostir`'s inputs did not change keeps the
   same `ostir` tag and digest as the release before.
 - **Lock file.**
   - `workflow/conf/images.json` is new and bundled in the wheel. Per GHCR tool it lists
@@ -426,7 +426,7 @@ moves).*
 
 ### 3. Preflight and setup (14f1, 14f2)
 
-`missing_tools(tools, profile, giap_root)` becomes `missing_tools(tools, profile, image_cache,
+`missing_tools(tools, profile, gippa_root)` becomes `missing_tools(tools, profile, image_cache,
 env_root, local_tools)` (14f1). The image-cache helper `image_cache(environ, db_dir)` is added in
 14a, so 14c and 14f1 share it.
 
@@ -439,15 +439,15 @@ profiles). Under `docker` alone **and under plain `apptainer`**, a process that 
 | pinned image (upstream or GHCR) | present (Nextflow pulls by digest) | present iff `<image_cache>/<simpleName>.img` exists | as today |
 | pinned image **and** a prebuilt env | the image is used; the env is ignored | same | as today (env) |
 | conda-only (after M11-14: only a micromamba-built local UniOP) | **missing**: `conda-only tool under a container profile without conda: <tool>` | same | needs the prebuilt env (as today) |
-| uniop with a local build (`local_tools.config` + `local_build`) | present iff the local tag exists and its image ID equals `local_build.digest` (`docker image inspect`, a fake in tests) | present iff the `.sif` exists and its sha256 equals `local_build.digest` | plain `conda`: the `conda` block's prefix with `share/uniop/GIAP_COMMIT` equal to the pin; `farmshare*`: the prebuilt env (as today; `local_tools.config` not used) |
+| uniop with a local build (`local_tools.config` + `local_build`) | present iff the local tag exists and its image ID equals `local_build.digest` (`docker image inspect`, a fake in tests) | present iff the `.sif` exists and its sha256 equals `local_build.digest` | plain `conda`: the `conda` block's prefix with `share/uniop/GIPPA_COMMIT` equal to the pin; `farmshare*`: the prebuilt env (as today; `local_tools.config` not used) |
 | uniop, not built, stale or wrong runtime (no item, `absent`, `local_build.key` ≠ `key("uniop")` of the installed package, no block for `R(P)`, or an ambiguous list) | missing; the message names the command (below) | same | same |
 | uniop with `enabled: auto` / `false` | the item 1 table | same | same |
 | fgsea | prefix → env → image (item 1) | same | as today (prefix) |
 | in-process | never missing | never missing | never missing |
 
-- `image_cache` is `NXF_APPTAINER_CACHEDIR`, else `$GIAP_ROOT/containers`, else
-  `<db_dir>/containers`. A pip user with no `$GIAP_ROOT` therefore has a defined place (Q-L11).
-  `giap run` passes the same directory to Nextflow (`apptainer.cacheDir`).
+- `image_cache` is `NXF_APPTAINER_CACHEDIR`, else `$GIPPA_ROOT/containers`, else
+  `<db_dir>/containers`. A pip user with no `$GIPPA_ROOT` therefore has a defined place (Q-L11).
+  `gippa run` passes the same directory to Nextflow (`apptainer.cacheDir`).
 - The "no prebuilt env needed" rule applies exactly to tools that have a `withName` pin in the
   bundled `containers.config` (plus fgsea through `images.json`). The FarmShare behaviour is
   unchanged.
@@ -470,10 +470,10 @@ profiles). Under `docker` alone **and under plain `apptainer`**, a process that 
   `no fakeroot`). Under `enabled: auto` the same text is the warning (item 1 (c)). The
   `--publication` rule is unchanged.
 - **`ToolRunner` (14f2)** runs the Bakta and antiSMASH downloaders. It gains a `docker run -u
-  <uid>:<gid> -v …` path, and drops its requirement for `GIAP_ROOT` or a checkout
+  <uid>:<gid> -v …` path, and drops its requirement for `GIPPA_ROOT` or a checkout
   (`setupdb/run.py:108-113`). It looks up the micromamba env, then the apptainer cache from
   `image_cache`, then docker, so `<pkg> setup` itself needs no checkout and no micromamba.
-- **Database pins per release.** `src/giap/data/db_sources.yaml` ships in the wheel and pins
+- **Database pins per release.** `src/gippa/data/db_sources.yaml` ships in the wheel and pins
   every database per release: version, URL, checksum. `<pkg> setup --check` reports an installed
   item whose version or checksum differs from this release's pin as `mismatch`, with the message
   `installed <v_old>, this release pins <v_new>`. This uses today's status set; no new status is
@@ -518,7 +518,7 @@ breaks.
   (no `v*` tag exists). The config's `schema_version` keeps its meaning, the config format
   (Q-L13).
 - **Schema diff test (14h).**
-  - It compares the column dictionaries in `src/giap/schemas/tables/` and the manifest schema with
+  - It compares the column dictionaries in `src/gippa/schemas/tables/` and the manifest schema with
     the copies at the newest `v*` tag reachable from HEAD, read with `git show v<prev>:…` (no
     network).
   - It fails when a column was removed or renamed without a major bump of `__version__`, or a
@@ -543,8 +543,8 @@ reusable at R iff `reusable(C, R)` holds:
    changed.
 2. Every path in `D` lies under an entry of `NON_STATS_PATHS`, matched on **whole path
    components**: an entry `a/b/` matches `a/b/x` but not `a/bx`; a file entry matches only itself.
-3. **Version-line exception.** `src/giap/__init__.py` is allowed in `D` iff its diff (`git diff
-   -U0 C R -- src/giap/__init__.py`) is exactly one hunk with one `-` and one `+` line, both
+3. **Version-line exception.** `src/gippa/__init__.py` is allowed in `D` iff its diff (`git diff
+   -U0 C R -- src/gippa/__init__.py`) is exactly one hunk with one `-` and one `+` line, both
    matching `^__version__ = "[^"]+"$`. The version enters no statistic: `rng.for_step(step,
    seed)` does not hash it.
 4. **Self-protection.** If `D` contains `scripts/release/readiness.py`, the predicate is false,
@@ -556,7 +556,7 @@ reusable at R iff `reusable(C, R)` holds:
 ```text
 docs/  changelog.d/  README.md  CHANGELOG.md  CITATION.cff  mkdocs.yml  PROGRESS.md  AGENTS.md
 CLAUDE.md  .claude/  .github/  scripts/dev/approval_packet.py  scripts/dev/progress_bars.py
-scripts/dev/replant.sh  scripts/dev/waitmerge.sh  scripts/docs/  src/giap/report/  src/giap/viz/
+scripts/dev/replant.sh  scripts/dev/waitmerge.sh  scripts/docs/  src/gippa/report/  src/gippa/viz/
 validation/release/
 ```
 
@@ -571,8 +571,8 @@ The **never list** is also a constant. A test asserts it is disjoint from `NON_S
 later edit cannot slip these in:
 
 ```text
-src/giap/preflight/  src/giap/runner/  src/giap/setupdb/  src/giap/cli.py  src/giap/data/
-src/giap/config/  src/giap/rng.py  src/giap/io/  workflow/  pyproject.toml  uv.lock
+src/gippa/preflight/  src/gippa/runner/  src/gippa/setupdb/  src/gippa/cli.py  src/gippa/data/
+src/gippa/config/  src/gippa/rng.py  src/gippa/io/  workflow/  pyproject.toml  uv.lock
 tests/sim/  tests/calibration/  ci/  scripts/release/readiness.py  scripts/dev/island_power.py
 ```
 
@@ -584,7 +584,7 @@ Why the first four are excluded:
 - `setupdb/` holds the DB pins;
 - `cli.py` maps `--seed` and `--publication` and runs compare's statistics inline.
 
-`src/giap/report/` and `src/giap/viz/` only render existing values; their regressions belong to
+`src/gippa/report/` and `src/gippa/viz/` only render existing values; their regressions belong to
 the snapshot and unit tests.
 
 | Gate (M11-03 rows) | patch | minor | major |
@@ -599,7 +599,7 @@ the snapshot and unit tests.
 
 Readiness prints `reused from <C7> (reusable: diff ⊆ NON_STATS_PATHS)` in each reused row.
 
-**Compatibility check (14h).** The manifest already records `giap_version`, each tool's `version`
+**Compatibility check (14h).** The manifest already records `gippa_version`, each tool's `version`
 and `container_digest` (sha256 only, `run_manifest.schema.json`) and the databases. 14d adds
 `operon_source`. `<pkg> compare` adds `compare_versions` to `CMP/report/compare.html` and to the
 event log:
@@ -616,7 +616,7 @@ event log:
 ### 5. The release flow (14b, 14g, 14j; ADR-0060 §5)
 
 ```text
-feature PR edits workflow/containers/<t>/ or envs/<t>.yml (or locks, or giap_fgsea.R)
+feature PR edits workflow/containers/<t>/ or envs/<t>.yml (or locks, or gippa_fgsea.R)
    └─ PR CI: image_key.py --plan prints "will rebuild: <t> (<old key> → <new key>)"; no push
 merge to main
    └─ containers.yml (push trigger; global concurrency group): plan, authenticated check of each key's tag
@@ -655,14 +655,14 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 ### 6. Sequencing with the rebrand
 
 - The code PRs land in either order relative to the rename PR: they are code only, and nothing is
-  published. The rename script also renames the image prefix (`giap-` → `gippa-`) in
+  published. The rename script also renames the image prefix to `gippa-` in
   `containers.yml`, `update_digests.py`, the Dockerfile labels and the `IMAGE_NS`-derived names.
 - `containers.yml` derives the prefix from `pyproject.toml` `[project] name`. A static test asserts
   that every GHCR ref in `containers.config` and `images.json` starts with
-  `ghcr.io/<owner>/<project name>-`. So nothing can be published as `giap-*` after the rename, and
-  no `giap-*` pin can survive it.
+  `ghcr.io/<owner>/<project name>-`. So nothing can be published as `gippa-*` after the rename, and
+  no `gippa-*` pin can survive it.
 - 14j (the first publish) is gated on "rename merged" and on Khoa's steps 1–2. No image is ever
-  published under `giap-`.
+  published under `gippa-`.
 
 ### 7. Docs (14i)
 
@@ -675,7 +675,7 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
     `--accept-uniop-terms` for scripted installs; what to do when the build fails (offline, no
     fakeroot): rerun elsewhere, or `--set annotation.uniop.enabled=auto` (the default after 14d2)
     with what the distance model loses;
-  - on a Slurm executor, every node needs the same Python environment, because `GIAP_STEP` runs
+  - on a Slurm executor, every node needs the same Python environment, because `GIPPA_STEP` runs
     on the host (Q-L8: no core image).
 - **`docs/get-started/upgrade.md`** is new, placed after install in the nav. It covers:
   - `pip install -U <pkg>==1.y`;
@@ -710,29 +710,29 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 | 9b | `enabled: false` with `--publication` | exit 0 with the warning `annotation.uniop.enabled is false; operons use the distance model (see Methods)`; reason `UniOP disabled (annotation.uniop.enabled=false)`; flag and report caveat present |
 | 9c | `enabled: true`, no UniOP, `db_manifest.json` item `image:uniop` `absent` with `message: apptainer build failed (…)` | exit 2; the message ends `(last setup: apptainer build failed (…))`; under `auto` the same text is in the warning |
 | 9d | UniOP present, its `--help` probe exits 1 with `ModuleNotFoundError: …` last on stderr | `enabled: true`: exit 2, uniop missing, that line in the message; `auto`: warning with that line, `params.run_uniop = false` |
-| 9e | UniOP ran and wrote no pair | reason `UniOP failed (no uniop.pred)` (or `has no pair`); `giap run` ends with a warning line naming it and the distance model |
+| 9e | UniOP ran and wrote no pair | reason `UniOP failed (no uniop.pred)` (or `has no pair`); `gippa run` ends with a warning line naming it and the distance model |
 | 10 | `compare` of a 1.0.0 run and a 1.1.0 run whose OSTIR digests differ | exit 0; warnings `compare.cross_version` and `compare.tool_versions: ostir 1.1.3 sha256:<12> vs …` |
 | 11 | `compare` of `output_schema_version` 1.3 and 2.0 runs | exit 1 unless `--allow-cross-major` |
-| 12 | readiness for 1.0.1 where `D` = {`src/giap/viz/locus.py`, `docs/x.md`, `src/giap/__init__.py` (version line only)} | calibration, pilot and benchmark rows `pass (reused from <C7> …)` |
-| 13 | the same with `src/giap/cli.py` (or `src/giap/stats/fdr.py`) in `D` | those rows `pending` until rerun on R |
+| 12 | readiness for 1.0.1 where `D` = {`src/gippa/viz/locus.py`, `docs/x.md`, `src/gippa/__init__.py` (version line only)} | calibration, pilot and benchmark rows `pass (reused from <C7> …)` |
+| 13 | the same with `src/gippa/cli.py` (or `src/gippa/stats/fdr.py`) in `D` | those rows `pending` until rerun on R |
 | 13b | `D` contains `scripts/release/readiness.py` | not reusable, even if only `NON_STATS_PATHS` changed |
-| 13c | a move `src/giap/stats/x.py` → `docs/x.py` | `D` lists both paths (`--no-renames`); not reusable |
-| 13d | `D` = {`src/giap/report_stats.py`} | not reusable (component match: `src/giap/report/` does not match) |
+| 13c | a move `src/gippa/stats/x.py` → `docs/x.py` | `D` lists both paths (`--no-renames`); not reusable |
+| 13d | `D` = {`src/gippa/report_stats.py`} | not reusable (component match: `src/gippa/report/` does not match) |
 | 14 | `update_digests.py` with `{"UNIOP": "ghcr.io/…/gippa-uniop@sha256:…"}` | exit 1 (M11-06 example 5 still holds) |
-| 15 | `fgsea_r.command` under `GIAP_CONTAINER_RUNTIME=docker`, no prefix, no env | the exact docker argv of item 1, `--cidfile <call_dir>.cid`, `-u <uid>:<gid>`, `Rscript --vanilla /opt/<pkg>/giap_fgsea.R` |
-| 15b | `GIAP_FGSEA_PREFIX` set to a directory without R, image available | `FgseaEngineUnavailable` (no fall-through) |
+| 15 | `fgsea_r.command` under `GIPPA_CONTAINER_RUNTIME=docker`, no prefix, no env | the exact docker argv of item 1, `--cidfile <call_dir>.cid`, `-u <uid>:<gid>`, `Rscript --vanilla /opt/<pkg>/gippa_fgsea.R` |
+| 15b | `GIPPA_FGSEA_PREFIX` set to a directory without R, image available | `FgseaEngineUnavailable` (no fall-through) |
 | 16 | `setup --images --profile docker --accept-uniop-terms`, fake fetcher serving the fixture archive (sha256 equal to the pin) behind a fake `302` from `github.com` to `codeload.github.com`, fake `docker` | one fetch of the pinned URL, the redirect followed; archive at `<db_dir>/uniop/UniOP-<commit>.tar.gz` (mode `0600`); `docker build … -t localhost/<pkg>-uniop:git-3ed14dfc-<key> <context>`; `local_tools.config` has only the `docker` block, with `conda = ''`, and no `conda.enabled`; `image:uniop` `ok` with `local_build.runtime: docker`, `digest` = the fake image ID, `terms: flag`; no `push` |
 | 16a | a redirect to any other host | `refused …` (the allowlist holds only `codeload.github.com` for `github.com`) |
 | 16b | the same, profile `apptainer`, not root, fake `apptainer` whose `--fakeroot` build exits 1 with `GLIBC_2.38 not found` and whose `--fakeroot --ignore-fakeroot-command` build succeeds | exactly two build calls, in that order; the `apptainer` block names the absolute `.sif` path, with `conda = ''`; `digest` = the `.sif` sha256 |
-| 16c | the same, profile `conda` | env at `<cache-dir>/envs/giap-uniop`; `<prefix>/share/uniop/GIAP_COMMIT` = the commit; the `conda` block `conda = '<prefix>'`; no `conda.enabled` |
-| 16d | `setup --uniop --profile farmshare,apptainer --accept-uniop-terms`, a fake `$GIAP_ROOT` with `micromamba/envs/giap-uniop/share/uniop` | `R = micromamba`; no fetch, no build, no `local_tools.config` change; `local_build.runtime: prebuilt`, `ref` = that prefix. Without the prefix: exit 2 naming `sbatch scripts/slurm/build_envs.sbatch uniop` |
+| 16c | the same, profile `conda` | env at `<cache-dir>/envs/gippa-uniop`; `<prefix>/share/uniop/GIPPA_COMMIT` = the commit; the `conda` block `conda = '<prefix>'`; no `conda.enabled` |
+| 16d | `setup --uniop --profile farmshare,apptainer --accept-uniop-terms`, a fake `$GIPPA_ROOT` with `micromamba/envs/gippa-uniop/share/uniop` | `R = micromamba`; no fetch, no build, no `local_tools.config` change; `local_build.runtime: prebuilt`, `ref` = that prefix. Without the prefix: exit 2 naming `sbatch scripts/slurm/build_envs.sbatch uniop` |
 | 16e | `R(P)` for `docker`, `apptainer`, `conda`, `farmshare`, `farmshare_local,apptainer`, `apptainer,docker`, `conda,docker`, `standard` | docker, apptainer, micromamba, micromamba, micromamba, apptainer, ambiguous (missing), none (missing) |
 | 17 | the fixture archive with one byte changed | exit 2 `uniop: archive sha256 <got> != pinned <want>`; the file is deleted; no build command runs; `local_tools.config` unchanged |
 | 18 | `setup --images --profile docker`, no TTY, no `--accept-uniop-terms` | the notice is printed; no fetch and no build; `image:uniop` `absent`, message `terms not accepted; rerun with --accept-uniop-terms`; other images pulled; exit 0 with a warning |
 | 18b | `setup --uniop --profile docker`, no TTY, no flag | exit 2 with the same message |
 | 18c | TTY, the user answers `n` (or presses Enter) | as 18 (`--images`) or 18b (`--uniop`); answering `y` builds, with `terms: prompt` |
-| 19 | preflight, default `enabled: true`, profile `docker`, after example 16 | exit 0; `uniop` present; `giap run`'s command line has `-c <db_dir>/local_tools.config` |
-| 19a | `giap run --profile farmshare,apptainer` with a `local_tools.config` present | no `-c <db_dir>/local_tools.config` on the Nextflow command line |
+| 19 | preflight, default `enabled: true`, profile `docker`, after example 16 | exit 0; `uniop` present; `gippa run`'s command line has `-c <db_dir>/local_tools.config` |
+| 19a | `gippa run --profile farmshare,apptainer` with a `local_tools.config` present | no `-c <db_dir>/local_tools.config` on the Nextflow command line |
 | 19b | preflight, `enabled: true`, `--db-dir /data/db`, profile `apptainer`, nothing built | exit 2 `environment.tools: uniop not installed; run: <pkg> setup --uniop --profile apptainer --db-dir /data/db --accept-uniop-terms` |
 | 19c | after example 16, the local tag removed, its image ID differing from `local_build.digest`, or `local_build.key` differing from `key("uniop")` | `uniop` missing, the same command (stale: `local build <old> does not match this release (<new>)`) |
 | 19d | after example 16 (docker only), preflight under `-profile apptainer` | `uniop` missing, the apptainer command; nothing tries `docker://localhost/…` |
@@ -760,7 +760,7 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
   the cache, not the registry.
 - **Docker on arm64 (Apple Silicon)**: images are `linux/amd64` only, so Docker runs them emulated
   and slowly; the platforms page says so (M11-06 question, unchanged).
-- **A user with an old `$GIAP_ROOT/micromamba` env and a new image**: under the container profiles
+- **A user with an old `$GIPPA_ROOT/micromamba` env and a new image**: under the container profiles
   the image wins (item 3 table); under `farmshare*` the env wins, as today.
 - **Empty input** (no enabled tool needs an image, e.g. every layer precomputed):
   `setup --images` pulls nothing and records nothing, and preflight passes.
@@ -798,7 +798,7 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 
 All tests are offline. No test pulls from or queries a registry: `imagetools inspect`,
 `docker pull/build/image inspect`, `apptainer pull/build` are replaced by fakes on `PATH` or by
-injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB directories.
+injected callables. Preflight tests use temporary fake `GIPPA_ROOT`/cache/DB directories.
 
 1. `image_key.py`: examples 1–4 and 2b on a temporary tree. Keys are stable across runs and
    independent of mtime and directory-listing order. A Dockerfile `COPY` of a file outside the
@@ -830,12 +830,12 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
    - the manifest items are written;
    - the image set follows `--config`/`--set` and `--images all`;
    - `setup --check` reports a DB pin change as `mismatch` with both versions;
-   - `ToolRunner` works with no `GIAP_ROOT` and no checkout, through the docker path.
+   - `ToolRunner` works with no `GIPPA_ROOT` and no checkout, through the docker path.
 7. fgsea:
    - the `resolve_launcher` order (prefix → env → image), with an explicit prefix never falling
      through (examples 15 and 15b);
    - the docker and apptainer argv are exact (item 1);
-   - `workflow/bin/giap_fgsea.R` is a key input of `fgsea`;
+   - `workflow/bin/gippa_fgsea.R` is a key input of `fgsea`;
    - the GSEA golden (`golden-r.yml`) is unchanged when run through the image on FarmShare (one
      Slurm job, ID in the PR).
 8. UniOP degrade (14d):
@@ -901,7 +901,7 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
 13. Readiness (14g):
     - examples 12, 13, 13b, 13c and 13d;
     - the version-line exception accepts exactly one `__version__` hunk and rejects any second
-      changed line in `src/giap/__init__.py`;
+      changed line in `src/gippa/__init__.py`;
     - `NON_STATS_PATHS` and the never list are disjoint, and every entry of both exists;
     - H4 fails on a stale key.
 14. Schema diff test (14h): a removed column with an unchanged major fails, and an added column
@@ -917,18 +917,18 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
 
 | PR | Scope | Code | Tests | Depends on | Label |
 |---|---|---|---|---|---|
-| 14a | `key()` in `src/giap/io/image_key.py` (mode from the exec bit, so a wheel can compute it) and the `scripts/release/image_key.py` CLI over it (tag, `--plan`, `--check`), `images.json` (process-less entries), `update_digests.py` writes it, `image_cache()` helper | 190 | 220 | M11-06 | |
+| 14a | `key()` in `src/gippa/io/image_key.py` (mode from the exec bit, so a wheel can compute it) and the `scripts/release/image_key.py` CLI over it (tag, `--plan`, `--check`), `images.json` (process-less entries), `update_digests.py` writes it, `image_cache()` helper | 190 | 220 | M11-06 | |
 | 14b | `containers.yml`: key tags only, authenticated check + re-check, global concurrency, `GHCR_PUBLISH` + `ghcr` gate, prefix from pyproject; Dockerfiles from locks with `ADD --checksum` (not uniop: 14u1 replaces its `ADD` with `COPY`); BacTermFinder locks; pin-equality test | 160 | 150 | 14a | CI change, **Khoa approval** |
 | 14p | profile parity: docker DB bind, ps shim, `TMPDIR`, `-u`, shared pinned-process block; docker-smoke DB-visibility job | 70 | 110 | none | CI change, **Khoa approval** |
 | 14f1 | `missing_tools` new signature and the item 3 table (conda-on-host under docker and plain apptainer; local tools) | 110 | 160 | 14a | |
-| 14f2 | `setup --images` (config-driven set, digest check, manifest items); `ToolRunner` docker path, no `GIAP_ROOT`/checkout requirement | 170 | 180 | 14a, 14f1 | |
+| 14f2 | `setup --images` (config-driven set, digest check, manifest items); `ToolRunner` docker path, no `GIPPA_ROOT`/checkout requirement | 170 | 180 | 14a, 14f1 | |
 | 14d | `annotation.uniop.enabled` (default `true`), preflight resolution incl. `--publication`, `params.run_uniop`, workflow skip, reasons, `layer_missing:uniop`, manifest `operon_source*`, report text | 170 | 200 | 14f1 (same function: merge 14f1 first) | **`stats`** |
 | 14s1 | `tests/calibration/attacks/test_attack_operon_distance_fallback.py`, arms A and B | 0 | 260 | none | **`stats`**, statistician |
 | 14s2 | precision/recall at 0.5 with CIs in `calibration.yaml`; ADR-0022 addendum; weekly arm `uniop.enabled=false` | 40 | 40 | none | **`stats`**, statistician |
 | 14d2 | default `auto` (`defaults.yaml`, model); guard test | 10 | 20 | 14d, 14s1, 14s2, statistician sign-off | **`stats`** |
-| 14u1 | `setup --uniop` and its inclusion in `setup --images` (`--no-uniop`); `R(P)`; `uniop_source` row; `REDIRECT_HOSTS` github → codeload; verified fetch; staging context and permissions; Dockerfile `COPY` + header and `uniop.def`; the archive key line (`key()` in `src/giap/io/image_key.py` from 14a); docker builder; `local_tools.config` profile blocks; `giap run -c` rule; `no_network` fixture (replaces the 14e draft) | 150 | 180 | 14a, 14f2 | R6 allowlist change |
+| 14u1 | `setup --uniop` and its inclusion in `setup --images` (`--no-uniop`); `R(P)`; `uniop_source` row; `REDIRECT_HOSTS` github → codeload; verified fetch; staging context and permissions; Dockerfile `COPY` + header and `uniop.def`; the archive key line (`key()` in `src/gippa/io/image_key.py` from 14a); docker builder; `local_tools.config` profile blocks; `gippa run -c` rule; `no_network` fixture (replaces the 14e draft) | 150 | 180 | 14a, 14f2 | R6 allowlist change |
 | 14u2 | apptainer builder (fakeroot fallback) and micromamba/prebuilt; terms notice, prompt and `--accept-uniop-terms`; `local_build` item and the run-manifest `uniop` entry; preflight rows and message; example 21 integration test; the AC 9b Slurm job | 130 | 170 | 14u1, 14d | |
-| 14c | fgsea Dockerfile with the script baked in; `fgsea_r` image path; `GIAP_CONTAINER_RUNTIME` from `giap run`; NOTICE line | 130 | 150 | 14a, 14f1 (cache helper, runtime) | |
+| 14c | fgsea Dockerfile with the script baked in; `fgsea_r` image path; `GIPPA_CONTAINER_RUNTIME` from `gippa run`; NOTICE line | 130 | 150 | 14a, 14f1 (cache helper, runtime) | |
 | 14g | readiness: `reusable(C, R)` (components, `--no-renames`, version-line exception, self-protection), `NON_STATS_PATHS` + never list, H4 key check and process-less fgsea; `release.yml` verify: `--check` + anonymous inspect | 140 | 170 | 14a | **`stats`**, CI change, **Khoa approval** |
 | 14h | compare version, digest and operon-source warnings; `output_schema_version`; schema diff test; `fetch-depth: 0` in CI | 120 | 190 | 14d (operon_source) | CI change, **Khoa approval** |
 | 14i | docs: install, upgrade, release.md, backlog entry closed; changelog fragments | 0 (≈ 380 prose) | 20 | all above | |
@@ -960,7 +960,7 @@ default that the PRs use.
 | Q-K17 | Nextflow and Java are not pip-installable. Accept them as prerequisites (step 2), or add `<pkg> setup --nextflow` that downloads the pinned launcher from the official release (still needs Java)? | prerequisites, documented with a micromamba one-liner; no download command in 1.0 | 14i |
 | Q-K18 | Every `containers.yml` build needs Khoa's approval of the `ghcr` environment, or only the first one (Khoa then removes the reviewer)? | every build, until Khoa removes the reviewer (it is a publish) | 14b, 14j |
 | Q-K19 | fgsea in an image (14c), or keep M8-17 decision 9 (conda-only; GSEA `layers_missing` for pip users)? | image (14c); without it, `--abundance` runs break "preflight passes" | 14c |
-| Q-L11 | Image cache without `$GIAP_ROOT` | `NXF_APPTAINER_CACHEDIR` → `$GIAP_ROOT/containers` → `<db_dir>/containers` | 14a, 14f1 |
+| Q-L11 | Image cache without `$GIPPA_ROOT` | `NXF_APPTAINER_CACHEDIR` → `$GIPPA_ROOT/containers` → `<db_dir>/containers` | 14a, 14f1 |
 | Q-L12 | BacTermFinder has no lock files: resolve one on FarmShare? | yes (14b), with the build log in the PR | 14b |
 | Q-L13 | `schema_version` today is the config's field copied into the manifest. Split out `output_schema_version`? | yes, starting at `1.0` with 1.0.0; the config's `schema_version` keeps its meaning (config format) | 14h |
 | Q-L14 | Keep the M11-06 `:<sha7>` tags for traceability? | no: `images.json` `built_from` and the OCI `revision` label record the commit | 14b |
@@ -978,8 +978,8 @@ default that the PRs use.
 - **Image builds are not reproducible.** The M11-06 Dockerfiles solve `workflow/envs/<tool>.yml`
   at build time instead of installing the locks, and their `ADD`s carry no checksum. 14b fixes
   both before the first publish.
-- **The Python environment must match on every node.** `GIAP_STEP` runs on the host with the
-  host's `giap`, so on a Slurm executor every node needs the same environment. The install page
+- **The Python environment must match on every node.** `GIPPA_STEP` runs on the host with the
+  host's `gippa`, so on a Slurm executor every node needs the same environment. The install page
   says so.
 - **UniOP archive sha256 not yet known** (14u1). The pin needs the sha256 of the official commit
   archive, computed once on FarmShare by the 14u1 implementer (the Slurm job of AC 9b). GitHub
@@ -988,8 +988,8 @@ default that the PRs use.
   on the user's machine, so it is not the default.
 - **Non-interactive default for the terms** (14u2): no, unless `--accept-uniop-terms` or a TTY
   "y". The lead may prefer yes-with-notice; that is a one-line change to the default, but it
-  means GIAP accepts on the user's behalf, which is why it is not the default here.
+  means GIPPA accepts on the user's behalf, which is why it is not the default here.
 - **The distance-model fallback has not been tested as a default.** No calibration test or attack
-  runs the TU-block nulls with `source = distance_model`. giapsim's gap layout never makes the
+  runs the TU-block nulls with `source = distance_model`. gippasim's gap layout never makes the
   model split a true TU, and `pair_threshold = 0.5` was calibrated on UniOP scores. 14s1 and 14s2
   close this before 14d2.

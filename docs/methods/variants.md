@@ -1,11 +1,11 @@
 # Variants (Module 5)
 
-Methods notes for `giap.variants` (GIAP_SPEC.md §7.5). Only the class error rates section exists
+Methods notes for `gippa.variants` (GIPPA_SPEC.md §7.5). Only the class error rates section exists
 so far; the pileup, call and VCF sections follow with their modules.
 
 ## Class error rates
 
-Implements `giap.variants.error_rates` (GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is real",
+Implements `gippa.variants.error_rates` (GIPPA_SPEC.md §7.5.4, §8.1 row "ALT call is real",
 §7.5.5 `CLASS_ERR`; docs/specs/M7-10-class-error-rates.md; statistician review of PR #239).
 
 ### Estimator
@@ -35,7 +35,7 @@ ALT-supporting reads, and its relation to that rate depends on the reference sea
 act, two upward and one downward.
 
 1. **Reference database without the variant: upward, up to degenerate (spec rule 5).** When the
-   reference identifications come from a search against the same reference proteome GIAP maps
+   reference identifications come from a search against the same reference proteome GIPPA maps
    to, a correct ALT read can never agree with its spectrum's reference identification: the ALT
    peptide is not in that database. Such a spectrum is either not identified confidently (no
    pair) or identified as some other peptide (an "error"). Every paired observation is then an
@@ -67,7 +67,7 @@ rest. No correction is applied in v1; the bias is reported, not removed.
 
 ### Uncertainty and small n
 
-Each rate carries its `n`, so a binomial interval can be computed from the row. GIAP reports no
+Each rate carries its `n`, so a binomial interval can be computed from the row. GIPPA reports no
 interval column in v1 (the §7.5.5 schema has none). The recommended reading is the Wilson 95%
 interval, (p + z²/2n ± z √(p(1 − p)/n + z²/4n²)) / (1 + z²/n) with z = 1.96. At n = 5 and
 p = 1 it is [0.57, 1]; at n = 20 and p = 0.2 it is [0.08, 0.42]. The interval assumes that
@@ -101,7 +101,7 @@ which differs from every de novo residue. The rate feeds only `class_error_rate`
 - `tests/calibration/test_variant_class_error.py`, no-variant arm: every ALT-supporting read is
   an error, so truth and estimate both sit at 0.97–1.0. This arm is a sanity check only; a
   constant estimator `rate = 1` passes it.
-- The same file's planted arm uses giapsim's reference peptides, which are the sample's own
+- The same file's planted arm uses gippasim's reference peptides, which are the sample's own
   identifications and so a variant-aware reference. Truth there is 0.23–0.73 for the
   substitution and frameshift classes. It is gated two-sided at |bias| ≤ 0.05
   (`denovo_precision_max_abs_bias`) on classes estimated in at least half the replicates; at
@@ -114,9 +114,9 @@ which differs from every de novo residue. The rate feeds only `class_error_rate`
   larger SE comes from n ≈ 25 paired observations per replicate against ≈ 470 and ≈ 220.
   The bias is the reference false-match term (bias 3 above), not quality selection:
   - Against the truth on paired spectra only, the bias is the same: +0.0088, +0.0042, +0.0029.
-    So selection of confident spectra contributes nothing in this scenario. giapsim draws
+    So selection of confident spectra contributes nothing in this scenario. gippasim draws
     reference confidence independently of de novo errors.
-  - In a decomposition over the first 20 planted replicates (statistician, from giapsim truth),
+  - In a decomposition over the first 20 planted replicates (statistician, from gippasim truth),
     the estimate minus the paired truth equals the share of paired observations where the de novo
     read is correct and the confident reference ID is wrong: 0.016 frameshift, 0.0047 and 0.0041
     substitution. No wrong de novo read was masked by an agreeing wrong reference ID.

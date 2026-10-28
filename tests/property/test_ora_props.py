@@ -25,7 +25,7 @@ from helpers.ora_data import Gene, frame, gene_sets, ora
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.multitest import bh
+from gippa.stats.multitest import bh
 
 SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=list(HealthCheck))
 ALPHA = 0.05

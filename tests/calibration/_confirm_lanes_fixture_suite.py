@@ -5,7 +5,7 @@ claim: tiny fixed R per check (2, 4, 5, 7: uneven slices for L = 2, 3 and an emp
 R = 2, L = 3), synthetic p-values and count records keyed by the absolute replicate index, so
 block 1 (0..R-1) and block 2 (R..2R-1) can be made to fail or pass on purpose. The leading
 underscore keeps it out of normal collection; the teeth name this file on the pytest command line
-and set ``GIAP_CONFIRM_LANES_FIXTURE=1`` (without it the module skips). It lives under
+and set ``GIPPA_CONFIRM_LANES_FIXTURE=1`` (without it the module skips). It lives under
 tests/calibration so the real conftest applies (suite keyword, owning-test records, xfail
 outcomes, the confirm-run skips).
 
@@ -23,14 +23,14 @@ from typing import Any
 import _criteria as C
 import pytest
 
-if os.environ.get("GIAP_CONFIRM_LANES_FIXTURE") != "1":
+if os.environ.get("GIPPA_CONFIRM_LANES_FIXTURE") != "1":
     pytest.skip("confirm-lanes fixture suite: run by test_criteria_confirm_lanes.py only",
                 allow_module_level=True)  # fmt: skip
 
 # the one-dead-lane tooth: the block-2 lane whose slice is ``<DIE>/L`` dies at import, before it
 # logs anything (exit 137, as after an OOM kill); the other lanes and every other run are unaffected
-_DIE = os.environ.get("GIAP_CONFIRM_LANES_FIXTURE_DIE")
-if _DIE and os.environ.get("GIAP_CALIBRATION_CONFIRM_SLICE", "").startswith(f"{_DIE}/"):
+_DIE = os.environ.get("GIPPA_CONFIRM_LANES_FIXTURE_DIE")
+if _DIE and os.environ.get("GIPPA_CALIBRATION_CONFIRM_SLICE", "").startswith(f"{_DIE}/"):
     os._exit(137)
 
 pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("discordance")]
