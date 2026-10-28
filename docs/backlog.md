@@ -1361,6 +1361,9 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 
 ## Genetic code 4 support (post-1.0)
 
+**Superseded (Khoa, 2026-10-28):** codes 4 and 25 are supported alongside 11; spec
+[M11-16](specs/M11-16-translation-tables-4-25.md). 16g removes this entry.
+
 Khoa, 2026-10-27 (Q-K30): GIPPA 1.0 supports genetic code 11 only; preflight refuses any other
 `annotation.translation_table` (#413) and warns when a default-11 genome looks like code 4
 (M11-14w, `genome.genetic_code`). Code 4 (Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma:
