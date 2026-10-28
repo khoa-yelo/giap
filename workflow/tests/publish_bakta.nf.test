@@ -1,0 +1,76 @@
+// M11-18 (docs/specs/M11-18-publish-bakta-outputs.md): the BAKTA process publishes its declared
+// outputs as OUT/annotation/tools/bakta/<sample>.json and .gbff (mode copy), so that
+// `gippa makedb --annotation OUT/annotation/tools/bakta/<sample>.json` works after a run.
+// A precomputed bakta_json is not published (no tool ran). Stub runs of ../main.nf, as in
+// annotate.nf.test; ci.yml runs: nf-test test workflow/tests --profile test,stub.
+// <sample> is the genome's simpleName: data/annotate/genome.fa -> "genome" (as genome.norm.fa
+// under `gippa run`).
+
+nextflow_pipeline {
+
+    name "M11-18 BAKTA outputs published under annotation/tools/bakta (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "publish_bakta"
+
+    test("acceptance 1+2: BAKTA ran -> annotation/tools/bakta/genome.json and genome.gbff, copied, nothing else") {
+
+        when {
+            params {
+                terminatornet_sharded = false
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 1 : "BAKTA did not run: ${H.names(workflow.trace)}"
+
+            def dir = new File("${outputDir}/annotation/tools/bakta")
+            assert dir.isDirectory() : "OUT/annotation/tools/bakta/ not published (M11-18)"
+            def json = new File(dir, 'genome.json')
+            def gbff = new File(dir, 'genome.gbff')
+            [json, gbff].each { f ->
+                assert f.isFile() : "${f} not published"
+                assert !java.nio.file.Files.isSymbolicLink(f.toPath()) : "${f.name} is a link; publish mode must be copy"
+            }
+            def asset = new File("${moduleTestDir}/../assets/stub/bakta.json")
+            assert json.bytes == asset.bytes : "published genome.json is not the BAKTA output (assets/stub/bakta.json)"
+
+            def names = dir.listFiles().collect { it.name }.sort()
+            assert names == ['genome.gbff', 'genome.json'] : "annotation/tools/bakta/ holds ${names}; only the declared json and gbff"
+            def versions = []
+            new File("${outputDir}/annotation/tools").eachFileRecurse { f -> if (f.name == 'versions.yml') versions << f }
+            assert versions.isEmpty() : "versions.yml published under annotation/tools: ${versions}"
+        }
+    }
+
+    test("acceptance 3: precomputed bakta_json (GBFF next to it) -> BAKTA not run, nothing under annotation/tools/bakta") {
+
+        when {
+            params {
+                terminatornet_sharded = false
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.bakta_json = new File("${d}/with_gbff/bakta_like.json").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 0
+            def dir = new File("${outputDir}/annotation/tools/bakta")
+            assert !dir.exists() : "precomputed bakta_json must not be published (M11-18): ${dir.listFiles()*.name}"
+        }
+    }
+}
