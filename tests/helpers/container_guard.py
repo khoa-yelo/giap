@@ -10,13 +10,15 @@ puts the scripts written here first on ``PATH``, one per runtime the host has.
 
 Each script refuses (exit ``REFUSED_EXIT``, ``REFUSED`` on stderr, the real binary never runs):
 
-- ``apptainer``/``singularity``: ``pull``; any argument that is a remote image URI
+- ``apptainer``/``singularity`` (the subcommand is the first word that is neither a flag nor
+  the value of ``-c``/``--config``): ``pull``; any argument that is a remote image URI
   (``docker://``, ``library://``, ``oras://``, ``shub://``, ``http(s)://``), so ``exec``/``run``
   of a remote image too; ``build`` of a definition file whose ``Bootstrap:`` is not local
   (``localimage``, ``scratch``, ``oci-archive``, ``docker-archive``).
 - ``docker``: ``pull``, ``push``, ``build``, ``buildx``, ``image pull|push|build``,
-  ``builder build``, ``compose pull|push|build|up|create|run``; ``run``/``create`` (also as
-  ``container run|create``) unless ``--pull=never`` / ``--pull never``.
+  ``builder build``, ``compose`` with any later word ``pull|push|build|up|create|run``;
+  ``run``/``create`` (also as ``container run|create``) unless ``--pull=never`` /
+  ``--pull never``.
 
 Anything else runs the real binary found on ``PATH`` at session start (capability probes such as
 ``apptainer --version`` keep working). A runtime the host lacks gets no script, so
@@ -56,9 +58,10 @@ remote() {{
 """
 
 _APPTAINER = """
-sub=""
+sub=""; skip=0
 for a in "$@"; do
-    case "$a" in -*) ;; *) sub=$a; break;; esac
+    if [ "$skip" = 1 ]; then skip=0; continue; fi
+    case "$a" in -c|--config) skip=1;; -*) ;; *) sub=$a; break;; esac
 done
 [ "$sub" = pull ] && refuse "$@"
 for a in "$@"; do
@@ -98,7 +101,10 @@ case "$sub" in
 pull|push|build|buildx) refuse "$@";;
 image) case "$sub2" in pull|push|build) refuse "$@";; esac;;
 builder) [ "$sub2" = build ] && refuse "$@";;
-compose) case "$sub2" in pull|push|build|up|create|run) refuse "$@";; esac;;
+compose)  # any later word: compose's value flags (-f c.yml, -p name, ...) hide the subcommand
+    for a in "$@"; do
+        case "$a" in pull|push|build|up|create|run) refuse "$@";; esac
+    done;;
 run|create) [ "$never" = 1 ] || refuse "$@";;
 container) case "$sub2" in run|create) [ "$never" = 1 ] || refuse "$@";; esac;;
 esac

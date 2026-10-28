@@ -325,6 +325,14 @@ def _pinned_host_probe(
 # ``@pytest.mark.real_container_pull``; ``needs_apptainer``/``needs_docker``/``e2e`` tests and
 # tests/e2e keep the real runtimes.
 _REAL_RUNTIME_MARKERS = ("real_container_pull", "needs_apptainer", "needs_docker", "e2e")
+# PATH and an outer guard (a child pytest of tests/unit/test_container_pull_guard.py), read once
+# at conftest import: a fake that a fixture puts on PATH later can never become the "real" binary.
+_SESSION_PATH = os.environ.get("PATH", "")
+_OUTER_GUARD = os.environ.get("GIPPA_TEST_CONTAINER_GUARD")  # helpers.container_guard.GUARD_ENV
+# The toy test files of test_container_pull_guard.py run only in its child pytest (env var set):
+# a toy left behind by a killed run is never collected (its opt-out test would pull for real).
+if not os.environ.get("GIPPA_TEST_CONTAINER_GUARD_TOY"):
+    collect_ignore_glob = ["*/test_zz_container_guard_toy_*"]
 
 
 @pytest.fixture(scope="session")
@@ -332,11 +340,10 @@ def _container_guard_dir(tmp_path_factory: pytest.TempPathFactory) -> Path | Non
     """The guard scripts for the runtimes on the session's ``PATH`` (``None``: none, or a
     pytester sandbox without tests/helpers)."""
     try:
-        from helpers.container_guard import GUARD_ENV, real_binaries, write_guard
+        from helpers.container_guard import real_binaries, write_guard
     except ImportError:
         return None
-    outer = os.environ.get(GUARD_ENV)
-    reals = real_binaries(os.environ.get("PATH", ""), (outer,) if outer else ())
+    reals = real_binaries(_SESSION_PATH, (_OUTER_GUARD,) if _OUTER_GUARD else ())
     if not reals:
         return None
     return write_guard(tmp_path_factory.mktemp("container_guard"), reals)

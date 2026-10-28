@@ -90,6 +90,13 @@ REFUSED_ARGVS = [
     ["docker", "run", "--rm", REF, "true"],
     ["docker", "container", "create", REF],
     ["docker", "compose", "up"],
+    ["docker", "compose", "-f", "c.yml", "up"],
+    ["docker", "compose", "-p", "p", "up"],
+    ["docker", "compose", "--project-name", "p", "pull"],
+    ["apptainer", "--config", "x.conf", "pull", "x.sif", "ubuntu"],
+    ["apptainer", "-c", "x.conf", "pull", "x.sif", "ubuntu"],
+    ["singularity", "exec", f"docker://{REF}", "true"],
+    ["apptainer", "build", "x.sif", "spaced.def"],
 ]
 
 ALLOWED_ARGVS = [
@@ -101,12 +108,16 @@ ALLOWED_ARGVS = [
     ["docker", "image", "inspect", "--format", "{{.Id}}", "localhost/x:1"],
     ["docker", "run", "--rm", "--pull=never", "localhost/x:1", "true"],
     ["docker", "run", "--pull", "never", "localhost/x:1", "true"],
+    ["docker", "container", "run", "--pull=never", "localhost/x:1", "true"],
+    ["docker", "compose", "version"],
+    ["apptainer", "--config", "x.conf", "exec", "local.sif", "true"],
 ]
 
 
 def _defs(cwd: Path) -> None:
     (cwd / "remote.def").write_text(BOOT_DOCKER, encoding="utf-8")
     (cwd / "local.def").write_text(BOOT_LOCAL, encoding="utf-8")
+    (cwd / "spaced.def").write_text("  bootstrap : library\nFrom: alpine\n", encoding="utf-8")
 
 
 @pytest.mark.parametrize("argv", REFUSED_ARGVS, ids=lambda a: " ".join(a)[:60])
@@ -204,12 +215,41 @@ def test_own_fake_first_on_path_wins(tmp_path, monkeypatch):
     assert got.returncode == 0 and got.stdout.strip() == "own-fake"
 
 
+@pytest.mark.needs_apptainer
+def test_needs_apptainer_keeps_the_real_runtime():
+    assert GUARD_ENV not in os.environ
+    assert Path(shutil.which("apptainer")).parent == Path({real_dir!r})
+
+
+@pytest.mark.needs_docker
+def test_needs_docker_keeps_the_real_runtime():
+    assert GUARD_ENV not in os.environ
+    assert Path(shutil.which("docker")).parent == Path({real_dir!r})
+
+
+@pytest.mark.e2e
+def test_e2e_keeps_the_real_runtime():
+    assert GUARD_ENV not in os.environ
+    assert Path(shutil.which("apptainer")).parent == Path({real_dir!r})
+
+
 @pytest.mark.real_container_pull
 def test_opt_out_runs_the_real_binary(tmp_path):
     assert GUARD_ENV not in os.environ
     got = subprocess.run(["apptainer", "pull", "x.img", "docker://" + REF],
                          capture_output=True, text=True, check=False)
     assert got.returncode == 0  # the recorder ran
+"""
+
+TOY_E2E_DIR = """
+import os
+import shutil
+from pathlib import Path
+
+
+def test_tests_e2e_keeps_the_real_runtime():
+    assert {guard_env!r} not in os.environ
+    assert Path(shutil.which("apptainer")).parent == Path({real_dir!r})
 """
 
 
@@ -222,20 +262,51 @@ def test_autouse_fixture_guards_setup_in_every_test(tmp_path: Path) -> None:
     rest = [d for d in os.environ.get("PATH", "").split(os.pathsep) if d and d != outer]
     env = {k: v for k, v in os.environ.items() if k != GUARD_ENV}
     env["PATH"] = os.pathsep.join([str(real_dir), *rest])
-    src = TOY.format(ref=REF, refused=REFUSED, guard_env=GUARD_ENV, boot=BOOT_DOCKER)
-    toy = REPO / "tests" / "unit" / f"test_zz_container_guard_toy_{os.getpid()}_{tmp_path.name}.py"
-    toy.write_text(src, encoding="utf-8")
+    env["GIPPA_TEST_CONTAINER_GUARD_TOY"] = "1"  # tests/conftest.py ignores the toys otherwise
+    fmt = {"ref": REF, "refused": REFUSED, "guard_env": GUARD_ENV, "boot": BOOT_DOCKER,
+           "real_dir": str(real_dir)}  # fmt: skip
+    name = f"test_zz_container_guard_toy_{os.getpid()}_{tmp_path.name}.py"
+    e2e_name = name.replace("_toy_", "_toy_e2e_")  # unique basenames (rootdir-less imports)
+    toys = [REPO / "tests" / "unit" / name, REPO / "tests" / "e2e" / e2e_name]
+    toys[0].write_text(TOY.format(**fmt), encoding="utf-8")
+    toys[1].write_text(TOY_E2E_DIR.format(**fmt), encoding="utf-8")
     try:
         run = subprocess.run(
-            [sys.executable, "-m", "pytest", str(toy), "-q", "-p", "no:cacheprovider",
+            [sys.executable, "-m", "pytest", *map(str, toys), "-q", "-p", "no:cacheprovider",
              "-p", "no:xdist", "-p", "no:randomly", "-rA",
              "--basetemp", str(tmp_path / "child")],
             cwd=REPO, env=env, capture_output=True, text=True, timeout=600,
         )  # fmt: skip
     finally:
-        toy.unlink(missing_ok=True)
+        for toy in toys:
+            toy.unlink(missing_ok=True)
     out = run.stdout + run.stderr
     assert run.returncode == 0, out
-    assert "6 passed" in out, out
-    # only the opt-out test reached the recorder, once
-    assert _log(log).splitlines() == [f"apptainer pull x.img docker://{REF}"], out
+    assert "10 passed" in out, out
+    # only the opt-out test's pull reached the recorder, once; besides it only the capability
+    # probes of the needs_apptainer/needs_docker tests ran (tests/conftest.py CHECKS)
+    lines = _log(log).splitlines()
+    pull = f"apptainer pull x.img docker://{REF}"
+    assert lines.count(pull) == 1, lines
+    assert set(lines) <= {pull, "apptainer --version", "docker info"}, lines
+
+
+def test_left_over_toys_are_never_collected(tmp_path: Path) -> None:
+    """A toy left by a killed run is ignored without the child's env var (and gitignored)."""
+    # a small directory: an explicit file argument would bypass collect_ignore_glob
+    toy = REPO / "tests" / "unit" / "compare" / f"test_zz_container_guard_toy_left_{os.getpid()}.py"
+    toy.write_text("def test_should_not_run():\n    raise AssertionError\n", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != "GIPPA_TEST_CONTAINER_GUARD_TOY"}
+    try:
+        run = subprocess.run(
+            [sys.executable, "-m", "pytest", str(toy.parent), "-q", "-p", "no:cacheprovider",
+             "-p", "no:xdist", "--collect-only", "-k", "should_not_run",
+             "--basetemp", str(tmp_path / "child")],
+            cwd=REPO, env=env, capture_output=True, text=True, timeout=600,
+        )  # fmt: skip
+        ignored = subprocess.run(["git", "check-ignore", "-q", str(toy)], cwd=REPO, check=False)
+    finally:
+        toy.unlink(missing_ok=True)
+    assert run.returncode == 5, run.stdout + run.stderr  # 5: nothing collected (-k)
+    assert "should_not_run" not in run.stdout, run.stdout
+    assert ignored.returncode == 0  # .gitignore covers the pattern

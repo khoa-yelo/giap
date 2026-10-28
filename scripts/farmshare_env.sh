@@ -14,6 +14,8 @@ export UV_PROJECT_ENVIRONMENT="$GIPPA_ROOT/venv"
 export UV_LINK_MODE=copy
 export PIP_CACHE_DIR="$GIPPA_ROOT/cache/pip"
 export APPTAINER_CACHEDIR="$GIPPA_ROOT/cache/apptainer"
+export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-$GIPPA_ROOT/tmp/apptainer}"   # pull/build staging; /tmp filled up
+mkdir -p "$APPTAINER_TMPDIR" 2>/dev/null || true
 export NXF_HOME="$GIPPA_ROOT/nextflow"
 export NXF_APPTAINER_CACHEDIR="$GIPPA_ROOT/containers"
 export NXF_CONDA_CACHEDIR="$MAMBA_ROOT_PREFIX/nxf-envs"

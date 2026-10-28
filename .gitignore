@@ -17,3 +17,6 @@ htmlcov/
 # mkdocs build output
 site/
 /dist/
+
+# toy tests of tests/unit/test_container_pull_guard.py left by a killed run
+test_zz_container_guard_toy_*.py
