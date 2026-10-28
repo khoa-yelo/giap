@@ -389,6 +389,23 @@ def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
     return dataclasses.replace(rec, message=f"downloaded from {item.host}")
 
 
+def _swap_dir(built: Path, target: Path) -> None:
+    """Swap the verified directory ``built`` in for ``target``: the old copy is renamed aside to
+    ``<target>.old`` and deleted only once the new one is in place; if the rename in fails it is
+    moved back (and the error re-raised), so a failed swap never leaves no copy."""
+    old = target.with_name(target.name + ".old")
+    shutil.rmtree(old, ignore_errors=True)
+    if target.exists():
+        target.rename(old)
+    try:
+        built.rename(target)
+    except OSError:
+        if old.exists() and not target.exists():
+            old.rename(target)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
+
+
 def _antismash_image(item: DbItem, runner: CommandRunner) -> DbRecord | None:
     """``ok`` with url "image" when ``antismash --check-prereqs`` passes on the image's own
     databases (M2-09 lead decision 3), else None."""
@@ -439,9 +456,7 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         if got.status != "ok":
             return _absent(item, f"download from {item.host} does not verify: {got.message}",
                            got.status)  # fmt: skip
-        if target.exists():
-            shutil.rmtree(target)
-        built.rename(target)
+        _swap_dir(built, target)
     except ToolUnavailable as exc:
         return _absent(item, str(exc))
     except SourceError as exc:
@@ -564,7 +579,11 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
         old, prefetch = read_records(db), read_prefetch(db)
         recs: list[DbRecord] = []
         for item in items:
-            rec = install(item, db, runner, fetcher)
+            try:
+                rec = install(item, db, runner, fetcher)
+            except OSError as exc:  # EXDEV/ESTALE/EIO at the final rename: this item fails
+                rec = _absent(item, f"cannot install {db / item.path}: {exc.strerror or exc}",
+                              "failed")  # fmt: skip
             if rec.status == "ok" and not rec.message:  # adopted, not downloaded now
                 rec = _provenance(rec, old, prefetch, item.prefetch)
             _report(rec)
