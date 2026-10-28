@@ -1,0 +1,69 @@
+// M2-15b: annotate.nf picks the sharded TerminatorNet scan or the old single task from
+// params.terminatornet_sharded (docs/specs/M2-15b-terminatornet-sharding.md items 5, 6; lead
+// decision 4). Stub runs of ../main.nf on the M2-07 fixtures (data/annotate/, see annotate.nf.test);
+// either way terminator_layer runs once and receives the terminatornet TSV.
+// ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here as well.
+
+nextflow_pipeline {
+
+    name "ANNOTATE TerminatorNet sharded/unsharded switch (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "annotate"
+
+    test("default (terminatornet_sharded = true): PLAN, 2 CHUNKs and MERGE, no single TERMINATORNET task") {
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                stub = [windows_chunks: 1, tu_regions: 1, terminatornet_chunks: 2]
+            }
+        }
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'TERMINATORNET') == 0 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET_PLAN') == 1 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET_CHUNK') == 2 : ran
+            assert H.count(workflow.trace, 'TERMINATORNET_MERGE') == 1 : ran
+            assert H.stepCount(workflow.trace, 'terminator_layer') == 1 : ran
+            def tl = H.stepDirs(workDir.toString(), 'terminator_layer')[0]
+            def keys = H.stepInputs(tl).collect { it[0] }
+            assert 'terminatornet' in keys : "terminator_layer --in keys: ${keys}"
+            // the default path's stub outputs (examples 1/2/5 of annotate.nf.test pin the unsharded task)
+            def md = H.procDirs(workDir.toString(), 'TERMINATORNET_MERGE')[0]
+            def out = H.files(md).findAll { !it.path.contains('/in/') }
+            assert out.any { it.name == 'terminatornet.tsv' && it.text.contains('NO TERMINATORS FOUND') } : "MERGE stub TSV: ${out}"
+            assert out.any { it.name == 'versions.yml' && it.text.contains('terminatornet') } : "MERGE versions.yml: ${out}"
+        }
+    }
+
+    test("--terminatornet_sharded false: the single TERMINATORNET task, no PLAN/CHUNK/MERGE") {
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                terminatornet_sharded = false
+            }
+        }
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'TERMINATORNET') == 1 : ran
+            ['TERMINATORNET_PLAN', 'TERMINATORNET_CHUNK', 'TERMINATORNET_MERGE'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran with terminatornet_sharded = false: ${ran}"
+            }
+            assert H.stepCount(workflow.trace, 'terminator_layer') == 1 : ran
+            def tl = H.stepDirs(workDir.toString(), 'terminator_layer')[0]
+            assert 'terminatornet' in H.stepInputs(tl).collect { it[0] }
+        }
+    }
+}

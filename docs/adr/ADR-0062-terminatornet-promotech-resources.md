@@ -53,3 +53,26 @@ In `workflow/conf/base.config`:
 - R14 is unchanged: `queueSize` × the 16-CPU cap still bounds a run at 128 CPUs, and Promotech's
   11 chunks now ask for 33 CPUs instead of 88.
 - If a Promotech chunk ever exceeds 10 GB it is killed (137) and retried at 20 GB.
+
+## Amendment 1 (proposed 2026-10-27; M2-15b, docs/specs/M2-15b-terminatornet-sharding.md)
+- `ANNOTATE:TERMINATORNET` is replaced by `TERMINATORNET_PLAN` → `TERMINATORNET_CHUNK` (one task
+  per 250,000-window core of each contig strand) → `TERMINATORNET_MERGE`
+  (`workflow/subworkflows/local/terminatornet_sharded.nf`, `workflow/bin/gippa_terminatornet_shard`)
+  behind `params.terminatornet_sharded = true`. `false` runs the unsharded `TERMINATORNET` module
+  unchanged, with the `cpus = 16`, `16.GB × attempt` request above; it stays the fallback and the
+  acceptance reference.
+- Chunk resources: `cpus = params.terminatornet_chunk_cpus` (default 4, `--terminatornet_chunk_cpus N`,
+  clamped by `resourceLimits`), `memory = 4.GB × attempt`, and on FarmShare `time = 2.h × attempt`
+  with the `max(cpus, ceil(memory / 4000 MB))` rule. PLAN and MERGE are `process_single`. Under
+  `queueSize = 8` the step holds at most 8 × 4 = 32 CPUs at a time (16 before); the run's bound of
+  128 CPUs is unchanged. A 137/140/143 retry re-runs one chunk, and `-resume` keeps finished chunks.
+- Correction: "its output does not depend on `-n`" holds only for `-n ≥ 2`. With a sequence
+  ≥ 501 nt, `scan_multiprocess` stable-sorts the calls by stop before `merge_overlapping`; `-n 1`
+  runs `scan()`, which keeps window order, so its output can differ. The `-n ≥ 2` output (what the
+  deployed module produces) is the reference; the sharded step reproduces it at any chunk CPU count.
+- Resume: Nextflow does not hash `workflow/bin/` scripts, so after a change to
+  `gippa_terminatornet_shard` a `-resume` reuses the old chunk pickles; re-run without `-resume`
+  (or clear the TERMINATORNET_CHUNK work dirs).
+- msmeg measurement (wall time from the first PLAN submit to the MERGE end, chunk count, max chunk
+  wall time, max RSS and peak concurrent CPUs at `terminatornet_chunk_cpus = 4`, next to the failed
+  unsharded attempt, exit 140 at 12 h): pending; recorded here and in PROGRESS.md once it exists.

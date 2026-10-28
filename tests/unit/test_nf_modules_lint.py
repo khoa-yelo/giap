@@ -197,7 +197,13 @@ def test_meta_yml_records_name_and_licence(tool: str) -> None:
 
 
 # Process names that differ from their TOOLS key (BLAST+ is one tool; M3-13 runs its tblastn).
-PROCESS_TOOL = {"tblastn": "blast"}
+PROCESS_TOOL = {
+    "tblastn": "blast",
+    # M2-15b: the sharded TerminatorNet processes share the terminatornet tools key
+    "terminatornet_plan": "terminatornet",
+    "terminatornet_chunk": "terminatornet",
+    "terminatornet_merge": "terminatornet",
+}
 
 
 def _tool_key(process: str) -> str:

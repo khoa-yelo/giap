@@ -160,7 +160,8 @@ nextflow_pipeline {
                         'OSTIR_NOVEL', 'PROMOTECH_NOVEL',  // M7-08 NOVEL (peptides given)
                         'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
                         'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
-                        'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
+                        'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX',
+                        'TERMINATORNET_CHUNK', 'TERMINATORNET_MERGE', 'TERMINATORNET_PLAN',  // M2-15b sharded
                         'TERMINATOR_LAYER', 'TRANSTERMHP', 'TRANSTERM_INPUT', 'TX_LAYER', 'UNIOP', 'VARIANTS_STEP',
                         'UNIOP_INPUT'].sort()
             assert got == want : "process list changed: extra ${got - want}, missing ${want - got}; got ${got}"

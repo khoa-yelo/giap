@@ -11,6 +11,7 @@ include { UNIOP } from '../../modules/local/uniop/main'
 include { PROMOTECH } from '../../modules/local/promotech/main'
 include { PROMOTER_CALCULATOR } from '../../modules/local/promoter_calculator/main'
 include { TERMINATORNET } from '../../modules/local/terminatornet/main'
+include { TERMINATORNET_SHARDED } from './terminatornet_sharded'
 include { TRANSTERMHP } from '../../modules/local/transtermhp/main'
 include { BACTERMFINDER } from '../../modules/local/bactermfinder/main'
 include { OSTIR } from '../../modules/local/ostir/main'
@@ -177,8 +178,13 @@ workflow ANNOTATE {
         def term = ann.terminators
         def tools = []
         if (term.tool == 'terminatornet') {
-            TERMINATORNET(gin)
-            tools += [kv('terminatornet', TERMINATORNET.out.tsv)]
+            if (params.terminatornet_sharded) {   // M2-15b; false = the old single task
+                TERMINATORNET_SHARDED(gin)
+                tools += [kv('terminatornet', TERMINATORNET_SHARDED.out.tsv)]
+            } else {
+                TERMINATORNET(gin)
+                tools += [kv('terminatornet', TERMINATORNET.out.tsv)]
+            }
         }
         if (term.tool == 'transtermhp' || term.cross_check_transtermhp) {
             def ti = stepIn('transterm_input', [genes])
