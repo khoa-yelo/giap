@@ -4,8 +4,8 @@ wiring) (docs/specs/M11-14w-wrong-genetic-code-warning.md; GIPPA_SPEC.md §7.0, 
 
 Interface assumed (spec "Where it runs" items 1, 5 and example 8):
 - ``gippa.preflight.genetic_code.genetic_code_check(seqs: Sequence[str], table: int) -> Check``;
-- ``gippa.preflight.genetic_code._decide(bp11, bp4, n4)`` returns a ``Check`` or a level string
-  (both accepted here; only the level is read from it);
+- ``gippa.preflight.genetic_code._decide(bp11, bp4, n4, table=t)`` (M11-16 example 9) returns
+  a ``Check`` or a level string (both accepted here; only the level is read from it);
 - ``genetic_code_check`` gets its per-record counts from the module-level ``long_orf_cover``
   looked up at call time (the truncated-ratio wording test patches it; spec example 8 asks for
   ``ratio 0.54`` at bp11 = 549, bp4 = 1000, which no small real sequence gives);
@@ -13,6 +13,10 @@ Interface assumed (spec "Where it runs" items 1, 5 and example 8):
   ``gippa.preflight.run`` or ``gippa.preflight.genetic_code`` (AC 5 patches both).
 
 The fixture generator is ``helpers.genetic_code_fixture.synthetic_genome`` (spec test plan).
+
+M11-16 (docs/specs/M11-16-translation-tables-4-25.md item 2.3) changed the rule text, the W11
+wording, ``value.translation_table`` and the table handling; tables 4 and 25 are tested in
+``test_m11_16a_preflight.py``.
 """
 
 from __future__ import annotations
@@ -39,13 +43,16 @@ from gippa.preflight.checks import Check
 
 RULE_ID = "genome.genetic_code"
 RULE_TEXT = (
-    "long ORFs (>= 300 codons, six frames): bp with TGA as stop / bp with TGA as sense < 0.55 "
-    "-> warn (needs >= 20 such ORFs)"
+    "long ORFs (>= 300 codons, six frames): bp with TGA as stop / bp with TGA as sense; "
+    "table 11: < 0.55 -> warn; tables 4, 25: >= 0.55 -> warn (needs >= 20 such ORFs)"
 )
-MSG_TABLE = "not evaluated: annotation.translation_table is not 11"
+MSG_TABLE = "not evaluated: unsupported annotation.translation_table"  # M11-16 item 2.3
 MSG_FEW = "not evaluated: fewer than 20 open reading frames of at least 300 codons"
-WARN_START = "This genome probably uses genetic code 4"
-VALUE_KEYS = {"min_codons", "bp_tga_stop", "bp_tga_sense", "n_orfs_tga_sense", "ratio", "threshold"}
+WARN_START = "This genome probably uses a genetic code in which TGA is not a stop"  # M11-16 W11
+VALUE_KEYS = {
+    "min_codons", "bp_tga_stop", "bp_tga_sense", "n_orfs_tga_sense", "ratio", "threshold",
+    "translation_table",
+}  # fmt: skip
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
@@ -92,6 +99,7 @@ def assert_value(c: Check) -> dict[str, Any]:
     assert set(v) == VALUE_KEYS
     assert v["min_codons"] == 300
     assert v["threshold"] == 0.55
+    assert v["translation_table"] == 11
     bp11, bp4 = v["bp_tga_stop"], v["bp_tga_sense"]
     assert isinstance(bp11, int) and isinstance(bp4, int) and isinstance(v["n_orfs_tga_sense"], int)
     assert 0 <= bp11 <= bp4
@@ -121,7 +129,8 @@ def test_warning_wording() -> None:
     v = assert_value(c)
     bp11, bp4 = v["bp_tga_stop"], v["bp_tga_sense"]
     text = " ".join(c.message.split())
-    ratio = f"0.{(100 * bp11) // bp4:02d}"
+    r = (100 * bp11) // bp4
+    ratio = f"{r // 100}.{r % 100:02d}"
     assert f"(ratio {ratio} < 0.55)" in text
     m = re.search(r"cover (\d+) % of the genome when TGA is read as a codon but only (\d+) % when "
                   r"it is a stop", text)  # fmt: skip
@@ -129,15 +138,17 @@ def test_warning_wording() -> None:
     q4, q11 = int(m.group(1)), int(m.group(2))
     assert abs(q4 - 100 * bp4 / len(seq)) <= 1
     assert abs(q11 - 100 * bp11 / len(seq)) <= 1
-    for phrase in (
-        "(TGA = Trp; Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma)",
-        "or another code in which TGA is not a stop",
-        "GIPPA 1.0 supports genetic code 11 only: genes will be cut at TGA",
-        "proteins and peptides that contain W will not map",
-        "strain_difference and nterm_extension_evidence flags will be artefacts",
+    for phrase in (  # W11 (M11-16 item 2.3)
+        "code 4 (TGA = Trp; Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma and other Mollicutes)",
+        "or code 25 (TGA = Gly; candidate division SR1, Gracilibacteria).",
+        "This run uses annotation.translation_table: 11, so genes will be cut at TGA",
+        "peptides with W or G at TGA codons will not map",
+        "strain_difference, readthrough and nterm_extension_evidence flags will be artefacts",
+        "Set annotation.translation_table to 4 or 25 from the organism's taxonomy",
         "This warning does not change any result.",
     ):
         assert phrase in text
+    assert "GIPPA 1.0 supports genetic code 11 only" not in text
 
 
 def test_example7_code11_fixture_ok() -> None:
@@ -156,13 +167,13 @@ def test_example7_code11_fixture_ok() -> None:
 def test_example8_decide_boundary_on_integers() -> None:
     from gippa.preflight.genetic_code import _decide
 
-    assert level_of(_decide(550, 1000, 20)) == "ok"
-    assert level_of(_decide(549, 1000, 20)) == "warn"
-    assert level_of(_decide(549, 1000, 19)) == "info"
-    assert level_of(_decide(0, 1000, 19)) == "info"
-    assert level_of(_decide(1000, 1000, 19)) == "info"
-    assert level_of(_decide(0, 18_000, 20)) == "warn"
-    assert level_of(_decide(18_000, 18_000, 20)) == "ok"
+    assert level_of(_decide(550, 1000, 20, table=11)) == "ok"
+    assert level_of(_decide(549, 1000, 20, table=11)) == "warn"
+    assert level_of(_decide(549, 1000, 19, table=11)) == "info"
+    assert level_of(_decide(0, 1000, 19, table=11)) == "info"
+    assert level_of(_decide(1000, 1000, 19, table=11)) == "info"
+    assert level_of(_decide(0, 18_000, 20, table=11)) == "warn"
+    assert level_of(_decide(18_000, 18_000, 20, table=11)) == "ok"
 
 
 @settings(max_examples=300, deadline=None)
@@ -172,7 +183,7 @@ def test_decide_is_the_exact_integer_rule(bp4: int, frac: int, n4: int) -> None:
 
     bp11 = bp4 * frac // 10**6
     want = "warn" if 20 * bp11 < 11 * bp4 else "ok"
-    assert level_of(_decide(bp11, bp4, n4)) == want
+    assert level_of(_decide(bp11, bp4, n4, table=11)) == want
 
 
 def test_example8_ratio_is_truncated_in_the_message(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -200,14 +211,22 @@ def test_example8_ratio_is_truncated_in_the_message(monkeypatch: pytest.MonkeyPa
 # ---------------------------------------------------------------- examples 9-10, info paths
 
 
-@pytest.mark.parametrize("table", [4, 1, 25])
+@pytest.mark.parametrize("table", [1, 12, 26])  # M11-16: 4 and 25 are evaluated (test_m11_16a_*)
 @pytest.mark.parametrize("which", ["code4", "code11", "empty"])
-def test_example9_other_table_is_info(table: int, which: str) -> None:
+def test_example9_unsupported_table_is_info(table: int, which: str) -> None:
     seqs = {"code4": [code4()], "code11": [code11()], "empty": []}[which]
     c = gcc(seqs, table)
     assert_shape(c)
     assert c.level == "info"
     assert c.message == MSG_TABLE
+
+
+@pytest.mark.parametrize("table", [4, 25])
+def test_example9_tables_4_and_25_are_evaluated(table: int) -> None:
+    c = gcc([code4()], table)
+    assert c.level == "ok"
+    assert c.message == ""
+    assert isinstance(c.value, dict) and c.value["translation_table"] == table
 
 
 def test_example10_plasmid_with_few_long_orfs_is_info() -> None:
@@ -228,7 +247,8 @@ def test_example10_poly_a_is_info_not_ok() -> None:
     assert c.level == "info"
     assert c.message == MSG_FEW
     assert v == {"min_codons": 300, "bp_tga_stop": 10_000, "bp_tga_sense": 10_000,
-                 "n_orfs_tga_sense": 6, "ratio": 1.0, "threshold": 0.55}  # fmt: skip
+                 "n_orfs_tga_sense": 6, "ratio": 1.0, "threshold": 0.55,
+                 "translation_table": 11}  # fmt: skip
 
 
 def test_no_records_is_info_with_null_ratio() -> None:
@@ -427,8 +447,12 @@ def test_ac1_parse_error_gives_info(tmp_path: Path) -> None:
     assert found[0].exit_code == 0
 
 
-def test_ac1_translation_table_4_gives_info(tmp_path: Path) -> None:
-    report, _ = _run(tmp_path, _fasta([code4()]), "annotation.translation_table=4")
+def test_ac1_translation_table_4_evaluates_and_12_gives_info(tmp_path: Path) -> None:
+    no_gencode = "mapping.proteins.tblastn_args=-seg no -evalue 1e-5"  # until M11-16d (D1)
+    report, _ = _run(tmp_path, _fasta([code4()]), "annotation.translation_table=4", no_gencode)
+    (c,) = _gc_checks(report)
+    assert c.level == "ok"
+    report, _ = _run(tmp_path, _fasta([code4()]), "annotation.translation_table=12")
     (c,) = _gc_checks(report)
     assert c.level == "info"
     assert c.message == MSG_TABLE
@@ -468,7 +492,7 @@ def test_preflight_json_and_md_carry_the_check(tmp_path: Path) -> None:
 
 def _ok_check() -> Check:
     value = {"min_codons": 300, "bp_tga_stop": 0, "bp_tga_sense": 0, "n_orfs_tga_sense": 0,
-             "ratio": None, "threshold": 0.55}  # fmt: skip
+             "ratio": None, "threshold": 0.55, "translation_table": 11}  # fmt: skip
     return Check(RULE_ID, "genome", "ok", RULE_TEXT, value, "")
 
 

@@ -1,10 +1,13 @@
-"""1.0 supports genetic code 11 only (Q-K30 default (b); table 4 and others: backlog, 1.1).
+"""Unsupported genetic codes stop the run in preflight (#413; M11-16 item 2.1 widens the set).
 
-Bakta, the six-frame index and codon usage all assume code 11, so any other
+GIPPA supports genetic codes 4, 11 and 25 (M11-16, ADR-0067; supersedes Q-K30). Any other
 ``annotation.translation_table`` must stop the run in preflight with an input error (exit 1),
-never a warning and never a silent code-11 run. Rule id ``config.translation_table``; the
-message names the value, the setting and "only genetic code 11 is supported in this release".
-``gippa run`` must not start Nextflow (a fake ``nextflow`` on PATH records any launch).
+never a warning and never a silent run. Rule id ``config.translation_table``; the message names
+the value, the setting and the supported set. ``gippa run`` must not start Nextflow (a fake
+``nextflow`` on PATH records any launch).
+
+Runs at 4 and 25 set ``mapping.proteins.tblastn_args`` without ``-db_gencode``: the shipped
+default carries ``-db_gencode 11`` until M11-16d, and ``config.tool_genetic_code`` refuses it.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ SCHEMA_PATH = ROOT / "src" / "gippa" / "schemas" / "preflight.schema.json"
 RULE = "config.translation_table"
 LOW = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
+NO_GENCODE = "mapping.proteins.tblastn_args=-seg no -evalue 1e-5"
 
 
 @pytest.fixture(autouse=True)
@@ -54,8 +58,8 @@ def _report(tmp_path: Path, *sets: str) -> Any:
     return run_preflight(PreflightInputs(genome=g, proteins=p), cfg, None, "preflight")[0]
 
 
-@pytest.mark.parametrize("table", [4, 25])
-def test_non_11_translation_table_is_a_preflight_error(tmp_path: Path, table: int) -> None:
+@pytest.mark.parametrize("table", [1, 2, 12, 0, -1, 26])
+def test_unsupported_translation_table_is_a_preflight_error(tmp_path: Path, table: int) -> None:
     report = _report(tmp_path, f"annotation.translation_table={table}")
     hits = [c for c in report.checks if c.rule_id == RULE]
     assert len(hits) == 1, [c.rule_id for c in report.checks]
@@ -64,8 +68,16 @@ def test_non_11_translation_table_is_a_preflight_error(tmp_path: Path, table: in
     assert c.input != "environment"
     assert str(table) in c.message
     assert "annotation.translation_table" in c.message
-    assert "only genetic code 11 is supported in this release" in c.message.lower()
+    assert "genetic codes 4, 11 and 25" in c.message
     assert report.exit_code == int(ExitCode.INVALID_INPUT)
+
+
+@pytest.mark.parametrize("table", [4, 25])
+def test_translation_tables_4_and_25_pass(tmp_path: Path, table: int) -> None:
+    report = _report(tmp_path, f"annotation.translation_table={table}", NO_GENCODE)
+    hits = [c for c in report.checks if c.rule_id == RULE]
+    assert [(c.level, c.message) for c in hits] == [("ok", "")]
+    assert report.exit_code == int(ExitCode.SUCCESS)
 
 
 def test_default_translation_table_11_passes(tmp_path: Path) -> None:
@@ -87,7 +99,10 @@ def test_gippa_preflight_exits_invalid_input(tmp_path: Path) -> None:
     base += [a for s in LOW for a in ("--set", s)]
     ok = CliRunner().invoke(cli, base)
     assert ok.exit_code == ExitCode.SUCCESS, ok.output
-    res = CliRunner().invoke(cli, [*base, "--set", "annotation.translation_table=4"])
+    four = CliRunner().invoke(cli, [*base, "--set", "annotation.translation_table=4",
+                                    "--set", NO_GENCODE])  # fmt: skip
+    assert four.exit_code == ExitCode.SUCCESS, four.output
+    res = CliRunner().invoke(cli, [*base, "--set", "annotation.translation_table=12"])
     assert res.exit_code == ExitCode.INVALID_INPUT, res.output
     assert RULE in res.output
     data = json.loads((out / "preflight" / "preflight.json").read_text(encoding="utf-8"))
@@ -111,7 +126,7 @@ def test_gippa_run_exits_invalid_input_without_launching_nextflow(
     monkeypatch.setenv("FAKE_NF_MARK", str(mark))
     g, p = _files(tmp_path)
     argv = ["run", "--genome", str(g), "--proteins", str(p), "--outdir", str(tmp_path / "OUT"),
-            "--profile", "apptainer", "--set", "annotation.translation_table=4"]  # fmt: skip
+            "--profile", "apptainer", "--set", "annotation.translation_table=12"]  # fmt: skip
     res = CliRunner().invoke(cli, [*argv, *(a for s in LOW for a in ("--set", s))])
     assert res.exit_code == ExitCode.INVALID_INPUT, res.output
     assert RULE in res.output
