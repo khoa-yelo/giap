@@ -1168,6 +1168,24 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md �
 - **Preflight GBFF warning:** warn when the bgc module is on and no `<stem>.gbff[.gz]` sits next to the precomputed Bakta JSON (antiSMASH is otherwise skipped with `layer_missing`); name the expected path.
 - **TerminatorNet sharding:** TerminatorNet runs super-linear on large high-GC genomes; a spec is in progress in branch `spec/terminatornet-shard`.
 
+### 2026-10-28 (lead)
+- **#453 review notes (container pull guard; S1–S2 fixed in the PR):**
+  - N2: the apptainer remote-URI scan checks every argument, including the command run inside the container; `--env URL=https://…`, `apptainer build out.sif -` (definition on stdin) and upper-case `DOCKER://` pass. Note it in the `tests/helpers/container_guard.py` docstring or tighten the scan.
+  - N3: `docker import <URL>`, `plugin install`, `service create` and `stack deploy` are not covered (GIPPA uses none today); `--pull=never` is also matched in the container's own arguments.
+  - N4: subprocesses started with a hard-coded `PATH=/usr/bin:/bin` skip the guard (`tests/helpers/a3_run_m10_10.py:431`, `tests/helpers/pilot_runs_m10_04.py:326`); harmless on FarmShare, not on a host with `/usr/bin/apptainer` or `/usr/bin/docker`. List as a known limit or keep the guard dir on that PATH.
+  - N6: production `docker run` lacks `--pull=never` in `src/gippa/preflight/environment.py` (`probe_uniop`, a local build where a pull can never succeed: add it) and `src/gippa/io/fgsea_r.py` (pinned digest: decide whether an implicit pull is wanted).
+- **#457/#458 review notes (`scripts/build_envs.sh`):**
+  - N2: take the CUDA override default from the yml's `cuda-version=` pin instead of the hard-coded 11.8.
+  - N3: a Nextflow task that starts during a rebuild sees a missing or half-built env (`prebuilt_envs.config` points at the env path; preflight checks the marker only at run start). Document it in the script header, or refuse to rebuild while a `gippa-run` job is in `squeue`.
+  - N6: on the "exists" path the git re-clone still `rm -rf`s `share/<tool>` inside the live env, outside the rename protection.
+- **TerminatorNet sharding (#455 review, #459 validation):**
+  - N1: Nextflow does not hash `workflow/bin/` scripts, so `-resume` reuses stale chunk pickles after a change to `gippa_terminatornet_shard` (noted in ADR-0062: re-run without `-resume`). A content hash in the task inputs would close it.
+  - N3: no fake sequence in `tests/unit/test_m2_15b_tnet_shard_cli.py` gives a candidate at window 0 of a strand (the contig edge), so the `j >= 0` → `j > 0` mutant survives; one record starting with `GA` would kill it.
+  - Cost: msmeg chunks cost about 44 CPU-min against the spec's estimate of about 19; per Mb-strand about 2.2× K-12 (177 vs 81 CPU-min), rising with GC (mhyo 54 … msmeg 177). Update the spec estimate and the resource rule.
+  - msmeg's 56 chunks can hold all 8 queue slots (`queueSize = 8`) and starve other steps; check this in a full Nextflow trace.
+  - No full-pipeline Nextflow run of the sharded path yet; the msmeg full rerun after calibration will be the first. Record its trace and `cmp` result in `docs/validation/M2-15b-terminatornet-sharding.md`.
+- **Process (lead):** two nf-test jobs run concurrently in one worktree collide on `.nf-test/`; run at most one nf-test job per worktree (or give each its own worktree).
+
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
 - (M7-11b decision 10) gippasim/makedb ID mismatches left: annotated peptides in the first 30 codons do not also list the gene's nterm entry; 27 non-ATG-start peptides beginning with M are absent from makedb's literal translation; 18 rows name entries shorter than min_orf_aa=20.
