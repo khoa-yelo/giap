@@ -67,6 +67,7 @@ def test_bakta_regions_keeps_given_cds(tmp_path: Path) -> None:
         replicons_tsv=tmp_path / "replicons.tsv",
         regions_gff3=regions,
         extra_args=["--skip-plot"],
+        translation_table=11,
     )
     proc = subprocess.run(
         f"micromamba run -n {env} {shlex.join(argv)}",

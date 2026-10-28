@@ -80,4 +80,82 @@ nextflow_process {
             assert new File(task, argv[i + 1]).exists() : "--regions ${argv[i + 1]} not staged in the task dir"
         }
     }
+
+    // M11-16 item 3.1 (D2, Khoa 2026-10-28): --translation-table <t> only when
+    // params.annotation.translation_table is not 11, right before --replicons (as
+    // gippa.annotate.bakta_cmd.bakta_command; example 8); at 11 the argv is unchanged.
+    test("M11-16d: table 25, all circular -> --complete --translation-table 25 --replicons") {
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                annotation = [translation_table: 25]
+            }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_circular.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = []
+                """
+            }
+        }
+        then {
+            assert process.success
+            def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
+            assert argv.count('--translation-table') == 1 : "${argv}"
+            def i = argv.indexOf('--translation-table')
+            assert argv[i + 1] == '25' && argv[i + 2] == '--replicons' : "example 8: ${argv}"
+            assert argv.indexOf('--complete') >= 0 && argv.indexOf('--complete') < i : "${argv}"
+        }
+    }
+
+    test("M11-16d: table 4 with extra_args and a mixed table -> --translation-table 4 before --replicons, extra args after") {
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                annotation = [translation_table: 4, bakta: [extra_args: ['--skip-plot']]]
+            }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_linear.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = []
+                """
+            }
+        }
+        then {
+            assert process.success
+            def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
+            def i = argv.indexOf('--translation-table')
+            assert i >= 0 && argv[i + 1] == '4' && argv[i + 2] == '--replicons' : "${argv}"
+            assert !('--complete' in argv) : "${argv}"
+            assert argv.indexOf('--skip-plot') > i + 3 : "${argv}"
+            assert argv[-1] == 'genome.fa' : "${argv}"
+        }
+    }
+
+    test("M11-16d: table 11 -> no --translation-table (D2: code-11 caches stay valid)") {
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                annotation = [translation_table: 11]
+            }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_circular.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = []
+                """
+            }
+        }
+        then {
+            assert process.success
+            def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
+            assert !('--translation-table' in argv) : "${argv}"
+            def i = argv.indexOf('--replicons')
+            assert argv[i - 1] == '--complete' && argv[i + 1] == 'replicons_circular.tsv' : "${argv}"
+        }
+    }
 }

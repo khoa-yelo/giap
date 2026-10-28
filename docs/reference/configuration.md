@@ -84,7 +84,7 @@
 | `mapping.proteins.min_coverage` | `0.8` | number | — |
 | `mapping.proteins.near_identity` | `0.95` | number | — |
 | `mapping.proteins.miniprot_args` | `-S -N 5 --outs=0.95` | string | — |
-| `mapping.proteins.tblastn_args` | `-db_gencode 11 -seg no -evalue 1e-5` | string | — |
+| `mapping.proteins.tblastn_args` | `-seg no -evalue 1e-5` | string | — |
 | `mapping.tolerant.enabled` | `true` | boolean | — |
 | `mapping.tolerant.min_len` | `10` | integer | — |
 | `mapping.tolerant.max_diff.10-11` | `1` | — | — |

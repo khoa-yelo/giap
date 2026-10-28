@@ -23,6 +23,9 @@
 {% for w in warnings %}
 <div class="alert" role="note" data-warning="{{ w.rule_id }}" style="border-left: 4px solid #8a5a00; background: #fff8e6; padding: 0.6em 1em; margin: 0.5em 0 1em;">{{ w.message }}</div>
 {% endfor %}
+{% if code_note %}
+<p class="note" data-genetic-code="{{ code_note.table }}">{{ code_note.text }}</p>
+{% endif %}
 {% if cards %}
 <div class="cards">
 {% for c in cards %}
@@ -120,6 +123,7 @@
 {% endif %}
 {% endfor %}
 {% if s.id == "methods" %}
+<p>{{ code_methods }}</p>
 <p>The methods notes below are generated from the GIPPA {{ version }} documentation (docs/methods).</p>
 {% if licence_notes %}
 <p class="licence-notes">Licence notes: {{ licence_notes | join("; ") }}</p>

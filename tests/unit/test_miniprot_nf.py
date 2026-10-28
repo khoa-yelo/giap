@@ -35,16 +35,20 @@ def _has_flag(text: str, flag: str) -> bool:
 def test_builder_flags_appear_in_script() -> None:
     from gippa.mapping.miniprot import miniprot_align_cmd, miniprot_index_cmd
 
-    argv = miniprot_index_cmd(Path("g.fa"), Path("g.mpi"), 2) + miniprot_align_cmd(
-        Path("g.mpi"), Path("p.faa"), 2, ""
-    )
+    argv = [
+        a
+        for table in (4, 11, 25)  # M11-16d: -T <annotation.translation_table>
+        for a in miniprot_index_cmd(Path("g.fa"), Path("g.mpi"), 2, table=table)
+    ] + miniprot_align_cmd(Path("g.mpi"), Path("p.faa"), 2, "")
     flags = {a for a in argv if re.fullmatch(r"--?[A-Za-z][\w-]*", a)}
     assert flags >= {"-t", "-T", "-d", "--gff"}
     script = _scripts()
     missing = sorted(f for f in flags if not _has_flag(script, f))
     assert not missing, f"builder flags missing from main.nf script: {missing}"
     assert re.search(r"(?m)^\s*miniprot\b", script), "script does not run `miniprot`"
-    assert re.search(r"-T\s+11", script), "§7.1.1: index with -T 11"
+    assert re.search(r"-T\s+\$\{[^}]*translation_table[^}]*\}", script), (
+        "§7.1.1 / M11-16d: index with -T <annotation.translation_table>"
+    )
 
 
 def test_stub_writes_a_gff() -> None:

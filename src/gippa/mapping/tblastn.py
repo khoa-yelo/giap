@@ -36,6 +36,7 @@ False (tblastn sees no start codon). Intervals are canonical (``0 <= start < L``
 
 from __future__ import annotations
 
+import shlex
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -70,8 +71,34 @@ def makeblastdb_cmd(genome: Path, db: Path) -> list[str]:
     return ["makeblastdb", "-in", str(genome), "-dbtype", "nucl", "-out", str(db)]
 
 
-def tblastn_cmd(db: Path, proteins: Path, threads: int, args: str) -> list[str]:
-    """``tblastn -db D -query P -num_threads N <args> -outfmt OUTFMT``; ``args`` is split."""
+def effective_tblastn_args(args: str, table: int) -> str:
+    """``args`` with ``-db_gencode <table>`` (M11-16 item 3.3).
+
+    Without ``-db_gencode`` it is appended after the user's tokens (the result stripped); one
+    ``-db_gencode <table>`` (or ``-db_gencode=<table>``) passes through unchanged. Any other value,
+    a repeated or a bare trailing ``-db_gencode`` raises ``ValueError`` (preflight refuses these
+    first; BLAST+ rejects a repeated argument).
+    """
+    tokens = shlex.split(args)
+    values: list[str | None] = []
+    for i, tok in enumerate(tokens):
+        if tok == "-db_gencode":
+            values.append(tokens[i + 1] if i + 1 < len(tokens) else None)
+        elif tok.startswith("-db_gencode="):
+            values.append(tok.split("=", 1)[1])
+    if not values:
+        return f"{args.strip()} -db_gencode {table}".strip()
+    if values != [str(table)]:
+        raise ValueError(
+            f"mapping.proteins.tblastn_args sets -db_gencode {values}; this run uses "
+            f"annotation.translation_table {table}: remove -db_gencode from tblastn_args"
+        )
+    return args
+
+
+def tblastn_cmd(db: Path, proteins: Path, threads: int, args: str, table: int) -> list[str]:
+    """``tblastn -db D -query P -num_threads N <args> -outfmt OUTFMT``; ``args`` is split after
+    ``effective_tblastn_args(args, table)``."""
     return [
         "tblastn",
         "-db",
@@ -80,7 +107,7 @@ def tblastn_cmd(db: Path, proteins: Path, threads: int, args: str) -> list[str]:
         str(proteins),
         "-num_threads",
         str(threads),
-        *args.split(),
+        *effective_tblastn_args(args, table).split(),
         "-outfmt",
         OUTFMT,
     ]

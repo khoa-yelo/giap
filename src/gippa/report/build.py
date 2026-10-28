@@ -350,10 +350,13 @@ def build_report(
                 for i in plots[p].instances)  # fmt: skip
     plotlyjs = _plotlyjs() if shown else None
     version = None if plotlyjs is None else _BANNER.search(plotlyjs)
+    table = cfg.annotation.translation_table
     return _ENV.get_template("report.html.j2").render(
         sections=sections, cards=summary, notes=notes, version=gippa.__version__,
         provenance=content.provenance(view, doc, note), extras=content.extras(view, doc),
         warnings=content.summary_warnings(view), snippets=content.snippets(),
+        code_note=content.genetic_code_note(table),
+        code_methods=content.genetic_code_methods(table),
         licence_notes=content.licence_notes(doc),
         demo_banner=content.demo_banner(doc),
         plotlyjs=plotlyjs and Markup(plotlyjs),

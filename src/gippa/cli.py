@@ -1443,9 +1443,12 @@ def step(
         outs = _key_paths(name, "--out", outputs)
         reg.run_step(name, cfg, ins, outs)
     except reg.StepError as exc:
+        from gippa.annotate.bakta import AnnotationTableMismatch
+
         exc.write_log(Path("logs"))
         click.echo(f"gippa _step: {exc} (see logs/{name}.log)", err=True)
-        sys.exit(ExitCode.STEP_FAILED)
+        bad_input = isinstance(exc.cause, AnnotationTableMismatch)  # M11-16 item 3.4
+        sys.exit(ExitCode.INVALID_INPUT if bad_input else ExitCode.STEP_FAILED)
     except reg.WiringError as exc:
         click.echo(f"gippa _step: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)

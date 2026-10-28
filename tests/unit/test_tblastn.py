@@ -151,7 +151,9 @@ def test_outfmt_constant() -> None:
 
 
 def test_example1_tblastn_cmd_exact_argv() -> None:
-    cmd = _tb().tblastn_cmd(Path("db"), Path("p"), 8, "-db_gencode 11 -seg no -evalue 1e-5")
+    cmd = _tb().tblastn_cmd(
+        Path("db"), Path("p"), 8, "-db_gencode 11 -seg no -evalue 1e-5", table=11
+    )
     assert cmd == [
         "tblastn", "-db", "db", "-query", "p", "-num_threads", "8",
         "-db_gencode", "11", "-seg", "no", "-evalue", "1e-5", "-outfmt", OUTFMT,
@@ -159,18 +161,19 @@ def test_example1_tblastn_cmd_exact_argv() -> None:
 
 
 def test_tblastn_cmd_default_config_args() -> None:
-    """``mapping.proteins.tblastn_args`` (§7.2.3) is passed verbatim, split on whitespace."""
-    assert CFG.tblastn_args == "-db_gencode 11 -seg no -evalue 1e-5"
-    cmd = _tb().tblastn_cmd(Path("genome.db"), Path("leftovers.faa"), 2, CFG.tblastn_args)
+    """``mapping.proteins.tblastn_args`` (§7.2.3) is split on whitespace; M11-16d (D1): the
+    default has no ``-db_gencode``, which is appended from the table (item 3.3)."""
+    assert CFG.tblastn_args == "-seg no -evalue 1e-5"
+    cmd = _tb().tblastn_cmd(Path("genome.db"), Path("leftovers.faa"), 2, CFG.tblastn_args, table=11)
     assert cmd == [
         "tblastn", "-db", "genome.db", "-query", "leftovers.faa", "-num_threads", "2",
-        "-db_gencode", "11", "-seg", "no", "-evalue", "1e-5", "-outfmt", OUTFMT,
+        "-seg", "no", "-evalue", "1e-5", "-db_gencode", "11", "-outfmt", OUTFMT,
     ]  # fmt: skip
     assert all(isinstance(a, str) for a in cmd)
 
 
 def test_tblastn_cmd_other_args_reach_argv() -> None:
-    cmd = _tb().tblastn_cmd(Path("d"), Path("q"), 1, "-db_gencode 4 -evalue 1e-3")
+    cmd = _tb().tblastn_cmd(Path("d"), Path("q"), 1, "-db_gencode 4 -evalue 1e-3", table=4)
     assert cmd[-2:] == ["-outfmt", OUTFMT]
     assert cmd[7:-2] == ["-db_gencode", "4", "-evalue", "1e-3"]
     assert "-seg" not in cmd, "no hard-coded default may leak past the configured args"

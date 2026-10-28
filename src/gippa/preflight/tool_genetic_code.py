@@ -14,7 +14,6 @@ import shlex
 from collections.abc import Callable, Sequence
 
 from gippa.config import GippaConfig
-from gippa.config.model import ProteinsConfig
 from gippa.exitcodes import ExitCode
 from gippa.preflight.checks import Check
 
@@ -30,9 +29,6 @@ RULE_TEXT = (
 BAKTA = "annotation.bakta.extra_args"
 MINIPROT = "mapping.proteins.miniprot_args"
 TBLASTN = "mapping.proteins.tblastn_args"
-
-#: The shipped ``tblastn_args`` default (it still carries ``-db_gencode 11``); never flagged.
-_TBLASTN_DEFAULT: str = ProteinsConfig.model_fields["tblastn_args"].default
 
 _BAKTA_OPTION = "--translation-table"
 _BAKTA_MIN_PREFIX = 4
@@ -67,13 +63,7 @@ def _miniprot_sets_code(args: str) -> bool:
 
 
 def _tblastn_conflicts(args: str, table: int) -> bool:
-    """``-db_gencode`` repeated, bare at the end, or with a value other than ``table``.
-
-    The shipped default is exempt at every table: M11-16d derives ``-db_gencode`` from the table
-    for it (spec 3.3, D1 fallback), and that change removes this exemption.
-    """
-    if args == _TBLASTN_DEFAULT:
-        return False
+    """``-db_gencode`` repeated, bare at the end, or with a value other than ``table``."""
     tokens = _split(args)
     values: list[str | None] = []
     for i, tok in enumerate(tokens):

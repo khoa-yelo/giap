@@ -50,9 +50,10 @@ def test_builder_flags_appear_in_script() -> None:
     from gippa.mapping.tblastn import OUTFMT, makeblastdb_cmd, tblastn_cmd
 
     argv = makeblastdb_cmd(Path("g.fa"), Path("db/g")) + tblastn_cmd(
-        Path("db/g"), Path("p.faa"), 2, ""
+        Path("db/g"), Path("p.faa"), 2, "", table=11
     )
-    flags = {a for a in argv if re.fullmatch(r"-[A-Za-z][\w-]*", a)}
+    # M11-16d: -db_gencode comes from the config (the TBLASTN ext.args closure), not main.nf
+    flags = {a for a in argv if re.fullmatch(r"-[A-Za-z][\w-]*", a)} - {"-db_gencode"}
     assert flags >= {"-in", "-dbtype", "-out", "-db", "-query", "-num_threads"}
     script = _scripts()
     missing = sorted(f for f in flags if not _has_flag(script, f))
@@ -66,7 +67,7 @@ def test_builder_flags_appear_in_script() -> None:
 
 
 def test_no_hard_coded_search_defaults() -> None:
-    """``-db_gencode 11 -seg no -evalue 1e-5`` come from config via ext.args only."""
+    """``-seg no -evalue 1e-5`` and ``-db_gencode`` come from config via ext.args only."""
     script = _scripts()
     for flag in ("-db_gencode", "-seg", "-evalue"):
         assert not _has_flag(script, flag), f"{flag} hard-coded in main.nf"
@@ -87,14 +88,24 @@ def test_container_pinned_for_tblastn() -> None:
     assert all(BLAST_DIGEST in img for img in matching), matching
 
 
+def _selector_bodies(conf: str) -> list[tuple[str, str]]:
+    """``(pattern, body)`` of every ``withName`` selector, braces matched (closures nest)."""
+    out: list[tuple[str, str]] = []
+    for m in re.finditer(r"withName\s*:\s*['\"]([^'\"]+)['\"]\s*\{", conf):
+        depth, i = 1, m.end()
+        while depth and i < len(conf):
+            depth += {"{": 1, "}": -1}.get(conf[i], 0)
+            i += 1
+        out.append((m.group(1), conf[m.end() : i - 1]))
+    return out
+
+
 def test_base_config_wires_tblastn_args() -> None:
+    """M11-16d: the closure also reads ``annotation.translation_table`` (``-db_gencode``)."""
     conf = _strip_comments(BASE.read_text())
-    wired = [
-        body
-        for pat, body in re.findall(
-            r"withName\s*:\s*['\"]([^'\"]+)['\"]\s*\{(.*?)\}\s*$", conf, re.M
-        )
-        if re.fullmatch(pat, "TBLASTN")
-    ]
+    wired = [body for pat, body in _selector_bodies(conf) if re.fullmatch(pat, "TBLASTN")]
     assert wired, "conf/base.config: no withName selector for TBLASTN"
-    assert any("tblastn_args" in body and "ext.args" in body for body in wired), wired
+    assert any(
+        "tblastn_args" in body and "ext.args" in body and "translation_table" in body
+        for body in wired
+    ), wired
