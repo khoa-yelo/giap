@@ -1,6 +1,6 @@
 ---
 name: Feature (spec section)
-about: One behaviour from GIAP_SPEC.md, specified before tests are written (§14.3 step 1)
+about: One behaviour from GIPPA_SPEC.md, specified before tests are written (§14.3 step 1)
 labels: []
 ---
 

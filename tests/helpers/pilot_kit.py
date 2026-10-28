@@ -437,7 +437,10 @@ def _materialise_fastas(sb: Sandbox) -> None:
             for raw in values(section, "--fasta"):
                 expanded = raw
                 for key, val in env.items():
-                    expanded = expanded.replace(f"${{{key}}}", val).replace(f"${key}", val)
+                    # ADR-0064: the kept cfgs name the pre-rename variables (rename_gippa.py
+                    # KEEP_PATHS); diann_pilot.sbatch maps them to the same values.
+                    for k in (key, key.replace("GIPPA_", "GIAP_", 1)):
+                        expanded = expanded.replace(f"${{{k}}}", val).replace(f"${k}", val)
                 # db_a2 is committed gzipped: the script itself must unpack it (decision 3).
                 if "db_a2" in expanded or not expanded.startswith("/"):
                     continue
