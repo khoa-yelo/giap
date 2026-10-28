@@ -6,10 +6,10 @@ full-precision clip rectangle (``backend_svg._get_clip_attrs`` -> ``_make_id``),
 hatches ``m``/``h`` + 10 hex digits likewise. A 1-ulp layout difference (seen on macOS arm64 CI for
 V18_stat_diagnostics.svg) then changes only the ids, while PDF and PNG stay identical.
 
-Assumed (the planned fix): for SVG, ``write_instance`` renames every hashed id
-(``id="(p|m|h)[0-9a-f]{10}"``) and each ``url(#...)`` / ``xlink:href="#..."`` reference to it to
-sequential ids in order of first appearance, so the id names no longer carry float bits; the
-drawn coordinates themselves are rounded by matplotlib's ``short_float_fmt`` and stay equal.
+The fix: for SVG, ``write_instance`` renames every hashed id (``id="(p|m|h)[0-9a-f]{10}"``) and
+each ``url(#...)`` / ``xlink:href="#..."`` reference to it to sequential ids in order of first
+definition (``stable_svg_ids``), so the id names no longer carry float bits; the drawn coordinates
+themselves are rounded by matplotlib's ``short_float_fmt`` and stay equal.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from gippa.io.plot_files import write_instance
+from gippa.io.plot_files import stable_svg_ids, write_instance
 from gippa.viz import style
 from gippa.viz.base import Instance
 
@@ -83,3 +83,30 @@ def test_no_hashed_svg_id_remains(tmp_path: Path) -> None:
 
 def test_ids_are_stable_across_two_identical_renders(tmp_path: Path) -> None:
     assert _svg(tmp_path / "a", nudge=False) == _svg(tmp_path / "b", nudge=False)
+
+
+SYNTH = (
+    b'<svg><defs><clipPath id="pffffffffff"/><clipPath id="p0000000000"/>'
+    b'<path id="m1111111111"/></defs><g clip-path="url(#pffffffffff)"/>'
+    b'<g style="clip-path: url(#p0000000000)"/><use xlink:href="#m1111111111"/>'
+    b"<text>(#pffffffffff)</text></svg>"
+)
+
+
+def test_ids_numbered_in_definition_order_not_hash_order() -> None:
+    out = stable_svg_ids(SYNTH)
+    assert out.index(b'id="clip0"') < out.index(b'id="clip1"')
+    assert b'clip-path="url(#clip0)"' in out and b"url(#clip1)" in out
+    assert b'xlink:href="#marker0"' in out
+
+
+def test_text_content_is_left_alone() -> None:
+    assert b"<text>(#pffffffffff)</text>" in stable_svg_ids(SYNTH)
+
+
+def test_new_names_skip_ids_already_in_the_file() -> None:
+    out = stable_svg_ids(
+        b'<svg><g id="clip0"/><clipPath id="paaaaaaaaaa"/><g clip-path="url(#paaaaaaaaaa)"/></svg>'
+    )
+    assert out.count(b'id="clip0"') == 1
+    assert b'id="clip1"' in out and b"url(#clip1)" in out

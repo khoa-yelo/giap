@@ -112,8 +112,6 @@ in the repository.
      and `svg.hashsalt` in `viz/style.py`. It is an invisible constant, and changing it would
      change every SVG id, so SVGs could not be shown to be byte-identical. A code comment
      records why it stays.
-     Note (#452): `write_instance` now renumbers the hashed SVG ids (`clip<n>`, `marker<n>`,
-     `hatch<n>`), so the salt no longer reaches the written SVG.
 8. **Verification: outputs byte-identical apart from names.**
    - **Commits.** B is the main tip the rename branches from. A is the head of the rename PR.
    - **Inputs.** One input set is made once with B and used for both runs:

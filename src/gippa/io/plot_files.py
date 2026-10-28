@@ -42,7 +42,7 @@ HASHSALT = "giap"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 #: matplotlib's hashed SVG ids (clip paths, markers, hatches) and their renamed stems
 _HASHED_ID = re.compile(rb'id="([pmh][0-9a-f]{10})"')
-_HASHED_USE = re.compile(rb'(id="|#)([pmh][0-9a-f]{10})(?=[")])')
+_HASHED_USE = re.compile(rb'(id="|url\(#|href="#)([pmh][0-9a-f]{10})(?=[")])')
 _ANY_ID = re.compile(rb'\bid="([^"]*)"')
 _ID_STEM = {b"p": b"clip", b"m": b"marker", b"h": b"hatch"}
 
@@ -54,7 +54,8 @@ def stem(pid: str, name: str, suffix: str | None) -> str:
 
 def stable_svg_ids(svg: bytes) -> bytes:
     """``svg`` with every hashed id renamed ``clip<n>``/``marker<n>``/``hatch<n>`` (per prefix, in
-    order of first definition) and every ``id="…"``, ``url(#…)`` and ``href="#…"`` rewritten.
+    order of first definition) and every ``id="…"``, ``url(#…)`` (also inside ``style=``) and
+    ``href="#…"`` rewritten; text content is left alone.
 
     The new names skip any id already in the file, so they cannot collide.
     """
