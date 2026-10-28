@@ -72,7 +72,7 @@ class ClassFdrResult:
 
 def makedb_id_map(
     peptides: pd.DataFrame, gm: GeneModel, genome: Mapping[str, str],
-    decoy_prefixes: Sequence[str],
+    decoy_prefixes: Sequence[str], *, table: int = 11,
 ) -> pd.DataFrame:  # fmt: skip
     """``ID_MAP_COLUMNS`` rows (1-based closed, ``kind = orf``) for every distinct class-tagged
     ID in ``protein_ids`` (decoys stripped); ``nterm_extension`` rows get the locus tag of the
@@ -81,7 +81,7 @@ def makedb_id_map(
     parsed = {i: v for i in sorted(ids) if (v := F.parse_orf_id(i)) is not None}
     tags: dict[str, str | None] = {}
     if any(v[0] == "nterm_extension" for v in parsed.values()):
-        tags = {e.db_id: e.locus_tag for e in nterm_entries(gm, genome)}
+        tags = {e.db_id: e.locus_tag for e in nterm_entries(gm, genome, table=table)}
     rows = [(i, "orf", tags.get(i) if c == "nterm_extension" else None, c, ctg, s + 1, e, st)
             for i, (c, ctg, s, e, st) in parsed.items()]  # fmt: skip
     return pd.DataFrame(rows, columns=list(ID_MAP_COLUMNS)).astype({"start": "int64",
@@ -125,7 +125,9 @@ def class_fdr(
             out[o.orf_id] = OrfClassFdr(o.orf_id, "unestimated", o.cls, math.nan, why, False)
     picked = [o for o in orfs if regimes[o.orf_id] == "picked_decoy"]
     if picked:
-        id_map = makedb_id_map(peptides, gm, genome, prefixes)
+        id_map = makedb_id_map(
+            peptides, gm, genome, prefixes, table=cfg.annotation.translation_table
+        )
         lengths = {k: r.length for k, r in gm.replicons.items()}
         pr = F.picked_class_fdr(picked, peptides, id_map, decoy_prefixes=prefixes,
                                 replicon_lengths=lengths)  # fmt: skip

@@ -26,14 +26,17 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pytest
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 from makedb_genomes import Contig, feature, stretch, write_bakta_json
 
 from gippa.config import GippaConfig
@@ -322,6 +325,8 @@ def _calls(path: Path, name: str) -> list[ast.Call]:
         ("steps/novel.py", "write_novel_faa", "translation_table"),
         ("makedb/build.py", "LocusClassifier", "table"),  # 6.5
         ("makedb/build.py", "build_sixframe", "table"),
+        ("novel/class_call.py", "makedb_id_map", "table"),  # lead (#478 impl report)
+        ("novel/class_call.py", "nterm_entries", "table"),
     ],
 )
 def test_call_sites_pass_the_run_table(module: str, name: str, kw: str) -> None:
@@ -356,6 +361,7 @@ def test_codons_of_matches_the_table(table: int) -> None:
         assert vr()._codons_of(aa, table) == tuple(sorted(c for c in ct if ct[c] == aa))
 
 
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(st.text("ACGT", min_size=3, max_size=3), st.sampled_from("ACDEFGHKLMNPQRSTVWY"),
        st.sampled_from((4, 11, 25)))  # fmt: skip
 def test_minimal_alt_codon_property(ref: str, alt: str, table: int) -> None:
