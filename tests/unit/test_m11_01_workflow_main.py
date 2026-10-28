@@ -1,8 +1,9 @@
 """``workflow_main()`` in a checkout and in an installed package (M11-01 edge cases).
 
 Both layouts are faked in ``tmp_path`` by pointing the module's ``__file__`` at a fake
-``gippa/runner/nextflow.py``. Also: nothing in the shipped workflow writes into ``projectDir``
-(site-packages may be read-only).
+``gippa/runner/workflow_path.py`` (where ``nextflow.workflow_main`` lives since M11-15a).
+Also: nothing in the shipped workflow writes into ``projectDir`` (site-packages may be
+read-only).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from pathlib import Path
 import pytest
 
 import gippa.runner.nextflow as nf
+import gippa.runner.workflow_path as wp
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -24,7 +26,7 @@ def _touch(p: Path) -> Path:
 
 
 def _module_at(monkeypatch: pytest.MonkeyPatch, pkg: Path) -> None:
-    monkeypatch.setattr(nf, "__file__", str(_touch(pkg / "runner" / "nextflow.py")))
+    monkeypatch.setattr(wp, "__file__", str(_touch(pkg / "runner" / "workflow_path.py")))
 
 
 def test_checkout_layout_prefers_repo_workflow(
