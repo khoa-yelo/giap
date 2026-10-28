@@ -144,6 +144,22 @@ REFUSED_ARGVS = [
     # an unknown value flag: its value is taken for the image, so --pull=never after it is
     # missed (a refusal, never a pull)
     ["docker", "run", "--made-up-flag", "v", "--pull=never", "localhost/x:1"],
+    # #470 review S1: an unknown flag or its value never ends the scan (fail-safe)
+    ["apptainer", "exec", "--docker-host", "unix:///d.sock", "docker://alpine", "true"],
+    ["apptainer", "shell", "-s", "/bin/sh", "docker://alpine"],
+    ["apptainer", "exec", "--cwd", "/tmp", "docker://alpine", "true"],
+    ["apptainer", "exec", "--no-mount", "/etc/hosts", "docker://alpine", "true"],
+    ["apptainer", "instance", "start", "--dmtcp-launch", "/tmp", "docker://alpine", "i1"],
+    ["apptainer", "instance", "start", "docker://alpine", "i1"],  # cwd holds a file "start"
+    ["apptainer", "exec", "bound", "docker://alpine", "true"],  # a plain directory, no sandbox
+    ["apptainer", "exec", "local.def", "docker://alpine", "true"],  # a file, not *.sif/*.img
+    # S2: docker takes the last --pull value
+    ["docker", "run", "--pull=never", "--pull=always", "alpine"],
+    ["docker", "run", "--pull", "never", "--pull", "missing", "alpine"],
+    ["docker", "run", "--pull=never", "--pull", "missing", "alpine"],
+    ["docker", "container", "create", "--pull", "never", "--pull=always", "alpine"],
+    # N1: every Bootstrap: line of a multi-stage definition
+    ["apptainer", "build", "x.sif", "multi.def"],
 ]
 
 ALLOWED_ARGVS = [
@@ -165,7 +181,9 @@ ALLOWED_ARGVS = [
     ["apptainer", "exec", "local.sif", "curl", "https://example.org"],
     ["apptainer", "exec", "local.sif", "sh", "-c", "apptainer pull x docker://y"],
     ["apptainer", "run", "--bind", "bound:/b", "local.sif", "wget", "HTTPS://example.org"],
-    ["apptainer", "exec", "bound", "curl", "https://example.org"],  # a sandbox directory
+    ["apptainer", "exec", "sandbox", "curl", "https://example.org"],  # a sandbox directory
+    ["apptainer", "exec", "local.img", "curl", "https://example.org"],
+    ["apptainer", "exec", "--bind", "bound", "local.sif", "true"],
     ["apptainer", "exec", "instance://inst", "curl", "https://example.org"],
     ["apptainer", "instance", "start", "local.sif", "inst"],
     ["apptainer", "exec", "docker-daemon://localhost/x:1", "true"],
@@ -184,6 +202,9 @@ ALLOWED_ARGVS = [
     ["docker", "--context", "x", "run", "--pull=never", "localhost/x:1"],
     ["docker", "-c", "x", "container", "create", "--pull", "never", "localhost/x:1"],
     ["docker", "create", "--entrypoint", "sh", "--pull=never", "localhost/x:1"],
+    ["docker", "run", "--pull=always", "--pull=never", "alpine"],
+    ["docker", "run", "--pull", "missing", "--pull", "never", "alpine"],
+    ["apptainer", "build", "x.sif", "multi_local.def"],
 ]
 
 
@@ -194,6 +215,14 @@ def _defs(cwd: Path) -> None:
     (cwd / "local.sif").write_bytes(b"")
     (cwd / "rootfs.tar").write_bytes(b"")
     (cwd / "bound").mkdir(exist_ok=True)
+    (cwd / "sandbox" / ".singularity.d").mkdir(parents=True, exist_ok=True)
+    (cwd / "local.img").write_bytes(b"")
+    (cwd / "start").write_bytes(b"")  # a stray cwd file named like a positional word
+    (cwd / "multi.def").write_text(BOOT_LOCAL + "\n" + BOOT_DOCKER, encoding="utf-8")
+    (cwd / "multi_local.def").write_text(
+        "Bootstrap: localimage\nFrom: a.sif\nStage: one\n\nBootStrap: scratch\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.mark.parametrize("argv", REFUSED_ARGVS, ids=lambda a: " ".join(a)[:60])
@@ -391,42 +420,29 @@ def test_left_over_toys_are_never_collected(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- N4: a subprocess's own PATH
 
 
-def test_guarded_path_is_unchanged_without_the_guard(tmp_path: Path) -> None:
-    real = tmp_path / "real"
-    _recorders(real, tmp_path / "real.log")
-    assert guarded_path(str(real), {}) == str(real)
-    gone = {GUARD_ENV: str(tmp_path / "no_such_guard")}
-    assert guarded_path(str(real), gone) == str(real)
-
-
-def test_guarded_path_is_unchanged_when_the_path_holds_no_runtime(
-    guarded: tuple[Path, Path], tmp_path: Path
-) -> None:
-    guard, _log_path = guarded
+def test_guarded_path_is_unchanged_when_the_path_holds_no_runtime(tmp_path: Path) -> None:
     empty = tmp_path / "empty"
     empty.mkdir()
-    assert guarded_path(str(empty), {GUARD_ENV: str(guard)}) == str(empty)
-    assert not list(guard.glob("path-*"))
+    assert guarded_path(str(empty)) == str(empty)
 
 
-def test_guarded_path_guards_exactly_the_runtimes_of_that_path(tmp_path: Path) -> None:
+def test_guarded_path_guards_exactly_the_runtimes_of_that_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The scripts forward to the subprocess PATH's own binaries, so ``which`` finds the same
     runtimes as without the guard, and refuse pulls."""
-    session_log = tmp_path / "session.log"
-    guard = write_guard(tmp_path / "guard", _recorders(tmp_path / "session", session_log))
+    monkeypatch.delenv(GUARD_ENV, raising=False)  # independent of the per-test guard
     own_log = tmp_path / "own.log"
     own = tmp_path / "own"
     _recorders(own, own_log)
     (own / "singularity").unlink()
     (own / "docker").unlink()
     path = os.pathsep.join([str(own), "/usr/bin", "/bin"])
-    env = {GUARD_ENV: str(guard)}
-    got = guarded_path(path, env)
+    got = guarded_path(path)
     first, rest = got.split(os.pathsep, 1)
     assert rest == path
-    assert Path(first).parent == guard
     assert sorted(p.name for p in Path(first).iterdir()) == ["apptainer"]
-    assert guarded_path(path, env) == got  # written once, reused
+    assert guarded_path(path) == got  # cached per path
     which = shutil.which("apptainer", path=got)
     assert which is not None and Path(which).parent == Path(first)
     pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp_path)
@@ -434,55 +450,85 @@ def test_guarded_path_guards_exactly_the_runtimes_of_that_path(tmp_path: Path) -
     ok = _run(Path(first), ["apptainer", "--version"], tmp_path)
     assert ok.returncode == 0, ok.stderr
     assert _log(own_log).splitlines() == ["apptainer --version"]
-    assert _log(session_log) == ""  # forwards to the subprocess PATH's binary, not the session's
 
 
-def test_guarded_path_reads_os_environ_by_default(
-    guarded: tuple[Path, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    guard, _log_path = guarded
+def test_guarded_path_writes_under_the_session_directory(tmp_path: Path) -> None:
+    """tests/conftest.py publishes a session directory before any module-scoped fixture."""
+    from helpers import container_guard
+
+    base = container_guard._session_dir
+    assert base is not None and base.is_dir()
     own = tmp_path / "own"
     _recorders(own, tmp_path / "own.log")
-    monkeypatch.setenv(GUARD_ENV, str(guard))
-    assert guarded_path(str(own)).split(os.pathsep)[0].startswith(str(guard / "path-"))
-    monkeypatch.delenv(GUARD_ENV)
-    assert guarded_path(str(own)) == str(own)
+    first = Path(guarded_path(str(own)).split(os.pathsep)[0])
+    assert first.parent == base
 
 
-def _helper_compare_env(
-    module: str, call: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> dict[str, str]:
+def test_write_guard_replaces_scripts_atomically(tmp_path: Path) -> None:
+    bindir = write_guard(tmp_path / "g", {"apptainer": "/a", "docker": "/d"})
+    old = (bindir / "apptainer").stat().st_ino
+    write_guard(bindir, {"apptainer": "/b"})
+    assert (bindir / "apptainer").stat().st_ino != old  # a new file renamed over the old one
+    assert "real=/b" in (bindir / "apptainer").read_text(encoding="utf-8")
+    assert os.access(bindir / "apptainer", os.X_OK)
+    assert sorted(p.name for p in bindir.iterdir()) == ["apptainer", "docker"]  # no temp left
+
+
+def _helper_compare_env(module: str, tmp: Path, mp: pytest.MonkeyPatch) -> dict[str, str]:
     """The env a helper's ``gippa compare`` subprocess gets, with recorders as its MIN_PATH."""
     mod = importlib.import_module(module)
-    own = tmp_path / "own"
-    _recorders(own, tmp_path / "own.log")
-    guard = write_guard(tmp_path / "guard", _recorders(tmp_path / "session", tmp_path / "s.log"))
-    monkeypatch.setenv(GUARD_ENV, str(guard))
-    monkeypatch.setattr(mod, "MIN_PATH", str(own))
+    own = tmp / "own"
+    _recorders(own, tmp / "own.log")
+    mp.setattr(mod, "MIN_PATH", str(own))
     seen: dict[str, dict[str, str]] = {}
 
     def fake_run(cmd: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
         seen["env"] = kw["env"]  # type: ignore[assignment]
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
-    runs = [tmp_path / "a", tmp_path / "b"]
-    with monkeypatch.context() as m:  # subprocess.run is the real one again afterwards
+    runs = [tmp / "a", tmp / "b"]
+    with mp.context() as m:  # subprocess.run is the real one again afterwards
         m.setattr(mod.subprocess, "run", fake_run)
-        if call == "gippa_compare":
-            mod.gippa_compare(*runs, tmp_path / "cmp", env_root=tmp_path / "env")
+        if module.endswith("m10_04"):
+            mod.gippa_compare(*runs, tmp / "cmp", env_root=tmp / "env")
         else:
-            mod.gippa_compare_n(runs, ["A1", "A2"], tmp_path / "cmp", env_root=tmp_path / "env")
+            mod.gippa_compare_n(runs, ["A1", "A2"], tmp / "cmp", env_root=tmp / "env")
     return seen["env"]
 
 
-@pytest.mark.parametrize(
-    ("module", "call"),
-    [("helpers.pilot_runs_m10_04", "gippa_compare"), ("helpers.a3_run_m10_10", "gippa_compare_n")],
-)
-def test_helpers_with_a_minimal_path_keep_the_guard(
-    module: str, call: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+HELPERS = ["helpers.pilot_runs_m10_04", "helpers.a3_run_m10_10"]
+
+
+@pytest.fixture(scope="module")
+def module_scoped_envs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple]:
+    """Like ``compare_pair``/``compare3``: a module-scoped fixture runs before the function-scoped
+    autouse guard, so ``GUARD_ENV`` is not set yet."""
+    out = {}
+    with pytest.MonkeyPatch.context() as mp:
+        for module in HELPERS:
+            tmp = tmp_path_factory.mktemp("helper_env")
+            out[module] = (os.environ.get(GUARD_ENV), tmp, _helper_compare_env(module, tmp, mp))
+    return out
+
+
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_called_from_a_module_scoped_fixture_keep_the_guard(
+    module: str, module_scoped_envs: dict[str, tuple]
 ) -> None:
-    env = _helper_compare_env(module, call, tmp_path, monkeypatch)
+    guard_env, tmp, env = module_scoped_envs[module]
+    assert guard_env is None  # the per-test guard was not active when the helper ran
+    first, rest = env["PATH"].split(os.pathsep, 1)
+    assert rest == str(tmp / "own")
+    pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp)
+    assert pull.returncode == REFUSED_EXIT and REFUSED in pull.stderr
+    assert _log(tmp / "own.log") == ""
+
+
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_with_a_minimal_path_keep_the_guard(
+    module: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _helper_compare_env(module, tmp_path, monkeypatch)
     first, rest = env["PATH"].split(os.pathsep, 1)
     assert rest == str(tmp_path / "own")
     pull = _run(Path(first), ["apptainer", "pull", "x.img", f"docker://{REF}"], tmp_path)
@@ -490,8 +536,6 @@ def test_helpers_with_a_minimal_path_keep_the_guard(
     assert _log(tmp_path / "own.log") == ""
 
 
-@pytest.mark.parametrize("module", ["helpers.pilot_runs_m10_04", "helpers.a3_run_m10_10"])
-def test_helpers_minimal_path_is_unchanged_without_a_runtime(module: str) -> None:
-    mod = importlib.import_module(module)
-    assert mod.MIN_PATH == "/usr/bin:/bin"
-    assert guarded_path(mod.MIN_PATH, {}) == mod.MIN_PATH
+@pytest.mark.parametrize("module", HELPERS)
+def test_helpers_minimal_path_is_the_system_path(module: str) -> None:
+    assert importlib.import_module(module).MIN_PATH == "/usr/bin:/bin"
