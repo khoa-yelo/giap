@@ -191,7 +191,7 @@ class ProteinsConfig(_Strict):
     min_coverage: float = 0.80
     near_identity: float = 0.95
     miniprot_args: str = "-S -N 5 --outs=0.95"
-    tblastn_args: str = "-db_gencode 11 -seg no -evalue 1e-5"
+    tblastn_args: str = "-seg no -evalue 1e-5"
 
 
 class FrameshiftConfig(_Strict):

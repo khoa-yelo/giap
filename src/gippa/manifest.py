@@ -376,11 +376,13 @@ def _inputs(src: ManifestSources) -> list[dict[str, Any]]:
     return rows
 
 
-def _annotation(meta: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def _annotation(meta: Mapping[str, Any] | None, table: int) -> dict[str, Any] | None:
+    """The annotation block; ``translation_table`` from the meta, else the config (M11-16)."""
     if meta is None:
         return None
     return {"source": meta.get("annotation_source"), "bakta_version": meta.get("bakta_version"),
-            "db_version": meta.get("db_version"), "db_type": meta.get("db_type")}  # fmt: skip
+            "db_version": meta.get("db_version"), "db_type": meta.get("db_type"),
+            "translation_table": meta.get("translation_table", table)}  # fmt: skip
 
 
 def _operon_source(meta: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -439,7 +441,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
             _tools(src.tool_reports), _uniop_build(src.db_manifest, src.profile)
         ),
         "databases": _databases(src.db_manifest),
-        "annotation": _annotation(src.annotation_meta),
+        "annotation": _annotation(src.annotation_meta, cfg.annotation.translation_table),
         **_operon_source(src.operon_meta),
         "licence_notes": licence_notes(src, executed),
         "detection_tier": src.detection_tier or src.preflight.get("evidence_tier"),
