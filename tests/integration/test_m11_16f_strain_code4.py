@@ -8,8 +8,13 @@ preflight and the registered steps to ``variants`` with ``annotation.translation
 
 - The strain SNVs that turn a sample TGA into a reference TGG (or back) exist (non-vacuous): at
   code 4 both read W, so they are synonymous.
-- No ``variants.tsv`` row at such a codon carries ``stop_codon``, and no row at any TGA codon has
-  ``ref_aa = *`` or the ``stop_codon`` flag: TGA is read as W (rows at TGA exist and say W).
+- No ``variants.tsv`` row exists at such a codon, or every row there has ``ref_aa = W``, an
+  ``alt_aa`` other than W and no ``stop_codon`` flag (statistician review of #481, N4; the row
+  count is logged). No row at any TGA codon has ``ref_aa = *`` or the ``stop_codon`` flag: TGA is
+  read as W (>= 5 rows at TGA codons exist and say W).
+- Control: the same simulated world and preflight driven at ``annotation.translation_table = 11``
+  gives at least one ``stop_codon`` row at a TGA codon, so the flag the checks above look for is
+  one this world can produce.
 """
 
 from __future__ import annotations
@@ -36,11 +41,7 @@ def _flags(s: str) -> set[str]:
 
 
 @pytest.fixture(scope="module")
-def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    from gippa.config import resolve_config
-    from gippa.io.fasta import read_genome_fasta
-    from gippa.model import Replicon
-    from gippa.model.genes import gene_model_from_bakta_json
+def sim(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     from gippasim.proteomics import ProteomicsConfig
     from gippasim.simulate import SimConfig, simulate
     from gippasim.strain import StrainConfig
@@ -59,26 +60,44 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         SEED,
         tmp / "sim",
     )
-    run = preflight(res, tmp / "pf")
+    return {"res": res, "run": preflight(res, tmp / "pf"), "tmp": tmp}
+
+
+def _variants(sim: dict[str, Any], table: int) -> pd.DataFrame:
+    """``variants.tsv`` of the simulated world driven at ``annotation.translation_table``."""
+    from gippa.config import resolve_config
+
     cfg = resolve_config(
-        run.config_yaml,
+        sim["run"].config_yaml,
         [
             f"seed={SEED}",
             "genome_relation=related",
             "sample_name=S1",
-            f"annotation.translation_table={TABLE}",
+            f"annotation.translation_table={table}",
         ],
     )
+    assert cfg.annotation.translation_table == table
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
-        avail = drive(reg, cfg, tmp / "work", roots_of(run), targets=("loci", "variants"))
+        avail = drive(reg, cfg, sim["tmp"] / f"work{table}", roots_of(sim["run"]),
+                      targets=("loci", "variants"))  # fmt: skip
+    return _tsv(avail["variants"])
+
+
+@pytest.fixture(scope="module")
+def world(sim: dict[str, Any]) -> dict[str, Any]:
+    from gippa.io.fasta import read_genome_fasta
+    from gippa.model import Replicon
+    from gippa.model.genes import gene_model_from_bakta_json
+
+    res = sim["res"]
     out = Path(res.outdir)
     sample = {r.id: r.sequence for r in read_genome_fasta(Path(res.genome_fasta))}
     reference = {r.id: r.sequence for r in read_genome_fasta(out / "reference.fasta")}
     reps = {c: Replicon(c, len(s), "circular") for c, s in sample.items()}
     model = gene_model_from_bakta_json(res.bakta_json, reps)
     return {
-        "variants": _tsv(avail["variants"]),
+        "variants": _variants(sim, TABLE),
         "diffs": _tsv(out / "truth" / "strain_differences.tsv"),
         "sample": sample,
         "reference": reference,
@@ -123,14 +142,25 @@ def test_no_stop_codon_flag_on_tga_tgg_sites(world: dict[str, Any]) -> None:
     v = world["variants"]
     sites = {(c, s + 1, st) for c, s, st in tga_tgg_sites(world)}  # variants.tsv is 1-based
     at = v[[(r.contig, int(r.codon_start), r.strand) in sites for r in v.itertuples()]]
-    bad = [r for r in at.itertuples() if "stop_codon" in _flags(r.flags) or r.ref_aa == "*"]
-    assert not bad, bad[:5]
+    print(f"variant rows at the {len(sites)} TGA<->TGG strain codons: len(at) = {len(at)}")
+    bad = [r for r in at.itertuples()
+           if "stop_codon" in _flags(r.flags) or r.ref_aa != "W" or r.alt_aa == "W"]  # fmt: skip
+    assert not bad, (len(at), bad[:5])
 
 
 def test_tga_is_read_as_w_in_every_variant_row(world: dict[str, Any]) -> None:
     v = world["variants"]
     tga = v[v["ref_codon"] == "TGA"]
-    assert len(tga) > 0, "no variant row at a TGA codon: the check is vacuous"
+    assert len(tga) >= 5, f"{len(tga)} variant rows at TGA codons (< 5): the check is weak"
     assert set(tga["ref_aa"]) == {"W"}, tga["ref_aa"].value_counts().to_dict()
     flagged = [r for r in tga.itertuples() if "stop_codon" in _flags(r.flags)]
     assert not flagged, flagged[:5]
+
+
+def test_control_table_11_flags_stop_codon_at_tga(sim: dict[str, Any]) -> None:
+    """The same world at table 11: TGA is a stop there, so the flag can occur (positive control)."""
+    v = _variants(sim, 11)
+    tga = v[v["ref_codon"] == "TGA"]
+    flagged = [r for r in tga.itertuples() if "stop_codon" in _flags(r.flags)]
+    print(f"table 11 control: {len(tga)} rows at TGA codons, {len(flagged)} with stop_codon")
+    assert flagged, f"no stop_codon row at a TGA codon at table 11 ({len(tga)} TGA rows)"

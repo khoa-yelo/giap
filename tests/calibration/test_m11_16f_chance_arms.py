@@ -11,12 +11,26 @@ the residue frequencies the model uses come from a six-frame index built at ``t`
    N = 10^7; |MC - E(L, 1)| <= 20 % of E(L, 1) and the MC SE <= 8 % (fast, L = 8) / 5 % (full,
    L = 8-10). Same streams and seed as arm 11 (``calibration.chance_hits.L{L}``,
    ``seeds.calibration_base``). The B.2 column itself is for s = 0.069 and is not compared.
-2. **Six-frame target, one-sided** (statistician to review): random peptides from ``f_t`` against
-   the real six-frame translation at ``t`` of a gippasim genome, windows holding a stop or ``X``
-   excluded. E_i is a ranking score with N = all six-frame positions, so the model may
-   over-count (stops cut windows) but must not under-count: MC <= 1.2 * E(L, 1). This is where
-   the longer stop-free frames show (measured on 16f, 200 kb, L = 8: MC / E 0.73 at 11, 0.82 at
-   4, 0.84 at 25). Arm 11 runs too, as the reference.
+2. **Six-frame target, stop-free windows** (statistician review of #481, B1): random peptides
+   from ``f_t`` against the real six-frame translation at ``t`` of a gippasim genome, windows
+   holding a stop or ``X`` (or a frame separator) excluded. The model is evaluated on those
+   windows only: ``E(L, 1)`` with N = ``n_valid``, the number of stop-free length-L windows, and
+   |MC - E_valid| <= 20 % of E_valid (Appendix B.2's band, the one arm 11 already uses; no new
+   constant). Measured stop-corrected ratios MC / E_valid: 1.045, 1.013, 1.024 at 100 kb for
+   codes 11, 4, 25; about 1.03 at 1 Mb. The ranking score E_i uses N = all six-frame positions
+   and over-counts by exactly the window-validity factor ``n_valid / N`` (``valid_share``); N is
+   constant within a run, so this does not change the ranking by E_i, and the FDR comes from the
+   decoys, not from E_i. ``mean <= E(L, 1; N)`` is asserted with no slack (measured margin >= 5
+   SE in both tiers); ``ratio = MC / E(N)`` is logged as a diagnostic. This is where the longer
+   stop-free frames show: ``valid_share`` rises at 4 and 25. Arm 11 runs too, as the reference.
+   The check is conditional on one genome per table (one gippasim genome at
+   ``calibration_base``; review N3), not an average over genomes.
+
+The iid check (1) is a regression smoke check of ``expected_hits_uniform`` at the code-``t``
+composition, not evidence that the chance model holds on real six-frame targets (review Q2);
+check (2) is that evidence. Arms 11, 4 and 25 use common random numbers (same streams and seed,
+genomes from the same seed), so they are highly correlated and not independent confirmations
+(review Q3).
 
 Genome: gippasim ``SimConfig(genome_length=100_000 | 1_000_000, genetic_code=t)`` at
 ``calibration_base``.
@@ -155,14 +169,22 @@ def _sixframe_check(table: int, length: int, n_pep: int, seed: int) -> dict[str,
     model = expected_hits_uniform(L, 1, fr.s, fr.n_positions)
     stop_share = float((target >= STOP).mean())  # separators included (diagnostic only)
     out = {"mc": mean, "se": se, "model": model, "ratio": mean / model, "stop_share": stop_share}
+    n = len(target) - L + 1
+    bad = np.concatenate([[0], np.cumsum(target >= STOP)])
+    n_valid = int(((bad[L : L + n] - bad[:n]) == 0).sum())
+    model_valid = expected_hits_uniform(L, 1, fr.s, n_valid)
+    out |= {"model_valid": model_valid, "ratio_valid": mean / model_valid,
+            "valid_share": n_valid / fr.n_positions, "margin_se": (model - mean) / se}  # fmt: skip
+    print(f"sixframe code {table} length {length}: {out}")
     assert se <= 0.08 * mean, (table, out)
-    assert mean <= 1.2 * model, f"code {table}: chance model under-counts six-frame hits {out}"
+    assert abs(mean - model_valid) <= 0.2 * model_valid, (table, out)
+    assert mean <= model, f"code {table}: the ranking score E_i under-counts six-frame hits {out}"
     return out
 
 
 @pytest.mark.calibration
 @pytest.mark.parametrize("table", (11, *FAST_TABLES))
-def test_fast_sixframe_chance_hits_not_undercounted(
+def test_fast_sixframe_chance_hits_match_stop_free_model(
     table: int, tolerances: dict[str, object]
 ) -> None:
     _sixframe_check(table, 100_000, 100_000, _base(tolerances))
@@ -170,7 +192,7 @@ def test_fast_sixframe_chance_hits_not_undercounted(
 
 @pytest.mark.calibration_full
 @pytest.mark.parametrize("table", (11, *FULL_TABLES))
-def test_sixframe_chance_hits_not_undercounted_full(
+def test_sixframe_chance_hits_match_stop_free_model_full(
     table: int, tolerances: dict[str, object]
 ) -> None:
     _sixframe_check(table, 1_000_000, 200_000, _base(tolerances))

@@ -100,14 +100,28 @@ def _run(src: Path, sim: Any, out: Path, db: Path) -> Path:
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    root = tmp_path_factory.mktemp("m11_16_identity")
-    ref = _reference_tree(root / "reference")
-    db = mc.test_db(root / "db")
-    sim = mr.sim100k(root / "sim", pi_wrong=0.0)
-    return {
-        "head": _run(REPO / "src", sim, root / "out_head", db),
-        "ref": _run(ref / "src", sim, root / "out_ref", db),
-    }
+    """The two runs, made once per pytest session: under xdist the workers share one directory
+    under the session's base temp, and the first worker builds it under an ``flock`` while the
+    others wait and reuse it (a ``done`` marker; a failed build leaves none, so the next worker
+    retries and fails the same way)."""
+    import fcntl
+
+    base = tmp_path_factory.getbasetemp()
+    shared = base.parent if os.environ.get("PYTEST_XDIST_WORKER") else base
+    root = shared / "m11_16_identity"
+    out = {"head": root / "out_head", "ref": root / "out_ref"}
+    with (shared / "m11_16_identity.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not (root / "done").exists():
+            shutil.rmtree(root, ignore_errors=True)
+            root.mkdir()
+            ref = _reference_tree(root / "reference")
+            db = mc.test_db(root / "db")
+            sim = mr.sim100k(root / "sim", pi_wrong=0.0)
+            _run(REPO / "src", sim, out["head"], db)
+            _run(ref / "src", sim, out["ref"], db)
+            (root / "done").touch()
+    return out
 
 
 def _files(out: Path) -> dict[str, Path]:

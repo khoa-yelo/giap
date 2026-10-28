@@ -12,6 +12,14 @@ same ``levels`` and ``se_multiplier``.
 
 The read-through arm also checks that every annotated-stop cell of the code-``t`` index is at a
 TAA/TAG codon (TGA is sense there), on every replicate.
+
+The 1-Mb stressed stratum-0 estimate check
+(``test_database_stressed_stratum0_estimate_covers_false_placements``, R = ``STRESS_EST_R`` = 100,
+floor ``STRESS_EST_V0_FLOOR``) runs at code 4 too (statistician review of #481, N2), with arm 11's
+seeds (stream ``placement.est_db_stressed``) and its record under ``.code4``.
+
+Arms 11, 4 and 25 use common random numbers (the same replicate seeds), so they are highly
+correlated and not independent confirmations of one another (review Q3).
 """
 
 from __future__ import annotations
@@ -24,9 +32,15 @@ import _criteria as C
 import numpy as np
 import pandas as pd
 import pytest
-from _placement_suite import run_fdr_suite
+from _placement_suite import run_fdr_suite, write_diagnostics
 from helpers.genetic_code_arms import SENSE_TABLES, arm_seeds, sim_at
 from helpers.placement_sims import run_chain, score_chain
+from test_placement_fdr_sim import (
+    STRESS_EST_R,
+    STRESS_EST_V0_FLOOR,
+    _class_diag,
+    _collect_class_diag,
+)
 
 pytestmark = [
     pytest.mark.calibration_full,
@@ -75,9 +89,44 @@ def test_database_stressed_stratum0_placement_fdr_code_arm_full(tmp_path: Path, 
             ch = run_chain("database", seed_of[seed], d, length=LENGTH,
                            proteomics=_proteomics(pi_wrong=0.05, n_runs=1),
                            inject_short=400)  # fmt: skip
+        assert ch.cfg.annotation.translation_table == table
         return score_chain(ch, LEVELS, d)
 
     run_fdr_suite(arm, replicate, tmp_path, [("reverse", 0)], full=True)
+
+
+@pytest.mark.parametrize("table", (4,))
+def test_database_stressed_stratum0_estimate_code_arm_full(tmp_path: Path, table: int) -> None:
+    """Arm ``table`` of ``test_database_stressed_stratum0_estimate_covers_false_placements``: the
+    same replicates (arm 11's seeds), floor and rule mean(W0) >= mean(V0) - k SE."""
+    stream = "placement.est_db_stressed"  # arm 11's seeds
+    w0, v0, cs = [], [], []
+    by_class: dict[str, list[list[float]]] = {}
+    for i in range(STRESS_EST_R):
+        seed = int(C.replicate_rng(stream, i).integers(0, 2**31 - 1))
+        d = tmp_path / f"r{i}"
+        with sim_at(table):
+            ch = run_chain("database", seed, d, length=LENGTH,
+                           proteomics=_proteomics(pi_wrong=0.05, n_runs=1),
+                           inject_short=400)  # fmt: skip
+        assert ch.cfg.annotation.translation_table == table
+        rep = score_chain(ch, LEVELS, d)
+        w0.append(float(rep.extra["W0_reverse"]))
+        v0.append(float(rep.extra["V0_reverse"]))
+        _collect_class_diag(rep.extra, cs, by_class)
+        shutil.rmtree(d, ignore_errors=True)
+    w, v = np.array(w0), np.array(v0)
+    k = C.load_tolerances().se_multiplier
+    se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
+    rec = {"suite": f"{stream}.code{table}", "n": len(v), "se": se,
+           **_class_diag(cs, by_class)}  # fmt: skip
+    write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
+    print(f"code {table} stressed estimate: {rec | {'W0': w.mean(), 'V0': v.mean()}}")
+    assert v.sum() >= STRESS_EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
+    assert w.mean() >= v.mean() - k * se, (
+        f"code {table}: estimated stratum-0 false placements {w.mean():.3f} < realised"
+        f" {v.mean():.3f} - {k} SE ({se:.3f}), {len(v)} replicates"
+    )
 
 
 # ------------------------------------------------------------------ read-through decoy balance
@@ -128,6 +177,7 @@ def _replicate(kind: str, seed: int, d: Path, table: int) -> dict[str, float]:
             from gippasim.denovo import DenovoConfig
 
             ch = run_chain("denovo", seed, d, length=LENGTH, proteomics=pro, denovo=DenovoConfig())
+    assert ch.cfg.annotation.translation_table == table
     out = _counts(ch, kind, table)
     shutil.rmtree(d, ignore_errors=True)
     return out
