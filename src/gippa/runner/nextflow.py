@@ -108,8 +108,13 @@ def launch_command(
 
 
 # ``GIPPA_STEP`` aliases whose name is not ``*_STEP`` nor the step
-# (``REPORT:REPORT_HTML (report)``).
-_ALIAS_STEPS = {"report_html": "report"}
+# (``REPORT:REPORT_HTML (report)``), and the sharded TerminatorNet processes (M2-15b).
+_ALIAS_STEPS = {
+    "report_html": "report",
+    "terminatornet_plan": "terminatornet",
+    "terminatornet_chunk": "terminatornet",
+    "terminatornet_merge": "terminatornet",
+}
 
 
 def _step_name(name: str) -> str:
