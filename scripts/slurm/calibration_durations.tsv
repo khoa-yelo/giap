@@ -298,6 +298,8 @@ tests/calibration/test_detection_limit_citl.py::test_dl1_citl_recorded[full]	344
 tests/calibration/test_detection_summary_calibration.py::test_o_minus_e_ci_covers_zero_under_tu_correlated_null[full]	3412.0	probe-1895352-n8
 tests/calibration/test_detection_tiers_gene_fdr.py::test_gene_fdr_controlled[full-0.01]	4873.674	1900336
 tests/calibration/test_detection_tiers_gene_fdr.py::test_gene_fdr_controlled[full-0.05]	4744.365	1900336
+tests/calibration/test_determinants_calibration.py::test_determinants_null_level_per_model[full-elastic_net]	23579.307	1901050:measured
+tests/calibration/test_determinants_calibration.py::test_determinants_null_level_per_model[full-lightgbm]	78975.797	1901050:measured
 tests/calibration/test_determinants_calibration.py::test_determinants_recovery_recorded[r2_0.2]	363.0	probe-1895353-n8
 tests/calibration/test_determinants_calibration.py::test_determinants_recovery_recorded[r2_0.5]	367.0	probe-1895353-n8
 tests/calibration/test_determinants_models_calibration.py::test_null_delta_r2_near_zero[full]	1612.328	1900336

@@ -10,8 +10,9 @@ criterion 6, example 10).
 
 R14 (M11-03c PR 4, superseding the M11-03b array and throttle): a launch queues 16 jobs (15
 per-suite jobs and the aggregator), so refuse when ``jobs + 16 > 20``; refuse when
-``cpus + Σ + 1 > 128`` (Σ = 98 from ``calibration_plan.tsv``); refuse when the worst-case end
-``now + max(time) + 20 min`` (6 h 20 m) reaches the next nightly start (01:30). The clock is
+``cpus + Σ + 1 > 128`` (Σ = 126, the CPUs Slurm allocates for the ``calibration_plan.tsv`` jobs:
+discordance's 2 x 16000 MB gets 8 CPUs at MaxMemPerCPU 4000); refuse when the worst-case end
+``now + max(time) + 20 min`` (8 h 20 m) reaches the next nightly start (01:30). The clock is
 ``GIPPA_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own. The per-suite
 details are pinned in ``test_m11_03c_launcher.py``.
 """
@@ -143,7 +144,7 @@ def test_empty_queue_submits_the_suite_jobs_and_aggregator(sb: Sandbox) -> None:
                 rf"--tsv[= ]{re.escape(str(sb.root))}/logs/nightly\.tsv"):  # fmt: skip
         assert re.search(pat, cmd), (pat, cmd)
     jobs = ",".join(SUITE_IDS)
-    assert re.search(rf"jobs={jobs} rows={ROWS} log={re.escape(log)} cpus=98\b",
+    assert re.search(rf"jobs={jobs} rows={ROWS} log={re.escape(log)} cpus=126\b",
                      res.stdout), res.stdout  # fmt: skip
 
 
@@ -160,16 +161,16 @@ def test_squeue_runs_before_the_first_sbatch(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     "lines",
-    [["8 gippa-a", "4 gippa-b", "64 not-gippa"],  # gippa cpus 12: 12 + 98 + 1 <= 128; jobs 2 + 16
-     ["1 gippa-j"] * 4,                         # jobs 4 + 16 = 20 (boundary)
-     ["29 gippa-big"]],                         # 29 + 98 + 1 = 128 (boundary)
+    [["1 gippa-a", "0 gippa-b", "64 not-gippa"],  # gippa cpus 1: 1 + 126 + 1 <= 128; jobs 2 + 16
+     ["0 gippa-j"] * 3 + ["1 gippa-j"],         # jobs 4 + 16 = 20 (boundary), 128 CPUs
+     ["1 gippa-big"]],                          # 1 + 126 + 1 = 128 (boundary)
 )  # fmt: skip
 def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     assert len(_suites(sb)) == 15
-    assert "cpus=98" in res.stdout
+    assert "cpus=126" in res.stdout
 
 
 # ------------------------------------------------------------------ refusals
@@ -178,8 +179,9 @@ def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
 @pytest.mark.parametrize(
     "lines",
     [["16 gippa-n"] * 4 + ["3 gippa-x", "3 gippa-y"],   # example 10: 70 CPUs / 6 jobs
-     ["112 gippa-big"],                               # 112 + 98 + 1 = 211 > 128
-     ["1 gippa-j"] * 5],                              # 5 + 16 = 21 > 20 jobs
+     ["112 gippa-big"],                               # 112 + 126 + 1 = 239 > 128
+     ["2 gippa-big"],                                 # 2 + 126 + 1 = 129 > 128 (boundary)
+     ["0 gippa-j"] * 5],                              # 5 + 16 = 21 > 20 jobs (0 CPUs)
 )  # fmt: skip
 def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
