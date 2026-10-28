@@ -7,11 +7,25 @@
 # Pilot-only envs (gippa.annotate.tools.PILOT_TOOLS, M10-08) build by name with conda-forge only.
 # Per tool (M2-01 review decisions 1-3):
 #   - $prefix/.gippa-built holds the sha256 of workflow/envs/<tool>.yml after a successful build;
-#     a missing or different marker removes the env and rebuilds it (half-built envs, changed ymls).
+#     a missing or different marker rebuilds the env (half-built envs, changed ymls).
+#   - a rebuild never deletes the old env first (backlog, job 1888853): the old prefix is renamed
+#     to $prefix.gippa-old (same directory, so the same filesystem), the new env is created at
+#     the real prefix and verified, and only then is the old one removed.  If the create, the
+#     git checkout, the version check or the lock export fails, the new prefix is removed and the
+#     old one renamed back, unchanged.  Conda envs are not relocatable (the prefix is baked into
+#     shebangs, entry points and .pc/activate files), so an env is never used at any path other
+#     than the one it was built at: the new env is never built at a temp path and moved in, and
+#     the old env only ever runs at its own path again.  A run killed mid-build (time limit)
+#     restores the old env on SIGTERM, or failing that at the start of the next run.
+#   - CUDA builds on CPU nodes: if the yml asks for a CUDA build string (e.g. `pytorch=2.0.*=cuda*`)
+#     and `nvidia-smi -L` lists no GPU, the solve runs with CONDA_OVERRIDE_CUDA (default 11.8; an
+#     exported CONDA_OVERRIDE_CUDA wins), so the __cuda virtual package exists (job 1901404).
 #   - git-pinned tools: source cloned at the pinned commit into $prefix/share/<tool>/.
 #   - the version command must succeed and print the registry version (commit SHA for git tools);
 #     otherwise that tool fails and no lock is written.
-#   - locks: workflow/envs/locks/<tool>.explicit.txt (conda) and <tool>.pip.txt (pip freeze).
+#   - locks: workflow/envs/locks/<tool>.explicit.txt (conda) and <tool>.pip.txt (pip freeze),
+#     written to .tmp files and renamed over the old locks only after the build verified; a
+#     failed build leaves the old locks as they were (they still describe the restored env).
 #   - frozen tools (a `# frozen-lock` line in the yml; M8-17a: fgsea) are installed from their
 #     committed explicit lock instead of a solve; the export must list exactly the lock's
 #     packages, the lock is never rewritten or removed, and there is no pip lock.
@@ -89,8 +103,52 @@ PYEOF
 # The committed explicit lock is the source of the env (never rewritten or removed here).
 frozen() { grep -q '^# frozen-lock' "$ENV_DIR/$1.yml"; }
 
+# A dependency with a CUDA build string: `name=ver=*cuda*`, `name ver *cuda*` or `name[build=*cuda*]`.
+wants_cuda() {
+  grep -Eq '^[[:space:]]*-[[:space:]]*[A-Za-z0-9_.-]+(=[^=[:space:]#]*=[^[:space:]#]*cuda|[[:space:]]+[^[:space:]#]+[[:space:]]+[^[:space:]#]*cuda|[^#]*\[[^]#]*build[^]#]*cuda)' \
+    "$ENV_DIR/$1.yml"
+}
+has_gpu() { nvidia-smi -L 2> /dev/null | grep -q '^GPU '; }
+# CONDA_OVERRIDE_CUDA for this tool's create, or empty (never export it empty: an empty value
+# hides a real GPU from the solver).
+cuda_override() {
+  if wants_cuda "$1" && ! has_gpu; then echo "${CONDA_OVERRIDE_CUDA:-11.8}"; fi
+}
+mm_create() {
+  local cuda="$1"; shift
+  if [ -n "$cuda" ]; then
+    echo "no GPU on this node: CONDA_OVERRIDE_CUDA=$cuda for the CUDA build"
+    CONDA_OVERRIDE_CUDA="$cuda" micromamba create "$@"
+  else
+    micromamba create "$@"
+  fi
+}
+
+# The env being rebuilt (its old copy at "$CUR_PREFIX.gippa-old"), for restore_old.
+CUR_PREFIX=
+# Failed or interrupted rebuild: drop the new prefix, rename the old env back (unchanged).
+restore_old() {
+  local prefix="$1"
+  [ -n "$prefix" ] && [ -d "$prefix.gippa-old" ] || return 0
+  rm -rf "$prefix"
+  mv "$prefix.gippa-old" "$prefix"
+  echo "restored the previous ${prefix##*/}" >&2
+}
+# Leftover of a run killed mid-rebuild: keep the new env only if it finished (marker written).
+recover_old() {
+  local prefix="$1" want="$2"
+  [ -d "$prefix.gippa-old" ] || return 0
+  if [ -d "$prefix" ] && [ "$(cat "$prefix/.gippa-built" 2>/dev/null || true)" = "$want" ]; then
+    rm -rf "$prefix.gippa-old"
+  else
+    restore_old "$prefix"
+  fi
+}
+trap 'restore_old "$CUR_PREFIX"; exit 143' TERM INT
+
 build_one() {
   local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out mode chans
+  local cuda
   reg="$(registry "$tool")" || return 1
   { IFS= read -r env_name; IFS= read -r version; IFS= read -r repo
     IFS= read -r version_cmd; IFS= read -r want; IFS= read -r chans; } <<< "$reg"
@@ -99,26 +157,27 @@ build_one() {
   marker="$prefix/.gippa-built"
   if [ "$mode" = "frozen" ]; then
     [ -s "$LOCKS/$tool.explicit.txt" ] || { echo "$tool: no committed lock" >&2; return 1; }
-  else
-    rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
   fi
+  recover_old "$prefix" "$want"
+  CUR_PREFIX="$prefix"
 
   if [ -d "$prefix" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$want" ]; then
     echo "$env_name exists"
   else
     if [ -e "$prefix" ]; then
-      echo "rebuilding $env_name (build marker missing or stale)"
-      micromamba env remove -y -n "$env_name" > /dev/null || true
-      rm -rf "$prefix"
+      echo "rebuilding $env_name (build marker missing or stale); the old env waits at" \
+        "$prefix.gippa-old until the new one verifies"
+      mv "$prefix" "$prefix.gippa-old" || return 1
     fi
+    cuda="$(cuda_override "$tool")"
     if [ "$mode" = "frozen" ]; then
       echo "creating $env_name from workflow/envs/locks/$tool.explicit.txt"
-      micromamba create -y -n "$env_name" --override-channels \
+      mm_create "$cuda" -y -n "$env_name" --override-channels \
         -f "$LOCKS/$tool.explicit.txt" || return 1
     else
       echo "creating $env_name from workflow/envs/$tool.yml"
       # shellcheck disable=SC2086  # $chans: "-c conda-forge [-c bioconda]"
-      micromamba create -y -n "$env_name" $chans --override-channels \
+      mm_create "$cuda" -y -n "$env_name" $chans --override-channels \
         -f "$ENV_DIR/$tool.yml" || return 1
     fi
   fi
@@ -153,6 +212,7 @@ build_one() {
     fi
     rm -f "$LOCKS/$tool.explicit.txt.tmp"
     echo "$want" > "$marker"
+    rm -rf "$prefix.gippa-old"
     return 0
   fi
 
@@ -163,18 +223,19 @@ build_one() {
   mv "$LOCKS/$tool.explicit.txt.tmp" "$LOCKS/$tool.explicit.txt"
   mv "$LOCKS/$tool.pip.txt.tmp" "$LOCKS/$tool.pip.txt"
   echo "$want" > "$marker"
+  rm -rf "$prefix.gippa-old"
 }
 
 failed=
 for tool in "$@"; do
+  CUR_PREFIX=
   if ! build_one "$tool"; then
     rm -f "$LOCKS/$tool".*.tmp
-    if ! frozen "$tool"; then
-      rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
-    fi
+    restore_old "$CUR_PREFIX"  # the old env and its locks stay as they were
     failed="$failed $tool"
     echo "FAILED: $tool" >&2
   fi
+  CUR_PREFIX=
 done
 micromamba clean -a -y > /dev/null
 if [ -n "$failed" ]; then
