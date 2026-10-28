@@ -1175,7 +1175,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIPPA_SPEC.md Â
   - N4: subprocesses started with a hard-coded `PATH=/usr/bin:/bin` skip the guard (`tests/helpers/a3_run_m10_10.py:431`, `tests/helpers/pilot_runs_m10_04.py:326`); harmless on FarmShare, not on a host with `/usr/bin/apptainer` or `/usr/bin/docker`. List as a known limit or keep the guard dir on that PATH.
   - N6: production `docker run` lacks `--pull=never` in `src/gippa/preflight/environment.py` (`probe_uniop`, a local build where a pull can never succeed: add it) and `src/gippa/io/fgsea_r.py` (pinned digest: decide whether an implicit pull is wanted).
 - **#457/#458 review notes (`scripts/build_envs.sh`):**
-  - N2: take the CUDA override default from the yml's `cuda-version=` pin instead of the hard-coded 11.8.
+  - N2: take the CUDA override default from the yml's `cuda-version=` pin instead of the hard-coded 11.8. **Done (fix/build-envs-cuda-pin): exported `CONDA_OVERRIDE_CUDA`, then the yml's exact `cuda-version` pin, else 11.8; cascadia pins `cuda-version=11.8`, unchanged.**
   - N3: a Nextflow task that starts during a rebuild sees a missing or half-built env (`prebuilt_envs.config` points at the env path; preflight checks the marker only at run start). Document it in the script header, or refuse to rebuild while a `gippa-run` job is in `squeue`.
   - N6: on the "exists" path the git re-clone still `rm -rf`s `share/<tool>` inside the live env, outside the rename protection.
 - **TerminatorNet sharding (#455 review, #459 validation):**
