@@ -224,16 +224,21 @@ _MULTI = ("tests/calibration/attacks/test_attack_novel_class_fdr.py::"
           "test_denovo_orf_fdr_with_multi_peptide_false_orfs[full]")  # fmt: skip
 _G4K3 = ("tests/calibration/test_novel_orfs_gate.py::"
          "test_g4k3_clustered_false_orfs_full[intergenic-0.01]")  # fmt: skip
-MERGE_NOT_IN_DURATIONS: dict[str, dict[str, float]] = {
+# Each correction holds only while its row still has the source it was derived from; a row
+# re-recorded from a run whose merge finished already includes the merge (``--max``).
+MERGE_NOT_IN_DURATIONS: dict[str, dict[str, tuple[float, str]]] = {
     "novel_orfs": {
-        _GC: 20487.4 - 3406.041,  # 6 block-2 slices (3328-3534 s) minus lane 0's JUnit time
-        _MULTI: 59.2 - 9.672,
+        # 6 block-2 slices (3328-3534 s) minus lane 0's JUnit time, which the row holds
+        _GC: (20487.4 - 3406.041, "1900347"),
+        # the row is the probe's (97.0 s), not 1900347's, so it holds none of lane 0's 9.672 s;
+        # the probe ran unsharded, so its row may hold block 2 already (59 s counted twice at most)
+        _MULTI: (59.2, "probe-1895355-n8"),
     },
 }
 # novel_orfs ``g4k3.intergenic`` (``fdr_counts``, R = 300) was in the merge's confirm list but the
 # kill came before it logged block 2. Block 2 runs the same R replicates as block 1, so it weighs
 # its block-1 row (which holds no merge part: lane 0's JUnit has no g4k3 testcase).
-MERGE_AS_BLOCK1: dict[str, tuple[str, ...]] = {"novel_orfs": (_G4K3,)}
+MERGE_AS_BLOCK1: dict[str, dict[str, str]] = {"novel_orfs": {_G4K3: "1900347"}}
 # Where each sharded suite's merge time comes from. determinants has no recorded merge: it ran
 # unsharded in 45bc3599 and its per-model rows (``1901050:measured``) are block 1 only (#445 N6).
 # Block 2 runs only for checks whose block 1 is not decided; if all its shard checks went to block
@@ -246,10 +251,26 @@ MERGE_SOURCE = {
 }
 
 
+def _row_sources() -> dict[str, str]:
+    lines = DURATIONS.read_text().splitlines()[1:]
+    return {c[0]: c[2] for ln in lines if len(c := ln.split("\t")) == 3}
+
+
 def _merge_extra_s(suite: str, durations: dict[str, float]) -> float:
-    """Merge seconds (summed over lanes) that the durations rows of ``suite`` do not hold."""
-    extra = sum(MERGE_NOT_IN_DURATIONS.get(suite, {}).values())
-    return extra + sum(durations[n] for n in MERGE_AS_BLOCK1.get(suite, ()))
+    """Merge seconds (summed over lanes) that the durations rows of ``suite`` do not hold. Fails
+    once a corrected row was re-recorded: the new row includes the merge, the correction must go."""
+    sources = _row_sources()
+    named = {n: src for n, (_, src) in MERGE_NOT_IN_DURATIONS.get(suite, {}).items()}
+    named.update(MERGE_AS_BLOCK1.get(suite, {}))
+    for n, src in named.items():
+        if sources.get(n) != src:
+            pytest.fail(
+                f"{suite}: the durations row of {n} is now from {sources.get(n)!r}, not {src!r}; "
+                "it was re-recorded and includes the merge, so delete its correction from "
+                "MERGE_NOT_IN_DURATIONS / MERGE_AS_BLOCK1 (test_calibration_plan_fixes.py)"
+            )
+    extra = sum(sec for sec, _ in MERGE_NOT_IN_DURATIONS.get(suite, {}).values())
+    return extra + sum(durations[n] for n in MERGE_AS_BLOCK1.get(suite, {}))
 
 
 def _estimate_s(mod: ModuleType, row: object, report: dict[str, bool],
@@ -300,7 +321,7 @@ def test_every_sharded_suite_states_its_merge_source(
     assert {r.suite for r in rows if r.shards > 0} == set(MERGE_SOURCE)
     durations = lanes_mod.read_durations(DURATIONS)
     for r in rows:
-        named = [*MERGE_NOT_IN_DURATIONS.get(r.suite, {}), *MERGE_AS_BLOCK1.get(r.suite, ())]
+        named = [*MERGE_NOT_IN_DURATIONS.get(r.suite, {}), *MERGE_AS_BLOCK1.get(r.suite, {})]
         if not named:
             continue
         shard = [ln for ln in lanes_mod.lanes(r, collection[r.suite], durations)
@@ -324,6 +345,25 @@ def test_durations_rows_hold_the_merge_parts(lanes_mod: ModuleType, tmp_path: Pa
     assert got == {"tests/calibration/test_v.py::test_g1_full": pytest.approx(sum(parts.values()))}
 
 
+@pytest.mark.parametrize("nodeid", [_GC, _G4K3])
+def test_merge_correction_expires_when_its_row_is_re_recorded(
+    lanes_mod: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, nodeid: str
+) -> None:
+    """A run whose merge finishes raises the row (``--max``); keeping the correction would count
+    the merge twice, so the estimate refuses and says to delete it."""
+    here = sys.modules[__name__]
+    assert here._merge_extra_s("novel_orfs", lanes_mod.read_durations(DURATIONS)) > 0
+    lines = DURATIONS.read_text().splitlines()
+    out = [f"{ln.split(chr(9))[0]}\t99999.0\t1909999" if ln.startswith(nodeid + "\t") else ln
+           for ln in lines]  # fmt: skip
+    assert out != lines
+    d = tmp_path / "calibration_durations.tsv"
+    d.write_text("\n".join(out) + "\n")
+    monkeypatch.setattr(here, "DURATIONS", d)
+    with pytest.raises(pytest.fail.Exception, match=r"re-recorded .* delete its correction"):
+        here._merge_extra_s("novel_orfs", lanes_mod.read_durations(d))
+
+
 def test_novel_orfs_estimate_counts_its_killed_merge(
     lanes_mod: ModuleType, collection: dict[str, dict[str, bool]]
 ) -> None:
@@ -333,7 +373,7 @@ def test_novel_orfs_estimate_counts_its_killed_merge(
     d = lanes_mod.read_durations(DURATIONS)
     lanes_only = _estimate_s(lanes_mod, row, collection["novel_orfs"], d, merge=False)
     est = _estimate_s(lanes_mod, row, collection["novel_orfs"], d)
-    assert est - lanes_only == pytest.approx((17081.359 + 49.528 + d[_G4K3]) / row.shards)
+    assert est - lanes_only == pytest.approx((17081.359 + 59.2 + d[_G4K3]) / row.shards)
     assert est > 4 * 3600  # 1900347: six shard lanes of 4.7 h, then the merge
 
 

@@ -46,7 +46,8 @@ case "$1" in
       touch "$FAKE_DIR/in_create"
       # Bounded: a test that fails before it writes the release file must not leave this
       # loop running (two such children once ran 7.7 h after their test had ended).
-      end=$((SECONDS + 120))
+      # 600 s, well past _wait_for's 120 s, so a loaded node gives no false failure.
+      end=$((SECONDS + 600))
       while [ ! -e "$FAKE_DIR/release" ]; do
         [ "$SECONDS" -lt "$end" ] || { echo "fake create: never released" >&2; exit 1; }
         sleep 0.05
