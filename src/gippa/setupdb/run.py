@@ -577,7 +577,7 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
                     recs.append(_provenance(amr, old, {}, None))
                 elif item.name == "bakta_full":  # the light DB may ship without it
                     recs.append(amr)
-        write_manifest(db, recs)
+        write_manifest(db, recs, setup={"set": "minimal" if opts.minimal else "default"})
     return ExitCode.SUCCESS if status_ok else ExitCode.ENVIRONMENT
 
 

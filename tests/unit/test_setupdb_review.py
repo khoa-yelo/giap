@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
+from helpers.setup_opt_outs import opt_outs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from setup_guard import BLOCKED, GuardError, real_https_fetch, setup_guard  # noqa: F401
@@ -119,7 +120,8 @@ def test_cli_genomad_download_goes_through_the_https_fetcher(tmp_path: Path) -> 
     from gippa.cli import cli
 
     argv = ["setup", "--db-dir", str(tmp_path / "db"), "--bakta", "skip", "--genomad",
-            "--no-antismash", "--no-promotech-models"]  # fmt: skip
+            "--no-antismash", "--no-promotech-models",
+            *opt_outs("go", "kegg", "cog", "contaminants", "images")]  # fmt: skip
     r = CliRunner().invoke(cli, argv)
     assert r.exit_code != 0
     assert any(b.startswith("HttpsFetcher.fetch") for b in BLOCKED), BLOCKED

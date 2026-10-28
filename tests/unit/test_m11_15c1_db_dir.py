@@ -44,13 +44,17 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from helpers.setup_opt_outs import NO_RESOURCE_FLAGS, opt_outs
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools)
 
 from gippa.cli import cli
 
-NOTHING = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", "--no-antismash")
+# "Install nothing": M11-15c2 turns the resource files and the images on by default, so their
+# opt-outs are named too (opt_outs keeps only the flags the current setup accepts).
+NOTHING = ("--bakta", "skip", "--no-genomad", "--no-promotech-models",
+           *opt_outs(*NO_RESOURCE_FLAGS, "images"))  # fmt: skip
 FROM_SETUP = "(from gippa setup)"
 
 

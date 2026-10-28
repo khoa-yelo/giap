@@ -8,10 +8,13 @@
   "properties": {
     "schema_version": {"enum": ["1.0", "1.1"]},
     "setup": {
-      "description": "What gippa setup recorded beyond the items (schema 1.1, M11-15a): the container runtime the images were pulled for.",
+      "description": "What gippa setup recorded beyond the items (schema 1.1): the container runtime the images were pulled for (M11-15a) and the set installed, minimal (--minimal) or default (M11-15c2).",
       "type": "object",
       "additionalProperties": false,
-      "properties": {"runtime": {"enum": ["apptainer", "singularity", "docker"]}}
+      "properties": {
+        "runtime": {"enum": ["apptainer", "singularity", "docker"]},
+        "set": {"enum": ["default", "minimal"]}
+      }
     },
     "items": {
       "type": "array",
