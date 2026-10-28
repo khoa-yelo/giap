@@ -41,6 +41,9 @@ case "$1" in
   create)
     n="$(name_of "$@")"
     mkdir -p "$envs/$n/conda-meta" "$envs/$n/bin"
+    if [ ! -e "$FAKE_DIR/no_pip_$n" ]; then
+      printf '#!/bin/sh\nexit 0\n' > "$envs/$n/bin/pip"; chmod +x "$envs/$n/bin/pip"
+    fi
     echo new > "$envs/$n/bin/payload"
     if [ -e "$FAKE_DIR/hold_create_$n" ] && mkdir "$FAKE_DIR/held" 2>/dev/null; then
       touch "$FAKE_DIR/in_create"

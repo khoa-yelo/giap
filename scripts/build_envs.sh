@@ -198,6 +198,7 @@ swap_locks() {
   done
   if [ -n "$ok" ]; then
     for f in "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"; do
+      [ -e "$f.tmp" ] || [ "$f" != "$LOCKS/$tool.pip.txt" ] || continue  # no pip in the env
       mv "$f.tmp" "$f" || { ok=; break; }
     done
   fi
@@ -342,8 +343,11 @@ build_locked() {
     # healed by the next run, which re-exports the locks of an existing env.
     micromamba env export -n "$env_name" --explicit > "$LOCKS/$tool.explicit.txt.tmp" \
       || return 1
-    PYTHONNOUSERSITE=1 micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" \
-      || return 1
+    # An env without pip (miniprot: no Python) has no pip lock; swap_locks then drops an old one.
+    if [ -x "$prefix/bin/pip" ]; then
+      PYTHONNOUSERSITE=1 micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" \
+        || return 1
+    fi
     echo "$want" > "$marker" || return 1
     swap_locks "$tool" || return 1
   fi
