@@ -1,4 +1,4 @@
-"""M2-15b: ``plan`` / ``chunk`` / ``merge`` of ``workflow/bin/gippa_terminatornet_shard.py``
+"""M2-15b: ``plan`` / ``chunk`` / ``merge`` of ``workflow/bin/gippa_terminatornet_shard``
 against a fake upstream (docs/specs/M2-15b-terminatornet-sharding.md items 2-4; examples 4, 5, 6,
 7, 8, 9, 10).
 
@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "workflow" / "bin" / "gippa_terminatornet_shard.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "workflow" / "bin" / "gippa_terminatornet_shard"
 
 FEATURES_PY = """
 import os

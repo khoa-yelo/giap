@@ -1,5 +1,5 @@
 // Sharded TerminatorNet, step 1 (M2-15b): genome.fa -> plan.tsv, one row per 250,000-window core
-// of each contig strand (workflow/bin/gippa_terminatornet_shard.py plan).
+// of each contig strand (workflow/bin/gippa_terminatornet_shard plan).
 process TERMINATORNET_PLAN {
     tag "${meta_id}"
     label 'process_single'
@@ -14,7 +14,7 @@ process TERMINATORNET_PLAN {
     script:
     """
     export TERMINATORNET_HOME=\${TERMINATORNET_HOME:-\$CONDA_PREFIX/share/terminatornet}
-    gippa_terminatornet_shard.py plan
+    gippa_terminatornet_shard plan
     """
 
     stub:

@@ -42,7 +42,7 @@ reproduces it at any CPU count, including 1. Unsharded `-n 1` can differ from it
 reference.
 
 ## What changes
-1. **Script.** New file `workflow/bin/gippa_terminatornet_shard.py` (on the PATH of Nextflow tasks).
+1. **Script.** New file `workflow/bin/gippa_terminatornet_shard` (on the PATH of Nextflow tasks).
    It runs in the `gippa-terminatornet` env and is not part of `src/gippa`. It imports `TerminatorNet`
    and `Features` from `$TERMINATORNET_HOME` (MIT; fetched, not vendored, R5) only inside the
    subcommands. The planning and ordering functions are pure and import nothing from upstream, so the

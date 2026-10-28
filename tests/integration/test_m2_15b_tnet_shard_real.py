@@ -1,7 +1,7 @@
 """M2-15b: the sharded TerminatorNet scan with the real model is byte-identical to upstream
 (docs/specs/M2-15b-terminatornet-sharding.md "Tests", ``needs_conda``; examples 3, 5-10).
 
-``workflow/bin/gippa_terminatornet_shard.py`` runs ``plan --core N``, every ``chunk <id> --cpus N``
+``workflow/bin/gippa_terminatornet_shard`` runs ``plan --core N``, every ``chunk <id> --cpus N``
 and ``merge`` in the ``gippa-terminatornet`` prebuilt env (``$GIPPA_ROOT/micromamba/envs``), with
 ``model.pkl`` symlinked into the cwd as the unsharded module does. Small synthetic FASTAs cut from
 the sim100k genome are compared with ``TerminatorNet.py -s -n 2`` (the reference, lead decision 2);
@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "workflow" / "bin" / "gippa_terminatornet_shard.py"
+SCRIPT = REPO / "workflow" / "bin" / "gippa_terminatornet_shard"
 ROOT = Path(os.environ.get("GIPPA_ROOT", REPO / "local"))
 ENV = ROOT / "micromamba" / "envs" / "gippa-terminatornet"
 HOME = ENV / "share" / "terminatornet"

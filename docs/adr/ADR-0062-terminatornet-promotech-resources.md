@@ -57,7 +57,7 @@ In `workflow/conf/base.config`:
 ## Amendment 1 (proposed 2026-10-27; M2-15b, docs/specs/M2-15b-terminatornet-sharding.md)
 - `ANNOTATE:TERMINATORNET` is replaced by `TERMINATORNET_PLAN` → `TERMINATORNET_CHUNK` (one task
   per 250,000-window core of each contig strand) → `TERMINATORNET_MERGE`
-  (`workflow/subworkflows/local/terminatornet_sharded.nf`, `workflow/bin/gippa_terminatornet_shard.py`)
+  (`workflow/subworkflows/local/terminatornet_sharded.nf`, `workflow/bin/gippa_terminatornet_shard`)
   behind `params.terminatornet_sharded = true`. `false` runs the unsharded `TERMINATORNET` module
   unchanged, with the `cpus = 16`, `16.GB × attempt` request above; it stays the fallback and the
   acceptance reference.
@@ -71,7 +71,7 @@ In `workflow/conf/base.config`:
   runs `scan()`, which keeps window order, so its output can differ. The `-n ≥ 2` output (what the
   deployed module produces) is the reference; the sharded step reproduces it at any chunk CPU count.
 - Resume: Nextflow does not hash `workflow/bin/` scripts, so after a change to
-  `gippa_terminatornet_shard.py` a `-resume` reuses the old chunk pickles; re-run without `-resume`
+  `gippa_terminatornet_shard` a `-resume` reuses the old chunk pickles; re-run without `-resume`
   (or clear the TERMINATORNET_CHUNK work dirs).
 - msmeg measurement (wall time from the first PLAN submit to the MERGE end, chunk count, max chunk
   wall time, max RSS and peak concurrent CPUs at `terminatornet_chunk_cpus = 4`, next to the failed

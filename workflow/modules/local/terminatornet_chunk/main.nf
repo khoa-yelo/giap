@@ -14,7 +14,7 @@ process TERMINATORNET_CHUNK {
     """
     export TERMINATORNET_HOME=\${TERMINATORNET_HOME:-\$CONDA_PREFIX/share/terminatornet}
     ln -sf \$TERMINATORNET_HOME/model.pkl model.pkl   # loaded from the cwd, as the unsharded module
-    gippa_terminatornet_shard.py chunk ${chunk_id} --cpus ${task.cpus}
+    gippa_terminatornet_shard chunk ${chunk_id} --cpus ${task.cpus}
     """
 
     stub:

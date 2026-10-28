@@ -16,7 +16,7 @@ process TERMINATORNET_MERGE {
     script:
     """
     export TERMINATORNET_HOME=\${TERMINATORNET_HOME:-\$CONDA_PREFIX/share/terminatornet}
-    gippa_terminatornet_shard.py merge
+    gippa_terminatornet_shard merge
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

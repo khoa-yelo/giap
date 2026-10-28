@@ -1,7 +1,7 @@
 """M2-15b: the pure plan and merge-order functions of the sharded TerminatorNet scan
 (docs/specs/M2-15b-terminatornet-sharding.md items 1, 2, 4; examples 1-5, 7).
 
-``workflow/bin/gippa_terminatornet_shard.py`` runs in the ``gippa-terminatornet`` env and is not
+``workflow/bin/gippa_terminatornet_shard`` runs in the ``gippa-terminatornet`` env and is not
 part of ``src/gippa``; its pure functions import nothing from upstream, so this file loads it by
 path.
 Interface pinned here (test author, from the spec):
@@ -20,6 +20,7 @@ Interface pinned here (test author, from the spec):
 
 from __future__ import annotations
 
+import importlib.machinery
 import importlib.util
 import sys
 from operator import itemgetter
@@ -30,7 +31,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-SCRIPT = Path(__file__).resolve().parents[2] / "workflow" / "bin" / "gippa_terminatornet_shard.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "workflow" / "bin" / "gippa_terminatornet_shard"
 COLUMNS = (
     "chunk_id",
     "seq_index",
@@ -47,7 +48,11 @@ def _shard() -> ModuleType:
     name = "gippa_terminatornet_shard"
     if name in sys.modules:
         return sys.modules[name]
-    spec = importlib.util.spec_from_file_location(name, SCRIPT)
+    # no .py suffix (a workflow/bin executable; hatch's editable build refuses .py under
+    # workflow/), so name the loader explicitly
+    spec = importlib.util.spec_from_loader(
+        name, importlib.machinery.SourceFileLoader(name, str(SCRIPT))
+    )
     assert spec is not None and spec.loader is not None, f"cannot load {SCRIPT}"
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod

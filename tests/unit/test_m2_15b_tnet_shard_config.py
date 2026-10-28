@@ -83,7 +83,7 @@ def test_modules(name: str, label: str | None) -> None:
     text = (MODS / name / "main.nf").read_text()
     assert re.search(rf"^process\s+{name.upper()}\s*\{{", text, re.M), text
     assert 'conda "${projectDir}/envs/terminatornet.yml"' in text
-    assert "gippa_terminatornet_shard.py" in text
+    assert "gippa_terminatornet_shard" in text
     assert re.search(r"^\s*stub:", text, re.M)
     if label:
         assert f"label '{label}'" in text
