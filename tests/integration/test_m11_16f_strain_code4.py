@@ -13,12 +13,15 @@ preflight and the registered steps to ``variants`` with ``annotation.translation
   count is logged). No row at any TGA codon has ``ref_aa = *`` or the ``stop_codon`` flag: TGA is
   read as W (>= 5 rows at TGA codons exist and say W).
 - Control: the same simulated world and preflight driven at ``annotation.translation_table = 11``
-  gives at least one ``stop_codon`` row at a TGA codon, so the flag the checks above look for is
-  one this world can produce.
+  (the Bakta-like JSON's recorded ``genome.translation_table`` set to 11 in a copy, else
+  ``parse_bakta`` refuses the mismatch) gives at least one ``stop_codon`` row at a TGA codon,
+  so the flag the checks above look for is one this world can produce.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import json
 from pathlib import Path
 from typing import Any
 
@@ -77,9 +80,18 @@ def _variants(sim: dict[str, Any], table: int) -> pd.DataFrame:
         ],
     )
     assert cfg.annotation.translation_table == table
+    run = sim["run"]
+    if table != TABLE:  # the same Bakta-like JSON, its recorded table set to ``table``
+        res = run.res
+        data = json.loads(Path(res.bakta_json).read_text(encoding="utf-8"))
+        assert data["genome"]["translation_table"] == TABLE, data["genome"]
+        data["genome"]["translation_table"] = table
+        patched = sim["tmp"] / f"bakta.table{table}.json"
+        patched.write_text(json.dumps(data), encoding="utf-8")
+        run = dataclasses.replace(run, res=dataclasses.replace(res, bakta_json=patched))
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
-        avail = drive(reg, cfg, sim["tmp"] / f"work{table}", roots_of(sim["run"]),
+        avail = drive(reg, cfg, sim["tmp"] / f"work{table}", roots_of(run),
                       targets=("loci", "variants"))  # fmt: skip
     return _tsv(avail["variants"])
 
