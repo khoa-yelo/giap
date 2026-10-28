@@ -347,15 +347,19 @@ def missing_tool_reasons(
     """Why each of ``tools`` is not usable under the comma-joined Nextflow ``profile``.
 
     A tool pinned in the bundled ``containers.config`` is satisfied by its image: under docker
-    Nextflow pulls it by digest; under apptainer it needs ``<image_cache>/<simpleName>.img``
-    (ADR-0059). A conda-only tool needs the prebuilt env ``<env_root>/gippa-<tool>`` with a
-    ``.gippa-built`` marker equal to the sha256 of ``workflow/envs/<tool>.yml``; under a container
-    profile without conda (``docker`` or plain ``apptainer``) it is missing, since it would run on
-    the host. A step-started tool (fgsea) instead counts there through its ``images.json`` ref:
-    under docker that entry suffices (``docker run`` pulls it), under plain apptainer it needs
-    ``<image_cache>/<simpleName>.img``. A local UniOP build of ``local_tools`` counts under its
-    own runtime (:func:`uniop_local_problem`). ``test``/``stub`` need nothing; in-process tools
-    are never missing.
+    Nextflow still pulls a step's image by digest at run time (``--pull=never`` for Nextflow's
+    step images is a separate follow-up, N6b); under apptainer it needs
+    ``<image_cache>/<simpleName>.img`` (ADR-0059). A conda-only tool needs the prebuilt env
+    ``<env_root>/gippa-<tool>`` with a ``.gippa-built`` marker equal to the sha256 of
+    ``workflow/envs/<tool>.yml``; under a container profile without conda (``docker`` or plain
+    ``apptainer``) it is missing, since it would run on the host. A step-started tool (fgsea)
+    instead counts there through a built env or its ``images.json`` ref. The step starts that
+    image with ``docker run --pull=never`` (N6), so under docker the ref must already be local
+    (checked with ``docker image inspect``, never a pull; ``<pkg> setup --images --profile
+    docker`` fetches it); under plain apptainer it needs ``<image_cache>/<simpleName>.img``. A
+    local UniOP build of ``local_tools`` counts under its own runtime
+    (:func:`uniop_local_problem`). ``test``/``stub`` need nothing; in-process tools are never
+    missing.
     """
     names = _profiles(profile)
     if names & _NO_TOOL_PROFILES:
@@ -372,6 +376,7 @@ def missing_tool_reasons(
     )
     step_images = {} if conda_on else _step_images(workflow / "conf" / "images.json")
     setup_images = f"run: {_PKG} setup --images --profile apptainer"
+    setup_docker = f"run: {_PKG} setup --images --profile docker"
     reasons: dict[str, str] = {}
     for tool in tools:
         if tool.in_process:
@@ -406,6 +411,11 @@ def missing_tool_reasons(
                     reasons[tool.name] = (
                         f"image {step_ref} not in the apptainer cache {image_cache}; {setup_images}"
                     )
+            elif runtime == "docker" and not _docker_image_exists(step_ref):
+                reasons[tool.name] = (
+                    f"image {step_ref} is not present locally and runs never pull it (no docker "
+                    f"on PATH, or `docker image inspect` fails); {setup_docker}"
+                )
         elif runtime is not None and not conda_on and tool.name not in _STEP_STARTED:
             reasons[tool.name] = (
                 f"conda-only tool under a container profile without conda: {tool.name}"
@@ -686,7 +696,8 @@ def _uniop_argv(
         docker = shutil.which("docker")
         if docker is None:
             return "docker not found on PATH"
-        return [docker, "run", "--rm", built, "sh", "-c", _UNIOP_HELP]
+        # The image was built locally by ``gippa setup --uniop``; no registry holds it (N6).
+        return [docker, "run", "--rm", "--pull=never", built, "sh", "-c", _UNIOP_HELP]
     exe = shutil.which("apptainer") or shutil.which("singularity")
     if exe is None:
         return "apptainer not found on PATH"
@@ -700,9 +711,9 @@ def probe_uniop(
     profile: str, *, image_cache: Path, env_root: Path | None, local_tools: Path | None
 ) -> tuple[int, str]:
     """Run UniOP's entry point with ``--help`` in the runtime ``profile`` resolves to
-    (:func:`uniop_runtime`): the prebuilt env, the local image of ``local_tools`` under docker,
-    or its ``.sif`` under apptainer. Returns ``(returncode, stderr)``; 127 when it cannot be
-    started, 124 on a timeout."""
+    (:func:`uniop_runtime`): the prebuilt env, the local image of ``local_tools`` under docker
+    (``docker run --pull=never``: never pulled, N6), or its ``.sif`` under apptainer. Returns
+    ``(returncode, stderr)``; 127 when it cannot be started, 124 on a timeout."""
     argv = _uniop_argv(profile, image_cache, env_root, local_tools)
     if isinstance(argv, str):
         return 127, argv
