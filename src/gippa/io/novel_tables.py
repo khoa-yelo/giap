@@ -84,7 +84,11 @@ def write_annotation_patch(path: Path, table: pd.DataFrame, gm: GeneModel) -> No
 
 
 def write_novel_faa(
-    path: Path, table: pd.DataFrame, genome: Mapping[str, str], replicons: Mapping[str, Replicon]
+    path: Path,
+    table: pd.DataFrame,
+    genome: Mapping[str, str],
+    replicons: Mapping[str, Replicon],
+    translation_table: int = 11,
 ) -> None:
-    recs = protein_records(table, genome, replicons)
+    recs = protein_records(table, genome, replicons, translation_table)
     write_protein_fasta(path, [(r.header, r.sequence) for r in recs])

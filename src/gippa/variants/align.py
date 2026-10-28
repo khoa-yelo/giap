@@ -24,7 +24,7 @@ import pandas as pd
 from numba import njit
 
 from gippa.mapping.diffops import block_tables
-from gippa.mapping.sixframe import encode_query, encode_target, translate11_text
+from gippa.mapping.sixframe import encode_query, encode_target, translate_text
 from gippa.mapping.tolerant_dp import BAND, decode_key, exchange_lookup, rank_weight
 from gippa.model import Replicon
 
@@ -78,8 +78,11 @@ class HitAlignment:
     frameshift: FrameshiftEvent | None
 
 
-def translate_locus(seq: str, rep: Replicon, start: int, end: int, strand: str) -> str:
-    """Table-11 residues of ``[start, end)`` on ``strand`` (no I -> L; ``X`` for ambiguous).
+def translate_locus(
+    seq: str, rep: Replicon, start: int, end: int, strand: str, *, table: int = 11
+) -> str:
+    """Genetic-code ``table`` residues of ``[start, end)`` on ``strand`` (no I -> L; ``X`` for
+    ambiguous).
 
     Reads across the origin of a circular replicon (``end > length``). Raises ValueError on an
     empty or over-long interval, or past the end of a linear contig.
@@ -94,7 +97,7 @@ def translate_locus(seq: str, rep: Replicon, start: int, end: int, strand: str) 
     nt = seq[s:e] if e <= n else seq[s:] + seq[: e - n]
     if strand == "-":
         nt = nt.translate(_COMP)[::-1]
-    return translate11_text(nt)
+    return translate_text(nt, table)
 
 
 @cache
@@ -219,9 +222,10 @@ def _residues(
     e: int,
     strand: str,
     stops: frozenset[tuple[str, str, int]] = frozenset(),
+    table: int = 11,
 ) -> str:
     """Genome residues of the locus; a ``*`` is allowed only at a codon in ``stops``."""
-    g = translate_locus(seq, rep, s, e, strand)
+    g = translate_locus(seq, rep, s, e, strand, table=table)
     cods = _codons(s, e, strand)
     bad = "X" in g or any(
         a == "*" and (rep.id, strand, c % rep.length) not in stops
@@ -253,16 +257,18 @@ def align_hit(
     seq: str,
     rep: Replicon,
     stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
+    *,
+    table: int = 11,
 ) -> HitAlignment:
     """Residue alignment of one hit ``[start, end)``; raises ValueError if it disagrees with
     ``n_diff`` (or, with ``n_diff = 0``, if the letters differ beyond I/L). A genome ``*`` is
     a substitution only at a ``(contig, strand, codon_start)`` of ``stop_sites`` and only on a
-    non-frameshift row (M7-16 rule 10)."""
+    non-frameshift row (M7-16 rule 10). ``table`` is the genetic code of the genome residues."""
     if strand not in ("+", "-"):
         raise ValueError(f"peptide {peptide}: strand {strand!r}")
     std: Literal["+", "-"] = "+" if strand == "+" else "-"
     if blocks is None:
-        g = _residues(peptide, seq, rep, start, end, strand, stop_sites)
+        g = _residues(peptide, seq, rep, start, end, strand, stop_sites, table)
         cods = _codons(start, end, strand)
         frame = _frame(start, end, strand, rep.length)
         if n_diff == 0:
@@ -278,8 +284,8 @@ def align_hit(
         return HitAlignment(peptide, contig, std, frame, tuple(ops), None)
     lo, hi = _parse_blocks(peptide, blocks)
     pre, suf = (lo, hi) if strand == "+" else (hi, lo)
-    gp = _residues(peptide, seq, rep, *pre, strand)
-    gs = _residues(peptide, seq, rep, *suf, strand)
+    gp = _residues(peptide, seq, rep, *pre, strand, table=table)
+    gs = _residues(peptide, seq, rep, *suf, strand, table=table)
     cp, cs = _codons(*pre, strand), _codons(*suf, strand)
     best: tuple[int, tuple[int, ...], int, list[ResidueOp]] | None = None
     for p in range(max(1, len(gp) - BAND), min(len(peptide), len(gp) + BAND + 1)):
@@ -312,6 +318,8 @@ def align_hits(
     genome: Mapping[str, str],
     replicons: Mapping[str, Replicon],
     stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
+    *,
+    table: int = 11,
 ) -> list[HitAlignment]:
     """One :class:`HitAlignment` per ``peptide_hits`` row (0-based half-open), in row order.
 
@@ -339,6 +347,6 @@ def align_hits(
         n_diff = int(row["n_diff"])
         out.append(
             align_hit(pep, contig, s, e, strand, n_diff, blocks, genome[contig], replicons[contig],
-                      stop_sites)
+                      stop_sites, table=table)
         )  # fmt: skip
     return out

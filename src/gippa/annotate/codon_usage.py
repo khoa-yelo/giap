@@ -4,8 +4,9 @@
 Every index is computed on codons 2 .. n-1 (start and stop dropped) of eligible genes
 (``scored_sequence``). CAI and Fop use the scored ribosomal-protein genes as reference; tAI the
 tRNA gene copy numbers; codon-pair bias and the genome-wide synonymous shares all scored genes.
-The indices come from codon-bias (MIT), always with ``genetic_code=11``; only translation table 11
-is accepted. codon-bias RuntimeWarnings (genes with nothing to weight) are suppressed and counted.
+The indices come from codon-bias (MIT) with ``genetic_code`` set to the run's translation table
+(4, 11 or 25; ``gippa.model.genetic_code``). codon-bias RuntimeWarnings (genes with nothing to
+weight) are suppressed and counted.
 """
 
 from __future__ import annotations
@@ -27,18 +28,11 @@ from codonbias.scores import (
 
 from gippa.annotate.bakta_layers import is_ribosomal_protein
 from gippa.model.genes import Gene
+from gippa.model.genetic_code import codon_table
 
 CAI_REFERENCE_MISSING = "cai_reference_missing"
 MIN_CODONS = 10
 _WINDOW = slice(3, 30)  # codons 2-10 of the full CDS
-_BASES = "TCAG"
-_AA11 = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
-_CODE11: dict[str, str] = {
-    a + b + c: _AA11[16 * i + 4 * j + k]
-    for i, a in enumerate(_BASES)
-    for j, b in enumerate(_BASES)
-    for k, c in enumerate(_BASES)
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,10 +49,8 @@ class CodonFeatures:
     rare_codons_2_10: int | None
 
 
-def _code(table: int) -> dict[str, str]:
-    if table != 11:
-        raise ValueError(f"translation table {table} is not supported (only 11)")
-    return _CODE11
+def _code(table: int) -> Mapping[str, str]:
+    return codon_table(table)  # raises for a table other than 4, 11 and 25
 
 
 def _codons(seq: str) -> list[str]:

@@ -114,8 +114,10 @@ def run_variants_qc(
     """:func:`run_variants` plus the long ``(variant_id, peptide, source, search_db)`` support
     frame of each ``variants.tsv`` row (M7-14, :func:`gippa.variants.qc.id_mixups`). Pure."""
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
-    stops = site_keys(annotated_stops(gm, genome, recoded=True)[0])  # M7-16 rules 10, 22
-    aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons, stop_sites=stops)
+    tt = cfg.annotation.translation_table
+    stops = site_keys(annotated_stops(gm, genome, recoded=True, table=tt)[0])  # M7-16 10, 22
+    aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons, stop_sites=stops,
+                        table=tt)  # fmt: skip
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     st = sites(pile, cfg)
     starts = start_codons(gm)
@@ -127,7 +129,7 @@ def run_variants_qc(
     flags = []
     for r, peps in zip(st.to_dict("records"), alt_peps, strict=True):
         alt_aligns = [a for p in sorted(peps) for a in by_pep.get(p, ())]
-        left = left_block_site(r, alt_aligns, genome, gm.replicons, tol)
+        left = left_block_site(r, alt_aligns, genome, gm.replicons, tol, table=tt)
         alt_src = {(support[p].source, support[p].search_db) for p in peps}
         flags.append(tuple(flags_for(r, starts, cfg, alt_src, left_block=left)))
     st["flags"] = flags
@@ -137,7 +139,7 @@ def run_variants_qc(
         is_dn = spectra["source"].astype(str).eq("denovo").to_numpy(dtype=bool)
         rates = class_rates(paired_observations(spectra[is_dn], spectra[~is_dn], sup))
     st = annotate_sites(st, rates)
-    records, table = vcf_records(st, pile, genome, gm.replicons)
+    records, table = vcf_records(st, pile, genome, gm.replicons, table=tt)
     sources = {p: (str(s.source), str(s.search_db)) for p, s in support.items()}
     return pile, table, records, site_support(table["variant_id"], alt_peps, sources)
 

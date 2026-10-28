@@ -6,10 +6,11 @@ closed coordinates, unwrapped across the origin) and ``makedb_manifest.json``.
 
 Six-frame ORFs are the maximal stop-to-stop segments of each frame, split at ``X`` (lead decision
 3), translated codon by codon from the genome (no I -> L, no start rule) with the M3-01
-``translate11_text``. An ORF in frame with an annotated CDS/sORF is dropped; each such gene with
->= 7 stop-free upstream codons gets one ``nterm_extension`` entry = upstream part + the first 30
-codons of the gene translated from the genome (GTG -> V; review decision 5), whose header/id_map
-interval covers both (lead decision 2). The entry is undefined (not written) when the upstream
+``translate_text`` in the run's genetic code (``MakedbOptions.translation_table``, default 11).
+An ORF in frame with an annotated CDS/sORF is dropped; each such gene with >= 7 stop-free
+upstream codons gets one ``nterm_extension`` entry = upstream part + the first 30 codons of the
+gene translated from the genome (GTG -> V; review decision 5), whose header/id_map interval
+covers both (lead decision 2). The entry is undefined (not written) when the upstream
 walk runs off a linear contig, meets an ``X`` or finds no stop within one circular turn (review
 decision 4). The other ORFs take the M3-14 ``LocusClassifier`` class; ``rna_overlap``/
 ``pseudogene`` ORFs are omitted. A patch CDS with an internal ``*`` and an annotation without
@@ -36,7 +37,7 @@ from gippa.io.protein_fasta import read_protein_fasta, write_protein_fasta
 from gippa.io.tsv import write_tsv
 from gippa.makedb import ORF_ID_PREFIX
 from gippa.mapping.loci import LocusClassifier, in_frame
-from gippa.mapping.sixframe import SixFrameIndex, translate11_text
+from gippa.mapping.sixframe import SixFrameIndex, translate_text
 from gippa.model.coords import Interval, Replicon
 from gippa.model.genes import Gene, GeneModel
 
@@ -63,6 +64,7 @@ class MakedbOptions:
     six_frame_orfs: bool = False
     min_orf_aa: int = 20
     contaminants: Path | None = None  # library FASTA from `gippa setup`; None: --no-contaminants
+    translation_table: int = 11  # annotation.translation_table of the resolved config
 
 
 @dataclass(frozen=True)
@@ -94,12 +96,12 @@ class MakedbResult:
 # ---------------------------------------------------------------- six-frame ORFs
 
 
-def _strand_runs(t: str, circular: bool, min_aa: int) -> Iterator[tuple[int, int, str]]:
+def _strand_runs(t: str, circular: bool, min_aa: int, table: int) -> Iterator[tuple[int, int, str]]:
     """Stop/X-delimited segments >= ``min_aa`` of the three frames of ``t`` (strand coords)."""
     n = len(t)
     ext = t + t + t[:6] if circular else t
     for o in range(3):
-        aa = translate11_text(ext, o)
+        aa = translate_text(ext, table, o)
         codes = np.frombuffer(aa.encode("ascii"), dtype=np.uint8)
         bnd = np.flatnonzero((codes == ord("*")) | (codes == ord("X")))
         if circular:
@@ -117,12 +119,12 @@ def _strand_runs(t: str, circular: bool, min_aa: int) -> Iterator[tuple[int, int
             yield s, s + 3 * (b - a), aa[a:b]
 
 
-def _raw_orfs(contig: str, seq: str, rep: Replicon, min_aa: int) -> Iterator[OrfRecord]:
+def _raw_orfs(contig: str, seq: str, rep: Replicon, min_aa: int, table: int) -> Iterator[OrfRecord]:
     circ = rep.topology == "circular"
     n = len(seq)
-    for s, e, aa in _strand_runs(seq, circ, min_aa):
+    for s, e, aa in _strand_runs(seq, circ, min_aa, table):
         yield OrfRecord("", contig, s, e, "+", aa)
-    for a, b, aa in _strand_runs(seq.translate(_COMP)[::-1], circ, min_aa):
+    for a, b, aa in _strand_runs(seq.translate(_COMP)[::-1], circ, min_aa, table):
         s, e = n - b, n - a
         if s < 0:
             s, e = s + n, e + n
@@ -144,7 +146,7 @@ def _in_frame_coding(orf: OrfRecord, gm: GeneModel, rep: Replicon) -> bool:
     return False
 
 
-def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
+def _upstream(seq: str, g: Gene, rep: Replicon, table: int) -> tuple[int, int] | None:
     """In-frame upstream part of ``g`` up to the first stop (unwrapped plus coordinates); None
     when the walk runs off a linear contig, meets an ``X`` or finds no stop within one turn."""
     n, circ, gi = rep.length, rep.topology == "circular", g.interval
@@ -157,7 +159,7 @@ def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
         if abs(q - q0) >= n:
             return None
         cod = interval_nt(seq, Interval(gi.contig, q % n, q % n + 3, gi.strand))
-        aa = translate11_text(cod)
+        aa = translate_text(cod, table)
         if aa == "*":
             break
         if aa == "X":
@@ -171,17 +173,19 @@ def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
     return (a, b) if b > a else None
 
 
-def _nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> Iterator[OrfRecord]:
+def _nterm_entries(
+    gm: GeneModel, genome: Mapping[str, str], *, table: int = 11
+) -> Iterator[OrfRecord]:
     for g in gm.genes:
         if g.feature_type not in _CODING or g.interval.strand not in ("+", "-"):
             continue
         rep, seq = gm.replicons[g.interval.contig], genome[g.interval.contig]
-        up = _upstream(seq, g, rep)
+        up = _upstream(seq, g, rep, table)
         if up is None:
             continue
         a, b = up
         strand = g.interval.strand
-        up_aa = translate11_text(interval_nt(seq, Interval(g.interval.contig, a, b, strand)))
+        up_aa = translate_text(interval_nt(seq, Interval(g.interval.contig, a, b, strand)), table)
         if len(up_aa) < NTERM_MIN_UPSTREAM_AA:
             continue
         gi = g.interval
@@ -192,7 +196,7 @@ def _nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> Iterator[OrfReco
             s, e, js, je = a - span, b, gi.end - span, gi.end
             if s < 0:
                 s, e = s + rep.length, e + rep.length
-        junction = translate11_text(_strand_nt(seq, js, je, strand, rep.length))
+        junction = translate_text(_strand_nt(seq, js, je, strand, rep.length), table)
         yield OrfRecord("nterm_extension", gi.contig, s, e, strand, up_aa + junction, g.locus_tag)
 
 
@@ -211,13 +215,14 @@ def six_frame_orfs(
     index: SixFrameIndex, gm: GeneModel, genome: Mapping[str, str], min_aa: int
 ) -> list[OrfRecord]:
     """Class-tagged six-frame ORFs and ``nterm_extension`` entries, sorted (contig, start, end,
-    strand). ``index`` (M3-01) supplies the replicons; sequences come from ``genome``."""
-    reps = index.replicons
-    classifier = LocusClassifier(gm, genome)
-    out: list[OrfRecord] = list(_nterm_entries(gm, genome))
+    strand). ``index`` (M3-01) supplies the replicons and the genetic code; sequences come from
+    ``genome``."""
+    reps, table = index.replicons, index.translation_table
+    classifier = LocusClassifier(gm, genome, table=table)
+    out: list[OrfRecord] = list(_nterm_entries(gm, genome, table=table))
     for contig, seq in genome.items():
         rep = reps[contig]
-        for orf in _raw_orfs(contig, seq, rep, min_aa):
+        for orf in _raw_orfs(contig, seq, rep, min_aa, table):
             if _in_frame_coding(orf, gm, rep):
                 continue
             iv = Interval(contig, orf.start, orf.end, orf.strand)  # type: ignore[arg-type]
@@ -232,11 +237,11 @@ def six_frame_orfs(
 # ---------------------------------------------------------------- database
 
 
-def _protein(g: Gene) -> str:
-    """Annotated protein (Bakta ``aa``), else the table-11 translation with an initiator M."""
+def _protein(g: Gene, table: int) -> str:
+    """Annotated protein (Bakta ``aa``), else the ``table`` translation with an initiator M."""
     if g.aa:
         return g.aa
-    return ("M" + translate11_text((g.nt or "")[3:])).rstrip("*")
+    return ("M" + translate_text((g.nt or "")[3:], table)).rstrip("*")
 
 
 def _attr(attrs: Mapping[str, AttrValue], key: str) -> str | None:
@@ -317,7 +322,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
         else None
     )
     # The genome also replaces nucleotides a recorded Bakta JSON does not carry (M3-24 decision 8).
-    ann = parse_bakta_json(opts.annotation, genome=fasta)
+    ann = parse_bakta_json(opts.annotation, genome=fasta, translation_table=opts.translation_table)
     gm = ann.model
     if not gm.replicons:
         raise ValueError(f"{opts.annotation}: annotation has no sequences or features")
@@ -348,7 +353,11 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
             iv = g.interval
             row: Row = (g.locus_tag, g.feature_type, g.locus_tag, None, iv.contig, iv.start + 1,
                         iv.end, iv.strand)  # fmt: skip
-            add(f"{g.locus_tag} {g.product or 'hypothetical protein'}", _protein(g), row)
+            add(
+                f"{g.locus_tag} {g.product or 'hypothetical protein'}",
+                _protein(g, opts.translation_table),
+                row,
+            )
     if opts.patch is not None:
         taken = {r[0] for r in rows}
         for f in read_gff3(opts.patch, gm.replicons):
@@ -360,7 +369,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
             rid = f"{pid}_patch" if pid in taken else pid
             taken.add(rid)
             nt = interval_nt(genome[iv.contig], iv)
-            seq = "M" + translate11_text(nt[3:])
+            seq = "M" + translate_text(nt[3:], opts.translation_table)
             if _attr(f.attributes, "Note") == "cterm_extension":
                 k = _readthrough_residue(gm, tag, iv, rid)
                 if seq[k : k + 1] != "*":
@@ -378,7 +387,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
     if opts.six_frame_orfs:
         from gippa.mapping.sixframe import build_sixframe
 
-        index = build_sixframe(genome, gm.replicons, wrap_nt=0)
+        index = build_sixframe(genome, gm.replicons, wrap_nt=0, table=opts.translation_table)
         for o in six_frame_orfs(index, gm, genome, opts.min_orf_aa):
             header = o.db_id
             if o.cls == "nterm_extension":
@@ -422,6 +431,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
         },
         "counts": counts,
         "decoys": False,
+        "translation_table": opts.translation_table,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return MakedbResult(fasta_path, map_path, manifest_path, counts)

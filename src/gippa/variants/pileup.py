@@ -35,6 +35,7 @@ from gippa.config.model import GippaConfig
 from gippa.mapping.loci import in_frame
 from gippa.model.coords import Interval, Replicon
 from gippa.model.genes import Gene, GeneModel
+from gippa.model.genetic_code import recoded_codons
 from gippa.variants.align import HitAlignment, ResidueOp, translate_locus
 
 __all__ = [
@@ -66,7 +67,6 @@ _IL = frozenset("IL")
 _STRAND_RANK = {"+": 0, "-": 1}
 NONSTANDARD: frozenset[str] = frozenset("BJOUXZ")  # peptide letters that are never ALT
 _AMBIGUOUS = frozenset("BJXZ")  # the rest of NONSTANDARD (O, U) is ``rare``
-RECODED_STOP = {"U": "TGA", "O": "TAG"}  # M7-16 rule 11: U over TGA, O over TAG are ALT
 _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
 
 _Key = tuple[str, str, int]  # (contig, strand, wrapped codon)
@@ -207,13 +207,13 @@ def _sources(peps: set[str], support: Mapping[str, Support]) -> str:
 
 
 def _locate(
-    key: _Key, gm: GeneModel, genome: Mapping[str, str]
+    key: _Key, gm: GeneModel, genome: Mapping[str, str], table: int
 ) -> tuple[str | None, int | None, str, str]:
     """``(gene, aa_pos, ref_codon, ref_aa)`` of a codon key."""
     contig, strand, codon = key
     rep, seq = gm.replicons[contig], genome[contig]
     hit = _gene_at(gm, rep, codon, strand)
-    ref_aa = translate_locus(seq, rep, codon, codon + 3, strand)
+    ref_aa = translate_locus(seq, rep, codon, codon + 3, strand, table=table)
     gene, aa_pos = (None, None) if hit is None else hit
     return gene, aa_pos, _codon_nt(seq, rep, codon, strand), ref_aa
 
@@ -226,8 +226,11 @@ def pileup(
     *,
     support: Mapping[str, Support],
 ) -> pd.DataFrame:
-    """One row per covered codon of the eligible alignments ``aligns`` (rules 2-6, 8-10)."""
-    reps = gm.replicons
+    """One row per covered codon of the eligible alignments ``aligns`` (rules 2-6, 8-10), in the
+    genetic code ``cfg.annotation.translation_table``. M7-16 rule 11: U/O over the stop
+    ``recoded_codons`` maps them to is an ALT; any other U/O is skipped."""
+    reps, table = gm.replicons, cfg.annotation.translation_table
+    recoded = recoded_codons(table)
     cats: dict[_Key, dict[str, set[_Cat]]] = {}
     peps: dict[tuple[_Key, str], set[str]] = {}  # (key, folded) -> original peptides
     cover: dict[_Key, set[str]] = {}
@@ -244,8 +247,7 @@ def pileup(
                 cover.setdefault(k, set()).add(f)
             seq = genome[a.contig]
             if _skipped(op) and not (
-                op.ref == "*"
-                and RECODED_STOP.get(op.alt) == _codon_nt(seq, rep, ks[0][2], a.strand)
+                op.ref == "*" and recoded.get(op.alt) == _codon_nt(seq, rep, ks[0][2], a.strand)
             ):
                 skipped.setdefault((ks[0], f), op.alt)
                 examples.add(a.peptide)
@@ -274,7 +276,7 @@ def pileup(
                 alts.setdefault((tok, kind, alt), set()).update(peps[(key, f)])
         counts = {k: len({_fold(p) for p in v}) for k, v in alts.items()}
         ranked = sorted(alts, key=lambda k: (-counts[k], k))
-        gene, aa_pos, _, ref_aa = _locate(key, gm, genome)
+        gene, aa_pos, _, ref_aa = _locate(key, gm, genome, table)
         rows.append({
             "contig": key[0], "codon_start": key[2], "strand": key[1], "gene": gene,
             "aa_pos": aa_pos, "ref_aa": ref_aa, "n_ref": n_ref, "n_il": n_il,
@@ -290,7 +292,7 @@ def pileup(
         contig, strand, codon = key
         nxt = (contig, strand, _wrap(codon + (3 if strand == "+" else -3), reps[contig]))
         n_ref = len((cover.get(key, set()) & cover.get(nxt, set())) - alt_f)
-        gene, aa_pos, ref_codon, ref_aa = _locate(key, gm, genome)
+        gene, aa_pos, ref_codon, ref_aa = _locate(key, gm, genome, table)
         fs.append(_Site(contig, codon, strand, gene, aa_pos, ref_codon, ref_aa, f"fs{shift:+d}",
                         "frameshift", n_ref, len(alt_f), _sources(ps, support),
                         frozenset(ps)))  # fmt: skip

@@ -20,10 +20,11 @@ from gippa.annotate.bakta import interval_nt
 from gippa.io.gff3 import GffFeature
 from gippa.io.protein_fasta import LetterCounts, ProteinRecord
 from gippa.io.tsv import format_value
-from gippa.mapping.sixframe import translate11_text
+from gippa.mapping.sixframe import translate_text
 from gippa.model.coords import Interval, Replicon, check_interval
 from gippa.model.genes import GeneModel
-from gippa.novel.candidates import NOVEL_CLASSES, Orf, _il, _stops, _strand_view, _walk_up
+from gippa.model.genetic_code import stop_codons
+from gippa.novel.candidates import NOVEL_CLASSES, Orf, _il, _strand_view, _walk_up
 
 Kind = Literal["str", "int", "float", "bool"]
 NOVEL_ORFS_TYPES: dict[str, Kind] = {
@@ -98,7 +99,7 @@ def _class_fdr(v: Any) -> str:
 
 
 def _orf_row(
-    o: Orf, s: Mapping[str, Any], genome: Mapping[str, str], rep: Replicon
+    o: Orf, s: Mapping[str, Any], genome: Mapping[str, str], rep: Replicon, table: int
 ) -> dict[str, Any]:
     sv = _strand_view(o.contig, o.strand, rep, genome)
     n, plus = sv.n, o.strand == "+"
@@ -121,9 +122,9 @@ def _orf_row(
     elif o.first_peptide is not None:  # from the first peptide's mapped position
         len_longest = n_aa(t(o.first_peptide))
     else:  # no position: find the first peptide (I/L folded) in the translated ORF body
-        q, _ = _walk_up(sv, t_end, _stops(11))
+        q, _ = _walk_up(sv, t_end, stop_codons(table))
         body = "".join(sv.codon(p) or "NNN" for p in range(q + 3, t_end, 3))
-        aa = _il(translate11_text(body))
+        aa = _il(translate_text(body, table))
         hits = [i for i in (aa.find(p) for p in o.peptides) if i >= 0]
         if not hits:
             raise ValueError(f"{o.orf_id}: no peptide found in the ORF translation")
@@ -161,14 +162,17 @@ def orf_table(
     *,
     genome: Mapping[str, str],
     replicons: Mapping[str, Replicon],
+    translation_table: int = 11,
 ) -> pd.DataFrame:
     """The ``novel_orfs`` table in §6.5 order (contig FASTA order, lowest coordinate, end, strand,
     ID). ``scored`` is keyed by ``orf_id`` (M7-06 ``minimal_call`` columns, optionally
-    ``start_best_ostir`` as a 0-based codon of ``Orf.starts`` and any later table column)."""
+    ``start_best_ostir`` as a 0-based codon of ``Orf.starts`` and any later table column).
+    ``translation_table`` gives the stops of the upstream walk for an ORF without a position."""
     _unique_ids([o.orf_id for o in orfs])
     sc = _scored_by_id(scored)
     order = {c: i for i, c in enumerate(replicons)}
-    rows = [_orf_row(o, sc.get(o.orf_id, {}), genome, replicons[o.contig]) for o in orfs]
+    t = translation_table
+    rows = [_orf_row(o, sc.get(o.orf_id, {}), genome, replicons[o.contig], t) for o in orfs]
     rows.sort(key=lambda r: (order[r["contig"]], _id_pos(r["orf_id"]), r["end"], r["strand"],
                              r["orf_id"]))  # fmt: skip
     return novel_frame(rows)
@@ -268,10 +272,13 @@ def patch_features(table: pd.DataFrame, gm: GeneModel) -> list[GffFeature]:
 
 
 def protein_records(
-    table: pd.DataFrame, genome: Mapping[str, str], replicons: Mapping[str, Replicon]
+    table: pd.DataFrame,
+    genome: Mapping[str, str],
+    replicons: Mapping[str, Replicon],
+    translation_table: int = 11,
 ) -> list[ProteinRecord]:
     """``|longest`` and ``|best_ostir`` proteins (merged when equal) of every ORF with a start:
-    table 11, the initiator read as ``M``, no ``*``."""
+    ``translation_table`` (default 11), the initiator read as ``M``, no ``*``."""
     out = []
     for r in _records(table):
         longest, best = _opt(r["start_longest"]), _opt(r["start_best_ostir"])
@@ -287,7 +294,7 @@ def protein_records(
             iv = _span(r, start, n_aa)
             check_interval(iv, replicons[iv.contig])
             nt = interval_nt(genome[iv.contig].upper(), iv)
-            aa = ("M" + translate11_text(nt[3:])).removesuffix("*")
+            aa = ("M" + translate_text(nt[3:], translation_table)).removesuffix("*")
             header = f"{oid}|{suffix}"
             out.append(ProteinRecord(header, (header,), header, aa, aa.count("*"),
                                      LetterCounts(()), LetterCounts(())))  # fmt: skip
