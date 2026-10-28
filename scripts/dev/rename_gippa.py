@@ -155,6 +155,10 @@ FILE_PROTECT: tuple[Protect, ...] = (
     Protect(_p(re.escape(R14_NOTE)), "transition: R14 counts giap-* too", ("AGENTS.md",)),
     Protect(_p(r'\(" giap-", " gippa-"\)'), "transition: R14 counts giap-* too", (PROBE,)),
     Protect(_p(r"^\.giap/$", re.M), "transition: old probe dir stays ignored", (".gitignore",)),
+    Protect(_p(r'old="GIAP_\$\{name#GIPPA_\}"'), "transition: kept pilot cfgs name old vars",
+            ("scripts/slurm/diann_pilot.sbatch",)),
+    Protect(_p(r'key\.replace\("GIPPA_", "GIAP_", 1\)'),
+            "transition: kept pilot cfgs name old vars", ("tests/helpers/pilot_kit.py",)),
     Protect(_p(r"^- \[ADR-0064:.*$", re.M), "ADR-0064 index line (the rename record)",
             ("docs/adr/index.md",)),
 )  # fmt: skip
