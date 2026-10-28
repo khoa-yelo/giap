@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from gippasim.codons import CODE_11, STOPS, revcomp
+from gippasim.codons import code, revcomp, stops
 from gippasim.features import Feat
 
 __all__ = [
@@ -72,9 +72,13 @@ def _codon(seq: str, a: int, strand: str, circular: bool) -> str | None:
 
 
 def eligible_readthrough(
-    feats: Sequence[Feat], seqs: Mapping[str, str], circular: Mapping[str, bool]
+    feats: Sequence[Feat],
+    seqs: Mapping[str, str],
+    circular: Mapping[str, bool],
+    table: int = 11,
 ) -> list[ReadThrough]:
-    """Every eligible gene, in feature order."""
+    """Every eligible gene, in feature order; stops and extension residues under ``table``."""
+    st, tr = stops(table), code(table)
     out = []
     for f in feats:
         if f.kind not in ("cds", "sorf") or f.pseudo_reason or f.extra.get("pseudo"):
@@ -83,7 +87,7 @@ def eligible_readthrough(
         n = len(seq)
         cs = (f.end - 3) % n if f.strand == "+" else f.start % n
         stop = _codon(seq, cs, f.strand, circ)
-        if stop not in STOPS:
+        if stop not in st:
             continue
         sign = 3 if f.strand == "+" else -3
         ext: list[str] = []
@@ -91,12 +95,12 @@ def eligible_readthrough(
             c = _codon(seq, cs + sign * k, f.strand, circ)
             if c is None:
                 break
-            if c in STOPS:
+            if c in st:
                 if k >= K_MIN:
                     out.append(ReadThrough(f.locus, f.contig, f.strand, cs, stop, k,
                                            (cs + sign * k) % n, "".join(ext)))  # fmt: skip
                 break
-            ext.append(CODE_11[c])
+            ext.append(tr[c])
     return out
 
 
@@ -106,12 +110,13 @@ def pick_readthrough(
     feats: Sequence[Feat],
     seqs: Mapping[str, str],
     circular: Mapping[str, bool],
+    table: int = 11,
 ) -> list[ReadThrough]:
     """``n`` eligible genes drawn without replacement, in feature order; ``ValueError`` when
     fewer than ``n`` are eligible (no silent shortfall)."""
     if n <= 0:
         return []
-    elig = eligible_readthrough(feats, seqs, circular)
+    elig = eligible_readthrough(feats, seqs, circular, table)
     if len(elig) < n:
         raise ValueError(f"n_readthrough = {n} but only {len(elig)} eligible genes")
     rng = np.random.default_rng([seed, _STREAM])

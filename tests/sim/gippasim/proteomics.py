@@ -66,7 +66,7 @@ from typing import Any, Literal
 import numpy as np
 from scipy import stats
 
-from gippasim.codons import CODE_11, STOPS, codons_of, revcomp, translate_cds
+from gippasim.codons import CODE_11, code, codons_of, revcomp, stops, translate_cds
 from gippasim.features import Feat
 
 _LOG = logging.getLogger(__name__)
@@ -249,6 +249,7 @@ def expressed_proteins(
     novel: Sequence[Sequence[Any]],
     seqs: dict[str, str],
     readthrough: Mapping[str, tuple[str, str]] | None = None,
+    table: int = 11,
 ) -> list[Protein]:
     """Non-pseudo CDS and sORFs translated from the true start, then the novel ORFs.
 
@@ -261,7 +262,7 @@ def expressed_proteins(
         if f.kind not in ("cds", "sorf") or f.pseudo_reason or f.extra.get("pseudo"):
             continue
         s0, e0 = f.span()
-        aa = translate_cds(codons_of(_slice(seqs[f.contig], s0, e0, f.strand)))
+        aa = translate_cds(codons_of(_slice(seqs[f.contig], s0, e0, f.strand)), table)
         if f.sec_residues:  # planted Sec (M7-16c): the TGA is decoded as U, after any extension
             up = ((f.start - s0) if f.strand == "+" else (e0 - f.end)) // 3
             for i in f.sec_residues:
@@ -297,17 +298,20 @@ def _il(s: str) -> str:
 _NT_CODE = np.full(256, 0, dtype=np.int64)
 for _i, _b in enumerate(b"ACGT"):
     _NT_CODE[_b] = _i
-_CODON_AA = np.frombuffer(
-    "".join(CODE_11[a + b + c] for a in "ACGT" for b in "ACGT" for c in "ACGT").encode(),
-    dtype=np.uint8,
-)
+_CODON_AA = {
+    t: np.frombuffer(
+        "".join(code(t)[a + b + c] for a in "ACGT" for b in "ACGT" for c in "ACGT").encode(),
+        dtype=np.uint8,
+    )
+    for t in (4, 11, 25)
+}
 _K = 7  # prefix length of the six-frame index
 
 
-def _translate_np(nt: bytes) -> bytes:
+def _translate_np(nt: bytes, table: int = 11) -> bytes:
     m = len(nt) // 3
     c = _NT_CODE[np.frombuffer(nt[: 3 * m], dtype=np.uint8)].reshape(m, 3)
-    out: bytes = _CODON_AA[16 * c[:, 0] + 4 * c[:, 1] + c[:, 2]].tobytes()
+    out: bytes = _CODON_AA[table][16 * c[:, 0] + 4 * c[:, 1] + c[:, 2]].tobytes()
     return out
 
 
@@ -323,7 +327,7 @@ def _kmer_codes(aa: bytes, k: int) -> np.ndarray:
 
 
 def sixframe_counts(
-    peptides: Sequence[str], seqs: dict[str, str], topology: dict[str, str]
+    peptides: Sequence[str], seqs: dict[str, str], topology: dict[str, str], table: int = 11
 ) -> dict[str, int]:
     """Number of distinct loci (contig, plus-strand start, strand) whose six-frame translation is
     exactly each peptide with I = L folded (GIPPA's exact matcher); circular contigs are searched
@@ -342,7 +346,7 @@ def sixframe_counts(
         for strand, src in (("+", ext), ("-", revcomp(ext))):
             raw = src.encode()
             for off in range(3):
-                aa = _translate_np(raw[off:]).replace(b"I", b"L")
+                aa = _translate_np(raw[off:], table).replace(b"I", b"L")
                 hits = np.flatnonzero(np.isin(_kmer_codes(aa, _K), keys))
                 text = aa.decode()
                 for i in hits.tolist():
@@ -411,6 +415,7 @@ def sixframe_noncoding_pool(
     digest_len: tuple[int, int],
     missed_cleavages: int,
     true_starts: Sequence[tuple[str, int, str]] = (),
+    table: int = 11,
 ) -> SixframePool:
     """Trypsin/P products (linear, no origin crossing) of the six-frame translation of ``seqs``
     with no codon in frame with a ``coding`` span (contig, s0, e0, strand), by class of their
@@ -430,7 +435,7 @@ def sixframe_noncoding_pool(
             other = "-" if strand == "+" else "+"
             raw = src.encode()
             for off in range(3):
-                aa = _translate_np(raw[off:])
+                aa = _translate_np(raw[off:], table)
                 m = len(aa)
                 arr = np.frombuffer(aa, dtype=np.uint8)
                 stop = arr == ord("*")
@@ -591,7 +596,7 @@ def _wrong_peptides(
 
 def _noncoding_pool(
     cfg: ProteomicsConfig, seqs: dict[str, str], feats: Sequence[Feat],
-    novel: Sequence[Sequence[Any]],
+    novel: Sequence[Sequence[Any]], table: int = 11,
 ) -> SixframePool:  # fmt: skip
     """The non-coding six-frame pool: out of frame of every CDS/sORF (true start to stop, pseudo
     genes included) and every novel ORF; classes by the annotated CDS/sORF spans, and
@@ -603,7 +608,7 @@ def _noncoding_pool(
     starts = [(f.contig, f.span()[0] if f.strand == "+" else f.span()[1], f.strand)
               for f in cds if f.end <= len(seqs[f.contig])]  # fmt: skip
     return sixframe_noncoding_pool(seqs, coding, annotated, cfg.digest_len, cfg.missed_cleavages,
-                                   starts)  # fmt: skip
+                                   starts, table)  # fmt: skip
 
 
 #: ``gippa.makedb.ORF_ID_PREFIX``, ``NTERM_PROTEIN_AA`` and ``NTERM_MIN_UPSTREAM_AA`` (restated:
@@ -629,8 +634,8 @@ class OrfEntries:
     shorter than ``NTERM_MIN_UPSTREAM_AA``)."""
 
     def __init__(self, feats: Sequence[Feat], seqs: dict[str, str],
-                 topology: dict[str, str]) -> None:  # fmt: skip
-        self.seqs = seqs
+                 topology: dict[str, str], table: int = 11) -> None:  # fmt: skip
+        self.seqs, self.stops = seqs, stops(table)
         self.rc = {c: revcomp(x) for c, x in seqs.items()}
         self.circ = {c: topology.get(c, "circular") == "circular" for c in seqs}
         genes = [f for f in feats if f.kind in ("cds", "sorf") and not _json_pseudo(f)]
@@ -658,7 +663,7 @@ class OrfEntries:
 
         def stop(q: int) -> bool:
             q %= n
-            return (t[q : q + 3] if q + 3 <= n else t[q:] + t[: q + 3 - n]) in STOPS
+            return (t[q : q + 3] if q + 3 <= n else t[q:] + t[: q + 3 - n]) in self.stops
 
         lo, open5 = a, False
         while True:
@@ -834,6 +839,7 @@ def _scored_nulls(
     hay: str,
     annotated: Sequence[tuple[str, str, str]],
     n_wrong: int,
+    table: int = 11,
 ) -> tuple[
     list[tuple[str, str]],
     dict[str, str],
@@ -843,14 +849,14 @@ def _scored_nulls(
 ]:
     """The ``scored_null`` null peptides: ``[(peptide, entry ID)]``, origins, six-frame loci,
     protein-null placements and the ``null_split`` record (module doc)."""
-    pool = _noncoding_pool(cfg, seqs, feats, novel)
+    pool = _noncoding_pool(cfg, seqs, feats, novel, table)
     share, n_prod_p, n_prod_s = _search_space_share(pool, annotated, cfg)
     n_p = n_wrong // 2  # lead decision 10: fixed 50/50, capped by the protein-null pool
     genes = {f.locus for f in feats if f.kind in ("cds", "sorf")}
     # recorded loci the sample strain made pseudo are undetected recorded loci too (decision 9)
     strain_pseudo = [
         Protein(f.locus, f.contig, *f.span(), f.strand,
-                translate_cds(codons_of(_slice(seqs[f.contig], *f.span(), f.strand))))
+                translate_cds(codons_of(_slice(seqs[f.contig], *f.span(), f.strand)), table))
         for f in feats
         if f.kind in ("cds", "sorf") and not f.pseudo_reason and f.extra.get("pseudo")
     ]  # fmt: skip
@@ -858,7 +864,7 @@ def _scored_nulls(
     prot_nulls, places = _protein_nulls(
         cfg, nrng, n_p, [*prots, *strain_pseudo], genes, detected, occ, seqs
     )
-    orfs = OrfEntries(feats, seqs, topology)
+    orfs = OrfEntries(feats, seqs, topology, table)
     entry: dict[str, str] = {}
 
     def ok(loc: Locus) -> bool:
@@ -960,6 +966,7 @@ def simulate_proteomics(
     log_abundance: np.ndarray | None = None,
     first_wrong: Sequence[tuple[str, str]] = (),
     readthrough: Mapping[str, tuple[str, str]] | None = None,
+    table: int = 11,
 ) -> dict[str, Path]:
     """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
 
@@ -969,7 +976,9 @@ def simulate_proteomics(
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
-    prots = expressed_proteins(feats, novel, seqs, readthrough)
+    # the table goes by keyword and only off 11: code-11 callers (and spies) keep the old call
+    kw = {} if table == 11 else {"table": table}
+    prots = expressed_proteins(feats, novel, seqs, readthrough, **kw)
     if log_abundance is None:
         la = gene_log_abundance(rng, len(prots))
     else:
@@ -979,7 +988,7 @@ def simulate_proteomics(
     detected, occ, first = _detect(cfg, rng, prots, la)
     # makedb target IDs (decision 9): six-frame wrong peptides, or the scored_null search
     six = cfg.wrong_source == "sixframe_noncoding" or cfg.decoys == "scored_null"
-    orfs = OrfEntries(feats, seqs, topology) if six else None
+    orfs = OrfEntries(feats, seqs, topology, table) if six else None
     novel_ids = {str(r[0]) for r in novel}
     # codons of a true protein upstream of its annotated start (N-terminal extensions)
     upstream = {f.locus: ((f.start - f.span()[0]) if f.strand == "+" else (f.span()[1] - f.end))
@@ -1017,11 +1026,11 @@ def simulate_proteomics(
     null_split: dict[str, Any] | None = None
     if scored:
         nulls = _scored_nulls(cfg, seed, xrng, prots, detected, occ, feats, novel, seqs,
-                              topology, hay, annotated, n_wrong)  # fmt: skip
+                              topology, hay, annotated, n_wrong, table)  # fmt: skip
         wrong, origins, loci, places, null_split = nulls
         entry = dict(wrong)
     elif six and orfs is not None:
-        pool = _noncoding_pool(cfg, seqs, feats, novel)
+        pool = _noncoding_pool(cfg, seqs, feats, novel, table)
 
         def ok(loc: Locus) -> bool:
             db_id = orfs.of(loc) if _il(loc[0]) not in hay else None
@@ -1137,7 +1146,7 @@ def simulate_proteomics(
             rows.append([*run_rows[i], f"run{r + 1}.{j + 1}", "database", cfg.search_db])
 
     # truth
-    counts = sixframe_counts([*detected, *(w for w, _ in wrong)], seqs, topology)
+    counts = sixframe_counts([*detected, *(w for w, _ in wrong)], seqs, topology, table)
     truth: list[list[str]] = []
     for pep in detected:
         n_loci = str(counts[pep])
