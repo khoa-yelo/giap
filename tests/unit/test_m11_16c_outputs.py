@@ -270,7 +270,8 @@ def test_m1_outputs_follow_table(
         plasmid_length=(8_000, 8_000), linear_contig_length=6_000, n_trna=150, n_sorfs=5,
         n_pseudogenes=4, n_nterm_extensions=5,
         n_novel_orfs=(("intergenic", 6), ("cds_outframe", 6), ("antisense", 6)),
-        m7_truth=True, n_readthrough=20, strain=StrainConfig(snv_rate_per_kb=5.0, n_stop_loss=20),
+        # 35 stop losses: P(no TGA one) ≈ 0.89^35 ≈ 2 % per seed
+        m7_truth=True, n_readthrough=20, strain=StrainConfig(snv_rate_per_kb=5.0, n_stop_loss=35),
         proteomics=ProteomicsConfig(),
     )  # fmt: skip
     out = res.outdir
