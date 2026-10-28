@@ -50,7 +50,8 @@ jobs=0; cpus=0
 while read -r c name _; do
   [ -n "${c:-}" ] || continue
   case "$c" in *[!0-9]*) die 2 "R14: unexpected squeue CPU count '$c'; nothing submitted" ;; esac
-  case "$name" in giap-*|gippa-*) jobs=$((jobs + 1)); cpus=$((cpus + c)) ;; esac
+  # whole cores (CR_CORE_MEMORY, 2 threads per core): a pending 1-CPU job will hold 2 (#445 S1)
+  case "$name" in giap-*|gippa-*) jobs=$((jobs + 1)); cpus=$((cpus + (10#$c + 1) / 2 * 2)) ;; esac
 done <<< "$queue"
 [ $((jobs + SUITES + 1)) -le 20 ] ||
   die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch queues 16 jobs ($SUITES suite jobs and the aggregator) and $jobs + 16 > 20 jobs; nothing submitted"
@@ -58,7 +59,7 @@ now="${GIPPA_NOW:-$(date +%s)}"
 case "$now" in ''|*[!0-9]*) die 2 "GIPPA_NOW '$now' is not epoch seconds; nothing submitted" ;; esac
 at="${GIPPA_NIGHTLY_AT:-01:30}"
 mpc="${GIPPA_MAX_MEM_PER_CPU_MB:-4000}"
-case "$mpc" in ''|*[!0-9]*|0) die 2 "GIPPA_MAX_MEM_PER_CPU_MB '$mpc' is not a positive integer; nothing submitted" ;; esac
+case "$mpc" in ''|*[!0-9]*|0|0*) die 2 "GIPPA_MAX_MEM_PER_CPU_MB '$mpc' is not a positive integer; nothing submitted" ;; esac
 
 wt="$GIPPA_ROOT/ci/calibration-$short"
 mkdir -p "$GIPPA_ROOT/ci" "$GIPPA_ROOT/logs/calibration" "$REPO/local/logs"
@@ -84,14 +85,16 @@ while IFS=$'\t' read -r suite shards groups _ cpl mpl time _ || [ -n "$suite" ];
   names+=("$suite")
   req=$((lanes * 10#$cpl)); mem=$((lanes * 10#$mpl))
   alloc=$(( (mem + 10#$mpc - 1) / 10#$mpc )); [ "$alloc" -lt "$req" ] && alloc=$req
+  alloc=$(( (alloc + 1) / 2 * 2 ))  # whole cores, as Slurm allocates them
   sizes+=("$req $mem $time")
   total=$((total + alloc))  # R14 counts what Slurm allocates, not what is asked (MaxMemPerCPU)
 done < <(tail -n +2 "$plan")
 [ "${#names[@]}" -eq "$SUITES" ] || die 2 "the plan $plan has ${#names[@]} suites, not $SUITES; nothing submitted"
 
 # R14 CPUs: every suite job and the aggregator are queued at once
-[ $((cpus + total + 1)) -le 128 ] ||
-  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 1)) CPUs ($total allocated for $SUITES suite jobs, MaxMemPerCPU $mpc MB, and 1 for the aggregator) and $cpus + $((total + 1)) = $((cpus + total + 1)) > 128 CPUs; nothing submitted"
+# (the 1-CPU aggregator holds a whole core: 2 CPUs)
+[ $((cpus + total + 2)) -le 128 ] ||
+  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 2)) CPUs ($total allocated for $SUITES suite jobs, MaxMemPerCPU $mpc MB, and 2 for the aggregator) and $cpus + $((total + 2)) = $((cpus + total + 2)) > 128 CPUs; nothing submitted"
 # python3 (not the venv) for local-time arithmetic; prints "<end> <start>", exit 1 = overlap
 window=$(python3 -I -c '
 import datetime as d, re, sys

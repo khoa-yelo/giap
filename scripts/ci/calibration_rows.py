@@ -116,7 +116,7 @@ def _testcases(junits: list[ET.Element]) -> dict[tuple[str, str], str]:
     out: dict[tuple[str, str], str] = {}
     for root in junits:
         for case in root.iter("testcase"):
-            if not case.get("name"):
+            if not case.get("name") and _outcome(case) == "passed":  # a failure still counts
                 continue
             key, outcome = (case.get("classname", ""), case.get("name", "")), _outcome(case)
             if key not in out or _RANK[outcome] >= _RANK[out[key]]:

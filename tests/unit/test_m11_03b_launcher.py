@@ -161,9 +161,9 @@ def test_squeue_runs_before_the_first_sbatch(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     "lines",
-    [["1 gippa-a", "0 gippa-b", "64 not-gippa"],  # gippa cpus 1: 1 + 126 + 1 <= 128; jobs 2 + 16
-     ["0 gippa-j"] * 3 + ["1 gippa-j"],         # jobs 4 + 16 = 20 (boundary), 128 CPUs
-     ["1 gippa-big"]],                          # 1 + 126 + 1 = 128 (boundary)
+    [["0 gippa-a", "0 gippa-b", "64 not-gippa"],  # gippa cpus 0: 0 + 126 + 2 <= 128; jobs 2 + 16
+     ["0 gippa-j"] * 4,                         # jobs 4 + 16 = 20 (boundary), 128 CPUs
+     []],                                       # 0 + 126 + 2 (aggregator core) = 128 (boundary)
 )  # fmt: skip
 def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
@@ -179,8 +179,9 @@ def test_launch_fits_the_r14_budget(sb: Sandbox, lines: list[str]) -> None:
 @pytest.mark.parametrize(
     "lines",
     [["16 gippa-n"] * 4 + ["3 gippa-x", "3 gippa-y"],   # example 10: 70 CPUs / 6 jobs
-     ["112 gippa-big"],                               # 112 + 126 + 1 = 239 > 128
-     ["2 gippa-big"],                                 # 2 + 126 + 1 = 129 > 128 (boundary)
+     ["112 gippa-big"],                               # 112 + 126 + 2 = 240 > 128
+     ["2 gippa-big"],                                 # 2 + 126 + 2 = 130 > 128
+     ["1 gippa-big"],                                 # a whole core: 2 + 128 = 130 (boundary)
      ["0 gippa-j"] * 5],                              # 5 + 16 = 21 > 20 jobs (0 CPUs)
 )  # fmt: skip
 def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> None:

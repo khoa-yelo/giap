@@ -79,7 +79,7 @@ def _push(sb: Sandbox, edit: dict[str, dict[str, str]], keep_working_copy: bool)
 
 
 def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
-    _queue(sb, ["1 gippa-nightly-launch"])
+    _queue(sb, ["0 gippa-nightly-launch"])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     plan, jobs = _plan(), _suite_jobs(sb)
@@ -114,10 +114,10 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
 
 
 @pytest.mark.parametrize(("lines", "ok"),
-                         [(["1 gippa-x"], True),         # 1 + 126 + 1 = 128
-                          (["2 gippa-x"], False),        # example 7: 129 > 128
+                         [(["0 gippa-x"], True),         # 0 + 126 + 2 (aggregator core) = 128
+                          (["1 gippa-x"], False),        # example 7: a pending 1 CPU holds 2: 130
                           (["15 gippa-a", "15 gippa-b", "64 other"], False),
-                          (["0 gippa-j"] * 3 + ["1 gippa-j"], True),  # 4 + 16 = 20 jobs, 128 CPUs
+                          (["0 gippa-j"] * 4, True),     # 4 + 16 = 20 jobs, 128 CPUs
                           (["0 gippa-j"] * 5, False)])  # 21 > 20 jobs  # fmt: skip
 def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> None:
     _queue(sb, lines)
@@ -127,8 +127,8 @@ def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> N
         return
     out = _out(res)
     assert res.returncode == 2 and sb.sbatch_calls() == [] and "R14" in out, out
-    if lines == ["2 gippa-x"]:  # 2 queued + 127 (126 allocated + 1 rows) = 129 > 128
-        assert all(re.search(rf"\b{n}\b", out) for n in (2, 127, 129, 128)), out
+    if lines == ["1 gippa-x"]:  # 2 (whole core) + 128 (126 allocated + 2 rows) = 130 > 128
+        assert all(re.search(rf"\b{n}\b", out) for n in (2, 128, 130)), out
 
 
 @pytest.mark.parametrize(("hour", "minute", "nightly", "ok"),
@@ -138,7 +138,7 @@ def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> N
 def test_example8_window_is_max_time_plus_20_min(
     sb: Sandbox, hour: int, minute: int, nightly: str, ok: bool
 ) -> None:
-    _queue(sb, ["1 gippa-other"])  # CPUs used no longer stretch the window: no waves
+    _queue(sb, ["0 gippa-other"])  # a queued job no longer stretches the window: no waves
     res = _launch(sb, GIPPA_NOW=at(hour, minute), GIPPA_NIGHTLY_AT=nightly)
     if ok:
         assert res.returncode == 0 and len(_suite_jobs(sb)) == 15, _out(res)

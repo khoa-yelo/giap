@@ -85,10 +85,11 @@ class PlanRow:
 
 def allocated_cpus(row: PlanRow, max_mem_per_cpu_mb: int = MAX_MEM_PER_CPU_MB) -> int:
     """The CPUs Slurm allocates (and squeue shows) for ``row``'s job: the requested CPUs, raised
-    to ``ceil(lanes x mem_per_lane_mb / MaxMemPerCPU)`` when the memory needs more (R14 sums
-    this)."""
+    to ``ceil(lanes x mem_per_lane_mb / MaxMemPerCPU)`` when the memory needs more, rounded up to
+    whole cores of 2 threads (CR_CORE_MEMORY; #445 S1). R14 sums this."""
     mem = (row.shards + row.groups) * row.mem_per_lane_mb
-    return max(row.requested_cpus, -(-mem // max_mem_per_cpu_mb))
+    cpus = max(row.requested_cpus, -(-mem // max_mem_per_cpu_mb))
+    return -(-cpus // 2) * 2
 
 
 @dataclass(frozen=True)

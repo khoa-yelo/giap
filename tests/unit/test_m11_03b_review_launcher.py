@@ -114,8 +114,8 @@ def test_the_clock_is_gippa_now(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     ("lines", "ok"),
-    [(["0 gippa-j"] * 3 + ["1 gippa-j"], True),       # 4 + 16 = 20 (and 1 + 127 = 128 CPUs)
-     (["0 gippa-j"] * 3 + ["1 gippa-j"] + ["2 other"] * 30, True),  # only gippa-* jobs count
+    [(["0 gippa-j"] * 4, True),                       # 4 + 16 = 20 (and 0 + 128 = 128 CPUs)
+     (["0 gippa-j"] * 4 + ["2 other"] * 30, True),    # only gippa-* jobs count
      (["1 gippa-j"] * 5, False),                      # 21 > 20
      (["0 gippa-pending"] * 5, False),                # pending tasks count, CPUs or not
      (["1 gippa-j"] * 10, False)],                    # the review's 10 + 16 = 26 case
@@ -133,15 +133,16 @@ def test_a_launch_counts_its_16_jobs(sb: Sandbox, lines: list[str], ok: bool) ->
 
 
 def test_no_standing_reserve_for_the_nightly_cpus(sb: Sandbox) -> None:
-    """No standing reserve (B3 replaces Q3): 1 CPU queued fits exactly (1 + 126 + 1 = 128)."""
-    _queue(sb, ["1 gippa-other"])
+    """No standing reserve (B3 replaces Q3): an empty queue fits exactly (0 + 126 + 2 = 128); one
+    pending 1-CPU job (a whole core, 2) does not."""
+    _queue(sb, [])
     accepted(sb, _launch(sb, GIPPA_NOW=at(10)))
-    _queue(sb, ["2 gippa-other"])
+    _queue(sb, ["1 gippa-other"])
     refused_res = _launch(sb, GIPPA_NOW=at(10))
     assert refused_res.returncode == 2, _out(refused_res)
 
 
 def test_cpu_refusal_names_the_numbers(sb: Sandbox) -> None:
-    _queue(sb, ["112 gippa-big"])  # 112 + 126 + 1 = 239 > 128
+    _queue(sb, ["112 gippa-big"])  # 112 + 126 + 2 = 240 > 128
     out = refused(sb, _launch(sb, GIPPA_NOW=at(10)))
-    assert all(re.search(rf"\b{n}\b", out) for n in (112, 127, 239, 128)), out
+    assert all(re.search(rf"\b{n}\b", out) for n in (112, 128, 240)), out

@@ -105,7 +105,19 @@ def test_discordance_gets_the_cpus_its_memory_needs(lanes_mod: ModuleType) -> No
     for r in rows.values():
         lanes = r.shards + r.groups
         want = max(lanes * r.cpus_per_lane, -(-lanes * r.mem_per_lane_mb // 4000))
-        assert lanes_mod.allocated_cpus(r) == want, r
+        assert lanes_mod.allocated_cpus(r) == want + want % 2, r
+
+
+@pytest.mark.parametrize(("lanes", "cpl", "mpl", "want"),
+                         [(2, 2, 4001, 4),   # ceil(8002 / 4000) = 3, a whole core more: 4
+                          (1, 1, 1000, 2),   # an odd request holds a whole core (#445 S1)
+                          (3, 1, 2000, 4),   # 3 CPUs requested: 4
+                          (2, 2, 4000, 4)])  # exact: no raise  # fmt: skip
+def test_allocated_cpus_rounds_memory_up_then_to_whole_cores(
+    lanes_mod: ModuleType, lanes: int, cpl: int, mpl: int, want: int
+) -> None:
+    row = lanes_mod.PlanRow("x", 0, lanes, "*", cpl, mpl, "01:00:00", 0.0)
+    assert lanes_mod.allocated_cpus(row) == want
 
 
 def test_planned_allocated_cpus_with_the_rows_job_fit_r14(lanes_mod: ModuleType) -> None:
@@ -113,13 +125,14 @@ def test_planned_allocated_cpus_with_the_rows_job_fit_r14(lanes_mod: ModuleType)
     requested = sum(r.requested_cpus for r in rows)
     allocated = sum(lanes_mod.allocated_cpus(r) for r in rows)
     assert (requested, allocated) == (122, 126)
-    assert allocated + 1 == 127 <= R14_CPUS
+    assert allocated + 2 == 128 <= R14_CPUS  # the 1-CPU rows job holds a whole core
     assert len(rows) + 1 <= 20  # jobs
 
 
 def test_launcher_sums_allocated_cpus(sb: Sandbox) -> None:
-    """1 queued CPU + 126 allocated + 1 rows job = 128 launches; 2 queued (129) refuses."""
-    _queue(sb, ["1 gippa-other"])
+    """0 queued + 126 allocated + 2 (rows job, a whole core) = 128 launches; a pending 1-CPU job
+    (a whole core: 2) refuses."""
+    _queue(sb, ["0 gippa-other"])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
     assert re.search(r"\bcpus=126\b", res.stdout), res.stdout
@@ -130,10 +143,26 @@ def test_launcher_sums_allocated_cpus(sb: Sandbox) -> None:
 
 
 def test_launcher_refuses_when_allocated_cpus_pass_r14(sb: Sandbox) -> None:
-    _queue(sb, ["2 gippa-other"])
+    _queue(sb, ["1 gippa-other"])
     res = _launch(sb)
     assert res.returncode == 2 and sb.sbatch_calls() == [], _out(res)
-    assert re.search(r"\b129\b", _out(res)) and "allocated" in _out(res), _out(res)
+    assert re.search(r"\b130\b", _out(res)) and "allocated" in _out(res), _out(res)
+
+
+def test_launcher_max_mem_per_cpu_override_changes_the_sum(sb: Sandbox) -> None:
+    """MaxMemPerCPU 16000: discordance needs no raise (4 CPUs), so 122 suite CPUs."""
+    _queue(sb, ["4 gippa-other"])  # 4 + 122 + 2 = 128 fits; at 4000 it would be 132
+    res = _launch(sb, GIPPA_MAX_MEM_PER_CPU_MB="16000")
+    assert res.returncode == 0, _out(res)
+    assert re.search(r"\bcpus=122\b", res.stdout), res.stdout
+
+
+@pytest.mark.parametrize("bad", ["0", "00", "abc", "-1"])
+def test_launcher_refuses_a_bad_max_mem_per_cpu(sb: Sandbox, bad: str) -> None:
+    _queue(sb, [])
+    res = _launch(sb, GIPPA_MAX_MEM_PER_CPU_MB=bad)
+    assert res.returncode == 2 and sb.sbatch_calls() == [], _out(res)
+    assert "GIPPA_MAX_MEM_PER_CPU_MB" in _out(res), _out(res)
 
 
 # ------------------------------------------------------------------ the ⅔ rule
@@ -290,6 +319,8 @@ def test_nameless_testcase_is_not_counted_by_the_rows(rows_mod: ModuleType) -> N
     assert cases[("", "tests/calibration/test_b.py")] == "errors"  # a collection error still counts
     only = rows_mod._testcases([ET.fromstring('<testsuite><testcase time="0.001"/></testsuite>')])
     assert only == {}
+    failed = '<testsuite><testcase time="0.1"><failure message="x"/></testcase></testsuite>'
+    assert rows_mod._testcases([ET.fromstring(failed)]) == {("", ""): "failed"}  # still counts
 
 
 def test_nameless_testcase_is_not_counted_by_the_suite_job(tmp_path: Path) -> None:
@@ -303,3 +334,5 @@ def test_nameless_testcase_is_not_counted_by_the_suite_job(tmp_path: Path) -> No
     junit = tmp_path / "task-1.group1.junit.xml"
     junit.write_text(PHANTOM)
     assert job._junit_count(junit) == 2
+    junit.write_text('<testsuite><testcase time="0.1"><error message="x"/></testcase></testsuite>')
+    assert job._junit_count(junit) == 1  # a nameless testcase with an error still counts
