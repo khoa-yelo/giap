@@ -13,7 +13,9 @@ with an oracle that does not use GIPPA's novel-ORF code:
   decoys do not mimic the targets (decoy scores shifted by -0.5 SD) must fail the same test, so
   the check has power.
 - **Oracle picked class FDP** (full): entry-level picking within each class (wrong peptides keyed
-  by the makedb entry their decoys name, planted ORFs by ``orf_id``), knockoff+ q; mean FDP
+  by the makedb entry their decoys name; a planted ORF's true peptide, found through
+  ``truth/peptides.tsv``, keyed by the makedb entry its target rows name, the ``GIPPAORF_`` ID
+  gippasim gives them since #267), knockoff+ q; mean FDP
   <= q + ``se_multiplier`` SE at q in {0.01, 0.05, 0.10}, and calls exist at 0.01. The scenario
   is planted densely (200 per class) so that q = 0.01 is reachable at all; ``nterm_extension`` is
   left out because its planted peptides carry the gene's locus tag (M7-11 pairs it by locus tag).
@@ -51,6 +53,7 @@ QS = (0.01, 0.05, 0.10)
 CLASSES3 = ("intergenic", "cds_outframe", "antisense")
 DENSE = 200
 SHIFT = -0.5  # mutant: decoy scores moved down by half a null SD
+ORF_PREFIX = "GIPPAORF_"  # makedb entry ID of a six-frame ORF (target side)
 
 
 def _simulate(out: Path, seed: int, size: str, per_class: int | None = None,
@@ -101,6 +104,14 @@ def _class_fdp(out: Path, shift: float = 0.0) -> dict[str, dict[float, tuple[int
     index = Q.EntryIndex(entries, Q.lengths(out))
     loci = Q.wrong_loci(out)
     nov = {r["orf_id"]: r["class"] for r in O.rows(out / "truth" / "novel_orfs.tsv")}
+    # Since #267 a planted ORF's target rows name its makedb entry (GIPPAORF_...), not its orf_id
+    # (NOVEL_...): find its true peptides through the truth table, key them by the entry ID (the
+    # key its rev_ decoy uses)
+    pep_orf = {
+        r["peptide"]: r["locus_tag"]
+        for r in O.rows(out / "truth" / "peptides.tsv")
+        if r["locus_tag"] in nov
+    }
     bt: dict[str, float] = defaultdict(lambda: -math.inf)
     bd: dict[str, float] = defaultdict(lambda: -math.inf)
     cls: dict[str, str] = {}
@@ -119,15 +130,17 @@ def _class_fdp(out: Path, shift: float = 0.0) -> dict[str, dict[float, tuple[int
             (e,) = index.entry_of(sp.contig, sp.s1, sp.e1, sp.strand)
             cls[e.db_id], bt[e.db_id] = e.cls, max(bt[e.db_id], s)
             true.setdefault(e.db_id, False)
-        elif r["protein_ids"] in nov:
+        elif r["peptide"] in pep_orf and r["protein_ids"].startswith(ORF_PREFIX):
             k = r["protein_ids"]
-            cls[k], bt[k], true[k] = nov[k], max(bt[k], s), True
+            cls[k], bt[k], true[k] = nov[pep_orf[r["peptide"]]], max(bt[k], s), True
     res: dict[str, dict[float, tuple[int, int]]] = {}
     for c in CLASSES3:
         ks = [k for k in cls if cls[k] == c]
         t = np.array([bt.get(k, math.nan) for k in ks])
         d = np.array([bd.get(k, math.nan) for k in ks])
         tr = np.array([true[k] for k in ks], dtype=bool)
+        # A class of nulls only calls nothing and looks like low power; fail loudly instead
+        assert tr.any(), ("no planted ORF entry found in class (oracle keys stale?)", c)
         q, tw = _knockoff_q(t, d)
         res[c] = {}
         for a in QS:
