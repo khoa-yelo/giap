@@ -97,12 +97,12 @@ jobs:
           exit 1
       - name: params.db_dir readable inside the BAKTA container (test -r <db_dir>/version.json)
         env:
-          GIAP_SMOKE_DB_DIR: ${{ runner.temp }}/bakta-db
+          GIPPA_SMOKE_DB_DIR: ${{ runner.temp }}/bakta-db
         run: |
           set -euo pipefail
-          mkdir -p "$GIAP_SMOKE_DB_DIR"
-          printf '{"type": "light"}\n' > "$GIAP_SMOKE_DB_DIR/version.json"
-          # the docker_db suite sets params.db_dir = $GIAP_SMOKE_DB_DIR; run from workflow/ so that
+          mkdir -p "$GIPPA_SMOKE_DB_DIR"
+          printf '{"type": "light"}\n' > "$GIPPA_SMOKE_DB_DIR/version.json"
+          # the docker_db suite sets params.db_dir = $GIPPA_SMOKE_DB_DIR; run from workflow/ so that
           # projectDir (the ps shim path in the profile) is the pipeline's
           cd workflow
           nf-test test tests/docker_db.nf.test --profile test,docker
