@@ -128,7 +128,8 @@ of geNOMAD (non-commercial use only) and KEGG (academic use only).
   downloaders run inside the tool image: setup pulls the images first, so one `setup --images`
   run installs those databases too.
 - Compute nodes without network: run step 3 where the network is. Preflight checks the cache,
-  not the registry.
+  not the registry. To download the databases and images yourself, see
+  [Download the databases by hand](manual-databases.md).
 
 **Step 4.** `gippa preflight` validates the inputs in seconds and reads the installed versions from
 `$GIPPA_DB_DIR/db_manifest.json`. With `--profile`, it also checks that every tool is installed

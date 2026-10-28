@@ -1371,3 +1371,16 @@ TGA = Trp) is planned for a later release. Places that assume table 11 today:
 - **#420 review nits (nightly task-2 shards; N4 noted in the nightly.sbatch header):**
   - N5: tests for shard 2 recording first (shard 1 writes the row; its gate runs in the shard-1 worktree), the "coverage not measured (k of N shard data files)" path, and two concurrent record + merge calls giving exactly one complete merge.
   - N6: after the first sharded night, compare the shards' `--durations`/junit times and record them in PROGRESS; balance by duration or raise `NIGHTLY_CAL_SHARDS` (≤ 4, R14) if a shard passes ~4 h. The nightly now takes 81 CPUs at 01:30 without checking other `gippa-*` jobs (calibration_full overlap).
+
+- **`gippa setup --from <dir>`: offline install from pre-downloaded archives (docs PR "download the
+  databases by hand", 2026-10-27).** Today setup adopts a copy already unpacked at its path when it
+  verifies (`install` → `verify`), so most by-hand installs work (docs/get-started/manual-databases.md).
+  Gaps: (1) KEGG cannot be adopted: unpinned, `verify` trusts only a checksum recorded by setup's own
+  download, so a hand-placed `kegg/*.tsv` is `absent`; (2) Bakta and geNOMAD are checked by their
+  version file only, after the archive the user verified by hand is gone; (3) `--check` never records,
+  so users must know to rerun plain `setup`. Proposal: `--from DIR` takes the archives and files as
+  published (`db-light.tar.xz`, `genomad_db_v1.9.tar.gz`, `RF-HOT.zip`, the GO/COG/contaminant files,
+  the UniOP tarball), checks each against the `db_sources.yaml` pin before unpacking with the existing
+  safe `_unpack`, and records `url` as the official URL plus `message: "from <DIR>"`; for KEGG it records
+  the sha256 of the given bytes and the file mtime date as version (ADR-0017 style), flagged as
+  user-supplied. No network. Needs a spec item and an ADR for the KEGG provenance rule.
