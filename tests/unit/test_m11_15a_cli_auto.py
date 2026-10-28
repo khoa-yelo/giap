@@ -525,9 +525,11 @@ def test_setup_runtime_survives_later_writes(setup_env: dict[str, Any], set_prob
     _validate_db(doc)
 
 
-def test_setup_without_images_records_no_runtime(setup_env: dict[str, Any], set_probe: Any) -> None:
+def test_setup_no_images_records_no_runtime(setup_env: dict[str, Any], set_probe: Any) -> None:
+    """Images are on by default since M11-15c2; ``--no-images`` pulls none and records no
+    runtime."""
     set_probe("apptainer")
-    code, text = _setup(setup_env)
+    code, text = _setup(setup_env, "--no-images")
     assert code == ExitCode.SUCCESS, text
     assert setup_env["pulls"] == []
     assert "runtime" not in _db_doc(setup_env["db"]).get("setup", {})

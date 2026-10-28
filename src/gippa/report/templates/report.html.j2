@@ -121,6 +121,9 @@
 {% endfor %}
 {% if s.id == "methods" %}
 <p>The methods notes below are generated from the GIPPA {{ version }} documentation (docs/methods).</p>
+{% if licence_notes %}
+<p class="licence-notes">Licence notes: {{ licence_notes | join("; ") }}</p>
+{% endif %}
 {% for topic, body in snippets %}
 <div class="snippet" data-topic="{{ topic }}">
 <h3>{{ topic }}</h3>

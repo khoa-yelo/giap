@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from helpers.setup_opt_outs import opt_outs
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 from gippa.cli import cli
@@ -40,7 +41,9 @@ def invoke(*args: str) -> Any:
     return CliRunner().invoke(cli, ["setup", *args], catch_exceptions=False)
 
 
-NOTHING_ELSE = ("--no-genomad", "--no-promotech-models", "--no-antismash")
+# every other item off explicitly (M11-15c2 turns GO, KEGG, COG, contaminants and images on)
+NOTHING_ELSE = ("--no-genomad", "--no-promotech-models", "--no-antismash",
+                *opt_outs("go", "kegg", "cog", "contaminants", "images"))  # fmt: skip
 
 
 def test_check_with_nothing_installed_exits_2(tmp_path: Path) -> None:
@@ -61,7 +64,9 @@ def test_adopting_present_db_writes_manifest(tmp_path: Path) -> None:
     r = invoke("--db-dir", str(tmp_path), "--bakta", "light", *NOTHING_ELSE)
     assert r.exit_code == 0, r.output
     data = json.loads((tmp_path / "db_manifest.json").read_text())
-    assert data["schema_version"] == "1.0"
+    # every non---check setup records the set it installed (M11-15c2), so the manifest is 1.1
+    assert data["schema_version"] == "1.1"
+    assert data["setup"] == {"set": "default"}
     assert [(i["name"], i["status"]) for i in data["items"]] == [("bakta_light", "ok")]
 
 

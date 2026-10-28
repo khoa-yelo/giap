@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from helpers.setup_opt_outs import opt_outs
 from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 from gippa.exitcodes import ExitCode
@@ -39,7 +40,8 @@ def test_unexpected_exception_becomes_exit_5_with_report_message(
 
 
 # `gippa setup` is real since M2-08: tests that only check option parsing skip every resource.
-_NO_DOWNLOADS = ["--bakta", "skip", "--no-genomad", "--no-antismash", "--no-promotech-models"]
+_NO_DOWNLOADS = ["--bakta", "skip", "--no-genomad", "--no-antismash", "--no-promotech-models",
+                 *opt_outs("go", "kegg", "cog", "contaminants", "images")]  # fmt: skip
 
 
 def test_empty_config_file_is_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

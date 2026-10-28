@@ -8,14 +8,29 @@ see [Download the databases by hand](manual-databases.md).
 ## The command for the default modules
 
 `gippa run` runs all four modules by default: `core`, `mobile` (geNOMAD), `bgc` (antiSMASH) and
-`function` (COG, GO, KEGG). They need this setup:
+`function` (COG, GO, KEGG). `gippa setup` installs everything they need by default:
 
 ```bash
-gippa setup --db-dir /path/to/db --antismash --go --kegg --cog --contaminants
+gippa setup --db-dir /path/to/db --profile apptainer   # or --profile docker
 ```
 
-Without the extra flags, `gippa setup` installs the Bakta light database, the geNOMAD database and
-the Promotech models. antiSMASH, GO, KEGG, COG and the contaminant library are opt-in.
+That is the Bakta light database, the geNOMAD database, the antiSMASH databases, the Promotech
+models, GO, KEGG, COG, the contaminant library and, with `--profile`, the container images. Each
+item has an opt-out: `--no-genomad`, `--no-antismash`, `--no-go`, `--no-kegg`, `--no-cog`,
+`--no-contaminants`, `--no-images`.
+
+`--minimal` is for small disks: it leaves out geNOMAD and antiSMASH and pulls only the images of
+the `core` and `function` modules. It is recorded as `setup.set: minimal` in `db_manifest.json`;
+a later `gippa run` on that directory without `--modules` runs `core,function` and says so.
+
+Before any download, setup prints the licence terms of the planned items:
+
+- `geNOMAD (module mobile) is for non-commercial use only; for commercial use: gippa setup
+  --no-genomad, gippa run --modules core,bgc,function`;
+- `KEGG is free for academic use only; for other use: gippa setup --no-kegg`.
+
+Each run records the terms of what it used in `run_manifest.json` (`licence_notes`), and the
+report's Methods section shows them. See [Licences](../user-guide/licences.md).
 
 To use the Bakta full database, add `--bakta full`. Runs annotated with the light database carry the
 run flag `bakta_db_light`. With `gippa run --annotation bakta.json`, Bakta is not run. Preflight
@@ -36,12 +51,14 @@ Every flag is listed in the [CLI reference](../reference/cli.md#gippa-setup).
 | `--db-dir` | required | the target directory | every item |
 | `--bakta` | `light` | `light`, `full` or `skip`: Bakta DB v6.0 (Zenodo record 14916843; `bakta_db download` also runs `amrfinder_update`) | annotation, unless `--annotation bakta.json` is given |
 | `--genomad` / `--no-genomad` | on | geNOMAD DB v1.9 (Zenodo record 14886553) | module `mobile` |
-| `--antismash` / `--no-antismash` | off | antiSMASH 8.0.4 databases (skipped when the image already contains them) | module `bgc` |
+| `--antismash` / `--no-antismash` | on | antiSMASH 8.0.4 databases (skipped when the image already contains them) | module `bgc` |
 | `--promotech-models` / `--no-promotech-models` | on | Promotech RF-HOT model | promoter predictions (core) |
-| `--go` | off | `go-basic.obo` and `goslim_generic.obo` | module `function` |
-| `--kegg` | off | KEGG KO-to-pathway links and pathway names | module `function` |
-| `--cog` | off | COG 2020 category tables (`cog-20.def.tab`, `fun-20.tab`) | `cog_category` in `genes.tsv`; module `function` |
-| `--contaminants` | off | the universal protein contaminant FASTA | contaminant labels in mapping; `gippa makedb` |
+| `--go` / `--no-go` | on | `go-basic.obo` and `goslim_generic.obo` | module `function` |
+| `--kegg` / `--no-kegg` | on | KEGG KO-to-pathway links and pathway names | module `function` |
+| `--cog` / `--no-cog` | on | COG 2020 category tables (`cog-20.def.tab`, `fun-20.tab`) | `cog_category` in `genes.tsv`; module `function` |
+| `--contaminants` / `--no-contaminants` | on | the universal protein contaminant FASTA | contaminant labels in mapping; `gippa makedb` |
+| `--minimal` | off | Bakta light, Promotech, GO, KEGG, COG, contaminants; no geNOMAD, no antiSMASH | modules `core`, `function` |
+| `--images [all]` / `--no-images` | on with `--profile` | the pinned container images the modules need (`all`: every pinned image) | `gippa run` with a container profile |
 | `--check` | off | nothing: only verifies what is installed | — |
 | `--nextflow` / `--no-nextflow` | on | the pinned Nextflow 26.10.0 `-dist` launcher (GitHub release `v26.10.0`), only when no `nextflow` is on `PATH`; never under `--uniop` or `--check` | `gippa run` without its own Nextflow |
 

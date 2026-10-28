@@ -9,10 +9,14 @@ results.
 - **geNOMAD is for non-commercial use only.** geNOMAD (module `mobile`) is licensed for
   non-commercial use. For commercial use, switch the module off: run with
   `--modules core,bgc,function`, and install with `gippa setup --no-genomad`.
-- **KEGG is free for academic use only.** `gippa setup --kegg` downloads the KEGG KO-to-pathway
-  links and pathway names from `rest.kegg.jp`. Academic users may use them freely. Other users need
-  a licence from KEGG. Runs with the `function` module contain KEGG pathway names, and the manifest
-  records the KEGG retrieval date.
+- **KEGG is free for academic use only.** `gippa setup` downloads the KEGG KO-to-pathway
+  links and pathway names from `rest.kegg.jp` by default (`--no-kegg` leaves them out). Academic
+  users may use them freely. Other users need a licence from KEGG. Runs with the `function` module
+  contain KEGG pathway names, and the manifest records the KEGG retrieval date.
+- **Where the terms are recorded.** `gippa setup` prints the geNOMAD and KEGG terms before it
+  downloads anything. Each run lists the terms of what it used in `run_manifest.json`
+  (`licence_notes`, e.g. `geNOMAD: non-commercial`, `KEGG: academic use`), and the report's
+  Methods section repeats them.
 - **GPL and AGPL tools run as separate programs.** Bakta, Promotech, Promoter Calculator, OSTIR,
   TransTermHP and BacTermFinder (GPL-3.0), and antiSMASH (AGPL-3.0), each run in their own pinned
   container or Conda environment. GIPPA calls them as separate processes and never imports or
@@ -27,7 +31,7 @@ results.
 - **RegulonDB is not redistributed.** GIPPA's developers use RegulonDB only to calibrate cut-offs.
   `gippa setup` does not download it.
 - **The contaminant library has no licence file.** The universal protein contaminant FASTA
-  (Frankenfield et al. 2022) is therefore downloaded by `gippa setup --contaminants` at a pinned
+  (Frankenfield et al. 2022) is therefore downloaded by `gippa setup` (on by default) at a pinned
   commit and never vendored.
 
 ## Tools

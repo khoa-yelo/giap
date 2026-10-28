@@ -51,7 +51,7 @@ python3 -m venv .venv && . .venv/bin/activate && pip install .
 ## Quickstart
 
 ```bash
-gippa setup --db-dir db --antismash --go --kegg --cog --contaminants --images --profile apptainer
+gippa setup --db-dir db --profile apptainer
 GIPPA_DB_DIR=db gippa preflight --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --profile apptainer
 gippa run --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --db-dir db --outdir out --profile apptainer
 xdg-open out/report/report.html
@@ -95,5 +95,5 @@ MIT. Third-party tools keep their own licences and run only as separate programs
 [`NOTICE.md`](NOTICE.md).
 
 geNOMAD (module `mobile`) is for non-commercial use only (`gippa setup --no-genomad`,
-`--modules core,bgc,function`); KEGG (`--kegg`) is free for academic use only; see
+`--modules core,bgc,function`); KEGG is free for academic use only (`gippa setup --no-kegg`); see
 [Licences](docs/user-guide/licences.md).

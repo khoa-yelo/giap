@@ -102,6 +102,11 @@ class FullRunner:
         raise _full(self.code, out / "pfam.hmm")
 
 
+# M11-15c2 turns GO, KEGG, COG and the contaminants on by default: these tests name the items
+# they want, so the resource files are switched off explicitly (they were off by default in 15c1).
+_NO_RESOURCES: dict[str, bool] = {"go": False, "kegg": False, "cog": False, "contaminants": False}
+
+
 def _items(db: Path) -> dict[str, dict[str, Any]]:
     data = json.loads((db / "db_manifest.json").read_text(encoding="utf-8"))
     return {i["name"]: i for i in data["items"]}
@@ -124,7 +129,8 @@ def test_example_6_8_quota_hit_in_antismash_and_genomad(tmp_path: Path, code: in
     db = tmp_path / "db"
     fetcher = FullFetcher(code, [SOURCES["genomad"].url])
     runner = FullRunner(code)
-    opts = SetupOptions(db, bakta="skip", genomad=True, antismash=True, promotech_models=True)
+    opts = SetupOptions(db, bakta="skip", genomad=True, antismash=True, promotech_models=True,
+                        **_NO_RESOURCES)  # fmt: skip
     got = run_setup(opts, runner, fetcher)
     assert got == ExitCode.ENVIRONMENT
     items = _items(db)
@@ -142,7 +148,8 @@ def test_example_6_8_quota_hit_in_antismash_and_genomad(tmp_path: Path, code: in
 def test_file_item_disk_full_leaves_nothing_and_continues(tmp_path: Path, code: int) -> None:
     db = tmp_path / "db"
     fetcher = FullFetcher(code, [SOURCES["go_basic"].url])
-    opts = SetupOptions(db, bakta="skip", genomad=False, promotech_models=False, go=True)
+    opts = SetupOptions(db, bakta="skip", genomad=False, promotech_models=False,
+                        **{**_NO_RESOURCES, "go": True})  # fmt: skip
     got = run_setup(opts, FullRunner(code), fetcher)
     assert got == ExitCode.ENVIRONMENT
     items = _items(db)
