@@ -43,6 +43,17 @@ WHEEL_REQUIRED = [
     *(f"gippa/workflow/envs/{n}" for n in ENVS),
     *(f"gippa/workflow/conf/{n}" for n in CONFS),
 ]
+# the bundled demo (M11-15b item 2 AC 1: check_dist requires gippa/data/demo/, <= 1 MiB); the
+# layout is the one tests/unit/test_m11_15b_demo.py pins
+DEMO_LAYERS = ("operon_pairs", "promoters", "tx_rates", "terminators", "rbs", "regions",
+               "rbs_novel")  # fmt: skip
+WHEEL_DEMO = [
+    "gippa/data/demo/sim100k.fna.gz",
+    "gippa/data/demo/sim100k_peptides.tsv.gz",
+    "gippa/data/demo/PROVENANCE.md",
+    "gippa/data/demo/layers/bakta.json.gz",
+    *(f"gippa/data/demo/layers/{k}.tsv.gz" for k in DEMO_LAYERS),
+]
 # allowed look-alikes: modules/local/ is not top-level local/; the two uniop/ dirs are exempt
 WHEEL_EXTRA = [
     "gippa/workflow/modules/local/bakta/main.nf",
@@ -96,7 +107,7 @@ def _wheel(
 ) -> Path:
     path = dist / _whl_name(name_v)
     di = f"gippa-{meta_v}.dist-info"
-    files: dict[str, bytes] = {p: b"x\n" for p in WHEEL_REQUIRED + WHEEL_EXTRA}
+    files: dict[str, bytes] = {p: b"x\n" for p in WHEEL_REQUIRED + WHEEL_EXTRA + WHEEL_DEMO}
     files[f"{di}/METADATA"] = _metadata(meta_v, license_line)
     files[f"{di}/WHEEL"] = (
         b"Wheel-Version: 1.0\nGenerator: fake\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
