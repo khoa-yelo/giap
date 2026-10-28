@@ -146,7 +146,7 @@ Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixfram
   q = 0.10 in every class (FDP at q = 0.10: 0.173, 0.197, 0.205). An earlier table (PR #225,
   intergenic 0.0095 at q = 0.01) was measured before #267 gave planted target rows their makedb
   entry ID (`GIPPAORF_…`); the oracle kept matching `NOVEL_…` IDs, so every class held only
-  nulls and the test failed "no calls at 0.01" until the oracle-key fix (PR #PRNUM). The oracle
+  nulls and the test failed "no calls at 0.01" until the oracle-key fix (PR #449). The oracle
   now finds a planted ORF's true peptides through `truth/peptides.tsv` and asserts every class has
   a planted entry.
 
