@@ -92,14 +92,36 @@ def parse_terminatornet(path: Path, replicons: Mapping[str, Replicon]) -> list[T
     return out
 
 
-def write_transterm_coords(path: Path, genes: Sequence[Gene]) -> None:
-    """``<locus_tag> <start1> <end1> <contig>``; minus-strand genes written with start > end."""
+def _coords_line(tag: str, start1: int, end1: int, strand: Strand, contig: str) -> str:
+    a, b = (start1, end1) if strand != "-" else (end1, start1)
+    return f"{tag} {a} {b} {contig}\n"
+
+
+def transterm_coords_lines(
+    genes: Sequence[Gene], replicons: Mapping[str, Replicon] | None = None
+) -> list[str]:
+    """``<locus_tag> <start1> <end1> <contig>`` lines; minus-strand genes with start > end.
+    With ``replicons``, a gene ending past its replicon's length (across the origin of a
+    circular replicon) becomes ``<tag>`` (start..length) then ``<tag>_wrap`` (1..end - length),
+    both on its strand: TransTermHP rejects out-of-range coordinates."""
     lines = []
     for g in genes:
         iv = g.interval
-        a, b = (iv.start + 1, iv.end) if iv.strand != "-" else (iv.end, iv.start + 1)
-        lines.append(f"{g.locus_tag} {a} {b} {iv.contig}\n")
-    path.write_text("".join(lines))
+        rep = replicons.get(iv.contig) if replicons is not None else None
+        if rep is not None and iv.crosses_origin(rep):
+            n = rep.length
+            lines.append(_coords_line(g.locus_tag, iv.start + 1, n, iv.strand, iv.contig))
+            lines.append(_coords_line(f"{g.locus_tag}_wrap", 1, iv.end - n, iv.strand, iv.contig))
+        else:
+            lines.append(_coords_line(g.locus_tag, iv.start + 1, iv.end, iv.strand, iv.contig))
+    return lines
+
+
+def write_transterm_coords(
+    path: Path, genes: Sequence[Gene], replicons: Mapping[str, Replicon] | None = None
+) -> None:
+    """TransTermHP ``genes.coords`` (see ``transterm_coords_lines``)."""
+    path.write_text("".join(transterm_coords_lines(genes, replicons)))
 
 
 def parse_transterm_tt(path: Path, replicons: Mapping[str, Replicon]) -> list[Terminator]:

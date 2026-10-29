@@ -189,7 +189,7 @@ workflow ANNOTATE {
             }
         }
         if (term.tool == 'transtermhp' || term.cross_check_transtermhp) {
-            def ti = stepIn('transterm_input', [genes])
+            def ti = stepIn('transterm_input', [genes, reps])
             TRANSTERM_INPUT(ti.files, ti.keys, ['genes_coords=genes.coords'])
             TRANSTERMHP(gin.combine(pick(TRANSTERM_INPUT.out.outputs, 'genes.coords')))
             tools += [kv('transtermhp', TRANSTERMHP.out.tt)]
