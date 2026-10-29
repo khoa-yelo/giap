@@ -32,7 +32,7 @@ from matplotlib.text import Text
 REPO = Path(__file__).resolve().parents[2]
 NAME = "gippa-pipeline"
 
-W, H = 8.0, 4.55  # inches; the axes use inches as data units
+W, H = 8.16, 4.55  # inches; the axes use inches as data units
 PT = 1 / 72  # one point in inches
 FONT = "DejaVu Sans"
 F_HEAD, F_MAIN, F_SUB = 8.2, 7.5, 6.4  # stage headers, box labels, secondary text
@@ -247,7 +247,7 @@ def draw(theme: Theme) -> Fig:
     # columns (x, width)
     xi, wi = 0.10, 1.00  # inputs
     xp, wp = xi + wi + gap, 0.62  # preflight
-    xt, wt = xp + wp + gap, 2.32  # annotation and mapping tracks
+    xt, wt = xp + wp + gap, 2.48  # annotation and mapping tracks
     xg, wg = xt + wt + gap, 0.98  # gene table
     xa, wa = xg + wg + gap, 1.10  # analysis modules
     xo = xa + wa + gap  # outputs
@@ -255,7 +255,7 @@ def draw(theme: Theme) -> Fig:
 
     y_head = H - 0.16
     top = H - 0.40  # top of the content area
-    band_y, band_h = 0.10, 0.46  # error-control band
+    band_y, band_h = 0.08, 0.50  # error-control band
     bot = band_y + band_h + 0.16  # bottom of the content area
 
     for x, w, s in [
@@ -313,7 +313,7 @@ def draw(theme: Theme) -> Fig:
         ("Promoters", "Promotech,\nPromoter Calculator", False),
         ("Terminators", "TerminatorNet,\nTransTermHP", False),
         ("RBS, codons", "OSTIR, codon-bias", False),
-        ("Regions", "Bakta, geNOMAD,\nantiSMASH", False),
+        ("Regions", "Bakta; optional\ngeNOMAD, antiSMASH", False),
     ]
     for i, (a, b, opt) in enumerate(chips):
         col, row = i % 2, i // 2
@@ -363,7 +363,7 @@ def draw(theme: Theme) -> Fig:
         [
             ("Context", "layers per\nlocus tag"),
             ("Detection", "tiers and\ngene q-value"),
-            ("Abundance", "peptide\nintensities"),
+            ("Abundance", "peptides or\nabundance.tsv"),
             ("Detectability", "cross-fitted\np_detect"),
         ]
     ):
@@ -376,7 +376,7 @@ def draw(theme: Theme) -> Fig:
 
     # analysis modules -----------------------------------------------------------------------
     mods = [
-        ("Islands, regions", "autocorrelation", False),
+        ("Islands, regions", "region tests,\nautocorrelation", False),
         ("Operons", "discordant pairs,\nmissed operons", False),
         ("Function", "ORA, GSEA", True),
         ("Determinants", "promoter, RBS,\ncodon usage", False),
@@ -439,14 +439,23 @@ def draw(theme: Theme) -> Fig:
 
     # error control band ---------------------------------------------------------------------
     f.rbox(xi, band_y, xa + wa - xi, band_h, "io", filled=False, dashed=True, lw=0.7)
-    lab = (xi, band_y, wi + gap + wp, band_h)
-    f.labelled(lab, "Error control", "every claim carries\nan error estimate")
+    # the band's title sits on its top border, like a legend on a fieldset
+    f.text(
+        xi + 0.12,
+        band_y + band_h,
+        " Error control: every claim carries an error estimate ",
+        size=F_SUB,
+        weight="bold",
+        color=t.sub,
+        ha="left",
+    ).set_bbox(dict(facecolor=t.bg, edgecolor="none", pad=0.6))
     for x, w, a, b in [
-        (xt, wt, "Placement q", "target-decoy per stratum:\nexact, mismatch, de novo"),
+        (xi, wi + gap + wp, "Identification q", "inherited from\nthe search engine"),
+        (xt, wt, "Placement q", "reversed or shuffled genome\ndecoys, per difference stratum"),
         (xg, wg, "Gene q", "picked decoys\nor MAYU-style"),
-        (xa, wa, "Module nulls", "BH, FWER, decoy\nor class FDR"),
+        (xa, wa, "Module tests", "matched nulls; BH,\nFWER or decoy FDR"),
     ]:
-        f.labelled((x, band_y, w, band_h), a, b)
+        f.labelled((x, band_y, w, band_h - 0.06), a, b)
     # legend: dashed outline = optional module
     lg = f.rbox(
         xo + 0.02,
@@ -460,7 +469,12 @@ def draw(theme: Theme) -> Fig:
         r=0.03,
     )
     f.text(
-        lg[0] + lg[2] + 0.05, band_y + band_h / 2, "optional", size=F_SUB, color=t.sub, ha="left"
+        lg[0] + lg[2] + 0.05,
+        band_y + band_h / 2,
+        "optional input\nor module",
+        size=F_SUB,
+        color=t.sub,
+        ha="left",
     )
     return f
 
