@@ -52,12 +52,14 @@ def test_version_command_prints_pinned_version(tool: str) -> None:
 
 @pytest.mark.parametrize("tool", CONDA_TOOLS)
 def test_lock_files_present(tool: str) -> None:
-    _env_dir(tool)
+    env = _env_dir(tool)
     explicit = LOCKS / f"{tool}.explicit.txt"
     pip = LOCKS / f"{tool}.pip.txt"
     assert explicit.is_file(), explicit
     assert "@EXPLICIT" in explicit.read_text()
-    if tool != "fgsea":  # frozen explicit lock only, no pip layer (M8-17 spec §1)
+    # fgsea: frozen explicit lock only, no pip layer (M8-17 spec §1); an env without bin/pip
+    # (miniprot) gets no pip lock from build_envs.sh lock mode
+    if tool != "fgsea" and (env / "bin" / "pip").exists():
         assert pip.is_file(), pip
 
 
