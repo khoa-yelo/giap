@@ -150,7 +150,8 @@ fdnG would take.
   pooled FDR ≤ 0.01) re-runs weekly as usual.
 - **TE1.** Unchanged under items 1–5. The fdnG Sec site is internal, so the 4 misses stay unmapped.
   Under item 6 (16c) they become tolerant placements (cost 1) flagged `sec_site`. They are still
-  not exact, so they stay TE1 exceptions, now labelled as Sec.
+  not exact, so they stay TE1 exceptions, now labelled as Sec. After ADR-0068 (M11-20) they are alone in
+  placement stratum 1 on Nissle and are rejected (q = 1/4); see the M11-20 Nissle finding.
 - **TE2 and G8.** The `stop_codon` flag becomes reachable. TE2's second exception is exercised
   only when an annotated stop or (item 6) a recoded codon carries a placed peptide. On Nissle
   same-strain peptides, items 1–5 add no site. Item 6 would add two `candidate` U sites at the
