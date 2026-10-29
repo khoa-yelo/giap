@@ -444,10 +444,9 @@ def _golden_out(tmp: Path) -> Path:
 
 def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -> None:
     inst = _render(_golden_out(tmp_path), cfg)
-    assert _nonzero(inst) == {
-        ("peptide", "exact", "placed"): 905,
+    assert _nonzero(inst) == {  # M11-20: the 4 rejected non-ATG N-terminal peptides are exact
+        ("peptide", "exact", "placed"): 909,
         ("peptide", "unmapped", "unexplained"): 9,  # 5 no_hit + 4 too_short
-        ("peptide", "unmapped", "rejected by FDR"): 4,
     }
     assert _flows(inst)[CONFLICTS] == 0
     assert inst.title == "99 % of 918 input peptides placed in the genome"

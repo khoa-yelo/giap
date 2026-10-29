@@ -50,7 +50,9 @@ NISSLE_JSON = RECORDED / "nissle1917.json.gz"
 NISSLE_GENOME = REPO / "tests" / "data" / "genomes" / "nissle1917.fna.gz"
 THRESHOLD = 0.999  # §11.6 TE1 proxy
 NISSLE_PEPTIDES, NISSLE_NON_ATG_NTERM = 164_181, 431  # lead decisions 4-5
-NISSLE_EXACT_INFRAME_MASKED = 191  # decision 10 (reviewer's run of PR #115)
+# decision 10 (reviewer's run of PR #115: 191); M11-20: + MGALSLAALVAGKR, the non-ATG N-terminal
+# product of JMJJOG_02731, now a credited exact row of class rna_overlap in frame (job 1905504)
+NISSLE_EXACT_INFRAME_MASKED = 192
 
 pytestmark = pytest.mark.slow
 
@@ -201,5 +203,7 @@ def test_te1_nissle_full_db_recording_passes() -> None:
     gene_ids = {g["locus"] for g in genes}
     for ex in r.exceptions:
         assert ex["locus_tag"] in gene_ids, ex
-    # the listed exceptions include the §11.6 kind: N-terminal peptides at non-ATG starts
-    assert any(ex["peptide"] in strict for ex in r.exceptions)
+    # M11-20 (ADR-0068): the §11.6 kind (N-terminal peptides at non-ATG starts) is gone; all 431
+    # map by the initiator credit and none is listed
+    assert r.counts["non_atg_nterm_exact"] == NISSLE_NON_ATG_NTERM
+    assert not any(ex["peptide"] in strict for ex in r.exceptions)

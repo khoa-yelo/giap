@@ -493,9 +493,11 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -
     (out / "mapping" / "mapping_fdr.tsv").write_bytes((GOLDEN / "mapping_fdr.tsv").read_bytes())
     inst = _render(out, cfg)
     b = _rows(inst, "b")
-    assert _num(_cell(b, "all", 1, "fdr_stratum")["value"]) == pytest.approx(0.25)
+    # M11-20: the golden's 4 stratum-1 targets (non-ATG N-terminal peptides) are credited exact
+    # rows now, so stratum 1 is empty (was 2 targets in 15-19, FDR 0.25 over all)
+    assert _isna(_cell(b, "all", 1, "fdr_stratum")["value"])
     assert _isna(_cell(b, "all", 0, "fdr_stratum")["value"])
-    assert _num(_cell(_rows(inst, "a"), "15-19", 1, "targets")["value"]) == 2
+    assert _num(_cell(_rows(inst, "a"), "15-19", 1, "targets")["value"]) == 0
     assert len(_rows(inst, "a")) == 42
     assert "unestimated" in inst.title
     assert "in strata 1" not in inst.title  # 0.25 > 0.01: no claim

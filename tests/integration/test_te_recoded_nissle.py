@@ -7,7 +7,10 @@ with ``hits`` ``tolerant:cds_inframe:<copy>`` and ``counts["sec_site"] == 4``; e
 ``placement_q``, ``m_target`` (1) and ``accepted`` in the result JSON.
 
 TE2: ``alt_sites`` 235, ``high`` 80, ``high_start_codon`` 80, ``high_stop_codon`` 0,
-``violations`` 0, ``alt_stop_codon`` 2, and the note is rule 25's text.
+``violations`` 0, ``alt_stop_codon`` 2, and the note is rule 25's text. M11-20 (ADR-0068): the
+non-ATG N-terminal peptides are credited exact rows, so no ALT ``M`` at their starts: ``high`` and
+``high_start_codon`` 0, and with the Sec peptides accepted only their 2 ALT ``U`` sites remain
+(job 1905504: with them rejected, ``alt_sites`` 0).
 
 "Rejection is a finding": the counts hold only if all 4 Sec peptides are accepted. If one is
 rejected it stays ``kind = miss`` / ``unplaced`` with ``accepted = False``, TE2 has one site fewer,
@@ -123,19 +126,20 @@ def test_te1_sec_site_labels(te1: Any) -> None:
 def test_te2_counts_and_note(te2: Any, te1: Any) -> None:
     c = te2.counts
     assert (c["high"], c["high_start_codon"], c["high_stop_codon"], c["violations"]) == (
-        80,
-        80,
+        0,  # M11-20: no ALT M at credited starts (was 80, all start_codon)
+        0,
         0,
         0,
     )
     assert te2.passed is True
     assert te2.notes == [_te().TE2_NO_STOP_NOTE]
     if _all_accepted(te1):
-        assert (c["alt_sites"], c["alt_stop_codon"]) == (235, 2)
+        assert (c["alt_sites"], c["alt_stop_codon"]) == (2, 2)  # M11-20: the Sec sites only
     else:
         warnings.warn(
             f"finding: TE2 alt_sites {c['alt_sites']}, alt_stop_codon "
             f"{c['alt_stop_codon']} with a rejected Sec peptide",
             stacklevel=1,
         )
-        assert c["alt_stop_codon"] <= 2 and 233 <= c["alt_sites"] <= 235
+        # M11-20: the 233 ALT M start sites are gone; at most the 2 Sec sites remain
+        assert c["alt_stop_codon"] <= 2 and c["alt_sites"] <= 2

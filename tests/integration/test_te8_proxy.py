@@ -130,6 +130,22 @@ def k12_non_atg_nterm(fasta: Path) -> set[str]:
     return {p for st, p in _digest_products(fasta) if st == 0} & k12
 
 
+def credited_hits(peptides: set[str], bakta_json: Path) -> set[str]:
+    """M11-20 oracle (spec rule 3, target): M-initial peptides whose residues 1.. equal (I = L) the
+    genome translation after an annotated GTG/TTG start of a CDS/sORF whose protein starts M."""
+    from gippa.mapping.sixframe import translate11_text
+
+    with gzip.open(bakta_json, "rt") as fh:
+        feats = json.load(fh)["features"]
+    after = [
+        il(translate11_text(f["nt"])[1:])
+        for f in feats
+        if f["type"] in ("cds", "sorf") and f.get("aa") and not f.get("pseudo")
+        and f["nt"][:3] in ("GTG", "TTG") and f["aa"][0] == "M"
+    ]  # fmt: skip
+    return {p for p in peptides if p[0] == "M" and any(t.startswith(il(p[1:])) for t in after)}
+
+
 @pytest.fixture(scope="module")
 def result() -> Any:
     for f in (EXCERPT, K12_GENOME, NISSLE_GENOME, K12_JSON, NISSLE_JSON):
@@ -161,7 +177,8 @@ def test_te8_excerpt_nissle_shares_reported_and_bounded(result: Any) -> None:
     c, sh = result.counts, result.shares
     n = c["peptides"]
     peptides = {p for _, p in _digest_products(EXCERPT)}
-    n_exact = len(exact_hits(peptides, NISSLE_GENOME))
+    # M11-20: an exact placement is a plain six-frame hit or a credited initiator window
+    n_exact = len(exact_hits(peptides, NISSLE_GENOME) | credited_hits(peptides, NISSLE_JSON))
     assert c["nissle_exact"] <= n_exact  # accepted exact placements only (decision 7)
     assert c["nissle_exact"] + c["nissle_tolerant"] + c["nissle_unmapped"] <= n
     assert c["nissle_unmapped"] <= n - n_exact  # a peptide with an exact hit is not unmapped
