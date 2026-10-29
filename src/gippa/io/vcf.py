@@ -16,6 +16,7 @@ from pathlib import Path
 from gippa.io._open import open_text_write
 from gippa.io.tsv import format_value
 from gippa.model import Replicon, wrap_position
+from gippa.model.genetic_code import SUPPORTED_TABLES
 
 InfoValue = str | int | float | bool | Sequence[str] | Sequence[int] | Sequence[float]
 
@@ -223,6 +224,8 @@ def write_vcf(
     """
     if not _SHA256.fullmatch(genome_sha256):
         raise ValueError(f"genome_sha256 must be 64 lowercase hex digits, got {genome_sha256!r}")
+    if translation_table not in SUPPORTED_TABLES or isinstance(translation_table, bool):
+        raise ValueError(f"unsupported translation table {translation_table!r}")
     if not sample or _check_text("sample name", sample) != sample.strip():
         raise ValueError(f"invalid VCF sample name {sample!r}")
     if sample == "auto":

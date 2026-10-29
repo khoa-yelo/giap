@@ -195,7 +195,7 @@ def test_protein_sequence_reads_tga_with_the_model_table(table: int) -> None:
     assert got == {11: "MK", 4: "MKWA", 25: "MKGA"}[table]
 
 
-_ALLOWED = {"gippa/model/genetic_code.py"}
+_ALLOWED: set[str] = set()  # gippa.model.genetic_code holds its own tables (spec §1)
 
 
 def _codontable_imports(path: Path) -> list[str]:
@@ -208,9 +208,18 @@ def _codontable_imports(path: Path) -> list[str]:
             if node.module.startswith("Bio.Data.CodonTable"):
                 hits.append(node.module)
             elif node.module in ("Bio.Data", "Bio") and any(
-                a.name in ("CodonTable", "Data") for a in node.names
+                a.name in ("CodonTable", "Data", "*") for a in node.names
             ):
                 hits.append(f"{node.module}.{','.join(a.name for a in node.names)}")
+        elif isinstance(node, ast.Call):
+            f, args = node.func, node.args
+            name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+            if name in ("import_module", "__import__") and args:
+                a0 = args[0]
+                if isinstance(a0, ast.Constant) and str(a0.value).startswith("Bio.Data"):
+                    hits.append(f"{name}({a0.value!r})")
+            elif name == "translate" and any(k.arg == "table" for k in node.keywords):
+                hits.append("translate(table=...)")  # Biopython Seq.translate reads its tables
     return hits
 
 
@@ -223,6 +232,10 @@ def test_guard_finds_each_import_form(tmp_path: Path) -> None:
         "from Bio.Data.CodonTable import unambiguous_dna_by_id",
         "from Bio import Data",
         "def f():\n    from Bio.Data import CodonTable\n",
+        "from Bio.Data import *",
+        "import importlib\nimportlib.import_module('Bio.Data.CodonTable')",
+        "__import__('Bio.Data.CodonTable')",
+        "from Bio.Seq import Seq\nSeq('ATG').translate(table=4)",
     ]
     for i, src in enumerate(forms):
         p = tmp_path / f"m{i}.py"
