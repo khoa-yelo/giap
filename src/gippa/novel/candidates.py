@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from typing import Any, Literal, cast, get_args
 
 import pandas as pd
-from Bio.Data import CodonTable
 
 from gippa.annotate.ostir import OstirRow
 from gippa.annotate.promoters import Window, dedupe_and_chunk, gene_windows
@@ -22,6 +21,7 @@ from gippa.config.model import GippaConfig
 from gippa.io.protein_fasta import ProteinRecord
 from gippa.model.coords import Interval, Replicon
 from gippa.model.genes import Gene, GeneModel
+from gippa.model.genetic_code import stop_codons
 
 NovelClass = Literal[
     "nterm_extension", "cterm_extension", "intergenic", "cds_outframe", "antisense",
@@ -69,10 +69,8 @@ def _revcomp(s: str) -> str:
 
 
 def _stops(table: int) -> frozenset[str]:
-    try:
-        return frozenset(CodonTable.unambiguous_dna_by_id[table].stop_codons)
-    except KeyError:
-        raise ValueError(f"unknown translation table {table}") from None
+    """The stop codons of ``table`` (``ValueError`` outside 4, 11 and 25)."""
+    return stop_codons(table)
 
 
 # ---------------------------------------------------------------- rule 1: candidate rows

@@ -69,4 +69,4 @@
 - [ADR-0065: GIPPA step images `<pkg>-step` and `<pkg>-step-r`, tagged `<version>`](ADR-0065-gippa-step-images.md): proposed (Q-K39; lead default: accept)
 - [ADR-0066: `gippa demo` runs the developer-only local executor on bundled layers](ADR-0066-demo-local-executor.md): proposed (lead; Khoa approved M11-15 wave 1 for 1.0, Q-K44)
 - [ADR-0067: Genetic codes 4, 11 and 25](ADR-0067-genetic-codes-4-11-25.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, relayed by the lead; supports codes 4 and 25 alongside 11, superseding Q-K30; Bakta gets `--translation-table` only at 4 and 25)
-- [ADR-0068: Initiator M at annotated non-ATG starts](ADR-0068-initiator-m-at-non-atg-starts.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, relayed by the lead; Q-K56 / M11-20 Q-K1: option A, annotation-only, exact route only)
+- [ADR-0068: Initiator methionine at annotated non-ATG starts](ADR-0068-initiator-methionine-non-atg-starts.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, in session, Q-K56: "Yes")
