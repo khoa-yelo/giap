@@ -18,7 +18,7 @@ from typing import Literal, cast
 
 from gippa.io._open import open_text
 from gippa.io.bed import BedRecord
-from gippa.model.coords import Interval, Replicon, Strand, check_interval
+from gippa.model.coords import Interval, Replicon, Strand, check_interval, split_at_origin
 from gippa.model.genes import Gene
 
 Source = Literal["TerminatorNet", "TransTermHP", "BacTermFinder"]
@@ -97,31 +97,33 @@ def _coords_line(tag: str, start1: int, end1: int, strand: Strand, contig: str) 
     return f"{tag} {a} {b} {contig}\n"
 
 
-def transterm_coords_lines(
+def _transterm_coords_lines(
     genes: Sequence[Gene], replicons: Mapping[str, Replicon] | None = None
 ) -> list[str]:
     """``<locus_tag> <start1> <end1> <contig>`` lines; minus-strand genes with start > end.
-    With ``replicons``, a gene ending past its replicon's length (across the origin of a
-    circular replicon) becomes ``<tag>`` (start..length) then ``<tag>_wrap`` (1..end - length),
+    With ``replicons``, each gene is checked against its replicon and one across the origin of a
+    circular replicon becomes ``<tag>`` (start..length) then ``<tag>_wrap`` (1..end - length),
     both on its strand: TransTermHP rejects out-of-range coordinates."""
     lines = []
     for g in genes:
         iv = g.interval
-        rep = replicons.get(iv.contig) if replicons is not None else None
-        if rep is not None and iv.crosses_origin(rep):
-            n = rep.length
-            lines.append(_coords_line(g.locus_tag, iv.start + 1, n, iv.strand, iv.contig))
-            lines.append(_coords_line(f"{g.locus_tag}_wrap", 1, iv.end - n, iv.strand, iv.contig))
-        else:
-            lines.append(_coords_line(g.locus_tag, iv.start + 1, iv.end, iv.strand, iv.contig))
+        parts: tuple[Interval, ...] = (iv,)
+        if replicons is not None:
+            if iv.contig not in replicons:
+                raise ValueError(f"gene {g.locus_tag}: contig {iv.contig!r} is not a replicon")
+            check_interval(iv, replicons[iv.contig])
+            parts = split_at_origin(iv, replicons[iv.contig])
+        for k, part in enumerate(parts):
+            tag = g.locus_tag if k == 0 else f"{g.locus_tag}_wrap"
+            lines.append(_coords_line(tag, part.start + 1, part.end, part.strand, part.contig))
     return lines
 
 
 def write_transterm_coords(
     path: Path, genes: Sequence[Gene], replicons: Mapping[str, Replicon] | None = None
 ) -> None:
-    """TransTermHP ``genes.coords`` (see ``transterm_coords_lines``)."""
-    path.write_text("".join(transterm_coords_lines(genes, replicons)))
+    """TransTermHP ``genes.coords`` (see ``_transterm_coords_lines``)."""
+    path.write_text("".join(_transterm_coords_lines(genes, replicons)))
 
 
 def parse_transterm_tt(path: Path, replicons: Mapping[str, Replicon]) -> list[Terminator]:
