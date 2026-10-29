@@ -22,8 +22,9 @@ from typing import TYPE_CHECKING, Literal, get_args
 
 import numpy as np
 import pandas as pd
-from Bio.Data import CodonTable
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
+
+from gippa.model.genetic_code import codon_table, stop_codons
 
 if TYPE_CHECKING:
     from gippa.config import GippaConfig
@@ -126,8 +127,10 @@ def tm_segments(aa: str, window: int = 19, threshold: float = 1.6, cap: int = 10
 
 
 def _translation_maps(table: int) -> tuple[dict[str, str], frozenset[str]]:
-    ct = CodonTable.unambiguous_dna_by_id[table]
-    return dict(ct.forward_table), frozenset(ct.stop_codons)
+    """Sense codon -> amino acid and the stop codons of ``table`` (``ValueError`` outside
+    4, 11 and 25)."""
+    forward = {c: aa for c, aa in codon_table(table).items() if aa != "*"}
+    return forward, stop_codons(table)
 
 
 def _is_missing(value: object) -> bool:
