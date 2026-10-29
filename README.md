@@ -13,6 +13,15 @@ Documentation: [khoa-yelo.github.io/gippa](https://khoa-yelo.github.io/gippa/) (
 release; until then the same pages are under [`docs/`](docs/index.md)). Changes between releases
 are listed in [`CHANGELOG.md`](CHANGELOG.md).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/khoa-yelo/gippa/main/docs/assets/gippa-pipeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/khoa-yelo/gippa/main/docs/assets/gippa-pipeline-light.svg">
+  <img alt="GIPPA pipeline: genome and peptide inputs pass preflight, then Bakta annotation with promoter, terminator, RBS and operon layers, and six-frame peptide mapping with placement FDR; both join in a gene table of detection, abundance and detectability, which feeds islands and regions, operons, function, determinants, variants and novel ORFs, ending in tables, plots, report.html and the run manifest; every claim carries an error estimate." src="https://raw.githubusercontent.com/khoa-yelo/gippa/main/docs/assets/gippa-pipeline-light.svg" width="100%">
+</picture>
+
+*GIPPA at a glance: from one genome and a peptide table to a gene table, genome-context tests
+and an HTML report, each claim with its own error control.*
+
 ## Status
 
 Pre-1.0 (`0.0.1`); nothing is published yet. The pipeline runs end to end on Stanford FarmShare
