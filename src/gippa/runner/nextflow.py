@@ -104,6 +104,7 @@ def launch_command(
     cmd += ["-work-dir", str(outdir / "work"), "-with-trace", str(logs / "trace.tsv")]
     cmd += ["-with-timeline", str(logs / "timeline.html")]
     cmd += ["-with-report", str(logs / "nf_report.html")]
+    cmd += ["-with-dag", str(logs / "dag.html")]  # ADR-0069
     return [*cmd, "-resume"] if resume else cmd
 
 

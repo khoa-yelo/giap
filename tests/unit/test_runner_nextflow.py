@@ -61,6 +61,8 @@ def _expected(out: Path) -> list[str]:
         str(out / "logs/timeline.html"),
         "-with-report",
         str(out / "logs/nf_report.html"),
+        "-with-dag",
+        str(out / "logs/dag.html"),
     ]
 
 
