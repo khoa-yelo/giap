@@ -60,7 +60,7 @@ non-ATG starts" (on #481), M7-13 decision 14 (on #481).
 
 | # | Option | Fixes recall | Fixes false novel / placement | Index / FDR impact | Size |
 |---|---|---|---|---|---|
-| **A** (recommended) | **Credit M at annotated non-ATG start cells, exact route only.** A query whose first residue is M matches a window whose first position is an annotated non-ATG start cell when its other residues match exactly; decoys get the mirrored cells (the M7-16 model) | yes, all lengths 7–40 | yes: the peptide gets a `cds_inframe` row at its own gene, so `candidate_rows` excludes it (M7-06 rule 1) and a chance copy makes it `shared` | format 4 (start sites + cells); decoys searched identically; ≈ 0.2 % more chance windows for M-initial peptides | ≈ 190 code lines |
+| **A** (recommended) | **Credit M at annotated non-ATG start cells, exact route only.** A query whose first residue is M matches a window whose first position is an annotated non-ATG start cell when its other residues match exactly; decoys get the mirrored cells (the M7-16 model) | yes, all lengths 7–40 | yes: the peptide gets a `cds_inframe` row at its own gene, so `candidate_rows` excludes it (M7-06 rule 1) and a chance copy makes it `shared` | format 4 (start sites + cells); decoys searched identically; ≈ 0.25 % more chance windows for M-initial peptides by count (0.30–0.47 % by chance mass) | ≈ 190 code lines |
 | A′ | A, plus credit in the tolerant route (position 0 free at a cell) | also cost-2 cases | same | the tolerant DP and q-gram seeds change; decoy tolerant search too | ≈ +150, touches M3-06 kernels |
 | A″ | Credit M at **every** in-frame start codon (GTG/TTG anywhere), not only annotated ones; also covers novel ORFs with non-ATG starts | yes, also novel ORFs | partly; adds false loci | ≈ 2/64 of all positions become cells: the first-residue match probability for M-initial peptides more than doubles (six-frame f_M = 0.0172 vs f_GTG + f_TTG ≈ 0.03); E_i must change; most M-initial tryptic peptides are internal (after K/R) and would gain chance loci at internal GTG/TTG | large; a statistics change |
 | B | Annotated-protein targets: search Bakta's protein strings as extra targets (and their reverses as decoys) | yes | yes | N grows ≈ 15 % with fully redundant positions; every CDS peptide hits twice (dedupe protein ↔ genome); new decoy space; new index layout | large |
@@ -360,8 +360,10 @@ kb, tables 4/11/25, both strands, circular and linear):
 - P1 completeness: for a random gene with a GTG/TTG start and its `aa` (M + translation), every
   prefix of `aa` of length 7–40 that stays inside the gene maps exactly with a row at
   `[start, start + 3k)` (or the `−` equivalent) flagged `initiator_m`.
-- P2 brute force: `match_exact(starts)` rows = a brute-force scan that tries, at every cell, `M`
-  plus the next `k − 1` residues, unioned with the plain scan (target and both decoy kinds).
+- P2 brute force: `match_exact(starts)` rows = a brute-force scan that tries, at every target and
+  `shuffle` cell `p`, `M` plus the next `k − 1` residues; at every `reverse` cell `c`, the
+  `k − 1` residues `decoy[c − k + 1 : c]` followed by the cell (rule 3); unioned with the plain
+  scan.
 - P3 no-op: with no non-ATG sites the output equals `starts=None`.
 - P4 decoy mirror: for `reverse`, a credited decoy window maps (`mirror_aa`) to the target
   credited interval `[start, start + 3k)` (or the `−` equivalent) of its cell's site; and for
