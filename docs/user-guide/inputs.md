@@ -29,13 +29,8 @@ no proteins were given.
   `--set annotation.bakta.complete=true`, which declares every contig a complete, circular
   replicon.
 - Gzipped FASTA is accepted.
-- **Genetic code.** This release supports genetic code 11 (bacteria and archaea) only. Any other
-  `annotation.translation_table` stops the run in preflight with the input error
-  `config.translation_table`. Support for genetic code 4 (Mycoplasma) is planned.
-  A genome left at table 11 that probably uses code 4 (TGA read as tryptophan) gets the preflight
-  warning `genome.genetic_code`: long open reading frames (at least 300 codons, six frames) cover
-  less than 0.55 times as many bases with TGA as a stop as with TGA as a sense codon (evaluated
-  with at least 20 such frames). It is a warning only, so `--strict` turns it into exit code 3.
+- **Genetic code.** GIPPA translates with NCBI genetic code 11 by default. Codes 4 and 25 are
+  also supported. See [Genetic code](#genetic-code) below.
 
 Topology matters. On a circular replicon, a gene or peptide can cross the origin, and the
 statistics wrap around it. On a linear contig, nothing wraps. A gene cut by a contig end is
@@ -53,6 +48,141 @@ Other genome checks warn on the following:
 - a total length or N50 below the configured minimum;
 - runs of N;
 - a GC content outside `preflight.gc_range_warn`.
+
+## Genetic code
+
+One key, `annotation.translation_table`, sets the NCBI genetic code for every step of a run. It
+accepts three values:
+
+| Value | NCBI name | TGA | Use it for |
+|---|---|---|---|
+| `11` (default) | Bacterial, Archaeal and Plant Plastid | stop (Sec when recoded) | most bacteria and archaea |
+| `4` | Mycoplasma and Spiroplasma | W (Trp) | Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma and other Mollicutes |
+| `25` | Candidate Division SR1 and Gracilibacteria | G (Gly) | candidate division SR1 and Gracilibacteria |
+
+The three tables differ only at TGA. The other 63 codons translate the same way in all three.
+
+```bash
+gippa run --genome mhyo.fna.gz --peptides peptides.tsv --set annotation.translation_table=4 ...
+```
+
+You can also put it in a YAML file passed with `--config`:
+
+```yaml
+annotation:
+  translation_table: 4
+```
+
+**Choose the table from the organism's taxonomy.** The genome sequence alone cannot tell code 4
+from code 25, because both read TGA as a sense codon. Preflight can tell whether TGA acts as a stop
+(see "Preflight checks" below), but not which of the two sense codes is right. A code-25 genome run
+at table 4, or a code-4 genome run at table 25, gives no warning. Peptides with G (or W) at TGA
+codons then map only through the tolerant route, with one difference, as `strain_difference`
+under `related`.
+
+### What the table changes
+
+Bakta (GPL-3.0), miniprot (MIT) and BLAST+ (public domain) run as separate programs; GIPPA passes
+the table on their command lines and imports none of them ([Licences](licences.md)).
+
+- **Bakta** runs as `bakta --translation-table 4` (or `25`). At table 11 no flag is passed,
+  because 11 is Bakta's own default, so the Bakta command line and its cached results do not
+  change. A GFF3 or GBFF given with `--annotation` is re-called by `bakta --regions` with the
+  configured table. Its `/transl_table` qualifier is not read.
+- **miniprot** indexes the genome with `-T <table>`.
+- **tblastn** gets `-db_gencode <table>`. See "tblastn arguments" below.
+- **Six-frame translation and peptide mapping.** TGA reads as W under 4 and as G under 25, and is
+  never a stop. A peptide with W or G at a TGA codon maps exactly. The six-frame index records the
+  table it was built with. A run with another table refuses it and tells you to rebuild the
+  six-frame index.
+- **Read-through and recoded stops.** Under 4 and 25 only TAA and TAG are stops. Selenocysteine
+  cannot be recoded over TGA. A `U` in a precomputed protein is counted as a codon mismatch and
+  never gives `sec_site`. Pyrrolysine (`O` over TAG) works as under 11 and still gives `pyl_site`.
+- **Novel ORFs** end only at the table's stops, and `novel_orfs.faa` translates TGA as W or G.
+- **Variants.** A peptide with W or G at a TGA codon matches the reference, and a substitution
+  there is an ordinary SNV. Under 4, a strain SNV TGA → TGG is synonymous (W → W), not a stop
+  loss. A `U` over TGA is skipped as a rare residue.
+- **Codon usage.** Under 4, TGA joins the Trp family (TGA, TGG). Under 25, it joins the Gly family
+  (GGN and TGA). A CDS with an internal TGA is scored.
+- **`gippa makedb`** reads the table from `--config` or `--set annotation.translation_table=N`
+  (there is no separate flag). Six-frame ORFs, N-terminal extensions, Bakta proteins without a
+  sequence and `--patch` CDSs are translated with it, and `makedb_manifest.json` records
+  `translation_table`.
+- **Outputs.** `annotation_meta.json` and the `annotation` block of `run_manifest.json` record
+  `translation_table`. The report's Methods section names the code of every run: "Genes were
+  called and all six frames translated with NCBI genetic code 4 (Mycoplasma and Spiroplasma)."
+  At tables 4 and 25, the summary also opens with a note such as "Genetic code 4 (Mycoplasma and
+  Spiroplasma): TGA is read as W."
+
+These do not change:
+
+- **Start codons.** `annotation.start_codons` (default ATG, GTG, TTG) does not follow the table.
+  NCBI lists more starts for code 4, but Bakta's gene caller uses ATG, GTG and TTG at every table.
+  You can add starts to `annotation.start_codons` yourself.
+- **geNOMAD** (module `mobile`, non-commercial use only; see [Licences](licences.md)) chooses its
+  own genetic code and reports it in its `genetic_code` column. GIPPA does not pass the table to
+  it or compare the two.
+- **antiSMASH** reads Bakta's GBFF, which carries `/transl_table`. Promoter, terminator, OSTIR and
+  UniOP steps work on nucleotides only.
+- **One table per run.** A plasmid or phage that uses a different code from its chromosome is not
+  supported.
+
+### tblastn arguments
+
+The default `mapping.proteins.tblastn_args` is `-seg no -evalue 1e-5`. GIPPA appends
+`-db_gencode <table>` to it, so the default runs with `-seg no -evalue 1e-5 -db_gencode 4` at
+table 4. If you set your own `tblastn_args`, leave `-db_gencode` out and GIPPA adds it. A
+`-db_gencode` equal to the table, for example `-db_gencode 11` at table 11, is passed through
+unchanged. These stop the run:
+
+- `-db_gencode` with a value other than the table, or a trailing `-db_gencode` with no value:
+  preflight error `config.tool_genetic_code`;
+- `-db_gencode` given more than once, even with the same value: preflight error
+  `config.tool_genetic_code`;
+- a quoted value such as `-db_gencode '4'`, even when it equals the table: preflight error
+  `config.tool_genetic_code`. Write the number without quotes, or better, leave `-db_gencode` out.
+
+### Precomputed Bakta JSON
+
+Bakta records its table in the JSON (`genome.translation_table`). When you pass a Bakta JSON with
+`--annotation`, or to `gippa makedb --annotation`, and it records a different table from the run,
+the annotation is refused with this message (a `genome.translation_table` that is not a whole
+number is a parse error instead):
+
+```text
+annotation JSON was made with translation table 11; this run uses 4: re-run Bakta with
+--translation-table 4 or set annotation.translation_table: 11
+```
+
+`gippa makedb` exits with code 1. In `gippa run` the annotation step fails with an input error,
+and the run stops with exit code 4; the manifest names the failed step and its log. Preflight does
+not open the JSON, so this happens when the annotation is read, not in preflight.
+A JSON without `genome.translation_table` (older or hand-made) is assumed to use the run's table,
+and the log records the info event `annotation.table_unrecorded`.
+
+### Preflight checks
+
+| Check | Level | When |
+|---|---|---|
+| `config.translation_table` | error (exit 1) | the table is not 4, 11 or 25. Message: `annotation.translation_table=12: GIPPA supports genetic codes 4, 11 and 25 (the tables Bakta accepts)` |
+| `config.tool_genetic_code` | error (exit 1) | a tool option sets a genetic code itself: Bakta's translation-table option (`bakta --translation-table`, or an abbreviation of it of at least 4 characters, such as `bakta --transl`) in `annotation.bakta.extra_args`; `-T` (also inside a short-option cluster such as `-uT4`) in `mapping.proteins.miniprot_args`; a `-db_gencode` in `mapping.proteins.tblastn_args` that differs from the table, is repeated, is quoted or has no value. An option string the shell cannot split (for example an unbalanced quote) is also an error. `value` lists the offending keys. Remove the option and set `annotation.translation_table` instead |
+| `genome.genetic_code` | warn | the genome does not look like it uses the configured table (below) |
+| `genome.genetic_code` | info | fewer than 20 open reading frames of at least 300 codons, so the check is not evaluated |
+
+`genome.genetic_code` compares how many bases long open reading frames (at least 300 codons, six
+frames) cover when TGA is a stop with how many they cover when TGA is a sense codon. The ratio is
+low (below 0.55) for genomes that use code 4 or 25 and high for code-11 genomes:
+
+- at table 11, a ratio below 0.55 warns that the genome probably uses code 4 or code 25. Set
+  `annotation.translation_table` to 4 or 25 from the organism's taxonomy;
+- at tables 4 and 25, a ratio of 0.55 or more warns that the genome probably uses code 11. Genes
+  that end in TGA would be read through into the next gene.
+
+The warning does not change any result, and the report's summary repeats it. `--strict` turns it
+into exit code 3. On whole genomes the two classes are well separated. On partial inputs with only
+20–40 long open reading frames, such as a plasmid alone or a small part of an assembly, either
+warning is wrong about 1 % of the time. See
+[Genetic codes 4, 11 and 25](../methods/genetic-code.md) for the evidence and its limits.
 
 ## Peptide table (`peptides.tsv`)
 

@@ -64,9 +64,11 @@ java -version
 To install Nextflow yourself instead, use the same environment:
 `micromamba create -n gippa-nf --override-channels -c conda-forge -c bioconda nextflow=26.10.0 openjdk=21`.
 
-GIPPA 1.0 supports genetic code 11 only. Preflight refuses any other
-`annotation.translation_table`, and warns (`genome.genetic_code`) when a genome looks like it uses
-code 4 ([Inputs › Genome FASTA](../user-guide/inputs.md#genome-fasta)).
+GIPPA supports genetic codes 11 (the default), 4 (Mycoplasma and Spiroplasma) and 25 (candidate
+division SR1 and Gracilibacteria). Preflight refuses any other `annotation.translation_table`, and
+warns (`genome.genetic_code`) when the genome's open reading frames suggest TGA does not act the
+way the configured code says (it tells 11 from 4/25, not 4 from 25)
+([Inputs › Genetic code](../user-guide/inputs.md#genetic-code)).
 
 ## The five steps
 

@@ -1,0 +1,84 @@
+{
+ "out": "$GIPPA_ROOT/more_datasets/mhyo/out",
+ "feature_types": {
+  "cds": 1200,
+  "pseudogene": 274
+ },
+ "n_cds": 1200,
+ "n_pseudogene": 274,
+ "cds_stop_codons": {
+  "TGA": 801,
+  "TAA": 340,
+  "TAG": 59
+ },
+ "median_cds_aa": 80.0,
+ "median_all_aa": 90.0,
+ "n_cds_internal_stop": 0,
+ "refseq_protein_coding_genes": 684,
+ "refseq_pseudogenes": 27,
+ "refseq_cds_nonpseudo": 684,
+ "refseq_cds_same_stop": 319,
+ "refseq_cds_same_stop_frac": 0.4664,
+ "cds_vs_refseq_pc_ratio": 1.7544,
+ "tga_split_pairs": 390,
+ "unmapped_counts": {
+  "peptide/contaminant/no_hit": 2936,
+  "peptide/contaminant/too_short": 1030,
+  "peptide/unmapped/no_hit": 8163,
+  "peptide/unmapped/rejected_placement_fdr": 8,
+  "peptide/unmapped/too_short": 2858
+ },
+ "no_hit_organism": 8163,
+ "no_hit_organism_with_W": 1524,
+ "peptide_hits_rows": 10446,
+ "distinct_mapped_peptides": 10214,
+ "flag_rows": {
+  "engine_protein_mismatch": 8926,
+  "low_complexity": 67,
+  "multi": 217,
+  "multi_identical": 6,
+  "nterm_extension_evidence": 975,
+  "readthrough": 316,
+  "same_db": 10125,
+  "strain_difference": 321
+ },
+ "flag_distinct_peptides": {
+  "engine_protein_mismatch": 8820,
+  "low_complexity": 18,
+  "multi": 71,
+  "multi_identical": 3,
+  "nterm_extension_evidence": 970,
+  "readthrough": 314,
+  "same_db": 9895,
+  "strain_difference": 319
+ },
+ "route_rows": {
+  "exact": 10125,
+  "tolerant": 321
+ },
+ "distinct_mapped_with_W": 379,
+ "trna_TCA": [],
+ "trna_Trp": [
+  {
+   "anticodon": "CCA",
+   "amino_acid": "Trp",
+   "n_copies": "1"
+  }
+ ],
+ "trna_total_rows": 27,
+ "codon_rows": 1474,
+ "codon_nonnull": {
+  "cai": 1199,
+  "tai": 1199,
+  "enc": 1199,
+  "fop": 1199
+ },
+ "trp_shares": {
+  "TGG": 1.0
+ },
+ "manifest_translation_table": 11,
+ "internal_codon_counts_TGA_TGG": {
+  "TGA": 0,
+  "TGG": 69
+ }
+}
