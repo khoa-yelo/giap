@@ -108,6 +108,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "real_container_pull: no guard apptainer/singularity/docker on PATH (tests/conftest.py "
         "refuses network pulls otherwise; tests/helpers/container_guard.py)",
     )
+    config.addinivalue_line(  # pytest-xdist registers it, but the lane collection runs -p no:xdist
+        "markers", "xdist_group(name): tests sharing one xdist worker (--dist loadgroup)"
+    )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
