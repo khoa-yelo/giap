@@ -459,8 +459,9 @@ The variants change must ship with the credit (a credited row makes today's `ali
 For Khoa:
 
 - **Q-K1** (parked for Khoa as **Q-K56**). Accept ADR-0068 overriding §2.2 improvement 6 / §15
-  "No" for this narrow case (annotation-only, exact route only)? Default until answered: the
-  spec and tests (20t) may merge; the implementation PR (20i) waits.
+  "No" for this narrow case (annotation-only, exact route only)? **Answered (Khoa, 2026-10-28):
+  yes**; [ADR-0068](../adr/ADR-0068-initiator-methionine-non-atg-starts.md) is accepted and 20i
+  may proceed after 20t.
 
 For the lead:
 
