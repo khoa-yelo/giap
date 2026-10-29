@@ -11,7 +11,9 @@ residues and novel ORFs, and writes standard tables, plots and an HTML report.
 
 Documentation: [khoa-yelo.github.io/gippa](https://khoa-yelo.github.io/gippa/) (from the first
 release; until then the same pages are under [`docs/`](docs/index.md)). Changes between releases
-are listed in [`CHANGELOG.md`](CHANGELOG.md).
+are listed in [`CHANGELOG.md`](CHANGELOG.md). The
+[process-level diagram](docs/user-guide/run.md#pipeline-processes) shows every Nextflow process with its inputs
+and outputs.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/khoa-yelo/gippa/main/docs/assets/gippa-pipeline-dark.svg">
