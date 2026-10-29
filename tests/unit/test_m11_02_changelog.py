@@ -33,6 +33,16 @@ MILESTONE_RE = re.compile(r"^\+m(\d{2})-[a-z0-9-]+\.feature\.md$")
 TITLE = "## GIPPA 1.0.0 (2026-11-01)"
 # Internal references that must not reach users: issue ids (M6-11, M10-15b), PR numbers (#317).
 INTERNAL_REF_RE = re.compile(r"\bM\d{1,2}-\d{2}[a-z]?\b|#\d+")
+# The 1.0.0 release-prep build (M11-13) consumes the fragments into CHANGELOG.md: the fragment
+# checks then run on the built section instead (test_released_*).
+RELEASED_RE = re.compile(r"^## GIPPA 1\.0\.0 \(\d{4}-\d{2}-\d{2}\)$", re.MULTILINE)
+RELEASED = bool(RELEASED_RE.search((ROOT / "CHANGELOG.md").read_text(encoding="utf-8")))
+pre_release = pytest.mark.skipif(RELEASED, reason="fragments consumed by the 1.0.0 build")
+MILESTONE_MARKERS = [f"<!-- m{k:02d} -->" for k in range(6)] + [
+    "<!-- m06a -->",
+    "<!-- m06b -->",
+    *(f"<!-- m{k:02d} -->" for k in range(7, 11)),
+]
 
 
 def _towncrier_cfg() -> dict:
@@ -128,8 +138,12 @@ def test_towncrier_orphan_prefix_is_plus() -> None:
 # ------------------------------------------------------------------ fragment names (edge cases)
 
 
-def test_fragment_directory_exists_and_is_nonempty() -> None:
+def test_fragment_directory_exists() -> None:
     assert FRAGMENTS.is_dir()
+
+
+@pre_release
+def test_fragment_directory_is_nonempty() -> None:
     assert _fragment_files()
 
 
@@ -138,6 +152,7 @@ def test_every_fragment_name_matches_the_rule() -> None:
     assert bad == [], f"fragments towncrier would ignore or misprint: {bad}"
 
 
+@pre_release
 def test_old_fragment_names_are_renamed() -> None:
     names = {p.name for p in _fragment_files()}
     assert "m0-scaffold.feature.md" not in names
@@ -168,22 +183,26 @@ def test_name_rule_rejects_known_bad_names() -> None:
 # ------------------------------------------------------------------ milestone fragments (item 2)
 
 
+@pre_release
 @pytest.mark.parametrize("k", range(11))
 def test_every_milestone_has_a_feature_fragment(k: int) -> None:
     hits = [p.name for p in _milestone_fragments() if int(MILESTONE_RE.match(p.name).group(1)) == k]  # type: ignore[union-attr]
     assert hits, f"no +m{k:02d}-*.feature.md fragment for milestone M{k}"
 
 
+@pre_release
 def test_milestone_six_has_operons_and_regulondb() -> None:
     m06 = [p.name for p in _milestone_fragments() if p.name.startswith("+m06-")]
     assert len(m06) == 2, m06
     assert "+m06-regulondb.feature.md" in m06
 
 
+@pre_release
 def test_twelve_milestone_fragments() -> None:
     assert len(_milestone_fragments()) == 12, [p.name for p in _milestone_fragments()]
 
 
+@pre_release
 @pytest.mark.parametrize("k", range(1, 11))
 def test_new_milestone_fragments_are_three_to_eight_lines(k: int) -> None:
     for p in _milestone_fragments():
@@ -202,6 +221,7 @@ def test_orphan_fragments_carry_no_internal_issue_numbers() -> None:
     assert offenders == {}
 
 
+@pre_release
 def test_known_limitations_fragment_lists_section_16_deferrals() -> None:
     p = FRAGMENTS / "+known-limitations.misc.md"
     assert p.is_file()
@@ -213,6 +233,7 @@ def test_known_limitations_fragment_lists_section_16_deferrals() -> None:
 # ------------------------------------------------------------------ example 1: the 1.0 draft
 
 
+@pre_release
 def test_example1_draft_title_and_feature_level(tmp_path: Path) -> None:
     draft = _draft(tmp_path)
     lines = [ln for ln in draft.splitlines() if ln.strip()]
@@ -221,6 +242,7 @@ def test_example1_draft_title_and_feature_level(tmp_path: Path) -> None:
     assert lines[1] == "### Features"
 
 
+@pre_release
 def test_example1_twelve_feature_bullets_in_milestone_order(tmp_path: Path) -> None:
     draft = _draft(tmp_path)
     bullets = _sections(draft)["Features"]
@@ -246,6 +268,7 @@ def test_example1_no_fragment_name_suffix(tmp_path: Path) -> None:
     assert "known-limitations" not in draft
 
 
+@pre_release
 def test_example1_other_section_has_known_limitations(tmp_path: Path) -> None:
     draft = _draft(tmp_path)
     sections = _sections(draft)
@@ -266,7 +289,9 @@ def test_example1_other_section_has_known_limitations(tmp_path: Path) -> None:
 
 
 def test_example2_pr_fragment_renders_a_pull_link(tmp_path: Path) -> None:
-    draft = _draft(tmp_path, {"331.bugfix.md": "Fix X.\n"})
+    # one fragment of each neighbouring type, so the order check holds once changelog.d is empty
+    extra = {"331.bugfix.md": "Fix X.\n", "+x.feature.md": "Add X.\n", "+x.misc.md": "Note X.\n"}
+    draft = _draft(tmp_path, extra)
     sections = _sections(draft)
     assert "Fixes" in sections
     # the real changelog.d may hold other bugfix fragments; this one renders exactly once
@@ -281,3 +306,50 @@ def test_draft_does_not_write_changelog(tmp_path: Path) -> None:
     _draft(tmp_path)
     assert (ROOT / "CHANGELOG.md").read_bytes() == before
     assert (tmp_path / "CHANGELOG.md").read_bytes() == before
+
+
+# ------------------------------------------------------------------ after the 1.0.0 build
+
+
+def _released_section() -> str:
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    m = RELEASED_RE.search(text)
+    assert m is not None
+    end = text.find("\n## ", m.end())
+    return text[m.start() : end if end >= 0 else len(text)]
+
+
+def _block(section: str, heading: str) -> str:
+    start = section.index(f"### {heading}")
+    end = section.find("\n### ", start + 1)
+    return section[start : end if end >= 0 else len(section)]
+
+
+@pytest.mark.skipif(not RELEASED, reason="before the 1.0.0 build")
+def test_released_section_title_and_type_order() -> None:
+    section = _released_section()
+    lines = [ln for ln in section.splitlines() if ln.strip()]
+    assert lines[1] == "### Features"
+    names = list(_sections(section))
+    assert names[0] == "Features"
+    assert names.index("Features") < names.index("Fixes") < names.index("Other")
+
+
+@pytest.mark.skipif(not RELEASED, reason="before the 1.0.0 build")
+def test_released_milestone_bullets_in_order() -> None:
+    features = _block(_released_section(), "Features")
+    for marker in MILESTONE_MARKERS:
+        assert features.count(f"- {marker}") == 1, marker
+    positions = [features.index(m) for m in MILESTONE_MARKERS]
+    assert positions == sorted(positions), "milestone bullets are not in M0 -> M10 order"
+
+
+@pytest.mark.skipif(not RELEASED, reason="before the 1.0.0 build")
+def test_released_other_section_has_known_limitations() -> None:
+    section = _released_section()
+    other = _block(section, "Other")
+    assert "- Known limitations of version 1:" in other
+    for needle in ("sample", "V4", "V9", "RO-Crate", "validation"):
+        assert needle in other, f"known limitations does not mention {needle!r}"
+    assert "known-limitations" not in section
+    assert not re.search(r"\(\+?m\d+[a-z0-9-]*\)\s*$", section, flags=re.MULTILINE)
