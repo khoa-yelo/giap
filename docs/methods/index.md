@@ -20,6 +20,7 @@
 - [Function collections (M8-03)](function-collections.md)
 - [Abundance GSEA (M8-05, engine M8-17b)](function-gsea.md)
 - [Function module: detection enrichment primitives](function.md)
+- [Genetic codes 4, 11 and 25: the genetic-code check and its limits](genetic-code.md)
 - [Islands: expression islands along the replicon](islands.md)
 - [MAYU-style gene-level FDR (closed form)](mayu-gene-fdr.md)
 - [Multiple testing: Benjamini–Hochberg](multiple-testing.md)

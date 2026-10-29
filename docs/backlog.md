@@ -1364,35 +1364,22 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - `tests/calibration/attacks/test_attack_h4_lower_bound.py` docstring still describes the one-bin rule (statistician-only docstring edit).
 - **#374/M11-14p review nits (one round):** update_digests follows only line-leading `includeConfig` (inline profile includes are not; the docstring should say so); with docker `-u`, `HOME=/` is not writable in the container and the tools' cache writes are untested (the probe runs `bakta --version` only); a `db_dir` with spaces or `:` breaks the bind argument (apptainer too); `docker_db.nf.test` without `GIPPA_SMOKE_DB_DIR` leaves a temp dir per load; the actions warn about the Node 20 deprecation (as the existing job).
 
-## Genetic code 4 support (post-1.0)
+## Genetic codes 4 and 25
 
-**Superseded (Khoa, 2026-10-28):** codes 4 and 25 are supported alongside 11; spec
-[M11-16](specs/M11-16-translation-tables-4-25.md). 16g removes this entry.
-
-Khoa, 2026-10-27 (Q-K30): GIPPA 1.0 supports genetic code 11 only; preflight refuses any other
-`annotation.translation_table` (#413) and warns when a default-11 genome looks like code 4
-(M11-14w, `genome.genetic_code`). Code 4 (Mycoplasma, Spiroplasma, Mesoplasma, Ureaplasma:
-TGA = Trp) is planned for a later release. Places that assume table 11 today:
-- Bakta: pass `--translation-table` (Bakta accepts 4, 11 and 25) from `annotation.translation_table`.
-- Six-frame index stop set: `src/gippa/mapping/sixframe.py` (`translate11`, `STOP`, the
-  consumable-stop cells); the index format version must change with the table.
-- `src/gippa/annotate/codon_usage.py` (raises for any table but 11; codon-bias is called with
-  `genetic_code=11`) and `src/gippa/steps/codon.py`.
-- Novel candidates: `src/gippa/novel/candidates.py` (`_stops(table)` is already table-aware; check
-  its callers and `outputs.py`, which hard-codes 11, see the M7 nits above).
-- `src/gippa/mapping/loci.py`: `_PLUS_STOPS` is hard-coded to table 11; `_RECODED_FLAG` (TGA =
-  `sec_site`) means something else under code 4.
-- `src/gippa/genetable/covariates.py` (reads the table; check every use).
-- Preflight: allow 4 in `_translation_table_check` (`src/gippa/preflight/run.py`), and let the
-  M11-14w warning suggest `annotation.translation_table: 4`.
-- Possible post-annotation corroboration for the warning: the median CDS length, TGA-terminated
-  CDSs followed in frame by a same-strand CDS, and W enrichment among unmapped peptides.
-- Evidence (M. hyorhinis SK76, GCF_000313635.1, PR #411; docs/validation/datasets/README.md on
-  `validation/more-datasets`): at table 11 Bakta called 1,474 features against about 750 in
-  RefSeq (genes cut at TGA); the median protein was 90 aa against about 287 elsewhere; all 628
-  unmapped organism peptides contain W; 246 `strain_difference` and 354
-  `nterm_extension_evidence` flags were artefacts. The M11-14w long-ORF ratio is 0.227 for this
-  genome, against 0.82–0.88 for three code-11 genomes.
+Codes 4 and 25 are supported alongside 11 (Khoa, 2026-10-28; this supersedes Q-K30). The former
+entry "Genetic code 4 support (post-1.0)" is replaced by the spec
+[M11-16](specs/M11-16-translation-tables-4-25.md), which lists every place that assumed table 11;
+the user guide is [Inputs › Genetic code](user-guide/inputs.md#genetic-code) and the methods note
+[docs/methods/genetic-code.md](methods/genetic-code.md). Open follow-ups from the spec:
+- (D11) telling code 4 from 25 after mapping: W versus G enrichment among tolerant one-difference
+  hits at TGA codons. Today the table comes from taxonomy only.
+- (Q-L6) `gippa compare` across runs with different tables: warn "runs use different genetic
+  codes" from the manifests.
+- (CODE4.md F1, fix in progress on fix/transterm-origin) The TransTermHP cross-check fails a run
+  when a gene crosses the origin of a circular replicon: `write_transterm_coords` writes the
+  unwrapped end (`Bad gene coordinates`). Any table; found by M. hyorhinis at code 4.
+- (CODE4.md F4) Bakta calls no tRNA-Trp(UCA) on M. hyorhinis although TGA is 94 % of Trp codons,
+  so tAI at code 4 is approximate (D10: recorded, not patched).
 
 - **#420 review nits (nightly task-2 shards; N4 noted in the nightly.sbatch header):**
   - N5: tests for shard 2 recording first (shard 1 writes the row; its gate runs in the shard-1 worktree), the "coverage not measured (k of N shard data files)" path, and two concurrent record + merge calls giving exactly one complete merge.

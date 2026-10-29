@@ -22,8 +22,11 @@ Pending:
 
 - the first release: PyPI, the GHCR images of four tools (Promotech, Promoter Calculator,
   TerminatorNet, OSTIR), the hosted docs and Bioconda;
-- the final pilot report;
-- genetic code 4 (Mycoplasma and relatives) is planned after 1.0; only code 11 is supported now.
+- the final pilot report.
+
+Genetic codes 11 (default), 4 (Mycoplasma and Spiroplasma) and 25 (SR1 and Gracilibacteria) are
+supported through `annotation.translation_table`
+([Inputs › Genetic code](docs/user-guide/inputs.md#genetic-code)).
 
 Off FarmShare, `gippa preflight`, `convert`, `compare` and `report` work anywhere; until the first
 image publish, `gippa run` under `--profile docker` or `apptainer` alone stops in preflight for the
