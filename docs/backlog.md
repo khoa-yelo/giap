@@ -1375,6 +1375,11 @@ the user guide is [Inputs › Genetic code](user-guide/inputs.md#genetic-code) a
   hits at TGA codons. Today the table comes from taxonomy only.
 - (Q-L6) `gippa compare` across runs with different tables: warn "runs use different genetic
   codes" from the manifests.
+- (CODE4.md F1, fix in progress on fix/transterm-origin) The TransTermHP cross-check fails a run
+  when a gene crosses the origin of a circular replicon: `write_transterm_coords` writes the
+  unwrapped end (`Bad gene coordinates`). Any table; found by M. hyorhinis at code 4.
+- (CODE4.md F4) Bakta calls no tRNA-Trp(UCA) on M. hyorhinis although TGA is 94 % of Trp codons,
+  so tAI at code 4 is approximate (D10: recorded, not patched).
 
 - **#420 review nits (nightly task-2 shards; N4 noted in the nightly.sbatch header):**
   - N5: tests for shard 2 recording first (shard 1 writes the row; its gate runs in the shard-1 worktree), the "coverage not measured (k of N shard data files)" path, and two concurrent record + merge calls giving exactly one complete merge.

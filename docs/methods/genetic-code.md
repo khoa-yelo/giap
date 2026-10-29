@@ -83,6 +83,7 @@ the statistician reviews the cut again.
 
 Under codes 4 and 25 there are fewer stops per frame, so stop-free segments are longer and there
 are more chance hits; the chance model takes its residue frequencies from the six-frame index, so
-it follows the table. The statistician's note on the chance-hit calibration: the residual six-frame chance-model ratio of
-about +3 % at codes 11, 4 and 25 comes from codon dependence within a window and does not depend
-on the table.
+it follows the table. In the genetic-code calibration arms (M11-16f), counted over stop-free
+windows, simulated chance hits exceed the model by about 1-5 % (1.045, 1.013 and 1.024 at codes
+11, 4 and 25 on 100 kb; about 1.03 on 1 Mb). The statistician's review attributes this residual
+to codon dependence within a window; it does not depend on the table.

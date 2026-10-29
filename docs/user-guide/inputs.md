@@ -146,7 +146,8 @@ unchanged. These stop the run:
 
 Bakta records its table in the JSON (`genome.translation_table`). When you pass a Bakta JSON with
 `--annotation`, or to `gippa makedb --annotation`, and it records a different table from the run,
-the annotation is refused with this message:
+the annotation is refused with this message (a `genome.translation_table` that is not a whole
+number is a parse error instead):
 
 ```text
 annotation JSON was made with translation table 11; this run uses 4: re-run Bakta with

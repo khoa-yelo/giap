@@ -32,8 +32,8 @@ reported with its cause. No code, threshold or tolerance was changed.
 - Deviation in the completed run: TransTermHP cross-check off (F1). It only feeds
   `terminators_crosscheck.tsv`; TerminatorNet (the terminator tool) ran as usual, and no measure
   below reads terminators.
-- R14: at most 4 Nextflow task jobs per run. The GIPPA total before each submission was 13 to 48 CPUs,
-  and at most about 93 CPUs with these runs (3 heads + 3 x 4 x 6 or 8 CPUs) on top.
+- R14: at most 4 Nextflow task jobs per run (`queueSize = 4`). The GIPPA total before each
+  submission was 13 to 48 CPUs, so it stayed under the 128-CPU cap.
 
 ## RefSeq annotation (R6)
 

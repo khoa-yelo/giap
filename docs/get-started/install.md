@@ -66,7 +66,8 @@ To install Nextflow yourself instead, use the same environment:
 
 GIPPA supports genetic codes 11 (the default), 4 (Mycoplasma and Spiroplasma) and 25 (candidate
 division SR1 and Gracilibacteria). Preflight refuses any other `annotation.translation_table`, and
-warns (`genome.genetic_code`) when a genome does not look like it uses the configured code
+warns (`genome.genetic_code`) when the genome's open reading frames suggest TGA does not act the
+way the configured code says (it tells 11 from 4/25, not 4 from 25)
 ([Inputs › Genetic code](../user-guide/inputs.md#genetic-code)).
 
 ## The five steps
