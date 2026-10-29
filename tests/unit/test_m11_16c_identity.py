@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -133,6 +134,9 @@ def test_golden_covers_every_case() -> None:
     assert sorted(_golden()["simulate"]) == sorted(_cases()) == sorted(CASES)
 
 
+# operon_pairs.uniop_p is an rng.beta draw: its last bits follow the platform's libm, so the
+# golden CSV bytes (made on Linux) differ on macOS. The pin guards code changes; Linux CI runs it.
+@pytest.mark.skipif(sys.platform != "linux", reason="golden layout bytes are Linux libm (rng.beta)")
 @pytest.mark.parametrize("explicit", [False, True], ids=["implicit", "genetic_code_11"])
 @pytest.mark.parametrize("seed", SEEDS)
 @pytest.mark.parametrize("name", ["default", "draft_origin"])
