@@ -1,0 +1,102 @@
+{
+ "out": "$GIPPA_ROOT/more_datasets/mhyo/out_code4",
+ "config.translation_table": {
+  "level": "ok",
+  "value": 4,
+  "message": ""
+ },
+ "config.tool_genetic_code": {
+  "level": "ok",
+  "value": [],
+  "message": ""
+ },
+ "genome.genetic_code": {
+  "level": "ok",
+  "value": {
+   "bp_tga_sense": 568042,
+   "bp_tga_stop": 128942,
+   "min_codons": 300,
+   "n_orfs_tga_sense": 352,
+   "ratio": 0.226994,
+   "threshold": 0.55,
+   "translation_table": 4
+  },
+  "message": ""
+ },
+ "feature_types": {
+  "cds": 754,
+  "pseudogene": 6
+ },
+ "n_cds": 754,
+ "n_pseudogene": 6,
+ "cds_stop_codons": {
+  "TAA": 632,
+  "TAG": 122
+ },
+ "median_cds_aa": 256.5,
+ "median_all_aa": 255.0,
+ "n_cds_internal_stop": 0,
+ "refseq_protein_coding_genes": 684,
+ "refseq_pseudogenes": 27,
+ "refseq_cds_nonpseudo": 684,
+ "refseq_cds_same_stop": 673,
+ "refseq_cds_same_stop_frac": 0.9839,
+ "cds_vs_refseq_pc_ratio": 1.1023,
+ "tga_split_pairs_code11": 390,
+ "tga_split_pairs_inside_one_cds": 373,
+ "tga_split_pairs_inside_frac": 0.9564,
+ "unmapped_counts": {
+  "peptide/contaminant/no_hit": 2936,
+  "peptide/contaminant/too_short": 1030,
+  "peptide/unmapped/no_hit": 7737,
+  "peptide/unmapped/rejected_placement_fdr": 13,
+  "peptide/unmapped/too_short": 2654
+ },
+ "no_hit_organism": 7737,
+ "no_hit_organism_with_W": 1098,
+ "peptide_hits_rows": 11079,
+ "distinct_mapped_peptides": 10839,
+ "flag_rows": {
+  "engine_protein_mismatch": 10921,
+  "low_complexity": 67,
+  "multi": 166,
+  "nterm_extension_evidence": 9,
+  "same_db": 11079
+ },
+ "flag_distinct_peptides": {
+  "engine_protein_mismatch": 10801,
+  "low_complexity": 18,
+  "multi": 53,
+  "nterm_extension_evidence": 8,
+  "same_db": 10839
+ },
+ "route_rows": {
+  "exact": 11079
+ },
+ "distinct_mapped_with_W": 1009,
+ "trna_TCA": [],
+ "trna_Trp": [
+  {
+   "anticodon": "CCA",
+   "amino_acid": "Trp",
+   "n_copies": "1"
+  }
+ ],
+ "trna_total_rows": 27,
+ "codon_rows": 760,
+ "codon_nonnull": {
+  "cai": 754,
+  "tai": 754,
+  "enc": 754,
+  "fop": 754
+ },
+ "trp_shares": {
+  "TGA": 0.9392,
+  "TGG": 0.0608
+ },
+ "manifest_translation_table": 4,
+ "internal_codon_counts_TGA_TGG": {
+  "TGA": 2378,
+  "TGG": 154
+ }
+}
