@@ -179,7 +179,7 @@ def test_sixframe_index_records_the_table_and_the_event(
     ch = Chain(tmp_path, genome, gm, ["AWAEAWK"], table).index()
     with np.load(ch.paths["sixframe"]) as npz:
         meta = json.loads(str(npz["meta"]))
-    assert (meta["format"], meta["translation_table"]) == (3, table)
+    assert (meta["format"], meta["translation_table"]) == (4, table)  # 4: M11-20
     (ev,) = [r for r in caplog.records if getattr(r, "event", None) == EVENT]
     data = ev.data  # type: ignore[attr-defined]
     assert data["translation_table"] == table

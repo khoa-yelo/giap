@@ -117,6 +117,7 @@ def test_without_a_flags_column_everything_stays_miss_and_sec_site_is_zero() -> 
     assert r.counts == {
         "peptides": 3,
         "non_atg_nterm": 0,
+        "non_atg_nterm_exact": 0,  # M11-20 diagnostic count
         "exact_inframe": 0,
         "misses": 3,
         "exact_inframe_masked": 0,
@@ -202,12 +203,16 @@ def test_per_peptide_none_keeps_the_rows_as_today() -> None:
         assert not {"placement_q", "m_target", "accepted"} & set(x)
 
 
-def test_per_peptide_does_not_touch_non_atg_rows() -> None:
+def test_per_peptide_annotates_an_unmapped_non_atg_product_like_any_miss() -> None:
+    """M11-20 (ADR-0068): no ``non_atg_nterm`` rows; an unmapped non-ATG N-terminal product is a
+    ``miss`` and gets the per-peptide columns like every other miss."""
     per = _per([("pS", 1, 0.001, True), ("pX", 0, 0.0, True)])
     sources = {**SOURCES, "pX": {"G1"}}
     r = te.te1_result(sources, {"pX": "G1"}, example_31(), GENES, CIRC, per_peptide=per)
-    x = [e for e in r.exceptions if e["kind"] == "non_atg_nterm"]
-    assert x == [{"kind": "non_atg_nterm", "locus_tag": "G1", "peptide": "pX"}]
+    assert not [e for e in r.exceptions if e["kind"] == "non_atg_nterm"]
+    x = [e for e in r.exceptions if e["peptide"] == "pX"]
+    assert x == [{"kind": "miss", "locus_tag": "G1", "peptide": "pX", "hits": "unplaced",
+                  "placement_q": 0.0, "m_target": 0, "accepted": True}]  # fmt: skip
 
 
 def test_te1_proxy_passes_the_placement_table() -> None:

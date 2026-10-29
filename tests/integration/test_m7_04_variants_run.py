@@ -196,9 +196,17 @@ def test_example_3_same_strain_database_peptides(sim: Any, db: Path, tmp_path: P
     for g in genes.itertuples():
         first = g.start if g.strand == "+" else g.end - 3
         starts[(g.contig, int(first), g.strand)] = g.start_codon
+    hits = _read(out / "mapping" / "peptide_hits.tsv")  # M11-20: the credited starts
+    credited = {
+        (r.contig, int(r.start) - 1 if r.strand == "+" else int(r.end) - 3, r.strand)
+        for r in hits.itertuples()
+        if "initiator_m" in str(r.flags).split(";")
+    }
+    assert all(starts.get(k, "ATG") != "ATG" for k in credited), credited
     for r in _read(out / "tables" / "variants.tsv").itertuples():
         key = (r.contig, int(r.codon_start) - 1, r.strand)
         assert key in starts and starts[key] != "ATG" and r.alt_aa == "M", r
+        assert key not in credited, f"ALT M at a credited start (M11-20): {r}"
     pysam = pytest.importorskip("pysam")
     with pysam.VariantFile(str(out / "tables" / "variants.vcf")) as vf:
         assert list(vf.header.samples) == ["peptides"]  # auto = the peptide file stem

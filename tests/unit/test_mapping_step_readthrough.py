@@ -58,7 +58,7 @@ def test_sixframe_index_declares_the_genes_input() -> None:
     assert spec.outputs == ("sixframe",)
 
 
-def test_sixframe_index_writes_format_3_cells_and_the_event(
+def test_sixframe_index_writes_format_4_cells_and_the_event(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     from gippa.mapping.sixframe import load_stop_cells
@@ -67,7 +67,7 @@ def test_sixframe_index_writes_format_3_cells_and_the_event(
     out = _six(tmp_path, inputs(tmp_path))
     with np.load(out) as npz:
         meta = json.loads(str(npz["meta"]))
-    assert meta["format"] == 3 and len(meta["stop_sites"]) == 6
+    assert meta["format"] == 4 and len(meta["stop_sites"]) == 6  # 4: M11-20
     cells = load_stop_cells(out, table=11)
     assert len(cells.sites) == 6
     assert sum(len(c) for c in cells.target) == 7

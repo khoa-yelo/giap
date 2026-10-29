@@ -215,6 +215,7 @@ def oracle(inputs: Mapping[str, Path], cfg: GippaConfig, out: Path) -> dict[str,
     """Rule 2's chain on the step's own inputs, written with the M7-03 writers."""
     from gippa.io.variant_tables import write_pileup, write_variants
     from gippa.io.vcf import write_vcf
+    from gippa.mapping.initiator import annotated_starts, start_keys
     from gippa.variants.align import align_hits
     from gippa.variants.pileup import Support, eligible, pileup, sites
     from gippa.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
@@ -234,7 +235,10 @@ def oracle(inputs: Mapping[str, Path], cfg: GippaConfig, out: Path) -> dict[str,
         support.setdefault(r["peptide"], Support(r["peptide"], r["source"],
                            s if s in ("same", "other") else "same", float(r["placement_q"]),
                            r["uniqueness"]))  # fmt: skip
-    aligns = align_hits(ph, ht, genome, reps)
+    ann = cfg.annotation  # M11-20: initiator start-site keys, as run_variants_qc
+    init_sites, _ = annotated_starts(gm, genome, ann.start_codons, table=ann.translation_table)
+    inits = start_keys(init_sites)
+    aligns = align_hits(ph, ht, genome, reps, starts=inits)
     el = eligible(aligns, support, cfg)
     pile = pileup(el, gm, genome, cfg, support=support)
     st = sites(pile, cfg)
@@ -507,11 +511,13 @@ def test_unresolved_auto_never_reaches_the_vcf(chain: dict[str, Path], tmp_path:
 # ----------------------------------------------------------------------------- example 3
 
 
-def test_example_3_same_strain_database_peptides_give_no_alt_except_non_atg_starts(
+def test_example_3_same_strain_database_peptides_give_no_alt_m_at_credited_starts(
     same_chain: dict[str, Path], tmp_path: Path
 ) -> None:
     """Database peptides against the strain's own proteins: a ``variants.tsv`` row only where the
-    peptide really contradicts the genome, i.e. the M of an annotated non-ATG start."""
+    peptide really contradicts the genome. M11-20 (ADR-0068, spec § 6): the M of an annotated
+    non-ATG start is credited (exact row, flag ``initiator_m``, op ``initiator``), so it gives no
+    ALT ``M`` there; a row could remain only at an uncredited non-ATG start."""
     run = run_variants_step(step_inputs(same_chain), tmp_path, _cfg())
     pile = _gunzip_text(run.paths["pileup"]).splitlines()
     assert len(pile) > 100, "the same-strain fixture covers codons"
@@ -520,11 +526,19 @@ def test_example_3_same_strain_database_peptides_give_no_alt_except_non_atg_star
     for g in genes.itertuples():
         first = g.start if g.strand == "+" else g.end - 3  # lowest coordinate of codon 1
         starts[(g.contig, first, g.strand)] = g.start_codon
+    ph = _hits(same_chain["mapping"])
+    init = ph[ph["flags"].fillna("").str.split(";").map(lambda f: "initiator_m" in f)]
+    credited = {
+        (r.contig, r.start if r.strand == "+" else r.end - 3, r.strand) for r in init.itertuples()
+    }
+    assert credited, "the same-strain fixture has a credited non-ATG N-terminal peptide"
+    assert all(starts.get(k, "ATG") != "ATG" for k in credited), credited
     df = run.frame("variants")
     for r in df.itertuples():
         key = (r.contig, int(r.codon_start) - 1, r.strand)
         assert key in starts, f"ALT site off any gene start: {r}"
         assert starts[key] != "ATG" and r.alt_aa == "M", r
+        assert key not in credited, f"ALT M at a credited start: {r}"
     want = oracle(run.inputs, _cfg(), tmp_path / "oracle")
     for key, path in _tables(run.paths).items():
         assert _without_flags(key, path) == _without_flags(key, want["paths"][key]), key

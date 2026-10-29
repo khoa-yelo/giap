@@ -77,16 +77,17 @@ def test_te2_proxy_on_an_all_atg_sim_has_no_alt_site(tmp_path: Path) -> None:
     assert r.passed is True
 
 
-def test_te2_proxy_on_gtg_starts_flags_every_high_site_start_codon(tmp_path: Path) -> None:
-    """Rule 2: Bakta's M at GTG/TTG starts appears as ALT ``M`` flagged ``start_codon``; with
-    50 % GTG starts some reach ``high`` and none is a violation. 400 kb: the N-terminal peptides
-    need >= 1 / alpha.placement = 100 in the tolerant stratum to be placeable at all (100 kb gave
-    44, so q >= 1/44; M7-14 lead decision 4)."""
+def test_te2_proxy_on_gtg_starts_gives_no_alt_m_at_credited_starts(tmp_path: Path) -> None:
+    """Rule 2 under M11-20 (ADR-0068, spec § 6): Bakta's M at GTG/TTG starts is credited (exact
+    row, op ``initiator``, no pileup category), so the same-strain N-terminal peptides give no ALT
+    ``M``; with every other peptide exact the run has no ALT site at all and no violation.
+    Before M11-20 the 50 % GTG starts gave ALT ``M`` sites flagged ``start_codon``, some ``high``.
+    400 kb kept from then (M7-14 lead decision 4)."""
     res = _sim(tmp_path / "sim", 2221, 400_000, start_codons=(("ATG", 0.5), ("GTG", 0.5)))
     r = _te_proxies().te2_proxy(res.genome_fasta, res.bakta_json)
     _check_shape(r)
-    assert r.counts["alt_sites"] > 0, "the GTG starts are meant to give ALT M sites"
-    assert r.counts["high_start_codon"] > 0
+    assert r.counts["alt_sites"] == 0, "an ALT site from same-strain peptides at credited starts"
+    assert r.counts["high_start_codon"] == 0
     assert r.counts["high_stop_codon"] == 0
     assert r.counts["violations"] == 0
     assert r.passed is True

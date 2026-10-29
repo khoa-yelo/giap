@@ -12,21 +12,21 @@ Interface assumed (spec "Public interface"; field names pinned here by the test 
 * ``counts: Mapping[str, int]`` with ``peptides`` (distinct digest sequences, exact string, no
   I = L collapsing; lead decision 4), ``non_atg_nterm`` (distinct N-terminal products of genes
   whose first genome codon is not ATG **and** whose Bakta protein starts with M; decision 5;
-  excluded from the share),
+  since M11-20 (ADR-0068) a diagnostic count that stays in the share's denominator, with
+  ``non_atg_nterm_exact`` of them exact in frame by the initiator credit),
   ``exact_inframe`` (an accepted ``route = exact`` row with ``locus_class`` in {cds_inframe,
   sorf} at one of the peptide's own genes, or, lead decision 10, an exact row whose class
   outranks them (``rna_overlap``, ``pseudogene``) on a locus in frame inside one of its own
   genes; the latter also counted in ``exact_inframe_masked``) and ``misses`` (the rest);
-  ``peptides == non_atg_nterm + exact_inframe + misses``.
-* ``shares: Mapping[str, float]`` with ``exact_inframe = exact_inframe / (peptides -
-  non_atg_nterm)``.
+  ``peptides == exact_inframe + misses`` (M11-20).
+* ``shares: Mapping[str, float]`` with ``exact_inframe = exact_inframe / peptides`` (M11-20).
 * ``passed: bool`` (``shares["exact_inframe"] >= 0.999``).
 * ``exceptions: Sequence[Mapping[str, Any]]``, at most 50, each with ``locus_tag`` and
   ``peptide``.
 
 Pinned on the Nissle recording (oracle: this file's digest of the recorded proteins): 164,181
 peptides, 431 ``non_atg_nterm``; an in-frame translation oracle finds 4 other misses (share
-0.99998).
+0.99998). M11-20: the 431 now map by the initiator credit.
 
 Inputs may be gzip-compressed (§5.3). ``validation/`` is imported from the repository root.
 Every run gets a test ``$GIPPA_DB_DIR`` (never the real one).
@@ -90,8 +90,9 @@ def _nterm(aa: str) -> list[str]:
 
 def _check_shape(r: Any) -> None:
     c, sh = r.counts, r.shares
-    assert c["peptides"] == c["non_atg_nterm"] + c["exact_inframe"] + c["misses"]
-    denom = c["peptides"] - c["non_atg_nterm"]
+    assert c["peptides"] == c["exact_inframe"] + c["misses"]  # M11-20: no exclusion
+    assert 0 <= c["non_atg_nterm_exact"] <= c["non_atg_nterm"] <= c["peptides"]
+    denom = c["peptides"]
     assert denom > 0
     assert sh["exact_inframe"] == pytest.approx(c["exact_inframe"] / denom)
     assert r.passed is (sh["exact_inframe"] >= THRESHOLD)
@@ -137,7 +138,9 @@ def test_example_4_all_atg_sim_share_is_one(tmp_path: Path) -> None:
 # ------------------------------------------------------------------ example 5
 
 
-def test_example_5_gtg_ttg_starts_are_the_only_misses(tmp_path: Path) -> None:
+def test_example_5_gtg_ttg_nterm_products_map_by_the_initiator_credit(tmp_path: Path) -> None:
+    """M11-20 (ADR-0068): the non-ATG N-terminal products, once the only misses, map exactly in
+    frame at their own genes; no exception is listed."""
     res = _sim(tmp_path / "sim", 2211)  # default start codons: 90 % ATG, 8 % GTG, 2 % TTG
     genes = _genes(res.bakta_json)
     non_atg = [g for g in genes if g["nt"][:3] != "ATG"]
@@ -154,21 +157,21 @@ def test_example_5_gtg_ttg_starts_are_the_only_misses(tmp_path: Path) -> None:
     assert r.counts["peptides"] == _n_peptides(genes)
     assert r.counts["non_atg_nterm"] == len({p for _, p in expected_nterm})
     assert r.counts["non_atg_nterm"] == len(_strict_nterm(genes))
-    assert r.exceptions, "the non-ATG N-terminal peptides are listed"
-    assert len(r.exceptions) == min(50, r.counts["non_atg_nterm"])  # all listed, up to 50
-    for ex in r.exceptions:
-        assert (ex["locus_tag"], ex["peptide"]) in expected_nterm, ex
+    assert r.counts["non_atg_nterm_exact"] == r.counts["non_atg_nterm"]
+    assert r.exceptions == []
 
 
-def test_exclusion_is_what_keeps_the_share_at_one(tmp_path: Path) -> None:
-    """With 50 % GTG starts the N-terminal products are a visible share of all products: the
-    raw exact share is below 1, the share after the §11.6 exclusion is exactly 1."""
+def test_credit_keeps_the_share_at_one_without_the_exclusion(tmp_path: Path) -> None:
+    """With 50 % GTG starts the N-terminal products are a visible share of all products; before
+    M11-20 the raw exact share was below 1 and only the §11.6 exclusion kept it at 1. Now the
+    initiator credit maps every one of them, so the raw share is exactly 1 (ADR-0068)."""
     res = _sim(tmp_path / "sim", 2212, start_codons=(("ATG", 0.5), ("GTG", 0.5)))
     r = _te_proxies().te1_proxy(res.genome_fasta, res.bakta_json)
     _check_shape(r)
     c = r.counts
     assert c["non_atg_nterm"] > 0
-    assert c["exact_inframe"] / c["peptides"] < 1.0
+    assert c["non_atg_nterm_exact"] == c["non_atg_nterm"]
+    assert c["exact_inframe"] == c["peptides"]
     assert r.shares["exact_inframe"] == 1.0 and r.passed is True
 
 

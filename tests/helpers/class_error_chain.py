@@ -118,6 +118,7 @@ def oracle_sites(avail: Mapping[str, Path], cfg: Any) -> tuple[pd.DataFrame, lis
     """M7-04 ``run_variants``'s ``sites`` (with M7-05 flags) and each row's ALT peptides."""
     from gippa.io.fasta import read_genome_fasta
     from gippa.io.work_tables import load_tables
+    from gippa.mapping.initiator import annotated_starts, start_keys
     from gippa.steps.mapping import read_gene_model
     from gippa.steps.variants import support_of
     from gippa.variants.align import align_hits
@@ -133,7 +134,10 @@ def oracle_sites(avail: Mapping[str, Path], cfg: Any) -> tuple[pd.DataFrame, lis
     gm = read_gene_model(Path(avail["genes"]), Path(avail["replicons"]))
     peptides = pd.read_parquet(avail["peptides"])
     support = support_of(ph, peptides, {g.locus_tag for g in gm.genes})
-    aligns = align_hits(ph, ht, genome, gm.replicons)
+    ann = cfg.annotation  # M11-20: initiator start-site keys, as run_variants_qc
+    init_sites, _ = annotated_starts(gm, genome, ann.start_codons, table=ann.translation_table)
+    inits = start_keys(init_sites)
+    aligns = align_hits(ph, ht, genome, gm.replicons, starts=inits)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     st = sites(pile, cfg)
     peps = list(st.attrs["alt_peptides"])

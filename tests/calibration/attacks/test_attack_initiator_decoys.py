@@ -22,8 +22,12 @@ across the origin of a second circular contig). Checks per world:
 - (b) ``shuffle``, i.i.d.: mean D/T >= 1 - EQUIV - se_multiplier * SE per k (one-sided);
 - (c) tryptic law (inner residues without K/R, last K/R): (mean D - mean T) / mean plain >=
   -EQUIV - se_multiplier * SE per k and decoy type (SE of the per-replicate (D - T) / mean plain;
-  one-sided, the form of (b): few credited windows are tryptic-compatible, so the replicate
-  shifts are wide; at R = 20 on a correct build the plain -EQUIV bound already fails at k = 12);
+  one-sided, the form of (b)). On a correct build the true shift is about 0, but few credited
+  windows are tryptic-compatible, so the replicate shifts are wide and the literal -EQUIV bound
+  without the SE term is flaky (it fails in 10-16 % of runs at R = 50). In the gippasim world
+  (c) is an impact bound that cannot fail (the credited target mass is about 0.3-0.5 % of the
+  plain mass, S2, so even no decoy cells shifts by less than EQUIV); its tooth is the stressed
+  world, where "no decoy cells" must fail (c);
 - (d) structural: per frame the decoy cell count equals the target's, reverse cells hold the
   target's start residue, the usable credited windows are equal for every k in 7..40, and the
   implementation (``match_exact(starts=...)``) returns every model window: target rows for
@@ -32,8 +36,9 @@ across the origin of a second circular contig). Checks per world:
 - (e) recorded only: the N-terminome law (M + the position-specific profile of the world's own
   annotated N-termini), net shift (D - T) / plain per decoy type.
 
-**Teeth** (each fails): no decoy cells (a, b, d), the target cells reused as reverse cells (a),
-the off-by-one mirror n - p (a), and the forward-reading reverse window [c, c + k) (a, d).
+**Teeth** (each fails): no decoy cells (a, b, d; c in the stressed world), the target cells
+reused as reverse cells (a), the off-by-one mirror n - p (a), and the forward-reading reverse
+window [c, c + k) (a, d).
 
 R = ``replicates_fast.placement`` (``calibration``) or ``replicates_full.placement``
 (``calibration_full``); the stressed world R // 5. Seeds: ``_criteria.replicate_rng`` streams. Per-k
@@ -402,7 +407,9 @@ def net_shift(reps: list[dict], name: str, law: str, kind: str, k: int) -> float
 
 
 def crit_net(reps: list[dict], name: str, mult: float, law: str = "tryptic") -> list[str]:
-    """(c): net shift >= -EQUIV - mult * SE, SE of the per-replicate (D - T) / mean plain."""
+    """(c): net shift >= -EQUIV - mult * SE, SE of the per-replicate (D - T) / mean plain. The
+    true shift of a correct build is about 0 (the SE term keeps it from flaking); an impact bound
+    that cannot fail in the gippasim world, with teeth only in the stressed world."""
     bad = []
     for kind in KINDS:
         for k in LENGTHS:
@@ -502,6 +509,8 @@ def run_attack(world: str, R: int, full: bool, tmp: Path) -> None:
         assert crit_reverse_exact(reps, name), f"broken build {name} passed (a)"
     assert crit_ratio(reps, "no_decoy_cells", "shuffle", mult), "no decoy cells passed (b)"
     assert teeth_struct["no_decoy_cells"] > 0, "no decoy cells passed (d)"
+    if world == "stressed":  # (c) has a tooth only here (statistician, 20t review)
+        assert crit_net(reps, "no_decoy_cells", mult), "no decoy cells passed (c)"
     assert teeth_struct["forward_reverse_window"] > 0, "forward reverse window passed (d)"
 
 

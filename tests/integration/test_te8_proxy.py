@@ -19,16 +19,19 @@ Interface assumed (spec "Public interface"; field names pinned here by the test 
 * ``non_atg_nterm`` (decision 6): distinct peptides that are N-terminal (start 0) in a UniProt
   protein and equal an N-terminal digest product of a K-12 gene (``k12_json``) whose first
   genome codon is not ATG and whose Bakta protein starts with M (the TE1 strict rule, decision
-  5). They leave the K-12 denominator: ``shares["k12_exact"] = k12_exact / (peptides -
-  non_atg_nterm)``; ``k12_exact`` counts the remaining peptides with an exact K-12 hit.
+  5). Since M11-20 (ADR-0068) a diagnostic count that stays in the K-12 denominator:
+  ``shares["k12_exact"] = k12_exact / peptides``; ``k12_exact`` counts every peptide with an exact
+  K-12 hit, the initiator credit included.
 * ``shares``: ``k12_exact``, ``nissle_tolerant``, ``nissle_unmapped`` (both over ``peptides``),
   ``nissle_placement_fdr`` (pooled decoy-estimated FDR among accepted Nissle placements).
 * ``passed`` = ``k12_exact >= 0.995 and nissle_placement_fdr <= 0.01``; ``exceptions`` <= 50.
 
 Pinned on the excerpt (independent oracle: I = L substring search in the six-frame translation
-with the circular wrap): 1,373 peptides, 4 ``non_atg_nterm``, 1,364 ``k12_exact``, share
-1364/1369 = 0.99635 >= 0.995 (the 5 remaining misses are UniProt N-termini where Bakta chose a
-different start). Full proteome (release 2026_03, weekly): 151,424 / 354 / 150,918, share 0.99899.
+with the circular wrap): 1,373 peptides, 4 ``non_atg_nterm``, 1,364 other peptides with an
+exact K-12 hit (the 5 remaining misses are UniProt N-termini where Bakta chose a different
+start). M11-20: the 4 map by the initiator credit, so ``k12_exact`` = 1,368, share 1368/1373 =
+0.99636 >= 0.995. Full proteome (release 2026_03, weekly, before M11-20): 151,424 / 354 / 150,918,
+share 0.99899.
 """
 
 from __future__ import annotations
@@ -58,6 +61,7 @@ K12_JSON, NISSLE_JSON = (
 )
 K12_MIN, FDR_MAX = 0.995, 0.01
 EXCERPT_PEPTIDES, EXCERPT_NON_ATG_NTERM, EXCERPT_K12_EXACT = 1373, 4, 1364  # decisions 4, 6
+EXCERPT_K12_EXACT_CREDITED = EXCERPT_K12_EXACT + EXCERPT_NON_ATG_NTERM  # M11-20: the 4 map
 
 pytestmark = pytest.mark.slow
 
@@ -139,16 +143,17 @@ def test_excerpt_oracle_matches_pinned_numbers() -> None:
     assert len(peptides) == EXCERPT_PEPTIDES
     assert len(excluded) == EXCERPT_NON_ATG_NTERM
     assert len(exact_hits(peptides - excluded, K12_GENOME)) == EXCERPT_K12_EXACT
-    assert not exact_hits(excluded, K12_GENOME)  # the excluded peptides never map exactly
+    assert not exact_hits(excluded, K12_GENOME)  # no plain hit: only the M11-20 credit maps them
 
 
 def test_te8_excerpt_k12_exact_is_pinned(result: Any) -> None:
     c, sh = result.counts, result.shares
     assert c["peptides"] == EXCERPT_PEPTIDES
     assert c["non_atg_nterm"] == EXCERPT_NON_ATG_NTERM
-    assert c["k12_exact"] == EXCERPT_K12_EXACT
-    denom = EXCERPT_PEPTIDES - EXCERPT_NON_ATG_NTERM
-    assert sh["k12_exact"] == pytest.approx(EXCERPT_K12_EXACT / denom)  # 0.99635
+    assert c["k12_exact"] == EXCERPT_K12_EXACT_CREDITED  # M11-20: + the 4 credited products
+    denom = EXCERPT_PEPTIDES  # M11-20: no exclusion
+    assert sh["k12_exact"] == pytest.approx(EXCERPT_K12_EXACT_CREDITED / denom)  # 0.99636
+    assert not {e["peptide"] for e in result.exceptions} & k12_non_atg_nterm(EXCERPT)
     assert sh["k12_exact"] >= K12_MIN
 
 

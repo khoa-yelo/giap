@@ -39,7 +39,9 @@ import pytest
 from _placement_suite import run_fdr_suite
 from helpers.initiator_toys import row_set
 
-pytestmark = pytest.mark.calibration
+# I1 and AC 10 run in the placement lane (as test_exact_recall.py); the I2 tests carry NOVEL
+pytestmark = [pytest.mark.calibration, pytest.mark.calsuite("placement")]
+NOVEL = pytest.mark.calsuite("novel_orfs")
 UNSHARDABLE = pytest.mark.calibration_unshardable
 LEVELS = C.load_tolerances().levels
 STARTS = (("ATG", 0.5), ("GTG", 0.35), ("TTG", 0.15))
@@ -125,7 +127,9 @@ def _chain(kind: str, seed: int, tmp: Path) -> Any:
 
 
 def credit_record(ch: Any) -> dict[str, float]:
-    """T0 / D0 with and without credit; credited target / decoy rows; alt-start N-termini."""
+    """T0 / D0 with and without credit; credited target / decoy rows; alt-start N-termini.
+    Invariants (statistician): the plain rows are a subset of the credited run's rows, so
+    T0_credit >= T0_none and D0_credit >= D0_none."""
     from gippa.mapping.exact import match_exact
     from gippa.mapping.sixframe import load_index
     from gippa.steps.mapping import decoy_types, select_queries
@@ -142,6 +146,8 @@ def credit_record(ch: Any) -> dict[str, float]:
         max_len=ex.max_len,
     )
     new = pd.read_parquet(ch.avail["hits_exact"])
+    lost = row_set(old) - row_set(new)
+    assert not lost, f"credit removed plain exact rows: {sorted(lost)[:5]}"  # rule 3: additive
     extra = row_set(new) - row_set(old)
     tr = pd.read_csv(ch.res.truth["peptides"], sep="\t", dtype=str)
     nterm = set(tr.loc[(tr["alt_start_nterm"] == "true") & (tr["is_wrong"] == "false"), "peptide"])
@@ -150,6 +156,8 @@ def credit_record(ch: Any) -> dict[str, float]:
         return float(df.loc[df["search"] == s, "peptide"].nunique())
 
     placed = set(new.loc[new["search"] == "target", "peptide"])
+    for s in ("target", "decoy"):  # T0 and D0 can only rise with the credit (S3)
+        assert n(new, s) >= n(old, s), (s, n(new, s), n(old, s))
     return {
         "T0_credit": n(new, "target"),
         "D0_credit": n(new, "decoy"),
@@ -243,6 +251,7 @@ def _i2_arms() -> Any:
     return pytest.importorskip("test_m11_16f_novel_arms", reason="M11-16f arms (#481) not on main")
 
 
+@NOVEL
 def test_i2_code25_nonatg_nterm_recurrence_is_zero() -> None:
     arms = _i2_arms()
     M = arms.M
@@ -267,6 +276,7 @@ def test_i2_code25_nonatg_nterm_recurrence_is_zero() -> None:
     assert not any(per), {i: n for i, n in enumerate(per) if n}
 
 
+@NOVEL
 @pytest.mark.parametrize("regime", ["picked_decoy", "denovo_subgroup"])
 @pytest.mark.parametrize("cls", ["intergenic", "cds_outframe", "antisense", "nterm_extension"])
 @pytest.mark.parametrize("q", LEVELS)

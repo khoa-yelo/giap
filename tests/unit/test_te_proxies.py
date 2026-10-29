@@ -223,23 +223,27 @@ def te1() -> Any:
 
 
 def test_te1_result_counts(te1: Any) -> None:
+    """M11-20 (ADR-0068): a non-ATG N-terminal product (pL) stays in the denominator; without a
+    good row it is a miss; ``non_atg_nterm`` / ``non_atg_nterm_exact`` are diagnostic counts."""
     assert te1.counts == {
         "peptides": 14,
         "non_atg_nterm": 1,
+        "non_atg_nterm_exact": 0,  # pL has no hit
         "exact_inframe": 6,  # pA pD pE pH pI pJ
-        "misses": 7,  # pB pC pF pG pK pM pN
+        "misses": 8,  # pB pC pF pG pK pL pM pN
         "exact_inframe_masked": 4,  # pD pE pH pI (pJ has a good row)
         "sec_site": 0,
     }
-    assert te1.shares["exact_inframe"] == pytest.approx(6 / 13)
+    assert te1.shares["exact_inframe"] == pytest.approx(6 / 14)
     assert te1.passed is False
 
 
-def test_te1_result_miss_and_exclusion_rows(te1: Any) -> None:
+def test_te1_result_miss_rows_include_the_non_atg_nterm_product(te1: Any) -> None:
+    """M11-20: no ``non_atg_nterm`` exception rows; an unmapped one (pL) is a ``miss`` row."""
     kinds = {(r["kind"], r["peptide"]) for r in te1.exceptions}
-    misses = {"pB", "pC", "pF", "pG", "pK", "pM", "pN"}
+    misses = {"pB", "pC", "pF", "pG", "pK", "pL", "pM", "pN"}
     assert {p for k, p in kinds if k == "miss"} == misses
-    assert {p for k, p in kinds if k == "non_atg_nterm"} == {"pL"}
+    assert {k for k, _ in kinds} == {"miss"}
     for r in te1.exceptions:
         assert r["locus_tag"] == ("G1" if r["peptide"] != "pE" else "G2")
 
@@ -309,13 +313,13 @@ def test_te8_result_counts_and_shares() -> None:
     assert r.counts == {
         "peptides": 6,
         "non_atg_nterm": 1,
-        "k12_exact": 3,  # p1 p2 p3; p6 is excluded although it hits
+        "k12_exact": 4,  # p1 p2 p3 p6 (M11-20: the non-ATG product p6 stays in and hits)
         "nissle_exact": 1,  # accepted only (p3 has m = 0 but is rejected)
         "nissle_tolerant": 2,
         "nissle_rejected": 1,
         "nissle_unmapped": 2,  # no row at all (not 6 - 3 accepted)
     }
-    assert r.shares["k12_exact"] == pytest.approx(3 / 5)
+    assert r.shares["k12_exact"] == pytest.approx(4 / 6)
     assert r.shares["nissle_exact"] == pytest.approx(1 / 6)
     assert r.shares["nissle_tolerant"] == pytest.approx(2 / 6)
     assert r.shares["nissle_unmapped"] == pytest.approx(2 / 6)
@@ -379,10 +383,15 @@ def test_te8_empty_inputs_do_not_pass() -> None:
     assert r.passed is False
 
 
-def test_te8_all_excluded_does_not_pass() -> None:
+def test_te8_non_atg_nterm_product_stays_in_the_denominator() -> None:
+    """M11-20 (ADR-0068): a non-ATG N-terminal product counts like any peptide: with a K-12
+    exact hit it is ``k12_exact`` (and passes alone); without one it is a ``k12_miss``."""
     r = te.te8_result({"p1": {"P1"}}, {"p1"}, {"p1"}, _per([]), _costs([]))
+    assert r.counts["non_atg_nterm"] == 1 and r.counts["k12_exact"] == 1
+    assert r.shares["k12_exact"] == 1.0 and r.passed is True
+    r = te.te8_result({"p1": {"P1"}}, {"p1"}, set(), _per([]), _costs([]))
     assert r.counts["non_atg_nterm"] == 1 and r.counts["k12_exact"] == 0
-    assert r.passed is False
+    assert [e["peptide"] for e in r.exceptions] == ["p1"] and r.passed is False
 
 
 def test_proxy_result_to_json_round_trip() -> None:
@@ -434,11 +443,12 @@ def test_non_atg_nterm_maps_products_to_smallest_locus() -> None:
     assert te.non_atg_nterm(genes) == {"MAAAAAAAK": "g1", "MAAAAAAAKWWWWWWWR": "g1"}
 
 
-def test_te1_excluded_peptide_with_a_good_hit_is_not_counted_exact() -> None:
+def test_te1_non_atg_nterm_peptide_with_a_good_hit_is_counted_exact() -> None:
+    """M11-20 (ADR-0068): the initiator credit maps it, so it counts as ``exact_inframe``."""
     hits = pd.DataFrame([_hit("pX", "exact", "cds_inframe", "G1", 103, 124, "+")])
     r = te.te1_result({"pX": {"G1"}, "pY": {"G1"}}, {"pX": "G1"}, hits, GENES, CIRC)
-    assert r.counts["non_atg_nterm"] == 1
-    assert r.counts["exact_inframe"] == 0 and r.counts["misses"] == 1
+    assert r.counts["non_atg_nterm"] == 1 and r.counts["non_atg_nterm_exact"] == 1
+    assert r.counts["exact_inframe"] == 1 and r.counts["misses"] == 1  # pY
     assert r.counts["peptides"] == 2
 
 

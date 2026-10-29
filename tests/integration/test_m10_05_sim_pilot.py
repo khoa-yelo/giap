@@ -12,12 +12,13 @@ Two ``gippa run --executor local`` runs on gippasim SIM100K (``tests/helpers/m4_
 * "A1": the simulator's table with ``search_db = other``, UniProt-like ``protein_ids`` and a few
   residues substituted so that tolerant and unmapped peptides exist.
 
-Then ``gippa compare``, ``metrics.py compute`` and ``render``. Oracle: TE1's misses are exactly the
-planted out-of-frame peptide and the non-ATG N-terminal products in D2 (the planted one and the
-simulator's own, which are structural misses by the spec's "What TE1 shows"); every other peptide
-is exact in frame. Metric 2's A1 ``tolerant + unmapped`` equals ``genome_inconsistent_rate * n``;
-metric 3's prophage, BGC and plasmid subsets equal gippasim's planted region gene sets; metric 7
-has one entry per manifest step. A test ``$GIPPA_DB_DIR`` only; no network.
+Then ``gippa compare``, ``metrics.py compute`` and ``render``. Oracle: TE1's only miss is the
+planted out-of-frame peptide; the non-ATG N-terminal products in D2 (the planted one and the
+simulator's own, structural misses before M11-20) map by the initiator credit (ADR-0068), so
+every other peptide is exact in frame. Metric 2's A1 ``tolerant + unmapped`` equals
+``genome_inconsistent_rate * n``; metric 3's prophage, BGC and plasmid subsets equal gippasim's
+planted region gene sets; metric 7 has one entry per manifest step. A test ``$GIPPA_DB_DIR``
+only; no network.
 """
 
 from __future__ import annotations
@@ -172,11 +173,11 @@ def test_te1_misses_are_the_planted_truth(world: dict[str, Any]) -> None:
     assert world["planted_nonatg"] in structural
     assert te1["n_peptides"] == len(d2)
     assert te1["non_atg_nterm"]["peptides"] == len(structural)
-    assert te1["non_atg_nterm"]["misses"] == len(structural)
-    assert te1["n_peptides"] - te1["exact_inframe"] == 1 + len(structural)
+    assert te1["non_atg_nterm"]["misses"] == 0  # M11-20: credited
+    assert te1["n_peptides"] - te1["exact_inframe"] == 1
     exc = pd.read_csv(world["metrics"] / "te1_exceptions.tsv", sep="\t", dtype=str,
                       keep_default_na=False)  # fmt: skip
-    assert set(exc["peptide"]) == {world["oof"]} | structural
+    assert set(exc["peptide"]) == {world["oof"]}
 
 
 def test_metric_2_a1_equals_genome_inconsistent_rate(world: dict[str, Any]) -> None:
