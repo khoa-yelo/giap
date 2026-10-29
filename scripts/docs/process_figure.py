@@ -45,12 +45,12 @@ NAME = "gippa-processes"
 
 MONO = "DejaVu Sans Mono"
 PT = 1 / 72  # one point in inches; the axes use inches as data units
-F_HEAD, F_NAME, F_OUT, F_SMALL = 8.8, 7.3, 6.0, 5.7
+F_HEAD, F_NAME, F_OUT, F_SMALL = 9.2, 7.8, 6.3, 6.1
 
 # badges: inputs read by most processes, drawn as a lettered dot instead of an edge
 BADGE = {
     "G": ("io", "genome.norm.fa"),
-    "A": ("ann", "Bakta gene model and ANNOTATE tables"),
+    "A": ("ann", "Bakta's gene model or ANNOTATE's tables"),
     "P": ("map", "peptides.norm.parquet"),
 }
 
@@ -58,9 +58,9 @@ BADGE = {
 # ---------------------------------------------------------------------------------------------
 # layout grid: an input column, five process columns and an output column
 W = 13.0
-G = 0.42  # gutter between columns: room for the vertical channels
+G = 0.37  # gutter between columns: room for the vertical channels
 XI, WI = 0.12, 1.34
-CW = 1.50
+CW = 1.58
 COLS = [XI + WI + G + i * (CW + G) for i in range(5)]  # left edges of c1..c5
 XO = COLS[4] + CW + G
 WO = W - 0.12 - XO
@@ -189,33 +189,33 @@ ANALYSIS_NODES = [
     ("GENE_TABLE", 1, 0, "genes_pre.parquet | tier.parquet", "PA"),
     ("DETECTABILITY", 2, 0, "genetable/genes.parquet | tu_folds.parquet", ""),
     ("VARIANTS_STEP", 1, 1, "tables/variants.tsv, .vcf | variants_qc.parquet", "GPA"),
-    ("CONTEXT_STATS", 3, 1, "tables/genes.tsv, islands.tsv … | gene_context.parquet", "PA"),
-    ("DETERMINANTS_STEP", 4, 1, "tables/determinants_*.tsv | determinants_support/", "A"),
-    ("SENSITIVITY", 5, 1, "tables/sensitivity.tsv", "A<"),
-    ("OPERONS_STEP", 3, 2, "tables/pairs.tsv, operons.tsv | operon_flags.tsv", "A"),
-    ("FUNCTION_STEP", 3, 3, "tables/category_summary.tsv | enrichment_*.tsv", "oA"),
+    ("CONTEXT_STATS", 2, 1, "tables/genes.tsv, islands.tsv … | gene_context.parquet", "PA"),
+    ("DETERMINANTS_STEP", 3, 1, "tables/determinants_*.tsv | determinants_support/", "A"),
+    ("SENSITIVITY", 4, 1, "tables/sensitivity.tsv", "A<"),
+    ("OPERONS_STEP", 2, 2, "tables/pairs.tsv, operons.tsv | operon_flags.tsv", "A"),
+    ("FUNCTION_STEP", 3, 2, "tables/category_summary.tsv | enrichment_*.tsv", "oA"),
     (
         "NOVEL_CANDIDATES",
         1,
-        4,
+        3,
         "novel_candidates.parquet | novel_windows/*.fa | ostir_input_novel.csv",
         "GPA",
     ),
-    ("PROMOTECH_NOVEL", 2, 4, "promotech_NNN/", "t"),
-    ("NOVEL_PROMOTER_LAYER", 3, 4, "novel_promoter_windows.parquet", ""),
+    ("PROMOTECH_NOVEL", 2, 3, "promotech_NNN/", "t"),
+    ("NOVEL_PROMOTER_LAYER", 3, 3, "novel_promoter_windows.parquet", ""),
     (
         "NOVEL_ORFS",
         4,
-        4.5,
+        3.5,
         "tables/novel_orfs.tsv, .gff3 | novel_orfs.faa | annotation_patch.gff3",
         "GPA",
     ),
-    ("OSTIR_NOVEL", 2, 5, "ostir.csv", "t"),
-    ("NOVEL_RBS_LAYER", 3, 5, "rbs_novel.parquet", ""),
+    ("OSTIR_NOVEL", 2, 4, "ostir.csv", "t"),
+    ("NOVEL_RBS_LAYER", 3, 4, "rbs_novel.parquet", ""),
     ("PLOTS", 5, 2, "plots/", ""),
     ("REPORT_HTML", 5, 3, "report/report.html", ""),
 ]
-NOTES = {"TERMINATORNET_SHARDED": "PLAN → CHUNK (n tasks) → MERGE"}
+NOTES = {"TERMINATORNET_SHARDED": "PLAN → n CHUNKs → MERGE"}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -223,7 +223,8 @@ class Fig:
     def __init__(self, theme: Theme, h: float) -> None:
         self.t = theme
         self.H = h
-        self.fig = plt.figure(figsize=(W, h), facecolor=theme.bg)
+        # 300 dpi: the QA measures the text at the PNG resolution (no pixel-snapped font sizes)
+        self.fig = plt.figure(figsize=(W, h), dpi=300, facecolor=theme.bg)
         ax = self.fig.add_axes((0, 0, 1, 1))
         ax.set_xlim(0, W)
         ax.set_ylim(0, h)
@@ -365,13 +366,13 @@ class Fig:
     def badge(self, x: float, y: float, ch: str) -> None:
         hue = BADGE[ch][0]
         self.ax.add_patch(
-            Circle((x, y), 0.062, facecolor=self.edge(hue), edgecolor=self.t.bg, lw=0.9, zorder=7)
+            Circle((x, y), 0.068, facecolor=self.edge(hue), edgecolor=self.t.bg, lw=0.9, zorder=7)
         )
         self.ax.text(
             x,
             y - 0.002,
             ch,
-            fontsize=4.9,
+            fontsize=5.3,
             fontweight="bold",
             fontfamily=FONT,
             color=self.t.bg,
@@ -379,7 +380,7 @@ class Fig:
             va="center",
             zorder=8,
         )
-        self.discs.append((x - 0.062, y - 0.062, x + 0.062, y + 0.062))
+        self.discs.append((x - 0.068, y - 0.068, x + 0.068, y + 0.068))
 
     # edges ----------------------------------------------------------------------------------
     def add(self, e: Edge) -> None:
@@ -538,7 +539,7 @@ def rows(top: float, heights: list[float], gap: float) -> list[float]:
 
 
 def draw(theme: Theme) -> Fig:
-    H = 15.6
+    H = 14.9
     f = Fig(theme, H)
     t = theme
     nodes: dict[str, Node] = {}
@@ -663,7 +664,11 @@ def draw(theme: Theme) -> Fig:
     feeders = ["CODON_USAGE", "REGION_LAYER", "OPERON_PAIRS", "TX_LAYER", "PROMOTER_LAYER"]
     feeders += ["TERMINATOR_LAYER", "RBS_LAYER"]
     ys = [n[k].y for k in feeders]
-    f.add(Edge([(xb, max(ys)), (xb, min(ys))], A, arrow=False, prio=2, ends=()))
+    # BAKTA's tools/bakta/ goes to CONTEXT_LAYERS too (tool_dirs -> annotation/tools/bakta/):
+    # over the top of row 0, into the head of the bus
+    y_over = max(nodes[k].box[1] + nodes[k].box[3] for k in ("BAKTA", "PARSE_BAKTA")) + 0.14
+    e(path(bk.t(), y_over, xb, start_h=False), A, "BAKTA", arrow=False)
+    f.add(Edge([(xb, y_over), (xb, min(ys))], A, arrow=False, prio=2, ends=()))
     for k in feeders:
         e([n[k].r(), (xb, n[k].y)], A, k, arrow=False)
         f.dot(xb, n[k].y, A)
@@ -709,8 +714,18 @@ def draw(theme: Theme) -> Fig:
     for p, q in itertools.pairwise(prot):
         e([n[p].r(), n[q].l()], M, p, q, dashed=True)
     e(path(n["TBLASTN"].r(), gut(4), lo.y - 0.08, lo.x), M, "TBLASTN", "LOCI", dashed=True)
+    # miniprot's hits go to LOCI themselves (only its failures go on to tblastn): under the row
+    y_mb = m[1] - card_h(1) / 2 - 0.13
+    mp_ = n["MINIPROT"]
+    e(
+        path(mp_.b(), y_mb, lo.x + 0.32, lo.b()[1], start_h=False),
+        M,
+        "MINIPROT",
+        "LOCI",
+        dashed=True,
+    )
     clusters.append(("MAPPING", [k for k, v in nodes.items() if v.hue == M], M, False))
-    map_bot = m[1] - card_h(1) / 2
+    map_bot = y_mb - 0.04
 
     # outputs of ANNOTATE and MAPPING
     do = 0.44
@@ -729,12 +744,11 @@ def draw(theme: Theme) -> Fig:
     # GENETABLE and the analyses ---------------------------------------------------------------
     gap_d = 0.50
     d_top = map_bot - 0.95
-    hd = [card_h(2), card_h(2), card_h(2), card_h(2), card_h(3), card_h(1)]
+    hd = [card_h(2), card_h(2), card_h(2), card_h(3), card_h(1)]
     d = rows(d_top, hd, gap_d)
     GT, AN = "gt", "ana"
     place(ANALYSIS_NODES, d, AN)
 
-    # LOCI's mapping/ to the analyses: down from LOCI, left above GENETABLE, down the inputs side
     yl = d_top + 0.48
     x_or = gut(0)
     gt_, va, cs, opn = n["GENE_TABLE"], n["VARIANTS_STEP"], n["CONTEXT_STATS"], n["OPERONS_STEP"]
@@ -746,17 +760,15 @@ def draw(theme: Theme) -> Fig:
         n["NOVEL_ORFS"],
     )
     dm = n["DETERMINANTS_STEP"]
-    x_gt = gut(2)  # the gene table down to OPERONS, FUNCTION and NOVEL
-    x_om = gut(3)  # mapping/ down to OPERONS_STEP
+    # LOCI's mapping/: down from LOCI, left above GENETABLE, then down the inputs side to
+    # GENE_TABLE, VARIANTS, OPERONS and NOVEL, and down the c1|c2 gutter to CONTEXT
     f.add(Edge([lo.b(), (lo.b()[0], yl), (x_or, yl), (x_or, nc.y)], M, arrow=False, prio=3))
-    for tgt in (gt_, va, nc):
+    for tgt in (gt_, va, opn, nc):
         e([(x_or, tgt.y), tgt.l()], M, tgt.name, prio=1)
         f.dot(x_or, tgt.y, M)
-    xc = cs.t(0.42)[0]
-    e([(xc, yl), cs.t(0.42)], M, "CONTEXT_STATS", prio=1)
-    f.dot(xc, yl, M)
-    e(path((x_om, yl), opn.y + 0.08, opn.x + opn.w, start_h=False), M, "OPERONS_STEP", prio=1)
-    f.dot(x_om, yl, M)
+    x_cm = gut(1)
+    e(path((x_cm, yl), cs.y + 0.08, cs.x, start_h=False), M, "CONTEXT_STATS")
+    f.dot(x_cm, yl, M)
     f.text(
         lo.b()[0] - 0.12,
         yl + 0.03,
@@ -769,23 +781,26 @@ def draw(theme: Theme) -> Fig:
     )
 
     # GENE_TABLE -> DETECTABILITY; the gene table to every analysis
-    e([gt_.r(), de.l()], GT, "GENE_TABLE", "DETECTABILITY")
-    f.add(Edge([de.r(), (se.t(0.6)[0], de.y)], GT, arrow=False, prio=2, ends=("DETECTABILITY",)))
-    for tgt in (cs, dm, se):
-        xx = tgt.t({"CONTEXT_STATS": 0.05, "DETERMINANTS_STEP": 0.3}.get(tgt.name, 0.6))[0]
-        e([(xx, de.y), (xx, tgt.t()[1])], GT, tgt.name, arrow=True, prio=1)
-        if tgt is not se:
-            f.dot(xx, de.y, GT)
+    e([gt_.r(), de.l()], GT, "GENE_TABLE", "DETECTABILITY", prio=4)
+    e([de.b(), cs.t()], GT, "DETECTABILITY", "CONTEXT_STATS", prio=1)
+    xs_ = se.t(0.6)[0]  # right of the SENSITIVITY_RERUNS label
+    f.add(Edge([de.r(), (xs_, de.y)], GT, arrow=False, prio=2, ends=("DETECTABILITY",)))
+    xd = dm.t(0.3)[0]
+    e([(xd, de.y), (xd, dm.t()[1])], GT, "DETERMINANTS_STEP", prio=1)
+    f.dot(xd, de.y, GT)
+    e([(xs_, de.y), se.t(0.6)], GT, "SENSITIVITY", prio=1)
+    # the c2|c3 trunk: OPERONS (left), FUNCTION (right), then over NOVEL
+    x_gt = gut(2)
     yn = fu.y - fu.h / 2 - gap_d / 2  # above NOVEL
     f.add(Edge([(x_gt, de.y), (x_gt, yn)], GT, arrow=False, prio=2))
     f.dot(x_gt, de.y, GT)
-    for tgt in (opn, fu):
-        e([(x_gt, tgt.y - 0.08), tgt.l(-0.08)], GT, tgt.name, prio=1)
-        f.dot(x_gt, tgt.y - 0.08, GT)
+    e([(x_gt, opn.y), opn.r()], GT, "OPERONS_STEP", prio=1)
+    e([(x_gt, fu.y), fu.l()], GT, "FUNCTION_STEP", prio=1)
+    f.dot(x_gt, opn.y, GT)
     e(path((x_gt, yn), nc.t()[0], nc.t()[1], start_h=True), GT, "NOVEL_CANDIDATES", prio=1)
     e(path((x_gt, yn), no.t()[0], no.t()[1], start_h=True), GT, "NOVEL_ORFS", prio=1)
     f.text(
-        (dm.t(0.3)[0] + se.t(0.6)[0]) / 2,
+        (xd + xs_) / 2,
         de.y + 0.04,
         "genetable/genes.parquet",
         size=F_SMALL,
@@ -795,10 +810,10 @@ def draw(theme: Theme) -> Fig:
     )
 
     # the analyses' own channels
-    e(path(va.r(), cs.x, start_h=True), AN, "VARIANTS_STEP", "CONTEXT_STATS")
-    e([cs.r(), dm.l()], AN, "CONTEXT_STATS", "DETERMINANTS_STEP")
-    e([dm.r(), se.l()], AN, "DETERMINANTS_STEP", "SENSITIVITY")
-    # NOVEL
+    e([va.r(-0.08), cs.l(-0.08)], AN, "VARIANTS_STEP", "CONTEXT_STATS", prio=3)
+    e([cs.r(), dm.l()], AN, "CONTEXT_STATS", "DETERMINANTS_STEP", prio=3)
+    e([dm.r(), se.l()], AN, "DETERMINANTS_STEP", "SENSITIVITY", prio=3)
+    # NOVEL: NOVEL_CANDIDATES feeds both tools, both layer steps and NOVEL_ORFS
     pn, npl, on, nrl = (
         n["PROMOTECH_NOVEL"],
         n["NOVEL_PROMOTER_LAYER"],
@@ -807,10 +822,17 @@ def draw(theme: Theme) -> Fig:
     )
     e([nc.r(0.08), pn.l(0.08)], AN, "NOVEL_CANDIDATES", "PROMOTECH_NOVEL")
     e([pn.r(), npl.l()], AN, "PROMOTECH_NOVEL", "NOVEL_PROMOTER_LAYER")
-    e(path(nc.r(-0.12), gut(1), on.y, on.x), AN, "NOVEL_CANDIDATES", "OSTIR_NOVEL")
+    x1 = gut(1)
+    e(path(nc.r(-0.12), x1, on.y, on.x), AN, "NOVEL_CANDIDATES", "OSTIR_NOVEL")
     e([on.r(), nrl.l()], AN, "OSTIR_NOVEL", "NOVEL_RBS_LAYER")
-    e(path(npl.r(), gut(3), no.y + 0.1, no.x), AN, "NOVEL_PROMOTER_LAYER", "NOVEL_ORFS")
-    e(path(nrl.r(), gut(3), no.y - 0.1, no.x), AN, "NOVEL_RBS_LAYER", "NOVEL_ORFS")
+    e([(x1, no.y), no.l()], AN, "NOVEL_ORFS", prio=1)
+    f.dot(x1, no.y, AN)
+    xn = npl.b(-0.35)[0]
+    e([(xn, no.y), npl.b(-0.35)], AN, "NOVEL_PROMOTER_LAYER", prio=1)
+    e([(xn, no.y), nrl.t(-0.35)], AN, "NOVEL_RBS_LAYER", prio=1)
+    f.dot(xn, no.y, AN)
+    e(path(npl.r(), gut(3), no.y + 0.12, no.x), AN, "NOVEL_PROMOTER_LAYER", "NOVEL_ORFS")
+    e(path(nrl.r(), gut(3), no.y - 0.12, no.x), AN, "NOVEL_RBS_LAYER", "NOVEL_ORFS")
     # REPORT
     pp, rh = n["PLOTS"], n["REPORT_HTML"]
     e([pp.b(), rh.t()], "io", "PLOTS", "REPORT_HTML")
@@ -884,6 +906,7 @@ def draw(theme: Theme) -> Fig:
             x1 = COLS[4] + CW + 0.09
         if name == "MAPPING":
             x1 = COLS[4] + CW + 0.09
+            y0 = map_bot - 0.06
         f.rbox((x0, y0, x1 - x0, y1 - y0), hue, filled=False, lw=0.9, r=0.08, dashed=dashed, z=1)
         tt = f.text(
             x0 + 0.12,
@@ -901,17 +924,16 @@ def draw(theme: Theme) -> Fig:
     f.draw_edges()
 
     # legend and notes -------------------------------------------------------------------------
-    ly = min(b[1] for k, b in f.boxes.items() if k.startswith("NOVEL")) - 0.09 - 0.42
+    ly = min(b[1] for k, b in f.boxes.items() if k.startswith("NOVEL")) - 0.09 - 0.40
     lx = XI
-    tool = (lx, ly - 0.13, 0.42, 0.26)
-    f.rbox(tool, "ann", r=0.05, lw=1.1, z=3)
-    f.text(lx + 0.5, ly, "external tool (container)", size=F_SMALL, ha="left")
-    step = (lx + 1.95, ly - 0.13, 0.42, 0.26)
+    sw = 0.42  # swatch width; row 1 the card styles, row 2 the badges below their swatches
+    xs = [lx, lx + 3.0, lx + 6.4]
+    f.rbox((xs[0], ly - 0.13, sw, 0.26), "ann", r=0.05, lw=1.1, z=3)
     f.ax.add_patch(
         FancyBboxPatch(
-            (step[0], step[1]),
-            step[2],
-            step[3],
+            (xs[1], ly - 0.13),
+            sw,
+            0.26,
             boxstyle="round,pad=0,rounding_size=0.05",
             facecolor=t.bg,
             edgecolor=f.edge("ann"),
@@ -919,26 +941,27 @@ def draw(theme: Theme) -> Fig:
             zorder=3,
         )
     )
-    f.text(lx + 2.45, ly, "gippa _step (GIPPA_STEP alias)", size=F_SMALL, ha="left")
-    f.rbox((lx + 4.2, ly - 0.13, 0.42, 0.26), "io", filled=False, dashed=True, z=3)
-    f.text(lx + 4.7, ly, "optional module, input or switch", size=F_SMALL, ha="left")
-    bx0 = lx + 6.75
-    for k, (ch, (_hue, label)) in enumerate(BADGE.items()):
-        x = bx0 + k * 2.05
-        f.badge(x, ly, ch)
-        f.text(x + 0.11, ly, label, size=F_SMALL, ha="left")
+    f.rbox((xs[2], ly - 0.13, sw, 0.26), "io", filled=False, dashed=True, z=3)
+    styles = [
+        "an external tool's process (container)",
+        "a gippa _step process (GIPPA_STEP alias)",
+        "optional: an input, a module (all on by default) or an off-by-default switch",
+    ]
+    for x, s in zip(xs, styles, strict=True):
+        f.text(x + sw + 0.1, ly, s, size=F_SMALL, ha="left")
+    yb = ly - 0.36
+    for x, (ch, (_hue, label)) in zip(xs, BADGE.items(), strict=True):
+        f.badge(x + sw / 2, yb, ch)
+        f.text(x + sw + 0.1, yb, "reads " + label, size=F_SMALL, ha="left")
     note = (
-        "From nextflow run workflow/main.nf -preview -with-dag (every module on): 49 processes "
-        "in 47 cards; the three TERMINATORNET_SHARDED processes are one card (a single "
-        "TERMINATORNET runs when params.terminatornet_sharded = false).\n"
-        "Edges show each process's main input channels; badges mark the genome, Bakta's gene "
-        "model (genes, features, replicons.parquet) and ANNOTATE's tables (xrefs, tus, layers, "
-        "regions) and the peptide table where a process reads them.\n"
-        "Not drawn: db_dir paths, step event logs, and the second readers of sixframe.npz and "
-        "the hits tables. A precomputed annotation layer replaces its tool and parse processes; "
-        "without peptides only ANNOTATE and REPORT run."
+        "From nextflow run workflow/main.nf -preview -with-dag with every module on: 49 processes; "
+        "TERMINATORNET_SHARDED's PLAN, CHUNK and MERGE are one card "
+        "(params.terminatornet_sharded = false runs one TERMINATORNET).\n"
+        "Edges are each process's main input channels. Not drawn: database paths, step event "
+        "logs and some second readers (e.g. of sixframe.npz and the hits tables). Without "
+        "peptides only ANNOTATE and REPORT run."
     )
-    f.text(XI, ly - 0.40, note, size=F_SMALL, color=t.sub, ha="left", va="top")
+    f.text(XI, yb - 0.27, note, size=F_SMALL, color=t.sub, ha="left", va="top")
     return f
 
 

@@ -73,14 +73,24 @@ channels between processes.
 |---|---|
 | filled card | an external tool's process, run in its container or environment (Bakta, UniOP, Promotech, …) |
 | outlined card | a `gippa _step` process: a Python step run through the `GIPPA_STEP` module under its own name |
-| dashed card or input | runs only with an optional module (`mobile`: geNOMAD; `bgc`: antiSMASH; `function`), an optional input (`--proteins`: miniprot, tblastn) or a switch (`annotation.terminators.bactermfinder`) |
+| dashed card or input | optional: an optional input (`--proteins`: miniprot, tblastn; `--annotation` with a GFF3 or GBFF, whose CDS Bakta re-calls), a module that can be switched off (all four run by default; `mobile`: geNOMAD, `bgc`: antiSMASH, `function`) or a switch that is off by default (`annotation.terminators.bactermfinder`) |
 | **G** badge | the process reads the normalised genome, `genome.norm.fa` |
 | **A** badge | the process reads Bakta's gene model (`genes`, `features`, `replicons.parquet`) or the tables `ANNOTATE` emits (`xrefs`, `tus`, `layers`, `regions`) |
 | **P** badge | the process reads the peptide table, `peptides.norm.parquet` |
 
 The badges replace edges for these three inputs, which most processes read. The diagram does not
-draw the database paths (`--db-dir`), the per-step event logs, or every second reader of a file
-(for example, `sixframe.npz` also goes to `MAP_TOLERANT`, `PLACEMENT` and `LOCI`).
+draw the database paths (`--db-dir`), the per-step event logs, or every second reader of a file:
+for example, `sixframe.npz` also goes to `MAP_TOLERANT`, `PLACEMENT` and `LOCI`, the hits tables
+to `VARIANTS_STEP` and `NOVEL_ORFS`, `PLACEMENT`'s `stratum0_classes.parquet` and
+`GENE_TABLE`'s `tier.parquet` to `CONTEXT_STATS`, and `proteins.long.faa` to
+`PROTEIN_LEFTOVERS` and `LOCI`.
+
+Some solid cards can be skipped by a configuration switch that is on by default:
+`annotation.uniop.enabled` (`UNIOP`; `auto` runs it when UniOP is installed),
+`annotation.promoter_calculator.enabled` (`PROMOTER_CALCULATOR`, `TX_LAYER`),
+`annotation.terminators.tool` (`TERMINATORNET_SHARDED` for `terminatornet`) and
+`annotation.terminators.cross_check_transtermhp` (`TRANSTERM_INPUT`, `TRANSTERMHP`, which also run
+when the tool is `transtermhp`).
 
 Some processes are collapsed or replaced:
 
