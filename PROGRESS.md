@@ -13,7 +13,7 @@ _Last updated: 2026-10-27 · session https://claude.ai/code/session_01PrvuX9xr7f
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-27 11:23 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/198 done (96 %), 1 running · generated 2026-10-28 17:38 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -28,7 +28,7 @@ _Last updated: 2026-10-27 · session https://claude.ai/code/session_01PrvuX9xr7f
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
 | M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
-| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 93 % | 13 | 0 | 1 |
+| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜⬜ 68 % | 13 | 1 | 5 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
@@ -446,6 +446,20 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `gippa
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
+(2026-10-28 evening) Genetic codes 4 and 25 (M11-16): all code on main — #473 (16a), #474 (16c),
+#476 (16b), #479 (16d, `Gate-Change-Approved: ADR-0067`), #478 (16e). Also #480 (build_envs.sh
+envs without pip) and #482 (miniprot lock). Handoff: local/handoff/HANDOFF_2026-10-28.md.
+Slurm job IDs: 16b integration/calibration 1902148 (38 passed, 1 xfail); 16d contract 1902450
+(5 passed); 16d fast suite 1902547 (24769 passed, 2 env failures fixed by miniprot rebuild
+1902609); 16f fast arms 1902559 (38), full recall/chance 1902560 (17), placement/read-through
+1902563 (10 passed, 5 h 49), novel arms 1902602 (48/48 FDP; 6 oracle cells fixed, re-run 1903242
+24/24), chance/strain 1902601, N4 1903084/1903243; validation K-12 control 1903218/1903219.
+1. #481 (16f calibration arms): statistician final sign-off on 1902563's records, then ready + queue.
+2. #483 (16g docs + M. hyorhinis code-4 validation, CODE4.md): validation agent running; then
+   review, ready, queue after #481.
+3. Follow-ups in docs/backlog.md (on #481): initiator M at non-ATG starts; wrong-table attack;
+   nightly full-tier load of the 16f arms; gippasim config stamp at 4/25.
+
 (2026-10-27 midday) Merged since last night: #415 (determinants null on processes, about 2x), #416
 (antiSMASH runs in the deployed pipeline: Q-K29 condition met), #417 (antiSMASH version capture and
 sizing, exit-140 retry, 4000 MB per CPU on FarmShare), #418 (barley-03 excluded), #419 and #423
