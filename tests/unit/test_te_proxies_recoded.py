@@ -35,9 +35,9 @@ SOURCES = {"pS": {"G1"}, "pT": {"G1"}, "pU": {"G1"}}
 NOTE = (
     "no high stop_codon site: annotated stops and recoded Sec/Pyl codons are consumable "
     "(M7-16, ADR-0058 items 1-6), but no stop_codon ALT site reached high confidence (on Nissle "
-    "the two fdnG Sec sites are candidate, one unique peptide each; fdhF has no tryptic peptide "
-    "over its Sec codon)"
-)
+    "the fdnG Sec peptides are rejected by the stratum-1 placement FDR (4 targets, no decoys, "
+    "q = 0.25); fdhF has no tryptic peptide over its Sec codon)"
+)  # M11-20 Nissle finding (docs/specs/M11-20-initiator-methionine.md, end of § What changes)
 
 
 def _hit(pep: str, route: str, s0: int, e0: int, flags: str | None = None) -> dict[str, Any]:

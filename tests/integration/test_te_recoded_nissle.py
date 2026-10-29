@@ -2,20 +2,18 @@
 Nissle (16c)", rules 24-25, Q26; test plan C14; ``slow`` and ``e2e``: Slurm only, never in the
 session allocation).
 
-TE1: ``misses`` stays 4 and the share 0.99998; the 4 fdnG exceptions become ``kind = sec_site``
-with ``hits`` ``tolerant:cds_inframe:<copy>`` and ``counts["sec_site"] == 4``; each records
+TE1: ``misses`` stays 4 and the share 0.99998; each of the 4 fdnG Sec peptides records
 ``placement_q``, ``m_target`` (1) and ``accepted`` in the result JSON.
 
-TE2: ``alt_sites`` 235, ``high`` 80, ``high_start_codon`` 80, ``high_stop_codon`` 0,
-``violations`` 0, ``alt_stop_codon`` 2, and the note is rule 25's text. M11-20 (ADR-0068): the
-non-ATG N-terminal peptides are credited exact rows, so no ALT ``M`` at their starts: ``high`` and
-``high_start_codon`` 0, and with the Sec peptides accepted only their 2 ALT ``U`` sites remain
-(job 1905504: with them rejected, ``alt_sites`` 0).
-
-"Rejection is a finding": the counts hold only if all 4 Sec peptides are accepted. If one is
-rejected it stays ``kind = miss`` / ``unplaced`` with ``accepted = False``, TE2 has one site fewer,
-and this test records the values (a warning naming the peptides, the JSON in the test's tmp
-directory) instead of asserting those counts; alpha and every criterion stay as they are (R3).
+M11-20 Nissle finding (docs/specs/M11-20-initiator-methionine.md, end of § What changes;
+statistician 2026-10-29, accepted): the non-ATG N-terminal peptides are credited exact rows
+(stratum 0), so the 4 fdnG Sec peptides are alone in placement stratum 1 (T1 = 4, D1 = 0) and
+knockoff+ gives q = 1/4: all 4 are ``rejected_placement_fdr`` (``kind = miss``, ``hits =
+unplaced``, ``accepted = False``, ``placement_q = 0.25``), TE1 ``sec_site`` 0, TE2
+``alt_stop_codon`` 0 and ``alt_sites`` 0 (no ALT ``M`` at credited starts, no ``U`` site), and the
+note is rule 25's text naming that rejection. These are pinned: a change to stratum 1 (a Sec
+peptide accepted, or a different q) fails here instead of warning (R3: alpha and every criterion
+stay as they are).
 """
 
 from __future__ import annotations
@@ -24,7 +22,6 @@ import hashlib
 import importlib
 import json
 import sys
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -82,10 +79,6 @@ def _sec_rows(r: Any) -> list[dict[str, Any]]:
     return [x for x in r.exceptions if x["kind"] in ("miss", "sec_site")]
 
 
-def _all_accepted(r: Any) -> bool:
-    return all(bool(x.get("accepted")) for x in _sec_rows(r))
-
-
 def test_te1_misses_and_share_unchanged(te1: Any) -> None:
     assert te1.counts["misses"] == 4
     assert te1.shares["exact_inframe"] == pytest.approx(0.99998, abs=5e-6)
@@ -104,26 +97,22 @@ def test_te1_records_the_q_values_of_the_four_sec_peptides(te1: Any) -> None:
     print("Sec peptides:", [(x["peptide"], x["placement_q"], x["accepted"]) for x in rows])
 
 
-def test_te1_sec_site_labels(te1: Any) -> None:
+def test_te1_sec_peptides_rejected_by_the_stratum_1_placement_fdr(te1: Any) -> None:
+    """The Nissle finding: T1 = 4, D1 = 0, q = (0 + 1) / 4 for each; none accepted."""
     rows = _sec_rows(te1)
-    if not _all_accepted(te1):
-        rejected = [x["peptide"] for x in rows if not bool(x.get("accepted"))]
-        warnings.warn(
-            f"finding: Sec peptides rejected by the placement FDR: {rejected}", stacklevel=1
-        )
-        for x in rows:
-            if not bool(x.get("accepted")):
-                assert (x["kind"], x["hits"]) == ("miss", "unplaced"), x
-        assert te1.counts["sec_site"] == sum(bool(x.get("accepted")) for x in rows)
-        return
-    assert te1.counts["sec_site"] == 4
+    assert len(rows) == 4
+    accepted = [x["peptide"] for x in rows if bool(x.get("accepted"))]
+    assert not accepted, (
+        f"placement stratum 1 changed on Nissle: Sec peptides {accepted} are now accepted; the "
+        "M11-20 Nissle finding pins all 4 rejected at q = 0.25 (update the spec first)"
+    )
     for x in rows:
-        assert x["kind"] == "sec_site", x
-        parts = x["hits"].split(";")
-        assert parts and all(p.startswith("tolerant:cds_inframe:JMJJOG_") for p in parts), x
+        assert (x["kind"], x["hits"]) == ("miss", "unplaced"), x
+        assert float(x["placement_q"]) == pytest.approx(0.25), x
+    assert te1.counts["sec_site"] == 0
 
 
-def test_te2_counts_and_note(te2: Any, te1: Any) -> None:
+def test_te2_counts_and_note(te2: Any) -> None:
     c = te2.counts
     assert (c["high"], c["high_start_codon"], c["high_stop_codon"], c["violations"]) == (
         0,  # M11-20: no ALT M at credited starts (was 80, all start_codon)
@@ -131,15 +120,12 @@ def test_te2_counts_and_note(te2: Any, te1: Any) -> None:
         0,
         0,
     )
+    # the Nissle finding: the Sec peptides are rejected, so no ALT U site and no ALT M site
+    assert (c["alt_sites"], c["alt_stop_codon"]) == (0, 0), (
+        f"TE2 alt_sites {c['alt_sites']}, alt_stop_codon {c['alt_stop_codon']}: placement "
+        "stratum 1 changed on Nissle (the M11-20 Nissle finding pins both at 0)"
+    )
     assert te2.passed is True
     assert te2.notes == [_te().TE2_NO_STOP_NOTE]
-    if _all_accepted(te1):
-        assert (c["alt_sites"], c["alt_stop_codon"]) == (2, 2)  # M11-20: the Sec sites only
-    else:
-        warnings.warn(
-            f"finding: TE2 alt_sites {c['alt_sites']}, alt_stop_codon "
-            f"{c['alt_stop_codon']} with a rejected Sec peptide",
-            stacklevel=1,
-        )
-        # M11-20: the 233 ALT M start sites are gone; at most the 2 Sec sites remain
-        assert c["alt_stop_codon"] <= 2 and c["alt_sites"] <= 2
+    note = te2.notes[0]
+    assert "rejected by the stratum-1 placement FDR (4 targets, no decoys, q = 0.25)" in note
