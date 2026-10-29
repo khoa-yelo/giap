@@ -231,12 +231,14 @@ def false_candidates(run: NovelRun, truth: pd.DataFrame, lengths: Mapping[str, i
     return {c: int(m[c]["n_pred"] - m[c]["tp_p"]) for c in G.NOVEL_CLASSES}
 
 
-def _diag(run: NovelRun, rows: pd.DataFrame, truth: pd.DataFrame,
-          lengths: Mapping[str, int]) -> dict[str, Any]:  # fmt: skip
+def _diag(run: NovelRun, rows: pd.DataFrame, truth: pd.DataFrame, lengths: Mapping[str, int],
+          genes: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:  # fmt: skip
     G = _G()
     return {"reasons": G.reason_counts(run.side), "fallback_calls": G.fallback_calls(run.side),
             SHARED_NO_PAIR: shared_no_pair_counts(run.novel_orfs, run.side, rows, truth,
-                                                  lengths)}  # fmt: skip
+                                                  lengths),
+            NONATG_NTERM: nonatg_nterm_counts(run.novel_orfs, run.side, rows,
+                                              genes)}  # fmt: skip
 
 
 # --------------------------------------------------------------------------- shared peptides
@@ -341,6 +343,98 @@ def shared_no_pair_counts(novel_orfs: pd.DataFrame, side: pd.DataFrame, rows: pd
         c, st = str(o["contig"]), str(o["strand"])
         key = (c, st, int(G.novel_stop(st, int(o["end"]), lengths.get(c))))
         out[str(cls)] += int(shared_peptide_no_pair(peps, rows, key, truth))
+    return out
+
+
+#: lead decision 11 amendment (M11-16f, statistician-approved on #481): ``no_makedb_pair`` ORFs
+#: whose every peptide row names a non-ATG annotated gene by locus tag, the peptide being that
+#: gene's initiator-M N-terminal tryptic peptide, at a locus not overlapping the gene (six-frame
+#: reads the GTG / TTG start as V / L, so the row misses its gene and lands on a chance ATG copy;
+#: recorded separately from ``SHARED_NO_PAIR``, not a bug)
+NONATG_NTERM = "nonatg_nterm_recurrence"
+_CODON_RE = re.compile(r"^[ACGT]{3}$")
+
+
+def gene_table(bakta_json: Path | str) -> dict[str, dict[str, Any]]:
+    """The Bakta-like JSON's features by ``locus`` (features without one are dropped)."""
+    data = json.loads(Path(bakta_json).read_text(encoding="utf-8"))
+    return {str(f["locus"]): dict(f) for f in data.get("features", []) if f.get("locus")}
+
+
+def nterm_tryptic(peptide: str, aa: str) -> bool:
+    """``peptide`` is an N-terminal Trypsin/P product of ``aa`` (I/L-folded): a non-empty prefix
+    that ends after K/R or is the whole protein (missed cleavages allowed, as gippasim digests)."""
+    p, a = _il(peptide), _il(aa)
+    return bool(p) and a.startswith(p) and (len(p) == len(a) or p[-1] in "KR")
+
+
+def _gene_overlaps(g: Mapping[str, Any], contig: str, start: int, end: int) -> bool:
+    """1-based closed spans on one contig, either strand; origin-crossing spans (``start >
+    stop``) and missing coordinates count as overlapping (fails closed)."""
+    try:
+        gs, ge = int(g["start"]), int(g["stop"])
+    except (KeyError, TypeError, ValueError):
+        return True
+    if str(g.get("sequence", "")) != str(contig):
+        return False
+    if gs > ge or start > end:
+        return True
+    return gs <= end and start <= ge
+
+
+def nonatg_nterm_recurrence(peptides: Sequence[str], rows: pd.DataFrame,
+                            orf: tuple[str, int, int],
+                            genes: Mapping[str, Mapping[str, Any]]) -> bool:  # fmt: skip
+    """The amendment's narrow match: at least one input row carries one of ``peptides``
+    (I/L-folded), and every name of every such row is a locus tag in ``genes`` whose
+    ``start_type`` is a codon other than ATG, whose ``aa`` begins with M and has the row's
+    peptide as its N-terminal tryptic peptide, and which does not overlap ``orf`` = ``(contig,
+    lo, hi)`` (1-based closed, ``orf_span``). Anything else vetoes."""
+    want = {_il(p) for p in peptides if str(p).strip()}
+    if not want:
+        return False
+    sub = rows[rows["peptide"].map(_il).isin(want)]
+    if sub.empty:
+        return False
+    contig, start, end = str(orf[0]), int(orf[1]), int(orf[2])
+    for pep, ids in zip(sub["peptide"], sub["protein_ids"], strict=True):
+        names = [x.strip() for x in re.split(r"[;,]", str(ids)) if x.strip()]
+        if not names:
+            return False
+        for x in names:
+            g = genes.get(x)
+            if g is None:
+                return False
+            st = str(g.get("start_type") or "").strip().upper()
+            aa = str(g.get("aa") or "").strip().upper()
+            if not _CODON_RE.match(st) or st == "ATG" or not aa.startswith("M"):
+                return False
+            if not nterm_tryptic(str(pep), aa) or _gene_overlaps(g, contig, start, end):
+                return False
+    return True
+
+
+def orf_span(contig: str, strand: str, start: object, end: object) -> tuple[str, int, int]:
+    """``(contig, lo, hi)`` 1-based closed of a ``novel_orfs.tsv`` row from ``start_longest``
+    (the widest span, so the overlap test is conservative) and ``end`` (on ``-`` the start is
+    the upper base); an origin-crossing ORF gives ``lo > hi`` (counts as overlapping)."""
+    s, e = int(str(start)), int(str(end))
+    return (contig, s, e) if strand == "+" else (contig, e, s)
+
+
+def nonatg_nterm_counts(novel_orfs: pd.DataFrame, side: pd.DataFrame, rows: pd.DataFrame,
+                        genes: Mapping[str, Mapping[str, Any]]) -> dict[str, int]:  # fmt: skip
+    """Side rows (four classes, by side ``class``) with ``reason == no_makedb_pair`` that pass
+    ``nonatg_nterm_recurrence`` on their ``novel_orfs.tsv`` row (span: ``orf_span``)."""
+    out = dict.fromkeys(NOVEL_CLASSES, 0)
+    by_id = {str(r["orf_id"]): r for r in novel_orfs.to_dict("records")}
+    for oid, cls, why in zip(side["orf_id"], side["class"], side["reason"], strict=True):
+        if cls not in out or why != NO_PAIR or str(oid) not in by_id:
+            continue
+        o = by_id[str(oid)]
+        peps = [p for p in re.split(r"[;,]", str(o.get("peptides", ""))) if p.strip()]
+        orf = orf_span(str(o["contig"]), str(o["strand"]), o["start_longest"], o["end"])
+        out[str(cls)] += int(nonatg_nterm_recurrence(peps, rows, orf, genes))
     return out
 
 
@@ -643,6 +737,7 @@ def gate_record(i: int, size: str = "1M") -> dict[str, Any]:
         stripped = root / "peptides.nodecoy.tsv"
         pep[pep["is_decoy"].str.lower() != "true"].to_csv(stripped, sep="\t", index=False)
         nd = run_gippa(res, stripped, root / "nd" / "OUT", seed)
+        genes = gene_table(res.bakta_json)
         g3 = g3_counts(db, truth, lengths)
         g4 = {
             **g4_counts(db, truth, "picked_decoy", lengths),
@@ -662,8 +757,8 @@ def gate_record(i: int, size: str = "1M") -> dict[str, Any]:
             "g4": g4,
             "attack_a": {c: _fdr_counts(a[c], targets[c]) for c in G.NOVEL_CLASSES},
             "attack_d": d, "attack_d_unrebuilt": missing,
-            "diag": {"picked_decoy": _diag(db, pep, truth, lengths),
-                     "denovo_subgroup": _diag(dn, dn_rows, truth, lengths)},
+            "diag": {"picked_decoy": _diag(db, pep, truth, lengths, genes),
+                     "denovo_subgroup": _diag(dn, dn_rows, truth, lengths, genes)},
             "realised": report["realised"],
             "false_candidates": {"picked_decoy": false_candidates(db, truth, lengths),
                                  "denovo_subgroup": false_candidates(dn, truth, lengths)},
@@ -688,7 +783,7 @@ def k3_record(i: int, size: str = "1M") -> dict[str, Any]:
                "g4k3": g4_counts(dn, truth, "denovo_subgroup", lengths),
                "injected": {c: len(v) for c, v in info["keys"].items()},
                "n_peptides": info["n_peptides"], "entered": entered(dn, info["keys"], lengths),
-               "diag": _diag(dn, _tsv(path), truth, lengths),
+               "diag": _diag(dn, _tsv(path), truth, lengths, gene_table(res.bakta_json)),
                "seconds": time.perf_counter() - t0}  # fmt: skip
     finally:
         shutil.rmtree(root, ignore_errors=True)
@@ -760,7 +855,7 @@ def cluster_record(i: int, size: str = "1M") -> dict[str, Any]:
                "n_entries": len(info["entries"]), "n_eligible": info["n_eligible"],
                "n_target_entries": info["n_target_entries"], "n_rows": info["n_rows"],
                "entered": entered(db, info["keys"], lengths),
-               "diag": _diag(db, _tsv(path), truth, lengths),
+               "diag": _diag(db, _tsv(path), truth, lengths, gene_table(res.bakta_json)),
                "seconds": time.perf_counter() - t0}  # fmt: skip
     finally:
         shutil.rmtree(root, ignore_errors=True)

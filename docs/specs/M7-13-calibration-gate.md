@@ -495,3 +495,11 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
       - the G4-k3 xfails cover both tiers;
       - origin-crossing entries fail closed;
       - the fast tier is re-run after #267 merges into this branch.
+14. **Decision 11 amended (M11-16f, statistician-approved 2026-10-28).** A second chance case is
+    exempt: every peptide row names an annotated gene whose start codon is not ATG, whose protein
+    begins with M, and whose N-terminal tryptic peptide (I/L-folded) is the ORF's peptide, and the
+    novel ORF does not overlap that gene. The six-frame index reads GTG/TTG as V/L, so the gene's
+    initiator-M peptide lands on a chance ATG copy elsewhere (5 ORFs in R = 300 at code 25, 0 at
+    code 4). It is counted as its own diagnostic, `nonatg_nterm_recurrence`, in arm 11 and the
+    code arms; any other `no_makedb_pair` still fails. No tolerance or seed changes. gippasim is
+    not changed to avoid it, since real data has the same case (backlog: initiator M).
