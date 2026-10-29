@@ -33,6 +33,11 @@ nightly; the per-PR subset is the one-replicate smoke test at 100 kb.
 * Lead decision 11: a ``no_makedb_pair`` ORF whose every peptide row names another planted
   ORF's makedb entry (a chance shared peptide) is exempt from ``UNESTIMATED_BUGS`` and recorded
   as ``shared_peptide_no_pair``; any other ``no_makedb_pair`` still fails.
+* Lead decision 11 amendment (M11-16f, statistician-approved on #481): a ``no_makedb_pair``
+  ORF whose every peptide row names a non-ATG annotated gene by locus tag, the peptide being
+  that gene's initiator-M N-terminal tryptic peptide, at a locus not overlapping the gene, is
+  exempt too and recorded separately as ``nonatg_nterm_recurrence`` (logged per cell; expected 0
+  or near it at table 11, where it arose at code 25).
 
 Under ``--shard`` / ``GIPPA_CALIBRATION_CONFIRM`` a check has no verdict and the test skips after
 writing its record (lead decision 6). No threshold is widened (R3).
@@ -183,6 +188,7 @@ def _g4(full: bool, regime: str, cls: str, q: float) -> None:
             reasons[why] = reasons.get(why, 0) + int(n)
     fallback = sum(int(r["diag"][regime]["fallback_calls"][cls]) for r in ran)
     shared = sum(int(r["diag"][regime].get(M.SHARED_NO_PAIR, {}).get(cls, 0)) for r in ran)
+    nonatg = sum(int(r["diag"][regime].get(M.NONATG_NTERM, {}).get(cls, 0)) for r in ran)
     vals = [r["g4"][key] for r in ran]
     diagnostics({"check": "G4", "full": full, "regime": regime, "class": cls, "q": q,
                  "status": rec["status"], "mean_fdp": rec["observed"], "bound": rec["bound"],
@@ -190,8 +196,10 @@ def _g4(full: bool, regime: str, cls: str, q: float) -> None:
                  "mean_targets": float(np.mean([v["n_targets"] for v in vals]))
                  if vals else None,
                  "reasons": reasons, "fallback_calls": fallback,
-                 M.SHARED_NO_PAIR: shared})  # fmt: skip
-    bugs = M.unestimated_bugs(reasons, shared, UNESTIMATED_BUGS)  # lead decision 11
+                 M.SHARED_NO_PAIR: shared, M.NONATG_NTERM: nonatg})  # fmt: skip
+    print(f"G4 {regime}/{cls} q {q}: {M.SHARED_NO_PAIR} {shared}, {M.NONATG_NTERM} {nonatg}")
+    # lead decision 11 and its M11-16f amendment (disjoint records)
+    bugs = M.unestimated_bugs(reasons, shared + nonatg, UNESTIMATED_BUGS)
     assert not bugs, f"G4 {regime}/{cls}: unestimated ORFs on a scenario that rules them out {bugs}"
     verdict(rec)
 
@@ -245,15 +253,16 @@ def _g4k3(full: bool, cls: str, q: float) -> None:
         for why, n in r["diag"]["reasons"][cls].items():
             reasons[why] = reasons.get(why, 0) + int(n)
     shared = sum(int(r["diag"].get(M.SHARED_NO_PAIR, {}).get(cls, 0)) for r in ran)
+    nonatg = sum(int(r["diag"].get(M.NONATG_NTERM, {}).get(cls, 0)) for r in ran)
     diagnostics({"check": "G4-k3", "full": full, "class": cls, "q": q, "status": rec["status"],
                  "mean_fdp": rec["observed"], "bound": rec["bound"], "injected": injected,
                  "entered": entered, "reasons": reasons,
-                 M.SHARED_NO_PAIR: shared})  # fmt: skip
+                 M.SHARED_NO_PAIR: shared, M.NONATG_NTERM: nonatg})  # fmt: skip
     # the checks below raise RuntimeError, never AssertionError: the ADR-0050 strict xfails
     # (raises=AssertionError) must not absorb a broken injection or a degenerate scenario
     if ran:
         M.check_reach(entered.get("rows", 0), sum(injected.values()), f"G4-k3 {cls}")
-    bugs = M.unestimated_bugs(reasons, shared, UNESTIMATED_BUGS)  # as G4 (review nit 2)
+    bugs = M.unestimated_bugs(reasons, shared + nonatg, UNESTIMATED_BUGS)  # as G4 (nit 2)
     if bugs:
         raise RuntimeError(
             f"G4-k3 {cls}: unestimated ORFs on a scenario that rules them out {bugs}"
