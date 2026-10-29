@@ -3,7 +3,7 @@
 Milestone M11 · pass 2 · depends on: M3-01 (six-frame index), M3-04 (exact route), M3-14 (loci
 and flags), M7-16 (consumable stop cells, the model for this issue; ADR-0058), M11-16 (index
 format 3, tables 4/11/25; ADR-0067), M7-01/M7-02 (variants alignment and pileup) · estimate
-≈ 190 code lines + ≈ 420 test lines, one test PR then one implementation PR (table at the end) ·
+≈ 190 code lines + ≈ 560 test lines, one test PR then one implementation PR (table at the end) ·
 **`stats`**: the decoy search changes (credited windows at mirrored cells), so the placement FDR
 and the de novo precision inputs change; the statistician signs off on § Statistics · roles:
 implementer (`src/gippa/mapping/`, `src/gippa/variants/`, `src/gippa/steps/mapping.py`,
@@ -120,16 +120,32 @@ would add decoy windows with no target change (edge case "ATG start").
 does (the `+` and `−` formulas, plus the copy at `codon_start + L` on a circular replicon when it
 fits in the extended frame), and raises `ValueError` when the frame residue at `p` is not the
 table's translation of `codon` (it can never be `*` or `X` for a start). `mirror_start_cells`:
-`n − 1 − p` in a `reverse` decoy frame of `n` residues, `p` in a `shuffle` decoy (the cell is a
-position; the residue the shuffle put there does not matter). No randomness.
+cell `c = n − 1 − p` in a `reverse` decoy frame of `n` residues, `c = p` in a `shuffle` decoy (the
+cell is a position; the residue the shuffle put there does not matter). No randomness. In the
+reverse decoy the cell is the **last** position of its credited window (rule 3), so the window
+mirrors (`mirror_aa`) onto the target's own credited window.
 
 ### 3. The credit rule (exact route only)
 
 `match_exact(..., starts: StartCells | None = None)`. With `starts`, in addition to today's hits:
 
-> a query `q` (after I → L) of length `k` with `q[0] == "M"` matches frame `f` at window
-> `[p, p + k)` when `p` is a cell of `f` (target: `starts.target[f]`; decoy kind `t`:
-> `starts.decoys[t][f]`) and `q[1:] == frame[p + 1 : p + k]`.
+> a query `q` (after I → L) of length `k` with `q[0] == "M"` is credited (`q[0]` matches at the
+> cell) when:
+>
+> - **target** and **`shuffle` decoy**: `p` is a cell of frame `f` (`starts.target[f]`,
+>   `starts.decoys["shuffle"][f]`), the window is `[p, p + k)` and `q[1:] == frame[p + 1 : p + k]`;
+> - **`reverse` decoy** (mirrored window, cell at its **last** position): `c` is a cell of frame
+>   `f` (`starts.decoys["reverse"][f]`), the window is `[c − k + 1, c + 1)` and
+>   `q[1:] == decoy[c − k + 1 : c]`. No window when `c − k + 1 < 0`.
+>
+> `mirror_aa("reverse", n, c − k + 1, c + 1) = [p, p + k)`: the reverse credited window maps to
+> the target's own credited window. Usable windows and iid chance mass are then exactly equal
+> between target and reverse decoy for every `k` (linear ends and both origin copies included:
+> the reverse window is unusable exactly when the target window runs off the frame end), and a
+> plain and a credited reverse hit never share a window. (A forward-reading reverse window
+> `[c, c + k)` would read the reversed upstream non-coding sequence: on K-12, 289/221/194/37
+> usable decoy windows against 402 at k = 7/10/12/40 and a target/decoy iid mass ratio of
+> 1.9×/4.3×/6.5×; it is one of the attack's teeth.)
 
 - The credited row is a normal exact row: `route = exact`, `n_diff = 0`, `diff_types = ""`,
   `blocks` NA; target or decoy (`decoy_type`) as today; the same `3k ≤ L` guard, mirroring, and
@@ -192,7 +208,8 @@ M or `mixed` at the start codon, and supports REF at its other codons. Q-L3.
   GIPPA version, as for every code change); a mixed state (hand-run `gippa step`) gets the
   warning above.
 - `sixframe_index` logs `mapping.start_sites` with `data = {sites, cells_target, cells_decoy:
-  {kind: n}, skipped: {atg, not_a_start, aa_not_m, off_contig}, translation_table}`.
+  {kind: n}, skipped: {atg, not_a_start, aa_not_m, off_contig}, translation_table}`; optionally
+  (statistician) also `usable_k7: {target, <kind>}`, the usable credited windows at k = 7.
 - No config toggle (MVP). The A/B calibration arm calls `match_exact(starts=None)` directly. Q-L2.
 
 ### 8. Genetic codes 4 and 25
@@ -204,24 +221,40 @@ stored `L`) works. TGA inside the peptide reads W (4) or G (25) as today.
 
 ## Statistics (for the statistician; `stats`)
 
-- **S1 Decoy symmetry.** Target and decoys get the same number of cells; a credited window needs
-  the same thing in both (one cell, then `k − 1` exact residues), so under the null of a wrong
-  peptide the target and decoy credited-hit rates are equal. Edge loss differs slightly: a target
-  cell near a frame's 3′ end and a reverse-decoy cell near its 5′ end lose windows; with ≤ a few
-  hundred cells in ≈ 10⁷ positions this is negligible. Please confirm.
+- **S1 Decoy symmetry** (statistician, #488).
+  - `reverse`: with the mirrored window of rule 3, usable credited windows and iid chance mass are
+    **exactly** equal to the target's, for every `k` (linear ends and both origin copies
+    included).
+  - `shuffle`: usable windows exactly equal (cell `p`, window `[p, p + k)`); mass only
+    approximately equal, because the residues after a cell are shuffled (K-12 shuffle/target
+    0.94 at k = 7, 0.72 at k = 10).
+  - A shuffled M landing on a cell adds no new decoy window (≈ f_M × 0.25 %, negligible; the
+    one-sided attack check covers it).
 - **S2 Size.** Extra chance windows for an M-initial wrong peptide of length k: `C · Π_{i≥1} f_i`
-  against `N · f_M · Π_{i≥1} f_i` today, ratio `C / (N f_M)`. K-12: C ≈ 450 sites (≈ 10 % of
-  4,300 CDS, ×1–2 copies only at the origin), N ≈ 9.3 × 10⁶, f_M ≈ 0.025 → ≈ 0.2 %.
-- **S3 Ranking score.** E_i (`chance.expected_hits`) is unchanged: it is a ranking score and the
-  decoys calibrate (§7.2.5). Credited hits are stratum m = 0; π̂ rules unchanged; `same_db` exact
-  rows keep `placement_q = 0`.
+  against `N · f_M · Π_{i≥1} f_i` today, ratio `C / (N f_M)`. K-12 Bakta: C = 402 sites (9.2 % of
+  4,373 CDS + sORF; 3,970 ATG skipped, 1 `aa_not_m`), N ≈ 9.3 × 10⁶, six-frame f_M = 0.0172 (the
+  proteome's 0.025 is the wrong reference). Extra share: 0.25 % by count, 0.30–0.47 % by iid
+  chance mass (k = 7–12), 0.9–1.7 % under the N-terminome law (M + the position-specific profile
+  of the run's own N-termini).
+- **S3 Ranking score and strata.** E_i (`chance.expected_hits`) is unchanged: it is a ranking
+  score and the decoys calibrate (§7.2.5). Credited hits are stratum m = 0; π̂ rules unchanged;
+  `same_db` exact rows keep `placement_q = 0`. Correct Met-retaining non-ATG N-terminal peptides
+  move from stratum 1 to 0 (T₀ up, T₁ down). ADR-0019: k falls (those peptides stop counting as
+  "no exact hit", which removes a conservative bias) and r rises by the credited decoys.
 - **S4 De novo precision.** `m_bℓ`, `r_bℓ` (from `hits_exact`) and `c_ℓ` (`_reference_exact`) all
   use the credit, so the estimator stays internally consistent; `c_ℓ` rises slightly (reference
-  N-terminal peptides of non-ATG genes now match).
+  N-terminal peptides of non-ATG genes now match). With `denovo_input = reverse` this relies on
+  the mirrored reverse window of rule 3 (statistician: confirmed).
 - **S5 Novel FDR.** Code unchanged. M7-13 decision 14's `nonatg_nterm_recurrence` cases leave the
-  candidate set (their peptide gets a `cds_inframe` row). The diagnostic stays and is expected
-  to be 0; retiring the amendment is the statistician's call after the arm. Q-S2.
-- **S6 Arm.** See § Tests, calibration. Q-S1.
+  candidate set **when the gene is a start site** (their peptide gets a `cds_inframe` row). The
+  site rule reads the genome codon ∈ `annotation.start_codons`, while decision 14 keys on Bakta's
+  `start_type`, so "expected 0" holds only for genes that are sites: I2 asserts 0 under the
+  default start-codon set and gippasim's default annotation.
+  **Proposed decision-14 amendment** (lands after #481 merges; described here, not edited): the
+  exemption covers only genes that `annotated_starts` skips (`not_a_start`, `aa_not_m`,
+  `off_contig`); `nonatg_nterm_recurrence` on credited sites becomes an asserted 0.
+- **S6 Arms.** The decoy-symmetry attack (required before merge, PR 20t) and I1/I2; § Tests. A
+  full-tier R = 300 arm is not needed (statistician, Q-S1).
 
 ## Edge cases
 
@@ -248,7 +281,7 @@ stored `L`) works. TGA inside the peptide reads W (4) or G (25) as today.
 | **empty input**: no genes, or no non-ATG starts | `start_sites = []`, every cell array empty; output identical to `starts=None` |
 | empty input: no peptides | `hits_frame()` as today; the index still records the sites |
 | shuffle decoy | the cell keeps its position; credited decoy window `[p, p + k)` regardless of the shuffled residue at `p` |
-| reverse decoy cell `n − 1 − p` too close to the frame end for `k` | no window (no error) |
+| reverse decoy cell `c = n − 1 − p` with `c − k + 1 < 0` | no window (no error); this happens exactly when the target window `[p, p + k)` runs off the frame end |
 | format-3 index loaded by the new code | no start cells, WARNING `mapping.index_without_start_cells` |
 | `same_db` input | credited rows are exact: `placement_q = 0`, `same_db` |
 | `genome_relation = same` | credited rows count (they are exact); before, the tolerant row did not |
@@ -274,7 +307,7 @@ Coordinates 0-based half-open; table 11 unless stated; `mapping.exact.min_len` 7
 | 6 | **minus strand.** c2 linear 60 nt, gene G2 `−` `[6, 30)`; on `−` it reads `TTG AAA CAG TGG TAT TTT CGT TAG` (`aa` `MKQWYFR`; `+` strand `[27, 30)` = `CAA`); query `MKQWYFR` | site `(c2, −, 27, ("G2",), "TTG")`; cell 10 in frame c2 `−0`; one row aa `[10, 17)`, `[9, 30)` `−`, frame −1, `cds_inframe` G2, `initiator_m` | no row (`no_hit`) |
 | 7 | **origin.** c3 circular 90 nt, gene G3 `+` `[87, 111)` unwrapped, `TTG GCT GAA CTG TGG CAT AAA TAA` (`aa` `MAELWHK`); query `MAELWHK` | site `(c3, +, 87)`; cell 29 in c3 `+0`; row `[87, 108)` `+`, flags `initiator_m;origin_spanning` | no row |
 | 7b | **start codon across the origin.** c4 circular 90 nt, G4 `+` `[89, 113)`, codon = bases 89, 0, 1 = `GTG`; query `MAELWHK` | site `(c4, +, 89)`; cell 29 in c4 `+2`; row `[89, 110)` `+`, `initiator_m;origin_spanning` | no row |
-| 8 | **reverse decoy.** c1, query `MPPPPPP` with decoy type `reverse` | decoy cells {75, 35} in frame 0's reverse (`n = 80`); window at 35 reads `VPPPPPP` → one **decoy** row: frame_id 0, aa `[35, 42)`, mirrored target interval `[114, 135)` `+`; the window at 75 runs off the frame (no row); no target row | no decoy row |
+| 8 | **reverse decoy.** c1, frame 0's reverse decoy (`n = 80`) reads `PPP…P*GKHWLEAVPPP…P*GKHWLEAVPPPP`; decoy cells {75, 35}. (a) query `MKHWLEA` (decoy type `reverse`) | (a) credited decoy windows aa `[69, 76)` and `[29, 36)` (`decoy[69:75] = decoy[29:35] = KHWLEA`, cell last); both mirror to target aa `[4, 11)` / `[44, 51)` = `[12, 33)` `+` and dedupe to **one** decoy row, frame_id 0, interval `[12, 33)` `+`; no target row (b) query `MPPPPPP`: no decoy row (and no target row) | no decoy row for either |
 | 9 | **tolerant.** A GTG gene whose N-terminal tryptic peptide is 12 aa, query = that peptide with one more substitution at residue 6 | no exact row; tolerant row at the gene, n_diff 2 (M/V + the substitution), as today; variants ALT `M` with `start_codon` at the start codon | same |
 | 10 | **variants.** Example 1's G1, `search_db = same`, `genome_relation = same`, plus `MAELWHKG`-covering peptides | pileup: no category from the credited peptide at codon 12 (`attrs["initiator"] = 1`), REF at codons 15…30; no `variants.tsv` row at codon 12 | (for a ≥ 10-aa N-terminal peptide) tolerant row, ALT `M` `start_codon` at codon 12 |
 | 11 | **code 4.** Gene `+` `GTG GCT GAA TGA CTG CAT AAA …` (`aa` `MAEWLHK…`), table 4, query `MAEWLHK` | credited row, `initiator_m`; at table 25 the `aa` and query are `MAEGLHK` and the row is the same | no row |
@@ -288,6 +321,8 @@ Coordinates 0-based half-open; table 11 unless stated; `mapping.exact.min_len` 7
 2. `start_frame_cells` gives the cells of examples 1, 6, 7, 7b (both origin copies when they fit)
    and raises `ValueError` on a site whose frame residue is not the codon's translation.
    `mirror_start_cells` gives `n − 1 − p` (reverse) and `p` (shuffle) and draws no randomness.
+   For every `k` in 7..40 the target and each decoy kind have the same number of usable credited
+   windows per frame.
 3. `match_exact(..., starts=…)` gives the rows of examples 1, 2, 4–8 and 12; with `starts=None`
    or empty sites its output is byte-identical (parquet) to main's for the same inputs.
 4. `annotate_peptide_hits` sets `initiator_m` exactly on credited target rows (examples 1, 2, 6,
@@ -310,7 +345,8 @@ Coordinates 0-based half-open; table 11 unless stated; `mapping.exact.min_len` 7
     `non_atg_nterm` exclusion: the 431 products are `exact_inframe`; the share ≥ 0.999 holds
     with them in the denominator. The exclusion is kept only as a reported diagnostic count
     (`non_atg_nterm`, now "mapped by initiator credit").
-12. **Calibration arm** (§ Tests) passes at the existing tolerances.
+12. **Attack and calibration arms** (§ Tests) pass at the existing tolerances; each attack
+    mutant fails.
 13. Lint, format, mypy clean; no new dependency; no randomness.
 
 ## Tests
@@ -328,22 +364,42 @@ kb, tables 4/11/25, both strands, circular and linear):
   plus the next `k − 1` residues, unioned with the plain scan (target and both decoy kinds).
 - P3 no-op: with no non-ATG sites the output equals `starts=None`.
 - P4 decoy mirror: for `reverse`, a credited decoy window maps (`mirror_aa`) to the target
-  interval ending at the cell's codon; the number of decoy cells equals the number of target
-  cells per frame.
+  credited interval `[start, start + 3k)` (or the `−` equivalent) of its cell's site; and for
+  every `k` in 7..40, the target and each decoy kind have the same number of usable credited
+  windows (per frame); the number of decoy cells equals the number of target cells per frame.
 - P5 strand symmetry: reverse-complementing the genome (and the gene model) swaps the strand of
   every credited row and keeps the peptide set.
 
-**Calibration** (`tests/calibration/test_m11_20_initiator_calibration.py`, `calibration`, fast
-tier R = 50 at 100 kb; `calibration_full` R = 300 at 1 Mb, as §8.4 placement FDR):
+**Attack (required before merge, PR 20t)**: `tests/calibration/attacks/test_attack_initiator_decoys.py`,
+modelled on `test_attack_readthrough_decoys.py`: exact expected chance mass, no sampling, the
+existing `EQUIV` / `SE` / `R` constants; nothing new under R3.
 
-- Arm I1, placement FDR with credit: gippasim with start codons ATG 0.5 / GTG 0.35 / TTG 0.15
-  (to load the cells) and the existing wrong-peptide models, with a share of the wrong peptides
-  forced M-initial (half); stratum-0 FDP ≤ q + 2 SE at q ∈ {0.01, 0.05}, database and de novo.
-  Also record T₀, D₀ with and without credit (`starts=None`) and the share of credited decoy rows
-  (expected ≈ C / (N f_M), S2).
-- Arm I2, novel: re-run the M7-13 code-25 G4 arm (the one that showed 5 ORFs in R = 300):
-  `nonatg_nterm_recurrence` = 0 in every replicate; per-class FDP at level as before.
-- The statistician may widen or narrow these (Q-S1). No tolerance changes (R3).
+- Worlds. Default: a gippasim circular chromosome with its origin-crossing gene, a plasmid and a
+  linear contig, start codons ATG 0.5 / GTG 0.35 / TTG 0.15. Stressed: every gene non-ATG, short
+  sORFs, genes at linear contig ends, a start codon across the origin (example 7b).
+- Checks:
+  - (a) `reverse`: the iid credited decoy mass equals the target's to `rtol = 1e-9`, per L;
+  - (b) `shuffle`: iid one-sided ratio decoy/target ≥ 1 − EQUIV − se · SE;
+  - (c) tryptic law: net shift ≥ −EQUIV;
+  - (d) structural: cell counts and usable-window counts equal per frame and per k (7..40);
+  - (e) exploit, recorded only: the N-terminome law (M + the position-specific profile of the
+    run's own N-termini), net shift relative to the M-initial plain mass (K-12 with the fix:
+    −0.39 / −0.55 / −1.10 % at k = 7 / 10 / 12).
+- Teeth (each mutant must fail): no decoy cells; target cells reused as reverse cells; the
+  off-by-one mirror `n − p`; the forward-reading reverse window `[c, c + k)`.
+
+**Calibration** (`tests/calibration/test_m11_20_initiator_calibration.py`, `calibration`, fast
+tier R = 50 at 100 kb; no full-tier R = 300 arm, statistician Q-S1):
+
+- Arm I1, placement FDR **level** with credit (decoy symmetry is the attack's job, not this
+  arm's): gippasim with start codons ATG 0.5 / GTG 0.35 / TTG 0.15 (to load the cells) and the
+  existing wrong-peptide models, with half of the wrong peptides forced M-initial; stratum-0 FDP
+  ≤ q + 2 SE at q ∈ {0.01, 0.05}, database and de novo. Recorded: T₀, D₀ with and without credit
+  (`starts=None`), and the credited target and decoy row counts with an exact Poisson CI on
+  their ratio. No new tolerance.
+- Arm I2, novel: re-run the M7-13 code-25 G4 arm (the one that showed 5 ORFs in R = 300) under
+  the default `annotation.start_codons` and gippasim's default annotation:
+  `nonatg_nterm_recurrence` = 0 in every replicate; per-class FDP at level as before (S5).
 
 ## Tests whose expectations change (test-author updates, listed so nothing breaks silently)
 
@@ -391,7 +447,7 @@ The check passes when every changed `peptide_hits` row's peptide is in A, or dif
 
 | PR | Content | Code | Tests | Role |
 |---|---|---|---|---|
-| 20t | unit + property tests, calibration arm, updated expectations (tests fail until 20i) | 0 | ≈ 420 | test-author |
+| 20t | unit + property tests, the decoy attack (required before merge), calibration arms, updated expectations (tests fail until 20i) | 0 | ≈ 560 | test-author |
 | 20i | `mapping/initiator.py`, `exact.py` credit, `sixframe.py` format 4, `loci.py` flag, schema + version, `variants/align.py` + `pileup.py`, `steps/mapping.py` + `steps/variants.py` wiring, `te_proxies.py`, ADR-0068, changelog, golden regeneration | ≈ 190 | — | implementer |
 
 The variants change must ship with the credit (a credited row makes today's `align_hit` raise).
@@ -400,9 +456,9 @@ The variants change must ship with the credit (a credited row makes today's `ali
 
 For Khoa:
 
-- **Q-K1.** Accept ADR-0068 overriding §2.2 improvement 6 / §15 "No" for this narrow case
-  (annotation-only, exact route only)? Default if unanswered: hold the implementation PR; the
-  spec and tests can merge. This is the only blocking question.
+- **Q-K1** (parked for Khoa as **Q-K56**). Accept ADR-0068 overriding §2.2 improvement 6 / §15
+  "No" for this narrow case (annotation-only, exact route only)? Default until answered: the
+  spec and tests (20t) may merge; the implementation PR (20i) waits.
 
 For the lead:
 
@@ -419,10 +475,13 @@ For the lead:
   the mapping step cannot know); makedb's literal translation of non-ATG starts (backlog line
   1196) is untouched here.
 
-For the statistician:
+Statistician (#488: **approve with conditions**; the conditions are folded into rules 2–3, S1–S5
+and § Tests):
 
-- **Q-S1.** Is arm I1 (forced M-initial wrong peptides with loaded GTG/TTG starts) plus arm I2
-  enough, or is a full-tier R = 300 placement arm needed before merge?
-- **Q-S2.** After I2 shows 0, retire M7-13 decision 14's exemption or keep it as a diagnostic?
-- **Q-S3.** Confirm S1–S4: E_i unchanged; decoy cells mirrored as M7-16; de novo precision uses
-  the credit in m, r and c alike.
+- **Q-S1** answered: the decoy attack is required before merge (20t); a full-tier R = 300 arm is
+  not needed.
+- **Q-S2** answered: the decision-14 amendment proposed in S5 (exemption only for skipped genes;
+  an asserted 0 on credited sites), to land after #481 merges.
+- **Q-S3** confirmed: E_i unchanged; de novo m/r/c consistent (relies on the mirrored reverse
+  window when `denovo_input = reverse`).
+- Q-L1–Q-L5 defaults: no statistical problem (Q-L3 "no category" is correct).
