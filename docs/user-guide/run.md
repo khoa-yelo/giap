@@ -201,6 +201,8 @@ it at <https://github.com/khoa-yelo/gippa/issues> with the command line and that
 
 - `events.jsonl`: structured warnings and events, one per line;
 - `trace.tsv`, `timeline.html` and `nf_report.html`: Nextflow's task trace and reports;
+- `dag.html`: Nextflow's diagram of the run's processes and channels (Mermaid; open it in a
+  browser). The [process diagram](#pipeline-processes) above is the curated version;
 - `<step>.log` for a step that failed.
 
 `--log-level` (`DEBUG`, `INFO`, `WARNING`, `ERROR`) sets how much is printed to the terminal.

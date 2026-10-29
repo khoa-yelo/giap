@@ -173,6 +173,7 @@ nav:
       - adr/ADR-0066-demo-local-executor.md
       - adr/ADR-0067-genetic-codes-4-11-25.md
       - adr/ADR-0068-initiator-methionine-non-atg-starts.md
+      - adr/ADR-0069-nextflow-dag-html.md
   - Developer guide:
       - developer.md
       - release.md

@@ -32,7 +32,7 @@ OUT/
 ├── plots/                     Vnn_<name>.svg|png|pdf, data/Vnn_<name>.tsv, support/*.tsv
 ├── report/                    report.html (self-contained)
 ├── schemas/datapackage.json   Frictionless descriptor of every published table
-└── logs/                      events.jsonl, trace.tsv, timeline.html, nf_report.html, <step>.log
+└── logs/                      events.jsonl, trace.tsv, timeline.html, nf_report.html, dag.html, <step>.log
 ```
 
 Some files sit outside this list. `genetable/`, `context/` and `novel/` hold Parquet

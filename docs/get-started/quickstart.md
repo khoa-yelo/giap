@@ -272,7 +272,7 @@ sim100k_run/
 │                          regions_stats.tsv, operons.tsv, variants.tsv, novel_orfs.tsv, …
 ├── plots/                 Vnn_<name>.svg|png|pdf, data/Vnn_<name>.tsv
 ├── report/report.html
-└── logs/                  events.jsonl, trace.tsv, timeline.html, nf_report.html
+└── logs/                  events.jsonl, trace.tsv, timeline.html, nf_report.html, dag.html
 ```
 
 The rows below come from the committed SIM100K golden tables
