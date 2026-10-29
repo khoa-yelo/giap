@@ -16,6 +16,7 @@ from pathlib import Path
 from gippa.io._open import open_text_write
 from gippa.io.tsv import format_value
 from gippa.model import Replicon, wrap_position
+from gippa.model.genetic_code import SUPPORTED_TABLES
 
 InfoValue = str | int | float | bool | Sequence[str] | Sequence[int] | Sequence[float]
 
@@ -211,15 +212,20 @@ def write_vcf(
     info_fields: Sequence[VcfHeaderField],
     format_fields: Sequence[VcfHeaderField],
     sequences: Mapping[str, str] | None = None,
+    translation_table: int = 11,
 ) -> None:
     """Write a VCF 4.3 file; records are sorted by contig order, then POS.
 
     Every INFO key must be declared in ``info_fields`` and GT, AD and DP in ``format_fields``.
     FILTER values other than ``PASS`` get a generic ``##FILTER`` line. When ``sequences``
     (contig ID -> forward-strand sequence) is given, each REF must match the genome at POS.
+    A ``translation_table`` other than 11 adds ``##gippa_translation_table=<t>`` after
+    ``##reference=`` (M11-16 Q-L3); at 11 the header has no such line.
     """
     if not _SHA256.fullmatch(genome_sha256):
         raise ValueError(f"genome_sha256 must be 64 lowercase hex digits, got {genome_sha256!r}")
+    if translation_table not in SUPPORTED_TABLES or isinstance(translation_table, bool):
+        raise ValueError(f"unsupported translation table {translation_table!r}")
     if not sample or _check_text("sample name", sample) != sample.strip():
         raise ValueError(f"invalid VCF sample name {sample!r}")
     if sample == "auto":
@@ -245,6 +251,7 @@ def write_vcf(
         "##fileformat=VCFv4.3",
         f"##source=gippa-{gippa_version}",
         f"##reference=sha256:{genome_sha256}",
+        *([f"##gippa_translation_table={translation_table}"] if translation_table != 11 else []),
         *(f"##contig=<ID={r.id},length={r.length}>" for r in replicons),
         *(f'##FILTER=<ID={f},Description="GIPPA filter {f}">' for f in filters),
         *info_lines,
