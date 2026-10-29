@@ -1,1 +1,0 @@
-The TransTermHP terminator cross-check no longer fails on a complete circular genome with a gene across the origin: such a gene is now passed to TransTermHP as two in-range pieces instead of one with an end past the replicon length.

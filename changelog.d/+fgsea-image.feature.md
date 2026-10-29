@@ -1,1 +1,0 @@
-R fgsea runs from the new `gippa-fgsea` image (R 4.5.3, fgsea 1.36.2, `gippa_fgsea.R` baked in) when no `GIPPA_FGSEA_PREFIX` and no prebuilt `gippa-fgsea` env is found: `gippa run` exports `GIPPA_CONTAINER_RUNTIME` and `GIPPA_DB_DIR`, preflight accepts the pinned image under `docker` and plain `apptainer`, and `containers.yml` builds the image.
