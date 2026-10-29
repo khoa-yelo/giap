@@ -15,7 +15,6 @@ start cells: window ``[p, p + k)`` in the target and ``shuffle`` frames, the mir
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING
 
 import ahocorasick
 import numpy as np
@@ -23,11 +22,9 @@ import pandas as pd
 
 from gippa.mapping.decoys import DecoyType, mirror_aa
 from gippa.mapping.hits import hits_frame
+from gippa.mapping.initiator import StartCells, credited_window
 from gippa.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query
 from gippa.model.coords import Interval
-
-if TYPE_CHECKING:
-    from gippa.mapping.initiator import StartCells
 
 _SEARCH_ORDER = {"target": 0, "decoy": 1}
 # (frame_id, aa_start, aa_end) of the first occurrence of each mapped interval, per key.
@@ -43,6 +40,7 @@ def _normalise(peptide: str) -> str | None:
 def _scan(
     automaton: ahocorasick.Automaton,
     frames: Sequence[Frame],
+    texts: Sequence[str],
     index: SixFrameIndex,
     lengths: Sequence[int],
     wanted: set[int] | None,
@@ -50,8 +48,7 @@ def _scan(
 ) -> _Loci:
     """Every hit of the automaton in ``frames``, deduplicated on its (mirrored) interval."""
     out: _Loci = {}
-    for fid, frame in enumerate(frames):
-        text = decode(frame.aa)
+    for fid, (frame, text) in enumerate(zip(frames, texts, strict=True)):
         n_aa = len(text)
         rep_len = index.replicons[frame.contig].length
         for end, key in automaton.iter(text):
@@ -71,19 +68,17 @@ def _credit(
     out: _Loci,
     by_len: Mapping[int, Mapping[str, int]],
     frames: Sequence[Frame],
+    texts: Sequence[str],
     cells: Sequence[np.ndarray],
     index: SixFrameIndex,
     wanted: set[int] | None,
     kind: DecoyType | None,
 ) -> None:
     """Add the credited windows of ``M``-initial queries at ``cells`` to ``out`` (rule 3)."""
-    from gippa.mapping.initiator import credited_window
-
     rule = kind or "target"
-    for fid, (frame, cl) in enumerate(zip(frames, cells, strict=True)):
+    for fid, (frame, text, cl) in enumerate(zip(frames, texts, cells, strict=True)):
         if not len(cl):
             continue
-        text = decode(frame.aa)
         n_aa = len(text)
         rep_len = index.replicons[frame.contig].length
         for c in (int(x) for x in cl):
@@ -179,20 +174,22 @@ def match_exact(
                         }
                     )
 
-    target = _scan(automaton, index.frames, index, lengths, None, None)
+    target_texts = [decode(f.aa) for f in index.frames]
+    target = _scan(automaton, index.frames, target_texts, index, lengths, None, None)
     if by_len and starts is not None:
-        _credit(target, by_len, index.frames, starts.target, index, None, None)
+        _credit(target, by_len, index.frames, target_texts, starts.target, index, None, None)
     emit(target, "target", None)
     for kind, frames in decoys.items():
         wanted = {
             key for key, peps in enumerate(peptides_of) if any(decoy_of[p] == kind for p in peps)
         }
         if wanted:
-            loci = _scan(automaton, frames, index, lengths, wanted, kind)
+            if starts is not None and starts.sites and kind not in starts.decoys:
+                raise ValueError(f"start cells have no {kind} decoy cells")
+            decoy_texts = [decode(f.aa) for f in frames]
+            loci = _scan(automaton, frames, decoy_texts, index, lengths, wanted, kind)
             if by_len and starts is not None:
-                if kind not in starts.decoys:
-                    raise ValueError(f"start cells have no {kind} decoy cells")
-                _credit(loci, by_len, frames, starts.decoys[kind], index, wanted, kind)
+                _credit(loci, by_len, frames, decoy_texts, starts.decoys[kind], index, wanted, kind)
             emit(loci, "decoy", kind)
 
     rows.sort(

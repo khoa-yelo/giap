@@ -69,7 +69,8 @@ TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
 TE2_NO_STOP_NOTE = (
     "no high stop_codon site: annotated stops and recoded Sec/Pyl codons are consumable "
     "(M7-16, ADR-0058 items 1-6), but no stop_codon ALT site reached high confidence (on Nissle "
-    "the two fdnG Sec sites are candidate, one unique peptide each; fdhF has no tryptic peptide "
+    "the fdnG Sec peptides are rejected by the stratum-1 placement FDR (4 targets, no decoys, "
+    "q = 0.25); fdhF has no tryptic peptide "
     "over its Sec codon)"
 )
 MAX_EXCEPTIONS = 50
@@ -441,7 +442,6 @@ def te8_result(
     ex = {p for p in peps if p in excluded}
     hit = set(k12_exact_hits)
     k12 = sum(p in hit for p in peps)
-    denom = n
     acc = per[per["accepted"].astype(bool)]
     m = acc["m_target"].to_numpy()
     counts = {
@@ -455,7 +455,7 @@ def te8_result(
     }
     fdr = pooled_decoy_fdr(costs, per)
     shares = {
-        "k12_exact": k12 / denom if denom else 0.0,
+        "k12_exact": k12 / n if n else 0.0,
         "nissle_exact": counts["nissle_exact"] / n if n else 0.0,
         "nissle_tolerant": counts["nissle_tolerant"] / n if n else 0.0,
         "nissle_unmapped": counts["nissle_unmapped"] / n if n else 0.0,
@@ -466,7 +466,7 @@ def te8_result(
         for p in peps
         if p not in hit
     ]
-    passed = bool(denom) and shares["k12_exact"] >= TE8_K12_MIN and fdr <= TE8_FDR_MAX
+    passed = bool(n) and shares["k12_exact"] >= TE8_K12_MIN and fdr <= TE8_FDR_MAX
     return ProxyResult("TE8", counts, shares, passed, _exceptions(rows))
 
 
