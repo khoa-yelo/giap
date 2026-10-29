@@ -89,6 +89,7 @@ nav:
       - methods/function-collections.md
       - methods/function-gsea.md
       - methods/function.md
+      - methods/genetic-code.md
       - methods/islands.md
       - methods/mayu-gene-fdr.md
       - methods/multiple-testing.md
@@ -171,6 +172,7 @@ nav:
       - adr/ADR-0065-gippa-step-images.md
       - adr/ADR-0066-demo-local-executor.md
       - adr/ADR-0067-genetic-codes-4-11-25.md
+      - adr/ADR-0068-initiator-methionine-non-atg-starts.md
   - Developer guide:
       - developer.md
       - release.md

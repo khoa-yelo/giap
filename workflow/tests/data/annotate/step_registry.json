@@ -603,7 +603,8 @@
   },
   "transterm_input": {
     "inputs": [
-      "genes"
+      "genes",
+      "replicons"
     ],
     "optional_inputs": [],
     "outputs": [

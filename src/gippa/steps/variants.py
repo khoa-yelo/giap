@@ -231,7 +231,8 @@ def variants_step(ctx: StepContext) -> None:
     sha = hashlib.sha256(gpath.read_bytes()).hexdigest()
     write_vcf(ctx.outputs["variants_vcf"], records, list(gm.replicons.values()),
               gippa_version=gippa.__version__, genome_sha256=sha, sample=ctx.cfg.sample_name,
-              info_fields=INFO_FIELDS, format_fields=FORMAT_FIELDS, sequences=genome)  # fmt: skip
+              info_fields=INFO_FIELDS, format_fields=FORMAT_FIELDS, sequences=genome,
+              translation_table=ctx.cfg.annotation.translation_table)  # fmt: skip
     _write_gzip(ctx.outputs["pileup"], pile)
     write_variants(ctx.outputs["variants"], table)
     write_variants_qc(ctx.outputs["variants_qc"], qc_frame(table, support))

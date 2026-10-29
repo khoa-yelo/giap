@@ -12,7 +12,7 @@ m5_chain.py).
   ``features.parquet``;
 * planting an island changes the expression truth only: the layout tables (C1 replicons, genes,
   C5 tus, C7/C8 regions, C15 features) are byte-identical to the island-free build, the evidence
-  is not (unless a down island covers only genes without peptides); an island outside its
+  is not (unless the island covers only genes without true peptides); an island outside its
   replicon raises ``ValueError``;
 * the build is a pure function of its arguments (the fixture half of TE7).
 """
@@ -98,6 +98,7 @@ def test_default_oric_frac_is_0_8(tmp_path: Path) -> None:
 )
 @example(seed=1506, first=0, n_tus=2, effect=-3.0)
 @example(seed=356, first=0, n_tus=2, effect=1.5)
+@example(seed=1511617, first=244, n_tus=2, effect=-3.0)  # job 1904681: a false-target hit only
 def test_islands_change_the_expression_not_the_layout(
     tmp_path_factory: pytest.TempPathFactory, seed: int, first: int, n_tus: int, effect: float
 ) -> None:
@@ -108,19 +109,38 @@ def test_islands_change_the_expression_not_the_layout(
     planted = _build(root / "planted", seed, islands=(IslandSpec("chr1", first, n_tus, effect),))
     for name in LAYOUT_FILES:
         assert _sha(plain / name) == _sha(planted / name), name
-    if not _has_peptides(plain, first, n_tus):
-        # an island over genes without peptides cannot change the evidence, up (seed 356) or
-        # down (seed 1506): the default detection does not draw peptides from abundance
+    if not _has_true_peptides(plain, seed, first, n_tus):
+        # an island over genes without true peptides cannot change the evidence, up (seed 356)
+        # or down (seed 1506): the default detection does not draw peptides from abundance, and
+        # false-target hits on island genes (seed 1511617) are drawn and scaled without it
         return
     assert _sha(plain / "peptides.norm.parquet") != _sha(planted / "peptides.norm.parquet")
 
 
-def _has_peptides(work: Path, first: int, n_tus: int) -> bool:
+def _has_true_peptides(work: Path, seed: int, first: int, n_tus: int) -> bool:
+    """Does a gene of chr1 TUs ``first .. first + n_tus`` carry a true peptide in ``work``?
+
+    Only true peptides follow the gene's abundance (observation, intensity); false targets are
+    drawn in proportion to ``n_observable`` and get abundance-free intensities, and a shared hit's
+    intensity is its source gene's. The truth is not on disk, so the island-free evidence is
+    redrawn from the fixture's streams and checked against ``work`` first.
+    """
+    from gippasim.evidence import EvidenceConfig, simulate_evidence
+    from gippasim.expression import ExpressionConfig, simulate_expression
+    from gippasim.fixtures import DEFAULT_ORIC_FRAC, _streams, fixture_layout
+    from gippasim.layout import place_oric
+
+    _, rng_expr, rng_ev = _streams(seed)
+    lay = place_oric(fixture_layout(seed, "sim1000"), DEFAULT_ORIC_FRAC)
+    expr = simulate_expression(lay, ExpressionConfig(), rng_expr)
+    ev = simulate_evidence(lay, expr, EvidenceConfig(), rng_ev)
+    on_disk = pd.read_parquet(work / "peptides.norm.parquet")["peptide"].astype(str)
+    assert sorted(ev.peptides["peptide"].astype(str)) == sorted(on_disk), "not the fixture"
     tus = pd.read_parquet(work / "tus.parquet")
     chr1 = tus[tus["contig"].astype(str) == "chr1"].iloc[first : first + n_tus]
     genes = {str(g) for gs in chr1["genes"] for g in gs}
-    hits = pd.read_csv(work / "mapping" / "peptide_hits.tsv", sep="\t", usecols=["gene"])
-    return bool(hits["gene"].astype(str).isin(genes).any())
+    gt = ev.gene_truth
+    return bool(gt.loc[gt["locus_tag"].astype(str).isin(genes), "n_true_peptides"].gt(0).any())
 
 
 def test_an_island_outside_its_replicon_raises(tmp_path: Path) -> None:

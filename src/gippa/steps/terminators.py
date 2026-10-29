@@ -66,10 +66,15 @@ def _genes(path: Path) -> list[Gene]:
 external("terminatornet", inputs=["genome"], outputs=["terminatornet"], precomputed=_PRE)
 
 
-@step("transterm_input", inputs=["genes"], outputs=["genes_coords"], precomputed=_PRE)
+@step("transterm_input", inputs=["genes", "replicons"], outputs=["genes_coords"], precomputed=_PRE)
 def transterm_input(ctx: StepContext) -> None:
-    """genes → TransTermHP ``genes.coords`` (CDS, sORFs and pseudogenes)."""
-    write_transterm_coords(ctx.outputs["genes_coords"], _genes(_path(ctx.inputs["genes"])))
+    """genes → TransTermHP ``genes.coords`` (CDS, sORFs and pseudogenes); a gene across the
+    origin of a circular replicon is split into two in-range pieces."""
+    write_transterm_coords(
+        ctx.outputs["genes_coords"],
+        _genes(_path(ctx.inputs["genes"])),
+        replicons=_replicons(_path(ctx.inputs["replicons"])),
+    )
 
 
 external(
