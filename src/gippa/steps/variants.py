@@ -34,6 +34,7 @@ from gippa.io.parquet import write_parquet_deterministic
 from gippa.io.variant_tables import write_pileup, write_variants
 from gippa.io.vcf import VcfRecord, write_vcf
 from gippa.io.work_tables import load_tables
+from gippa.mapping.initiator import annotated_starts, start_keys
 from gippa.mapping.readthrough import annotated_stops, site_keys
 from gippa.model.genes import GeneModel
 from gippa.steps.mapping import _path, read_gene_model, resolve_search_db
@@ -116,8 +117,9 @@ def run_variants_qc(
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
     tt = cfg.annotation.translation_table
     stops = site_keys(annotated_stops(gm, genome, recoded=True, table=tt)[0])  # M7-16 10, 22
+    inits = start_keys(annotated_starts(gm, genome, cfg.annotation.start_codons, table=tt)[0])
     aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons, stop_sites=stops,
-                        table=tt)  # fmt: skip
+                        table=tt, starts=inits)  # fmt: skip
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     st = sites(pile, cfg)
     starts = start_codons(gm)

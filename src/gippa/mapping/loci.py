@@ -378,6 +378,7 @@ def annotate_peptide_hits(
     contaminant_prefixes: Sequence[str] = _DEFAULT_CONTAMINANT_PREFIXES,
     consumed: Sequence[tuple[StopSite, ...]] | None = None,
     table: int = 11,
+    initiator: Sequence[bool] | None = None,
 ) -> pd.DataFrame:
     """Add ``locus_class``, ``gene``, ``uniqueness``, ``flags`` and ``novel_candidate_id``.
 
@@ -387,7 +388,8 @@ def annotate_peptide_hits(
     site gets ``readthrough`` and the work column ``readthrough_codon`` (1-based, ``,``-joined);
     one consuming a ``recoded`` site gets ``sec_site`` (TGA) or ``pyl_site`` (TAG) and the work
     column ``recoded_codon`` (M7-16 rule 19). ``table`` is the genetic code of the N-terminal
-    walk's stops.
+    walk's stops. With ``initiator`` (``initiator_rows`` per input row, M11-20 rule 5) a true row
+    gets ``initiator_m``.
     """
     if genome_relation not in ("related", "same"):
         raise ValueError(f"genome_relation must be 'related' or 'same', got {genome_relation!r}")
@@ -456,6 +458,8 @@ def annotate_peptide_hits(
     lengths = {c: r.length for c, r in gm.replicons.items()}
     if consumed is not None and len(consumed) != n:
         raise ValueError(f"consumed has {len(consumed)} entries for {n} rows")
+    if initiator is not None and len(initiator) != n:
+        raise ValueError(f"initiator has {len(initiator)} entries for {n} rows")
     rt_codon: list[str | None] = [None] * n
     rc_codon: list[str | None] = [None] * n
     flags_out: list[str] = []
@@ -470,6 +474,8 @@ def annotate_peptide_hits(
         if rec:  # rule 19: the consumed site's codon names the flag, never the query letter
             fl.update(_RECODED_FLAG[s.codon] for s in sites_i if s.kind == "recoded")
             rc_codon[i] = ",".join(str(p + 1) for p in rec)
+        if initiator is not None and initiator[i]:
+            fl.add("initiator_m")
         if multi[i]:
             fl.add("multi")
         if uniq[i] == "multi_identical":

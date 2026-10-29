@@ -17,6 +17,10 @@ M7-18: an op whose peptide side holds one of ``NONSTANDARD`` (B J X Z ``ambiguou
 the raw letter, before I/L folding) gives no category at its codon but still spans ``cover``;
 the skipped ``(codon, folded peptide)`` pairs are counted in ``attrs["nonstandard"]``.
 
+M11-20: an ``initiator`` op (a credited ``M`` over an annotated non-ATG start) gives no category
+at its codon but still spans ``cover``; its ``(codon, folded peptide)`` pairs are counted in
+``attrs["initiator"]``.
+
 ``ref_codon`` (M7-03) is the gene-strand bases of every codon the REF allele spans: 3 nt for a
 substitution or a one-codon block, 6 nt for a swap or a two-codon block (first codon in peptide
 order first). A frameshift row has ``alt_aa = fs+1`` or ``fs-1`` (the signed shift) and
@@ -237,6 +241,7 @@ def pileup(
     events: dict[tuple[_Key, int], set[str]] = {}
     skipped: dict[tuple[_Key, str], str] = {}  # (key, folded) -> the skipped op's peptide side
     examples: set[str] = set()
+    initiator: set[tuple[_Key, str]] = set()
     for a in aligns:
         if a.contig not in reps:
             raise ValueError(f"peptide {a.peptide}: unknown contig {a.contig!r}")
@@ -245,6 +250,9 @@ def pileup(
             ks = [(a.contig, a.strand, _wrap(c, rep)) for c in op.codons]
             for k in ks:
                 cover.setdefault(k, set()).add(f)
+            if op.kind == "initiator":
+                initiator.add((ks[0], f))
+                continue
             seq = genome[a.contig]
             if _skipped(op) and not (
                 op.ref == "*" and recoded.get(op.alt) == _codon_nt(seq, rep, ks[0][2], a.strand)
@@ -300,6 +308,7 @@ def pileup(
     pile.attrs["frameshifts"] = tuple(fs)
     pile.attrs["contig_order"] = tuple(reps)
     pile.attrs["nonstandard"] = _nonstandard(skipped, examples)
+    pile.attrs["initiator"] = len(initiator)
     return pile
 
 

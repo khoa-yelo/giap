@@ -10,6 +10,7 @@ intervals stay unwrapped, §6.5) and deduplicated with :func:`dedupe_loci`.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from functools import cache
@@ -24,7 +25,11 @@ from gippa.model.genetic_code import codon_table
 
 if TYPE_CHECKING:
     from gippa.mapping.decoys import DecoyType
+    from gippa.mapping.initiator import StartCells
     from gippa.mapping.readthrough import StopCells
+
+_log = logging.getLogger(__name__)
+NO_START_CELLS_EVENT = "mapping.index_without_start_cells"
 
 ALPHABET: str = "ACDEFGHKLMNPQRSTVWY*X"  # codes 0..18 residues (L includes I), 19 '*', 20 'X'
 STOP: int = 19
@@ -255,7 +260,9 @@ def dedupe_loci(ivs: Iterable[Interval], replicons: Mapping[str, Replicon]) -> l
     return list(seen)
 
 
-_INDEX_FORMAT = 3  # 2: + consumable stop cells (M7-16, ADR-0058); 3: + translation_table
+# 2: + consumable stop cells (M7-16, ADR-0058); 3: + translation_table (ADR-0067);
+# 4: + initiator start sites and cells (M11-20, ADR-0068)
+_INDEX_FORMAT = 4
 
 
 def _frame_meta(frames: tuple[Frame, ...]) -> list[list[object]]:
@@ -291,10 +298,11 @@ def save_index(
     index: SixFrameIndex,
     decoys: Mapping[DecoyType, tuple[Frame, ...]],
     cells: StopCells | None = None,
+    starts: StartCells | None = None,
 ) -> None:
-    """Write the ``sixframe_index`` work file (``.npz``, format 3): its translation table, target
-    frames, decoy frames, replicons, and the consumable stop cells of the target and each decoy
-    type (none without ``cells``)."""
+    """Write the ``sixframe_index`` work file (``.npz``, format 4): its translation table, target
+    frames, decoy frames, replicons, the consumable stop cells and the initiator start cells of
+    the target and each decoy type (none without ``cells`` / ``starts``)."""
     frame_meta = _frame_meta(index.frames)
     n = len(index.frames)
     none = tuple(np.zeros(0, dtype=np.int64) for _ in range(n))
@@ -305,11 +313,15 @@ def save_index(
         "frames": frame_meta,
         "decoys": list(decoys),
         "stop_sites": [] if cells is None else [asdict(s) for s in cells.sites],
+        "start_sites": [] if starts is None else [asdict(s) for s in starts.sites],
     }
     arrays: dict[str, np.ndarray] = {"meta": np.array(json.dumps(meta))}
     arrays["target_aa"], arrays["target_bounds"] = _pack(index.frames)
     arrays["target_rt"], arrays["target_rt_bounds"] = _pack_cells(
         none if cells is None else cells.target, n
+    )
+    arrays["target_init"], arrays["target_init_bounds"] = _pack_cells(
+        none if starts is None else starts.target, n
     )
     for kind, frames in decoys.items():
         if _frame_meta(frames) != frame_meta:
@@ -319,19 +331,24 @@ def save_index(
             raise ValueError(f"stop cells have no {kind} decoy cells")
         dc = none if cells is None else cells.decoys[kind]
         arrays[f"{kind}_rt"], arrays[f"{kind}_rt_bounds"] = _pack_cells(dc, n)
+        if starts is not None and kind not in starts.decoys:
+            raise ValueError(f"start cells have no {kind} decoy cells")
+        di = none if starts is None else starts.decoys[kind]
+        arrays[f"{kind}_init"], arrays[f"{kind}_init_bounds"] = _pack_cells(di, n)
     with Path(path).open("wb") as fh:
         np.savez_compressed(fh, **arrays)  # type: ignore[arg-type]
 
 
 def _check_format(path: Path, meta: Mapping[str, object], table: int) -> int:
-    """The index's translation table; raises unless it is ``table`` (format 2 is table 11, D3)."""
+    """The index's translation table; raises unless it is ``table`` (format 2 is table 11, D3).
+    Formats 2 and 3 load with no initiator start cells (:func:`load_start_cells`)."""
     fmt = meta.get("format")
     if fmt == 1:
         raise ValueError(
             f"{path}: six-frame index format 1 has no stop cells; rebuild the six-frame index"
         )
     built = 11 if fmt == 2 else meta.get("translation_table")
-    if fmt not in (2, _INDEX_FORMAT) or not isinstance(built, int) or isinstance(built, bool):
+    if fmt not in (2, 3, _INDEX_FORMAT) or not isinstance(built, int) or isinstance(built, bool):
         raise ValueError(f"{path}: unsupported sixframe_index format {fmt!r}")
     if built != table:
         raise ValueError(
@@ -382,3 +399,38 @@ def load_stop_cells(path: Path, *, table: int) -> StopCells:
         target = split(npz["target_rt"], npz["target_rt_bounds"])
         decoys = {k: split(npz[f"{k}_rt"], npz[f"{k}_rt_bounds"]) for k in meta["decoys"]}
     return StopCells(sites=sites, target=target, decoys=decoys)
+
+
+def _split(flat: np.ndarray, bounds: np.ndarray) -> tuple[np.ndarray, ...]:
+    return tuple(flat[bounds[i] : bounds[i + 1]].copy() for i in range(len(bounds) - 1))
+
+
+def load_start_cells(path: Path, *, table: int) -> StartCells:
+    """The initiator start sites and cells of a work file built for the run's ``table``. A
+    format-2 or format-3 file (built before M11-20) has none: one WARNING event
+    ``mapping.index_without_start_cells``.
+
+    Raises:
+        ValueError: as :func:`load_index`.
+    """
+    from gippa.mapping.initiator import StartCells, StartSite
+
+    with np.load(Path(path), allow_pickle=False) as npz:
+        meta = json.loads(str(npz["meta"]))
+        _check_format(path, meta, table)
+        n = len(meta["frames"])
+        if meta["format"] != _INDEX_FORMAT:
+            none = tuple(np.zeros(0, dtype=np.int64) for _ in range(n))
+            _log.warning(
+                "%s: six-frame index format %s was built before M11-20; rebuild the six-frame "
+                "index for initiator-M credit", path, meta["format"],
+                extra={"event": NO_START_CELLS_EVENT,
+                       "data": {"path": str(path), "format": meta["format"]}},
+            )  # fmt: skip
+            return StartCells(sites=(), target=none, decoys={k: none for k in meta["decoys"]})
+        sites = tuple(
+            StartSite(**{**s, "locus_tags": tuple(s["locus_tags"])}) for s in meta["start_sites"]
+        )
+        target = _split(npz["target_init"], npz["target_init_bounds"])
+        decoys = {k: _split(npz[f"{k}_init"], npz[f"{k}_init_bounds"]) for k in meta["decoys"]}
+    return StartCells(sites=sites, target=target, decoys=decoys)

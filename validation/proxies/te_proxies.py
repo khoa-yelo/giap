@@ -10,19 +10,21 @@ chain (``gippa preflight`` normalisation, then the registered steps under the lo
   ``locus_class`` in {cds_inframe, sorf} at one of the genes it was digested from, or a class that
   outranks them (``rna_overlap``, ``pseudogene``) on a locus in frame inside such a gene
   (``exact_inframe_masked``). N-terminal products of strict non-ATG genes (first genome
-  codon not ATG and the Bakta protein starts with M; decision 5) are counted as
-  ``non_atg_nterm`` and leave the denominator. Pass: share >= 0.999.
+  codon not ATG and the Bakta protein starts with M; decision 5) stay in the denominator: they
+  map by the initiator credit (M11-20, ADR-0068) and are counted as the diagnostic
+  ``non_atg_nterm`` (``non_atg_nterm_exact`` of them pass). Pass: share >= 0.999.
 * **TE8** (``search_db = other``): UniProt K-12 (UP000000625) peptides. ``k12_exact``: peptides
-  with an exact target hit on the K-12 genome, after removing ``non_atg_nterm`` (decisions 6, 9:
-  N-terminal in a UniProt protein and equal to an N-terminal product of a strict non-ATG K-12
-  gene). On Nissle: accepted exact / tolerant placements, rejected placements, peptides without
-  any target hit, and the pooled decoy-estimated FDR among accepted placements. Pass:
-  ``k12_exact >= 0.995`` and FDR <= 0.01.
+  with an exact target hit on the K-12 genome; ``non_atg_nterm`` (decisions 6, 9: N-terminal in
+  a UniProt protein and equal to an N-terminal product of a strict non-ATG K-12 gene) is a
+  diagnostic count and stays in the denominator (M11-20). On Nissle: accepted exact / tolerant
+  placements, rejected placements, peptides without any target hit, and the pooled
+  decoy-estimated FDR among accepted placements. Pass: ``k12_exact >= 0.995`` and FDR <= 0.01.
 * **TE2** (``search_db = same``, M7-14): TE1's peptides through the chain up to the ``variants``
   step (M7-04). Pass: no ``variants.tsv`` row with ``confidence = high`` flagged neither
-  ``start_codon`` nor ``stop_codon`` (the non-ATG starts appear as ALT ``M`` at GTG/TTG starts;
-  the annotated selenocysteine codons are consumable recoded TGAs and appear as candidate ALT
-  ``U`` sites flagged ``stop_codon``, counted as ``alt_stop_codon``; M7-16, ADR-0058 item 6).
+  ``start_codon`` nor ``stop_codon`` (credited non-ATG N-terminal peptides give no ALT ``M`` at
+  their GTG/TTG starts, M11-20; the annotated selenocysteine codons are consumable recoded TGAs
+  and appear as candidate ALT ``U`` sites flagged ``stop_codon``, counted as ``alt_stop_codon``;
+  M7-16, ADR-0058 item 6).
   TE1 labels a miss whose every accepted row carries ``sec_site`` as a ``sec_site`` exception.
 
 Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te2.json`` / ``_te8.json`` by
@@ -175,7 +177,8 @@ def te1_result(
     max_exceptions: int | None = MAX_EXCEPTIONS,
     per_peptide: pd.DataFrame | None = None,
 ) -> ProxyResult:
-    """TE1 counts from the peptide sources, the non-ATG exclusions and ``peptide_hits.tsv``.
+    """TE1 counts from the peptide sources, the non-ATG N-terminal products (``excluded``, a
+    diagnostic count only since M11-20) and ``peptide_hits.tsv``.
 
     A peptide is ``exact_inframe`` when an accepted exact row has ``locus_class`` cds_inframe or
     sorf at one of its own genes, or a higher-priority class (``rna_overlap``, ``pseudogene``,
@@ -220,9 +223,9 @@ def te1_result(
     good |= masked
     peps = sorted(sources)
     n_ex = sum(p in excluded for p in peps)
-    exact = sum(p in good for p in peps if p not in excluded)
-    misses = [p for p in peps if p not in excluded and p not in good]
-    denom = len(peps) - n_ex
+    exact = sum(p in good for p in peps)
+    misses = [p for p in peps if p not in good]
+    denom = len(peps)
     share = exact / denom if denom else 0.0
     q_of: dict[str, dict[str, Any]] = {}
     if per_peptide is not None:
@@ -236,17 +239,13 @@ def te1_result(
          "peptide": p, "hits": ";".join(seen.get(p, [])) or "unplaced", **q_of.get(p, {})}
         for p in misses
     ]  # fmt: skip
-    rows += [
-        {"kind": "non_atg_nterm", "locus_tag": excluded[p], "peptide": p}
-        for p in peps
-        if p in excluded
-    ]
     counts = {
         "peptides": len(peps),
         "non_atg_nterm": n_ex,
+        "non_atg_nterm_exact": sum(p in good for p in peps if p in excluded),
         "exact_inframe": exact,
         "misses": len(misses),
-        "exact_inframe_masked": sum(p in masked for p in peps if p not in excluded),
+        "exact_inframe_masked": sum(p in masked for p in peps),
         "sec_site": sum(sec.get(p, False) for p in misses),
     }
     return ProxyResult(
@@ -435,13 +434,14 @@ def te8_result(
     per: pd.DataFrame,
     costs: pd.DataFrame,
 ) -> ProxyResult:
-    """TE8 counts from the K-12 exact-hit set and the Nissle placement table and costs."""
+    """TE8 counts from the K-12 exact-hit set and the Nissle placement table and costs;
+    ``excluded`` (non-ATG N-terminal products) is a diagnostic count only (M11-20)."""
     peps = sorted(sources)
     n = len(peps)
     ex = {p for p in peps if p in excluded}
     hit = set(k12_exact_hits)
-    k12 = sum(p in hit for p in peps if p not in ex)
-    denom = n - len(ex)
+    k12 = sum(p in hit for p in peps)
+    denom = n
     acc = per[per["accepted"].astype(bool)]
     m = acc["m_target"].to_numpy()
     counts = {
@@ -464,7 +464,7 @@ def te8_result(
     rows = [
         {"kind": "k12_miss", "locus_tag": min(sources[p]), "peptide": p}
         for p in peps
-        if p not in ex and p not in hit
+        if p not in hit
     ]
     passed = bool(denom) and shares["k12_exact"] >= TE8_K12_MIN and fdr <= TE8_FDR_MAX
     return ProxyResult("TE8", counts, shares, passed, _exceptions(rows))

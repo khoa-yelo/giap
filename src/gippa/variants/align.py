@@ -9,7 +9,9 @@ other block at every feasible peptide junction. The recomputed cost must equal `
 Co-optimal alignments are ordered by the M3-06 key (cost, then the diff-type multiset under the
 ``DIFF_TYPES`` precedence), then by the lexicographically smallest tuple of the differences'
 peptide start positions (M7-01 lead decision 1). Coordinates are 0-based half-open and unwrapped
-(§6.5); ``codons`` hold the lowest coordinate of each consumed codon, in peptide order.
+(§6.5); ``codons`` hold the lowest coordinate of each consumed codon, in peptide order. An exact
+row whose residue 0 is ``M`` over an annotated non-ATG start codon (M11-20 rule 6) has the op
+``initiator`` there.
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ __all__ = [
     "translate_locus",
 ]
 
-OpKind = Literal["match", "il", "substitution", "swap", "block", "near_block"]
+OpKind = Literal["match", "il", "substitution", "swap", "block", "near_block", "initiator"]
 _DIFF_KINDS: tuple[OpKind, ...] = ("substitution", "swap", "block", "near_block")
 _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
 _BIG: int = 1 << 62
@@ -210,6 +212,10 @@ def _codons(s: int, e: int, strand: str) -> list[int]:
     return list(range(s, e - 2, 3)) if strand == "+" else list(range(e - 3, s - 1, -3))
 
 
+def _wrap(codon: int, rep: Replicon) -> int:
+    return codon % rep.length if rep.topology == "circular" else codon
+
+
 def _frame(s: int, e: int, strand: str, n: int) -> int:
     return 1 + (s % n) % 3 if strand == "+" else -(1 + ((n - e) % n) % 3)
 
@@ -259,11 +265,14 @@ def align_hit(
     stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
     *,
     table: int = 11,
+    starts: frozenset[tuple[str, str, int]] = frozenset(),
 ) -> HitAlignment:
     """Residue alignment of one hit ``[start, end)``; raises ValueError if it disagrees with
-    ``n_diff`` (or, with ``n_diff = 0``, if the letters differ beyond I/L). A genome ``*`` is
-    a substitution only at a ``(contig, strand, codon_start)`` of ``stop_sites`` and only on a
-    non-frameshift row (M7-16 rule 10). ``table`` is the genetic code of the genome residues."""
+    ``n_diff`` (or, with ``n_diff = 0``, if the letters differ beyond I/L, except a residue-0
+    ``M`` over a ``(contig, strand, codon_start)`` of ``starts``: op ``initiator``, M11-20). A
+    genome ``*`` is a substitution only at a ``(contig, strand, codon_start)`` of ``stop_sites``
+    and only on a non-frameshift row (M7-16 rule 10). ``table`` is the genetic code of the genome
+    residues."""
     if strand not in ("+", "-"):
         raise ValueError(f"peptide {peptide}: strand {strand!r}")
     std: Literal["+", "-"] = "+" if strand == "+" else "-"
@@ -272,12 +281,22 @@ def align_hit(
         cods = _codons(start, end, strand)
         frame = _frame(start, end, strand, rep.length)
         if n_diff == 0:
-            if len(g) != len(peptide) or g.replace("I", "L") != peptide.replace("I", "L"):
+            fold_p, fold_g = peptide.replace("I", "L"), g.replace("I", "L")
+            init = (
+                len(g) == len(peptide) > 0
+                and fold_p != fold_g
+                and peptide[0] == "M"
+                and fold_p[1:] == fold_g[1:]
+                and (contig, strand, _wrap(cods[0], rep)) in starts
+            )
+            if not init and (len(g) != len(peptide) or fold_g != fold_p):
                 raise ValueError(f"peptide {peptide}: not exact on {g} (n_diff 0)")
             ops = [
                 ResidueOp("match" if a == r else "il", (k, k + 1), (cods[k],), r, a)
                 for k, (a, r) in enumerate(zip(peptide, g, strict=True))
             ]
+            if init:
+                ops[0] = ResidueOp("initiator", (0, 1), (cods[0],), g[0], "M")
             return HitAlignment(peptide, contig, std, frame, tuple(ops), None)
         key, ops = _ops(peptide, g, cods, 0)
         _check(peptide, n_diff, key)
@@ -320,8 +339,10 @@ def align_hits(
     stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
     *,
     table: int = 11,
+    starts: frozenset[tuple[str, str, int]] = frozenset(),
 ) -> list[HitAlignment]:
-    """One :class:`HitAlignment` per ``peptide_hits`` row (0-based half-open), in row order.
+    """One :class:`HitAlignment` per ``peptide_hits`` row (0-based half-open), in row order;
+    ``starts`` holds the initiator start-site keys (M11-20, :func:`align_hit`).
 
     Frameshift rows take their ``blocks`` from the matching target row of ``hits_tolerant``
     (peptide, contig, start, end, strand); a missing row or missing blocks raise ValueError.
@@ -347,6 +368,6 @@ def align_hits(
         n_diff = int(row["n_diff"])
         out.append(
             align_hit(pep, contig, s, e, strand, n_diff, blocks, genome[contig], replicons[contig],
-                      stop_sites, table=table)
+                      stop_sites, table=table, starts=starts)
         )  # fmt: skip
     return out

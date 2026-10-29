@@ -788,7 +788,7 @@ One row per peptide x accepted locus (GIPPA_SPEC.md §9.3); rejected placements 
 | `uniqueness` | string | — | Uniqueness of the placement | one of `unique`, `multi_identical`, `shared` |
 | `gene` | string | — | Assigned gene locus tag | — |
 | `novel_candidate_id` | string | — | Novel candidate ID | — |
-| `flags` | string | — | Flags (';'-separated list; §9.4 Placement, including readthrough: the row consumed an annotated terminal stop; sec_site / pyl_site: it consumed an annotated recoded Sec (TGA) / Pyl (TAG) codon, M7-16) | pattern `(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference)(?:;(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference))*` |
+| `flags` | string | — | Flags (';'-separated list; §9.4 Placement, including initiator_m: an exact row credited with the initiator M at an annotated non-ATG start codon, M11-20; readthrough: the row consumed an annotated terminal stop; sec_site / pyl_site: it consumed an annotated recoded Sec (TGA) / Pyl (TAG) codon, M7-16) | pattern `(?:engine_protein_mismatch|initiator_m|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference)(?:;(?:engine_protein_mismatch|initiator_m|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|pyl_site|readthrough|same_db|sec_site|strain_difference))*` |
 
 ## `protein_hits`
 
