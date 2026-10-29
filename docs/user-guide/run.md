@@ -53,6 +53,55 @@ gippa run --genome genome.fna --peptides peptides.tsv --modules core,function --
 
 A module that is switched off writes no files, and the manifest lists it under `modules_off`.
 Later steps run without it. For example, the region tests then have no prophage or BGC regions.
+[Pipeline processes](#pipeline-processes) shows which Nextflow processes each module adds.
+
+## Pipeline processes
+
+`gippa run` hands the analysis to Nextflow (`workflow/main.nf`). The diagram below shows every
+Nextflow process of that workflow, grouped by subworkflow (`ANNOTATE`, `MAPPING`, `GENETABLE`,
+`VARIANTS`, `CONTEXT`, `OPERONS`, `DETERMINANTS`, `SENSITIVITY_RERUNS`, `FUNCTION`, `NOVEL` and
+`REPORT`). Each card is one process: its name (in the Nextflow trace and `logs/trace.tsv` it
+carries its subworkflow, as in `ANNOTATE:BAKTA`) and its main output files. The edges are the
+channels between processes.
+
+![GIPPA Nextflow processes: ANNOTATE runs Bakta and the promoter, terminator, RBS, operon and region tools, each followed by a layer step, and CONTEXT_LAYERS merges the layers; MAPPING builds the six-frame index, maps peptides exactly and tolerantly, places them with decoys and assigns loci, with optional miniprot and tblastn for proteins; GENETABLE builds the gene table and detectability; VARIANTS, CONTEXT, OPERONS, DETERMINANTS, SENSITIVITY_RERUNS, FUNCTION and NOVEL read it; REPORT draws the plots and report.html.](../assets/gippa-processes-light.svg#only-light)
+![GIPPA Nextflow processes (dark theme).](../assets/gippa-processes-dark.svg#only-dark)
+
+### How to read it
+
+| Mark | Meaning |
+|---|---|
+| filled card | an external tool's process, run in its container or environment (Bakta, UniOP, Promotech, …) |
+| outlined card | a `gippa _step` process: a Python step run through the `GIPPA_STEP` module under its own name |
+| dashed card or input | runs only with an optional module (`mobile`: geNOMAD; `bgc`: antiSMASH; `function`), an optional input (`--proteins`: miniprot, tblastn) or a switch (`annotation.terminators.bactermfinder`) |
+| **G** badge | the process reads the normalised genome, `genome.norm.fa` |
+| **A** badge | the process reads Bakta's gene model (`genes`, `features`, `replicons.parquet`) or the tables `ANNOTATE` emits (`xrefs`, `tus`, `layers`, `regions`) |
+| **P** badge | the process reads the peptide table, `peptides.norm.parquet` |
+
+The badges replace edges for these three inputs, which most processes read. The diagram does not
+draw the database paths (`--db-dir`), the per-step event logs, or every second reader of a file
+(for example, `sixframe.npz` also goes to `MAP_TOLERANT`, `PLACEMENT` and `LOCI`).
+
+Some processes are collapsed or replaced:
+
+- `TERMINATORNET_SHARDED` is a subworkflow of three processes, `TERMINATORNET_PLAN`,
+  `TERMINATORNET_CHUNK` (one task per chunk) and `TERMINATORNET_MERGE`. With
+  `params.terminatornet_sharded = false`, a single `TERMINATORNET` process runs instead.
+- A precomputed annotation layer (`annotation.precomputed.*`) replaces its tool and parse
+  processes. For example, a precomputed `bakta_json` skips `BAKTA`.
+- Without a peptide table, only `ANNOTATE` and `REPORT` run.
+
+### Where the graph comes from
+
+The process list is the one Nextflow itself reports, with every module switched on:
+
+```bash
+nextflow run workflow/main.nf -profile test -stub -preview -params-file params.json -with-dag dag.mmd
+```
+
+`-preview` builds the graph without running a task. The edges follow the channel wiring in
+`workflow/subworkflows/local/*.nf`. The figure is drawn by `scripts/docs/process_figure.py`;
+`python scripts/docs/process_figure.py --check` fails when the committed images are out of date.
 
 ## Analysis options
 
