@@ -19,7 +19,10 @@ from pydantic import (
     WithJsonSchema,
     field_validator,
     model_serializer,
+    model_validator,
 )
+
+from gippa.model.genetic_code import SUPPORTED_TABLES, stop_codons
 
 Module = Literal["core", "mobile", "bgc", "function"]
 GenomeRelation = Literal["related", "same"]
@@ -176,6 +179,27 @@ class AnnotationConfig(_Strict):
     ostir: OstirConfig = Field(default_factory=OstirConfig)
     codon: CodonConfig = Field(default_factory=CodonConfig)
     precomputed: PrecomputedConfig = Field(default_factory=PrecomputedConfig)
+
+    @model_validator(mode="after")
+    def _check_start_codons(self) -> AnnotationConfig:
+        """Each start codon is 3 letters of ACGT (any case) and not a stop under
+        ``translation_table``; an unsupported table is left to preflight."""
+        for codon in self.start_codons:
+            up = codon.upper()
+            if len(up) != 3 or any(ch not in "ACGT" for ch in up):
+                raise ValueError(
+                    f"annotation.start_codons: {codon!r} is not a codon (3 letters of ACGT)"
+                )
+        if self.translation_table not in SUPPORTED_TABLES:
+            return self
+        stops = stop_codons(self.translation_table)
+        for codon in self.start_codons:
+            if codon.upper() in stops:
+                raise ValueError(
+                    f"annotation.start_codons: {codon!r} is a stop codon under translation "
+                    f"table {self.translation_table}"
+                )
+        return self
 
 
 # ---------------------------------------------------------------- mapping

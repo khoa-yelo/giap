@@ -155,6 +155,7 @@ No fixed vocabulary in the schema.
 ## `peptide_hits`
 
 - `engine_protein_mismatch`
+- `initiator_m`
 - `low_complexity`
 - `multi`
 - `multi_identical`

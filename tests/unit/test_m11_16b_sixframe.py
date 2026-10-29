@@ -9,6 +9,7 @@ Interface (spec item 4)::
     build_sixframe(genome, replicons, wrap_nt=WRAP_NT, table=11) -> SixFrameIndex
     SixFrameIndex.translation_table: int = 11
     save_index(...)            # format 3, meta["translation_table"] = index.translation_table
+                               # (format 4 since M11-20: + start sites and cells, ADR-0068)
     load_index(path, *, table) / load_stop_cells(path, *, table)  # table is a required keyword
 
 Table 11 byte identity: ``tests/data/mapping/readthrough/sixframe_format2.npz`` is the work file
@@ -157,17 +158,20 @@ def test_linear_partial_tga_is_dropped(table: int) -> None:
 
 
 @pytest.mark.parametrize("table", TABLES)
-def test_ac7_format_3_round_trips_at_each_table(tmp_path: Path, table: int) -> None:
+def test_ac7_format_4_round_trips_at_each_table(tmp_path: Path, table: int) -> None:
+    """M11-20 (ADR-0068): the work file is format 4; without ``starts`` it has no start cells."""
     index = _linear(EX2 * 3, table)
     path = _save(tmp_path / "six.npz", index)
     meta = _meta(path)
-    assert meta["format"] == 3 and meta["translation_table"] == table
+    assert meta["format"] == 4 and meta["translation_table"] == table
+    assert meta["start_sites"] == []
     got, decoys = sf.load_index(path, table=table)
     assert got.translation_table == table
     assert [decode(f.aa) for f in got.frames] == [decode(f.aa) for f in index.frames]
     assert set(decoys) == {"reverse"}
     cells = sf.load_stop_cells(path, table=table)
     assert cells.sites == ()
+    assert sf.load_start_cells(path, table=table).sites == ()
 
 
 @pytest.mark.parametrize(("built", "run"), [(4, 11), (11, 4), (25, 4), (4, 25), (11, 25)])
@@ -255,21 +259,27 @@ def test_table_11_frames_are_byte_identical_to_main() -> None:
 
 def test_table_11_step_index_is_byte_identical_to_format_2(tmp_path: Path) -> None:
     """AC 1 for the index: every array of the step's table-11 work file equals main's format-2
-    file, and the meta differs only in ``format`` (2 -> 3) and the new ``translation_table``."""
+    file, and the meta differs only in ``format`` (2 -> 4) and the new ``translation_table``.
+    M11-20 (format 4): plus the initiator start sites and cells, empty here (this world has no
+    annotated non-ATG start)."""
     out = run_sixframe_index(tmp_path)
     assert SEED == 7
+    init = {f"{k}_init{b}" for k in ("target", "reverse", "shuffle") for b in ("", "_bounds")}
     with np.load(FORMAT2) as old, np.load(out) as new:
-        assert set(new.files) == set(old.files)
+        assert set(new.files) == set(old.files) | init
+        for key in sorted(init):  # 12 frames: 13 zero bounds, no cells
+            assert new[key].tolist() == ([0] * 13 if key.endswith("_bounds") else []), key
         for key in old.files:
             if key == "meta":
                 continue
             a, b = old[key], new[key]
             assert a.dtype == b.dtype and a.shape == b.shape and a.tobytes() == b.tobytes(), key
         m_old, m_new = json.loads(str(old["meta"])), json.loads(str(new["meta"]))
-    assert (m_old["format"], m_new["format"]) == (2, 3)
-    assert m_new["translation_table"] == 11
-    assert set(m_new) == set(m_old) | {"translation_table"}
-    assert {k: v for k, v in m_new.items() if k not in ("format", "translation_table")} == {
+    assert (m_old["format"], m_new["format"]) == (2, 4)
+    assert m_new["translation_table"] == 11 and m_new["start_sites"] == []
+    assert set(m_new) == set(m_old) | {"translation_table", "start_sites"}
+    new_keys = ("format", "translation_table", "start_sites")
+    assert {k: v for k, v in m_new.items() if k not in new_keys} == {
         k: v for k, v in m_old.items() if k != "format"
     }
     loaded, _ = sf.load_index(out, table=11)

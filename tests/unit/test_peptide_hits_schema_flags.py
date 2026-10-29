@@ -6,7 +6,8 @@ The pattern has the form ``variants.schema.json`` uses, ``(?:a|b|...)(?:;(?:a|b|
 value the code writes today plus ``readthrough``: ``engine_protein_mismatch``, ``low_complexity``,
 ``multi``, ``multi_identical``, ``nterm_extension_evidence``, ``origin_spanning``, ``readthrough``,
 ``same_db``, ``strain_difference``. Its description names ``readthrough``. 16c adds ``sec_site``
-and ``pyl_site``; this file does not require or forbid them.
+and ``pyl_site``; this file does not require or forbid them. M11-20 (ADR-0068) adds
+``initiator_m`` (spec § 5), now required.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ SCHEMA = REPO / "src" / "gippa" / "schemas" / "tables" / "peptide_hits.schema.js
 VARIANTS = REPO / "src" / "gippa" / "schemas" / "tables" / "variants.schema.json"
 VALUES = (
     "engine_protein_mismatch",
+    "initiator_m",
     "low_complexity",
     "multi",
     "multi_identical",

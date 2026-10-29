@@ -73,7 +73,7 @@ def test_m07_loci_step_passes_the_table_to_the_walk(
     assert ("nterm_extension_evidence" in row["flags"].split(";")) is (table == 4)
 
 
-def test_m12_format_3_with_a_bool_table_is_unsupported(tmp_path: Path) -> None:
+def test_m12_format_4_with_a_bool_table_is_unsupported(tmp_path: Path) -> None:
     nt = "ATGGCCTGAGCCTAA"
     index = sf.build_sixframe({"c": nt}, {"c": Replicon("c", 15, "linear")}, table=11)
     path = tmp_path / "six.npz"
@@ -82,13 +82,13 @@ def test_m12_format_3_with_a_bool_table_is_unsupported(tmp_path: Path) -> None:
     with np.load(path) as npz:
         arrays = {k: npz[k] for k in npz.files}
     meta = json.loads(str(arrays["meta"]))
-    assert meta["format"] == 3
+    assert meta["format"] == 4  # M11-20
     meta["translation_table"] = True
     arrays["meta"] = np.array(json.dumps(meta))
     bad = tmp_path / "bad.npz"
     with bad.open("wb") as fh:
         np.savez_compressed(fh, **arrays)  # type: ignore[arg-type]
-    for fn in (sf.load_index, sf.load_stop_cells):
+    for fn in (sf.load_index, sf.load_stop_cells, sf.load_start_cells):
         for table in (1, 11, 4):
             with pytest.raises(ValueError, match="unsupported sixframe_index format") as ei:
                 fn(bad, table=table)

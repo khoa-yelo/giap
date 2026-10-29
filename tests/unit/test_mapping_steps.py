@@ -64,7 +64,7 @@ from gippa.mapping.decoys import build_decoys
 from gippa.mapping.exact import match_exact
 from gippa.mapping.frameshift import match_frameshift
 from gippa.mapping.placement_fdr import best_costs, placement
-from gippa.mapping.sixframe import build_sixframe, load_index
+from gippa.mapping.sixframe import build_sixframe, load_index, load_start_cells
 from gippa.mapping.tolerant import match_tolerant
 from gippa.rng import for_step
 
@@ -378,7 +378,8 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 
 @pytest.fixture(scope="module")
 def oracle(chain: Chain) -> dict[str, Any]:
-    """The same chain through the pure M3 functions."""
+    """The same chain through the pure M3 functions (M11-20: ``match_exact`` with the index's
+    initiator start cells, as ``map_exact`` passes them)."""
     cfg = chain.cfg
     idx, decoys = load_index(chain.path("sixframe"), table=11)
     peps = pd.read_parquet(chain.run.peptides)
@@ -391,6 +392,7 @@ def oracle(chain: Chain) -> dict[str, Any]:
         decoy_of,
         min_len=cfg.mapping.exact.min_len,
         max_len=cfg.mapping.exact.max_len,
+        starts=load_start_cells(chain.path("sixframe"), table=11),
     )
     with_target = set(hx.loc[hx["search"] == "target", "peptide"])
     tol_q = [q for q in queries if len(q) >= cfg.mapping.tolerant.min_len]

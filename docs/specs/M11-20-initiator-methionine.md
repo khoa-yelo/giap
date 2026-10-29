@@ -445,6 +445,18 @@ first residue is M and that are an N-terminal product of a K-12 CDS/sORF start s
 The check passes when every changed `peptide_hits` row's peptide is in A, or differs only in
 `placement_q` (and, with `search_db = same`, there is none of the latter).
 
+**Nissle finding (statistician, 2026-10-29, accepted).** Before M11-20, placement stratum 1 on the
+Nissle TE runs held the tolerant M/V N-terminal rows of the 431 non-ATG products; they are now exact
+(stratum 0). The 4 fdnG Sec peptides are then alone in stratum 1 (T₁ = 4, D₁ = 0), so knockoff+
+gives q = 1/4 and they are `rejected_placement_fdr`: TE1 `sec_site` 0, TE2 `alt_stop_codon` 0 and
+no `stop_codon` ALT site. This is the intended small-stratum behaviour (G3, Appendix B.6); the
+earlier acceptance borrowed confidence from the M/V rows. `sec_site` is a diagnostic, not a
+readiness row (R1 reads `te1.share_exact_inframe`). A principled route to Sec acceptance is an
+exact-route U credit at annotated recoded TGA codons (backlog; needs its own ADR). The TE2 note
+(`TE2_NO_STOP_NOTE`, M7-16 rule 25) changes: "on Nissle the two fdnG Sec sites are candidate, one
+unique peptide each" becomes "on Nissle the fdnG Sec peptides are rejected by the stratum-1
+placement FDR (4 targets, no decoys, q = 0.25)".
+
 ## Estimate and PR split (each ≤ ~400 code lines; tests first, ADR-0007)
 
 | PR | Content | Code | Tests | Role |

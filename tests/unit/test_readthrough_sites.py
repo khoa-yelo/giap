@@ -306,7 +306,7 @@ def _stop_cells(index, decoys, gm, genome):  # type: ignore[no-untyped-def]
     )  # fmt: skip
 
 
-def test_save_index_writes_format_3_and_load_stop_cells_round_trips(tmp_path: Path) -> None:
+def test_save_index_writes_format_4_and_load_stop_cells_round_trips(tmp_path: Path) -> None:
     from gippa.mapping.sixframe import load_stop_cells
 
     genome, reps, gm = world()
@@ -321,7 +321,7 @@ def test_save_index_writes_format_3_and_load_stop_cells_round_trips(tmp_path: Pa
     with np.load(path) as npz:
         meta = json.loads(str(npz["meta"]))
         keys = set(npz.keys())
-    assert meta["format"] == 3 and meta["translation_table"] == 11  # M11-16b
+    assert meta["format"] == 4 and meta["translation_table"] == 11  # M11-16b; 4: M11-20
     assert len(meta["stop_sites"]) == 6
     want = {"target_rt", "target_rt_bounds", "reverse_rt", "reverse_rt_bounds", "shuffle_rt",
             "shuffle_rt_bounds"}  # fmt: skip
@@ -385,13 +385,13 @@ def test_load_stop_cells_rejects_format_1(tmp_path: Path, which: str) -> None:
 def test_step_decoy_frames_are_byte_identical_to_format_1(tmp_path: Path) -> None:
     """Review change 7: for the same seed the ``sixframe_index`` step's format-2 file holds the
     target and decoy frames of the committed format-1 file (written on main), byte for byte.
-    M11-16b: the step now writes format 3 (table 11 by default)."""
+    M11-16b: the step now writes format 3 (table 11 by default); M11-20: format 4."""
     from helpers.readthrough_index import run_sixframe_index
 
     out = run_sixframe_index(tmp_path)
     with np.load(FIXTURE) as old, np.load(out) as new:
         m_old, m_new = json.loads(str(old["meta"])), json.loads(str(new["meta"]))
-        assert (m_old["format"], m_new["format"]) == (1, 3)
+        assert (m_old["format"], m_new["format"]) == (1, 4)
         assert m_new["frames"] == m_old["frames"] and m_new["decoys"] == m_old["decoys"]
         for key in ("target_aa", "target_bounds", "reverse_aa", "reverse_bounds", "shuffle_aa",
                     "shuffle_bounds"):  # fmt: skip

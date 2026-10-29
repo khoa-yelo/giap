@@ -791,11 +791,36 @@ def auto_chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
             ids[i] = list(other)
             swapped[str(df.at[i, "peptide"])] = set(other)
     df["protein_ids"] = [ids[i] for i in df.index]
+    df, planted = _plant_substitution(df, tgt, set(swapped))
     run = _with_parquet(run, df, tmp / "peptides.auto.parquet")
     cfg = resolve_config(run.config_yaml, [f"seed={SEED}"])
     avail, _ = _drive_logged(cfg, tmp / "work", roots_of(run))
-    return {"cfg": cfg, "avail": avail, "tmp": tmp, "swapped": swapped,
+    return {"cfg": cfg, "avail": avail, "tmp": tmp, "swapped": swapped, "planted": planted,
             "files": module2_files(tmp / "work", avail)}  # fmt: skip
+
+
+def _plant_substitution(
+    df: pd.DataFrame, tgt: list[Any], skip: set[str]
+) -> tuple[pd.DataFrame, str]:
+    """Append a copy of the first unswapped target peptide of >= 12 aa not starting with M, with
+    one middle residue substituted (W, or Y over a W): it has no exact hit, so its only target
+    placement is a tolerant stratum-1 row at its own gene, which ``search_db = same`` rejects.
+    Before M11-20 the fixture's only rejected placement was a non-ATG N-terminal peptide
+    (``MLETILEGDVAMIGMTTSGAGIAVIK``, tolerant M/V at GSIM_00080's start); the initiator credit
+    now places it exactly, so D15 needs this planted one."""
+    have = set(df["peptide"].astype(str))
+    for i in tgt:
+        pep = str(df.at[i, "peptide"])
+        if len(pep) < 12 or pep[0] == "M" or pep in skip:
+            continue
+        k = len(pep) // 2
+        var = pep[:k] + ("Y" if pep[k] == "W" else "W") + pep[k + 1 :]
+        if var in have:
+            continue
+        row = df.loc[[i]].copy()
+        row["peptide"] = var
+        return pd.concat([df, row], ignore_index=True), var
+    raise AssertionError("no target peptide to plant a substitution in")
 
 
 def test_d15_n10_loci_flags_mismatch_on_auto_resolved_same(auto_chain: dict[str, Any]) -> None:
@@ -821,6 +846,7 @@ def test_d15_m10_rejected_placements_are_matched_against_contaminants(
     avail = auto_chain["avail"]
     per = pd.read_parquet(avail["placement"])
     state = per.groupby("peptide")["accepted"].agg(lambda s: bool(s.astype(bool).any()))
+    assert not state[auto_chain["planted"]], "the planted substitution was accepted"  # M11-20
     rejected = [p for p, a in state.items() if not a and len(str(p)) >= 8][:3]
     assert rejected, "the chain has no target hit rejected by placement FDR"
     tmp = auto_chain["tmp"] / "m10"

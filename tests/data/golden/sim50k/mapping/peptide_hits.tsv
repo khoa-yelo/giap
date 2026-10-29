@@ -280,6 +280,7 @@ NVRASYIHTIPEAAASTAVGAHNLGTSR	28	database	6.8555e-06	2.22558e-05	3.53259	chr1	146
 QVPQYTLHYGAIVYDNDQITETVHPESK	28	database	3.32747e-07	7.8059e-07	4.64937	chr1	14847	14930	+	3	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00075	NA	same_db
 FMSALKMMK	9	database	3.75263e-06	1.12206e-05	3.76088	chr1	14931	14957	+	3	false	exact	0	NA	0	9	cds_inframe	unique	GSIM_00075	NA	same_db
 YKLFQYTLDR	10	database	3.79595e-06	1.13667e-05	3.75656	chr1	15024	15053	+	3	false	exact	0	NA	0	10-11	cds_inframe	unique	GSIM_00075	NA	same_db
+MELIHMSEEKVAK	13	database	1.76014e-05	6.67326e-05	3.16654	chr1	15199	15237	+	1	false	exact	0	NA	0	12-14	cds_inframe	unique	GSIM_00080	NA	initiator_m;same_db
 MGFEARDFEIGGGFVASHVR	20	database	1.86902e-05	7.16585e-05	3.1428	chr1	15238	15297	+	1	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00080	NA	same_db
 SLIIDVLRAR	10	database	2.44565e-06	6.94171e-06	3.92095	chr1	15472	15501	+	1	false	exact	0	NA	0	10-11	cds_inframe	unique	GSIM_00080	NA	same_db
 VNGYGGVALMLQSLLVLDHNLAEIQSARR	29	database	1.96573e-06	5.44303e-06	4.00202	chr1	16084	16170	+	1	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00080	NA	same_db
@@ -506,6 +507,8 @@ AGGHEWDCEK	10	database	7.18879e-06	2.35013e-05	3.51444	chr1	28739	28768	-	-2	fal
 LAEPSLWWLTQGAYTTVGETYGGTK	25	database	3.17798e-06	9.30685e-06	3.82321	chr1	28769	28843	-	-2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00135	NA	same_db
 LYCTITLNNEDHFMAEAHNCSHYDR	25	database	9.9231e-06	3.40892e-05	3.39046	chr1	28844	28918	-	-2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00135	NA	same_db
 LGKGDGCDIILHGFEIMHANDPK	23	database	6.60408e-09	1.23393e-08	6.03178	chr1	29636	29704	-	-2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00140	NA	same_db
+MQGQSPSNPYVIHETK	16	database	3.64057e-05	0.000160136	2.87473	chr1	30299	30346	+	2	false	exact	0	NA	0	15-19	cds_inframe	unique	GSIM_00145	NA	initiator_m;same_db
+MQGQSPSNPYVIHETKAK	18	database	3.70551e-06	1.10619e-05	3.76562	chr1	30299	30352	+	2	false	exact	0	NA	0	15-19	cds_inframe	unique	GSIM_00145	NA	initiator_m;same_db
 DFLALLTK	8	database	1.04135e-05	3.60526e-05	3.37179	chr1	30404	30427	+	2	false	exact	0	NA	0	8	cds_inframe	unique	GSIM_00145	NA	same_db
 DFLALLTKLVEQLLNSIYSGNPGLDK	26	database	4.28752e-05	0.000195863	2.80759	chr1	30404	30481	+	2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00145	NA	same_db
 LVEQLLNSIYSGNPGLDK	18	database	2.07343e-07	4.69367e-07	4.81892	chr1	30428	30481	+	2	false	exact	0	NA	0	15-19	cds_inframe	unique	GSIM_00145	NA	same_db
@@ -598,6 +601,7 @@ TLIIERTIGTK	11	database	9.20613e-06	3.12526e-05	3.41942	chr1	35399	35431	-	-2	fa
 MAEGRQSR	8	database	1.33372e-06	3.54363e-06	4.14508	chr1	35450	35473	-	-2	false	exact	0	NA	0	8	cds_inframe	unique	GSIM_00170	NA	same_db
 APALGVLK	8	database	4.60859e-06	1.4154e-05	3.68346	chr1	35474	35497	-	-2	false	exact	0	NA	0	8	cds_inframe	unique	GSIM_00170	NA	same_db
 VILNITGLQGTLHELTFRITVLLTR	25	database	2.64635e-05	0.000108656	3.00403	chr1	35498	35572	-	-2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00170	NA	same_db
+MLIQSLSHSQMMGAFLEEQTDK	22	database	1.32056e-06	3.50509e-06	4.14872	chr1	35573	35638	-	-2	false	exact	0	NA	0	20-40	cds_inframe	unique	GSIM_00170	NA	initiator_m;same_db
 SVVRWAV	7	database	1.80405e-06	4.9485e-06	4.03377	chr1	36023	36043	-	-2	false	exact	0	NA	0	7	cds_inframe	unique	GSIM_00175	NA	same_db
 RDSAPPHEGK	10	database	2.25873e-05	8.98204e-05	3.0675	chr1	36044	36073	-	-2	false	exact	0	NA	0	10-11	cds_inframe	unique	GSIM_00175	NA	same_db
 DIQEIMSALRR	11	database	2.16231e-06	6.05157e-06	3.96669	chr1	36071	36103	-	-2	false	exact	0	NA	0	10-11	cds_inframe	unique	GSIM_00175	NA	same_db

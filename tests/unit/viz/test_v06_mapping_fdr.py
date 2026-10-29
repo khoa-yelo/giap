@@ -493,13 +493,43 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GippaConfig) -
     (out / "mapping" / "mapping_fdr.tsv").write_bytes((GOLDEN / "mapping_fdr.tsv").read_bytes())
     inst = _render(out, cfg)
     b = _rows(inst, "b")
-    assert _num(_cell(b, "all", 1, "fdr_stratum")["value"]) == pytest.approx(0.25)
+    # M11-20: the golden's 4 stratum-1 targets (non-ATG N-terminal peptides) are credited exact
+    # rows now, so stratum 1 is empty (was 2 targets in 15-19, FDR 0.25 over all)
+    assert _isna(_cell(b, "all", 1, "fdr_stratum")["value"])
     assert _isna(_cell(b, "all", 0, "fdr_stratum")["value"])
-    assert _num(_cell(_rows(inst, "a"), "15-19", 1, "targets")["value"]) == 2
+    assert _num(_cell(_rows(inst, "a"), "15-19", 1, "targets")["value"]) == 0
     assert len(_rows(inst, "a")) == 42
     assert "unestimated" in inst.title
     assert "in strata 1" not in inst.title  # 0.25 > 0.01: no claim
     assert "c" not in {ax.get_label() for ax in inst.figure.axes}
+
+
+def test_golden_tables_with_a_numeric_stratum_1_fdr(tmp_path: Path, cfg: GippaConfig) -> None:
+    """The golden file with its stratum-1 rows set as on Nissle after M11-20 (spec § What changes,
+    Nissle finding: T1 = 4 in 15-19, D1 = 0, knockoff+ q = 0.25): the golden render keeps a
+    numeric ``fdr_stratum`` cell, which the M11-20 golden no longer has."""
+    lines = (GOLDEN / "mapping_fdr.tsv").read_text().splitlines(keepends=True)
+    patched, n = [], 0
+    for line in lines:
+        f = line.rstrip("\n").split("\t")
+        if f[1] == "1" and f[0] in ("15-19", "all") and f[7] == "reverse" and f[8] == "placement":
+            f[2], f[3] = "4", "0"
+            if f[0] == "all":
+                f[5] = "0.25"
+            line, n = "\t".join(f) + "\n", n + 1
+        patched.append(line)
+    assert n == 2
+    out = mapping_out(tmp_path)
+    (out / "mapping").mkdir(parents=True, exist_ok=True)
+    (out / "mapping" / "mapping_fdr.tsv").write_text("".join(patched))
+    inst = _render(out, cfg)
+    b = _rows(inst, "b")
+    assert _num(_cell(b, "all", 1, "fdr_stratum")["value"]) == pytest.approx(0.25)
+    assert _num(_cell(b, "all", 1, "n_accepted")["value"]) == 0
+    assert _isna(_cell(b, "all", 0, "fdr_stratum")["value"])
+    assert _num(_cell(_rows(inst, "a"), "15-19", 1, "targets")["value"]) == 4
+    assert "in strata 1" not in inst.title  # 0.25 > 0.01: no claim
+    assert "stratum 1 unestimated" not in inst.title
 
 
 def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GippaConfig) -> None:
