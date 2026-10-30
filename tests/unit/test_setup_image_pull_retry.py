@@ -31,7 +31,8 @@ Interface pinned here (readings chosen where the issue leaves room):
   ``gippa setup: ...`` line tells the user to rerun ``gippa setup`` to retry the failed images and
   names each failed tool. It comes after the last ``image:<tool>`` line and after every DB item
   line, so it is the last item-related output. There is no such line when every image is ``ok``.
-  Setup still exits 2.
+  Setup still exits 2. An image that failed on a full disk or quota is not told to rerun (the same
+  disk stays full): a line of its own names it and points to the messages above (review round).
 
 No test runs a real container runtime or reaches a registry. Logging fakes (``apptainer``,
 ``docker``) sit first on ``PATH`` and play a scripted outcome per call: ``FAKE_OUTCOMES``, for
@@ -406,3 +407,134 @@ def test_a_pull_that_recovers_on_retry_needs_no_summary(
     assert res.exit_code == 0, res.output
     assert all(i["status"] == "ok" for n, i in _items(db).items() if n.startswith("image:"))
     assert _summary(res.output) == [], res.output
+
+
+# ---------------------------------------------------------------- review round: PR #506
+#
+# Interface pinned here, on top of the module docstring:
+#
+# - A destination image that appears during the wait (another ``gippa setup`` finished it) is
+#   ``ok``: no second run, and the file stays as it is.
+# - A failed apptainer pull that ran with ``--disable-cache`` (``APPTAINER_CACHEDIR`` unset or
+#   empty) has a message naming ``APPTAINER_CACHEDIR``. The argv stays that of example 6.9.
+# - In the summary, an image with status ``failed`` (full disk or quota) is on no rerun line; one
+#   other ``gippa setup:`` line names it and says ``above``. ``absent`` keeps the rerun line.
+
+
+def test_image_finished_by_another_setup_during_the_wait_is_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _point(tmp_path / "w", monkeypatch, "fail ok")
+    cache = tmp_path / "cache"
+    dest = cache / _images().simple_name(REF)
+    theirs = "the image another gippa setup finished\n"
+    waits: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        waits.append(float(seconds))
+        dest.write_text(theirs)
+
+    monkeypatch.setattr(time, "sleep", sleep)
+    rec = _pull("apptainer", cache)
+    assert waits, "the first pull failed, so setup waited"
+    assert len(_calls("apptainer pull")) == 1, f"pulled over a finished image: {_calls()}"
+    assert rec.status == "ok", rec
+    assert rec.path == str(dest), rec
+    assert dest.read_text() == theirs, "the finished image is not replaced"
+
+
+def _argv(cache: Path) -> list[str]:
+    return ["apptainer", "pull", "--disable-cache", str(cache / _images().simple_name(REF)),
+            f"docker://{REF}"]  # fmt: skip
+
+
+@pytest.mark.parametrize("value", [None, ""], ids=["unset", "empty"])
+def test_failed_pull_without_a_cache_mentions_apptainer_cachedir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str | None
+) -> None:
+    """#504: every retry rebuilds from nothing under ``--disable-cache``; say what avoids that."""
+    if value is not None:
+        monkeypatch.setenv("APPTAINER_CACHEDIR", value)
+    _point(tmp_path / "w", monkeypatch, "fail fail")
+    cache = tmp_path / "cache"
+    rec = _pull("apptainer", cache)
+    assert rec.status == "absent", rec
+    assert _calls("apptainer pull") == [_argv(cache), _argv(cache)], "the argv of example 6.9"
+    assert "APPTAINER_CACHEDIR" in rec.message, rec.message
+
+
+def test_failed_pull_with_a_cache_does_not_mention_apptainer_cachedir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Guard: the user already set it, and the argv has no ``--disable-cache``."""
+    monkeypatch.setenv("APPTAINER_CACHEDIR", str(tmp_path / "blobs"))
+    _point(tmp_path / "w", monkeypatch, "fail fail")
+    rec = _pull("apptainer", tmp_path / "cache")
+    assert rec.status == "absent", rec
+    assert all("--disable-cache" not in c for c in _calls("apptainer pull")), _calls()
+    assert "APPTAINER_CACHEDIR" not in rec.message, rec.message
+
+
+def test_failed_docker_pull_does_not_mention_apptainer_cachedir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Guard: the hint is about apptainer's layer cache."""
+    _point(tmp_path / "w", monkeypatch, "fail fail")
+    rec = _pull("docker", tmp_path / "cache")
+    assert rec.status == "absent", rec
+    assert "APPTAINER_CACHEDIR" not in rec.message, rec.message
+
+
+def _names(line: str, tool: str) -> bool:
+    return re.search(rf"(?<![\w-]){re.escape(tool)}(?![\w-])", line) is not None
+
+
+def _with_status(db: Path, status: str) -> list[str]:
+    return sorted(n.removeprefix("image:") for n, i in _items(db).items()
+                  if n.startswith("image:") and i["status"] == status)  # fmt: skip
+
+
+def _setup_images(tmp_path: Path, runtime: str) -> tuple[Any, Path]:
+    db = tmp_path / "db"
+    res = _setup(["--db-dir", str(db), *SKIP_DBS, "--images", "all", "--profile", runtime,
+                  "--cache-dir", str(tmp_path / "image-cache"), "--yes"])  # fmt: skip
+    return res, db
+
+
+@pytest.mark.parametrize("runtime", ["apptainer", "docker"])
+def test_full_disk_summary_does_not_say_rerun(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runtime: str
+) -> None:
+    """The same disk stays full, so rerunning is the wrong advice; the item line said what to do."""
+    _point(tmp_path / "w", monkeypatch, "full")
+    res, db = _setup_images(tmp_path, runtime)
+    assert res.exit_code == 2, res.output
+    full = _with_status(db, "failed")
+    assert full, res.output
+    assert _summary(res.output) == [], f"rerun advice for a full disk:\n{res.output}"
+    lines = res.output.splitlines()
+    above = [i for i, ln in enumerate(lines) if ln.startswith("gippa setup:")
+             and "above" in ln.lower() and all(_names(ln, t) for t in full)]  # fmt: skip
+    assert len(above) == 1, f"no single line naming {full} and the messages above:\n{res.output}"
+    last_item = max(i for i, ln in enumerate(lines) if "image:" in ln and i != above[0])
+    assert above[0] > last_item, res.output
+
+
+def test_mixed_failures_keep_the_rerun_hint_only_for_the_plain_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """First image: full disk (one run). Second: both runs fail (``absent``). The rest are ok."""
+    _point(tmp_path / "w", monkeypatch, "full fail fail")
+    res, db = _setup_images(tmp_path, "apptainer")
+    assert res.exit_code == 2, res.output
+    full, plain = _with_status(db, "failed"), _with_status(db, "absent")
+    assert full and plain, res.output
+    found = _summary(res.output)
+    assert len(found) == 1, f"no single rerun line:\n{res.output}"
+    lines = res.output.splitlines()
+    rerun = lines[found[0]]
+    assert all(_names(rerun, t) for t in plain), f"the rerun line must name {plain}: {rerun}"
+    assert not [t for t in full if _names(rerun, t)], f"{full} hit a full disk: {rerun}"
+    above = [ln for i, ln in enumerate(lines) if i != found[0] and ln.startswith("gippa setup:")
+             and "above" in ln.lower() and all(_names(ln, t) for t in full)]  # fmt: skip
+    assert len(above) == 1, f"no single line naming {full} and the messages above:\n{res.output}"

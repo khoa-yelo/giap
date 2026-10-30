@@ -44,6 +44,7 @@ import shutil
 import subprocess
 from collections.abc import Iterator, Sequence
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, NamedTuple
 
 import pytest
@@ -55,6 +56,7 @@ from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tool
 from gippa.cli import cli, main
 from gippa.exitcodes import ExitCode
 from gippa.setupdb import HttpsFetcher, SourceError
+from gippa.setupdb.dbdir import creatable
 
 GIB = 1024**3
 # one HTTPS item (geNOMAD), so a plan is printed and a download would follow; no images
@@ -282,3 +284,233 @@ def test_free_line_names_the_measured_directory(
     assert _names_path(free[0], base), (
         f"the free line names {db}, which does not exist; {base} was measured:\n{free[0]}"
     )
+
+
+# ---------------------------------------------------------------- review round: PR #506
+#
+# Interface pinned here, on top of the module docstring:
+#
+# - A parent that cannot be searched (mode 000) is the same clean error as a read-only one; on
+#   Python <= 3.13 ``Path.is_dir()`` raises ``EACCES`` there, so ``creatable`` must not let it out.
+# - ``creatable`` reports ``EROFS``, not ``EACCES``, when the nearest existing ancestor is on a
+#   read-only filesystem (``os.statvfs(...).f_flag & os.ST_RDONLY``); the CLI line carries that
+#   reason.
+# - An existing DB directory that cannot be written, when setup has something to write there (a
+#   DB item, an image, the Nextflow launcher, UniOP), is one line ``gippa setup: cannot write to
+#   <dir>: <reason>`` and exit 1, before the plan and before the pointer is recorded. With nothing
+#   to write, or under ``--check``, it is not refused.
+# - ``ENOSPC``/``EDQUOT`` from creating the DB directory is exit 2 (``ENVIRONMENT``) like every
+#   other full disk in setup, with one ``gippa setup:`` line naming the directory and saying so.
+
+
+def _cache(tmp_path: Path) -> list[str]:
+    """Never the shared image cache."""
+    return ["--cache-dir", str(tmp_path / "image-cache")]
+
+
+NOTHING = ("--bakta", "skip", "--no-genomad", "--no-promotech-models",
+           *opt_outs(*NO_RESOURCE_FLAGS), *opt_outs("images", "uniop"))  # fmt: skip
+ONE_IMAGE = ("--bakta", "skip", "--no-genomad", "--no-promotech-models",
+             *opt_outs(*NO_RESOURCE_FLAGS), *opt_outs("uniop"),
+             "--images", "--profile", "apptainer")  # fmt: skip
+ONE_UNIOP = ("--uniop", "--accept-uniop-terms", *opt_outs("images"), "--profile", "apptainer")
+
+
+@pytest.fixture
+def locked(tmp_path: Path) -> Iterator[Path]:
+    """A directory the test user can neither list nor search (``0o000``); restored afterwards."""
+    if ROOT:
+        pytest.skip("root searches a directory of mode 000")
+    d = tmp_path / "locked"
+    d.mkdir()
+    d.chmod(0o000)
+    try:
+        yield d
+    finally:
+        d.chmod(0o700)
+
+
+@pytest.fixture
+def rodb(tmp_path: Path) -> Iterator[Path]:
+    """An existing DB directory the test user can read but not write (``0o555``); restored."""
+    if ROOT:
+        pytest.skip("root writes into a read-only directory")
+    d = tmp_path / "rodb"
+    d.mkdir()
+    d.chmod(0o555)
+    try:
+        yield d
+    finally:
+        d.chmod(0o700)
+
+
+def test_db_dir_under_an_unsearchable_parent_is_a_clean_permission_error(
+    locked: Path, tmp_path: Path, env: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Mode 000 on the way to the DB directory: exit 1 with the reason, not an internal error."""
+    db = locked / "sub" / "db"
+    code, out = _main(["setup", "--db-dir", str(db), "--yes", *ONE_DB, *_cache(tmp_path)], capsys)
+    assert "internal error" not in out and "Traceback" not in out, out
+    assert code == ExitCode.INVALID_INPUT, f"exit {code}, want 1 (invalid input):\n{out}"
+    lines = [ln for ln in out.splitlines() if f"cannot create --db-dir {db}" in ln]
+    assert len(lines) == 1, out
+    assert lines[0].startswith(f"gippa setup: cannot create --db-dir {db}: "), lines[0]
+    assert "permission denied" in lines[0].lower(), lines[0]
+    assert not re.search(r"(?m)^gippa setup: (plan|free):", out), out
+    assert env["fetched"] == []
+    assert not (env["pointer"] / "db_dir").exists(), "no pointer to a directory that is not there"
+    locked.chmod(0o700)
+    assert list(locked.iterdir()) == [], "nothing was created"
+
+
+@pytest.mark.parametrize("below", ["db", "sub/db"], ids=["direct-child", "two-levels"])
+def test_creatable_returns_the_error_for_an_unsearchable_parent(locked: Path, below: str) -> None:
+    """It returns the reason and never raises, whatever ``stat`` says on the way."""
+    got = creatable(locked / below)
+    assert isinstance(got, OSError), got
+    assert got.errno == errno.EACCES, got
+
+
+@pytest.mark.parametrize("work", ["db-item", "image", "launcher", "uniop"])
+def test_read_only_db_dir_with_work_to_do_is_a_clean_error(
+    rodb: Path,
+    tmp_path: Path,
+    env: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    work: str,
+) -> None:
+    """Each thing setup would write into the DB directory; the first write is the lock file."""
+    if work == "launcher":  # nothing planned but no ``nextflow`` on PATH: it goes to DIR/bin
+        empty = tmp_path / "empty-bin"
+        empty.mkdir()
+        monkeypatch.setenv("PATH", str(empty))
+    args = {"db-item": ONE_DB, "image": ONE_IMAGE, "launcher": NOTHING, "uniop": ONE_UNIOP}[work]
+    code, out = _main(["setup", "--db-dir", str(rodb), "--yes", *args, *_cache(tmp_path)], capsys)
+    assert "internal error" not in out and "Traceback" not in out, out
+    assert code == ExitCode.INVALID_INPUT, f"exit {code}, want 1 (invalid input):\n{out}"
+    lines = [ln for ln in out.splitlines() if f"cannot write to {rodb}" in ln]
+    assert len(lines) == 1, f"no single 'cannot write to {rodb}' line:\n{out}"
+    assert lines[0].startswith(f"gippa setup: cannot write to {rodb}: "), lines[0]
+    assert lines[0].split(f"cannot write to {rodb}: ", 1)[1].strip(), f"no reason: {lines[0]!r}"
+    assert not re.search(r"(?m)^gippa setup: (plan|free):", out), out
+    assert env["fetched"] == []
+    assert not (env["pointer"] / "db_dir").exists(), "no pointer to an unusable directory"
+    assert not [c for c in env["commands"] if c[0] in ("apptainer", "docker")], env["commands"]
+
+
+def test_read_only_db_dir_with_nothing_planned_is_not_refused(
+    rodb: Path, tmp_path: Path, env: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Guard: nothing would be written there (the fake ``nextflow`` is on PATH)."""
+    code, out = _main(
+        ["setup", "--db-dir", str(rodb), "--yes", *NOTHING, *_cache(tmp_path)], capsys
+    )
+    assert "cannot write" not in out and "cannot create" not in out, out
+    assert code == ExitCode.SUCCESS, out
+
+
+def test_read_only_db_dir_is_not_refused_under_check(
+    rodb: Path, tmp_path: Path, env: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Guard: ``--check`` only reads; the missing item is exit 2, as for a writable directory."""
+    code, out = _main(
+        ["setup", "--db-dir", str(rodb), "--check", *ONE_DB, *_cache(tmp_path)], capsys
+    )
+    assert "cannot write" not in out and "cannot create" not in out, out
+    assert "internal error" not in out, out
+    assert code == ExitCode.ENVIRONMENT, out
+    assert env["fetched"] == []
+
+
+def _under(p: Any, base: Path) -> bool:
+    return not isinstance(p, int) and Path(os.fspath(p)).absolute().is_relative_to(base)
+
+
+def _no_write_access(monkeypatch: pytest.MonkeyPatch, base: Path) -> None:
+    real = os.access
+
+    def access(p: Any, mode: int, **kw: Any) -> bool:
+        return False if _under(p, base) and mode & os.W_OK else real(p, mode, **kw)
+
+    monkeypatch.setattr(os, "access", access)
+
+
+def _read_only_filesystem(monkeypatch: pytest.MonkeyPatch, base: Path) -> None:
+    """``base`` and below look like a filesystem mounted read-only."""
+    real = os.statvfs
+
+    def statvfs(p: Any) -> Any:
+        got = real(p)
+        return SimpleNamespace(f_flag=got.f_flag | os.ST_RDONLY) if _under(p, base) else got
+
+    monkeypatch.setattr(os, "statvfs", statvfs)
+    _no_write_access(monkeypatch, base)
+
+
+def test_creatable_says_read_only_filesystem_not_permission_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "mount"
+    base.mkdir()
+    _read_only_filesystem(monkeypatch, base)
+    got = creatable(base / "a" / "db")
+    assert isinstance(got, OSError), got
+    assert got.errno == errno.EROFS, f"{got!r}: errno {got.errno}, want EROFS"
+
+
+def test_creatable_says_permission_denied_on_a_writable_filesystem(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Guard: without ``ST_RDONLY`` a directory without write access stays ``EACCES``."""
+    base = tmp_path / "plain"
+    base.mkdir()
+    _no_write_access(monkeypatch, base)
+    got = creatable(base / "a" / "db")
+    assert isinstance(got, OSError), got
+    assert got.errno == errno.EACCES, got
+
+
+def test_db_dir_on_a_read_only_filesystem_says_so_in_the_error_line(
+    tmp_path: Path,
+    env: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    base = tmp_path / "mount"
+    base.mkdir()
+    _read_only_filesystem(monkeypatch, base)
+    db = base / "a" / "db"
+    code, out = _main(["setup", "--db-dir", str(db), "--yes", *ONE_DB, *_cache(tmp_path)], capsys)
+    line = _assert_clean_error(code, out, db, env)
+    assert os.strerror(errno.EROFS).lower() in line.lower(), line
+
+
+@pytest.mark.parametrize("err", [errno.ENOSPC, errno.EDQUOT], ids=["ENOSPC", "EDQUOT"])
+def test_disk_full_while_creating_the_db_dir_is_an_environment_error(
+    tmp_path: Path,
+    env: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    err: int,
+) -> None:
+    """Exit 2 as for any other full disk in setup: the path was fine, the disk is the problem."""
+    db = tmp_path / "proj" / "db"
+    db.parent.mkdir()
+    real = Path.mkdir
+
+    def mkdir(self: Path, *a: Any, **k: Any) -> None:
+        if self == db:
+            raise OSError(err, os.strerror(err), str(self))
+        real(self, *a, **k)
+
+    monkeypatch.setattr(Path, "mkdir", mkdir)
+    code, out = _main(["setup", "--db-dir", str(db), "--yes", *ONE_DB, *_cache(tmp_path)], capsys)
+    assert "internal error" not in out and "Traceback" not in out, out
+    assert code == ExitCode.ENVIRONMENT, f"exit {code}, want 2 (environment):\n{out}"
+    full = re.compile(r"(?i)no space left|disk quota|disk full")
+    lines = [ln for ln in out.splitlines() if str(db) in ln and full.search(ln)]
+    assert len(lines) == 1, f"no single line naming {db} and the full disk:\n{out}"
+    assert lines[0].startswith("gippa setup: "), lines[0]
+    assert env["fetched"] == []
+    assert not (env["pointer"] / "db_dir").exists()
