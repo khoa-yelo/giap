@@ -137,8 +137,9 @@ def test_example_6_8_quota_hit_in_antismash_and_genomad(tmp_path: Path, code: in
     _assert_failed(items["genomad"], db)
     _assert_failed(items["antismash"], db)
     assert [u for u, _d in fetcher.calls] == [SOURCES["genomad"].url,
-                                               SOURCES["promotech_models"].url]  # fmt: skip
-    assert items["promotech_models"]["status"] == "absent"  # ran, refused by the fake source
+                                               SOURCES["promotech_models"].url,
+                                               *SOURCES["promotech_models"].alt_urls]  # fmt: skip
+    assert items["promotech_models"]["status"] == "absent"  # both sources refused (ADR-0069)
     assert _partials(db) == []
     assert not (db / SOURCES["genomad"].path).exists()
     assert not (db / SOURCES["antismash"].path).exists()
