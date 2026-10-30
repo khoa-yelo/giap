@@ -17,7 +17,7 @@ import sys
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, TypeVar, get_args
+from typing import Any, NoReturn, TypeVar, get_args
 
 import click
 from click.core import ParameterSource
@@ -249,8 +249,8 @@ def setup(
     from gippa.runner.prereqs import check_java, java_problem
     from gippa.runner.profiles import IMAGES_SKIPPED
     from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, licence_lines, plan, run_setup
-    from gippa.setupdb.dbdir import config_home, resolve_db_dir, write_pointer
-    from gippa.setupdb.images import image_set, install_images
+    from gippa.setupdb.dbdir import config_home, creatable, resolve_db_dir, write_pointer
+    from gippa.setupdb.images import failed_images, image_set, install_images
     from gippa.setupdb.manifest import write_manifest
     from gippa.setupdb.run import setup_nextflow
     from gippa.setupdb.space import in_shared_home, review_plan, setup_plan
@@ -278,6 +278,9 @@ def setup(
         click.echo(f"gippa setup: {where.warning}", err=True)
     db_dir = opts["db_dir"] = where.path
     check = bool(opts["check"])
+    label = {"flag": "--db-dir", "env": "GIPPA_DB_DIR"}.get(where.source, "the DB directory")
+    if not check and (unmade := creatable(db_dir)) is not None:  # #503: before the plan
+        _cannot_create(label, db_dir, unmade)
     # images are on by default (15c2); an explicit --uniop installs UniOP only (Q-K27)
     pull = None if no_images else images or (None if uniop else "config")
     auto = profile == "auto"
@@ -328,7 +331,10 @@ def setup(
         if stop is not None:
             sys.exit(stop)
     if not check:
-        db_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            db_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:  # raced with the check above, or a read-only filesystem
+            _cannot_create(label, db_dir, exc)
         if (bad := write_pointer(config_home(os.environ), db_dir)) is not None:
             click.echo(f"gippa setup: warning: {bad}", err=True)
     if tools and runtime is not None:  # the images before the downloaders
@@ -351,7 +357,19 @@ def setup(
                            explicit=uniop)  # fmt: skip
         if step != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
+    if failed := failed_images(tools, db_dir):  # #504: the last item-related line
+        click.echo(f"{_PKG} setup: images not pulled: {', '.join(failed)}; rerun gippa setup to "
+                   "retry the failed images", err=True)  # fmt: skip
     sys.exit(int(code))
+
+
+def _cannot_create(label: str, db_dir: Path, exc: OSError) -> NoReturn:
+    """``gippa setup: cannot create --db-dir <path>: <reason>`` and exit 1 (#503)."""
+    reason = (exc.strerror or str(exc)).lower()
+    if exc.filename and str(exc.filename) != str(db_dir):
+        reason += f" ({exc.filename})"
+    click.echo(f"{_PKG} setup: cannot create {label} {db_dir}: {reason}", err=True)
+    sys.exit(int(ExitCode.INVALID_INPUT))
 
 
 def _reader_db_dir(cmd: str, flag: Path | None) -> Path | None:

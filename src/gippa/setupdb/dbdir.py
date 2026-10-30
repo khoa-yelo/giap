@@ -8,12 +8,20 @@ Order: ``--db-dir``, ``$GIPPA_DB_DIR``, the pointer file ``gippa setup`` writes
 from __future__ import annotations
 
 import contextlib
+import errno
 import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, NamedTuple
 
-__all__ = ["DbDir", "config_home", "pointer_file", "resolve_db_dir", "write_pointer"]
+__all__ = [
+    "DbDir",
+    "config_home",
+    "creatable",
+    "pointer_file",
+    "resolve_db_dir",
+    "write_pointer",
+]
 
 Source = Literal["flag", "env", "pointer", "default"]
 
@@ -74,4 +82,22 @@ def write_pointer(config: Path, db_dir: Path) -> str | None:
         with contextlib.suppress(OSError):
             tmp.unlink()
         return f"cannot record the DB directory in {ptr} ({exc}); pass --db-dir to the readers"
+    return None
+
+
+def creatable(path: Path) -> OSError | None:
+    """Why ``path`` cannot be (or is not) a directory ``gippa setup`` can create, without creating
+    anything (#503); ``None`` when it is a directory or its nearest existing ancestor is a
+    directory the user can write into."""
+    if path.is_dir():
+        return None
+    if os.path.lexists(path):
+        return FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(path))
+    ancestor = path.absolute().parent
+    while not os.path.lexists(ancestor) and ancestor != ancestor.parent:
+        ancestor = ancestor.parent
+    if not ancestor.is_dir():
+        return NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), str(ancestor))
+    if not os.access(ancestor, os.W_OK | os.X_OK):
+        return PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(ancestor))
     return None

@@ -14,6 +14,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
@@ -28,6 +29,7 @@ from gippa.setupdb.space import disk_full, is_disk_full
 
 __all__ = [
     "Runtime",
+    "failed_images",
     "image_record",
     "image_set",
     "image_sizes",
@@ -42,6 +44,9 @@ Runtime = Literal["apptainer", "docker"]
 _UPSTREAM_TAG = re.compile(r"//\s+([a-z0-9./_-]+):([A-Za-z0-9_.-]+)\s*")
 _SIF_GIB = re.compile(r"^//\s+sif_gib((?:\s+[a-z0-9_]+=[0-9.]+)+)\s*$", re.MULTILINE)
 _DIGEST_LINE = re.compile(r"^Digest:\s*(sha256:[0-9a-f]{64})\s*$", re.MULTILINE)
+PULL_ATTEMPTS = 2  # one retry: a failed unprivileged apptainer build often works the 2nd time
+RETRY_WAIT_S = 5.0
+TAIL_LINES = 5  # stderr lines kept in a failed record's message (#504)
 
 
 def _conf(conf_dir: Path | None) -> Path:
@@ -134,13 +139,15 @@ def image_record(
                     message)  # fmt: skip
 
 
-def _last_line(text: str) -> str:
+def _tail(text: str, n: int = TAIL_LINES) -> str:
+    """The last ``n`` non-empty lines of ``text``, joined into one line."""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    return lines[-1] if lines else "no output"
+    return " | ".join(lines[-n:]) if lines else "no output"
 
 
 def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> DbRecord:
-    """Pull one image (apptainer: into ``cache``, skipped when already there)."""
+    """Pull one image (apptainer: into ``cache``, skipped when already there). A failed pull is
+    retried once (#504), except a full disk or quota, a digest mismatch or a missing runtime."""
     if runtime == "apptainer":
         dest = cache / simple_name(ref)
         if dest.is_file():
@@ -152,28 +159,53 @@ def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> D
     else:
         dest = None
         cmd = ["docker", "pull", ref]
+    rec = image_record(tool, ref, version, "absent", f"{runtime} pull {ref} was not run")
+    for attempt in range(PULL_ATTEMPTS):
+        if attempt:
+            time.sleep(RETRY_WAIT_S)
+        rec, retry = _attempt(runtime, cmd, dest, tool, ref, version)
+        if not retry:
+            break
+    return rec
+
+
+def _attempt(
+    runtime: Runtime, cmd: list[str], dest: Path | None, tool: str, ref: str, version: str
+) -> tuple[DbRecord, bool]:
+    """One run of the pull: its record and whether a failure is worth one more run."""
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except OSError as exc:
-        return image_record(tool, ref, version, "absent", f"{runtime} pull failed: {exc}")
+        return image_record(tool, ref, version, "absent", f"{runtime} pull failed: {exc}"), False
     if proc.returncode != 0:
         if dest is not None:
-            dest.unlink(missing_ok=True)  # no partial image is left for Nextflow to find
+            dest.unlink(missing_ok=True)  # no partial image is left for Nextflow (or a retry)
         if is_disk_full(f"{proc.stderr}\n{proc.stdout}"):
             where = dest or "the docker storage"
-            return image_record(tool, ref, version, "failed", disk_full(where, " or --cache-dir"))
-        why = _last_line(proc.stderr or proc.stdout)
-        return image_record(tool, ref, version, "absent", f"{runtime} pull {ref} failed: {why}")
+            full = disk_full(where, " or --cache-dir")
+            return image_record(tool, ref, version, "failed", full), False
+        why = _tail(proc.stderr or proc.stdout)
+        msg = f"{runtime} pull {ref} failed: {why}"
+        return image_record(tool, ref, version, "absent", msg), True
     if runtime == "docker":
         pin = ref.split("@", 1)[1]
         got = pulled_digest(proc.stdout + "\n" + proc.stderr)
         if got != pin:
             return image_record(tool, ref, version, "mismatch",
-                                f"pulled {got or 'no digest'}, pinned {pin}")  # fmt: skip
-        return image_record(tool, ref, version, "ok", f"pulled {ref}")
+                                f"pulled {got or 'no digest'}, pinned {pin}"), False  # fmt: skip
+        return image_record(tool, ref, version, "ok", f"pulled {ref}"), False
     if dest is None or not dest.is_file():
-        return image_record(tool, ref, version, "absent", f"apptainer pull wrote no {dest}")
-    return image_record(tool, ref, version, "ok", f"pulled {ref}", dest)
+        return image_record(tool, ref, version, "absent", f"apptainer pull wrote no {dest}"), True
+    return image_record(tool, ref, version, "ok", f"pulled {ref}", dest), False
+
+
+def failed_images(tools: list[str], db_dir: Path) -> list[str]:
+    """The ``tools`` whose ``image:<tool>`` record in ``db_dir`` is missing or not ``ok`` (the
+    rerun summary at the end of ``gippa setup``, #504)."""
+    if not tools:
+        return []
+    recs = read_records(db_dir)
+    return [t for t in tools if (r := recs.get(f"image:{t}")) is None or r.status != "ok"]
 
 
 def _kept(rec: DbRecord, old: Mapping[str, DbRecord]) -> DbRecord:
