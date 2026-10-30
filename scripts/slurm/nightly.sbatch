@@ -122,7 +122,10 @@ coverage_gate() {  # the last shard: combine the shards' coverage data, then ci/
   if [ -z "$min" ] || [ "${#files[@]}" != "$SHARDS_N" ]; then
     cov_rc=1; cov_note="; coverage not measured (${#files[@]} of $SHARDS_N shard data files)"; return
   fi
-  printf '[paths]\ngippa =\n    %s/src/gippa\n    */src/gippa\n' "$PWD" > "$rc_file"
+  # ignore_errors: a module a test wrote under its tmp dir (test_steps_review's zz_review_toy.py)
+  # is gone by report time, and "No source for code" failed the gate (run 1905610)
+  printf '[paths]\ngippa =\n    %s/src/gippa\n    */src/gippa\n[report]\nignore_errors = True\n' \
+    "$PWD" > "$rc_file"
   rm -f "$data"
   python -m coverage combine --keep --rcfile="$rc_file" --data-file="$data" "${files[@]}" &&
     python -m coverage report --keep-combined --rcfile="$rc_file" --data-file="$data" \
