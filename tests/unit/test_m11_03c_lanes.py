@@ -265,7 +265,7 @@ def _example3(plan: Mapping[str, Any]) -> tuple[Any, dict[str, bool], dict[str, 
 
 def test_example_3_placement(mod: ModuleType, plan: dict[str, Any]) -> None:
     row, report, durations = _example3(plan)
-    assert (row.shards, row.groups, row.group_select) == (2, 8, "direct")
+    assert (row.shards, row.groups, row.group_select) == (2, 10, "direct")  # b3d84613: was 8
     direct = {n for n, s in report.items() if s}
     harness = set(report) - direct
     assert (len(direct), len(harness)) == (28, 30)
@@ -277,11 +277,11 @@ def test_example_3_placement(mod: ModuleType, plan: dict[str, Any]) -> None:
         assert set(ln.expected) == harness and ATTACK5 in ln.expected
         assert ln.part == f"task-0.shard{k}.junit.xml"
     assert shard[0].deselect == shard[1].deselect and shard[0].expected == shard[1].expected
-    assert [(ln.index, ln.n) for ln in group] == [(g, 8) for g in range(8)]
+    assert [(ln.index, ln.n) for ln in group] == [(g, 10) for g in range(10)]
     sets = [set(ln.expected) for ln in group]
     assert sorted(n for s in sets for n in s) == sorted(direct)
     assert all(sets) and [ln.part for ln in group] == [f"task-0.group{g}.junit.xml"
-                                                        for g in range(8)]  # fmt: skip
+                                                        for g in range(10)]  # fmt: skip
     _, want = _model(row, report, durations)
     assert sets == [set(w) for w in want]
     for ln in out:

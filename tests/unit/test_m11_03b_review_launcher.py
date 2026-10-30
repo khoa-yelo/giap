@@ -4,8 +4,8 @@
 Spec: docs/specs/M11-03b-nightly-readiness-labels.md, rule 3 of ``calibration_full_launch.sh``, as
 replaced by M11-03c PR 4 (docs/specs/M11-03c-calibration-full-sharding.md): a launch queues 16 jobs
 (15 per-suite jobs and the aggregator), so it refuses when ``jobs + 16 > 20``; it refuses when
-``cpus + Σ + 1 > 128`` (Σ = 126 allocated CPUs, after dry run 45bc3599); the worst-case end
-``now + max(time) + 20 min`` (8 h 20 m) must be
+``cpus + Σ + 2 > 144`` (Σ = 138 allocated CPUs; 128 is a soft cap that only warns, Q-K59); the
+worst-case end ``now + max(time) + 20 min`` (8 h 20 m) must be
 before the next nightly start (``GIPPA_NIGHTLY_AT``, default ``01:30`` local), else refuse. The
 clock
 is ``GIPPA_NOW`` (epoch seconds). Every refusal is exit 2, no ``sbatch`` call, and a message naming
@@ -42,7 +42,7 @@ def refused(sb: Sandbox, res: subprocess.CompletedProcess[str]) -> str:
 def accepted(sb: Sandbox, res: subprocess.CompletedProcess[str]) -> None:
     assert res.returncode == 0, _out(res)
     assert len(_suites(sb)) == 15
-    assert "cpus=126" in res.stdout, res.stdout
+    assert "cpus=138" in res.stdout, res.stdout
 
 
 # ------------------------------------------------------------------ the nightly window
@@ -114,7 +114,7 @@ def test_the_clock_is_gippa_now(sb: Sandbox) -> None:
 
 @pytest.mark.parametrize(
     ("lines", "ok"),
-    [(["0 gippa-j"] * 4, True),                       # 4 + 16 = 20 (and 0 + 128 = 128 CPUs)
+    [(["0 gippa-j"] * 4, True),                       # 4 + 16 = 20 (and 0 + 140 = 140 CPUs)
      (["0 gippa-j"] * 4 + ["2 other"] * 30, True),    # only gippa-* jobs count
      (["1 gippa-j"] * 5, False),                      # 21 > 20
      (["0 gippa-pending"] * 5, False),                # pending tasks count, CPUs or not
@@ -133,16 +133,16 @@ def test_a_launch_counts_its_16_jobs(sb: Sandbox, lines: list[str], ok: bool) ->
 
 
 def test_no_standing_reserve_for_the_nightly_cpus(sb: Sandbox) -> None:
-    """No standing reserve (B3 replaces Q3): an empty queue fits exactly (0 + 126 + 2 = 128); one
-    pending 1-CPU job (a whole core, 2) does not."""
+    """No standing reserve (B3 replaces Q3): an empty queue fits (0 + 138 + 2 = 140 <= 144); five
+    pending CPUs (three whole cores, 6) do not (146 > 144)."""
     _queue(sb, [])
     accepted(sb, _launch(sb, GIPPA_NOW=at(10)))
-    _queue(sb, ["1 gippa-other"])
+    _queue(sb, ["5 gippa-other"])
     refused_res = _launch(sb, GIPPA_NOW=at(10))
     assert refused_res.returncode == 2, _out(refused_res)
 
 
 def test_cpu_refusal_names_the_numbers(sb: Sandbox) -> None:
-    _queue(sb, ["112 gippa-big"])  # 112 + 126 + 2 = 240 > 128
+    _queue(sb, ["112 gippa-big"])  # 112 + 138 + 2 = 252 > 144
     out = refused(sb, _launch(sb, GIPPA_NOW=at(10)))
-    assert all(re.search(rf"\b{n}\b", out) for n in (112, 128, 240)), out
+    assert all(re.search(rf"\b{n}\b", out) for n in (112, 144, 252)), out
