@@ -3,9 +3,12 @@
 
 Spec: docs/specs/M11-03c-calibration-full-sharding.md, "calibration_full_launch.sh (changed)",
 examples 6-9. The launcher validates the **worktree's** plan (``calibration_lanes.py check``; exit
-2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(allocated) + 1 > 128`` (a
+2, nothing submitted), refuses when ``jobs + 16 > 20`` or ``cpus + sum(allocated) + 2 > 144`` (a
 suite's allocated CPUs: ``max(lanes x cpus_per_lane, ceil(lanes x mem_per_lane_mb / 4000))``, the
-partition's MaxMemPerCPU; the committed plan allocates 126), refuses when ``now + max(time) + 20
+partition's MaxMemPerCPU; the committed plan allocates 138; the aggregator holds a whole core),
+warns on stderr (a line starting ``R14: `` naming the sum and "soft cap 128") and submits when that
+sum is over 128 and at most 144 (Khoa 2026-10-29: "It's okay if it exceeds 128 a little bit. It's
+not a hard threshold."), refuses when ``now + max(time) + 20
 min`` reaches the next nightly start, submits the 15 ``calibration_suite.sbatch`` jobs in plan
 order (``gippa-cal-<suite>``, ``--cpus-per-task`` = lanes x cpus_per_lane, ``--mem`` = lanes x
 mem_per_lane_mb, ``--time``), then the aggregator
@@ -99,7 +102,7 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
         assert _export(j, "GIPPA_SUITE") == r["suite"] and _export(j, "GIPPA_WORKTREE") == wt, j
         assert _export(j, "GIPPA_CALIBRATION_LOG_DIR") == log, j
     first = jobs[0]["argv"]
-    assert option(first, "cpus-per-task", "c") == "20" and option(first, "time", "t") == "08:00:00"
+    assert option(first, "cpus-per-task", "c") == "24" and option(first, "time", "t") == "08:00:00"
     rows = _rows_job(sb)
     assert option(rows["argv"], "dependency", "d") == "afterany:" + ":".join(IDS), rows["argv"]
     assert option(rows["argv"], "cpus-per-task", "c") == "1", rows["argv"]
@@ -107,28 +110,61 @@ def test_example6_one_job_per_suite_then_the_aggregator(sb: Sandbox) -> None:
     for pat in (rf"--job[= ]{IDS[0]}\b", r"--expect[= ]15\b", rf"--commit[= ]{sb.head}\b"):
         assert re.search(pat, cmd), (pat, cmd)
     assert all((_job_name(c) or "").startswith("gippa-") for c in sb.sbatch_calls())
-    want = rf"jobs={','.join(IDS)} rows={ROWS} log={re.escape(log)} cpus=126\b"
+    want = rf"jobs={','.join(IDS)} rows={ROWS} log={re.escape(log)} cpus=138\b"
     assert re.search(want, res.stdout), res.stdout
     seen = (sb.state / "squeue_seen").read_text().split()
     assert seen and seen[0] == "0", seen  # squeue before the first sbatch
 
 
-@pytest.mark.parametrize(("lines", "ok"),
-                         [(["0 gippa-x"], True),         # 0 + 126 + 2 (aggregator core) = 128
-                          (["1 gippa-x"], False),        # example 7: a pending 1 CPU holds 2: 130
-                          (["15 gippa-a", "15 gippa-b", "64 other"], False),
-                          (["0 gippa-j"] * 4, True),     # 4 + 16 = 20 jobs, 128 CPUs
-                          (["0 gippa-j"] * 5, False)])  # 21 > 20 jobs  # fmt: skip
-def test_r14_cpu_fit_and_job_count(sb: Sandbox, lines: list[str], ok: bool) -> None:
+def _r14_warning(res: subprocess.CompletedProcess[str]) -> list[str]:
+    return [ln for ln in res.stderr.splitlines() if ln.startswith("R14: ")]
+
+
+# (queue, CPU sum or None for a job-count refusal, ok); the launch itself is 138 + 2 = 140
+@pytest.mark.parametrize(("lines", "total", "ok"),
+                         [(["0 gippa-x"], 140, True),     # 0 + 138 + 2 (aggregator core): warn
+                          (["1 gippa-x"], 142, True),     # example 7: a pending 1 CPU holds 2
+                          (["4 gippa-x"], 144, True),     # the hard cap itself (boundary): warn
+                          (["5 gippa-x"], 146, False),    # a whole core: 6 + 140 = 146 > 144
+                          (["6 gippa-x"], 146, False),    # 6 + 140 = 146 > 144
+                          (["15 gippa-a", "15 gippa-b", "64 other"], 172, False),
+                          (["0 gippa-j"] * 4, 140, True),  # 4 + 16 = 20 jobs, 140 CPUs: warn
+                          (["0 gippa-j"] * 5, None, False)])  # 21 > 20 jobs  # fmt: skip
+def test_r14_cpu_fit_and_job_count(
+    sb: Sandbox, lines: list[str], total: int | None, ok: bool
+) -> None:
     _queue(sb, lines)
     res = _launch(sb)
     if ok:
         assert res.returncode == 0 and len(_suite_jobs(sb)) == 15, _out(res)
+        assert re.search(r"\bcpus=138\b", res.stdout), res.stdout  # still the suite jobs' sum
+        warn = _r14_warning(res)
+        assert len(warn) == 1, res.stderr
+        assert re.search(rf"\b{total}\b", warn[0]) and "soft cap 128" in warn[0], warn
+        assert "soft cap" not in res.stdout, res.stdout  # the warning goes to stderr
         return
     out = _out(res)
     assert res.returncode == 2 and sb.sbatch_calls() == [] and "R14" in out, out
-    if lines == ["1 gippa-x"]:  # 2 (whole core) + 128 (126 allocated + 2 rows) = 130 > 128
-        assert all(re.search(rf"\b{n}\b", out) for n in (2, 128, 130)), out
+    if total is not None:
+        assert re.search(rf"\b{total}\b", out) and re.search(r"\b144\b", out), out
+        assert re.search(rf"\b{total}\s*>\s*144\b", out), out
+
+
+@pytest.mark.parametrize(("shards", "queued", "total"),
+                         [("6", [], 128),               # 126 + 2: the soft cap itself, no warning
+                          ("4", ["2 gippa-x"], 126)])  # 2 + 122 + 2  # fmt: skip
+def test_a_plan_within_the_soft_cap_submits_without_a_warning(
+    sb: Sandbox, shards: str, queued: list[str], total: int
+) -> None:
+    """novel_orfs with fewer shards: 138 - 2 x (12 - shards) allocated."""
+    _push(sb, {"novel_orfs": {"shards": shards}}, keep_working_copy=True)
+    _queue(sb, queued)
+    res = _launch(sb)
+    assert res.returncode == 0 and len(_suite_jobs(sb)) == 15, _out(res)
+    alloc = 138 - 2 * (12 - int(shards))
+    assert re.search(rf"\bcpus={alloc}\b", res.stdout), res.stdout
+    assert total == alloc + 2 + sum(int(q.split()[0]) for q in queued)
+    assert _r14_warning(res) == [] and "soft cap" not in _out(res), res.stderr
 
 
 @pytest.mark.parametrize(("hour", "minute", "nightly", "ok"),
@@ -169,7 +205,7 @@ def test_bad_worktree_plan_refuses_before_any_sbatch(sb: Sandbox) -> None:
 
 
 def test_jobs_are_sized_from_the_worktree_plan(sb: Sandbox) -> None:
-    # compare +2 CPUs; discordance 2 x 8000 MB is allocated 4 CPUs, not 8: 126 + 2 - 4 = 124
+    # compare +2 CPUs; discordance 2 x 8000 MB is allocated 4 CPUs, not 8: 138 + 2 - 4 = 136
     _push(sb, {"compare": {"cpus_per_lane": "4", "time": "03:00:00"},
                "discordance": {"mem_per_lane_mb": "8000"}}, keep_working_copy=True)  # fmt: skip
     _queue(sb, [])
@@ -180,7 +216,7 @@ def test_jobs_are_sized_from_the_worktree_plan(sb: Sandbox) -> None:
     assert option(last, "cpus-per-task", "c") == "4" and option(last, "time", "t") == "03:00:00"
     disc = next(j["argv"] for j in jobs if _job_name(j) == "gippa-cal-discordance")
     assert re.fullmatch(r"16000M?", option(disc, "mem") or ""), disc
-    assert re.search(r"\bcpus=124\b", res.stdout), res.stdout
+    assert re.search(r"\bcpus=136\b", res.stdout), res.stdout
 
 
 def test_a_plan_without_a_final_newline_keeps_its_last_suite(sb: Sandbox) -> None:
@@ -192,7 +228,7 @@ def test_a_plan_without_a_final_newline_keeps_its_last_suite(sb: Sandbox) -> Non
     _queue(sb, [])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
-    assert len(_suite_jobs(sb)) == 15 and re.search(r"\bcpus=126\b", res.stdout), res.stdout
+    assert len(_suite_jobs(sb)) == 15 and re.search(r"\bcpus=138\b", res.stdout), res.stdout
 
 
 def test_a_failed_scancel_is_reported(sb: Sandbox) -> None:

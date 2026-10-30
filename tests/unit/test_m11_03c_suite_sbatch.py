@@ -838,13 +838,13 @@ def test_example_3_placement_shards_groups_and_merge(box: Box, lanes_mod: Module
     box.durations(durations)
     want = expected_lanes(lanes_mod, box, "placement", report)
     direct = {n for n, s in report.items() if s}
-    run = box.run("placement", report, "0-19", {"STUB_PENDING": "1"})
+    run = box.run("placement", report, "0-23", {"STUB_PENDING": "1"})
     assert run.rc == 0, run.stderr
     assert run.forbidden() == []
     log = run.log
     wrappers = run.lane_wrappers()
     assert sorted(w["role"] for w in wrappers) == sorted(
-        [f"shard{k}" for k in range(2)] + [f"group{g}" for g in range(8)]
+        [f"shard{k}" for k in range(2)] + [f"group{g}" for g in range(10)]
     )
     for k in range(2):
         (w,) = [w for w in wrappers if w["role"] == f"shard{k}"]
@@ -860,12 +860,12 @@ def test_example_3_placement_shards_groups_and_merge(box: Box, lanes_mod: Module
         assert w["env"]["GIPPA_CALIBRATION_LOG_DIR"] == f"{log}/lanes/placement-group{ln.index}"
     cores = [_cpulist(w["env"]["STUB_TASKSET"] or "") for w in wrappers]
     assert all(len(c) == 2 for c in cores)
-    assert len(set().union(*cores)) == 20, "10 lanes on 10 disjoint whole cores"
+    assert len(set().union(*cores)) == 24, "12 lanes on 12 disjoint whole cores"
 
     (merge,) = run.of(proc="criteria", role="merge")
     lane_ends = [e["t"] for e in run.of(proc="criteria", event="end")
                  if re.fullmatch(r"shard\d+|group\d+", e["role"])]  # fmt: skip
-    assert len(lane_ends) == 10 and merge["t"] >= max(lane_ends), "merge after every lane"
+    assert len(lane_ends) == 12 and merge["t"] >= max(lane_ends), "merge after every lane"
     assert "--merge" in merge["argv"]
     assert set(merge["deselect"]) == direct
     assert merge["env"]["GIPPA_CALIBRATION_CONFIRM_LANES"] == "2"

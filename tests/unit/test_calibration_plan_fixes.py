@@ -6,7 +6,10 @@
   3 x 2 CPUs, determinants 12 shards + 3 ``direct`` groups. Every row passes ``read_plan``.
 - R14 counts the CPUs Slurm allocates: ``max(lanes x cpus_per_lane, ceil(lanes x mem / 4000))``
   (partition MaxMemPerCPU 4000 MB); discordance asks 2 x 16000 MB and gets 8 CPUs, not 4. The plan
-  allocates 126 CPUs, 127 with the rows job; the launcher sums the same.
+  allocates 138 CPUs, 139 with the rows job (140 with its whole core); the launcher sums the same.
+- Full run b3d84613 (2026-10-29), Khoa "More lanes, ~140 CPUs": placement 10 ``direct`` groups
+  (was 8), novel_orfs 12 shards (was 8). R14's 128 is a soft cap: the launcher warns over 128 and
+  refuses only over 144.
 - The ⅔ rule (docs/specs/M11-03c-calibration-full-sharding.md, "Initial plan"): each suite job's
   LPT estimate from ``calibration_durations.tsv`` is at most ⅔ of its ``time``. A shard lane's
   estimate includes the merge, which runs in the same job time (backlog 2026-10-27).
@@ -41,15 +44,17 @@ PLAN = REPO / "scripts" / "slurm" / "calibration_plan.tsv"
 DURATIONS = REPO / "scripts" / "slurm" / "calibration_durations.tsv"
 TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 SUITE_SBATCH = REPO / "scripts" / "slurm" / "calibration_suite.sbatch"
-R14_CPUS = 128
+R14_SOFT_CPUS = 128  # warn above (Khoa 2026-10-29: "not a hard threshold")
+R14_HARD_CPUS = 144  # refuse above
 
 # suite: (shards, groups, group_select, cpus_per_lane, mem_per_lane_mb, time)
 CHANGED = {
-    "placement": (2, 8, "direct", 2, 4000, "08:00:00"),
+    "placement": (2, 10, "direct", 2, 4000, "08:00:00"),
     "gene_fdr": (0, 3, "*", 2, 4000, "06:00:00"),
     "regions": (0, 5, "*", 2, 4000, "08:00:00"),
     "autocorrelation": (0, 3, "*", 2, 4000, "08:00:00"),
     "determinants": (12, 3, "direct", 2, 4000, "08:00:00"),
+    "novel_orfs": (12, 1, "direct", 2, 4000, "08:00:00"),
 }
 
 # The 5-group regions row is the lead's plan (cal_timeouts.md: its longest wheat lane ran 5.8 h).
@@ -129,18 +134,20 @@ def test_planned_allocated_cpus_with_the_rows_job_fit_r14(lanes_mod: ModuleType)
     rows = lanes_mod.read_plan(PLAN, _suites())
     requested = sum(r.requested_cpus for r in rows)
     allocated = sum(lanes_mod.allocated_cpus(r) for r in rows)
-    assert (requested, allocated) == (122, 126)
-    assert allocated + 2 == 128 <= R14_CPUS  # the 1-CPU rows job holds a whole core
+    assert (requested, allocated) == (134, 138)
+    # the 1-CPU rows job holds a whole core: 140, over the soft cap, inside the hard one
+    assert R14_SOFT_CPUS < allocated + 2 == 140 <= R14_HARD_CPUS
     assert len(rows) + 1 <= 20  # jobs
 
 
 def test_launcher_sums_allocated_cpus(sb: Sandbox) -> None:
-    """0 queued + 126 allocated + 2 (rows job, a whole core) = 128 launches; a pending 1-CPU job
-    (a whole core: 2) refuses."""
+    """0 queued + 138 allocated + 2 (rows job, a whole core) = 140 launches with an R14 warning
+    (soft cap 128)."""
     _queue(sb, ["0 gippa-other"])
     res = _launch(sb)
     assert res.returncode == 0, _out(res)
-    assert re.search(r"\bcpus=126\b", res.stdout), res.stdout
+    assert re.search(r"\bcpus=138\b", res.stdout), res.stdout
+    assert re.search(r"^R14: .*\b140\b.*soft cap 128", res.stderr, re.M), res.stderr
     jobs = {option(c["argv"], "job-name", "J"): c["argv"] for c in sb.sbatch_calls()}
     disc = jobs["gippa-cal-discordance"]
     assert option(disc, "cpus-per-task", "c") == "4", disc  # the request itself is unchanged
@@ -148,18 +155,20 @@ def test_launcher_sums_allocated_cpus(sb: Sandbox) -> None:
 
 
 def test_launcher_refuses_when_allocated_cpus_pass_r14(sb: Sandbox) -> None:
-    _queue(sb, ["1 gippa-other"])
+    """A pending 5-CPU job holds 6 (whole cores): 6 + 138 + 2 = 146 > 144 refuses."""
+    _queue(sb, ["5 gippa-other"])
     res = _launch(sb)
     assert res.returncode == 2 and sb.sbatch_calls() == [], _out(res)
-    assert re.search(r"\b130\b", _out(res)) and "allocated" in _out(res), _out(res)
+    assert re.search(r"\b146\b", _out(res)) and "allocated" in _out(res), _out(res)
+    assert re.search(r"\b144\b", _out(res)), _out(res)
 
 
 def test_launcher_max_mem_per_cpu_override_changes_the_sum(sb: Sandbox) -> None:
-    """MaxMemPerCPU 16000: discordance needs no raise (4 CPUs), so 122 suite CPUs."""
-    _queue(sb, ["4 gippa-other"])  # 4 + 122 + 2 = 128 fits; at 4000 it would be 132
+    """MaxMemPerCPU 16000: discordance needs no raise (4 CPUs), so 134 suite CPUs."""
+    _queue(sb, ["8 gippa-other"])  # 8 + 134 + 2 = 144 fits; at 4000 it would be 148 (refused)
     res = _launch(sb, GIPPA_MAX_MEM_PER_CPU_MB="16000")
     assert res.returncode == 0, _out(res)
-    assert re.search(r"\bcpus=122\b", res.stdout), res.stdout
+    assert re.search(r"\bcpus=134\b", res.stdout), res.stdout
 
 
 @pytest.mark.parametrize("bad", ["0", "00", "abc", "-1"])
