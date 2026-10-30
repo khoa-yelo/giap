@@ -13,4 +13,6 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER workflow/envs/locks/promoter_calculator.pip
 RUN { grep -v ' @ file://' /tmp/pip.txt || true; } > /tmp/pip-pypi.txt \
     && micromamba run -n base python -m pip install --no-cache-dir --no-deps -r /tmp/pip-pypi.txt \
     && rm /tmp/pip.txt /tmp/pip-pypi.txt
+# apptainer exec does not run the entrypoint that activates the base env.
+ENV PATH="/opt/conda/bin:$PATH" CONDA_PREFIX=/opt/conda
 LABEL org.opencontainers.image.title="gippa-promoter_calculator"

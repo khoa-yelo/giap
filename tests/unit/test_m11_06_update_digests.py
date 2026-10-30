@@ -322,7 +322,7 @@ def test_all_five_images_leave_only_uniop_conda_only(tmp_path: Path) -> None:
     out = cfg.read_text()
     for p, ref in digests.items():
         assert _pins(out, p) == [_pin_line(p, ref)]
-    assert len(re.findall(r"withName:", out)) == 14
+    assert len(re.findall(r"withName:", out)) == 17  # includes the 3 sharded TerminatorNet pins
     lines = out.splitlines()
     assert "//   uniop" in lines
     # fgsea's own comment is untouched (conda-only under every profile, M8-17 decision 9)
@@ -353,7 +353,8 @@ def test_property_pins_are_exact_preserving_and_idempotent(chosen: dict[str, str
         once = cfg.read_text()
         for p, ref in digests.items():
             assert _pins(once, p) == [_pin_line(p, ref)]
-        assert len(re.findall(r"withName:", once)) == 7 + len(digests)
+        shards = 3 if "TERMINATORNET" in digests else 0  # the sharded processes share its image
+        assert len(re.findall(r"withName:", once)) == 7 + len(digests) + shards
         kept = [ln for ln in ORIGINAL.splitlines() if ln != CONDA_ONLY_LINE]
         assert _is_subsequence(kept, once.splitlines())
         start, end = _process_block(once.splitlines())

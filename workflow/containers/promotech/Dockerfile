@@ -21,4 +21,11 @@ RUN mkdir -p /opt/conda/share/promotech \
     && tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/promotech \
     && echo "$GIT_SHA" > /opt/conda/share/promotech/GIPPA_COMMIT && rm /tmp/src.tar.gz
 WORKDIR /opt/conda/share/promotech
+# promotech.py imports PyQt5 at the top, and Qt links libGL (absent from the conda lock).
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+USER $MAMBA_USER
+# apptainer exec does not run the entrypoint that activates the base env.
+ENV PATH="/opt/conda/bin:$PATH" CONDA_PREFIX=/opt/conda
 LABEL org.opencontainers.image.title="gippa-promotech"
