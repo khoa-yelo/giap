@@ -1,7 +1,8 @@
 # Official database and model sources of `gippa setup` (GIPPA_SPEC.md §3.2, §3.9, §7.9.1; R6).
 # Checksums are those of the archive as published; Bakta full, geNOMAD and Promotech pins: ADR-0014.
 # check: how `verify` recognises an installed copy; size_gib: free disk needed before downloading;
-# prefetch: the item's row in $GIPPA_DB_DIR/prefetch_manifest.tsv (adopted provenance).
+# prefetch: the item's row in $GIPPA_DB_DIR/prefetch_manifest.tsv (adopted provenance);
+# alt_urls: further official sources, tried in order only when the previous one is unreachable.
 bakta_light:
   version: "6.0"
   url: https://zenodo.org/records/14916843/files/db-light.tar.xz
@@ -44,6 +45,8 @@ promotech_models:
   check: promotech
   size_gib: 5
   prefetch: promotech_rf_hot
+  alt_urls:                     # ADR-0069: the authors' Git LFS copy, tried only if cs.mun.ca fails
+    - https://media.githubusercontent.com/media/BioinformaticsLabAtMUN/PromoTech/bdf2f3ce06ffd0e342607eed4bfa32e160816143/models/RF-HOT.zip
 # M2-09 resources: single files fetched over HTTPS (check: go / kegg:<table> / sha256 / fasta:<n>).
 # GO: newest monthly release whose OBO headers announce the release date of its directory
 # (2026-06-19 and 2026-08-05 announce 2026-06-15 and 2026-07-26); sha256 pins retrieved 2026-10-15.
