@@ -27,7 +27,9 @@ from helpers.mapping_steps import drive, fresh_steps, key_like, module2_files, p
 
 from gippa.config import resolve_config
 from gippa.io.fasta import read_genome_fasta
+from gippa.mapping.initiator import annotated_starts, start_keys
 from gippa.model import Replicon
+from gippa.steps.mapping import read_gene_model
 
 pytestmark = pytest.mark.slow
 
@@ -61,7 +63,11 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, object]:
     genome = {r.id: r.sequence for r in read_genome_fasta(run.genome)}
     rows = pd.read_parquet(avail[key_like(list(avail), "replicons")]).to_dict("records")
     reps = {r["contig"]: Replicon(r["contig"], r["length"], r["topology"], r["kind"]) for r in rows}
-    return {"ph": ph, "ht": ht, "genome": genome, "reps": reps}
+    # the initiator start keys, as the variants step passes them (M11-20)
+    gm = read_gene_model(*(Path(avail[key_like(list(avail), k)]) for k in ("genes", "replicons")))
+    tt = cfg.annotation.translation_table
+    starts = start_keys(annotated_starts(gm, genome, cfg.annotation.start_codons, table=tt)[0])
+    return {"ph": ph, "ht": ht, "genome": genome, "reps": reps, "starts": starts, "table": tt}
 
 
 def test_every_accepted_hit_aligns(chain: dict[str, object]) -> None:
@@ -70,12 +76,13 @@ def test_every_accepted_hit_aligns(chain: dict[str, object]) -> None:
     assert isinstance(ph, pd.DataFrame)
     tolerant = ph[ph["route"] == "tolerant"]
     assert len(tolerant) > 0, "the fixture must exercise the tolerant route"
-    got = mod.align_hits(ph, chain["ht"], chain["genome"], chain["reps"])
+    got = mod.align_hits(ph, chain["ht"], chain["genome"], chain["reps"], table=chain["table"],
+                         starts=chain["starts"])  # fmt: skip
     assert len(got) == len(ph)
     for a, row in zip(got, ph.to_dict("records"), strict=True):
         assert (a.peptide, a.contig, a.strand) == (row["peptide"], row["contig"], row["strand"])
         assert "".join(op.alt for op in a.ops) == row["peptide"]
-        cost = sum(op.kind not in ("match", "il") for op in a.ops)
+        cost = sum(op.kind not in ("match", "il", "initiator") for op in a.ops)  # M11-20: n_diff 0
         fs = isinstance(row["diff_types"], str) and "frameshift" in row["diff_types"]
         assert (a.frameshift is not None) == fs
         assert cost + int(fs) == int(row["n_diff"]), row["peptide"]
