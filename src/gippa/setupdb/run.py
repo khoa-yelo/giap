@@ -61,6 +61,7 @@ __all__ = [
     "ToolUnavailable",
     "amrfinder_record",
     "install",
+    "nextflow_on_path",
     "run_setup",
     "setup_nextflow",
 ]  # fmt: skip
@@ -684,13 +685,18 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
     return ExitCode.SUCCESS if status_ok else ExitCode.ENVIRONMENT
 
 
+def nextflow_on_path(environ: Mapping[str, str]) -> str | None:
+    """The ``nextflow`` on ``PATH``; ``None``: ``setup_nextflow`` writes into the DB directory."""
+    return shutil.which("nextflow", path=environ.get("PATH", ""))
+
+
 def setup_nextflow(db_dir: Path, fetcher: Fetcher, environ: Mapping[str, str]) -> ExitCode:
     """The Nextflow launcher (M11-15 item 5): a ``nextflow`` on ``PATH`` is reported (version and
     path) and nothing is downloaded; else the pinned ``-dist`` launcher is adopted or fetched into
     ``<db_dir>/bin/nextflow`` (mode 0755) and recorded in ``db_manifest.json``."""
     from gippa.runner.prereqs import nextflow_version
 
-    found = shutil.which("nextflow", path=environ.get("PATH", ""))
+    found = nextflow_on_path(environ)
     if found is not None:
         version = nextflow_version(Path(found), environ) or "of unknown version"
         _say(f"nextflow: found {version} at {found}; the launcher is not downloaded")

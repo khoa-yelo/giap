@@ -193,7 +193,10 @@ def review_plan(
         if free is not None and where in quotas:
             free = min(free, quotas[where])
         if free is not None:
-            _say(f"free: {free / GIB:.1f} GiB on {where} ({', '.join(names)})")
+            # a directory not created yet is measured on its nearest existing ancestor (#503)
+            on = where if where.exists() else (
+                f"{_existing(where)} (nearest existing directory of {where})")  # fmt: skip
+            _say(f"free: {free / GIB:.1f} GiB on {on} ({', '.join(names)})")
         need = sum(ln.gib for ln in lines if ln.where == where)
         key = _device(where)
         first, had, low = groups.get(key, (where, 0.0, None))

@@ -8,12 +8,21 @@ Order: ``--db-dir``, ``$GIPPA_DB_DIR``, the pointer file ``gippa setup`` writes
 from __future__ import annotations
 
 import contextlib
+import errno
 import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, NamedTuple
 
-__all__ = ["DbDir", "config_home", "pointer_file", "resolve_db_dir", "write_pointer"]
+__all__ = [
+    "DbDir",
+    "config_home",
+    "creatable",
+    "pointer_file",
+    "resolve_db_dir",
+    "writable",
+    "write_pointer",
+]
 
 Source = Literal["flag", "env", "pointer", "default"]
 
@@ -75,3 +84,33 @@ def write_pointer(config: Path, db_dir: Path) -> str | None:
             tmp.unlink()
         return f"cannot record the DB directory in {ptr} ({exc}); pass --db-dir to the readers"
     return None
+
+
+def writable(directory: Path) -> OSError | None:
+    """Why the existing ``directory`` cannot be written into (``EROFS`` on a read-only filesystem,
+    else ``EACCES``); ``None`` when it can."""
+    if os.access(directory, os.W_OK | os.X_OK):
+        return None
+    try:
+        read_only = bool(os.statvfs(directory).f_flag & os.ST_RDONLY)
+    except OSError:
+        read_only = False
+    code = errno.EROFS if read_only else errno.EACCES
+    return OSError(code, os.strerror(code), str(directory))
+
+
+def creatable(path: Path) -> OSError | None:
+    """Why ``path`` cannot be (or is not) a directory ``gippa setup`` can create, without creating
+    anything (#503); ``None`` when it is a directory or its nearest existing ancestor is a
+    directory the user can write into. Never raises: ``os.path`` answers ``False`` for what an
+    unsearchable parent hides, so that parent is the ancestor reported."""
+    if os.path.isdir(path):
+        return None
+    if os.path.lexists(path):
+        return FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(path))
+    ancestor = path.absolute().parent
+    while not os.path.lexists(ancestor) and ancestor != ancestor.parent:
+        ancestor = ancestor.parent
+    if not os.path.isdir(ancestor):
+        return NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), str(ancestor))
+    return writable(ancestor)

@@ -17,7 +17,7 @@ import sys
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, TypeVar, get_args
+from typing import Any, NoReturn, TypeVar, get_args
 
 import click
 from click.core import ParameterSource
@@ -249,11 +249,17 @@ def setup(
     from gippa.runner.prereqs import check_java, java_problem
     from gippa.runner.profiles import IMAGES_SKIPPED
     from gippa.setupdb import HttpsFetcher, SetupOptions, ToolRunner, licence_lines, plan, run_setup
-    from gippa.setupdb.dbdir import config_home, resolve_db_dir, write_pointer
-    from gippa.setupdb.images import image_set, install_images
+    from gippa.setupdb.dbdir import (
+        config_home,
+        creatable,
+        resolve_db_dir,
+        writable,
+        write_pointer,
+    )
+    from gippa.setupdb.images import failed_images, image_set, install_images
     from gippa.setupdb.manifest import write_manifest
-    from gippa.setupdb.run import setup_nextflow
-    from gippa.setupdb.space import in_shared_home, review_plan, setup_plan
+    from gippa.setupdb.run import nextflow_on_path, setup_nextflow
+    from gippa.setupdb.space import DISK_FULL, disk_full, in_shared_home, review_plan, setup_plan
     from gippa.setupdb.uniop_build import setup_uniop
 
     if uniop and no_uniop:
@@ -278,6 +284,9 @@ def setup(
         click.echo(f"gippa setup: {where.warning}", err=True)
     db_dir = opts["db_dir"] = where.path
     check = bool(opts["check"])
+    label = {"flag": "--db-dir", "env": "GIPPA_DB_DIR"}.get(where.source, "the DB directory")
+    if not check and (unmade := creatable(db_dir)) is not None:  # #503: before the plan
+        _cannot_create(label, db_dir, unmade)
     # images are on by default (15c2); an explicit --uniop installs UniOP only (Q-K27)
     pull = None if no_images else images or (None if uniop else "config")
     auto = profile == "auto"
@@ -307,9 +316,6 @@ def setup(
     else:
         off = {"genomad": False, "antismash": False} if minimal else {}
         dbs = SetupOptions(**(opts | off))
-    if not check:  # the plan's licence lines, before any download (15c2, Q-K35)
-        for line in licence_lines(plan(dbs), _PKG):
-            click.echo(f"{_PKG} setup: {line}")
     # one cache for the pull, the downloaders that run in an image, preflight and Nextflow
     cache = cache_dir or image_cache(os.environ, db_dir)
     code = ExitCode.SUCCESS
@@ -318,6 +324,17 @@ def setup(
     want = pull is not None and runtime is not None and not check
     tools = image_set(cfg, pull == "all") if want else []
     items = [] if check else [(i.name, float(i.size_gib), i.path) for i in plan(dbs)]
+    # the launcher for pip installs (M11-15 item 5); never under an explicit --uniop (Q-K27)
+    launcher = dbs.nextflow and not uniop and not check
+    # each of these takes the lock file in the DB directory, even when its files are all there
+    writes = items or tools or (uniop and not check) or (
+        launcher and nextflow_on_path(os.environ) is None)  # fmt: skip
+    if writes and os.path.isdir(db_dir) and (denied := writable(db_dir)) is not None:
+        click.echo(f"{_PKG} setup: cannot write to {db_dir}: {_reason(db_dir, denied)}", err=True)
+        sys.exit(int(ExitCode.INVALID_INPUT))
+    if not check:  # the plan's licence lines, before any download (15c2, Q-K35)
+        for line in licence_lines(plan(dbs), _PKG):
+            click.echo(f"{_PKG} setup: {line}")
     if items or tools:  # the plan, before the first download or pull (M11-15 15c1)
         lines, places = setup_plan(db_dir, items, tools, runtime, cache, os.environ)
         # neither --db-dir nor GIPPA_DB_DIR: a recorded pointer into the home warns too (B4)
@@ -328,7 +345,13 @@ def setup(
         if stop is not None:
             sys.exit(stop)
     if not check:
-        db_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            db_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:  # raced with the check above, or a full disk
+            if exc.errno in DISK_FULL:
+                click.echo(f"{_PKG} setup: {disk_full(db_dir)}", err=True)
+                sys.exit(int(ExitCode.ENVIRONMENT))
+            _cannot_create(label, db_dir, exc)
         if (bad := write_pointer(config_home(os.environ), db_dir)) is not None:
             click.echo(f"gippa setup: warning: {bad}", err=True)
     if tools and runtime is not None:  # the images before the downloaders
@@ -342,8 +365,6 @@ def setup(
     dbs_code = run_setup(dbs, ToolRunner(db_dir=db_dir, cache_dir=cache), fetcher)
     if dbs_code != ExitCode.SUCCESS:
         code = dbs_code
-    # the launcher for pip installs (M11-15 item 5); never under an explicit --uniop (Q-K27)
-    launcher = dbs.nextflow and not uniop and not check
     if launcher and setup_nextflow(db_dir, fetcher, os.environ) != ExitCode.SUCCESS:
         code = ExitCode.ENVIRONMENT
     if (uniop or needed) and not check:
@@ -351,7 +372,27 @@ def setup(
                            explicit=uniop)  # fmt: skip
         if step != ExitCode.SUCCESS:
             code = ExitCode.ENVIRONMENT
+    retry, final = failed_images(tools, db_dir)  # #504: the last item-related lines
+    if final:  # the same full disk or digest: rerunning alone would not help
+        click.echo(f"{_PKG} setup: images not pulled: {', '.join(final)}; see the messages above",
+                   err=True)  # fmt: skip
+    if retry:
+        click.echo(f"{_PKG} setup: images not pulled: {', '.join(retry)}; rerun gippa setup to "
+                   "retry the failed images", err=True)  # fmt: skip
     sys.exit(int(code))
+
+
+def _reason(db_dir: Path, exc: OSError) -> str:
+    """The lower-case OS reason, with the path it is about when that is not ``db_dir``."""
+    reason = (exc.strerror or str(exc)).lower()
+    elsewhere = exc.filename and str(exc.filename) != str(db_dir)
+    return f"{reason} ({exc.filename})" if elsewhere else reason
+
+
+def _cannot_create(label: str, db_dir: Path, exc: OSError) -> NoReturn:
+    """``gippa setup: cannot create --db-dir <path>: <reason>`` and exit 1 (#503)."""
+    click.echo(f"{_PKG} setup: cannot create {label} {db_dir}: {_reason(db_dir, exc)}", err=True)
+    sys.exit(int(ExitCode.INVALID_INPUT))
 
 
 def _reader_db_dir(cmd: str, flag: Path | None) -> Path | None:
