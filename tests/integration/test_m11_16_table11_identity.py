@@ -4,10 +4,12 @@ test plan row ``tests/integration/test_m11_16_table11_identity.py``; ``slow``, S
 
 One set of gippasim pilot inputs (``tests/integration/test_m10_05_sim_pilot.py``: SIM100K,
 ``pi_wrong = 0``, the test ``$GIPPA_DB_DIR``, ``SEED``), made once by this checkout's gippasim,
-and two ``gippa run --executor local`` runs on them in subprocesses: one with this checkout's
-``src`` and one with ``src`` + ``workflow`` of ``REFERENCE`` (main before any M11-16 code: the
-16c merge, whose diff is ``tests/sim`` only), extracted with ``git archive``. Each subprocess
-checks that ``gippa`` is imported from its own tree.
+and two ``gippa run --executor local`` runs on them in subprocesses: one with ``src`` +
+``workflow`` of ``HEAD_ARM`` (main after the last M11-16 PR, 16f) and one with those of
+``REFERENCE`` (main before any M11-16 code: the 16c merge, whose diff is ``tests/sim`` only), both
+extracted with ``git archive``. Each subprocess checks that ``gippa`` is imported from its own
+tree. AC 1 is a property of the M11-16 change, so both arms are pinned: later changes to the
+outputs (M11-20, #490: initiator methionine, sixframe meta format 4) have their own tests.
 
 - Every file under ``tables/`` and ``mapping/`` is byte-identical between the two runs (same set
   of files, same bytes).
@@ -24,7 +26,7 @@ checks that ``gippa`` is imported from its own tree.
   manifest's config snapshot, whose ``mapping.proteins.tblastn_args`` default lost
   ``-db_gencode 11`` (D1, ADR-0067), and so its ``provenance_digest``.
 
-Skips (never passes) when ``git`` or the reference commit is unavailable (a shallow clone).
+Skips (never passes) when ``git`` or either pinned commit is unavailable (a shallow clone).
 """
 
 from __future__ import annotations
@@ -49,6 +51,8 @@ pytestmark = pytest.mark.slow
 REPO = Path(__file__).resolve().parents[2]
 #: main at the fork of the M11-16 code PRs: 0980bf7c (#474, M11-16c, tests/sim only)
 REFERENCE = "0980bf7caabd0ed7cd6606606ccb8a22de146b35"
+#: main after the last M11-16 PR: 7326f545 (#481, M11-16f), the parent of M11-20 (#490)
+HEAD_ARM = "7326f5452c748949b116bc1fec2a4c96d1560e81"
 SEED = 20261023
 IDENTICAL = ("tables", "mapping")
 METHODS = "Genes were called and all six frames translated with NCBI genetic code 11"
@@ -77,10 +81,10 @@ def _git(*args: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, check=False)
 
 
-def _reference_tree(dest: Path) -> Path:
-    if shutil.which("git") is None or _git("cat-file", "-e", f"{REFERENCE}^{{commit}}").returncode:
-        pytest.skip(f"reference commit {REFERENCE[:8]} not available (shallow clone?)")
-    archive = _git("archive", "--format=tar", REFERENCE, "src", "workflow")
+def _tree(commit: str, dest: Path) -> Path:
+    if shutil.which("git") is None or _git("cat-file", "-e", f"{commit}^{{commit}}").returncode:
+        pytest.skip(f"commit {commit[:8]} not available (shallow clone?)")
+    archive = _git("archive", "--format=tar", commit, "src", "workflow")
     assert archive.returncode == 0, archive.stderr.decode()
     dest.mkdir(parents=True)
     subprocess.run(["tar", "-x", "-C", str(dest)], input=archive.stdout, check=True)
@@ -115,10 +119,11 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
         if not (root / "done").exists():
             shutil.rmtree(root, ignore_errors=True)
             root.mkdir()
-            ref = _reference_tree(root / "reference")
+            ref = _tree(REFERENCE, root / "reference")
+            head = _tree(HEAD_ARM, root / "head_arm")
             db = mc.test_db(root / "db")
             sim = mr.sim100k(root / "sim", pi_wrong=0.0)
-            _run(REPO / "src", sim, out["head"], db)
+            _run(head / "src", sim, out["head"], db)
             _run(ref / "src", sim, out["ref"], db)
             (root / "done").touch()
     return out
