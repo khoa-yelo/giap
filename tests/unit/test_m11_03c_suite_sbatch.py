@@ -545,7 +545,7 @@ def _make_box(base: Path) -> Box:
         (bindir / name).chmod(0o755)
     box = Box(base, repo, _git(repo, "rev-parse", "HEAD"), base / "log", bindir, venv,
               base / "sysfs", base / "stub.jsonl", base / "collection.json")  # fmt: skip
-    box.topology(20)
+    box.topology(24)
     return box
 
 

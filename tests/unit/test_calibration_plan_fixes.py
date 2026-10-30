@@ -60,11 +60,9 @@ CHANGED = {
 # The 5-group regions row is the lead's plan (cal_timeouts.md: its longest wheat lane ran 5.8 h).
 # With the recorded durations (max of the barley/probe rows and run 1900336) its LPT estimate is
 # about 5.5 h, over ⅔ of 8 h (5.33 h); 6 groups (4.6 h) would need 2 CPUs the R14 budget lacks.
-# novel_orfs: the M11-16f recorded G3 arms (one per table, runs once per suite run, not per shard)
-# measured 7.1-7.2 h each on one worker (probe 1904351); the LPT estimate is 6.7 h, inside 8 h but
-# over ⅔; more groups do not split one test and exceed R14. Lead default 2026-10-29; making the
-# recorded arm shardable is backlog (M11-16f N6).
-OVER_TWO_THIRDS = {"regions", "novel_orfs"}
+# novel_orfs left the set with 12 shards (Q-K59, Khoa 2026-10-29: about 140 CPUs; LPT 4.4 h after
+# its 8 shards hit the 8 h guard in run b3d84613).
+OVER_TWO_THIRDS = {"regions"}
 
 
 def _load(name: str, path: Path) -> ModuleType:
