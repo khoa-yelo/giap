@@ -102,8 +102,16 @@ library is pinned: commit `bddf6da9`, with a fixed SHA-256 in `db_sources.yaml`.
 ## Failures
 
 `gippa setup` exits with code 2 in two cases: a source cannot be reached, or a checksum does not
-match. The message names the host, and the item stays absent. GIPPA never falls back to another
-source. Run the command again later; `--check` shows which items are present. To download an item
+match. The message names the host, and the item stays absent. GIPPA never falls back to an
+unofficial source. One item has a second official source: when `www.cs.mun.ca` cannot be reached,
+the Promotech RF-HOT model is fetched from the Promotech authors' GitHub LFS copy on
+`media.githubusercontent.com`, checked against the same SHA-256, and the manifest records the URL
+that served it ([ADR-0069](../adr/ADR-0069-promotech-model-github-lfs-fallback.md)). A checksum
+mismatch is final: setup never tries another source after one. When both Promotech sources fail,
+the message names both hosts and the directory to fill by hand: put `RF-HOT.zip` and its unzipped
+`RF-HOT.model` in `DIR/promotech/`, then rerun `gippa setup`.
+
+Run the command again later; `--check` shows which items are present. To download an item
 yourself and have setup adopt it, see [Download the databases by hand](manual-databases.md).
 
 ## What `gippa setup` does not download

@@ -74,6 +74,8 @@ HTTPS_ITEMS = ("--bakta", "skip", "--genomad", "--promotech-models", *_OTHERS,
                *opt_outs("images"))  # fmt: skip
 NO_DBS = ("--bakta", "skip", "--no-genomad", "--no-promotech-models", *_OTHERS)
 PLANNED = ("genomad", "promotech_models")
+# the fake source refuses every URL, so each item also tries its fallbacks (ADR-0069)
+PLANNED_URLS = [u for n in PLANNED for u in SOURCES[n].urls]
 HOME_WARNING = (
     "the default DB directory is in your home directory, which usually has a small quota on "
     "clusters; pass --db-dir on a project or scratch filesystem"
@@ -354,7 +356,7 @@ def test_unreadable_free_space_warns_and_proceeds(
     monkeypatch.setattr(shutil, "disk_usage", broken)
     r = _setup("--db-dir", str(tmp_path / "db"), *HTTPS_ITEMS)
     assert "warning" in _before_first_fetch(r.output).lower(), r.output
-    assert env["fetched"] == [SOURCES[n].url for n in PLANNED]
+    assert env["fetched"] == PLANNED_URLS
     assert r.exit_code == 2  # the fake sources refuse; no crash
 
 
@@ -422,7 +424,7 @@ def test_quota_failure_is_best_effort(
     q = env["calls"].named("quota")
     assert q, "setup did not try quota"
     assert all(k.get("timeout") == 10 for _a, k in q)
-    assert env["fetched"] == [SOURCES[n].url for n in PLANNED]
+    assert env["fetched"] == PLANNED_URLS
 
 
 def test_lustre_asks_lfs_quota_for_the_mount(
@@ -473,7 +475,7 @@ def test_default_db_dir_in_home_on_nfs_warns_and_proceeds(
     r = _setup(*HTTPS_ITEMS)
     plan = _before_first_fetch(r.output)
     assert HOME_WARNING in " ".join(plan.split()), r.output
-    assert env["fetched"] == [SOURCES[n].url for n in PLANNED], "without a TTY setup proceeds"
+    assert env["fetched"] == PLANNED_URLS, "without a TTY setup proceeds"
     assert "Proceed?" not in r.output
 
 
@@ -518,7 +520,7 @@ def test_terminal_default_answer_is_yes(
     _tty(monkeypatch)
     r = _setup("--db-dir", str(tmp_path / "db"), *HTTPS_ITEMS, stdin="\n")
     assert "Proceed? [Y/n]" in r.output
-    assert env["fetched"] == [SOURCES[n].url for n in PLANNED]
+    assert env["fetched"] == PLANNED_URLS
 
 
 def test_yes_skips_the_prompt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -527,7 +529,7 @@ def test_yes_skips_the_prompt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     r = _setup("--db-dir", str(tmp_path / "db"), *HTTPS_ITEMS, "--yes")
     assert "no such option" not in r.output.lower(), r.output
     assert "Proceed?" not in r.output
-    assert env["fetched"] == [SOURCES[n].url for n in PLANNED]
+    assert env["fetched"] == PLANNED_URLS
 
 
 def test_no_terminal_no_prompt(tmp_path: Path, env: dict[str, Any]) -> None:

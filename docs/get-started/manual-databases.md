@@ -146,14 +146,24 @@ cat genomad_db/version.txt                                      # 1.9
 
 ### Promotech RF-HOT model
 
-Source: `https://www.cs.mun.ca/~lourdes/public/PromoTech_models/RF-HOT.zip`. The publisher gives no
+Source: `https://www.cs.mun.ca/~lourdes/public/PromoTech_models/RF-HOT.zip`. Fallback source,
+used by `gippa setup` only when `www.cs.mun.ca` cannot be reached: the Promotech authors' GitHub LFS
+copy at commit `bdf2f3ce`,
+`https://media.githubusercontent.com/media/BioinformaticsLabAtMUN/PromoTech/bdf2f3ce06ffd0e342607eed4bfa32e160816143/models/RF-HOT.zip`
+([ADR-0069](../adr/ADR-0069-promotech-model-github-lfs-fallback.md)). The publisher gives no
 checksum. The pin is the SHA-256 that GIPPA recorded on its first download
-([ADR-0014](../adr/ADR-0014-db-checksum-sources.md)). **Keep the zip**: setup re-hashes it on
-every check.
+([ADR-0014](../adr/ADR-0014-db-checksum-sources.md)); both sources serve the same bytes. **Keep
+the zip**: setup re-hashes it on every check.
+
+When setup reports both sources unreachable, download the zip from either URL on a machine that
+reaches it, put `RF-HOT.zip` and its unzipped `RF-HOT.model` in `$DB/promotech/`, then rerun
+`gippa setup`; it adopts the pair once the zip's SHA-256 equals the pin.
 
 ```bash
 mkdir -p "$DB/promotech" && cd "$DB/promotech"
 curl -fL -C - -o RF-HOT.zip https://www.cs.mun.ca/~lourdes/public/PromoTech_models/RF-HOT.zip
+# or, if www.cs.mun.ca is down:
+# curl -fL -C - -o RF-HOT.zip https://media.githubusercontent.com/media/BioinformaticsLabAtMUN/PromoTech/bdf2f3ce06ffd0e342607eed4bfa32e160816143/models/RF-HOT.zip
 echo "fcd96ffe5a43b579af965839ee2bb896de94de3601978d88bcabd32c4fb5093f  RF-HOT.zip" | sha256sum -c -
 unzip -o RF-HOT.zip            # writes RF-HOT.model; keep RF-HOT.zip next to it
 ```
