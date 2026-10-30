@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 
 import pytest
-from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_gippa_repo, make_sandbox
+from helpers.slurm_sandbox import REPO, Sandbox, assert_honours_gippa_repo, make_sandbox, write_exe
 
 WEEKLY = REPO / "scripts" / "slurm" / "weekly.sbatch"
 JOB = "4300"
@@ -62,6 +62,35 @@ def test_normal_run_writes_one_row(sb: Sandbox) -> None:
     assert len(rows) == 1, f"{rows}\n{res.stdout}\n{res.stderr}"
     assert rows[0][3] == str(res.returncode), (rows, res.returncode)
     assert _exits(res.stdout) == [rows[0][3]], res.stdout
+
+
+# A gippa that writes the live run's trace with the committed fields (workdir is not the last
+# column) and a Bakta JSON in the BAKTA task's workdir.
+_GIPPA_TRACE = r"""#!/bin/bash
+printf '%s\n' "gippa $*" >> "$FAKE_SLURM_DIR/calls.log"
+out=""; while [ $# -gt 0 ]; do [ "$1" = --outdir ] && out=$2; shift; done
+case "$out" in */live) ;; *) exit 0 ;; esac
+mkdir -p "$out/logs" "$out/work/ab/bakta"
+echo '{"features": []}' > "$out/work/ab/bakta/genome.json"
+fields="{fields}"
+row() { local v=(); for f in $fields; do case $f in name) v+=("$1") ;; status) v+=(COMPLETED) ;;
+  workdir) v+=("$out/work/ab") ;; container) v+=(/c/bakta.img) ;; *) v+=(x) ;; esac; done
+  local IFS=$'\t'; echo "${v[*]}"; }
+{ echo "$fields" | tr ' ' '\t'; row "ANNOTATE:BAKTA (genome)"
+  row "ANNOTATE:PARSE_BAKTA (parse_bakta)"; } > "$out/logs/trace.tsv"
+"""
+
+
+def test_live_bakta_json_is_found_by_the_trace_workdir_column(sb: Sandbox) -> None:
+    """Weekly 1907351: ``$NF`` was the container column, so the live JSON was never found."""
+    cfg = (REPO / "workflow" / "nextflow.config").read_text()
+    fields = re.search(r"fields = '([^']+)'", cfg)
+    assert fields and not fields[1].endswith(",workdir"), "the test needs workdir not last"
+    write_exe(sb.bin / "gippa", _GIPPA_TRACE.replace("{fields}", fields[1].replace(",", " ")))
+    res = _weekly(sb)
+    (row,) = _rows(sb)
+    assert "no live Bakta JSON" not in row[4], f"{row}\n{res.stdout}\n{res.stderr}"
+    assert "live Bakta features vs recording" in row[4], row
 
 
 def test_sigterm_during_the_gate_writes_one_row_and_stops(sb: Sandbox) -> None:
