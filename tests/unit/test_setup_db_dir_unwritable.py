@@ -1,6 +1,6 @@
 """#503: ``gippa setup --db-dir <path>`` where the path cannot be created is a clean error.
 
-GitHub issue khoa-yelo/gippa#503 (target 1.0.1). On Sherlock ``--db-dir /scratch/$USER/gippa-db``
+GitHub issue khoa-yelo/gippa#503. On Sherlock ``--db-dir /scratch/$USER/gippa-db``
 (``/scratch/$USER`` missing, ``/scratch`` not writable) crashed in ``db_dir.mkdir`` with an uncaught
 ``PermissionError``: "internal error (a bug)", exit 5. The plan, with a free-space line for a path
 that did not exist, had already been printed.

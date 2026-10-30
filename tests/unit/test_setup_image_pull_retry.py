@@ -1,6 +1,6 @@
 """#504: ``gippa setup`` image pulls retry once, keep the error detail, and say how to retry.
 
-GitHub issue khoa-yelo/gippa#504 (target 1.0.1). On Sherlock (apptainer 1.5.5, unprivileged
+GitHub issue khoa-yelo/gippa#504. On Sherlock (apptainer 1.5.5, unprivileged
 build) ``apptainer pull`` died in ``mksquashfs`` (exit 139) for three images. An immediate second
 pull succeeded. The message kept only the last stderr line, and nothing told the user that
 rerunning setup retries the images. Item 4 of the issue (progress output during long pulls) is out
