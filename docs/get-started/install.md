@@ -123,13 +123,14 @@ of geNOMAD (non-commercial use only) and KEGG (academic use only).
   digest mismatch (`pulled <d1>, pinned <d2>`) is exit code 2; the other images are still pulled.
 - **A failed Apptainer pull.** On some unprivileged Apptainer builds (Stanford Sherlock,
   apptainer 1.5.5), `mksquashfs` can segfault on a first pull: the message ends in
-  `mksquashfs command failed: exit status 139`. Run `gippa setup` again to retry. The layers are
-  then cached, and on Sherlock the second pull succeeded. A missing bakta image also makes
-  `bakta_light` skip, so rerun setup after such a failure. Large pulls print no progress: the
+  `mksquashfs command failed: exit status 139`. Setup retries a failed pull once automatically.
+  Setting `APPTAINER_CACHEDIR` keeps the layers between attempts, so a rerun can reuse them;
+  without it each attempt pulls from scratch. A missing bakta image also makes `bakta_light`
+  skip, so rerun setup after such a failure. Large pulls print no progress: the
   antiSMASH image (4.6 GiB) can take several minutes
   ([#504](https://github.com/khoa-yelo/gippa/issues/504)).
-- **The `--db-dir` parent must exist and be writable.** In 1.0.0 an unwritable path ends in an
-  "internal error" (exit code 5) rather than a clean message
+- **The DB directory's nearest existing parent must be writable.** Otherwise setup stops with a
+  clean error (exit code 1)
   ([#503](https://github.com/khoa-yelo/gippa/issues/503)).
 - **The Apptainer cache** is one directory: `NXF_APPTAINER_CACHEDIR`, else
   `$GIPPA_ROOT/containers`, else `DIR/containers` (`setup --cache-dir` overrides it for that

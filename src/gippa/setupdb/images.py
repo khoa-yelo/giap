@@ -44,9 +44,10 @@ Runtime = Literal["apptainer", "docker"]
 _UPSTREAM_TAG = re.compile(r"//\s+([a-z0-9./_-]+):([A-Za-z0-9_.-]+)\s*")
 _SIF_GIB = re.compile(r"^//\s+sif_gib((?:\s+[a-z0-9_]+=[0-9.]+)+)\s*$", re.MULTILINE)
 _DIGEST_LINE = re.compile(r"^Digest:\s*(sha256:[0-9a-f]{64})\s*$", re.MULTILINE)
-PULL_ATTEMPTS = 2  # one retry: a failed unprivileged apptainer build often works the 2nd time
+PULL_ATTEMPTS = 2  # one retry: a pull can fail transiently; it helps most when layers are cached
 RETRY_WAIT_S = 5.0
 TAIL_LINES = 5  # stderr lines kept in a failed record's message (#504)
+NO_CACHE_HINT = "; set APPTAINER_CACHEDIR to keep the layers between attempts"
 
 
 def _conf(conf_dir: Path | None) -> Path:
@@ -147,7 +148,8 @@ def _tail(text: str, n: int = TAIL_LINES) -> str:
 
 def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> DbRecord:
     """Pull one image (apptainer: into ``cache``, skipped when already there). A failed pull is
-    retried once (#504), except a full disk or quota, a digest mismatch or a missing runtime."""
+    retried once (#504), except a full disk or quota, a digest mismatch or a missing runtime. An
+    image another ``gippa setup`` finished during the wait is kept, not pulled again."""
     if runtime == "apptainer":
         dest = cache / simple_name(ref)
         if dest.is_file():
@@ -163,6 +165,8 @@ def _pull(runtime: Runtime, tool: str, ref: str, version: str, cache: Path) -> D
     for attempt in range(PULL_ATTEMPTS):
         if attempt:
             time.sleep(RETRY_WAIT_S)
+            if dest is not None and dest.is_file():
+                return image_record(tool, ref, version, "ok", "", dest)
         rec, retry = _attempt(runtime, cmd, dest, tool, ref, version)
         if not retry:
             break
@@ -173,6 +177,7 @@ def _attempt(
     runtime: Runtime, cmd: list[str], dest: Path | None, tool: str, ref: str, version: str
 ) -> tuple[DbRecord, bool]:
     """One run of the pull: its record and whether a failure is worth one more run."""
+    hint = NO_CACHE_HINT if "--disable-cache" in cmd else ""
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except OSError as exc:
@@ -185,7 +190,7 @@ def _attempt(
             full = disk_full(where, " or --cache-dir")
             return image_record(tool, ref, version, "failed", full), False
         why = _tail(proc.stderr or proc.stdout)
-        msg = f"{runtime} pull {ref} failed: {why}"
+        msg = f"{runtime} pull {ref} failed: {why}{hint}"
         return image_record(tool, ref, version, "absent", msg), True
     if runtime == "docker":
         pin = ref.split("@", 1)[1]
@@ -195,17 +200,18 @@ def _attempt(
                                 f"pulled {got or 'no digest'}, pinned {pin}"), False  # fmt: skip
         return image_record(tool, ref, version, "ok", f"pulled {ref}"), False
     if dest is None or not dest.is_file():
-        return image_record(tool, ref, version, "absent", f"apptainer pull wrote no {dest}"), True
+        msg = f"apptainer pull wrote no {dest}{hint}"
+        return image_record(tool, ref, version, "absent", msg), True
     return image_record(tool, ref, version, "ok", f"pulled {ref}", dest), False
 
 
-def failed_images(tools: list[str], db_dir: Path) -> list[str]:
-    """The ``tools`` whose ``image:<tool>`` record in ``db_dir`` is missing or not ``ok`` (the
-    rerun summary at the end of ``gippa setup``, #504)."""
-    if not tools:
-        return []
-    recs = read_records(db_dir)
-    return [t for t in tools if (r := recs.get(f"image:{t}")) is None or r.status != "ok"]
+def failed_images(tools: list[str], db_dir: Path) -> tuple[list[str], list[str]]:
+    """The ``tools`` not ``ok`` in ``db_dir``, for the summary at the end of ``gippa setup`` (#504):
+    those a rerun can help, then those it cannot (a full disk, a digest mismatch)."""
+    recs = read_records(db_dir) if tools else {}
+    status = {t: r.status if (r := recs.get(f"image:{t}")) is not None else "absent" for t in tools}
+    return ([t for t, s in status.items() if s == "absent"],
+            [t for t, s in status.items() if s in ("failed", "mismatch")])  # fmt: skip
 
 
 def _kept(rec: DbRecord, old: Mapping[str, DbRecord]) -> DbRecord:
