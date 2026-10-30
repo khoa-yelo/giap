@@ -17,6 +17,12 @@ Where GIPPA is tested and which execution profiles are supported. Each cell is o
 | Windows | untested; use WSL2 and follow the Linux rows | untested |
 <!-- --8<-- [end:platforms] -->
 
+**Linux with glibc < 2.28** (CentOS or RHEL 7): the Python package install is smoke-tested with
+`pip install --prefer-binary gippa` on Stanford Sherlock (glibc 2.17, Python 3.12), where
+`gippa demo` passed. The older numpy, numba, pyarrow and lightgbm versions pip picks there are
+not part of the tested matrix. See
+[Install › The five steps](../get-started/install.md#the-five-steps).
+
 ## What the cells mean
 
 - **CI jobs.** `test` runs the unit, property, golden, contract and snapshot tests on ubuntu with

@@ -273,7 +273,16 @@ All notable changes are recorded here by towncrier from `changelog.d/` fragments
       calls and block, swap and frameshift calls are reported but not covered by that check;
     - low-power tests: missed operons (with the shipped decoys), low islands at normal detection
       rates and operon discordance at realistic effect sizes have little or no power by
-      construction, so an empty result there is not evidence of absence.
+      construction, so an empty result there is not evidence of absence;
+    - older Linux (glibc < 2.28, such as CentOS 7): `pip install gippa` fails to build numpy,
+      numba or pyarrow from source; use `pip install --prefer-binary gippa`. The older versions
+      it picks are not in the tested matrix
+      ([#502](https://github.com/khoa-yelo/gippa/issues/502));
+    - `gippa setup` does not retry a failed Apptainer image pull (on some clusters `mksquashfs`
+      exits with status 139); run setup again to retry
+      ([#504](https://github.com/khoa-yelo/gippa/issues/504));
+    - an unwritable `--db-dir` parent ends `gippa setup` in an "internal error" (exit code 5)
+      rather than a clean message ([#503](https://github.com/khoa-yelo/gippa/issues/503)).
 - Refreshed the bactermfinder, cascadia and timsconvert env locks from fresh builds; the pip locks no longer list packages from the user's own site-packages.
 - TerminatorNet asks for the process_high CPUs (clamped by `--threads`) and Promotech for 2 CPUs and 10 GB per chunk, matching their measured use; outputs are unchanged (ADR-0062).
 - The README describes the released package: install from PyPI or Bioconda, a short quickstart, how

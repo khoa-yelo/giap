@@ -92,6 +92,14 @@ gippa run --genome genome.fna --peptides peptides.tsv --db-dir /path/to/db \
     --outdir out --profile apptainer                     # or: --profile docker
 ```
 
+!!! note "Older Linux (glibc < 2.28, such as CentOS or RHEL 7)"
+    On these systems the newest numpy, numba and pyarrow releases have no compatible wheels.
+    pip then falls back to their sdists, and the build fails. Install with
+    `pip install --prefer-binary gippa` instead. This was verified on Stanford Sherlock (glibc
+    2.17, Python 3.12): pip chose numpy 2.2.6, numba 0.67.0, pyarrow 20.0.0 and lightgbm 3.3.5,
+    and `gippa demo` passed. These older versions are not part of GIPPA's tested matrix
+    ([#502](https://github.com/khoa-yelo/gippa/issues/502)).
+
 `uv tool install gippa` works in place of `pip install gippa`. The extra `gippa[docs]` installs
 MkDocs Material for building this site. **Bioconda:** the recipe is pending (M11-10); until it
 is merged, use PyPI.
@@ -113,6 +121,16 @@ of geNOMAD (non-commercial use only) and KEGG (academic use only).
   conda | docker | apptainer`.
 - Each image is recorded as an `image:<tool>` item in `DIR/db_manifest.json`. A failed pull or a
   digest mismatch (`pulled <d1>, pinned <d2>`) is exit code 2; the other images are still pulled.
+- **A failed Apptainer pull.** On some unprivileged Apptainer builds (Stanford Sherlock,
+  apptainer 1.5.5), `mksquashfs` can segfault on a first pull: the message ends in
+  `mksquashfs command failed: exit status 139`. Run `gippa setup` again to retry. The layers are
+  then cached, and on Sherlock the second pull succeeded. A missing bakta image also makes
+  `bakta_light` skip, so rerun setup after such a failure. Large pulls print no progress: the
+  antiSMASH image (4.6 GiB) can take several minutes
+  ([#504](https://github.com/khoa-yelo/gippa/issues/504)).
+- **The `--db-dir` parent must exist and be writable.** In 1.0.0 an unwritable path ends in an
+  "internal error" (exit code 5) rather than a clean message
+  ([#503](https://github.com/khoa-yelo/gippa/issues/503)).
 - **The Apptainer cache** is one directory: `NXF_APPTAINER_CACHEDIR`, else
   `$GIPPA_ROOT/containers`, else `DIR/containers` (`setup --cache-dir` overrides it for that
   `setup` command). Every reader uses that same directory:
