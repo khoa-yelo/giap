@@ -1,9 +1,9 @@
 """``gippa setup``: adopt or download each planned item, then record it (GIPPA_SPEC.md §7.9.1, R6).
 
-Downloads come only from the official source of each item (``db_sources.yaml``), into
-``<path>.partial``; the copy is verified before it is renamed into place, and a failure leaves
-the item absent with the host named. ``--check`` only verifies. One setup per ``db_dir`` at a
-time (``.giap_setup.lock``).
+Downloads come only from the official sources of each item (``db_sources.yaml``; a fallback
+source is tried only when the first is unreachable, ADR-0069), into ``<path>.partial``; the copy
+is verified before it is renamed into place, and a failure leaves the item absent with the host
+named. ``--check`` only verifies. One setup per ``db_dir`` at a time (``.giap_setup.lock``).
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ from gippa.io.image_key import image_cache
 from gippa.setupdb.images import pinned_images, simple_name
 from gippa.setupdb.items import (
     FILE_CHECKS,
+    PROMOTECH_ARCHIVE,
+    PROMOTECH_MODEL,
     SOURCES,
     DbItem,
     DbRecord,
@@ -70,7 +72,8 @@ AMR_URL = "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFin
 
 
 class SourceError(Exception):
-    """An official source could not be reached; no other source is ever tried (R6)."""
+    """An official source could not be reached. Only the item's own official fallback sources
+    (``alt_urls``, ADR-0069) are tried next; never any other host or mirror (R6)."""
 
     def __init__(self, host: str, reason: str) -> None:
         super().__init__(f"{host}: {reason}")
@@ -270,16 +273,18 @@ class HttpsFetcher:
 
 
 def _redirect_hosts(url: str, host: str) -> frozenset[str]:
-    """The redirect allowlist of the item(s) at ``url``: their ``redirect_hosts`` when a row
-    names some (M11-15 item 5), else the ``REDIRECT_HOSTS`` default of ``host``."""
-    rows = [h for i in SOURCES.values() if i.url == url for h in i.redirect_hosts]
+    """The redirect allowlist of the item(s) at ``url`` (primary or ``alt_urls``): their
+    ``redirect_hosts`` when a row names some (M11-15 item 5), else the ``REDIRECT_HOSTS`` default
+    of ``host``."""
+    rows = [h for i in SOURCES.values() if url in i.urls for h in i.redirect_hosts]
     return frozenset(rows) if rows else REDIRECT_HOSTS.get(host, frozenset())
 
 
 def _body_cap(url: str) -> int:
-    """Byte cap for a body of unknown length: ``size_gib`` of the item(s) at ``url``, else 1 GiB
+    """Byte cap for a body of unknown length: ``size_gib`` of the item(s) at ``url`` (primary or
+    ``alt_urls``), else 1 GiB
     (M2-09 review decision 4)."""
-    gib = max((i.size_gib for i in SOURCES.values() if i.url == url), default=0)
+    gib = max((i.size_gib for i in SOURCES.values() if url in i.urls), default=0)
     return (gib or 1) * GIB
 
 
@@ -343,21 +348,58 @@ def _unpack(archive: Path, out: Path) -> str | None:
     return None if bad is None else f"unsafe member {bad!r} in {archive.name}"
 
 
-def _fetch_archive(item: DbItem, out: Path, fetcher: Fetcher) -> DbRecord | None:
-    """HTTPS fetch, checksum, safe unpack. The Promotech zip is kept so ``verify`` can re-hash
-    it (lead decision 4); other archives are deleted once unpacked (§3.9)."""
+def _host(url: str) -> str:
+    return urlparse(url).hostname or url
+
+
+def _manual_route(item: DbItem, target: Path) -> str:
+    """How to install ``item`` by hand once every source failed (ADR-0069; Promotech only)."""
+    if item.check != "promotech":
+        return ""
+    return (f"; to install it by hand, put {PROMOTECH_ARCHIVE} and its unzipped {PROMOTECH_MODEL} "
+            f"in {target}/, then rerun gippa setup")  # fmt: skip
+
+
+def _all_down(item: DbItem, errors: Sequence[SourceError], target: Path) -> DbRecord:
+    """Every source of ``item`` raised a ``SourceError``: the message names each host tried."""
+    first, *rest = errors
+    msg = f"source {first.host} unreachable ({first.reason})"
+    msg += "".join(f"; fallback source {e.host} unreachable ({e.reason})" for e in rest)
+    return _absent(item, msg + _manual_route(item, target))
+
+
+def _fetch_archive(
+    item: DbItem, out: Path, fetcher: Fetcher, target: Path
+) -> tuple[DbRecord | None, str]:
+    """HTTPS fetch, checksum, safe unpack; returns the failure (or None) and the URL that served
+    the archive. ``item.url`` is tried first, then each ``alt_urls`` entry, but only after a
+    ``SourceError``: a checksum mismatch, an unsafe archive or a full disk is final (ADR-0069).
+    The Promotech zip is kept so ``verify`` can re-hash it (lead decision 4); other archives are
+    deleted once unpacked (§3.9)."""
     archive = out / PurePosixPath(urlparse(item.url).path).name
-    fetcher.fetch(item.url, archive)
+    errors: list[SourceError] = []
+    for url in item.urls:
+        try:
+            fetcher.fetch(url, archive)
+            break
+        except SourceError as exc:
+            archive.unlink(missing_ok=True)
+            errors.append(exc)
+    else:
+        if len(errors) == 1 and not item.alt_urls:
+            raise errors[0]
+        return _all_down(item, errors, target), item.url
+    host = _host(url)
     got = file_digest(archive, item.checksum.split(":", 1)[0])
     if got != item.checksum:
-        return _absent(item, f"checksum mismatch from {item.host}: {got}, pinned {item.checksum}",
-                       "mismatch")  # fmt: skip
+        return _absent(item, f"checksum mismatch from {host}: {got}, pinned {item.checksum}",
+                       "mismatch"), url  # fmt: skip
     unsafe = _unpack(archive, out)
     if unsafe is not None:
-        return _absent(item, f"{unsafe} from {item.host}", "mismatch")
+        return _absent(item, f"{unsafe} from {host}", "mismatch"), url
     if item.check != "promotech":
         archive.unlink()
-    return None
+    return None, url
 
 
 def _install_file(item: DbItem, db_dir: Path, fetcher: Fetcher) -> DbRecord:
@@ -460,9 +502,10 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
     partial = target.with_name(target.name + ".partial")
     shutil.rmtree(partial, ignore_errors=True)
     partial.mkdir(parents=True)
+    served = item.url
     try:
         if item.tool is None:
-            failed = _fetch_archive(item, partial, fetcher)
+            failed, served = _fetch_archive(item, partial, fetcher, target)
             if failed is not None:
                 return failed
         else:
@@ -475,8 +518,8 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         built = partial / target.name if (partial / target.name).is_dir() else partial
         got = check_dir(item, built)
         if got.status != "ok":
-            return _absent(item, f"download from {item.host} does not verify: {got.message}",
-                           got.status)  # fmt: skip
+            return _absent(item, f"download from {_host(served)} does not verify: "
+                                 f"{got.message}", got.status)  # fmt: skip
         _swap_dir(built, target)
     except ToolUnavailable as exc:
         return _absent(item, str(exc))
@@ -488,7 +531,8 @@ def install(item: DbItem, db_dir: Path, runner: CommandRunner, fetcher: Fetcher)
         return _full(item, db_dir)
     finally:
         shutil.rmtree(partial, ignore_errors=True)
-    return dataclasses.replace(verify(item, db_dir), message=f"downloaded from {item.host}")
+    return dataclasses.replace(verify(item, db_dir), url=served,
+                               message=f"downloaded from {_host(served)}")  # fmt: skip
 
 
 def amrfinder_record(bakta: DbItem, db_dir: Path) -> DbRecord:
@@ -509,18 +553,22 @@ def _provenance(
     prefetch_key: str | None,
 ) -> DbRecord:
     """Provenance of an item that is already installed: a prefetch row is adopted only when its
-    checksum and host equal the pin (else ``mismatch``); a previous ``ok`` record is kept
-    (idempotent reruns) only when it carries the pinned URL and checksum (R6)."""
+    checksum is the pin and its host is one of the item's official hosts (else ``mismatch``); a
+    previous ``ok`` record is kept (idempotent reruns) only when it carries the pinned checksum
+    and one of the item's official URLs, primary or ``alt_urls`` (R6, ADR-0069)."""
     row = prefetch.get(prefetch_key) if prefetch_key is not None else None
+    source = SOURCES.get(rec.name)
+    urls = (rec.url, *(source.alt_urls if source is not None else ()))
     host = urlparse(rec.url).hostname or ""
-    if row is not None and (row[0], row[2]) != (rec.checksum, host):
+    hosts = {urlparse(u).hostname or "" for u in urls}
+    if row is not None and (row[0] != rec.checksum or row[2] not in hosts):
         return dataclasses.replace(rec, size_bytes=0, retrieved="", status="mismatch", message=(
             f"prefetched copy is {row[0]} from {row[2] or 'an unknown host'}, "
             f"pinned {rec.checksum} from {host}"))  # fmt: skip
     prev = old.get(rec.name)
-    pinned = (rec.version, rec.path, rec.url, rec.checksum)
-    if prev is not None and prev.status == "ok" and (
-        prev.version, prev.path, prev.url, prev.checksum) == pinned:  # fmt: skip
+    pinned = (rec.version, rec.path, rec.checksum)
+    if prev is not None and prev.status == "ok" and prev.url in urls and (
+        prev.version, prev.path, prev.checksum) == pinned:  # fmt: skip
         return prev
     if row is not None:
         return dataclasses.replace(rec, retrieved=row[1])

@@ -67,6 +67,12 @@ class DbItem:
     prefetch: str | None = None  # row name in prefetch_manifest.tsv
     redirect_hosts: tuple[str, ...] = ()  # replaces the REDIRECT_HOSTS default when set (15d)
     executable: bool = False  # installed with mode 0755 (the Nextflow launcher)
+    alt_urls: tuple[str, ...] = ()  # official fallbacks, tried after a SourceError (ADR-0069)
+
+    @property
+    def urls(self) -> tuple[str, ...]:
+        """Every official URL of the item, in the order they are tried (ADR-0069)."""
+        return (self.url, *self.alt_urls)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +125,9 @@ def _load_sources() -> Mapping[str, DbItem]:
         path = str(row["path"])
         if not _safe_name(path):
             raise ValueError(f"db_sources.yaml: unsafe path {path!r} for {name}")
+        alt = tuple(str(u) for u in row.get("alt_urls") or ())
+        if any(urlparse(u).scheme != "https" for u in alt):
+            raise ValueError(f"db_sources.yaml: alt_urls of {name} must be https")
         out[name] = DbItem(
             name=name,
             version=str(row.get("version") or ""),
@@ -132,6 +141,7 @@ def _load_sources() -> Mapping[str, DbItem]:
             prefetch=row.get("prefetch"),
             redirect_hosts=tuple(str(h) for h in row.get("redirect_hosts") or ()),
             executable=bool(row.get("executable", False)),
+            alt_urls=alt,
         )
     return MappingProxyType(out)
 
