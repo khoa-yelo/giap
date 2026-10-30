@@ -17,14 +17,17 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-  "numpy",
-  "pandas",
-  "pyarrow",
-  "numba",
-  "scipy",
-  "scikit-learn",
-  "statsmodels",
-  "lightgbm",
+  # Numeric stack capped at the next release after the tested one, so a new upstream release cannot
+  # break or silently change an installed version. pandas 3.1 breaks pandarallel 1.6.5, which
+  # codon-bias imports (found by the M11-14 wheel smoke).
+  "numpy<2.6",
+  "pandas<3.1",
+  "pyarrow<27",
+  "numba<0.69",
+  "scipy<1.19",
+  "scikit-learn<1.10",
+  "statsmodels<0.16",
+  "lightgbm<5",
   "pyahocorasick",
   "pydantic>=2",
   "click>=8.1",
