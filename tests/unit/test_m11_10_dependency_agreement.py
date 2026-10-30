@@ -164,8 +164,8 @@ def test_pin_change_propagates(tmp_path: Path) -> None:
     root = copy_layout(tmp_path / "repo")
     py = root / "pyproject.toml"
     text = py.read_text()
-    assert '"numpy",' in text
-    py.write_text(text.replace('"numpy",', '"numpy>=1.26",', 1))
+    assert '"numpy<2.6",' in text
+    py.write_text(text.replace('"numpy<2.6",', '"numpy>=1.26",', 1))
     out = tmp_path / "out"
     proc = run_render(root, out)
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -177,7 +177,7 @@ def test_environment_marker_fails(tmp_path: Path) -> None:
     root = copy_layout(tmp_path / "repo")
     py = root / "pyproject.toml"
     text = py.read_text()
-    py.write_text(text.replace('"numpy",', "\"numpy; python_version < '3.12'\",", 1))
+    py.write_text(text.replace('"numpy<2.6",', "\"numpy; python_version < '3.12'\",", 1))
     assert "python_version" in py.read_text()
     out = tmp_path / "out"
     proc = run_render(root, out)
