@@ -44,13 +44,13 @@
 # and writes no row; at most NIGHTLY_SLOW_MAX_HOPS (default 2) hops; NIGHTLY_SLOW_NODE_GUARD=0 off.
 # --signal=B:TERM@600 and `cmd & wait $!` for the long steps: the TERM trap writes the row in time.
 # R14: 4 tasks x 16 CPUs = 64 CPUs + the 1-CPU summary job; no Nextflow child jobs (farmshare_local).
-# Task 2 shards: NIGHTLY_CAL_SHARDS=N (default 1; nightly_launch.sh sets 2) splits the fast suite
+# Task 2 shards: NIGHTLY_CAL_SHARDS=N (default 1; nightly_launch.sh sets 3) splits the fast suite
 # into N file shards (scripts/ci/shard_tests.py): shard 1 (the array task) submits shards 2..N as
 # 16-CPU jobs on the same commit (own worktree <W>-s<k>, run dir <job>_2-s<k>, summary extended),
 # each records its result and coverage data in $CI/runs/<job>_2.shards, and the last to finish
 # writes the single calibration_nightly row (scripts/ci/nightly_shards.py: counts summed, largest
-# exit) after `coverage combine` + the coverage_min gate. R14: + 16 CPUs per extra shard (81 at
-# N=2). The 2026-10-24/27 unsharded runs took 5 h 43 / > 5 h 50 of the 6 h limit on rye-01.
+# exit) after `coverage combine` + the coverage_min gate. R14: + 16 CPUs per extra shard (97 at
+# N=3). The 2026-10-24/27 unsharded runs took 5 h 43 / > 5 h 50 of the 6 h limit on rye-01.
 # Output is -v, so a killed shard's row counts the FAILED lines so far ($RUN/failed_so_far.txt).
 # N > 4 is refused (R14: 64 + 16 (N-1) + 1 <= 128). A shard that never records (SIGKILL, OOM,
 # cancelled) is recorded as failed by nightly_summary.sh, which then writes the failing row.

@@ -302,12 +302,12 @@ def test_unsharded_kill_also_names_failures_so_far(sb: Sandbox) -> None:
 # ---------------------------------------------------------------- 4. launcher and R14
 
 
-def test_launcher_asks_for_two_shards_within_r14(sb: Sandbox) -> None:
+def test_launcher_asks_for_three_shards_within_r14(sb: Sandbox) -> None:
     res = sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly_launch.sh")])
     arrays = [c for c in sb.sbatch_calls() if option(c["argv"], "array", "a") == "0-3"]
     assert len(arrays) == 1, _diag(res, sb)
     shards = int(arrays[0]["env"].get("NIGHTLY_CAL_SHARDS", "1"))
-    assert shards == 2, arrays[0]["env"]
+    assert shards == 3, arrays[0]["env"]
     text = NIGHTLY.read_text()
     cpus = int(re.search(r"^#SBATCH --cpus-per-task=(\d+)", text, re.M)[1])  # type: ignore[index]
     arr = re.search(r"^#SBATCH --array=(\d+)-(\d+)", text, re.M)
