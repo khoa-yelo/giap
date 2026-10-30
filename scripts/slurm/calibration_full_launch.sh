@@ -12,8 +12,10 @@
 #      (scripts/slurm/calibration_plan.tsv) is validated with its calibration_lanes.py check (venv
 #      python: it needs yaml). Each suite's job asks for lanes x cpus_per_lane CPUs (lanes = shards
 #      + groups), lanes x mem_per_lane_mb MB and the plan time.
-#   3. R14 CPUs: refuse when cpus + sum(suite CPUs) + 1 > 128 (no throttle, no second wave), where
-#      a suite's CPUs are what Slurm allocates (and squeue shows): max(lanes x cpus_per_lane,
+#   3. R14 CPUs: refuse when cpus + sum(suite CPUs) + 2 > 144, the hard cap (no throttle, no second
+#      wave; the 1-CPU aggregator holds a whole core: 2), and warn on stderr ("R14: ... soft cap
+#      128"), then submit, when that sum is over 128: 128 is a soft cap (Khoa 2026-10-29: "It's okay
+#      if it exceeds 128 a little bit. It's not a hard threshold."). A suite's CPUs are what Slurm allocates (and squeue shows): max(lanes x cpus_per_lane,
 #      ceil(lanes x mem_per_lane_mb / GIPPA_MAX_MEM_PER_CPU_MB)), the partition's MaxMemPerCPU,
 #      default 4000 (a 2 x 16000 MB discordance job asks for 4 CPUs and gets 8). The
 #      nightly is protected by time: refuse when now + max(time) + 20 min is at or after the next
@@ -93,8 +95,10 @@ done < <(tail -n +2 "$plan")
 
 # R14 CPUs: every suite job and the aggregator are queued at once
 # (the 1-CPU aggregator holds a whole core: 2 CPUs)
-[ $((cpus + total + 2)) -le 128 ] ||
-  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 2)) CPUs ($total allocated for $SUITES suite jobs, MaxMemPerCPU $mpc MB, and 2 for the aggregator) and $cpus + $((total + 2)) = $((cpus + total + 2)) > 128 CPUs; nothing submitted"
+# 128 is a soft cap (warn, then submit), 144 the hard one (refuse); Khoa 2026-10-29
+sum=$((cpus + total + 2))
+[ "$sum" -le 144 ] ||
+  die 2 "R14: $jobs gippa-* jobs / $cpus CPUs queued; this launch requests $((total + 2)) CPUs ($total allocated for $SUITES suite jobs, MaxMemPerCPU $mpc MB, and 2 for the aggregator) and $cpus + $((total + 2)) = $sum > 144 CPUs; nothing submitted"
 # python3 (not the venv) for local-time arithmetic; prints "<end> <start>", exit 1 = overlap
 window=$(python3 -I -c '
 import datetime as d, re, sys
@@ -117,6 +121,9 @@ case $rc in
   1) die 2 "R14: the longest suite ($((max_s / 60)) min) + 20 min ends $end_d $end_t, at or after the next nightly start $start_d $start_t (GIPPA_NIGHTLY_AT $at); nothing submitted" ;;
   *) die 2 "cannot place the nightly window (GIPPA_NIGHTLY_AT '$at' is not HH:MM, or python3 failed); nothing submitted" ;;
 esac
+# every refusal is behind us: warn once over the soft cap, then submit
+[ "$sum" -le 128 ] ||
+  echo "R14: $jobs gippa-* jobs / $cpus CPUs queued + $((total + 2)) for this launch = $sum CPUs, over the soft cap 128 (hard cap 144); submitting" >&2
 
 log="$GIPPA_ROOT/logs/calibration/full-$short-$(date +%Y%m%d-%H%M%S)"
 [ ! -e "$log" ] || die 2 "$log exists; nothing submitted"
