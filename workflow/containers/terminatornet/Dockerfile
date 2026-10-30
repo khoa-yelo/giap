@@ -21,4 +21,6 @@ RUN mkdir -p /opt/conda/share/terminatornet \
     && tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/terminatornet \
     && echo "$GIT_SHA" > /opt/conda/share/terminatornet/GIPPA_COMMIT && rm /tmp/src.tar.gz
 WORKDIR /opt/conda/share/terminatornet
+# apptainer exec does not run the entrypoint that activates the base env.
+ENV PATH="/opt/conda/bin:$PATH" CONDA_PREFIX=/opt/conda
 LABEL org.opencontainers.image.title="gippa-terminatornet"

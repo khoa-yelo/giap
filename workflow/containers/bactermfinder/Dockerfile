@@ -21,4 +21,6 @@ RUN mkdir -p /opt/conda/share/bactermfinder \
     && tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/conda/share/bactermfinder \
     && echo "$GIT_SHA" > /opt/conda/share/bactermfinder/GIPPA_COMMIT && rm /tmp/src.tar.gz
 WORKDIR /opt/conda/share/bactermfinder
+# apptainer exec does not run the entrypoint that activates the base env.
+ENV PATH="/opt/conda/bin:$PATH" CONDA_PREFIX=/opt/conda
 LABEL org.opencontainers.image.title="gippa-bactermfinder"

@@ -60,9 +60,16 @@ PROCESS_TOOL: dict[str, str] = {
     "PROMOTECH_NOVEL": "promotech",
     "PROMOTER_CALCULATOR": "promoter_calculator",
     "TERMINATORNET": "terminatornet",
+    "TERMINATORNET_PLAN": "terminatornet",
+    "TERMINATORNET_CHUNK": "terminatornet",
+    "TERMINATORNET_MERGE": "terminatornet",
     "BACTERMFINDER": "bactermfinder",
     "OSTIR": "ostir",
     "OSTIR_NOVEL": "ostir",
+}
+# The sharded scan (M2-15b) runs in the TERMINATORNET image: containers.yml names only the first.
+SAME_IMAGE: dict[str, tuple[str, ...]] = {
+    "TERMINATORNET": ("TERMINATORNET_PLAN", "TERMINATORNET_CHUNK", "TERMINATORNET_MERGE"),
 }
 # images with no Nextflow process: pinned in images.json only (M11-14, fgsea)
 IMAGE_ONLY: dict[str, str] = {"FGSEA": "fgsea"}
@@ -102,7 +109,11 @@ def validate(digests: Mapping[str, object]) -> dict[str, str]:
         refs.setdefault(PROCESS_TOOL.get(process) or IMAGE_ONLY[process], set()).add(str(ref))
     if split := sorted(t for t, r in refs.items() if len(r) > 1):
         raise DigestError(f"one image, several digests: {', '.join(split)} (pin one ref per tool)")
-    return {p: str(digests[p]) for p in [*PROCESS_TOOL, *IMAGE_ONLY] if p in digests}
+    full = dict(digests)
+    for process, others in SAME_IMAGE.items():
+        if process in full:
+            full.update(dict.fromkeys(others, full[process]))
+    return {p: str(full[p]) for p in [*PROCESS_TOOL, *IMAGE_ONLY] if p in full}
 
 
 def pin_line(process: str, ref: str) -> str:
