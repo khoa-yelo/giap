@@ -76,8 +76,8 @@ fields="{fields}"
 row() { local v=(); for f in $fields; do case $f in name) v+=("$1") ;; status) v+=(COMPLETED) ;;
   workdir) v+=("$out/work/ab") ;; container) v+=(/c/bakta.img) ;; *) v+=(x) ;; esac; done
   local IFS=$'\t'; echo "${v[*]}"; }
-{ echo "$fields" | tr ' ' '\t'; row "ANNOTATE:BAKTA (genome)"; row "ANNOTATE:PARSE_BAKTA (parse_bakta)"
-} > "$out/logs/trace.tsv"
+{ echo "$fields" | tr ' ' '\t'; row "ANNOTATE:BAKTA (genome)"
+  row "ANNOTATE:PARSE_BAKTA (parse_bakta)"; } > "$out/logs/trace.tsv"
 """
 
 
