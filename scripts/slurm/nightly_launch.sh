@@ -13,7 +13,7 @@ set -uo pipefail
 source "${GIPPA_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 REPO="$GIPPA_REPO"
 mkdir -p "$REPO/local/logs" "$GIPPA_ROOT/logs"
-export NIGHTLY_CAL_SHARDS="${NIGHTLY_CAL_SHARDS:-2}"   # task 2 in 2 shards: + 16 CPUs (nightly.sbatch)
+export NIGHTLY_CAL_SHARDS="${NIGHTLY_CAL_SHARDS:-3}"   # task 2 in 3 shards: + 32 CPUs (nightly.sbatch; 2 shards took 5 h 19 m of 6 h, 1905610)
 array=$(sbatch --parsable --array=0-3 "$REPO/scripts/slurm/nightly.sbatch") || {
   echo "nightly_launch: the nightly array was not submitted" >&2; exit 1; }
 array=${array%%;*}

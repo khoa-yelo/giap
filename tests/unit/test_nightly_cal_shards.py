@@ -56,8 +56,13 @@ fi
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pytest" ]; then
   printf 'pytest %s\n' "${*:3}" >> "$FAKE_SLURM_DIR/calls.log"
   if [ "${FAKE_COV:-}" = real ]; then   # real data: src/gippa/mod.py run under coverage, branch on
-    {python} -c 'import coverage, runpy; c = coverage.Coverage(branch=True); c.start()
-runpy.run_path("src/gippa/mod.py"); c.stop(); c.save()'
+    {python} -c 'import coverage, os, runpy, sys; c = coverage.Coverage(branch=True); c.start()
+runpy.run_path("src/gippa/mod.py")
+if os.environ.get("FAKE_COV_GONE"):  # a test-written module under pytest tmp, deleted later
+    d = os.path.join(sys.argv[1], "pytest-of-x", "pytest-0"); os.makedirs(d, exist_ok=True)
+    m = os.path.join(d, "toy.py"); open(m, "w").write("y = 1\n"); runpy.run_path(m)
+c.stop(); c.save()
+if os.environ.get("FAKE_COV_GONE"): os.remove(m)' "$FAKE_SLURM_DIR"
   elif [ -n "${COVERAGE_FILE:-}" ]; then echo data > "$COVERAGE_FILE"; fi
   case "${FAKE_SHARD_PYTEST:-ok}" in
     fail) echo "2 failed, 10 passed, 1 warning in 7.25s"; exit 1 ;;
@@ -201,6 +206,15 @@ def test_real_coverage_keeps_the_shard_data_and_reports_the_figure(sb: Sandbox) 
     assert "TOTAL" in (d / "coverage_report.txt").read_text()
 
 
+def test_coverage_omits_modules_that_tests_wrote_under_pytest_tmp(sb: Sandbox) -> None:
+    """A test-written module under pytest's tmp dir (test_steps_review's zz_review_toy.py) is gone
+    when the last shard reports: ``No source for code`` must not fail the gate (run 1905610)."""
+    res = _two_shards(sb, FAKE_COV="real", FAKE_COV_GONE="1")
+    rows = _rows(sb)
+    assert len(rows) == 1 and rows[0][3] == "0", _diag(res, sb)
+    assert "coverage 100% (min 90%)" in rows[0][4], rows[0]
+
+
 # ---------------------------------------------------------------- 2. failures fail the row
 
 
@@ -288,12 +302,12 @@ def test_unsharded_kill_also_names_failures_so_far(sb: Sandbox) -> None:
 # ---------------------------------------------------------------- 4. launcher and R14
 
 
-def test_launcher_asks_for_two_shards_within_r14(sb: Sandbox) -> None:
+def test_launcher_asks_for_three_shards_within_r14(sb: Sandbox) -> None:
     res = sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly_launch.sh")])
     arrays = [c for c in sb.sbatch_calls() if option(c["argv"], "array", "a") == "0-3"]
     assert len(arrays) == 1, _diag(res, sb)
     shards = int(arrays[0]["env"].get("NIGHTLY_CAL_SHARDS", "1"))
-    assert shards == 2, arrays[0]["env"]
+    assert shards == 3, arrays[0]["env"]
     text = NIGHTLY.read_text()
     cpus = int(re.search(r"^#SBATCH --cpus-per-task=(\d+)", text, re.M)[1])  # type: ignore[index]
     arr = re.search(r"^#SBATCH --array=(\d+)-(\d+)", text, re.M)
