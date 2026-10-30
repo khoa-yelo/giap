@@ -149,7 +149,9 @@ grep -qP '\tANNOTATE:ANTISMASH \([^)]*\)\t[^\t]*\tCOMPLETED\t' "$RUN/live/logs/t
 step $? "antismash live"
 
 # the live Bakta outputs: compare with the recording; MODE=record keeps them
-bdir=$(awk -F'\t' '$4 ~ /:BAKTA \(/ && $6 == "COMPLETED" {print $NF}' "$RUN/live/logs/trace.tsv" 2>/dev/null | tail -1)/bakta
+# the workdir column by name: trace fields end in hostname,container (workflow/nextflow.config)
+bdir=$(awk -F'\t' 'NR == 1 {for (i = 1; i <= NF; i++) if ($i == "workdir") w = i; next}
+  w && $4 ~ /:BAKTA \(/ && $6 == "COMPLETED" {print $w}' "$RUN/live/logs/trace.tsv" 2>/dev/null | tail -1)/bakta
 live_json=$(ls "$bdir"/*.json 2>/dev/null | head -1)
 if [ -z "$live_json" ]; then
   step 1 "no live Bakta JSON"
