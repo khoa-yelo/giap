@@ -71,3 +71,4 @@
 - [ADR-0067: Genetic codes 4, 11 and 25](ADR-0067-genetic-codes-4-11-25.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, relayed by the lead; supports codes 4 and 25 alongside 11, superseding Q-K30; Bakta gets `--translation-table` only at 4 and 25)
 - [ADR-0068: Initiator methionine at annotated non-ATG starts](ADR-0068-initiator-methionine-non-atg-starts.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, in session, Q-K56: "Yes")
 - [ADR-0069: A second official source for the Promotech RF-HOT model (GitHub LFS fallback)](ADR-0069-promotech-model-github-lfs-fallback.md): accepted-by-khoa (2026-10-30, in session: "Accept as fallback")
+- [ADR-0070: 1.0.0 ships with TE4's rplL/rplJ pair failing on the pilot](ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md): accepted-by-khoa (2026-10-31, in session: "waive it")
