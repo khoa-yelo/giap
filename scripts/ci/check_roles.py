@@ -3,7 +3,8 @@
 
 Fails if, within the PR, one Agent-Role changes both src/ (or workflow/) and test files,
 an implementer commit modifies an existing test file, or a test-author commit touches
-src/ or workflow/. Commits without an Agent-Role trailer fail too.
+src/ or workflow/. Commits without an Agent-Role trailer fail too, except the digest commit
+containers.yml writes: github-actions[bot] as author, and only the pin files changed.
 """
 
 from __future__ import annotations
@@ -41,6 +42,13 @@ EXEMPT_TESTS = (
     "tests/calibration/_m7_gate.py",
 )
 
+PIN_BOT = "github-actions[bot]"
+PIN_FILES = {
+    "workflow/conf/containers.config",
+    "workflow/conf/container_common.config",
+    "workflow/conf/images.json",
+}
+
 
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
@@ -55,6 +63,10 @@ def main() -> int:
         body = git("log", "-1", "--format=%B", sha)
         m = re.search(r"^Agent-Role:\s*(\S+)", body, re.M)
         if not m:
+            author = git("log", "-1", "--format=%an", sha).strip()
+            changed = git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split()
+            if author == PIN_BOT and changed and set(changed) <= PIN_FILES:
+                continue
             errors.append(f"{sha[:8]}: missing Agent-Role trailer")
             continue
         role = m.group(1)
