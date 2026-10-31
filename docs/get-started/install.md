@@ -22,17 +22,6 @@ The full pipeline is tested on Stanford FarmShare. Every other row is as stated:
 The cell words (tested, smoke-tested, untested) and the CI jobs are explained on
 [Platforms](../user-guide/platforms.md).
 
-!!! warning "Before the first image publish"
-    Four core tools, Promotech, Promoter Calculator, TerminatorNet and OSTIR, have Dockerfiles
-    under `workflow/containers/` but no published image yet: the first GHCR publish is a manual
-    release step ([Releasing › step 5](../release.md#5-ghcr-publishing-and-package-visibility-khoa)).
-    Until it is done, `gippa run` under `--profile docker` or `--profile apptainer` alone stops in
-    preflight with `conda-only tool under a container profile without conda: <tool>` (exit code 2)
-    for each of them. Two opt-in tools are missing the same way: BacTermFinder (with
-    `--add-bactermfinder`), and fgsea (module `function` with `--abundance`; `images.json` pins
-    no image for it yet). On FarmShare, use the [checkout path](#farmshare-from-a-checkout). Once a
-    release pins those images, the five steps below need nothing else.
-
 ## Prerequisites
 
 | Requirement | Version | Where it is pinned |

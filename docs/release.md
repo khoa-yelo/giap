@@ -109,7 +109,9 @@ plan job with `publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built
   `gippa setup --uniop`, and `update_digests.py` refuses it.
 - Agents never create or set `GHCR_PUBLISH`, create or approve `ghcr`, change package visibility
   or delete packages.
-- After item 4 (**agents**): merge the digest PR `ci/digests-<sha7>` once its FarmShare Apptainer
+- After item 4 (**agents**): `containers.yml` pushes the branch `ci/digests-<sha7>`, but its last
+  job cannot open the PR ("GitHub Actions is not permitted to create or approve pull requests"),
+  so open it by hand. Merge the digest PR `ci/digests-<sha7>` once its FarmShare Apptainer
   smoke job IDs are in the PR, then run M11-14 AC 16 (wheel-only `setup --images`, `preflight` and
   a 100-kb `run` in one Slurm job; job ID in PROGRESS).
 - Evidence: PROGRESS line "14j done: ghcr environment, GHCR_PUBLISH, packages public (date)", the

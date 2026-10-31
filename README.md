@@ -26,13 +26,12 @@ and an HTML report, each claim with its own error control.*
 
 ## Status
 
-Pre-1.0 (`0.0.1`); nothing is published yet. The pipeline runs end to end on Stanford FarmShare
-from a checkout (Slurm, Apptainer and prebuilt environments), on the synthetic demo below and on
+`1.0.0` is the first release. The full pipeline is tested on Stanford FarmShare (Slurm and
+Apptainer), on the synthetic demo below and on
 the E. coli Nissle 1917 pilot (PXD078459; [`validation/pilot/README.md`](validation/pilot/README.md)).
 Pending:
 
-- the first release: PyPI, the GHCR images of four tools (Promotech, Promoter Calculator,
-  TerminatorNet, OSTIR), the hosted docs and Bioconda;
+- the hosted docs and Bioconda;
 - the final pilot report.
 
 Genetic codes 11 (default), 4 (Mycoplasma and Spiroplasma) and 25 (SR1 and Gracilibacteria) are
@@ -45,14 +44,14 @@ four tools above ([Install](docs/get-started/install.md)).
 
 ## Install
 
-From the first release:
+With pip (Bioconda is pending):
 
 ```bash
 pip install gippa                                     # Python package and the `gippa` command
-micromamba install -c conda-forge -c bioconda gippa   # or from Bioconda
+micromamba install -c conda-forge -c bioconda gippa   # from Bioconda, once the recipe is merged
 ```
 
-Until then, from a checkout (Python >= 3.11):
+From a checkout (Python >= 3.11):
 
 ```bash
 git clone https://github.com/khoa-yelo/gippa.git && cd gippa
@@ -73,7 +72,6 @@ gippa run --genome g.fna --peptides p.tsv --outdir out
 
 `gippa demo` runs a small bundled synthetic genome with no Nextflow, containers, databases or
 network. `gippa setup` and `gippa run` detect the Nextflow profile (pass `--profile` to choose).
-Until the first release, install from a checkout as above; the full run then works on FarmShare.
 The guided walk-through, with example inputs and outputs, is
 [Quick start](https://khoa-yelo.github.io/gippa/get-started/quickstart/)
 ([source](docs/get-started/quickstart.md)). With raw spectra and no peptide table yet, see
