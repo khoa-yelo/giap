@@ -12,7 +12,8 @@ import yaml
 
 from gippa.config.model import GippaConfig
 
-__all__ = ["GippaConfig", "json_schema", "load_defaults", "resolve_config", "resolve_sample_name"]
+__all__ = ["GippaConfig", "json_schema", "key_given", "load_defaults", "resolve_config",
+           "resolve_sample_name"]  # fmt: skip
 
 PUBLICATION_RESAMPLES = 10000
 
@@ -93,6 +94,17 @@ def resolve_config(
     for override in overrides:
         _set_dotted(data, override)
     return GippaConfig.model_validate(data)
+
+
+def key_given(config_file: Path | str | None, overrides: Iterable[str], key: str) -> bool:
+    """The top-level ``key`` is set by the config file or a ``key=value`` override, whatever its
+    value: :func:`resolve_config` merges the defaults first, so its result cannot tell (#514)."""
+    if any(override.partition("=")[0].strip() == key for override in overrides):
+        return True
+    if config_file is None:
+        return False
+    path = Path(config_file)
+    return key in _load_yaml_mapping(path.read_text(encoding="utf-8"), str(path))
 
 
 def json_schema() -> dict[str, Any]:

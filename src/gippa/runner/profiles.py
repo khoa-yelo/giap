@@ -18,7 +18,7 @@ from pathlib import Path
 
 __all__ = ["FARMSHARE_CLUSTER", "R5_MESSAGE", "Detected", "Probe", "Site", "accepted_profiles",
            "check_profile", "detect_profile", "parse_profiles", "probe_host",
-           "read_sites"]  # fmt: skip
+           "read_sites", "uses_local_executor"]  # fmt: skip
 
 #: D1: the Slurm cluster name of Stanford FarmShare (pinned; spec M11-15 item 1 AC 5).
 FARMSHARE_CLUSTER = "farmshare"
@@ -44,6 +44,7 @@ CONTAINER_RUNTIMES = ("apptainer", "singularity", "docker")
 _RUNTIMES = frozenset({*CONTAINER_RUNTIMES, "conda"})
 _CONDA = frozenset({"conda", "mamba", "micromamba"})
 _REJECTED = frozenset({"test", "stub"})
+_LOCAL_EXECUTORS = frozenset({"standard", "farmshare_local"})
 _RUNTIME_ORDER = ("apptainer", "singularity", "conda")  # R1, R2, R4 (R3 docker first off Slurm)
 _TIMEOUT = 10
 
@@ -222,6 +223,14 @@ def accepted_profiles() -> tuple[str, ...]:
     except OSError:  # no bundled workflow: nothing to launch, so no profile is accepted
         return ()
     return tuple(n for n in parse_profiles(text) if n not in _REJECTED)
+
+
+def uses_local_executor(profile: str) -> bool:
+    """Nextflow's local executor runs the tasks of the resolved comma-joined ``profile``: every
+    name is a runtime, ``standard`` or ``farmshare_local``. ``farmshare``, ``slurm`` and site or
+    unknown profiles submit their tasks as separate jobs (#514)."""
+    local = _RUNTIMES | _LOCAL_EXECUTORS
+    return all(name.strip() in local for name in profile.split(","))
 
 
 def check_profile(value: str) -> str:

@@ -23,7 +23,7 @@ import click
 from click.core import ParameterSource
 
 import gippa
-from gippa.config import GippaConfig, resolve_config
+from gippa.config import GippaConfig, key_given, resolve_config
 from gippa.config import model as m
 from gippa.exitcodes import ExitCode
 
@@ -621,6 +621,8 @@ def run(
     launch: dict[str, Any] = {"profile": profile, "profile_source": "auto" if auto else "flag",
                               "profile_reason": reason}  # fmt: skip
     run_info["launch"] = launch
+    explicit_threads = threads is not None or key_given(config_file, sets, "threads")
+    cfg = _cap_threads(cfg, explicit_threads, profile)
     roots, cfg = _run_preflight(
         cfg, outdir, inputs, db_dir, bool(_["strict"]), profile, publication
     )
@@ -647,6 +649,20 @@ def run(
     hit = failed_step(trace) if code != ExitCode.SUCCESS and trace.is_file() else None
     failed = {"failed_step": hit[0], "failed_log": f"{hit[1]}/.command.log"} if hit else {}
     sys.exit(_run_tail(outdir, base, code, **failed))
+
+
+def _cap_threads(cfg: GippaConfig, explicit: bool, profile: str) -> GippaConfig:
+    """``cfg`` with the threads capped to the host, and the one stderr line if that changed them
+    (#514)."""
+    from gippa.runner.nextflow import available_cpus, capped_threads
+
+    cpus = available_cpus(os.environ)
+    capped = capped_threads(cfg.threads, explicit=explicit, profile=profile, available=cpus)
+    if capped == cfg.threads:
+        return cfg
+    click.echo(f"gippa run: threads {capped} (default {cfg.threads} exceeds the {cpus} CPUs "
+               "available; pass --threads to override)", err=True)  # fmt: skip
+    return cfg.model_copy(update={"threads": capped})
 
 
 def _minimal_db_dir(db_dir: Path | None) -> bool:

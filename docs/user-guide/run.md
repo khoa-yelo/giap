@@ -142,6 +142,10 @@ in the [configuration reference](../reference/configuration.md).
 | `--profile` | `farmshare,apptainer` | comma-joined Nextflow profiles (see [Install](../get-started/install.md#execution-profiles)) |
 | `--resume` | off | resume a stopped run in the same `--outdir` |
 
+On a local executor (no `farmshare` or `slurm` profile), a `threads` you did not set is capped to
+the CPUs available, with one line on stderr; a value from `--threads`, the config file or `--set`
+is used as given.
+
 **Resuming.** `--resume` passes `nextflow -resume` to Nextflow. Tasks whose inputs did not change
 are taken from Nextflow's cache in `OUT/work`. Give the same inputs and options as the run you
 resume. Nextflow's work directories can reach tens of GB per run (GIPPA_SPEC.md §3.9). Delete

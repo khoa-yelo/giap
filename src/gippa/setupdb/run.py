@@ -592,7 +592,8 @@ def _locked(db_dir: Path) -> Iterator[bool]:
 
 def _report(rec: DbRecord) -> None:
     detail = f" ({rec.message})" if rec.message else ""
-    _say(f"{rec.name}: {rec.status} v{rec.version}{detail}" if rec.status == "ok" else
+    version = rec.version.removeprefix("v")  # an image tag already has it
+    _say(f"{rec.name}: {rec.status} v{version}{detail}" if rec.status == "ok" else
          f"{rec.name}: {rec.message or rec.status}")  # fmt: skip
 
 
