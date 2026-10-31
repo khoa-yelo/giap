@@ -103,7 +103,7 @@ def test_example10_pulls_each_distinct_image_once_with_a_docker_uri(
     box = Box(tmp_path, form)
     box.run()
     refs = _bare_refs()
-    assert len(refs) == 6, refs  # BLAST and TBLASTN share one image
+    assert len(refs) == 11, refs  # BLAST and TBLASTN share one image, as do the aliases
     want = sorted(["pull", str(box.cache / _simple_name(r)), f"docker://{r}"] for r in refs)
     assert sorted(box.pulls()) == want
     assert {p.name for p in box.cache.iterdir()} == {_simple_name(r) for r in refs}
@@ -113,7 +113,7 @@ def test_example10_pulls_each_distinct_image_once_with_a_docker_uri(
 def test_example10_second_run_finds_every_image_present(tmp_path: Path, form: str) -> None:
     box = Box(tmp_path, form)
     box.run()
-    assert len(box.pulls()) == 6
+    assert len(box.pulls()) == 11
     box.log.write_text("")
     proc = box.run()
     assert box.pulls() == []

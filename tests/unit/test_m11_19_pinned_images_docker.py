@@ -250,12 +250,14 @@ def test_example_8_all_refs_local_every_pinned_tool_present(fake: dict[str, Path
     set_tags(fake, ALL_REFS)
     tools = default_tools()
     need = pinned_of(tools)
-    assert set(need) == {"bakta", "transtermhp", "genomad", "antismash", "miniprot", "blast"}
+    assert set(need) == {"bakta", "transtermhp", "genomad", "antismash", "miniprot", "blast",
+                         "promotech", "promoter_calculator", "terminatornet", "ostir"}  # fmt: skip
     got = _fn("missing_tool_reasons")(tools, "docker", fake["cache"], None, None)
     assert not set(got) & set(need), got
     assert versions(fake) == 1, calls(fake)
     seen = inspected(fake)
-    assert sorted(seen) == ALL_REFS, f"one inspect per distinct ref (blast's once): {seen}"
+    want = sorted(set(need.values()))  # bactermfinder is pinned too, but opt-in
+    assert sorted(seen) == want, f"one inspect per distinct ref (blast's once): {seen}"
     assert_never_pulls(fake)
 
 
@@ -324,7 +326,9 @@ def test_examples_10_11_unneeded_images_are_not_checked(
     assert "antismash" not in got and "genomad" not in got, got
     seen = set(inspected(fake))
     assert ref not in seen and PINNED["genomad"] not in seen, seen
-    assert seen == {PINNED[n] for n in ("bakta", "transtermhp", "miniprot", "blast")}, seen
+    still_needed = ("bakta", "transtermhp", "miniprot", "blast",
+                    "promotech", "promoter_calculator", "terminatornet", "ostir")  # fmt: skip
+    assert seen == {PINNED[n] for n in still_needed}, seen
 
 
 def test_precomputed_bakta_json_skips_the_bakta_image(fake: dict[str, Path]) -> None:

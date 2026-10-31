@@ -45,15 +45,9 @@ TOOL_NAMES = sorted(LABELS)
 # "Memory-heavy processes set memory explicitly (Bakta 48.GB, geNOMAD 48.GB)". antiSMASH is sized
 # in base.config withName (#416 D2: it peaks at 3.3 GB).
 EXPLICIT_MEMORY_GB = {"bakta": 48, "genomad": 48}
-# M2-01 lead decision 1: no published image yet, conda env only (listed in containers.config).
-CONDA_ONLY = {
-    "uniop",
-    "promotech",
-    "promoter_calculator",
-    "terminatornet",
-    "bactermfinder",
-    "ostir",
-}
+# No published image (UniOP has no licence file; built locally): conda env only (listed in
+# containers.config).
+CONDA_ONLY = {"uniop"}
 FARMSHARE_CPUS_MAX, FARMSHARE_MEM_GB_MAX, MEM_PER_CPU_GB, R14_CPUS = 16, 64, 4, 128
 
 
@@ -203,6 +197,9 @@ PROCESS_TOOL = {
     "terminatornet_plan": "terminatornet",
     "terminatornet_chunk": "terminatornet",
     "terminatornet_merge": "terminatornet",
+    # second-round aliases of the same modules (workflow/subworkflows/local/novel.nf)
+    "promotech_novel": "promotech",
+    "ostir_novel": "ostir",
 }
 
 
@@ -226,7 +223,8 @@ def test_every_with_name_in_containers_config_matches_a_process() -> None:
         assert _tool_key(name) in TOOLS, f"containers.config withName {name} is not a TOOLS key"
         if TOOLS[_tool_key(name)].module == "mapping":
             continue  # miniprot / BLAST processes belong to §7.2 (M3); pins land in M2-01
-        assert name in procs, f"containers.config withName {name} matches no process"
+        base = name.removesuffix("_NOVEL")  # an include alias, not a `process` of its own
+        assert base in procs, f"containers.config withName {name} matches no process"
 
 
 @pytest.mark.parametrize("tool", TOOL_NAMES)

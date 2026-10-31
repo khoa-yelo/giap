@@ -64,6 +64,8 @@ from gippa.config import resolve_config
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / "workflow"
 CONTAINERS_CONFIG = WORKFLOW / "conf" / "containers.config"
+# Before the first image publish: `make_tree` adds its own fake GHCR pins to it.
+FROZEN_CONFIG = REPO / "tests" / "data" / "prepublish" / "containers.config"
 PKG = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
 OWNER = "ghcr.io/khoa-yelo/"
 OSTIR_REF = f"{OWNER}{PKG}-ostir@sha256:" + "a1" * 32
@@ -196,12 +198,12 @@ def calls(tmp_path: Path, prefix: str = "") -> list[list[str]]:
 
 
 def make_tree(root: Path) -> Path:
-    """A workflow tree: the repo's containers.config plus GHCR pins, and an images.json with the
-    GHCR tools (fgsea process-less). Returns ``main.nf``."""
+    """A workflow tree: the pre-publish containers.config plus GHCR pins, and an images.json with
+    the GHCR tools (fgsea process-less). Returns ``main.nf``."""
     (root / "conf").mkdir(parents=True)
     (root / "main.nf").write_text("// fake\n")
     (root / "envs").symlink_to(WORKFLOW / "envs")
-    text = CONTAINERS_CONFIG.read_text(encoding="utf-8").rstrip()
+    text = FROZEN_CONFIG.read_text(encoding="utf-8").rstrip()
     assert text.endswith("}")
     extra = "".join(
         f"  withName: '{p}' {{ container = '{ref}' }}\n"
@@ -711,7 +713,8 @@ def test_wheel_setup_images_docker_no_checkout(tmp_path: Path) -> None:
     proc = run_wheel(site, work, code, "setup", "--db-dir", str(db), *SKIP_DBS, "--images",
                      "--profile", "docker")  # fmt: skip
     assert proc.returncode == 0, proc.stderr
-    pinned = tool_pins(CONTAINERS_CONFIG)
+    published = json.loads((WORKFLOW / "conf" / "images.json").read_text(encoding="utf-8"))
+    pinned = {**tool_pins(CONTAINERS_CONFIG), "fgsea": published["fgsea"]["ref"]}
     want = {t for t in default_set(pinned)}
     assert {p[-1] for p in calls(tmp_path, "docker pull")} == {pinned[t] for t in want}
     items = manifest_items(db)

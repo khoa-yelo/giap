@@ -39,6 +39,8 @@ from gippa.preflight.environment import _image_file_name
 
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = REPO / "workflow" / "conf" / "containers.config"
+# The config before the first image publish: update_digests.py starts from conda-only tools.
+FROZEN = REPO / "tests" / "data" / "prepublish" / "containers.config"
 UPDATE_DIGESTS = REPO / "scripts" / "release" / "update_digests.py"
 RESOLVE_DIGEST = REPO / "scripts" / "resolve_digest.py"
 
@@ -137,9 +139,7 @@ def test_bakta_line_is_example_1() -> None:
 
 def test_process_set_digests_and_tag_comments_are_unchanged() -> None:
     pins = read_containers_config(CONFIG)
-    assert set(pins) == set(PINNED)
-    have = {ref.removeprefix("docker://") for ref in pins.values()}
-    assert have == set(PINNED.values())
+    assert {p: pins[p].removeprefix("docker://") for p in PINNED} == PINNED
     lines = _text().splitlines()
     start = lines.index(TAG_LINES[0])
     assert lines[start : start + len(TAG_LINES)] == TAG_LINES
@@ -169,7 +169,8 @@ def test_cache_names_from_new_config_equal_those_from_the_old(tmp_path: Path) ->
     assert all(r.startswith("docker://") for r in old_refs), "old config built wrongly"
     new_names = {_image_file_name(r) for r in read_containers_config(CONFIG).values()}
     old_names = {_image_file_name(r) for r in old_refs}
-    assert new_names == old_names == CACHE_NAMES
+    assert new_names == old_names
+    assert new_names >= CACHE_NAMES
 
 
 @given(
@@ -231,7 +232,7 @@ def _update(tmp_path: Path, config_text: str, digests: dict[str, str]) -> tuple[
 
 
 def test_example5_update_digests_writes_a_bare_line(tmp_path: Path) -> None:
-    proc, cfg = _update(tmp_path, _text(), {"OSTIR": OSTIR_REF})
+    proc, cfg = _update(tmp_path, FROZEN.read_text(encoding="utf-8"), {"OSTIR": OSTIR_REF})
     assert proc.returncode == 0, proc.stderr
     lines = cfg.read_text(encoding="utf-8").splitlines()
     assert f"  withName: 'OSTIR' {{ container = '{OSTIR_REF}' }}" in lines
@@ -241,7 +242,7 @@ def test_example5_update_digests_writes_a_bare_line(tmp_path: Path) -> None:
 def test_update_digests_replaces_a_legacy_prefixed_line_in_place(tmp_path: Path) -> None:
     legacy = f"docker://ghcr.io/khoa-yelo/gippa-ostir@sha256:{'a' * 64}"
     old = f"  withName: 'OSTIR' {{ container = '{legacy}' }}"
-    lines = _text().splitlines()
+    lines = FROZEN.read_text(encoding="utf-8").splitlines()
     end = max(i for i, ln in enumerate(lines) if ln == "}")
     lines.insert(end, old)
     before = "\n".join(lines) + "\n"
@@ -269,9 +270,10 @@ def test_update_digests_pin_line_is_bare_and_readable(tmp_path: Path) -> None:
 
 
 def test_update_digests_still_rejects_a_prefixed_input(tmp_path: Path) -> None:
-    proc, cfg = _update(tmp_path, _text(), {"OSTIR": f"docker://{OSTIR_REF}"})
+    text = FROZEN.read_text(encoding="utf-8")
+    proc, cfg = _update(tmp_path, text, {"OSTIR": f"docker://{OSTIR_REF}"})
     assert proc.returncode == 1 and "OSTIR" in proc.stderr
-    assert cfg.read_text(encoding="utf-8") == _text(), "config left untouched"
+    assert cfg.read_text(encoding="utf-8") == text, "config left untouched"
 
 
 # ------------------------------------------------------------------ example 6: resolve_digest.py
@@ -358,7 +360,7 @@ def _bakta(value: str) -> Any:
 def test_example7_h4_passes_on_the_bare_config(tmp_path: Path) -> None:
     h4 = _h4(tmp_path)
     assert h4["status"] == "pass", h4
-    assert h4["value"].startswith("7 digests; "), h4
+    assert h4["value"].startswith("17 digests; "), h4
 
 
 def test_h4_expected_text_names_the_bare_form(tmp_path: Path) -> None:
@@ -461,8 +463,10 @@ def test_trace_row_with_bare_container_gives_the_same_digest(tmp_path: Path) -> 
 
 
 def test_fixture_helpers_are_not_vacuous(tmp_path: Path) -> None:
-    """``bare`` and ``prefixed`` really change the 7 pin values (guards the tests above)."""
-    assert len(re.findall(r"container = 'docker://", prefixed(_text()))) == 7
+    """``bare`` and ``prefixed`` really change every pin value (guards the tests above)."""
+    n = len(read_containers_config(CONFIG))
+    assert n >= 7
+    assert len(re.findall(r"container = 'docker://", prefixed(_text()))) == n
     assert "docker://" not in "\n".join(_code_lines(bare(prefixed(_text()))))
     shutil.copyfile(CONFIG, tmp_path / "c.config")
-    assert len(read_containers_config(tmp_path / "c.config")) == 7
+    assert len(read_containers_config(tmp_path / "c.config")) == n

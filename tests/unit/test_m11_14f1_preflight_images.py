@@ -282,8 +282,8 @@ def test_example_7b_conda_only_tool_with_a_built_env_is_missing(
 ) -> None:
     """A prebuilt env does not help where conda is off: the process would run on the host."""
     pinned = pins()
-    tool = "promotech"
-    assert tool not in pinned, "promotech is expected to be conda-only on this branch"
+    tool = "uniop"
+    assert tool not in pinned, "uniop has no licence file, so no published image"
     envs = build_envs(tmp_path / "envs", [tool])
     cache = empty(tmp_path, "cache")
     assert call("missing_tools", [TOOLS[tool]], profile, cache, envs) == [tool]
@@ -405,10 +405,10 @@ def test_row_conda_only_with_conda_and_no_env_root(tmp_path: Path, profile: str)
 
 
 def test_row_stale_marker_is_still_missing_under_conda(tmp_path: Path) -> None:
-    envs = build_envs(tmp_path / "envs", ["promotech"])
-    (envs / TOOLS["promotech"].env_name / MARKER).write_text("0" * 64 + "\n")
-    got = call("missing_tools", [TOOLS["promotech"]], "conda", empty(tmp_path, "c"), envs)
-    assert got == ["promotech"]
+    envs = build_envs(tmp_path / "envs", ["uniop"])
+    (envs / TOOLS["uniop"].env_name / MARKER).write_text("0" * 64 + "\n")
+    got = call("missing_tools", [TOOLS["uniop"]], "conda", empty(tmp_path, "c"), envs)
+    assert got == ["uniop"]
 
 
 # ---------------------------------------------------------------- uniop with a local build

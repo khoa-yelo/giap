@@ -571,8 +571,15 @@ def test_apptainer_plan_lists_images_temp_space_and_three_filesystems(
     pulls = [a for a in env["calls"].argv if a[:2] == ["apptainer", "pull"]]
     assert pulls, f"setup did not proceed to the pulls:\n{r.output}"
     plan = _before_first_fetch(r.output)
+    from gippa.setupdb.images import image_sizes
+
+    sizes = image_sizes()
+    assert {"antismash", "bakta", "genomad"} <= set(sizes), "the upstream SIF sizes are recorded"
     for tool in _image_tools():
-        assert _gib_line(plan, tool), f"no plan line for image {tool}:\n{plan}"
+        if tool in sizes:
+            assert _gib_line(plan, tool), f"no plan line for image {tool}:\n{plan}"
+        else:  # B7: an unmeasured image says so, never a made-up size
+            assert f"image {tool} size not recorded" in plan, plan
     temp = [ln for ln in plan.splitlines() if str(tmp) in ln and "GiB" in ln]
     assert temp, f"no temporary-space line naming APPTAINER_TMPDIR:\n{plan}"
     for gib in (111, 222, 333):
