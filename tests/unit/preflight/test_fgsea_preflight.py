@@ -233,19 +233,16 @@ def _tools_check(
 
 
 @pytest.mark.parametrize("profile", ["farmshare", "farmshare,apptainer"])
-def test_preflight_reports_missing_fgsea_like_ostir(tmp_path: Path, profile: str) -> None:
+def test_preflight_reports_a_missing_fgsea_env(tmp_path: Path, profile: str) -> None:
+    """fgsea needs its prebuilt env under both profiles, with conda on (no image is used)."""
     fg = _tools_check(
         tmp_path / "fg", fake_gippa_root(tmp_path / "r1", skip=["fgsea"]), profile, abundance=True
     )
-    os_ = _tools_check(
-        tmp_path / "os", fake_gippa_root(tmp_path / "r2", skip=["ostir"]), profile, abundance=True
-    )
-    assert fg.level == os_.level == "error"
-    assert fg.exit_code == os_.exit_code == 2
-    assert fg.rule_id == os_.rule_id
+    assert fg.level == "error"
+    assert fg.exit_code == 2
+    assert fg.rule_id == "environment.tools"
     assert fg.value == {"missing": ["fgsea"]}
-    assert os_.value == {"missing": ["ostir"]}
-    assert fg.message == os_.message.replace("ostir", "fgsea")
+    assert fg.message == "missing: fgsea; fgsea: prebuilt env gippa-fgsea: not built"
 
 
 @pytest.mark.parametrize("profile", ["farmshare", "farmshare,apptainer"])
