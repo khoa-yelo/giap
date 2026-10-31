@@ -114,7 +114,10 @@ of geNOMAD (non-commercial use only) and KEGG (academic use only).
   apptainer 1.5.5), `mksquashfs` can segfault on a first pull: the message ends in
   `mksquashfs command failed: exit status 139`. Setup retries a failed pull once automatically.
   Setting `APPTAINER_CACHEDIR` keeps the layers between attempts, so a rerun can reuse them;
-  without it each attempt pulls from scratch. A missing bakta image also makes `bakta_light`
+  without it each attempt pulls from scratch. On Sherlock the failure followed the node type, not
+  memory: it repeated on Intel Broadwell nodes and setup passed on AMD ones. If it keeps failing,
+  run setup on a different node type (on Sherlock, `sbatch -C CPU_MNF:AMD`). A missing bakta
+  image also makes `bakta_light`
   skip, so rerun setup after such a failure. Large pulls print no progress: the
   antiSMASH image (4.6 GiB) can take several minutes
   ([#504](https://github.com/khoa-yelo/gippa/issues/504)).
