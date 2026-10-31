@@ -245,6 +245,11 @@ All notable changes are recorded here by towncrier from `changelog.d/` fragments
     - the V4 locus browser (igv-reports) and the V9 mass-fraction treemap are not built, so 16
       plots are made instead of 18;
     - no RO-Crate export;
+    - mapping FDR: on a same-database search (`--search-db same`) exact matches are exempt from
+      decoy estimation, so GIPPA adds no estimate of identification error; it comes from your
+      search engine. The pilot's mapping FDR on arm A2 was therefore not measured, and the release
+      criterion is waived
+      ([ADR-0071](https://github.com/khoa-yelo/gippa/blob/main/docs/adr/ADR-0071-r2-mapping-fdr-waiver-1-0-0.md));
     - abundance: the pilot fails true example TE4 for one protein pair (log2 RplL/RplJ is −0.48;
       about 2 is expected, and [1, 3] is required). The failure is waived for this release
       ([ADR-0070](https://github.com/khoa-yelo/gippa/blob/main/docs/adr/ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md)). Do not read an iBAQ ratio of a

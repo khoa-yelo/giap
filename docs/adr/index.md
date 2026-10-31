@@ -72,3 +72,4 @@
 - [ADR-0068: Initiator methionine at annotated non-ATG starts](ADR-0068-initiator-methionine-non-atg-starts.md): accepted-by-khoa (Accepted by Khoa, 2026-10-28, in session, Q-K56: "Yes")
 - [ADR-0069: A second official source for the Promotech RF-HOT model (GitHub LFS fallback)](ADR-0069-promotech-model-github-lfs-fallback.md): accepted-by-khoa (2026-10-30, in session: "Accept as fallback")
 - [ADR-0070: 1.0.0 ships with TE4's rplL/rplJ pair failing on the pilot](ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md): accepted-by-khoa (2026-10-31, in session: "waive it")
+- [ADR-0071: 1.0.0 ships without a measured mapping FDR on pilot arm A2](ADR-0071-r2-mapping-fdr-waiver-1-0-0.md): accepted-by-khoa (2026-10-31, in session: "Waive and disclose (Recommended)")
