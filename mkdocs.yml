@@ -175,6 +175,7 @@ nav:
       - adr/ADR-0068-initiator-methionine-non-atg-starts.md
       - adr/ADR-0069-promotech-model-github-lfs-fallback.md
       - adr/ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md
+      - adr/ADR-0071-r2-mapping-fdr-waiver-1-0-0.md
   - Developer guide:
       - developer.md
       - release.md
