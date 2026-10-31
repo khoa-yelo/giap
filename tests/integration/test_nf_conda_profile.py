@@ -1,9 +1,10 @@
 """farmshare,apptainer: conda only for the conda-only tools (M2-07 decisions 4, 12 and 13).
 
-The six tools without an image (uniop, promotech, promoter_calculator, terminatornet, ostir and
-the opt-in bactermfinder, decision 12) run in the prebuilt micromamba envs under ``$GIPPA_ROOT``
-(``conda.enabled``, ``conda.useMicromamba``); the pinned-container tools (bakta, transtermhp,
-genomad, antiSMASH) run in their containers with conda off; no conda env is ever built on the fly
+The one process tool without a published image (uniop) runs in its prebuilt micromamba env under
+``$GIPPA_ROOT`` (``conda.enabled``, ``conda.useMicromamba``); the pinned-container tools (bakta,
+transtermhp, genomad, antiSMASH and the GHCR images of promotech, promoter_calculator,
+terminatornet, ostir and the opt-in bactermfinder) run in their containers with conda off; no
+conda env is ever built on the fly
 under farmshare or farmshare,apptainer. The ``ps`` shim bound into the bakta/antiSMASH containers
 is read-only (decision 13). Parses ``nextflow config workflow -flat -profile <profile>`` with a
 fake ``GIPPA_ROOT``; the per-process ``conda`` is the last matching ``withName`` setting (the
@@ -26,16 +27,19 @@ REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
 FAKE_ROOT = "/fake/gippa_root"
 
-CONDA_TOOLS = [
-    "UNIOP",
+CONDA_TOOLS = ["UNIOP"]
+PROFILES = ["farmshare", "farmshare,apptainer"]
+CONTAINER_TOOLS = [
+    "BAKTA",
+    "TRANSTERMHP",
+    "GENOMAD",
+    "ANTISMASH",
     "PROMOTECH",
     "PROMOTER_CALCULATOR",
     "TERMINATORNET",
     "OSTIR",
     "BACTERMFINDER",
 ]
-PROFILES = ["farmshare", "farmshare,apptainer"]
-CONTAINER_TOOLS = ["BAKTA", "TRANSTERMHP", "GENOMAD", "ANTISMASH"]
 _OFF = {"null", "''", '""', "false"}
 
 
@@ -95,7 +99,7 @@ def test_conda_is_enabled_with_micromamba(flat: list[str]) -> None:
 @pytest.mark.parametrize("profile", PROFILES)
 @pytest.mark.parametrize("tool", CONDA_TOOLS)
 def test_conda_only_tool_uses_the_prebuilt_env_under_gippa_root(profile: str, tool: str) -> None:
-    """Decision 12: all six conda-only tools (bactermfinder included) use a prebuilt env."""
+    """Decision 12: a conda-only tool uses a prebuilt env."""
     flat = _flat_cached(profile)
     value = _setting(flat, f"ANNOTATE:{tool}", "conda")
     assert value is not None, f"{tool}: no withName conda setting (would build the yml env)"
@@ -116,7 +120,7 @@ def test_container_tool_has_conda_off(flat: list[str], tool: str) -> None:
     assert value in _OFF, f"{tool}: conda {value!r} with conda.enabled (must be off for this tool)"
 
 
-def test_exactly_the_six_tools_get_conda(flat: list[str]) -> None:
+def test_exactly_the_conda_only_tools_get_conda(flat: list[str]) -> None:
     on = sorted(
         t
         for t in CONDA_TOOLS + CONTAINER_TOOLS
@@ -127,11 +131,6 @@ def test_exactly_the_six_tools_get_conda(flat: list[str]) -> None:
 
 def test_stub_profile_keeps_conda_off() -> None:
     assert _value(_flat("test,stub"), "conda.enabled") in {"false", None}
-
-
-def test_bactermfinder_is_one_of_six_conda_only_tools() -> None:
-    """Decision 12: six conda-only tools in total."""
-    assert len(CONDA_TOOLS) == 6 and "BACTERMFINDER" in CONDA_TOOLS
 
 
 @pytest.mark.parametrize("tool", ["BAKTA", "ANTISMASH"])
