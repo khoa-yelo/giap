@@ -105,6 +105,75 @@ def origin_split(protein: str, cut: int) -> str:
     return tail + SPACER + "GCTGCT" + SPACER * 3 + head
 
 
+# ------------------------------------------------------------------ annotation (ADR-0068, M11-20)
+
+#: an N-terminal peptide whose first codon is a non-ATG start (example 9's P4)
+START_REST = "TEKLLAGGPR"
+START_PEPTIDE = "M" + START_REST
+#: how the six-frame index reads each start codon of table 11
+PLAIN = {"GTG": "V", "TTG": "L"}
+BAKTA_TYPE = {"cds": "cds", "sorf": "sorf", "pseudogene": "cds"}
+
+
+def start_contig(
+    codon: str, rest: str = START_REST, *, before: Sequence[str] = NISSLE, upstream: str = ""
+) -> tuple[str, int, int]:
+    """(contig, start, end): ``before``'s coding text, ``upstream``, then ``codon rest TAA`` in the
+    same frame and a spacer; ``[start, end)`` is the ``codon rest TAA`` interval on ``+``."""
+    head = coding_text(*before) + back_translate(upstream)
+    gene = codon + back_translate(rest) + "TAA"
+    return head + gene + SPACER, len(head), len(head) + len(gene)
+
+
+def write_annotation_json(
+    path: Path,
+    contigs: Mapping[str, str],
+    circular: Iterable[str],
+    genes: Sequence[Any] = (),
+    *,
+    table: int | None = None,
+) -> Path:
+    """A minimal Bakta JSON of ``genes`` (``gippa.model.genes.Gene``, 1-based closed on disk);
+    ``table`` is recorded as ``genome.translation_table``; a ``.gz`` name is gzipped."""
+    circ = set(circular)
+    doc: dict[str, Any] = {
+        "sequences": [
+            {"id": c, "length": len(s), "type": "chromosome",
+             "topology": "circular" if c in circ else "linear"}
+            for c, s in contigs.items()
+        ],
+        "features": [
+            {"type": BAKTA_TYPE[g.feature_type], "locus": g.locus_tag,
+             "sequence": g.interval.contig, "start": g.interval.start + 1,
+             "stop": g.interval.end, "strand": g.interval.strand, "aa": g.aa, "product": "toy",
+             **({"pseudo": True} if g.feature_type == "pseudogene" else {})}
+            for g in genes
+        ],
+    }  # fmt: skip
+    if table is not None:
+        doc["genome"] = {"translation_table": table}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(doc)
+    if path.suffix == ".gz":
+        with gzip.open(path, "wt", encoding="utf-8") as fh:
+            fh.write(text)
+    else:
+        path.write_text(text, encoding="utf-8")
+    return path
+
+
+def write_shared_annotation(
+    path: Path,
+    texts: Sequence[str] = NISSLE,
+    circular: Iterable[str] = ("nissle",),
+) -> Path:
+    """The annotation of the shared fixture's contig: its first gene, an ATG start (no site)."""
+    from helpers.initiator_toys import cds
+
+    gene = cds("NISSLE_00001", "nissle", 9, 9 + 3 * len(texts[0]) + 3, "+", texts[0], "ATG")
+    return write_annotation_json(path, {"nissle": coding_text(*texts)}, circular, [gene])
+
+
 # ------------------------------------------------------------------ discoveries (example 2)
 
 ROW_COLS = ("run", "peptide", "modified_peptide", "charge", "q_value", "is_decoy", "protein_ids")
@@ -265,10 +334,16 @@ def diann_step1_tokens(cfg: Path, k12: Path, cont: Path, **override: str) -> lis
     return [*tokens, "--threads", "16", "--out-lib", "/scratch/A1.parquet"]
 
 
-def write_out_a1(root: Path, exact: Sequence[str], gi_count: int, gi_n: int) -> Path:
+def write_out_a1(
+    root: Path,
+    exact: Sequence[str],
+    gi_count: int,
+    gi_n: int,
+    flags: Mapping[str, str] | None = None,
+) -> Path:
     """An A1 run directory with ``tables/peptide_hits.tsv`` (one ``route = exact`` target row per
-    peptide of ``exact``), an empty ``tables/unmapped.tsv`` and ``tables/detection_summary.tsv``
-    with ``genome_inconsistent_rate`` = ``gi_count / gi_n``."""
+    peptide of ``exact``, with its placement ``flags``), an empty ``tables/unmapped.tsv`` and
+    ``tables/detection_summary.tsv`` with ``genome_inconsistent_rate`` = ``gi_count / gi_n``."""
     from types import SimpleNamespace
 
     from gippa.model.coords import Interval
@@ -276,7 +351,7 @@ def write_out_a1(root: Path, exact: Sequence[str], gi_count: int, gi_n: int) -> 
 
     g = SimpleNamespace(interval=Interval("nissle", 9, 300, "+"), locus_tag="NISSLE_00001")
     write_table(root / "tables" / "peptide_hits.tsv", "peptide_hits",
-                [hit_row(p, g) for p in exact])  # fmt: skip
+                [hit_row(p, g) | {"flags": (flags or {}).get(p)} for p in exact])  # fmt: skip
     write_table(root / "tables" / "unmapped.tsv", "unmapped", [])
     ds = {"section": "qc", "group_type": "all", "group": "all",
           "metric": "genome_inconsistent_rate", "value": gi_count / gi_n, "n": gi_n}  # fmt: skip

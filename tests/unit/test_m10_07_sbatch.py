@@ -8,7 +8,9 @@ Binding: docs/specs/M10-07-free-entrapment.md, "Lead decisions after the code re
 * S5: ``OUT_A1`` defaults to the M10-04 A1 directory (M10-05's input table:
   ``$GIPPA_ROOT/runs/pilot/pass1/out_a1``); an explicitly set ``OUT_A1``, ``DIANN_CMD`` or
   ``PROVENANCE`` that does not exist exits 2 before anything runs; the sbatch never skips the
-  cross-checks silently (a skipped cross-check is logged).
+  cross-checks silently (a skipped cross-check is logged);
+* ADR-0068: ``ANNOTATION`` (default: the M10-04 pilot's recorded Bakta JSON) is passed as
+  ``--annotation``, a required input of ``entrapment.py``.
 
 The script sources ``scripts/farmshare_env.sh``, which sets ``UV_PROJECT_ENVIRONMENT`` to
 ``$GIPPA_ROOT/venv``. The tests point ``GIPPA_ROOT`` at a scratch directory and put a stub
@@ -39,15 +41,20 @@ from helpers.entrapment_m10_07 import (
     write_faa,
     write_genome,
     write_runs_manifest,
+    write_shared_annotation,
 )
 
 SBATCH = REPO / "scripts" / "slurm" / "entrapment.sbatch"
 OPTIONAL_VARS = ("OUT_A1", "DIANN_CMD", "PROVENANCE")
-INPUT_VARS = ("PEP_A1", "K12_FASTA", "CONTAMINANTS", "GENOME", "STRAIN_DB", "RUNS_MANIFEST")
+INPUT_VARS = (
+    "PEP_A1", "K12_FASTA", "CONTAMINANTS", "GENOME", "STRAIN_DB", "RUNS_MANIFEST", "ANNOTATION",
+)  # fmt: skip
+#: M10-04's table: the annotation behind A1's run and ``strain_db.faa.gz``
+PILOT_ANNOTATION = "tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz"
 
 
 def _inputs(root: Path) -> dict[str, str]:
-    """The six required inputs (the spec's example-2 fixture), outside the checkout."""
+    """The seven required inputs (the spec's example-2 fixture), outside the checkout."""
     return {
         "PEP_A1": str(write_a1(root / "a1.tsv.gz", list(EXAMPLE2_ROWS))),
         "K12_FASTA": str(write_faa(root / "UP000000625.fasta", K12)),
@@ -57,6 +64,7 @@ def _inputs(root: Path) -> dict[str, str]:
         ),
         "STRAIN_DB": str(write_faa(root / "strain_db.faa", ["MSAGLLKVEPTLDEKAAGGYWR"], "N_")),
         "RUNS_MANIFEST": str(write_runs_manifest(root / "pxd078459_files.tsv")),
+        "ANNOTATION": str(write_shared_annotation(root / "nissle.bakta.json")),
     }
 
 
@@ -135,6 +143,36 @@ def test_s5_a_skipped_cross_check_is_logged(root: Path, tmp_path: Path) -> None:
     assert "--out-a1" not in _argv(argv_file)
     log = (res.stdout + res.stderr).lower()
     assert "cross-check" in log and "skip" in log, _show(res)
+
+
+def test_annotation_is_passed_to_entrapment_py(root: Path, tmp_path: Path) -> None:
+    argv_file = _stub_python(root, real=False)
+    inputs = _inputs(tmp_path / "in")
+    res = _run(root, **inputs)
+    assert res.returncode == 0, _show(res)
+    assert _flag(_argv(argv_file), "--annotation") == inputs["ANNOTATION"], _argv(argv_file)
+
+
+def test_annotation_defaults_to_the_pilot_annotation(root: Path, tmp_path: Path) -> None:
+    """Like ``GENOME``, the default is the spec table's path relative to the checkout."""
+    argv_file = _stub_python(root, real=False)
+    inputs = _inputs(tmp_path / "in")
+    del inputs["ANNOTATION"]
+    res = _run(root, **inputs)
+    assert res.returncode == 0, _show(res)
+    assert _flag(_argv(argv_file), "--annotation") == PILOT_ANNOTATION, _argv(argv_file)
+    assert (REPO / PILOT_ANNOTATION).is_file()
+
+
+@pytest.mark.gnu_userland
+def test_missing_annotation_file_exits_2_and_writes_nothing(root: Path, tmp_path: Path) -> None:
+    """The real ``entrapment.py`` refuses it (or the sbatch itself, before anything runs)."""
+    _stub_python(root, real=True)
+    missing = tmp_path / "no-such-annotation.json"
+    res = _run(root, **(_inputs(tmp_path / "in") | {"ANNOTATION": str(missing)}))
+    assert res.returncode == 2, _show(res)
+    assert missing.name in res.stdout + res.stderr, _show(res)
+    assert not (root / "pilot" / "metrics" / "entrapment.json").exists()
 
 
 # the sbatch's guard uses GNU ``realpath -m`` (BSD realpath: "illegal option -- m"), so the
