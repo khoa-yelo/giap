@@ -114,7 +114,8 @@ def test_fixture_has_the_real_setup_manifest_structure() -> None:
 def test_fixture_helpers_match_the_repo_configs(tmp_path: Path) -> None:
     pinned = pinned_images()
     assert {"bakta", "miniprot", "blast", "genomad", "antismash", "transtermhp"} <= set(pinned)
-    assert {"uniop", "promotech", "ostir"} <= set(conda_only_tools())
+    assert "uniop" in conda_only_tools()
+    assert {"promotech", "ostir"} <= set(pinned)
     ref = pinned["bakta"]
     assert image_file_name(ref).startswith("oschwengers-bakta@sha256-") and ref.endswith(
         image_file_name(ref).split("@sha256-")[1].removesuffix(".img")
@@ -165,8 +166,8 @@ def test_a_missing_conda_env_reported_by_name(tmp_path: Path) -> None:
 
 
 def test_a_env_with_stale_or_no_build_marker_is_missing(tmp_path: Path) -> None:
-    root = fake_gippa_root(tmp_path / "root", stale=["promotech"], no_marker=["ostir"])
-    assert _missing_tools()(external_tools(), "farmshare,apptainer", root) == ["ostir", "promotech"]
+    root = fake_gippa_root(tmp_path / "root", stale=["uniop"], no_marker=["fgsea"])
+    assert _missing_tools()(external_tools(), "farmshare,apptainer", root) == ["fgsea", "uniop"]
 
 
 def test_a_only_the_given_tools_are_checked(tmp_path: Path) -> None:

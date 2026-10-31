@@ -32,11 +32,6 @@ EXPECTED_ENVS = {
 # Q3 (lead decision 1): no upstream image yet -> no withName entry; conda even under apptainer.
 CONDA_ONLY = {
     "uniop",
-    "promotech",
-    "promoter_calculator",
-    "terminatornet",
-    "bactermfinder",
-    "ostir",
     "fgsea",  # M8-17 lead decision 9: conda-only under every profile
 }
 

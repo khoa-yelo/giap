@@ -89,8 +89,20 @@ exit 0
 """
 
 # Tools `all` must build (no pinned container, not opt-in) and must skip (decision 4).
-ALL_BUILDS = {"uniop", "promotech", "promoter_calculator", "terminatornet", "ostir", "fgsea"}
-ALL_SKIPS = {"bakta", "transtermhp", "genomad", "antismash", "miniprot", "blast", "bactermfinder"}
+ALL_BUILDS = {"uniop", "fgsea"}
+ALL_SKIPS = {
+    "bakta",
+    "transtermhp",
+    "genomad",
+    "antismash",
+    "miniprot",
+    "blast",
+    "bactermfinder",
+    "promotech",
+    "promoter_calculator",
+    "terminatornet",
+    "ostir",
+}
 
 
 class Sandbox:

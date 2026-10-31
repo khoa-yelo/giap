@@ -1,4 +1,4 @@
-"""``scripts/release/update_digests.py`` on copies of the real ``containers.config`` (M11-06).
+"""``scripts/release/update_digests.py`` on the pre-publish ``containers.config`` (M11-06).
 
 Spec docs/specs/M11-06-ghcr-containers.md item 3, examples 1-5 and the "two processes, one image"
 edge case; acceptance criterion 1. No network: every run edits a copy in a temporary directory.
@@ -28,7 +28,8 @@ from hypothesis import strategies as st
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "release" / "update_digests.py"
-CONFIG = REPO / "workflow" / "conf" / "containers.config"
+# The config as it was before the first image publish: the tool starts from conda-only tools.
+CONFIG = REPO / "tests" / "data" / "prepublish" / "containers.config"
 ORIGINAL = CONFIG.read_text()
 
 DATE = "2026-10-25"
@@ -109,7 +110,7 @@ def test_script_exists() -> None:
     assert SCRIPT.is_file(), "scripts/release/update_digests.py is missing (M11-06 item 3)"
 
 
-def test_real_config_has_the_lines_these_tests_rely_on() -> None:
+def test_frozen_config_has_the_lines_these_tests_rely_on() -> None:
     lines = ORIGINAL.splitlines()
     assert CONDA_ONLY_LINE in lines
     assert any(ln.startswith(TAGS_HEADER) for ln in lines)

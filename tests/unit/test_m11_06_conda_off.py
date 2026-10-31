@@ -20,9 +20,10 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "release" / "update_digests.py"
-CONFIG = REPO / "workflow" / "conf" / "containers.config"
+# Frozen before the first image publish: the tool starts from conda-only tools.
+CONFIG = REPO / "tests" / "data" / "prepublish" / "containers.config"
 NEXTFLOW = REPO / "workflow" / "nextflow.config"
-COMMON = REPO / "workflow" / "conf" / "container_common.config"
+COMMON = REPO / "tests" / "data" / "prepublish" / "container_common.config"
 
 DATE = "2026-10-25"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
