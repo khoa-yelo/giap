@@ -581,7 +581,8 @@ def h4(c: Ctx) -> Row:
     bad += [f"not pinned, not conda-only: {n}" for n, inproc in reg.items()
             if not inproc and n not in NOT_CONTAINERISED and n.upper() not in pins]  # fmt: skip
     bad += _h4_images(c.repo)
-    val = "; ".join(bad) or f"{len(pins)} digests; {sum(n.upper() not in pins for n in reg)} conda-only/in-process"
+    unpinned = sum(n.upper() not in pins for n in reg)
+    val = "; ".join(bad) or f"{len(pins)} digests; {unpinned} conda-only/in-process"
     return _row("H4", "fail" if bad else "pass", val, _H4_EXPECTED, [cfg_rel, tools_rel, IMAGES])
 
 
