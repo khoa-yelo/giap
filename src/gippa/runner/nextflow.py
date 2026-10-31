@@ -11,13 +11,16 @@ Resources: the user's ``--threads``/``--memory`` (``params.threads``/``params.me
 profile's limits combine as the minimum of the two, never a silent override: e.g. under
 ``farmshare`` a task gets at most ``min(16, threads)`` CPUs and ``min(64 GB, memory)``, under
 ``farmshare_local`` at most ``min(SLURM_CPUS_PER_TASK, threads)`` CPUs and
-``min(SLURM_MEM_PER_NODE - 2 GB, memory)``.
+``min(SLURM_MEM_PER_NODE - 2 GB, memory)``. On a local executor, a ``threads`` nobody set (the
+default) is first capped to the CPUs available (:func:`capped_threads`; #514): the local executor
+aborts a task that asks for more than the host has. An explicit value is never changed.
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 import subprocess
 import sys
@@ -28,6 +31,7 @@ import yaml
 
 from gippa.config import GippaConfig
 from gippa.exitcodes import ExitCode
+from gippa.runner.profiles import uses_local_executor
 from gippa.runner.workflow_path import workflow_main as workflow_main  # re-export
 from gippa.steps import load_step_modules
 from gippa.steps import registry as reg
@@ -37,6 +41,26 @@ _FAILED = {"FAILED", "ABORTED"}
 _EMPTY = {"", "-"}
 _NAME = re.compile(r"(?P<proc>[^ ]+)(?: \((?P<tag>.*)\))?")
 _DONE = {"COMPLETED", "CACHED", "FAILED"}
+
+
+def available_cpus(environ: Mapping[str, str]) -> int | None:
+    """The CPUs this process may use: a positive-integer ``SLURM_CPUS_PER_TASK``, else the
+    affinity mask (a cgroup or ``taskset`` limit shows there), else ``os.cpu_count()``; ``None``
+    when nothing is known."""
+    raw = environ.get("SLURM_CPUS_PER_TASK", "")
+    if raw.isdecimal() and int(raw) > 0:
+        return int(raw)
+    affinity = getattr(os, "sched_getaffinity", None)  # absent on some platforms
+    return len(affinity(0)) if affinity is not None else os.cpu_count()
+
+
+def capped_threads(threads: int, *, explicit: bool, profile: str, available: int | None) -> int:
+    """``min(threads, available)`` for a default ``threads`` on a local executor when ``available``
+    is known, else ``threads``: Slurm tasks are separate jobs, and an explicit value is the
+    user's. Pure."""
+    if explicit or available is None or not uses_local_executor(profile):
+        return threads
+    return min(threads, available)
 
 
 def write_params(

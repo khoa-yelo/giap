@@ -5,8 +5,11 @@ tools:
       licence: ["AGPL-3.0"]
       notes: Runs as a separate process from envs/antismash.yml or its containers.config pin (R5).
 databases: >-
-  `--databases <db_dir>/antismash` (the databases `gippa setup` installed and verified; M2-18 lead
-  decision 2). The DB directory is bound read-only.
+  `--databases <db_dir>/antismash` only when the task's shell finds that path to be a directory with
+  content (the rule by which `gippa setup` adopts an install); otherwise the flag is omitted and
+  antiSMASH uses the databases bundled in its image, which is what a fresh setup under a container
+  profile records. This supersedes M2-18 lead decisions 2 and 4 (`--databases` always passed and
+  required) per #515. The DB directory is bound read-only.
 apptainer: >-
   no `ps` in the pinned image (Nextflow task metrics need it and cannot be disabled per process).
   The host procps ps fails here (needs libproc2 and GLIBC 2.38; the Debian 12 image has 2.36), so

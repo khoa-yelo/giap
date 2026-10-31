@@ -160,7 +160,9 @@ the same profile names, the DB directory from `$GIPPA_DB_DIR` and the prebuilt e
 --images --profile apptainer`. Without `--profile`, no tool is checked.
 
 **Step 5.** The default `--profile` is `farmshare,apptainer`, so off FarmShare always pass it.
-`--memory` defaults to `64.GB`; set it to what the machine has. See [Run](../user-guide/run.md).
+`--memory` defaults to `64.GB`; set it to what the machine has. `--threads` defaults to 16, capped to
+the CPUs available unless you set it or a Slurm profile runs the tasks. See
+[Run](../user-guide/run.md).
 
 ### UniOP
 
