@@ -124,6 +124,7 @@ decide how many charge states each peptide has (examples 1, 2).
 | `CONTAMINANTS` | `$GIPPA_DB_DIR/contaminants/contaminants.fasta` (the file A1 searched; its path is in `command_step1.txt`) | exclusions |
 | `GENOME` | `tests/data/genomes/nissle1917.fna.gz` | Nissle's translation |
 | `STRAIN_DB` | `validation/pilot/db_a2/strain_db.faa.gz` | the N-terminal rule (L2) |
+| `ANNOTATION` | `tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz` | a Bakta JSON (possibly gzipped) of `GENOME`: the annotated non-ATG starts where rule 1 credits an initiator M (ADR-0068, M11-20) |
 | `RUNS_MANIFEST` | `validation/pilot/inputs/pxd078459_files.tsv` | wild-type runs |
 | `OUT_A1` (optional) | the M10-04 A1 run directory (as M10-05 resolves it) | cross-checks (exact route, genome-inconsistent count) |
 | `DIANN_CMD` (optional) | `$GIPPA_ROOT/pilot/A1/command_step1.txt` | asserts the digest and precursor settings equal the defaults below (exit 2 otherwise) |
