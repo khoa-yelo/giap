@@ -4,11 +4,13 @@ docs/specs/M10-07-free-entrapment.md with its binding statistician decisions.
 K-12 peptides absent from Nissle's translation are the entrapment (E), K-12 peptides present in
 it the original targets (T). Wen et al. 2025 (doi:10.1038/s41592-025-02719-x), equation (1):
 ``fdp_combined = N_E (1 + 1/r) / (N_T + N_E)``; equation (2): ``fdp_lower = N_E / (N_T + N_E)``.
-Pure functions plus a thin CLI::
+Rule 1 of ``present`` is GIPPA's exact route, so it credits an M at the non-ATG starts that
+``--annotation`` (a Bakta JSON, possibly gzipped) annotates on ``--genome`` (ADR-0068). Pure
+functions plus a thin CLI::
 
     python validation/pilot/entrapment.py compute --pep-a1 PEP_A1 --k12-fasta K12_FASTA \\
         --contaminants CONTAMINANTS --genome GENOME --strain-db STRAIN_DB \\
-        --runs-manifest RUNS_MANIFEST --out METRICS_DIR \\
+        --annotation ANNOTATION --runs-manifest RUNS_MANIFEST --out METRICS_DIR \\
         [--out-a1 OUT_A1] [--diann-cmd command_step1.txt] [--provenance provenance.json]
 
 Exit codes: 0 written; 1 cross-check 1 failed (two exact matchers disagree); 2 a precondition
@@ -38,6 +40,7 @@ from scipy.stats import binom
 from validation.pilot import metrics as m5
 from validation.pilot.metrics import Inconsistent, Precondition, sha256
 
+from gippa.annotate.bakta import parse_bakta_json
 from gippa.config import resolve_config
 from gippa.config.model import Enzyme, TolerantConfig
 from gippa.io.fasta import read_genome_fasta
@@ -48,10 +51,12 @@ from gippa.mapping.decoys import DecoyType
 from gippa.mapping.digest import digest
 from gippa.mapping.exact import match_exact
 from gippa.mapping.frameshift import match_frameshift
+from gippa.mapping.initiator import StartCells, annotated_starts, start_frame_cells
 from gippa.mapping.masses import MOD_DELTA, RESIDUE_MASS
 from gippa.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
 from gippa.mapping.tolerant import match_tolerant
 from gippa.model.coords import Replicon
+from gippa.model.genes import GeneModel
 
 SPEC = "docs/specs/M10-07-free-entrapment.md"
 SCHEMA = "gippa-pilot-entrapment/1"
@@ -154,11 +159,13 @@ def n_prec(peptide: str, settings: Settings = DEFAULT_SETTINGS) -> int:
 
 @dataclass(frozen=True)
 class Index:
-    """Nissle's six-frame translation, the ``strain_db`` text and the tolerant settings."""
+    """Nissle's six-frame translation, the ``strain_db`` text, the tolerant settings and the
+    annotated non-ATG start cells (no decoy cells: the decoy space is empty)."""
 
     sixframe: SixFrameIndex
     strain_text: str | None
     tolerant: TolerantConfig
+    starts: StartCells
 
 
 @dataclass(frozen=True)
@@ -176,11 +183,18 @@ class Presence:
 
 def build_index(genome: Mapping[str, str], replicons: Mapping[str, Replicon],
                 strain_db: Sequence[str] | None = None, tolerant: TolerantConfig | None = None,
-                ) -> Index:  # fmt: skip
-    """``strain_db`` None: L2 answered "no" (six-frame translation only)."""
+                *, annotation: GeneModel) -> Index:  # fmt: skip
+    """``strain_db`` None: L2 answered "no" (six-frame translation only). ``annotation`` gives
+    the start cells, with the config's ``start_codons`` and ``translation_table``, as GIPPA's
+    ``sixframe_index`` step builds them."""
     text = None if strain_db is None else "*".join(norm(p) for p in strain_db)
-    cfg = tolerant if tolerant is not None else resolve_config().mapping.tolerant
-    return Index(build_sixframe(genome, replicons), text, cfg)
+    config = resolve_config()
+    cfg = tolerant if tolerant is not None else config.mapping.tolerant
+    ann = config.annotation
+    six = build_sixframe(genome, replicons, table=ann.translation_table)
+    sites, _ = annotated_starts(annotation, genome, ann.start_codons, table=ann.translation_table)
+    starts = StartCells(sites, start_frame_cells(six, sites), {_NO_DECOY: ()})
+    return Index(six, text, cfg, starts)
 
 
 def _substrings(peptides: Sequence[str], text: str) -> set[str]:
@@ -194,13 +208,15 @@ def _substrings(peptides: Sequence[str], text: str) -> set[str]:
 
 
 def present(peptides: Iterable[str], index: Index) -> dict[str, Presence]:
-    """Rule 1 (exact six-frame match, or a ``strain_db`` substring; I -> L) else rule 2 (a
-    tolerant target row whose ``diff_types`` is non-empty and only ``block``)."""
+    """Rule 1 (exact six-frame match, with an M credited at an annotated non-ATG start, or a
+    ``strain_db`` substring; I -> L) else rule 2 (a tolerant target row whose ``diff_types`` is
+    non-empty and only ``block``)."""
     peps = sorted(set(peptides))
     q = {p: norm(p) for p in peps}
     texts = sorted(set(q.values()))
     decoy_of = dict.fromkeys(texts, _NO_DECOY)
-    hx = match_exact(texts, index.sixframe, _NO_DECOYS, decoy_of, min_len=1, max_len=10**6)
+    hx = match_exact(texts, index.sixframe, _NO_DECOYS, decoy_of, min_len=1, max_len=10**6,
+                     starts=index.starts)  # fmt: skip
     exact = set(hx.loc[hx["search"] == "target", "peptide"])
     rest = [t for t in texts if t not in exact]
     sdb = _substrings(rest, index.strain_text or "")
@@ -495,7 +511,8 @@ def cross_check_run(discoveries: Sequence[Discovery], out_a1: Path, n_e: int,
 
 # ---------------------------------------------------------------- CLI (file I/O)
 
-INPUTS = ("pep_a1", "k12_fasta", "contaminants", "genome", "strain_db", "runs_manifest")
+INPUTS = ("pep_a1", "k12_fasta", "contaminants", "genome", "strain_db", "annotation",
+          "runs_manifest")  # fmt: skip
 OPTIONAL = ("out_a1", "diann_cmd", "provenance")
 #: provenance.json ``inputs.fasta[]`` basename -> the argument it vouches for (S2: by role)
 PROVENANCE_ROLES = {"UP000000625.fasta": "k12_fasta", "contaminants.fasta": "contaminants"}
@@ -521,13 +538,19 @@ def _proteins(path: Path) -> list[str]:
     return m5._load(path, lambda p: [r.sequence for r in read_protein_fasta(p)])
 
 
-def _index(genome: Path, strain_db: Path) -> Index:
+def _index(genome: Path, strain_db: Path, annotation: Path) -> Index:
     recs = m5._load(genome, read_genome_fasta)
     if not any(r.circular_tag for r in recs):
         raise Precondition(f"{genome}: no topology tag on any contig")
     reps = {r.id: Replicon(r.id, len(r.sequence), "circular" if r.circular_tag else "linear")
             for r in recs}  # fmt: skip
-    return build_index({r.id: r.sequence for r in recs}, reps, _proteins(strain_db))
+    seqs = {r.id: r.sequence for r in recs}
+    table = resolve_config().annotation.translation_table
+
+    def model(path: Path) -> GeneModel:
+        return parse_bakta_json(path, reps, seqs, translation_table=table).model
+
+    return build_index(seqs, reps, _proteins(strain_db), annotation=m5._load(annotation, model))
 
 
 def _pep_rows(path: Path, manifest: Path) -> pd.DataFrame:
@@ -562,7 +585,7 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[Discovery]]:
     rows = _pep_rows(a.pep_a1, a.runs_manifest)
     if not (k12 := _proteins(a.k12_fasta)):
         raise Precondition(f"{a.k12_fasta}: no protein")
-    index = _index(a.genome, a.strain_db)
+    index = _index(a.genome, a.strain_db, a.annotation)
     doc = evaluate(k12, _proteins(a.contaminants), index, rows, settings)
     discoveries = doc.pop("discoveries")
     nu = doc["peptide"]["not_in_universe"]

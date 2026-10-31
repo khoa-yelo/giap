@@ -10,7 +10,8 @@ for the hook is M10-05's synthetic builder (``tests/helpers/pilot_metrics_m10.py
 is stacked on ``m10/spec-05`` so ``metrics.py`` exists; only the hook is new.
 
 Interface fixed here (the spec names the inputs, not the flags): ``compute --pep-a1 --k12-fasta
---contaminants --genome --strain-db --runs-manifest --out`` (required) and ``--out-a1``,
+--contaminants --genome --strain-db --annotation --runs-manifest --out`` (required; ADR-0068:
+``--annotation`` is a Bakta JSON, possibly gzipped) and ``--out-a1``,
 ``--diann-cmd``, ``--provenance`` (optional), mirroring the spec's input names. ``--out`` is
 METRICS_DIR. ``provenance.json`` lists the searched FASTAs as ``inputs.fasta = [{path, sha256}]``
 (M10-02 "inputs: each --fasta (path, sha256)"). ``command_step1.txt`` is one argv token per line.
@@ -72,6 +73,7 @@ from helpers.entrapment_m10_07 import (
     write_genome,
     write_out_a1,
     write_runs_manifest,
+    write_shared_annotation,
 )
 
 CFG_A1 = REPO / "validation" / "pilot" / "diann_A1.cfg"
@@ -86,10 +88,11 @@ class Inputs:
     genome: Path
     strain_db: Path
     manifest: Path
+    annotation: Path
 
     def args(self, out: Path, *extra: str, **over: Path) -> list[str]:
         v = {"pep-a1": self.pep_a1, "k12-fasta": self.k12, "contaminants": self.cont,
-             "genome": self.genome, "strain-db": self.strain_db,
+             "genome": self.genome, "strain-db": self.strain_db, "annotation": self.annotation,
              "runs-manifest": self.manifest}  # fmt: skip
         v |= {k.replace("_", "-"): p for k, p in over.items()}
         flat = [x for k, p in v.items() for x in (f"--{k}", str(p))]
@@ -115,6 +118,9 @@ def build_inputs(
         ),
         strain_db=write_faa(root / "strain_db.faa", list(strain_db), prefix="NISSLE_"),
         manifest=write_runs_manifest(root / "pxd078459_files.tsv"),
+        annotation=write_shared_annotation(
+            root / "nissle.bakta.json", texts, ["nissle"] if tags else []
+        ),
     )
 
 
@@ -287,7 +293,9 @@ def test_fasta_hash_differing_from_provenance_exits_2(inp: Inputs, tmp_path: Pat
     _exit2_nothing(run_entrapment(*inp.args(out, "--provenance", str(prov))), out)
 
 
-@pytest.mark.parametrize("name", ["pep_a1", "k12", "cont", "genome", "strain_db", "manifest"])
+@pytest.mark.parametrize(
+    "name", ["pep_a1", "k12", "cont", "genome", "strain_db", "manifest", "annotation"]
+)
 def test_missing_input_exits_2(inp: Inputs, tmp_path: Path, name: str) -> None:
     getattr(inp, name).unlink()
     out = tmp_path / "metrics"

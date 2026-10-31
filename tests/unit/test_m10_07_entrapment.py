@@ -18,9 +18,12 @@ Interface fixed here (the spec names the quantities, not the functions):
   normalised, standard-residue products);
 * ``mz(peptide, charge, oxidised_at=None) -> float`` (carbamidomethyl on every C; ``oxidised_at``
   the 0-based index of the one oxidised M); ``n_prec(peptide, settings=DEFAULT_SETTINGS) -> int``;
-* ``build_index(genome, replicons, strain_db=None)`` (``genome``: contig -> nucleotides,
-  ``replicons``: contig -> ``gippa.model.coords.Replicon``, ``strain_db``: protein sequences or
-  None for "L2 answered no"), an opaque index;
+* ``build_index(genome, replicons, strain_db=None, tolerant=None, *, annotation)`` (``genome``:
+  contig -> nucleotides, ``replicons``: contig -> ``gippa.model.coords.Replicon``, ``strain_db``:
+  protein sequences or None for "L2 answered no"; ``annotation``: the required
+  ``gippa.model.genes.GeneModel``, ADR-0068), with the start cells in ``index.starts``
+  (``gippa.mapping.initiator.StartCells``), built with ``resolve_config().annotation``'s
+  ``start_codons`` and ``translation_table``;
 * ``present(peptides, index) -> Mapping[str, Presence]`` keyed by the peptides passed, with
   ``Presence.rule`` in ``{"exact", "strain_db", "mass_equivalent", None}``; it is the one
   classification callable, looked up as a module global by ``evaluate``;
@@ -41,9 +44,12 @@ Interface fixed here (the spec names the quantities, not the functions):
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 from helpers.entrapment_m10_07 import (
     CI_ASSUMES,
@@ -57,8 +63,11 @@ from helpers.entrapment_m10_07 import (
     NISSLE,
     PEPTIDE_NOT_ASSESSED,
     PER_RUN_NOT_ASSESSED,
+    PLAIN,
     SHARED_1,
     SPACER,
+    START_PEPTIDE,
+    START_REST,
     back_translate,
     codes,
     coding_text,
@@ -66,13 +75,28 @@ from helpers.entrapment_m10_07 import (
     frame,
     load_entrapment,
     origin_split,
+    read_json,
     reasons,
     replicons,
     revcomp,
     row,
+    run_entrapment,
+    start_contig,
+    write_a1,
+    write_annotation_json,
+    write_faa,
+    write_genome,
+    write_out_a1,
+    write_runs_manifest,
 )
+from helpers.initiator_toys import cds
+from helpers.readthrough_toys import model
+from helpers.readthrough_toys import write_annotation as write_annotation_parquet
+from helpers.readthrough_toys import write_genome as write_genome_plain
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from gippa.model.coords import Interval
 
 TOL = 1e-12
 
@@ -82,9 +106,15 @@ def E() -> Any:
 
 
 def index_of(
-    contigs: Mapping[str, str], circular: Iterable[str] = (), strain_db: Any = None
+    contigs: Mapping[str, str],
+    circular: Iterable[str] = (),
+    strain_db: Any = None,
+    annotation: Any = None,
 ) -> Any:
-    return E().build_index(dict(contigs), replicons(contigs, circular), strain_db)
+    """``annotation`` None: a gene model without genes, so no start is annotated (no cell)."""
+    reps = replicons(contigs, circular)
+    gm = model(reps, []) if annotation is None else annotation
+    return E().build_index(dict(contigs), reps, strain_db, annotation=gm)
 
 
 def shared_index(*texts: str, strain_db: Sequence[str] | None = ()) -> Any:
@@ -671,3 +701,618 @@ def test_no_shared_peptides_takes_precedence_over_empty_discoveries() -> None:
         assert b["fdp_combined"] is None and b["fdp_lower"] is None, level
         assert "no_shared_peptides" in reasons(b), level
         assert "empty_discoveries" not in reasons(b), level
+
+
+# ------------------------------------------------------------------ ADR-0068: initiator M (M11-20)
+# Since ADR-0068 GIPPA's exact route places a peptide whose first residue is an M read at an
+# annotated non-ATG start (flag ``initiator_m``). ``present`` is the same matcher, so it must credit
+# the same cells, and cross-check 1 stays as strict as before: a credited peptide agrees because it
+# IS exact here, never because the guard looks away. All sequences are synthetic.
+
+CODON_STRAND = [(c, s) for c in PLAIN for s in "+-"]
+STARTS = ("ATG", "GTG", "TTG")
+OTHER_REST = "AGGHHFFDK"
+OTHER_PEPTIDE = "M" + OTHER_REST
+#: ``cross_checks`` fixture rows: example 2 plus the start peptide's accepted precursor
+START_ROWS = (*EXAMPLE2_ROWS, row("WT_1", START_PEPTIDE, 2, 0.002))
+
+
+def _flip(gene: Any, n: int) -> Any:
+    iv = gene.interval
+    strand = "-" if iv.strand == "+" else "+"
+    flipped = Interval(iv.contig, n - iv.end, n - iv.start, strand)  # type: ignore[arg-type]
+    return dataclasses.replace(gene, interval=flipped)
+
+
+def on_strand(text: str, genes: Sequence[Any], strand: str) -> tuple[dict[str, str], list[Any]]:
+    """``{"nissle": text}`` and ``genes`` as given, or the reverse complement of both for ``-``."""
+    if strand == "+":
+        return {"nissle": text}, list(genes)
+    return {"nissle": revcomp(text)}, [_flip(g, len(text)) for g in genes]
+
+
+def start_world(
+    codon: str, strand: str = "+", *, aa: str = START_PEPTIDE, feature_type: str = "cds"
+) -> tuple[dict[str, str], list[Any]]:
+    """The fixture's genes plus the start peptide's gene, annotated with a first codon ``codon``."""
+    text, a, b = start_contig(codon)
+    return on_strand(text, [cds("NISSLE_S", "nissle", a, b, "+", aa, codon, feature_type)], strand)
+
+
+def gm_of(contigs: Mapping[str, str], genes: Sequence[Any]) -> Any:
+    return model(replicons(contigs, ["nissle"]), genes)
+
+
+def world_index(contigs: Mapping[str, str], genes: Sequence[Any], strain_db: Any = ()) -> Any:
+    return index_of(contigs, ["nissle"], list(strain_db), gm_of(contigs, genes))
+
+
+def presences(index: Any, peptides: Iterable[str]) -> dict[str, Any]:
+    return dict(E().present(list(peptides), index))
+
+
+def unannotated_world(case: str, codon: str, strand: str) -> tuple[dict[str, str], list[Any]]:
+    """The start peptide's text at ``codon``, in a genome that does not make that codon a start."""
+    if case == "internal_codon":  # in frame inside an annotated ATG gene
+        text, a, b = start_contig(codon, upstream="MAA")
+        aa = "MAA" + PLAIN[codon] + START_REST
+        return on_strand(text, [cds("G", "nissle", a - 9, b, "+", aa, "ATG")], strand)
+    text, a, b = start_contig(codon)
+    if case == "no_gene":
+        return on_strand(text, [], strand)
+    if case == "pseudogene":
+        return start_world(codon, strand, feature_type="pseudogene")
+    if case == "protein_not_m":  # Bakta's protein starts with the plain residue (rule 1)
+        return start_world(codon, strand, aa=PLAIN[codon] + START_REST)
+    if case == "gene_on_the_other_strand":  # same interval: its first codon is the TAA's TTA
+        return on_strand(text, [cds("G", "nissle", a, b, "-", START_PEPTIDE, "TTA")], strand)
+    assert case == "other_start_only"  # the index has cells, none at this codon
+    other = "GTG" + back_translate(OTHER_REST) + "TAA"
+    gene = cds("G", "nissle", len(text), len(text) + len(other), "+", OTHER_PEPTIDE, "GTG")
+    return on_strand(text + other + SPACER, [gene], strand)
+
+
+UNANNOTATED = ("no_gene", "other_start_only", "internal_codon", "pseudogene", "protein_not_m",
+               "gene_on_the_other_strand")  # fmt: skip
+
+
+# item 1: annotated GTG and TTG starts, both strands
+
+
+@pytest.mark.parametrize(("codon", "strand"), CODON_STRAND)
+def test_m_at_an_annotated_non_atg_start_is_exact(codon: str, strand: str) -> None:
+    idx = world_index(*start_world(codon, strand))
+    got = presences(idx, [START_PEPTIDE])[START_PEPTIDE]
+    assert got.rule == "exact"
+    assert got.tolerant == ()  # rule 1 won: no tolerant search for it
+
+
+def test_a_short_prefix_and_literal_i_are_credited_too() -> None:
+    """Every length of window is credited at the cell, and I -> L still applies."""
+    idx = world_index(*start_world("GTG"))
+    assert rules(idx, ["MTEKLLA", "MTEKIIAGGPR"]) == {"MTEKLLA": "exact", "MTEKIIAGGPR": "exact"}
+
+
+def test_exact_comes_before_strain_db_at_an_annotated_start() -> None:
+    """Example 9's P4 was ``strain_db`` only; an annotated start now makes it ``exact``, which is
+    what cross-check 1 needs (the A1 freeze run fired on exactly such peptides)."""
+    contigs, genes = start_world("GTG")
+    idx = world_index(contigs, genes, ["MTEKLLAGGPRAAGK"])
+    assert rules(idx, ["LLAGGPR", P4]) == {"LLAGGPR": "exact", P4: "exact"}
+    u = evaluate(idx, k12=(*K12, P4))["universe"]
+    assert (u["shared"], u["k12_only"]) == (6, 2)
+    assert (u["shared_exact"], u["shared_strain_db_only"], u["shared_mass_equivalent"]) == (5, 0, 1)
+
+
+def test_an_annotated_start_makes_a_discovery_a_target_not_an_entrapment() -> None:
+    """The estimate itself changes: example 9 without ``strain_db`` counts P4 as entrapment."""
+    contigs, genes = start_world("GTG")
+    plain = evaluate(world_index(contigs, []), START_ROWS, k12=(*K12, P4))
+    credited = evaluate(world_index(contigs, genes), START_ROWS, k12=(*K12, P4))
+    assert (plain["universe"]["shared"], plain["universe"]["k12_only"]) == (5, 3)
+    assert (plain["peptide"]["N_T"], plain["peptide"]["N_E"]) == (3, 2)
+    assert (credited["universe"]["shared"], credited["universe"]["k12_only"]) == (6, 2)
+    assert (credited["peptide"]["N_T"], credited["peptide"]["N_E"]) == (4, 1)
+    assert (P4, "target", "exact") in {tuple(d) for d in credited["discoveries"]}
+
+
+@pytest.mark.parametrize(("codon", "strand"), CODON_STRAND)
+def test_index_holds_the_start_cells_gippa_builds(codon: str, strand: str) -> None:
+    from gippa.mapping.initiator import StartCells, annotated_starts, start_frame_cells
+
+    contigs, genes = start_world(codon, strand)
+    idx = world_index(contigs, genes)
+    sites, _ = annotated_starts(gm_of(contigs, genes), contigs, STARTS, table=11)
+    assert len(sites) == 1 and sites[0].codon == codon and sites[0].strand == strand
+    assert isinstance(idx.starts, StartCells)
+    assert idx.starts.sites == sites
+    want = start_frame_cells(idx.sixframe, sites)
+    assert [c.tolist() for c in idx.starts.target] == [c.tolist() for c in want]
+
+
+def test_present_passes_the_index_start_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    mod = E()
+    idx = world_index(*start_world("GTG"))
+    real, seen = mod.match_exact, []
+
+    def spy(*args: Any, **kw: Any) -> Any:
+        seen.append(kw.get("starts"))
+        return real(*args, **kw)
+
+    monkeypatch.setattr(mod, "match_exact", spy)
+    mod.present([START_PEPTIDE], idx)
+    assert seen and all(s is idx.starts for s in seen)
+
+
+def test_origin_crossing_annotated_start_on_a_circular_contig() -> None:
+    """The start codon just before the origin: the cell is in the origin-extended frame."""
+    nt = "GTG" + back_translate(START_REST) + "TAA"
+    pad = SPACER * 4
+    text = nt[6:] + pad + nt[:6]
+    contigs = {"nissle": text}
+    a = len(text) - 6
+    idx = world_index(contigs, [cds("G", "nissle", a, a + len(nt), "+", START_PEPTIDE, "GTG")])
+    assert rules(idx, [START_PEPTIDE]) == {START_PEPTIDE: "exact"}
+
+
+# item 2: the same sequence, unannotated
+
+
+@pytest.mark.parametrize("case", UNANNOTATED)
+@pytest.mark.parametrize(("codon", "strand"), CODON_STRAND)
+def test_m_at_an_unannotated_non_atg_codon_is_not_exact(case: str, codon: str, strand: str) -> None:
+    contigs, genes = unannotated_world(case, codon, strand)
+    idx = world_index(contigs, genes)
+    assert rules(idx, [START_PEPTIDE]) == {START_PEPTIDE: None}
+    if case == "other_start_only":  # the fixture's cells are real: its own peptide is credited
+        assert len(idx.starts.sites) == 1
+        assert rules(idx, [OTHER_PEPTIDE]) == {OTHER_PEPTIDE: "exact"}
+    else:
+        assert not idx.starts.sites
+
+
+def test_m_is_credited_only_as_the_first_residue() -> None:
+    """A query with a residue before the M reads the codon as V at position 1: no credit."""
+    text, a, b = start_contig("GTG", upstream="S")
+    genes = [cds("G", "nissle", a, b, "+", START_PEPTIDE, "GTG")]
+    idx = world_index({"nissle": text}, genes)
+    assert rules(idx, ["S" + START_PEPTIDE, "S" + PLAIN["GTG"] + START_REST]) == {
+        "S" + START_PEPTIDE: None,
+        "S" + PLAIN["GTG"] + START_REST: "exact",
+    }
+    assert rules(idx, [START_PEPTIDE]) == {START_PEPTIDE: "exact"}
+
+
+# item 3: the plain translation at that start behaves as today
+
+
+@pytest.mark.parametrize(("codon", "strand"), CODON_STRAND)
+def test_plain_translation_at_the_start_is_unchanged(codon: str, strand: str) -> None:
+    contigs, genes = start_world(codon, strand)
+    plain = PLAIN[codon] + START_REST
+    other_residue = "A" + START_REST  # neither M nor what the codon reads: a substitution
+    peptides = [plain, other_residue]
+    with_cells = presences(world_index(contigs, genes), peptides)
+    assert with_cells == presences(world_index(contigs, []), peptides)
+    assert with_cells[plain].rule == "exact"
+    assert with_cells[other_residue].rule is None
+    assert with_cells[other_residue].tolerant  # its tolerant rows are still searched
+
+
+def test_literal_i_for_the_ttg_plain_translation_is_unchanged() -> None:
+    contigs, genes = start_world("TTG")
+    assert rules(world_index(contigs, genes), ["ITEKLLAGGPR"]) == {"ITEKLLAGGPR": "exact"}
+
+
+# item 4: nothing else changes when start cells exist and no peptide uses them
+
+
+def test_unused_start_cells_change_no_block_of_the_output() -> None:
+    contigs, genes = start_world("GTG")
+    used = world_index(contigs, genes)
+    assert used.starts.sites, "the fixture must have a start cell"
+    got, want = evaluate(used), evaluate(world_index(contigs, []))
+    assert got == want
+    assert (got["universe"]["shared"], got["universe"]["k12_only"]) == (4, 2)
+    assert (got["peptide"]["N_T"], got["peptide"]["N_E"]) == (3, 1)
+
+
+def test_unused_start_cells_change_no_presence_of_the_universe() -> None:
+    contigs, genes = start_world("TTG", "-")
+    peptides = [*SHARED_1, *K12_ONLY_1, "VEPTIDEK", "GGGVTEPWR", "LLAGGPR"]
+    assert presences(world_index(contigs, genes), peptides) == presences(
+        world_index(contigs, []), peptides
+    )
+
+
+# the config values GIPPA's mapping step uses, read from the one place
+
+
+def _config_with(**annotation: Any) -> Any:
+    from gippa.config import resolve_config
+
+    cfg = resolve_config()
+    return cfg.model_copy(update={"annotation": cfg.annotation.model_copy(update=annotation)})
+
+
+@pytest.mark.parametrize(
+    ("codons", "want"),
+    [(["ATG", "GTG"], {"GTG": "exact", "TTG": None}),
+     (["ATG", "TTG"], {"GTG": None, "TTG": "exact"}),
+     (["atg", "gtg", "ttg"], {"GTG": "exact", "TTG": "exact"})],
+)  # fmt: skip
+def test_start_codons_come_from_the_config(
+    monkeypatch: pytest.MonkeyPatch, codons: list[str], want: dict[str, str | None]
+) -> None:
+    cfg = _config_with(start_codons=codons)
+    monkeypatch.setattr(E(), "resolve_config", lambda *a, **k: cfg)
+    for codon, rule in want.items():
+        idx = world_index(*start_world(codon))
+        assert rules(idx, [START_PEPTIDE]) == {START_PEPTIDE: rule}, codon
+
+
+def test_translation_table_comes_from_the_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Table 4 reads TGA as W in the index the cells live in, as GIPPA's ``sixframe_index`` does."""
+    text, a, b = start_contig("GTG")
+    recoded = back_translate("AGGGK") + "TGA" + back_translate("HHDR") + SPACER
+    contigs = {"nissle": text + recoded}
+    genes = [cds("G", "nissle", a, b, "+", START_PEPTIDE, "GTG")]
+    assert rules(world_index(contigs, genes), ["AGGGKWHHDR"]) == {"AGGGKWHHDR": None}  # table 11
+    cfg = _config_with(translation_table=4)
+    monkeypatch.setattr(E(), "resolve_config", lambda *a, **k: cfg)
+    idx = world_index(contigs, genes)
+    assert idx.sixframe.translation_table == 4
+    assert rules(idx, ["AGGGKWHHDR", START_PEPTIDE]) == {
+        "AGGGKWHHDR": "exact",
+        START_PEPTIDE: "exact",
+    }
+
+
+# item 6: parity with GIPPA's own route
+
+
+def _parity_world() -> tuple[dict[str, str], dict[str, Any], Any, set[str], set[str]]:
+    """Contigs, replicons, gene model, the peptides exact and the peptides not exact, by hand.
+
+    ``c1`` (circular): annotated GTG, annotated TTG, an ATG gene, an unannotated GTG and a TTG
+    inside an ATG gene. ``c2`` (linear): annotated GTG and TTG on the minus strand. ``c3``
+    (circular): an annotated GTG just before the origin.
+    """
+    parts = [("GTG", START_REST), ("TTG", "AGDEFHHNK"), ("ATG", "SAGLLKVEPTLDEK"),
+             ("GTG", "WQQDEHHK"), ("ATG", "AATYYFFDEK")]  # fmt: skip
+    c1, spans = SPACER, []
+    for codon, rest in parts:
+        nt = codon + back_translate(rest) + "TAA"
+        spans.append((len(c1), len(c1) + len(nt)))
+        c1 += nt + SPACER
+    # the T of AATYYFFDEK's third residue is replaced by a TTG inside the ATG gene
+    internal = spans[4][0] + 9
+    c1 = c1[:internal] + "TTG" + c1[internal + 3 :]
+    genes = [cds("A", "c1", *spans[0], "+", START_PEPTIDE, "GTG"),
+             cds("B", "c1", *spans[1], "+", "MAGDEFHHNK", "TTG"),
+             cds("C", "c1", *spans[2], "+", "MSAGLLKVEPTLDEK", "ATG"),
+             cds("D", "c1", *spans[4], "+", "MAALYYFFDEK", "ATG")]  # fmt: skip
+    minus, mspans = SPACER, []
+    for codon, rest in (("GTG", "NNPPFFWR"), ("TTG", "HHDDYYQR")):
+        nt = codon + back_translate(rest) + "TAA"
+        mspans.append((len(minus), len(minus) + len(nt)))
+        minus += nt + SPACER
+    c2, n = revcomp(minus), len(minus)
+    (a0, b0), (a1, b1) = mspans
+    genes += [cds("E", "c2", n - b0, n - a0, "-", "MNNPPFFWR", "GTG"),
+              cds("F", "c2", n - b1, n - a1, "-", "MHHDDYYQR", "TTG")]  # fmt: skip
+    nt = "GTG" + back_translate("FAGHWLDK") + "TAA"
+    c3 = nt[6:] + SPACER * 4 + nt[:6]
+    a = len(c3) - 6
+    genes.append(cds("H", "c3", a, a + len(nt), "+", "MFAGHWLDK", "GTG"))
+    contigs = {"c1": c1, "c2": c2, "c3": c3}
+    reps = replicons(contigs, ["c1", "c3"])
+    yes = {START_PEPTIDE, "VTEKLLAGGPR", "MAGDEFHHNK", "LAGDEFHHNK", "MSAGLLKVEPTLDEK",
+           "VWQQDEHHK", "MNNPPFFWR", "VNNPPFFWR", "MHHDDYYQR", "LHHDDYYQR", "MFAGHWLDK",
+           "VFAGHWLDK", "MTEKLLA", "LYYFFDEK", "MAALYYFFDEK"}  # fmt: skip
+    no = {"MWQQDEHHK", "MYYFFDEK", "ATEKLLAGGPR", "MHHHFFFWWK", "SMTEKLLAGGPR"}
+    return contigs, reps, model(reps, genes), yes, no
+
+
+def _step_exact(
+    tmp: Path, contigs: Mapping[str, str], gm: Any, peptides: Sequence[str]
+) -> set[str]:
+    """Target peptides of GIPPA's registered ``sixframe_index`` and ``map_exact`` steps."""
+    from gippa.config import resolve_config
+    from gippa.steps import load_step_modules
+    from gippa.steps import registry as reg
+
+    load_step_modules()
+    tmp.mkdir(parents=True, exist_ok=True)
+    ann = write_annotation_parquet(gm, tmp / "ann")
+    peps = tmp / "peptides.parquet"
+    pd.DataFrame(
+        {"peptide": list(peptides), "source": "database", "q_value": 0.001, "pep": 0.01,
+         "score": 0.9, "is_decoy": False, "search_db": "other"}
+    ).to_parquet(peps, index=False)  # fmt: skip
+    ins = {"genome": write_genome_plain(contigs, tmp / "genome.fa"), "peptides": peps,
+           "replicons": ann["replicons"], "genes": ann["genes"]}  # fmt: skip
+    cfg = resolve_config(overrides=["seed=7"])
+    six, hx = tmp / "sixframe.npz", tmp / "hits_exact.parquet"
+    reg.run_step("sixframe_index", cfg, {k: ins[k] for k in reg.get("sixframe_index").inputs},
+                 {"sixframe": six})  # fmt: skip
+    reg.run_step("map_exact", cfg, {"peptides": peps, "sixframe": six}, {"hits_exact": hx})
+    hits = pd.read_parquet(hx)
+    return {str(p) for p in hits.loc[hits["search"] == "target", "peptide"]}
+
+
+def _route_exact(
+    contigs: Mapping[str, str], reps: Any, gm: Any, peptides: Sequence[str]
+) -> set[str]:
+    """GIPPA's start-cell route as ``sixframe_index`` builds it, with the reverse decoy (cheap)."""
+    from gippa.config import resolve_config
+    from gippa.mapping.decoys import build_decoys
+    from gippa.mapping.exact import match_exact
+    from gippa.mapping.initiator import (
+        StartCells,
+        annotated_starts,
+        mirror_start_cells,
+        start_frame_cells,
+    )
+    from gippa.mapping.sixframe import build_sixframe
+    from gippa.rng import for_step
+
+    cfg = resolve_config()
+    table = cfg.annotation.translation_table
+    index = build_sixframe(dict(contigs), reps, table=table)
+    decoys = {"reverse": build_decoys(index, "reverse", 50, for_step("sixframe_index", 7))}
+    sites, _ = annotated_starts(gm, contigs, cfg.annotation.start_codons, table=table)
+    cells = start_frame_cells(index, sites)
+    dc = {"reverse": mirror_start_cells("reverse", decoys["reverse"], cells)}
+    hits = match_exact(list(peptides), index, decoys, dict.fromkeys(peptides, "reverse"),
+                       starts=StartCells(sites, cells, dc))  # fmt: skip
+    return {str(p) for p in hits.loc[hits["search"] == "target", "peptide"]}
+
+
+def test_parity_with_gippas_mapping_steps(tmp_path: Path) -> None:
+    contigs, reps, gm, yes, no = _parity_world()
+    peptides = sorted(yes | no)
+    gippa = _step_exact(tmp_path, contigs, gm, peptides)
+    assert gippa == yes  # the fixture says what it means to, in GIPPA's own words
+    idx = E().build_index(contigs, reps, [], annotation=gm)
+    got = E().present(peptides, idx)
+    assert {p for p in peptides if got[p].rule == "exact"} == gippa
+
+
+@settings(max_examples=40, derandomize=True, deadline=None)
+@given(
+    codon=st.sampled_from(sorted(PLAIN)),
+    strand=st.sampled_from("+-"),
+    annotated=st.booleans(),
+    rest=st.text(alphabet="ACDEFGHKLNPQRSTVWY", min_size=6, max_size=18),
+)
+def test_property_present_agrees_with_gippas_route(
+    codon: str, strand: str, annotated: bool, rest: str
+) -> None:
+    """For any N-terminal text: ``present``'s exact set is GIPPA's start-cell route's; the annotated
+    M-initial peptide is exact; and non-M-initial peptides do not depend on the annotation."""
+    text, a, b = start_contig(codon, rest)
+    gene = cds("G", "nissle", a, b, "+", "M" + rest, codon)
+    contigs, genes = on_strand(text, [gene] if annotated else [], strand)
+    reps = replicons(contigs, ["nissle"])
+    gm = model(reps, genes)
+    plain = PLAIN[codon] + rest
+    peptides = ["M" + rest, plain, "M" + rest[:6], "A" + rest]
+    idx = E().build_index(contigs, reps, [], annotation=gm)
+    got = E().present(peptides, idx)
+    assert {p for p in peptides if got[p].rule == "exact"} == _route_exact(
+        contigs, reps, gm, peptides
+    )
+    if annotated:
+        assert got["M" + rest].rule == "exact"
+    without = E().present([plain], E().build_index(contigs, reps, [], annotation=model(reps, [])))
+    assert got[plain] == without[plain]
+
+
+# items 1, 2, 4, 5 through the CLI: cross-check 1 and a missing annotation
+
+STRAIN_DB = ("MSAGLLKVEPTLDEKAAGGYWR",)
+START_PROTEIN = START_PEPTIDE + "AAGK"
+EXIT1 = "1 discovered peptide(s) have a route = exact row"
+
+
+def _cli_args(
+    root: Path,
+    contigs: Mapping[str, str],
+    genes: Sequence[Any],
+    *extra: str,
+    rows: Sequence[Mapping[str, Any]] = START_ROWS,
+    k12: Sequence[str] = (*K12, START_PEPTIDE),
+    strain_db: Sequence[str] = (*STRAIN_DB, START_PROTEIN),
+    annotation: Path | None = None,
+) -> list[str]:
+    ann = annotation or write_annotation_json(
+        root / "nissle.bakta.json", contigs, ["nissle"], genes
+    )
+    flags = {
+        "--pep-a1": write_a1(root / "a1.tsv.gz", list(rows)),
+        "--k12-fasta": write_faa(root / "UP000000625.fasta", k12),
+        "--contaminants": write_faa(root / "contaminants.fasta", CONTAMINANTS, "Cont_P"),
+        "--genome": write_genome(root / "nissle.fna", contigs, ["nissle"]),
+        "--strain-db": write_faa(root / "strain_db.faa", strain_db, "NISSLE_"),
+        "--runs-manifest": write_runs_manifest(root / "files.tsv"),
+        "--annotation": ann,
+    }
+    return ["compute", *(x for f, p in flags.items() for x in (f, str(p))), *extra]
+
+
+def _show(res: Any) -> str:
+    return f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
+
+
+def _bucket_rule(out: Path, peptide: str) -> list[str]:
+    lines = (out / "entrapment_discoveries.tsv").read_text(encoding="utf-8").splitlines()
+    return next(ln.split("\t")[1:3] for ln in lines if ln.split("\t")[0] == peptide)
+
+
+@pytest.mark.parametrize(("codon", "strand"), CODON_STRAND)
+def test_guard_passes_for_an_annotated_start_with_a_route_exact_row(
+    tmp_path: Path, codon: str, strand: str
+) -> None:
+    """The A1 freeze run's failure, reduced: an ``initiator_m`` row, present here only through
+    ``strain_db`` before the fix."""
+    contigs, genes = start_world(codon, strand)
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK", START_PEPTIDE], 2, 5,
+                      {START_PEPTIDE: "initiator_m"})  # fmt: skip
+    out = tmp_path / "metrics"
+    res = run_entrapment(*_cli_args(tmp_path / "in", contigs, genes), "--out", str(out),
+                         "--out-a1", str(a1))  # fmt: skip
+    assert res.returncode == 0, _show(res)
+    assert _bucket_rule(out, START_PEPTIDE) == ["target", "exact"]
+    run = read_json(out / "entrapment.json")["cross_checks"]["run"]
+    assert run["exact_route_agrees"] is True
+    assert run["n_exact_route"] == 3
+    assert run["exact_rejected"] == 0
+
+
+@pytest.mark.parametrize("case", ["no_gene", "other_start_only", "internal_codon"])
+@pytest.mark.parametrize("strain_db", [STRAIN_DB, (*STRAIN_DB, START_PROTEIN)], ids=["no", "db"])
+@pytest.mark.parametrize(("codon", "strand"), [("GTG", "+"), ("TTG", "-")])
+def test_guard_still_fires_on_an_unannotated_codon(
+    tmp_path: Path, case: str, strain_db: tuple[str, ...], codon: str, strand: str
+) -> None:
+    """Not weakened: an A1 ``route = exact`` row for an M at a codon this annotation does not make
+    a start is a real disagreement, even when the row carries ``initiator_m`` (no exemption)."""
+    contigs, genes = unannotated_world(case, codon, strand)
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK", START_PEPTIDE], 2, 5,
+                      {START_PEPTIDE: "initiator_m"})  # fmt: skip
+    out = tmp_path / "metrics"
+    args = _cli_args(tmp_path / "in", contigs, genes, strain_db=strain_db)
+    res = run_entrapment(*args, "--out", str(out), "--out-a1", str(a1))
+    assert res.returncode == 1, _show(res)
+    assert "inconsistent" in res.stderr and EXIT1 in res.stderr, _show(res)
+    assert not out.exists() or not any(out.iterdir())
+
+
+def test_guard_counts_only_the_unannotated_peptide(tmp_path: Path) -> None:
+    """Both M-initial, both ``initiator_m`` in A1, one start annotated: exactly one disagreement."""
+    contigs, genes = unannotated_world("other_start_only", "GTG", "+")
+    peps = ["MSAGLLK", "VEPTIDEK", START_PEPTIDE, OTHER_PEPTIDE]
+    a1 = write_out_a1(tmp_path / "A1", peps, 2, 6, dict.fromkeys(peps[2:], "initiator_m"))
+    rows = [*START_ROWS, row("WT_1", OTHER_PEPTIDE, 2, 0.002)]
+    out = tmp_path / "metrics"
+    args = _cli_args(tmp_path / "in", contigs, genes, rows=rows,
+                     k12=(*K12, START_PEPTIDE, OTHER_PEPTIDE))  # fmt: skip
+    res = run_entrapment(*args, "--out", str(out), "--out-a1", str(a1))
+    assert res.returncode == 1, _show(res)
+    assert EXIT1 in res.stderr, _show(res)
+
+
+@pytest.mark.parametrize("codon", sorted(PLAIN))
+def test_guard_passes_for_the_plain_translation_at_a_start(tmp_path: Path, codon: str) -> None:
+    contigs, genes = start_world(codon)
+    plain = PLAIN[codon] + START_REST
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK", plain], 2, 5)
+    out = tmp_path / "metrics"
+    args = _cli_args(tmp_path / "in", contigs, genes, k12=(*K12, plain),
+                     rows=[*EXAMPLE2_ROWS, row("WT_1", plain, 2, 0.002)])  # fmt: skip
+    res = run_entrapment(*args, "--out", str(out), "--out-a1", str(a1))
+    assert res.returncode == 0, _show(res)
+    assert _bucket_rule(out, plain) == ["target", "exact"]
+
+
+def test_unused_start_cells_change_nothing_but_the_annotation_input(tmp_path: Path) -> None:
+    """Same genome, with and without the site, and no peptide using it: byte-identical TSV, and
+    ``entrapment.json`` differs only in the record of the annotation file."""
+    contigs, genes = start_world("GTG")
+    docs, tsvs = [], []
+    for name, gs in (("with", genes), ("without", [])):
+        out = tmp_path / f"m_{name}"
+        args = _cli_args(tmp_path / name, contigs, gs, rows=EXAMPLE2_ROWS, k12=K12,
+                         strain_db=STRAIN_DB)  # fmt: skip
+        res = run_entrapment(*args, "--out", str(out))
+        assert res.returncode == 0, _show(res)
+        docs.append(read_json(out / "entrapment.json"))
+        tsvs.append((out / "entrapment_discoveries.tsv").read_bytes())
+    assert tsvs[0] == tsvs[1]
+    a, b = docs
+    assert a["inputs"]["annotation"]["sha256"] != b["inputs"]["annotation"]["sha256"]
+    assert {k: v for k, v in a.items() if k != "inputs"} == {
+        k: v for k, v in b.items() if k != "inputs"
+    }
+
+
+def test_annotation_is_recorded_with_its_hash_and_a_gzipped_json_is_read(tmp_path: Path) -> None:
+    """The recorded pilot annotation is ``.json.gz``; the credit works through it."""
+    from helpers.entrapment_m10_07 import sha256
+
+    contigs, genes = start_world("GTG")
+    ann = write_annotation_json(tmp_path / "in" / "a.json.gz", contigs, ["nissle"], genes)
+    out = tmp_path / "metrics"
+    res = run_entrapment(*_cli_args(tmp_path / "in", contigs, genes, annotation=ann), "--out",
+                         str(out))  # fmt: skip
+    assert res.returncode == 0, _show(res)
+    assert _bucket_rule(out, START_PEPTIDE) == ["target", "exact"]
+    rec = read_json(out / "entrapment.json")["inputs"]["annotation"]
+    assert rec["sha256"] == sha256(ann)
+    assert Path(rec["path"]) == ann.resolve()
+
+
+# item 5: a missing or unusable annotation fails clearly
+
+
+def test_build_index_requires_the_annotation() -> None:
+    contigs, _ = start_world("GTG")
+    with pytest.raises(TypeError, match="annotation"):
+        E().build_index(contigs, replicons(contigs, ["nissle"]), [])
+
+
+def _exit2(res: Any, out: Path, *needles: str) -> None:
+    """Exit 2 for this reason: argparse also exits 2 on a flag it does not know."""
+    assert res.returncode == 2, _show(res)
+    assert "unrecognized arguments" not in res.stderr, _show(res)
+    assert all(n in res.stderr for n in needles), _show(res)
+    assert not out.exists() or not any(out.iterdir())
+
+
+def test_cli_without_annotation_exits_2_naming_the_flag(tmp_path: Path) -> None:
+    contigs, genes = start_world("GTG")
+    args = _cli_args(tmp_path / "in", contigs, genes)
+    i = args.index("--annotation")
+    out = tmp_path / "metrics"
+    res = run_entrapment(*args[:i], *args[i + 2 :], "--out", str(out))
+    _exit2(res, out, "required", "--annotation")
+
+
+def test_cli_with_a_missing_annotation_file_exits_2_naming_it(tmp_path: Path) -> None:
+    contigs, genes = start_world("GTG")
+    missing = tmp_path / "no-such.bakta.json"
+    args = _cli_args(tmp_path / "in", contigs, genes, annotation=missing)
+    out = tmp_path / "metrics"
+    _exit2(run_entrapment(*args, "--out", str(out)), out, "precondition", str(missing))
+
+
+def _bad_annotation(kind: str, root: Path, contigs: dict[str, str], genes: list[Any]) -> Path:
+    path = root / "bad.bakta.json"
+    root.mkdir(parents=True, exist_ok=True)
+    if kind == "not_json":
+        path.write_text("{not json", encoding="utf-8")
+    elif kind == "not_an_object":
+        path.write_text("[]", encoding="utf-8")
+    elif kind == "another_table":  # GIPPA's parse_bakta refuses this too (AnnotationTableMismatch)
+        write_annotation_json(path, contigs, ["nissle"], genes, table=4)
+    elif kind == "another_contig":
+        other = {"plasmid9": contigs["nissle"]}
+        gs = [dataclasses.replace(g, interval=dataclasses.replace(g.interval, contig="plasmid9"))
+              for g in genes]  # fmt: skip
+        write_annotation_json(path, other, ["plasmid9"], gs)
+    else:
+        assert kind == "another_length"
+        write_annotation_json(path, {"nissle": contigs["nissle"] + "ACGTAC"}, ["nissle"], genes)
+    return path
+
+
+@pytest.mark.parametrize(
+    "kind", ["not_json", "not_an_object", "another_table", "another_contig", "another_length"]
+)
+def test_cli_with_an_unusable_annotation_exits_2_naming_it(tmp_path: Path, kind: str) -> None:
+    contigs, genes = start_world("GTG")
+    bad = _bad_annotation(kind, tmp_path / "ann", contigs, genes)
+    args = _cli_args(tmp_path / "in", contigs, genes, annotation=bad)
+    out = tmp_path / "metrics"
+    _exit2(run_entrapment(*args, "--out", str(out)), out, "precondition", str(bad))

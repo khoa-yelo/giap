@@ -45,8 +45,9 @@ direction; see Bias.) So the combined method's quantity is the FDP of A1's accep
   on both sides.
 - **Present.** One function, applied unchanged to the in-silico universe and to the discoveries,
   with one index. Rule 1 (`exact`): an exact match in Nissle's six-frame translation
-  (`match_exact`; I → L, both strands, the origin overlap of circular replicons), or (`strain_db`)
-  a substring of a Bakta protein after I → L, which covers N-terminal products of non-ATG starts.
+  (`match_exact`; I → L, both strands, the origin overlap of circular replicons, and an initiator
+  M credited at an annotated non-ATG start, ADR-0068), or (`strain_db`) a substring of a Bakta
+  protein after I → L.
   Rule 2 (`mass_equivalent`): a tolerant target row (`match_tolerant`, GIPPA's `mapping.tolerant`
   defaults, ≥ 10 aa) whose `diff_types` is non-empty and only `block`, the exact-composition
   exchanges of §7.2.4. `near_block`, `swap`, `substitution` and `frameshift` rows do not make a

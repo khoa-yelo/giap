@@ -12,8 +12,9 @@
 #
 # FarmShare's `dev` is a QOS on the `normal` partition (GIPPA_SPEC.md §3: 8 h, 8 CPU, 32 GB, one job).
 # Inputs default to the spec's table and can be overridden from the environment: PEP_A1, K12_FASTA,
-# CONTAMINANTS, GENOME, STRAIN_DB, RUNS_MANIFEST, METRICS_DIR, and the optional OUT_A1 (default: the
-# M10-04 A1 directory, resolved through ATTEMPTS.tsv by entrapment.py), DIANN_CMD and PROVENANCE.
+# CONTAMINANTS, GENOME, STRAIN_DB, ANNOTATION, RUNS_MANIFEST, METRICS_DIR, and the optional OUT_A1
+# (default: the M10-04 A1 directory, resolved through ATTEMPTS.tsv by entrapment.py), DIANN_CMD and
+# PROVENANCE.
 # An optional input set explicitly but missing exits 2 before anything runs; a default one that is
 # absent is skipped and the skipped check is logged. Everything is written under $METRICS_DIR
 # (default $GIPPA_ROOT/pilot/metrics): outside the checkout or in a git-ignored part of it
@@ -31,6 +32,7 @@ K12_FASTA="${K12_FASTA:-$GIPPA_DATA_DIR/proteomes/UP000000625.fasta}"
 CONTAMINANTS="${CONTAMINANTS:-$GIPPA_DB_DIR/contaminants/contaminants.fasta}"
 GENOME="${GENOME:-tests/data/genomes/nissle1917.fna.gz}"
 STRAIN_DB="${STRAIN_DB:-validation/pilot/db_a2/strain_db.faa.gz}"
+ANNOTATION="${ANNOTATION:-tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz}"
 RUNS_MANIFEST="${RUNS_MANIFEST:-validation/pilot/inputs/pxd078459_files.tsv}"
 METRICS_DIR="${METRICS_DIR:-$GIPPA_ROOT/pilot/metrics}"
 for v in OUT_A1 DIANN_CMD PROVENANCE; do  # S5: an explicit path must exist
@@ -61,7 +63,8 @@ echo "node=$(hostname) head=$(git rev-parse --short HEAD) out=$METRICS_DIR optio
 rc=0
 "$UV_PROJECT_ENVIRONMENT/bin/python" validation/pilot/entrapment.py compute \
   --pep-a1 "$PEP_A1" --k12-fasta "$K12_FASTA" --contaminants "$CONTAMINANTS" \
-  --genome "$GENOME" --strain-db "$STRAIN_DB" --runs-manifest "$RUNS_MANIFEST" \
+  --genome "$GENOME" --strain-db "$STRAIN_DB" --annotation "$ANNOTATION" \
+  --runs-manifest "$RUNS_MANIFEST" \
   --out "$METRICS_DIR" "${opt[@]}" || rc=$?
 echo "ENTRAPMENT_EXIT=$rc"
 exit $rc
