@@ -19,13 +19,6 @@ gippa run --genome g.fna --peptides p.tsv --outdir out
 the machine. They print what they found (see [What was detected](#what-was-detected)), and
 `--profile` overrides it. The run writes `out/report/report.html`.
 
-!!! warning "Before the first release"
-    GIPPA is not on PyPI or Bioconda yet. Until the first release, install from a checkout
-    ([Install](install.md)). Four core tools (Promotech, Promoter Calculator, TerminatorNet and
-    OSTIR) also have no published image yet. Until they do, `gippa run` outside Stanford FarmShare
-    stops in preflight, and only `gippa demo` works everywhere
-    ([Install › Tested platforms](install.md#tested-platforms)).
-
 ## 1. Install
 
 ```bash

@@ -40,17 +40,13 @@ not part of the tested matrix. See
 
 ## Profiles and tools outside the containers
 
-- The **pinned-container tools** (Bakta, TransTermHP, geNomad, antiSMASH, miniprot, BLAST+) run
-  from the images in `workflow/conf/containers.config` under `-profile apptainer` or
-  `-profile docker`.
-- The **conda-only tools** have no published image yet: UniOP, Promotech, Promoter Calculator,
-  TerminatorNet, BacTermFinder and OSTIR keep their per-process conda environments
-  (`workflow/envs/`). Their images are built from `workflow/containers/<tool>/` and pinned by a
-  release once published (UniOP never: `gippa setup --images` builds it locally, see
-  [Install › UniOP](../get-started/install.md#uniop)). Under `-profile docker` or plain
-  `-profile apptainer` such a tool counts as missing, because it would run on the host without its
-  environment. fgsea (R, the function step) runs from its prebuilt environment, else from its
-  `workflow/conf/images.json` image once one is pinned.
+- The **pinned-container tools** (Bakta, TransTermHP, geNomad, antiSMASH, miniprot, BLAST+,
+  Promotech, Promoter Calculator, TerminatorNet, BacTermFinder, OSTIR) run from the images in
+  `workflow/conf/containers.config` under `-profile apptainer` or `-profile docker`.
+- **UniOP** has no published image: `gippa setup --images` builds it locally (see
+  [Install › UniOP](../get-started/install.md#uniop)). Without it, operons use the distance model.
+- **fgsea** (R, the function step) runs from its prebuilt environment, else from its
+  `workflow/conf/images.json` image.
 - **DIA-NN** is not shipped with GIPPA: you run it yourself and pass its report to
   `gippa convert --from diann`.
 
