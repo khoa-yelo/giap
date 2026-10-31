@@ -68,6 +68,7 @@ Estimates:
 | Numerator and denominator count the same peptides | accepted peptides include missed-cleavage or out-of-range-length peptides that n_obs does not count. Overlapping missed-cleavage forms count the same sequence twice | iBAQ is somewhat inflated for genes rich in missed cleavages. This matches MaxQuant's iBAQ convention and is not corrected |
 | n_obs reflects observability | genes with n_obs = 0 that still have quantified peptides (e.g. only missed-cleavage peptides) | the denominator is floored at 1. For these genes iBAQ is the raw sum, which is too high relative to other genes |
 | Top3: the 3 best-responding peptides are similar across proteins | genes with many quantified peptides | the mean of the top 3 of n order statistics grows with n. Top3 is biased upward for long, well-covered genes. iBAQ has no such bias, which is why it is the primary method |
+| DIA-NN picks the same elution peak for a peptide in every run | short gradients; a peptide swings between peaks across runs (on the pilot's 9-minute runs, 53 of 2,766 genes have a peptide swinging more than 3 log2) | the median across runs does not help when most runs take the wrong peak, so iBAQ moves up or down, most for genes with few peptides. Single-pair ratios are unreliable ([ADR-0070](../adr/ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md)) |
 | Tolerant (`related`) hits measure the strain protein | strain differences change ionisation | small per-peptide noise. These hits are labelled `strain_difference` upstream |
 
 ## Protein route (`abundance.tsv`, C10)

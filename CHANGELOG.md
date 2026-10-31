@@ -245,6 +245,10 @@ All notable changes are recorded here by towncrier from `changelog.d/` fragments
     - the V4 locus browser (igv-reports) and the V9 mass-fraction treemap are not built, so 16
       plots are made instead of 18;
     - no RO-Crate export;
+    - abundance: the pilot fails true example TE4 for one protein pair (log2 RplL/RplJ is −0.48;
+      about 2 is expected, and [1, 3] is required). The failure is waived for this release
+      ([ADR-0070](https://github.com/khoa-yelo/gippa/blob/main/docs/adr/ADR-0070-te4-rplL-rplJ-waiver-1-0-0.md)). Do not read an iBAQ ratio of a
+      single protein pair as stoichiometry;
     - full validation (K-12 PXD075568, UTI89 beyond the pilot, the EDL933 holdout, FDRBench
       entrapment) is planned after 1.0; 1.0 is calibrated on simulations;
     - stop codons: a peptide is placed across a stop codon only at a gene's annotated terminal
